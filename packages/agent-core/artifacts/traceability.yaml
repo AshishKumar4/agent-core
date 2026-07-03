@@ -1,0 +1,349 @@
+# Machine-verified against the Lean axiom report by `pnpm check:traceability`
+# (scripts/check-traceability.mjs). Every name under `theorems:` must appear in the
+# `#print axioms` output of `lake build AgentCore`, and every reported theorem must be
+# claimed here exactly once. Hand-editing theorem names without a passing check is
+# prohibited (SPEC §14).
+edition: 2.0.0
+formalScope: abstract-model-only
+requirements:
+  AC-AUTH-001:
+    summary: Grant-chain authority attenuation (SPEC §3.4)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Authority.Subset
+      - AgentCore.GrantChain
+      - AgentCore.AuthorizedBy
+    theorems:
+      - AgentCore.grantChain_attenuates
+      - AgentCore.delegated_authority_subset
+      - AgentCore.authorized_authority_attenuates_to_root
+    remainingEvidence:
+      - concrete Grant storage and resolver refinement
+  AC-AUTH-002:
+    summary: Revocation monotonicity and descendant invalidation (SPEC §3.4)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.LiveGrant
+      - AgentCore.revoke
+    theorems:
+      - AgentCore.step_revocation_monotone
+      - AgentCore.exec_revocation_monotone
+      - AgentCore.revoked_ancestor_disables_descendant
+    remainingEvidence:
+      - live capability invalidation and disposal refinement
+  AC-AUTH-003:
+    summary: Binding and domain separation (SPEC §3.4)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Binding
+      - AgentCore.AuthorizedBy
+    theorems:
+      - AgentCore.binding_cannot_cross_domains
+      - AgentCore.same_binding_cannot_authorize_distinct_domains
+      - AgentCore.authorized_tenant_isolation
+    remainingEvidence:
+      - concrete Binding resolver refinement
+  AC-AUTH-004:
+    summary: One authority plane — enforcement is invariant under membership records (SPEC §3.3)
+    status: by-construction-witness
+    note: >
+      This theorem is definitional (Iff.rfl). It witnesses that the model admits no
+      second enforcement path; it is not a deep proof and is not published as one.
+    definitions:
+      - AgentCore.ScopedState
+      - AgentCore.ScopedState.AuthorizedBy
+    theorems:
+      - AgentCore.enforcement_independent_of_memberships
+    remainingEvidence:
+      - role-to-grant materialization step in the full transition system
+  AC-SCOPE-001:
+    summary: Scope-chain precedence — deny-overrides, downward flow, team union (SPEC §3.2/§3.3)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Scope
+      - AgentCore.Scope.path
+      - AgentCore.ScopeAuthority.Allowed
+      - AgentCore.ScopeAuthority.DeniedOnPath
+      - AgentCore.ScopeAuthority.Effective
+    theorems:
+      - AgentCore.Scope.self_mem_path
+      - AgentCore.Scope.tenant_mem_path
+      - AgentCore.Scope.path_preserves_tenant
+      - AgentCore.ScopeAuthority.deny_overrides
+      - AgentCore.ScopeAuthority.descendant_allow_cannot_rewiden
+      - AgentCore.ScopeAuthority.allow_flows_down
+      - AgentCore.ScopeAuthority.team_confers_member_access
+    remainingEvidence:
+      - guest membership attenuation (delegate/administer prohibition) in the model
+      - integration of scope records into the Step transition system
+  AC-REVOKE-001:
+    summary: Bounded-window revocation epochs (SPEC §3.4 rule 5)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.ResolutionStamp
+      - AgentCore.ScopeAuthority.Fresh
+      - AgentCore.ScopeAuthority.bumpEpoch
+    theorems:
+      - AgentCore.ScopeAuthority.bumpEpoch_epoch
+      - AgentCore.ScopeAuthority.bumpEpoch_monotone
+      - AgentCore.ScopeAuthority.bumpEpoch_advances
+      - AgentCore.ScopeAuthority.bump_stales_stamp
+      - AgentCore.ScopeAuthority.stale_stays_stale
+    remainingEvidence:
+      - invalidation-push and lease-expiry deadlines in the full transition system
+      - reverse-index rebuildability
+  AC-APPROVAL-001:
+    summary: Approval continuation — digest-bound, single-use resume (SPEC §7.3)
+    status: proved-in-abstract-model
+    note: >
+      The ledger LTS covers phase and digest binding; ComposedResumeOk (Composed.lean)
+      joins it with authorization, readiness, and epoch freshness so the full SPEC
+      §7.3 revalidation set is one proven property.
+    definitions:
+      - AgentCore.ApprovalTicket
+      - AgentCore.ApprovalStep
+      - AgentCore.ApprovalExec
+      - AgentCore.ApprovalLedger.set
+      - AgentCore.ComposedResumeOk
+    theorems:
+      - AgentCore.ApprovalLedger.set_lookup
+      - AgentCore.resume_requires_approved_matching_digest
+      - AgentCore.digest_mismatch_never_resumes
+      - AgentCore.unapproved_never_resumes
+      - AgentCore.denied_never_resumes
+      - AgentCore.consumed_stable
+      - AgentCore.no_resume_when_consumed
+      - AgentCore.approval_single_use
+      - AgentCore.composed_resume_guarantees
+      - AgentCore.revocation_blocks_composed_resume
+      - AgentCore.digest_mismatch_blocks_composed_resume
+      - AgentCore.consumed_blocks_composed_resume
+      - AgentCore.denied_blocks_composed_resume
+    remainingEvidence:
+      - SHA-256 digest binding in the implementation
+  AC-RUN-001:
+    summary: Run/Turn lifecycle constructor safety in the modeled abstract subset
+    status: partially-proved
+    definitions:
+      - AgentCore.Run
+      - AgentCore.Turn
+      - AgentCore.TurnStatus
+      - AgentCore.Step.startRun
+      - AgentCore.Step.startTurn
+      - AgentCore.Step.claimTurn
+      - AgentCore.Step.spawnTurn
+      - AgentCore.Step.retryTurn
+      - AgentCore.Step.resumeTurn
+    theorems:
+      - AgentCore.start_run_requires_existing_agent_workspace
+      - AgentCore.start_turn_requires_run_branch
+      - AgentCore.start_turn_initial_lease
+      - AgentCore.claim_turn_requires_claimable_and_increases_epoch
+      - AgentCore.spawn_turn_requires_running_parent
+      - AgentCore.retry_turn_requires_retryable_parent
+      - AgentCore.resume_turn_increases_lease_epoch
+      - AgentCore.terminal_status_cannot_transition
+    remainingEvidence:
+      - full lease renewal and reclaim protocol
+      - checkpoint and cancellation refinement
+      - refinement from the abstract lifecycle to the durable Run plus Turn records
+  AC-RUNBRANCH-001:
+    summary: RunBranch/RunCommit graph — branch, undo-selection, merge (SPEC §5.2)
+    status: proved-for-modeled-graph
+    definitions:
+      - AgentCore.Branch
+      - AgentCore.Commit
+      - AgentCore.Step.createBranch
+      - AgentCore.Step.commitBranch
+      - AgentCore.BranchState
+      - AgentCore.Ancestor
+      - AgentCore.BranchState.effective
+      - AgentCore.GraphStep
+    theorems:
+      - AgentCore.create_branch_requires_run
+      - AgentCore.commit_branch_requires_branch
+      - AgentCore.step_preserves_commits
+      - AgentCore.append_preserves_lookup
+      - AgentCore.append_lookup_self
+      - AgentCore.append_ancestor_mono
+      - AgentCore.ancestor_mono
+      - AgentCore.head_advances
+      - AgentCore.undo_appends_and_selects
+      - AgentCore.undo_requires_fenced_turn
+      - AgentCore.undo_effective_is_ancestor
+    remainingEvidence:
+      - merge commit and ancestry-query refinement
+      - redo and pending-revert finalization model
+      - export/import conformance for run, turn, run_branch, and run_commit artifacts
+  AC-ENV-001:
+    summary: Environment sessions and rotation
+    status: modeled-session-lifecycle
+    definitions:
+      - AgentCore.Environment
+      - AgentCore.Step.rotateEnvironment
+    theorems:
+      - AgentCore.reachable_run_is_pinned
+      - AgentCore.rotation_does_not_retarget_runs
+    remainingEvidence:
+      - concrete provider and session refinement
+  AC-TIER-001:
+    summary: Enforcement tiers — defaults per impact, direct requires co-location (SPEC §7.2)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.EnforcementTier
+      - AgentCore.defaultTier
+      - AgentCore.effectiveTier
+    theorems:
+      - AgentCore.direct_requires_colocation
+      - AgentCore.externalSend_always_mediated
+      - AgentCore.delegate_always_mediated
+      - AgentCore.administer_always_mediated
+      - AgentCore.mutate_always_mediated
+      - AgentCore.nonsession_execute_mediated
+    remainingEvidence:
+      - policy-override composition with the default table
+      - tier decision integration into the invocation pipeline
+  AC-TRUST-001:
+    summary: Host-derived trust tiers and verified ingress (SPEC §6.1)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.TrustTier
+      - AgentCore.Provenance
+      - AgentCore.deriveTier
+      - AgentCore.IngressMint
+    theorems:
+      - AgentCore.self_requires_lease
+      - AgentCore.trusted_requires_verification
+      - AgentCore.unverified_is_external
+      - AgentCore.unverified_never_mints
+      - AgentCore.ingress_never_self
+    remainingEvidence:
+      - provenance mapping from concrete transport verification
+      - rejection of tier-asserting sources at the event store boundary
+  AC-EVENT-001:
+    summary: Event acceptance and workspace/source scoping
+    status: proved-for-modeled-acceptance
+    definitions:
+      - AgentCore.Event
+      - AgentCore.Step.acceptEvent
+    theorems:
+      - AgentCore.accepted_event_has_workspace
+    remainingEvidence:
+      - host-derived trust tiers and verified ingress (SPEC §6.1) model
+      - visibility policy
+      - per-actor event ownership and async projection (SPEC §6.1/§10.1) model
+  AC-SUB-001:
+    summary: Subscription matching, dedupe, and declared target routing
+    status: proved-for-modeled-firing
+    definitions:
+      - AgentCore.Subscription
+      - AgentCore.consumeEvent
+      - AgentCore.Step.fireSubscription
+    theorems:
+      - AgentCore.subscription_fire_requires_enabled
+      - AgentCore.subscription_fire_consumes_event_key
+      - AgentCore.consumed_event_blocks_subscription_fire
+      - AgentCore.subscription_fire_invokes_declared_target
+      - AgentCore.subscription_invocation_satisfies_authorization
+    remainingEvidence:
+      - payload mapping
+      - subscription lifecycle commands
+      - concrete router refinement
+  AC-INV-001:
+    summary: Invocation authorization and readiness
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Invocation
+      - AgentCore.Invocation.RequirementsSatisfied
+      - AgentCore.Invocation.Ready
+      - AgentCore.Step.invocation
+      - AgentCore.Step.deniedInvocation
+    theorems:
+      - AgentCore.accepted_invocation_satisfies_requirements
+      - AgentCore.accepted_invocation_satisfies_authorization
+      - AgentCore.accepted_invocation_satisfies_approval
+      - AgentCore.accepted_invocation_preserves_state
+      - AgentCore.denied_invocation_preserves_state
+      - AgentCore.agentCore_invocation_authority_safety
+      - AgentCore.run_invocation_requires_running_turn
+      - AgentCore.denied_invocation_requirements_unsatisfied
+      - AgentCore.exec_all_invocations_mediated
+    remainingEvidence:
+      - enforcement-tier (mediated/direct) model (SPEC §7.2)
+      - concrete Operation pipeline refinement
+      - non-success receipt persistence refinement
+  AC-AUDIT-001:
+    summary: Audit and committed Event evidence
+    status: partially-proved
+    definitions:
+      - AgentCore.CommittedEvent
+      - AgentCore.Step.emitCommittedEvent
+    theorems:
+      - AgentCore.emitted_committed_event_matches_tenant
+    remainingEvidence:
+      - audit log durability
+      - concrete event publication refinement
+  AC-WF-001:
+    summary: Well-formedness preservation and reachability
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.WellFormed
+      - AgentCore.Reachable
+      - AgentCore.Exec
+    theorems:
+      - AgentCore.initial_wellFormed
+      - AgentCore.step_preserves_wellFormed
+      - AgentCore.reachable_wellFormed
+      - AgentCore.exec_preserves_wellFormed
+      - AgentCore.reachable_of_exec
+      - AgentCore.Examples.nontrivial_final_state_reachable
+      - AgentCore.Examples.nontrivial_final_state_wellFormed
+    remainingEvidence:
+      - refinement to concrete storage linearization
+  AC-REPR-001:
+    summary: Representability witnesses (assemblies, profiles, MoA shapes)
+    status: enumerative-witness-not-assurance
+    note: >
+      These results are reflexive computations over hardcoded enumerations and
+      hypothesis repackaging. They witness that the modeled vocabulary can express
+      the listed shapes; they prove nothing about behavior and are not published as
+      assurance (SPEC §14).
+    theorems:
+      - AgentCore.hermes_mixture_of_agents_representable
+      - AgentCore.Facet.filesystem_facets_cover
+      - AgentCore.Facet.shell_facets_cover
+      - AgentCore.Facet.memory_facets_cover
+      - AgentCore.Facet.task_facets_cover
+      - AgentCore.Facet.slate_facets_cover
+      - AgentCore.Facet.environment_facets_cover
+      - AgentCore.Facet.web_facets_cover
+      - AgentCore.Facet.mcp_facets_cover
+      - AgentCore.Facet.approval_gateway_facets_cover
+      - AgentCore.Facet.self_facets_cover
+      - AgentCore.Facet.event_facets_cover
+      - AgentCore.Facet.subscription_facets_cover
+      - AgentCore.Facet.reference_profiles_cover
+      - AgentCore.Facet.profile_facets_cover
+      - AgentCore.Facet.requested_contributions_representable
+      - AgentCore.Facet.gadgets_assembly_covers
+      - AgentCore.Facet.seal_assembly_covers
+      - AgentCore.Facet.proteus_assembly_covers
+      - AgentCore.Facet.reference_assemblies_cover
+      - AgentCore.Facet.assembly_profile_contracts_cover
+    remainingEvidence:
+      - profile-specific semantic models
+      - conformance test suites
+  AC-SURFACE-001:
+    summary: Surface and View boundary
+    status: specified-not-modeled
+    remainingEvidence:
+      - Surface/View formal model
+      - ViewDelta revision replay tests
+      - Surface action Event refinement
+modelAssumptions:
+  - authenticated callers map to the correct abstract Principal or Domain
+  - concrete storage linearizes abstract transitions
+  - concrete Facet implementations refine their profile contracts
+  - concrete Event payload schemas and visibility policies refine the abstract Event model
+  - concrete Subscription routers refine the abstract matching and dedupe model
+  - concrete runtime membranes enforce the modeled protection domains

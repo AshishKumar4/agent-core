@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/1/errors.schema.json",
+  "title": "Agent Core error",
+  "$defs": {
+    "code": { "enum": ["malformed_message", "invalid_argument", "unsupported_version", "unsupported_operation", "unsupported_extension", "unauthenticated", "permission_denied", "resource_hidden", "not_found", "already_exists", "invalid_state", "revision_conflict", "stale_lease", "stale_session", "idempotency_conflict", "limit_exceeded", "quota_exceeded", "cancelled", "deadline_exceeded", "unavailable", "external_outcome_failed", "external_outcome_indeterminate", "integrity_failure", "data_loss", "internal"] },
+    "base": {
+      "type": "object",
+      "required": ["code", "retry", "state", "externalOutcome", "message"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "retry": { "enum": ["never", "same_operation", "after_refresh", "reconcile_first"] },
+        "state": { "enum": ["unchanged", "committed", "unknown"] },
+        "externalOutcome": { "enum": ["none", "applied", "not_applied", "unknown"] },
+        "message": { "type": "string", "maxLength": 4096 },
+        "requestId": { "$ref": "common.schema.json#/$defs/id" },
+        "operationId": { "$ref": "common.schema.json#/$defs/id" },
+        "details": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "rejected": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "state": { "const": "unchanged" }, "externalOutcome": { "enum": ["none", "not_applied"] } } }
+      ]
+    },
+    "indeterminate": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "type": "object", "properties": { "code": { "enum": ["external_outcome_indeterminate", "unavailable"] }, "state": { "enum": ["committed", "unknown"] }, "externalOutcome": { "const": "unknown" }, "retry": { "const": "reconcile_first" } } }
+      ]
+    },
+    "preEnvelope": {
+      "type": "object",
+      "required": ["outcome", "error"],
+      "properties": {
+        "protocolVersion": { "$ref": "common.schema.json#/$defs/version" },
+        "outcome": { "const": "rejected" },
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": { "code": { "enum": ["malformed_message", "unsupported_version"] }, "message": { "type": "string", "maxLength": 1024 } },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$ref": "#/$defs/base"
+}

@@ -1,0 +1,1 @@
+export { SelfFacet } from "./facet";

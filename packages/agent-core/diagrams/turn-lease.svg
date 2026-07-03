@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 350" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7A8494"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="880" height="350" fill="#FBFBFC" stroke="#E3E6EB"/>
+
+  <rect x="50" y="96" width="130" height="56" rx="9" fill="#F0F2F5" stroke="#97A1AE"/>
+  <text x="115" y="119" font-size="13.5px" fill="#1F2733" font-weight="600" text-anchor="middle">Queued</text>
+  <text x="115" y="136" font-size="11px" fill="#5A6472" text-anchor="middle">epoch 0</text>
+
+  <rect x="300" y="96" width="160" height="56" rx="9" fill="#FBF3E4" stroke="#C9A15E"/>
+  <text x="380" y="119" font-size="13.5px" fill="#1F2733" font-weight="600" text-anchor="middle">Running</text>
+  <text x="380" y="136" font-size="11px" fill="#5A6472" text-anchor="middle">holder + expiry</text>
+
+  <rect x="300" y="226" width="160" height="52" rx="9" fill="#F0F2F5" stroke="#97A1AE"/>
+  <text x="380" y="247" font-size="13.5px" fill="#1F2733" font-weight="600" text-anchor="middle">Suspended</text>
+  <text x="380" y="264" font-size="11px" fill="#5A6472" text-anchor="middle">checkpoint persisted</text>
+
+  <rect x="682" y="96" width="150" height="56" rx="9" fill="#F9ECEF" stroke="#C88A9A"/>
+  <text x="757" y="119" font-size="13.5px" fill="#1F2733" font-weight="600" text-anchor="middle">Terminal</text>
+  <text x="757" y="136" font-size="11px" fill="#5A6472" text-anchor="middle">succeeded · failed · cancelled</text>
+
+  <line x1="180" y1="124" x2="298" y2="124" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="192" y="115" font-size="11px" fill="#3D4654">claim · epoch += 1</text>
+
+  <path d="M356,96 C 336,58 424,58 404,94" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="380" y="48" font-size="11px" fill="#3D4654" text-anchor="middle">renew — same holder + epoch</text>
+
+  <path d="M352,152 L352,224" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="200" y="182" font-size="11px" fill="#3D4654">suspend: checkpoint,</text>
+  <text x="200" y="196" font-size="11px" fill="#3D4654">fence · epoch += 1</text>
+  <path d="M408,224 L408,154" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="420" y="196" font-size="11px" fill="#3D4654">resume claim · epoch += 1</text>
+
+  <line x1="460" y1="124" x2="680" y2="124" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="480" y="115" font-size="11px" fill="#3D4654">complete / fail / cancel · fences</text>
+
+  <path d="M115,152 L115,320 Q115,332 127,332 L846,332 Q858,332 858,320 L858,136 Q858,124 846,124 L838,124" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="400" y="324" font-size="11px" fill="#3D4654">cancel</text>
+
+  <rect x="566" y="196" width="274" height="90" rx="8" fill="#FFFFFF" stroke="#E3E6EB"/>
+  <text x="582" y="218" font-size="11.5px" fill="#5A6472">An expired lease is reclaimed by a new</text>
+  <text x="582" y="234" font-size="11.5px" fill="#5A6472">executor (epoch += 1). Every commit</text>
+  <text x="582" y="250" font-size="11.5px" fill="#5A6472">carries its epoch; stale epochs are</text>
+  <text x="582" y="266" font-size="11.5px" fill="#5A6472">rejected at the owning Actor — a zombie</text>
+  <text x="582" y="282" font-size="11.5px" fill="#5A6472">executor cannot write anything.</text>
+</svg>

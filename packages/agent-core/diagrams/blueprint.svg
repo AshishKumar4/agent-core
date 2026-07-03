@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7A8494"/>
+    </marker>
+    <marker id="av" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9B7FC7"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="880" height="300" fill="#FBFBFC" stroke="#E3E6EB"/>
+
+  <rect x="44" y="52" width="160" height="52" rx="8" fill="#F2EDFA" stroke="#9B7FC7"/>
+  <text x="124" y="74" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Packages</text>
+  <text x="124" y="90" font-size="11px" fill="#5A6472" text-anchor="middle">manifests + settings schemas</text>
+
+  <rect x="44" y="144" width="160" height="52" rx="8" fill="#F2EDFA" stroke="#9B7FC7"/>
+  <text x="124" y="166" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Blueprint</text>
+  <text x="124" y="182" font-size="11px" fill="#5A6472" text-anchor="middle">SecretRefs only, never raw</text>
+
+  <rect x="272" y="94" width="190" height="66" rx="8" fill="#FFFFFF" stroke="#97A1AE"/>
+  <text x="367" y="118" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">validate</text>
+  <text x="367" y="134" font-size="11px" fill="#5A6472" text-anchor="middle">against the composed schema,</text>
+  <text x="367" y="148" font-size="11px" fill="#5A6472" text-anchor="middle">before any package code loads</text>
+  <line x1="204" y1="86" x2="270" y2="112" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <line x1="204" y1="164" x2="270" y2="140" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+
+  <path d="M330,160 L310,224" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="230" y="216" font-size="11px" fill="#3D4654">invalid → rejected</text>
+
+  <rect x="522" y="94" width="140" height="66" rx="8" fill="#F2EDFA" stroke="#9B7FC7"/>
+  <text x="592" y="122" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">materializer</text>
+  <text x="592" y="140" font-size="11px" fill="#5A6472" text-anchor="middle">reconcile, idempotent</text>
+  <line x1="462" y1="127" x2="520" y2="127" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+
+  <rect x="716" y="66" width="130" height="122" rx="8" fill="#FFFFFF" stroke="#7A8BD0"/>
+  <text x="781" y="90" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">records</text>
+  <text x="781" y="110" font-size="11px" fill="#5A6472" text-anchor="middle">facet installs</text>
+  <text x="781" y="126" font-size="11px" fill="#5A6472" text-anchor="middle">bindings · slots</text>
+  <text x="781" y="142" font-size="11px" fill="#5A6472" text-anchor="middle">subscriptions</text>
+  <text x="781" y="158" font-size="11px" fill="#5A6472" text-anchor="middle">policies · scopes</text>
+  <text x="781" y="174" font-size="11px" fill="#5A6472" text-anchor="middle">(Blueprint-managed)</text>
+  <line x1="662" y1="127" x2="714" y2="127" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+
+  <path d="M781,188 C 781,252 620,252 594,164" stroke="#9B7FC7" stroke-width="1.2" fill="none" marker-end="url(#av)" stroke-dasharray="5 4"/>
+  <text x="600" y="244" font-size="11px" fill="#3D4654">re-apply → converge; running Runs keep their pins (§5.2)</text>
+</svg>

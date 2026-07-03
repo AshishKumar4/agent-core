@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/1/replies.schema.json",
+  "title": "Agent Core reply",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["protocolVersion", "requestId", "operationId", "outcome"],
+      "properties": { "protocolVersion": { "$ref": "common.schema.json#/$defs/version" }, "requestId": { "$ref": "common.schema.json#/$defs/id" }, "operationId": { "$ref": "common.schema.json#/$defs/id" }, "outcome": { "const": "committed" }, "result": true, "extensions": { "$ref": "common.schema.json#/$defs/extensions" } },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocolVersion", "requestId", "operationId", "outcome", "operation"],
+      "properties": { "protocolVersion": { "$ref": "common.schema.json#/$defs/version" }, "requestId": { "$ref": "common.schema.json#/$defs/id" }, "operationId": { "$ref": "common.schema.json#/$defs/id" }, "outcome": { "const": "accepted" }, "operation": { "$ref": "common.schema.json#/$defs/resourceRef" }, "extensions": { "$ref": "common.schema.json#/$defs/extensions" } },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocolVersion", "requestId", "operationId", "outcome", "error"],
+      "properties": { "protocolVersion": { "$ref": "common.schema.json#/$defs/version" }, "requestId": { "$ref": "common.schema.json#/$defs/id" }, "operationId": { "$ref": "common.schema.json#/$defs/id" }, "outcome": { "const": "rejected" }, "error": { "$ref": "errors.schema.json#/$defs/rejected" }, "extensions": { "$ref": "common.schema.json#/$defs/extensions" } },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocolVersion", "requestId", "operationId", "outcome", "error"],
+      "properties": { "protocolVersion": { "$ref": "common.schema.json#/$defs/version" }, "requestId": { "$ref": "common.schema.json#/$defs/id" }, "operationId": { "$ref": "common.schema.json#/$defs/id" }, "outcome": { "const": "indeterminate" }, "error": { "$ref": "errors.schema.json#/$defs/indeterminate" }, "operation": { "$ref": "common.schema.json#/$defs/resourceRef" }, "extensions": { "$ref": "common.schema.json#/$defs/extensions" } },
+      "additionalProperties": false
+    },
+    { "$ref": "errors.schema.json#/$defs/preEnvelope" }
+  ]
+}

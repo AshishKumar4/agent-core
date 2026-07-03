@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/1/common.schema.json",
+  "title": "Agent Core common types",
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?(?:-[A-Za-z0-9.-]+)?$" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z0-9]+(?:[.-][A-Za-z0-9_-]+)+$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["critical", "version", "value"],
+        "properties": {
+          "critical": { "type": "boolean" },
+          "version": { "type": "string", "minLength": 1 },
+          "value": true
+        },
+        "additionalProperties": false
+      }
+    },
+    "resourceRef": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "id": { "$ref": "#/$defs/id" },
+        "tenantId": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "envelope": {
+      "type": "object",
+      "required": ["protocolVersion", "requestId", "operationId", "kind", "payload"],
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/version" },
+        "requestId": { "$ref": "#/$defs/id" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "correlationId": { "$ref": "#/$defs/id" },
+        "causationId": { "$ref": "#/$defs/id" },
+        "deadline": { "$ref": "#/$defs/timestamp" },
+        "expectedRevision": { "type": "integer", "minimum": 0 },
+        "expectedLeaseEpoch": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string", "minLength": 1 },
+        "payload": true,
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    }
+  }
+}

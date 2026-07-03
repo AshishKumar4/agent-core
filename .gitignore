@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.DS_Store
+.opencode/
+.lake/
+.lake/build/
+**/.lake/
+packages/*/dist/
+packages/*/node_modules/
+*.tsbuildinfo
+
+# internal research / interim notes stay local
+docs/
+*.bundle

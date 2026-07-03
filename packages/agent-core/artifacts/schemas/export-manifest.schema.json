@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/1/export-manifest.schema.json",
+  "title": "Agent Core export manifest",
+  "type": "object",
+  "required": ["formatVersion", "coreVersion", "categoryRegistryVersion", "sourceTenantId", "sourceWorkspaceId", "createdAt", "entries", "bindingRequirements", "extensions"],
+  "properties": {
+    "formatVersion": { "$ref": "common.schema.json#/$defs/version" },
+    "coreVersion": { "$ref": "common.schema.json#/$defs/version" },
+    "categoryRegistryVersion": { "$ref": "common.schema.json#/$defs/version" },
+    "sourceTenantId": { "$ref": "common.schema.json#/$defs/id" },
+    "sourceWorkspaceId": { "$ref": "common.schema.json#/$defs/id" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "classification", "contentRef", "sha256", "schemaVersion"],
+        "properties": {
+          "category": { "enum": ["workspace", "agent", "run", "run_branch", "run_commit", "turn", "task", "memory", "environment_descriptor", "environment_snapshot", "slate", "slate_version", "subscription", "binding_requirement", "lineage", "derived_index"] },
+          "classification": { "enum": ["canonical", "derived", "portable_descriptor"] },
+          "contentRef": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+          "schemaVersion": { "$ref": "common.schema.json#/$defs/version" },
+          "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+        },
+        "allOf": [
+          { "if": { "properties": { "category": { "enum": ["workspace", "agent", "run", "run_branch", "run_commit", "turn", "task", "memory", "slate", "slate_version", "subscription", "lineage"] } } }, "then": { "properties": { "classification": { "const": "canonical" } } } },
+          { "if": { "properties": { "category": { "enum": ["environment_descriptor", "environment_snapshot", "binding_requirement"] } } }, "then": { "properties": { "classification": { "const": "portable_descriptor" } } } },
+          { "if": { "properties": { "category": { "const": "derived_index" } } }, "then": { "properties": { "classification": { "const": "derived" } } } }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "bindingRequirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "targetKind", "permissions"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "targetKind": { "type": "string", "minLength": 1 },
+          "permissions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        },
+        "additionalProperties": false
+      }
+    },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

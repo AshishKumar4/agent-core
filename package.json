@@ -1,0 +1,14 @@
+{
+  "name": "agent-core-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "build": "pnpm --recursive build",
+    "check:types": "pnpm --recursive check:types",
+    "lint": "pnpm --recursive lint",
+    "test": "pnpm --recursive test"
+  },
+  "devDependencies": {
+    "oxlint": "^1.30.0"
+  }
+}

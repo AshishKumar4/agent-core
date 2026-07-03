@@ -1,0 +1,1 @@
+export { TextId } from "./id";

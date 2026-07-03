@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/1/implementation-manifest.schema.json",
+  "title": "Agent Core implementation manifest",
+  "type": "object",
+  "required": ["implementation", "suiteEdition", "coreVersion", "protocolVersion", "status", "profiles", "bindings", "capabilities", "unsupportedGuarantees", "limits", "persistence", "deduplication", "platformAssumptions", "trustedAssumptions", "evidence"],
+  "properties": {
+    "implementation": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": { "name": { "type": "string", "minLength": 1 }, "version": { "type": "string", "minLength": 1 } },
+      "additionalProperties": false
+    },
+    "suiteEdition": { "type": "string" },
+    "coreVersion": { "type": "string" },
+    "protocolVersion": { "type": "string" },
+    "status": { "enum": ["experimental", "conformant", "formally_refined"] },
+    "profiles": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "version"], "properties": { "id": { "type": "string" }, "version": { "type": "string" } }, "additionalProperties": false },
+      "uniqueItems": true
+    },
+    "bindings": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "version"], "properties": { "id": { "type": "string" }, "version": { "type": "string" } }, "additionalProperties": false },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "anyOf": [{ "enum": ["environment.filesystem", "environment.shell", "environment.processes", "environment.ports", "slate.source", "slate.backend", "event", "subscription", "approval", "workspace.fork", "workspace.export_import", "workspace.transfer", "agent.independent", "run.branching", "run.merge_commit", "turn.lease_fencing", "invocation.turn_scoped"] }, { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[.-][A-Za-z0-9_-]+){2,}$" }] },
+      "uniqueItems": true
+    },
+    "unsupportedGuarantees": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "limits": { "type": "object" },
+    "persistence": {
+      "type": "object",
+      "required": ["mode", "commitMeaning", "recovery"],
+      "properties": { "mode": { "type": "string" }, "commitMeaning": { "type": "string" }, "recovery": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "deduplication": {
+      "type": "object",
+      "required": ["scope", "minimumRetention"],
+      "properties": { "scope": { "type": "string" }, "minimumRetention": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "platformAssumptions": { "type": "object" },
+    "trustedAssumptions": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "formalSubset": { "type": "array", "items": { "type": "string" } }
+  },
+  "if": { "properties": { "status": { "const": "formally_refined" } } },
+  "then": { "required": ["formalSubset"] },
+  "additionalProperties": false
+}

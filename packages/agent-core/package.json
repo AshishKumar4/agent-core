@@ -1,0 +1,50 @@
+{
+  "name": "@agent-core/core",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./actors": "./src/actors/index.ts",
+    "./agents": "./src/agents/index.ts",
+    "./agents/runs": "./src/agents/runs/index.ts",
+    "./authority": "./src/authority/index.ts",
+    "./core": "./src/core/index.ts",
+    "./environments": "./src/environments/index.ts",
+    "./facets": "./src/facets/index.ts",
+    "./facets/filesystem": "./src/facets/filesystem/index.ts",
+    "./facets/approval-gateway": "./src/facets/approval-gateway/index.ts",
+    "./facets/mcp": "./src/facets/mcp/index.ts",
+    "./facets/memory": "./src/facets/memory/index.ts",
+    "./facets/self": "./src/facets/self/index.ts",
+    "./facets/shell": "./src/facets/shell/index.ts",
+    "./facets/web": "./src/facets/web/index.ts",
+    "./identity": "./src/identity/index.ts",
+    "./invocations": "./src/invocations/index.ts",
+    "./operations": "./src/operations/index.ts",
+    "./observability": "./src/observability/index.ts",
+    "./slates": "./src/slates/index.ts",
+    "./substrates/sqlite": "./src/substrates/sqlite/index.ts",
+    "./workspaces": "./src/workspaces/index.ts"
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings src test",
+    "test": "vitest run",
+    "build": "node ./scripts/build.mjs",
+    "check:traceability": "node ./scripts/check-traceability.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "@types/picomatch": "^4.0.3",
+    "@types/shell-quote": "^1.7.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "pathe": "^2.0.3",
+    "picomatch": "^4.0.4",
+    "shell-quote": "^1.9.0"
+  }
+}
