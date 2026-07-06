@@ -246,6 +246,24 @@ Tenant through a declared trust relationship, guest-materialized Grants are alwa
 attenuated, MUST NOT carry `delegate` or `administer` capability, and MUST NOT resolve
 the host Tenant's credentials. Credential custody never leaves the owning Tenant.
 
+`verifiedVia` names how the host Tenant verifies who the guest is, and it works in two
+stages. First, **trust establishment**: an `administer`-impact Operation on the host
+Tenant (mediated and audited like any other, §7.2) records a trust relationship —
+`{ homeTenant, scheme, verifier, expiry, allowedRoles }` — where `scheme` is one of:
+
+- `federation` — the home Tenant exposes a token issuer; guests authenticate at home
+  and present an identity token, which the host verifies against the issuer keys
+  pinned in the trust relationship (the OIDC shape);
+- `attestation` — the home Tenant signs `(principalId, hostTenant, expiry)` with a key
+  whose public part was exchanged at establishment, and the guest presents the signed
+  attestation.
+
+Second, **verification**: the proof is checked both when the guest Membership is
+issued and on every authentication of the guest. Revoking the trust relationship
+revokes every Membership issued under it and bumps the affected Scopes' revocation
+epochs, so guest-materialized Grants expire under the same bounded-window rule
+(§3.4 rule 5) as everything else.
+
 ### 3.4 Grant, Binding, resolution, revocation
 
 A **Grant** records authority: subject, Scope, capability, attenuation lineage,
@@ -613,9 +631,25 @@ graph operations here rather than product features bolted on later.
 - Undo targeting a branch whose Turn holds an unexpired lease MUST first fence that
   Turn (§5.3); an undo that would orphan an in-flight Turn is rejected until the Turn
   is fenced or completes.
-- `merge` records a RunCommit with two or more parents and resolution metadata;
-  resolution MAY be computational — an aggregating Turn writes the merge content. The
-  graph records lineage; it does not prescribe merge semantics.
+- `merge` records a RunCommit with two or more parents and its resolution content.
+  The host never merges automatically — its job is to detect divergence and require a
+  resolution, which is produced by a Turn (an aggregating model call, a deterministic
+  strategy, or a person) and recorded as the merge commit's content. Three rules make
+  this unambiguous:
+  1. *Conversation state.* The merge commit's content is the resolution; the parents
+     stay reachable, so nothing about how the resolution was produced is lost.
+  2. *Tree state.* When the parents' `treeCheckpoint`s diverge from their nearest
+     common ancestor's, the merge commit MUST carry its own `treeCheckpoint` naming
+     the resolved tree — produced by the merging Turn using whatever strategy fits
+     (a three-way merge inside the Environment, regeneration, or picking one side).
+     A merge of tree-divergent parents without a resolved tree checkpoint is rejected.
+  3. *Slate state.* A Run merge never merges Slate versions implicitly; the Slate's
+     own `commit`/`merge` operations handle that, and the run-level merge records
+     which Slate version its resolution selected.
+  A merge is a lease-fenced commit like any other, and its parents MUST be the current
+  branch heads at commit time (the `expectedRevision` envelope, §8.5) — if a head moved
+  since the resolution was prepared, the merge is rejected and must be re-prepared
+  against the new heads.
 - Conforming stores support ancestry and reachability queries, not merely head moves.
 
 ![The commit graph: undo as selection](diagrams/undo-graph.svg)
@@ -1231,14 +1265,10 @@ Build it yourself: `cd packages/agent-core/formal && lake build AgentCore`.
 2. **Run/Turn vocabulary.** Industry convention uses Run for one execution and
    Session or Thread for the container; Session/Run and Run/Attempt are the candidate
    alternatives. This document keeps the current names until decided.
-3. **Merge conflict semantics** for concurrent branch heads over shared Slate or tree
-   state.
-4. **Cross-tenant trust establishment** — the `verifiedVia` mechanism for guest
-   Memberships has a defined shape but no chosen protocol.
-5. **Schema artifacts lag the spec.** The JSON schemas under `artifacts/schemas/`
+3. **Schema artifacts lag the spec.** The JSON schemas under `artifacts/schemas/`
    still describe v1 shapes; until they are regenerated alongside the record codecs
    (§8.3), the shapes in this document are the normative ones.
-6. **Per-profile specifications** (§11) — the filesystem profile has a full
+4. **Per-profile specifications** (§11) — the filesystem profile has a full
    conformance suite; the others need theirs.
 
 ## Appendix A — Translation table *(informative)*
@@ -1260,7 +1290,7 @@ Build it yourself: `cd packages/agent-core/formal && lake build AgentCore`.
 
 ## Appendix B — Artifacts
 
-JSON schemas live under `artifacts/schemas/` (v1-era until regenerated — see §15.5);
+JSON schemas live under `artifacts/schemas/` (v1-era until regenerated — see §15.3);
 the implementation-manifest schema under `artifacts/`; the Lean model under `formal/`;
 generated traceability under `artifacts/traceability.yaml`. The condensed introduction
 to this project is the repository's [README](../../README.md).
