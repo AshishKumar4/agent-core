@@ -66,3 +66,127 @@ IMPORTANT: Remember when using RPC to use promise pipelining whenever possible. 
 IMPORTANT: When using React's useState(), the state value cannot be an RPC stub. At runtime, all stubs appear to be callable (because the system doesn't actually know if the stub points to a function on the server side or not). But the setter returned by useState() has different behavior if passed a function (including any callable object): it calls the function in order to get the state. In order to avoid this problem, whenever a useState() state will contain an RpcStub, it's important to wrap the stub in an object, and set the state to that object instead.
 
 IMPORTANT: RPC stubs must be disposed to prevent resource leaks on the server side. Call `stub[Symbol.dispose]()` when the stub is no longer needed (or use a `using` declaration where possible). In particular, when a React component obtains a stub in a useEffect, the cleanup function should dispose the stub.
+
+---
+
+# Implementing the Agent Core spec (`packages/agent-core`)
+
+This section is the implementation architecture for anyone (human or agent) turning
+`packages/agent-core/SPEC.md` into code. The existing `src/` already follows these
+patterns — read `src/agents/runs/`, `src/invocations/`, and `src/facets/filesystem/`
+first; they are the reference for the style expected everywhere. Every rule below is
+derived from either the SPEC (cited by §) or from patterns already established in the
+code. When a rule and the SPEC conflict, the SPEC wins; fix the rule.
+
+## Bounded contexts
+
+One directory per bounded context, owning its own `id.ts` and `index.ts`. No context
+reaches into another's internals — only through its `index.ts` exports.
+
+| Directory | Owns (SPEC layer) | Must not own |
+|---|---|---|
+| `src/core` | cross-cutting value types: `TextId`, `Digest`, `ContentRef`, `SecretRef`, `Revision` (§1.4) | domain records |
+| `src/identity` | Principal, Team, Membership, the Scope chain records (§3.1–§3.3) | grant storage |
+| `src/authority` | Grant/Binding records, role→grant materialization, resolution, revocation epochs (§3.3–§3.4) | facet implementations |
+| `src/facets` | Facet contract, manifests, contributions, slots, interceptors, and profile facets in subdirectories (§4) | substrate persistence |
+| `src/invocations` | the tiered invocation pipeline, approvals, receipts, audit (§7) | workspace event storage |
+| `src/workspaces` | Workspace records, Events, Subscriptions, ingress, trust-tier derivation (§6) | tenant policy |
+| `src/agents` | Agent, Run/RunBranch/RunCommit, Turn, leases, executor seam (§5) | model-provider SDKs |
+| `src/environments` | Environment/Session records and providers (§4.5) | concrete containers |
+| `src/slates` | Slate records, versions, deployments (§4.6) | frontend frameworks |
+| `src/actors` | the Actor primitive and fencing (§8.1) | Durable Object specifics |
+| `src/operations` | OperationContext and observability helpers | the Operation primitive |
+| `src/definition` | Package, Blueprint, the materializer (§9) | runtime execution |
+| `src/protocol` | command envelopes and the dispatcher (§8.5) | domain logic |
+| `src/substrates/*` | concrete adapters (sqlite today; `cloudflare` as its own package later) | core policy |
+
+## Object design
+
+The codebase is deliberately object-oriented with deep modules. Keep it that way.
+
+- **Identifiers** are branded classes extending `TextId` with constructor-validated
+  invariants (`src/core/id.ts`). Never pass raw strings across a context boundary.
+- **Durable records are immutable classes**: `readonly` fields, constructors that
+  validate shape (`TypeError` on violation), and private `transition`/`revise` helpers
+  that return new instances (see `Run`, `Turn`, `Invocation`). Records never own live
+  resources (§8.3).
+- **State machines are behavior-carrying classes**, not string unions: the
+  `RunStatus`/`TurnStatus` pattern — an abstract base with singleton subclasses whose
+  methods either return the next state or throw `AgentCoreError` with a stable code.
+  Illegal transitions must be unrepresentable as method calls that succeed.
+- **Every record type gets a codec** (§8.3): a static `encode()`/`decode()` pair with a
+  version tag, used identically for storage, the command protocol, and export/import.
+  Tolerant-read and upcast within a major; typed rejection of unknown majors. The codec
+  lives next to the record; a record without a codec is unfinished.
+- **Behavioral contracts are abstract classes; pure data shapes are interfaces** —
+  the same convention the SPEC uses for its own contracts.
+- **Seams are interfaces with in-memory reference implementations** used by tests
+  (`MemoryWorkspaceEventStore` pattern). Substrate implementations live under
+  `src/substrates/`, never inside a domain context.
+
+## Concurrency and substrate rules
+
+- The storage seam is **synchronous** (`TransactionalSqlite`), matching Durable Object
+  SQLite. The dispatcher's envelope check plus guarded mutation must be one synchronous
+  span with no intervening `await` (§8.5, §10.3) — an `await` between the read and the
+  write is a correctness bug, not a style issue.
+- Every Turn-owned mutation carries and checks the lease epoch (§5.3). Every cross-actor
+  interaction is at-least-once and idempotency-keyed (§6.1, §10.1). There is no
+  cross-actor transaction anywhere; do not write code that assumes one.
+- Respect the ownership map (§8.4): each record type has exactly one owning Actor;
+  everything else holds ids and rebuildable indexes. Adding a second durable copy of
+  any state is a conformance violation — build a derived, disposable cache instead.
+
+## Errors and observability
+
+- Runtime/domain failures: `AgentCoreError` with a stable code from the closed
+  `AgentCoreErrorCode` union. Constructor shape violations: `TypeError`. Filesystem
+  keeps its own `FileErrorCode` taxonomy. Never throw bare `Error`.
+- Telemetry spans (`src/observability`) are diagnostics. Receipts, audit records, and
+  Events are the durable truth (§7.4); a span is never a substitute for one.
+
+## Naming
+
+- `execute(...)` is the low-level operation handler; `invoke(...)` is reserved for the
+  mediated pipeline. Do not blur them.
+- Facet profiles live at `src/facets/<profile>/` with `facet.ts` + `index.ts`; the
+  public class is `<Profile>Facet` using SPEC vocabulary (`ApprovalGatewayFacet`, not
+  internal codenames).
+- Files are lowercase, single-concept; a file that needs a plural name is usually two
+  files.
+
+## Mapping the SPEC into code
+
+| SPEC construct | Code shape |
+|---|---|
+| primitive / constituent record | immutable class + codec + owning-context `id.ts` entry |
+| behavioral contract (abstract class in SPEC) | abstract class with the same name and members |
+| profile (§11) | `src/facets/<profile>/` module + parameterized conformance suite |
+| substrate contract (§8) | interface + memory implementation + substrate implementation |
+| contribution kind (§4.2) | manifest data type + materializer handler — no bespoke runtime machinery |
+| command family (§8.5) | request/reply types with envelopes, registered on the dispatcher |
+| policy (tiers, placement, trust) | pure functions mirroring the Lean derivations in `formal/AgentCore/Policy.lean` |
+
+## Tests
+
+- Behavior-first through public interfaces; mock only at real seams. The filesystem
+  conformance suite (`test/filesystem/conformance.ts`) is the template: one
+  parameterized suite run against every implementation of a seam.
+- Every MUST in SPEC §13 needs a test that would fail if the MUST were violated,
+  including the adversarial list (stale lease, revoked grant mid-turn, digest mismatch
+  at approval resume, duplicate event delivery, hostile tier assertion, unauthorized
+  slot contribution, interceptor overreach).
+- Where a behavior is proven in `formal/`, the test should exercise the same scenario
+  the theorem states — the proof covers the abstract model, the test covers this
+  implementation of it, and they should visibly correspond.
+- `pnpm check:traceability` must pass before any commit that touches `formal/` or
+  `artifacts/traceability.yaml`.
+
+## Working style
+
+- Work in the loop: small, test-verified commits; typecheck + lint + tests green before
+  every commit. Never commit a stub that pretends to be an implementation — the
+  prompt-string facets were a mistake we removed; do not reintroduce the pattern.
+  If a piece is unimplemented, it should be absent, not fake.
+- New abstractions must pass the deletion test: if inlining it at the call sites would
+  be clearer, do not add it. Prefer extending an existing context over creating one.
