@@ -94,8 +94,8 @@ reasoning itself can be checked and challenged, not just the rules.
 
 Identifiers ending in `Id` or `Name` (`PrincipalId`, `SurfaceId`, `BindingName`,
 `SlotName`) are opaque, codec-stable identifier types, as are the simple reference
-types `ContentRef`, `OperationRef`, `FacetRef`, and `RunRef`. Two `Ref` types are
-structured records, defined where they appear: `SecretRef` (§3.5) and
+types `ContentRef`, `OperationRef`, `FacetRef`, `RunRef`, and `TurnRef`. Two `Ref`
+types are structured records, defined where they appear: `SecretRef` (§3.5) and
 `ForeignPrincipalRef` (§3.3). Types ending in `Schema`, `Spec`, `Policy`, `Template`,
 `Mapping` (declarative field maps: `FieldMapping`, `PayloadMapping`,
 `ProvenanceMapping`), `Selector` (predicate sets over descriptors:
@@ -215,15 +215,33 @@ them.
 
 ### 3.3 Membership, roles, and sharing
 
-A **Membership** binds a subject (`Principal | Team`) to a Scope with a **Role**.
+A **Membership** binds a subject (`Principal | Team`) to a Scope with a **Role**. A
+**Role** is a named, declared set of capabilities:
+
+```ts
+interface Role {
+  readonly name: RoleName;                        // "owner", "editor", "reader", …
+  readonly capabilities: readonly CapabilitySpec[]; // what a holder may do
+}
+```
+
+A `CapabilitySpec` describes one grantable authority: a Facet or Facet pattern, the
+Operations (or Operation impacts) it covers, and any argument constraints. Roles are
+declared in a Blueprint (`policies.roles`) or supplied by a Package; the spec fixes
+three built-in roles every platform provides — `owner` (all capabilities at the scope,
+including `administer`), `editor` (everything except `administer`), and `reader`
+(`observe`-impact capabilities only) — and platforms MAY declare more. A Role is a
+template; it becomes authority only when a Membership assigns it (below).
 
 **Roles materialize Grants.** A Membership is not itself callable authority. Assigning
 a Role at a Scope materializes — idempotently, exactly as a Blueprint materializes
-records (§9.3) — the Role's defined set of Grants for that subject at that Scope.
+records (§9.3) — one Grant per capability in the Role, for that subject at that Scope.
 Downward flow, attenuation, and revocation all operate on those Grants. The enforcement
 plane (§7) resolves only Grants and Bindings; Roles and Memberships have no second
 enforcement path. Revoking a Membership revokes its materialized Grants and bumps the
-Scope's revocation epoch (§3.4).
+Scope's revocation epoch (§3.4). A guest Membership materializes the same way, except
+the Role's capabilities are first filtered to drop `delegate` and `administer` (the
+formal model, `AC-MATERIALIZE-001`, proves the filter is total).
 
 *Why:* the moment roles and grants are two separate enforcement systems, they drift
 apart, and that kind of drift tends to be discovered during an incident rather than
@@ -241,10 +259,33 @@ touching W1.
 with a user is a Membership at that Project; a team owning a Project is a Team
 Membership at that Project, and every member inherits access by default. Cross-tenant
 sharing uses a **guest Membership** whose subject is a `ForeignPrincipalRef
-{ homeTenant, principalId, verifiedVia }`: authentication is delegated to the home
-Tenant through a declared trust relationship, guest-materialized Grants are always
+{ homeTenant, principalId, verifiedVia }`. Guest-materialized Grants are always
 attenuated, MUST NOT carry `delegate` or `administer` capability, and MUST NOT resolve
-the host Tenant's credentials. Credential custody never leaves the owning Tenant.
+the host Tenant's credentials. Credential custody never leaves the owning Tenant. The
+formal model proves the attenuation (`AC-MATERIALIZE-001`).
+
+**Verifying a guest.** `verifiedVia` names how the host Tenant establishes that a
+request actually comes from the foreign principal. It is one of three schemes, in
+increasing order of coupling:
+
+- `token` — the host and home Tenants share an out-of-band trust configuration (a
+  signing key or an OIDC issuer URL registered in the host Tenant's policy). The guest
+  presents a token issued by the home Tenant; the host verifies its signature and the
+  `{ homeTenant, principalId }` claims against the registered issuer. This is the
+  default and needs no live contact between tenants.
+- `callback` — the host holds no key; at authorization time it asks the home Tenant's
+  declared verification endpoint "is this token yours, and is this principal active?"
+  and caches the answer for the token's lifetime. Used when the home Tenant will not
+  share a key but will answer queries.
+- `handshake` — for a first-time link, the two Tenants perform a one-time exchange (the
+  home Tenant's owner approves the link, the host records the resulting trust
+  configuration) that downgrades all future verifications to `token`. `handshake` is
+  the bootstrap; steady state is always `token` or `callback`.
+
+Whichever scheme is used, the host verifies provenance *before* materializing any guest
+Grant, and a verification failure denies. The wire protocol for a token or a callback
+is a substrate/profile concern — the host Tenant's policy declares the issuer or
+endpoint; this document fixes the three schemes and the before-materialization ordering.
 
 ### 3.4 Grant, Binding, resolution, revocation
 
@@ -513,8 +554,22 @@ interface InterceptorDeclaration {
 
 abstract class Interceptor {
   abstract intercept(ctx: InterceptContext, value: unknown): Promise<InterceptResult>;
-  // InterceptResult: { proceed: true, value } | { proceed: false, reason }
 }
+
+// The value's type at each cut point is fixed by the table above; `unknown` is
+// narrowed by `ctx.cutPoint`. An OperationSelector is a set of Operation patterns —
+// `own(...)` for the facet's own operations, or a `{ facet, operation }` pattern
+// (each field a literal or "*"-terminated prefix) for a declared-interceptable target.
+interface InterceptContext {
+  readonly cutPoint: CutPoint;              // which point fired (narrows `value`)
+  readonly operation?: OperationDescriptor; // present at operation.before/after
+  readonly turn: TurnRef;                   // the Turn this interception runs inside
+  readonly interceptor: InterceptorId;      // self, for attributable rewrites (rule 5)
+}
+
+type InterceptResult =
+  | { readonly proceed: true; readonly value: unknown }   // pass through or rewrite
+  | { readonly proceed: false; readonly reason: string }; // block, scoped to appliesTo
 ```
 
 Rules:
@@ -613,10 +668,52 @@ graph operations here rather than product features bolted on later.
 - Undo targeting a branch whose Turn holds an unexpired lease MUST first fence that
   Turn (§5.3); an undo that would orphan an in-flight Turn is rejected until the Turn
   is fenced or completes.
-- `merge` records a RunCommit with two or more parents and resolution metadata;
-  resolution MAY be computational — an aggregating Turn writes the merge content. The
-  graph records lineage; it does not prescribe merge semantics.
+- `merge` records a RunCommit with two or more parents and resolution metadata, and it
+  advances the branch head like any other commit. Conversation state — the message and
+  commit lineage — always merges cleanly, because a merge only *adds* a commit whose
+  parents are the merged heads; nothing is rewritten, so there is no conflict to
+  resolve at the graph level. The merge's *content* is produced by the platform: a
+  merge MUST record a `resolution` describing how its content was derived from the
+  parents, and the spec defines three resolution kinds (§5.2.1). The graph records
+  lineage and the resolution kind; it does not compute the content.
 - Conforming stores support ancestry and reachability queries, not merely head moves.
+
+#### 5.2.1 Merge resolution and tree conflicts
+
+Two things can be in conflict at a merge: the *conversation* and the *filesystem tree*.
+They are handled separately, because §5.4 already separates their checkpoints.
+
+**Conversation resolution.** A merge's `resolution` names one of three kinds:
+
+- `pick` — the content is one parent's content verbatim (the chosen branch wins). The
+  resolution records which parent was picked.
+- `concat` — the content is the ordered concatenation of the parents' contents (used
+  when the branches contributed to disjoint parts of the answer).
+- `synthesize` — the content is produced by an aggregating Turn that read the parent
+  heads and wrote new content. The resolution records the Turn that produced it, so the
+  synthesis is itself an auditable, lease-fenced Invocation.
+
+Because these are the only three kinds, a reader of the graph can always tell how a
+merge's content relates to its parents without re-running anything. `synthesize` is the
+mixture-of-agents case (§12); the formal model proves that a merge's recorded parents
+are exactly the heads it combined (`AC-PLATFORM-MOA`).
+
+**Tree conflicts.** When merged branches carry `treeCheckpoint`s (§5.4) over the same
+Environment, the platform MUST resolve the tree separately and record the outcome on
+the merge commit's `treeCheckpoint`. The resolution policy is a Blueprint policy
+(`policies.treeMerge`) with three settings, and the platform MUST NOT pick silently:
+
+- `ours` / `theirs` — take one side's tree wholesale (the resolution records which);
+- `perPath` — take, per path, the side that changed it relative to the common ancestor;
+  paths changed on **both** sides are *conflicts* and are surfaced, not merged. A merge
+  with unresolved path conflicts is **blocked**: it records a `conflicts` list and MUST
+  NOT complete until each listed path is resolved by an operator or an
+  `administer`-impact Operation. This is the "never silent" rule — a tree conflict
+  stops the merge rather than guessing.
+
+A platform that never merges over a shared tree (each branch owns a disjoint
+Environment, the Cognition read/write-split pattern) never encounters tree conflicts
+and MAY omit `policies.treeMerge`.
 
 ![The commit graph: undo as selection](diagrams/undo-graph.svg)
 
@@ -631,7 +728,15 @@ interface RunCommit {
   readonly content?: ContentRef;
   readonly selects?: RunCommitId;                 // undo/redo only
   readonly treeCheckpoint?: ContentRef;           // §5.4 — associated tree snapshot, if any
+  readonly resolution?: MergeResolution;          // merge only (§5.2.1)
+  readonly conflicts?: readonly string[];         // merge only — unresolved tree paths
 }
+
+type MergeResolution =
+  | { readonly kind: "pick"; readonly parent: RunCommitId }
+  | { readonly kind: "concat" }
+  | { readonly kind: "synthesize"; readonly by: TurnId }
+  | { readonly kind: "tree"; readonly policy: "ours" | "theirs" | "perPath"; readonly side?: RunCommitId };
 ```
 
 *Why selection instead of head-rewind:* an append-only graph means nothing is ever
@@ -768,19 +873,38 @@ A **Subscription** is a durable route from matching Events to an Operation:
 
 ```ts
 interface Subscription {
-  readonly source: EventPattern;             // kind/source matching, wildcards
+  readonly source: EventPattern;             // which Events match
   readonly target: OperationRef;
   readonly mapping: PayloadMapping;          // event payload → operation input
-  readonly dedupe: DedupePolicy;             // none | event | causation | payload
+  readonly dedupe: DedupePolicy;             // "none" | "event" | "causation" | "payload"
   readonly authority: BindingRequirement;    // the authority the invocation runs under
+}
+
+// An EventPattern matches on kind and source, each a literal or a "*"-terminated
+// prefix wildcard, plus an optional minimum trust tier. All present fields must match.
+interface EventPattern {
+  readonly kind: string;                     // "task.*" matches "task.statusChanged"
+  readonly source?: string;                  // Facet/Actor id, prefix-wildcarded
+  readonly minTrust?: TrustTier;             // reject events below this tier
+}
+
+// A PayloadMapping (and the FieldMapping used by Commands, §4.3) is an ordered list of
+// moves from source JSON-pointer paths into target paths, with optional literals.
+// It is pure data — no code — so it is validated at install and inspectable.
+type PayloadMapping = readonly FieldMove[];
+interface FieldMove {
+  readonly to: string;                       // JSON Pointer into the operation input
+  readonly from?: string;                    // JSON Pointer into the event payload
+  readonly literal?: FacetData;              // used instead of `from` for a constant
 }
 ```
 
-Routing is at-least-once with deduplication on the subscription's dedupe key. A
-scheduled automation is a Subscription from a scheduler Event (idempotency key derived
-from `(subscription, fireTime)`); a webhook automation is a Subscription from a
-verified ingress Event. Example: `{ source: "schedule.daily-report", target:
-"report.generate", dedupe: "event" }`.
+Routing is at-least-once with deduplication on the subscription's dedupe key: `event`
+dedupes on the event id, `causation` on the causing event, `payload` on the payload
+digest, `none` disables dedup. A scheduled automation is a Subscription from a
+scheduler Event (idempotency key derived from `(subscription, fireTime)`); a webhook
+automation is a Subscription from a verified ingress Event. Example:
+`{ source: { kind: "schedule.daily-report" }, target: "report.generate", dedupe: "event" }`.
 
 ### 6.3 Surface, View, ViewDelta
 
@@ -790,11 +914,27 @@ snapshot of it.
 ```ts
 interface View {
   readonly surface: SurfaceId;
-  readonly revision: Revision;
-  readonly body: ViewBody;                   // data only
+  readonly revision: Revision;               // §6.3 replay is keyed on this
+  readonly body: ViewBody;                   // JSON data only — no live handles
   readonly actions: readonly ActionDescriptor[];
-  readonly cursor: EventCursor;
+  readonly cursor: EventCursor;              // opaque resume position in the Event log
 }
+
+// ViewBody is arbitrary JSON: the rendered, data-only snapshot a client displays.
+// It contains ContentRefs and SurfaceIds, never live Facets, stubs, or credentials.
+type ViewBody = FacetData;
+
+// An ActionDescriptor declares a user action the View offers and the Event it emits
+// when invoked; the platform routes that Event to an Operation via a Subscription.
+interface ActionDescriptor {
+  readonly id: string;                       // stable within the Surface
+  readonly label: string;                    // localizable (string or i18n key)
+  readonly emits: EventKind;                 // the Event kind this action produces
+  readonly arguments?: JsonSchema;           // shape of the action's payload
+}
+
+// An EventCursor is an opaque, codec-stable position in the owning Actor's Event log.
+// A reconnecting client presents its last cursor to resume ViewDelta replay (§10.3).
 ```
 
 A View carries no live Facets, stubs, credentials, or hidden state — refs only.
@@ -1109,25 +1249,147 @@ tax with no security benefit:
 ## 11. Profiles
 
 A profile is a named, conformance-testable composition of primitives — never a new
-primitive.
+primitive. Each profile below fixes its Operations (with impacts), the Events it
+emits, its defining invariants, and the conformance obligations a claimed
+implementation MUST meet. Operation names are conventional; a platform MAY rename them
+but MUST preserve the impacts and invariants. The filesystem profile is fully
+specified here and its conformance suite is the template every other profile follows.
 
-| Profile | Composed from | Defining requirements |
-| --- | --- | --- |
-| Filesystem | Facet + Operations | strict paths, byte reads, create/replace/upsert writes, paged stat-inclusive lists, moves, receipts, stable error codes |
-| Shell | Facet + Operations + Environment | parser, command registry, stdio, filesystem boundary, cancellation, external-execution handoff |
-| Memory | Facet + Operations + prompt | canonical content, recall/remember, derived indexes, pruning |
-| Task | Facet + Operations + Surface | lifecycle, acyclic hierarchy, task-board surface, Run relations |
-| Web | Facet + Operations | request scope, URL safety, credential policy, rate/size limits; §7.1 boundary rule |
-| MCP | Facet (adapter) | tool/resource discovery → Operations, schema validation, server lifecycle, prompt bounds; targets the current MCP revision |
-| Approval gateway | provider-mode Facet + Invocation | external-resource sessions, protected mutations, approval Surfaces, receipt persistence, reconciliation (§7.4) |
-| Self | Facet + Operations over L2 | Run identity, checkpoint, message commit; spawn/finish are Operations with `delegate` impact — the Self profile flows through the Invocation membrane like any other Facet |
-| Environment | §4.5 | session lifecycle, child facets, staleness, rotation, snapshot/restore, FS durability, preview exposure, credential seam |
-| Device | Environment | pairing, transport-attached consent, typed device commands |
-| Slate | §4.6 | source, versions, deployments, dynamic-mode backend, preview-as-Environment |
-| Single-tenant | policy profile | one Principal, one Tenant; Grant/Binding ceremony collapsed to trusted-operator defaults while keeping the seams — records exist, policy auto-grants. A personal platform is a policy choice, not a different architecture. |
+### 11.1 Filesystem
 
-Each profile carries its own conformance suite; the filesystem suite is the template.
-Full per-profile specifications are the largest remaining body of work (§15).
+Operations: `read` (`observe`), `stat` (`observe`), `list` (`observe`, paged,
+stat-inclusive), `write` (`mutate`; modes create / replace / upsert), `remove`
+(`mutate`), `move` (`mutate`, same-filesystem), `mkdir` (`mutate`). Every mutating
+Operation returns a Receipt.
+
+Invariants: paths are strict (normalized, no traversal outside the root; a path
+escaping the root is a stable `path.invalid` error, never a silent clamp); reads are
+byte-ranged; writes are atomic at the path granularity; errors are a fixed, stable code
+set (`not-found`, `exists`, `not-a-directory`, `is-a-directory`, `path.invalid`,
+`too-large`), so callers can branch on codes rather than messages.
+
+Conformance: the parameterized filesystem suite, run against every backing store and
+every wrapper (readonly, observed, mount composition), asserting the code set, atomicity,
+paging with stat, and move semantics. This suite exists in the reference implementation.
+
+### 11.2 Shell
+
+Composed from Filesystem + Environment. Operations: `run` (`execute`, session-scoped →
+`direct`-tier eligible), `cancel` (`mutate`). A parser tokenizes the command line; a
+command registry resolves built-ins; unknown commands hand off to external execution
+through the Environment. stdin/stdout/stderr are streamed. The shell's filesystem
+Operations are the Filesystem profile bound to the session's `env.fs`, so the shell
+never has a second filesystem authority.
+
+Invariants: cancellation is prompt and leaves the session usable; a command that
+escapes the session's filesystem boundary fails with the filesystem code set;
+external-execution handoff is explicit (a declared command, not an implicit fallthrough).
+
+### 11.3 Memory
+
+Composed from Facet + Operations + a prompt contribution. Operations: `remember`
+(`mutate`), `recall` (`observe`), `forget` (`mutate`). Canonical content is stored once;
+derived indexes (full-text, vector, or both) are rebuildable caches over it (§8.4).
+The prompt contribution surfaces the most relevant recalled content.
+
+Invariants: `recall` never returns content the caller could not read directly (discovery
+policy, §3.4 rule 4); indexes are derived and a rebuild is never observable to a caller;
+pruning removes only content past retention, never silently drops within it.
+
+### 11.4 Task
+
+Composed from Facet + Operations + a task-board Surface. Operations: `create`
+(`mutate`), `update` (`mutate`), `list` (`observe`). Tasks form an acyclic hierarchy;
+each MAY relate to a Run. The Surface renders the board and emits `task.actionSubmitted`
+Events routed back to `update` (§6.3).
+
+Invariants: the hierarchy is acyclic (a cycle-forming `update` is rejected); status
+transitions follow the profile's declared lifecycle; a task's Run relation is a
+reference, never a copy of Run state.
+
+### 11.5 Web
+
+Operations: `fetch` (`externalSend`, per §7.1 the request crosses the trust boundary),
+`search` (`externalSend`). Reading a cached response is `observe`. URL safety
+(SSRF/allowlist), a credential policy, and rate/size limits are enforced before the
+request leaves.
+
+Invariants: no request to a disallowed host; credentials attach only per the policy;
+response size and rate are bounded; a blocked request denies rather than truncates.
+
+### 11.6 MCP
+
+An adapter Facet. Discovered MCP tools become Operations, resources become `observe`
+Operations, and prompts become prompt contributions; each is schema-validated at the
+boundary. Server lifecycle (start, health, stop) is the Facet lifecycle. Targets the
+current MCP revision; prompt contributions are bounded so a server cannot flood the
+prompt.
+
+Invariants: an MCP tool call is an ordinary Invocation and gets the tool's declared
+impact (default `externalSend` for a remote server); a malformed tool schema is
+rejected at discovery, not at call time.
+
+### 11.7 Approval gateway
+
+A provider-mode Facet (§10.2) mediating a credential-holding external resource.
+Operations: `observe` (`observe`), `applyAction` (`externalSend`, always mediated).
+Observations are authorized reads; actions are digest-bound Invocations through the
+approval continuation (§7.3). The gateway persists Receipts and reconciles indeterminate
+outcomes (§7.4), and contributes an approval Surface.
+
+Invariants (proven, `AC-PLATFORM-GATEKEEPER`): the raw credential never enters the
+agent domain on any reachable path; an `applyAction` runs only against an approved,
+digest-matching ticket, so approving one action cannot authorize a tampered one.
+
+### 11.8 Self
+
+Facet + Operations over L2. Operations: `checkpoint` (`mutate`), `commitMessage`
+(`mutate`), `spawn` (`delegate`), `finish` (`mutate`), `proposeMigration`
+(`administer`). The powerful lifecycle actions — spawning child Runs, finishing — flow
+through the Invocation membrane like any other Facet, so they get authority checks,
+receipts, and audit. `spawn` creates a child Run under attenuated Grants.
+
+Invariants: every Self Operation is lease-fenced (§5.3); `spawn`'s child authority is a
+strict attenuation of the parent's; no Self Operation bypasses mediation.
+
+### 11.9 Environment
+
+Specified in §4.5. Session lifecycle (open, use, close), session-scoped child Facets,
+stale-session failure, and rotation-without-retargeting are the base. A conforming
+Environment profile additionally specifies snapshot/restore, ephemeral-filesystem
+durability, preview exposure (an authenticated URL per exposed port), and the
+credential-isolation seam.
+
+Invariants: a stale session fails closed; closing disposes child Facets; rotation never
+retargets an open session (proven for the abstract model, `AC-ENV-001`).
+
+### 11.10 Device
+
+An Environment behind a reverse-connection transport. Adds pairing (key exchange +
+operator approval), transport-attached consent per (device × agent, fail-closed), and a
+typed device command surface (camera, location, SMS, screen, `system.run`).
+
+Invariants (proven, `AC-PLATFORM-CONSENT`): a device command executes only under live
+consent for its exact pair; absence of consent denies; revoking consent blocks a
+previously-live command; one device's consent never leaks to another.
+
+### 11.11 Slate
+
+Specified in §4.6. Operations: `update`, `commit`, `fork`, `publish` (all `mutate` on
+the Slate's own record), `deploy` (`externalSend`), `rollback` (`mutate`). Source is
+content-addressed with an immutable version history; the backend runs in the `dynamic`
+domain with zero ambient authority; live preview is an Environment Session.
+
+Invariants: a published version is immutable; a deploy is a mediated Invocation; the
+backend receives capabilities only through explicitly passed Bindings.
+
+### 11.12 Single-tenant
+
+A policy profile, not new machinery: one Principal, one Tenant, and policy that
+auto-grants an `owner` Membership so the Grant/Binding ceremony collapses to a
+trusted-operator default. The records still exist — a single-tenant platform can be
+promoted to multi-tenant by changing policy, not by rewriting. This is how a personal
+assistant (§12) is a policy choice rather than a different architecture.
 
 ---
 
@@ -1209,37 +1471,50 @@ A conforming implementation provides:
 
 A good part of the semantics in this document is machine-checked. A Lean 4 model
 under `formal/` covers the places where an informal argument is most likely to be
-subtly wrong: grant-chain attenuation and tenant isolation, revocation monotonicity
-and the bounded-window epoch rule, lease-epoch monotonicity across the Turn lifecycle,
-Event acceptance and Subscription dedup, deny-overrides precedence over the Scope
-chain, the approval continuation (digest binding, denial, and trace-level single use),
-the append-only undo-selection graph, and the tier and trust-tier derivations.
+subtly wrong. Two kinds of result live there.
+
+**Core safety theorems** — properties of the abstract model itself: grant-chain
+attenuation and tenant isolation, revocation monotonicity and the bounded-window epoch
+rule, the full lease protocol with permanent fencing, role→Grant materialization with
+guest attenuation, Event acceptance and Subscription dedup, deny-overrides precedence,
+the approval continuation (digest binding, denial, trace-level single use), the
+append-only undo/redo/merge graph, direct-tier admission, the trust-tier event boundary,
+and ViewDelta revision replay.
+
+**Platform representation results** — each of four platform mechanisms is modeled as
+its own transition system and *reduced to* the core model, so the reduction, not just
+the shape, is checked: an approval-gateway's custody and action gate (the credential
+never enters the agent domain; the gate is the §7.3 approval resume), a device-consent
+gate (consent-before-effect, fail-closed, revocable), a reaction system (at-most-once
+routing reduces to Subscription dedup), and mixture-of-agents merge lineage. These
+verify *mechanism and security boundaries*, not UX or search quality — which are not
+formalizable claims, and are not claimed.
 
 The model covers the abstract state machine; implementation correctness is a separate
 refinement obligation, tracked per requirement. `artifacts/traceability.yaml` maps
 requirements to theorems and is machine-verified against the Lean axiom report in both
 directions — every claimed theorem exists, every proven theorem is claimed, nothing
-depends on `sorry` — by `pnpm check:traceability`. Representability results (profile
-and assembly witnesses) are labeled as witnesses, distinct from safety theorems.
+depends on `sorry` — by `pnpm check:traceability`. The one profile-coverage result is
+labeled a representability witness, distinct from the safety theorems.
 
 Build it yourself: `cd packages/agent-core/formal && lake build AgentCore`.
 
 ## 15. Open questions
+
+Two of these are decisions for the author to make; the rest are implementation
+follow-ups, not gaps in the design.
 
 1. **The public name.** "Agent Core" collides with a shipping AWS product (Bedrock
    AgentCore). Undecided.
 2. **Run/Turn vocabulary.** Industry convention uses Run for one execution and
    Session or Thread for the container; Session/Run and Run/Attempt are the candidate
    alternatives. This document keeps the current names until decided.
-3. **Merge conflict semantics** for concurrent branch heads over shared Slate or tree
-   state.
-4. **Cross-tenant trust establishment** — the `verifiedVia` mechanism for guest
-   Memberships has a defined shape but no chosen protocol.
-5. **Schema artifacts lag the spec.** The JSON schemas under `artifacts/schemas/`
+3. **Schema artifacts lag the spec.** The JSON schemas under `artifacts/schemas/`
    still describe v1 shapes; until they are regenerated alongside the record codecs
    (§8.3), the shapes in this document are the normative ones.
-6. **Per-profile specifications** (§11) — the filesystem profile has a full
-   conformance suite; the others need theirs.
+4. **Per-profile conformance suites** — §11 now specifies every profile normatively,
+   and the filesystem suite exists in the reference implementation; the other suites
+   are still to be written against those specifications.
 
 ## Appendix A — Translation table *(informative)*
 
@@ -1260,7 +1535,7 @@ Build it yourself: `cd packages/agent-core/formal && lake build AgentCore`.
 
 ## Appendix B — Artifacts
 
-JSON schemas live under `artifacts/schemas/` (v1-era until regenerated — see §15.5);
+JSON schemas live under `artifacts/schemas/` (v1-era until regenerated — see §15.3);
 the implementation-manifest schema under `artifacts/`; the Lean model under `formal/`;
 generated traceability under `artifacts/traceability.yaml`. The condensed introduction
 to this project is the repository's [README](../../README.md).
