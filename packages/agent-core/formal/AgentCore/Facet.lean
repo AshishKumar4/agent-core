@@ -57,20 +57,9 @@ inductive Profile where
   | subscriptionProfile
   deriving DecidableEq, Repr
 
-inductive ReferencePlatform where
-  | gadgets
-  | seal
-  | proteus
-  deriving DecidableEq, Repr
-
 structure ProfileRequirement where
   profile : Profile
   required : List Contribution
-  deriving DecidableEq, Repr
-
-structure Assembly where
-  platform : ReferencePlatform
-  profiles : List Profile
   deriving DecidableEq, Repr
 
 def Provides (facet : Facet) (contribution : Contribution) : Prop :=
@@ -82,9 +71,6 @@ def FacetSetProvides (facets : List Facet) (contribution : Contribution) : Prop 
 def Covers (facets : List Facet) (requirement : ProfileRequirement) : Prop :=
   requirement.required.all (fun contribution =>
     facets.any (fun facet => facet.contributions.contains contribution)) = true
-
-def AssemblyCoversProfiles (assembly : Assembly) (profiles : List Profile) : Prop :=
-  profiles.all (fun profile => assembly.profiles.contains profile) = true
 
 def policyFacet : Facet := {
   name := "policy"
@@ -305,61 +291,23 @@ def requirementFor : Profile → ProfileRequirement
   | .eventProfile => eventRequirement
   | .subscriptionProfile => subscriptionRequirement
 
-def facetsFor (_profile : Profile) : List Facet :=
-  universalFacets
-
-def gadgetsProfiles : List Profile := [
-  .filesystem,
-  .slate,
-  .approvalGateway,
-  .eventProfile,
-  .subscriptionProfile,
-  .self,
-  .web
-]
-
-def sealProfiles : List Profile := [
-  .filesystem,
-  .shell,
-  .memory,
-  .task,
-  .slate,
-  .environment,
-  .mcp,
-  .approvalGateway,
-  .eventProfile,
-  .subscriptionProfile,
-  .self
-]
-
-def proteusProfiles : List Profile := [
-  .filesystem,
-  .shell,
-  .memory,
-  .task,
-  .environment,
-  .web,
-  .mcp,
-  .approvalGateway,
-  .eventProfile,
-  .subscriptionProfile,
-  .self
-]
-
-def gadgetsAssembly : Assembly := {
-  platform := .gadgets
-  profiles := gadgetsProfiles
-}
-
-def sealAssembly : Assembly := {
-  platform := .seal
-  profiles := sealProfiles
-}
-
-def proteusAssembly : Assembly := {
-  platform := .proteus
-  profiles := proteusProfiles
-}
+/-- The facets selected to realize a profile. This is a genuine per-profile
+    function: each profile names the subset of the fixed facet vocabulary that
+    supplies its required contributions. The coverage theorems below are therefore
+    statements about a real selection, not about a constant that ignores its input. -/
+def facetsFor : Profile → List Facet
+  | .filesystem => [policyFacet, promptFacet, runtimeFacet]
+  | .shell => [policyFacet, promptFacet, runtimeFacet]
+  | .memory => [policyFacet, promptFacet, slateFacet, workspaceFacet]
+  | .task => [policyFacet, promptFacet, slateFacet, workspaceFacet, orchestrationFacet]
+  | .slate => [policyFacet, promptFacet, slateFacet, workspaceFacet]
+  | .environment => [policyFacet, runtimeFacet, orchestrationFacet]
+  | .web => [policyFacet, promptFacet, integrationFacet]
+  | .mcp => [policyFacet, promptFacet, integrationFacet]
+  | .approvalGateway => [policyFacet, slateFacet, integrationFacet]
+  | .self => [policyFacet, promptFacet, orchestrationFacet]
+  | .eventProfile => [policyFacet, promptFacet]
+  | .subscriptionProfile => [policyFacet, promptFacet]
 
 def requestedContributionUniverse : List Contribution := [
   .authorityCapability,
@@ -468,89 +416,28 @@ theorem universal_facets_cover_contribution {contribution : Contribution}
       policyFacet, promptFacet, runtimeFacet, integrationFacet,
       workspaceFacet, slateFacet, orchestrationFacet] at member ⊢
 
-theorem filesystem_facets_cover :
-    Covers (facetsFor .filesystem) (requirementFor .filesystem) := by
-  rfl
-
-theorem shell_facets_cover :
-    Covers (facetsFor .shell) (requirementFor .shell) := by
-  rfl
-
-theorem memory_facets_cover :
-    Covers (facetsFor .memory) (requirementFor .memory) := by
-  rfl
-
-theorem task_facets_cover :
-    Covers (facetsFor .task) (requirementFor .task) := by
-  rfl
-
-theorem slate_facets_cover :
-    Covers (facetsFor .slate) (requirementFor .slate) := by
-  rfl
-
-theorem environment_facets_cover :
-    Covers (facetsFor .environment) (requirementFor .environment) := by
-  rfl
-
-theorem web_facets_cover :
-    Covers (facetsFor .web) (requirementFor .web) := by
-  rfl
-
-theorem mcp_facets_cover :
-    Covers (facetsFor .mcp) (requirementFor .mcp) := by
-  rfl
-
-theorem approval_gateway_facets_cover :
-    Covers (facetsFor .approvalGateway) (requirementFor .approvalGateway) := by
-  rfl
-
-theorem self_facets_cover :
-    Covers (facetsFor .self) (requirementFor .self) := by
-  rfl
-
-theorem event_facets_cover :
-    Covers (facetsFor .eventProfile) (requirementFor .eventProfile) := by
-  rfl
-
-theorem subscription_facets_cover :
-    Covers (facetsFor .subscriptionProfile) (requirementFor .subscriptionProfile) := by
-  rfl
-
-theorem reference_profiles_cover (profile : Profile) :
+/-- Every core profile's selected facets supply all of that profile's required
+    contributions. Because `facetsFor` is a genuine per-profile selection, this is a
+    real (non-vacuous) representability witness: the fixed facet vocabulary is
+    expressive enough to realize each declared profile. It is a witness, not a safety
+    theorem — it says nothing about runtime behavior or product conformance. -/
+theorem profile_facets_cover (profile : Profile) :
     Covers (facetsFor profile) (requirementFor profile) := by
   cases profile <;> rfl
 
-theorem profile_facets_cover (profile : Profile) :
-    Covers (facetsFor profile) (requirementFor profile) := by
-  exact reference_profiles_cover profile
+theorem filesystem_facets_cover :
+    Covers (facetsFor .filesystem) (requirementFor .filesystem) := profile_facets_cover _
+
+theorem approval_gateway_facets_cover :
+    Covers (facetsFor .approvalGateway) (requirementFor .approvalGateway) := profile_facets_cover _
+
+theorem self_facets_cover :
+    Covers (facetsFor .self) (requirementFor .self) := profile_facets_cover _
 
 theorem requested_contributions_representable :
     requestedContributionUniverse.all (fun contribution =>
       universalFacets.any (fun facet =>
         facet.contributions.contains contribution)) = true := by
   rfl
-
-theorem gadgets_assembly_covers :
-    AssemblyCoversProfiles gadgetsAssembly gadgetsProfiles := by
-  rfl
-
-theorem seal_assembly_covers :
-    AssemblyCoversProfiles sealAssembly sealProfiles := by
-  rfl
-
-theorem proteus_assembly_covers :
-    AssemblyCoversProfiles proteusAssembly proteusProfiles := by
-  rfl
-
-theorem reference_assemblies_cover :
-    AssemblyCoversProfiles gadgetsAssembly gadgetsProfiles ∧
-    AssemblyCoversProfiles sealAssembly sealProfiles ∧
-    AssemblyCoversProfiles proteusAssembly proteusProfiles := by
-  exact ⟨gadgets_assembly_covers, seal_assembly_covers, proteus_assembly_covers⟩
-
-theorem assembly_profile_contracts_cover (assembly : Assembly) :
-    ∀ profile, profile ∈ assembly.profiles → Covers (facetsFor profile) (requirementFor profile) := by
-  intro profile _member
-  exact profile_facets_cover profile
 
 end AgentCore.Facet

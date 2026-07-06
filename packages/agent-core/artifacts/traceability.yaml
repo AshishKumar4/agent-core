@@ -301,38 +301,162 @@ requirements:
     remainingEvidence:
       - refinement to concrete storage linearization
   AC-REPR-001:
-    summary: Representability witnesses (assemblies, profiles, MoA shapes)
-    status: enumerative-witness-not-assurance
+    summary: Profile-coverage representability witness (SPEC §11)
+    status: representability-witness
     note: >
-      These results are reflexive computations over hardcoded enumerations and
-      hypothesis repackaging. They witness that the modeled vocabulary can express
-      the listed shapes; they prove nothing about behavior and are not published as
-      assurance (SPEC §14).
+      A genuine per-profile selection (`facetsFor`) whose coverage theorems show the
+      fixed facet vocabulary is expressive enough to realize each declared profile.
+      These are representability witnesses, not safety theorems: they say nothing about
+      runtime behavior or product conformance (SPEC §14). Earlier tautological coverage
+      theorems (a constant `facetsFor` proved by rfl) and internal-codename assembly
+      theorems were removed.
+    definitions:
+      - AgentCore.Facet.facetsFor
+      - AgentCore.Facet.Covers
     theorems:
-      - AgentCore.hermes_mixture_of_agents_representable
+      - AgentCore.Facet.profile_facets_cover
       - AgentCore.Facet.filesystem_facets_cover
-      - AgentCore.Facet.shell_facets_cover
-      - AgentCore.Facet.memory_facets_cover
-      - AgentCore.Facet.task_facets_cover
-      - AgentCore.Facet.slate_facets_cover
-      - AgentCore.Facet.environment_facets_cover
-      - AgentCore.Facet.web_facets_cover
-      - AgentCore.Facet.mcp_facets_cover
       - AgentCore.Facet.approval_gateway_facets_cover
       - AgentCore.Facet.self_facets_cover
-      - AgentCore.Facet.event_facets_cover
-      - AgentCore.Facet.subscription_facets_cover
-      - AgentCore.Facet.reference_profiles_cover
-      - AgentCore.Facet.profile_facets_cover
       - AgentCore.Facet.requested_contributions_representable
-      - AgentCore.Facet.gadgets_assembly_covers
-      - AgentCore.Facet.seal_assembly_covers
-      - AgentCore.Facet.proteus_assembly_covers
-      - AgentCore.Facet.reference_assemblies_cover
-      - AgentCore.Facet.assembly_profile_contracts_cover
     remainingEvidence:
       - profile-specific semantic models
       - conformance test suites
+  AC-LEASE-001:
+    summary: The Turn lease protocol — epoch monotonicity and permanent fencing (SPEC §5.3)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Lease
+      - AgentCore.LeaseStep
+      - AgentCore.LeaseExec
+      - AgentCore.Admits
+    theorems:
+      - AgentCore.lease_epoch_monotone
+      - AgentCore.claim_advances_epoch
+      - AgentCore.reclaim_advances_epoch
+      - AgentCore.claim_requires_unheld
+      - AgentCore.fence_rejects_prior_holder
+      - AgentCore.stale_epoch_never_admitted
+      - AgentCore.exec_epoch_monotone
+      - AgentCore.exec_stale_epoch_never_admitted
+    remainingEvidence:
+      - refinement to the concrete TurnLease implementation and the owning-Actor check
+  AC-MATERIALIZE-001:
+    summary: Role to Grant materialization and guest attenuation (SPEC §3.3)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Capability
+      - AgentCore.materialize
+      - AgentCore.ScopeAuthority.assign
+    theorems:
+      - AgentCore.guest_grant_not_elevated
+      - AgentCore.guest_has_no_delegate
+      - AgentCore.guest_has_no_administer
+      - AgentCore.revoke_membership_targets_origin
+      - AgentCore.revoke_membership_spares_others
+      - AgentCore.assign_preserves_existing
+    remainingEvidence:
+      - concrete role catalog and grant issuance refinement
+  AC-MERGE-001:
+    summary: Merge commits and redo over the append-only run graph (SPEC §5.2)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.GraphCommitKind
+    theorems:
+      - AgentCore.merge_appends
+      - AgentCore.merge_requires_fenced_turn
+      - AgentCore.redo_restores_effective
+    remainingEvidence:
+      - merge conflict resolution over shared Slate/tree state
+  AC-ADMIT-001:
+    summary: Direct-tier admission and the event trust boundary (SPEC §7.2, §6.1)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.acceptsTier
+      - AgentCore.admitDirect
+    theorems:
+      - AgentCore.direct_admitted_is_bundled_and_fresh
+      - AgentCore.unbundled_never_direct
+      - AgentCore.stale_never_direct
+      - AgentCore.asserted_owner_on_external_rejected
+      - AgentCore.asserted_self_without_lease_rejected
+    remainingEvidence:
+      - integration of admission into the invocation pipeline
+  AC-VIEW-001:
+    summary: View revision discipline and ViewDelta replay (SPEC §6.3, §10.3)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.ViewState
+      - AgentCore.ViewDelta
+      - AgentCore.applyDelta
+      - AgentCore.replay
+    theorems:
+      - AgentCore.apply_requires_matching_revision
+      - AgentCore.apply_advances_revision
+      - AgentCore.replay_revision
+      - AgentCore.replay_deterministic
+    remainingEvidence:
+      - concrete patch semantics (RFC 6902) and hibernation cursor refinement
+  AC-PLATFORM-GATEKEEPER:
+    summary: Approval-gateway custody and action gate reduce to the approval continuation (SPEC §11, §7.3)
+    status: proved-in-abstract-model
+    note: >
+      A representation result about the mechanism of a connected-account gatekeeper: the
+      credential never enters the agent domain on any reachable path, and the action
+      gate is exactly the digest-bound approval resume of §7.3. It does not prove a
+      concrete gatekeeper provider correct — that is a refinement obligation.
+    definitions:
+      - AgentCore.Representation.Gatekeeper.GateState
+      - AgentCore.Representation.Gatekeeper.GateStep
+      - AgentCore.Representation.Gatekeeper.Custody
+    theorems:
+      - AgentCore.Representation.Gatekeeper.initial_custody
+      - AgentCore.Representation.Gatekeeper.step_preserves_custody
+      - AgentCore.Representation.Gatekeeper.reachable_custody
+      - AgentCore.Representation.Gatekeeper.apply_action_gate
+      - AgentCore.Representation.Gatekeeper.tampered_action_never_fires
+    remainingEvidence:
+      - refinement to a concrete provider-domain session and credential proxy
+  AC-PLATFORM-CONSENT:
+    summary: Device-consent gate — consent-before-effect, fail-closed, revocable (SPEC §4.5, §3.4 rule 5)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Representation.Consent.ConsentState
+      - AgentCore.Representation.Consent.Live
+      - AgentCore.Representation.Consent.Executes
+    theorems:
+      - AgentCore.Representation.Consent.no_grant_denies
+      - AgentCore.Representation.Consent.revoke_blocks
+      - AgentCore.Representation.Consent.grant_is_per_pair
+      - AgentCore.Representation.Consent.execute_requires_live_consent
+    remainingEvidence:
+      - refinement to the concrete reverse-tunnel transport and pairing bootstrap
+  AC-PLATFORM-REACTION:
+    summary: Reaction system — at-most-once routing and authorized delivery (SPEC §6.1, §6.2)
+    status: proved-in-abstract-model
+    note: >
+      A reaction platform's routing and idempotency reduce to the core Event/Subscription
+      firing and dedup, so it is not a separate mechanism. Mid-turn delivery is a
+      lease-fenced commit and inherits the lease guarantee (AC-LEASE-001).
+    theorems:
+      - AgentCore.Representation.Reaction.reaction_at_most_once
+      - AgentCore.Representation.Reaction.reaction_routes_authorized
+      - AgentCore.Representation.Reaction.reaction_consumes_key
+    remainingEvidence:
+      - refinement to concrete channel adapters and the reaction dispatcher
+  AC-PLATFORM-MOA:
+    summary: Mixture-of-agents orchestration — merge lineage completeness (SPEC §5.2, §12)
+    status: proved-in-abstract-model
+    definitions:
+      - AgentCore.Representation.MixtureOfAgents.Mixture
+      - AgentCore.Representation.MixtureOfAgents.MixtureRepresented
+    theorems:
+      - AgentCore.Representation.MixtureOfAgents.merge_parents_are_proposer_heads
+      - AgentCore.Representation.MixtureOfAgents.proposers_share_root
+      - AgentCore.Representation.MixtureOfAgents.mixture_is_single_run
+      - AgentCore.Representation.MixtureOfAgents.merge_has_multiple_parents
+    remainingEvidence:
+      - refinement to a concrete proposer/aggregator/judge orchestration facet
   AC-SURFACE-001:
     summary: Surface and View boundary
     status: specified-not-modeled

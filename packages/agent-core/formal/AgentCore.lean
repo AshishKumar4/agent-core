@@ -9,3 +9,11 @@ import AgentCore.Proofs.Reachability
 import AgentCore.Examples
 import AgentCore.Facet
 import AgentCore.Axioms
+
+import AgentCore.Representation.Gatekeeper
+import AgentCore.Representation.Consent
+import AgentCore.Representation.Reaction
+import AgentCore.Representation.MixtureOfAgents
+import AgentCore.Materialization
+import AgentCore.Lease
+import AgentCore.View

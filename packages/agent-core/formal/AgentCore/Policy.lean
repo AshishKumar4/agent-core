@@ -156,4 +156,68 @@ theorem ingress_never_self {request provenance}
       rw [noLease] at this
       cases this
 
+/-! ### The event trust boundary (SPEC §6.1)
+
+A Facet supplies raw provenance and *asserts* a tier; the host accepts the event only
+when the asserted tier equals the tier the host would derive. An assertion that does not
+match provenance is rejected. -/
+
+/-- The host accepts an asserted tier only if it matches the derived tier. -/
+def acceptsTier (provenance : Provenance) (asserted : TrustTier) : Prop :=
+  asserted = deriveTier provenance
+
+/-- **An `owner` assertion on external provenance is rejected.** Unverified,
+    non-executor provenance derives `external`, so asserting `owner` over it fails the
+    boundary check — a compromised channel adapter cannot escalate to owner. -/
+theorem asserted_owner_on_external_rejected {provenance}
+    (unverified : provenance.verified = false)
+    (noLease : provenance.byExecutorWithLease = false) :
+    ¬ acceptsTier provenance .owner := by
+  unfold acceptsTier
+  rw [unverified_is_external unverified noLease]
+  intro h; cases h
+
+/-- **A `self` assertion without a lease is rejected.** `self` is derivable only for a
+    lease-fenced executor emission; provenance without a lease never derives `self`, so
+    asserting it fails — channel input cannot impersonate agent-caused intent. -/
+theorem asserted_self_without_lease_rejected {provenance}
+    (noLease : provenance.byExecutorWithLease = false) :
+    ¬ acceptsTier provenance .self := by
+  unfold acceptsTier
+  intro h
+  have := self_requires_lease h.symm
+  rw [noLease] at this
+  cases this
+
+/-! ### Direct-tier admission (SPEC §7.2, §3.4)
+
+A `direct`-tier call is admitted only when the facet is bundled with the lease owner and
+the resolution stamp is fresh. Both conditions are necessary. -/
+
+/-- A direct call is admitted iff its effective tier is `direct` and its resolution
+    stamp is fresh (SPEC §3.4: `direct` runs against the turn-start stamp). -/
+def admitDirect (bundled fresh : Bool) (impact : InvocationImpact) (sessionScoped : Bool) : Prop :=
+  effectiveTier bundled impact sessionScoped = .direct ∧ fresh = true
+
+/-- **A `direct` admission implies bundled and fresh.** -/
+theorem direct_admitted_is_bundled_and_fresh {bundled fresh impact sessionScoped}
+    (admitted : admitDirect bundled fresh impact sessionScoped) :
+    bundled = true ∧ fresh = true :=
+  ⟨direct_requires_colocation admitted.1, admitted.2⟩
+
+/-- **An unbundled facet is never `direct`.** Whatever the impact and session scope, a
+    facet not co-located with the lease owner resolves to `mediated`. -/
+theorem unbundled_never_direct (impact : InvocationImpact) (sessionScoped : Bool) :
+    effectiveTier false impact sessionScoped = .mediated := by
+  unfold effectiveTier
+  cases h : defaultTier impact sessionScoped <;> simp [h]
+
+/-- **A stale stamp is never admitted `direct`.** Even a bundled facet's direct call is
+    refused if its resolution stamp is not fresh (SPEC §3.4 rule 5) — the call
+    escalates to mediated, which revalidates on the durable path. -/
+theorem stale_never_direct (bundled impact sessionScoped) :
+    ¬ admitDirect bundled false impact sessionScoped := by
+  intro admitted
+  cases admitted.2
+
 end AgentCore

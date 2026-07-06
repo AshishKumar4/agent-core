@@ -12,6 +12,7 @@ namespace AgentCore
 inductive GraphCommitKind where
   | normal
   | undo (selects : CommitId)
+  | merge (parents : List CommitId)
   deriving DecidableEq, Repr
 
 structure GraphCommit where
@@ -46,6 +47,7 @@ def BranchState.effective (state : BranchState) : Option CommitId :=
       match state.commits id with
       | some ⟨_, .undo selects⟩ => some selects
       | some ⟨_, .normal⟩ => some id
+      | some ⟨_, .merge _⟩ => some id
       | none => none
 
 def BranchState.append (state : BranchState) (id : CommitId) (commit : GraphCommit) :
@@ -57,6 +59,7 @@ def BranchState.append (state : BranchState) (id : CommitId) (commit : GraphComm
 inductive GraphLabel where
   | append (id : CommitId)
   | undo (id : CommitId) (selects : CommitId)
+  | merge (id : CommitId) (parents : List CommitId)
   | fence
   deriving DecidableEq, Repr
 
@@ -70,6 +73,11 @@ inductive GraphStep : BranchState → GraphLabel → BranchState → Prop
       Ancestor state selects head →
       state.leaseHeld = false →
       GraphStep state (.undo id selects) (state.append id ⟨state.head, .undo selects⟩)
+  | merge {state id parents} :
+      state.commits id = none →
+      2 ≤ parents.length →
+      state.leaseHeld = false →
+      GraphStep state (.merge id parents) (state.append id ⟨state.head, .merge parents⟩)
   | fence {state} :
       GraphStep state .fence { state with leaseHeld := false }
 
@@ -86,6 +94,12 @@ theorem step_preserves_commits {state after label id commit}
       · next eq => rw [eq] at lookup; rw [lookup] at empty; cases empty
       · exact lookup
   | @undo id' _ _ empty _ _ _ =>
+      unfold BranchState.append
+      dsimp only
+      split
+      · next eq => rw [eq] at lookup; rw [lookup] at empty; cases empty
+      · exact lookup
+  | @merge id' _ empty _ _ =>
       unfold BranchState.append
       dsimp only
       split
@@ -179,5 +193,40 @@ theorem undo_effective_is_ancestor {state after id selects}
         (append_lookup_self state id ⟨state.head, .undo selects⟩)
         headEq'
         (append_ancestor_mono empty ancestor')
+
+/-! ### Merge commits (SPEC §5.2) -/
+
+/-- **A merge appends a multi-parent commit.** A merge records two or more parents, is
+    added without rewriting anything, and advances the head to itself — the sibling
+    aggregation of SPEC §5.2. -/
+theorem merge_appends {state after id parents}
+    (step : GraphStep state (.merge id parents) after) :
+    2 ≤ parents.length ∧
+    after.commits id = some ⟨state.head, .merge parents⟩ ∧
+    after.head = some id := by
+  cases step with
+  | @merge _ _ empty twoPlus _ =>
+      refine ⟨twoPlus, ?_, ?_⟩
+      · exact append_lookup_self state id ⟨state.head, .merge parents⟩
+      · unfold BranchState.append; simp
+
+/-- **A merge against a held lease is rejected.** Like undo, a merge that would rewrite
+    a branch whose Turn still holds its lease cannot proceed until the Turn is fenced
+    (SPEC §5.3). -/
+theorem merge_requires_fenced_turn {state after id parents}
+    (held : state.leaseHeld = true) :
+    ¬ GraphStep state (.merge id parents) after := by
+  intro step
+  cases step with
+  | merge _ _ free => rw [held] at free; cases free
+
+/-- **Redo restores the effective state.** A redo is mechanically an undo commit that
+    selects the previously-effective commit; after it, that commit is once again the
+    branch's effective state. This is the reversibility half of the pending-revert
+    interval in SPEC §5.2. -/
+theorem redo_restores_effective {state after id target}
+    (step : GraphStep state (.undo id target) after) :
+    after.effective = some target :=
+  (undo_appends_and_selects step).2.2
 
 end AgentCore
