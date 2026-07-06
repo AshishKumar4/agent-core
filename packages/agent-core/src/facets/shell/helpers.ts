@@ -190,7 +190,7 @@ export interface WalkFilterOptions {
 	 * First-segment names to skip entirely. Any entry whose path starts with
 	 * `${name}/` (or whose full path equals `${name}`) is excluded along with
 	 * its subtree. Used by broad-search commands to avoid RPC-heavy mounts
-	 * (e.g. Seal's `sandbox/`) on implicit-root walks. Each unique excluded
+	 * (e.g. a container-backed `sandbox/` mount) on implicit-root walks. Each unique excluded
 	 * mount name fires `onExcludeMount` once so callers can emit a single
 	 * stderr advisory per command invocation.
 	 */

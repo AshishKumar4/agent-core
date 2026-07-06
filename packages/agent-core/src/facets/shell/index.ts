@@ -18,7 +18,7 @@ export interface ShellOptions {
 	signal?: AbortSignal;
 	/**
 	 * Top-level mount names whose recursive traversal is RPC-backed (e.g. a
-	 * container-filesystem mount in Seal). Broad-search commands (`grep -r`,
+	 * container-filesystem mount). Broad-search commands (`grep -r`,
 	 * `find`, `tree`, `ls -R`, `cp -r`) silently skip these paths ONLY when
 	 * the command's root is implicit (`.` or omitted) so the agent doesn't
 	 * inadvertently flood the RPC boundary. An explicit path (e.g.

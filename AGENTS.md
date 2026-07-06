@@ -96,9 +96,13 @@ reaches into another's internals — only through its `index.ts` exports.
 | `src/slates` | Slate records, versions, deployments (§4.6) | frontend frameworks |
 | `src/actors` | the Actor primitive and fencing (§8.1) | Durable Object specifics |
 | `src/operations` | OperationContext and observability helpers | the Operation primitive |
-| `src/definition` | Package, Blueprint, the materializer (§9) | runtime execution |
-| `src/protocol` | command envelopes and the dispatcher (§8.5) | domain logic |
+| `src/definition` *(planned)* | Package, Blueprint, the materializer (§9) | runtime execution |
+| `src/protocol` *(planned)* | command envelopes and the dispatcher (§8.5) | domain logic |
 | `src/substrates/*` | concrete adapters (sqlite today; `cloudflare` as its own package later) | core policy |
+
+Contexts marked *(planned)* do not exist yet; create them when you implement that
+layer. The rest exist and are the reference. Cross-context imports use `import type`
+for types wherever possible and go through the target's `index.ts`, never a deep path.
 
 ## Object design
 
@@ -106,6 +110,17 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
 
 - **Identifiers** are branded classes extending `TextId` with constructor-validated
   invariants (`src/core/id.ts`). Never pass raw strings across a context boundary.
+  Identity is by type and value: `equals` checks `this.constructor === other.constructor`
+  and the value — two ids with the same string but different classes are not equal.
+- **Domain concepts are smart value objects, not bare enums or primitives.** The
+  dominant idiom in this codebase, and the one to reach for first: an abstract base
+  class, `static` factory getters/methods for each case, and small private subclasses
+  that carry the behavior — `WriteMode.create/replace/upsert` each with its own
+  `validate`, `ReadRange.all/from/slice` each with its own `read`, `RunStatus`/
+  `TurnStatus` each with their own transition methods. This keeps the illegal cases
+  unrepresentable and the behavior next to the data, instead of scattering `switch`
+  statements across the codebase. A concept modeled as a string union that callers
+  branch on is usually asking to be one of these.
 - **Durable records are immutable classes**: `readonly` fields, constructors that
   validate shape (`TypeError` on violation), and private `transition`/`revise` helpers
   that return new instances (see `Run`, `Turn`, `Invocation`). Records never own live
@@ -190,3 +205,64 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
   If a piece is unimplemented, it should be absent, not fake.
 - New abstractions must pass the deletion test: if inlining it at the call sites would
   be clearer, do not add it. Prefer extending an existing context over creating one.
+
+## A worked example: the shape of everything
+
+This is the pattern every record and operation follows. A domain concept modeled as a
+smart value object, an immutable record that transitions rather than mutates, and an
+operation that declares its impact and returns through the pipeline — nothing here is
+special-cased, and new work should read like it.
+
+```ts
+// value.ts — a smart value object: abstract base, static factories, behavior in cases
+export abstract class Visibility {
+  public static get private(): Visibility { return privateVisibility; }
+  public static get shared(): Visibility { return sharedVisibility; }
+  public abstract canRead(subject: SubjectRef): boolean;
+  public equals(other: Visibility): boolean { return this === other; }
+}
+class Private extends Visibility { public canRead(): boolean { return false; } }
+class Shared  extends Visibility { public canRead(): boolean { return true; } }
+const privateVisibility = new Private();
+const sharedVisibility = new Shared();
+
+// note.ts — an immutable record: readonly fields, validate in the constructor,
+// transition helpers return new instances, never mutate.
+export class Note {
+  public constructor(
+    public readonly id: NoteId,
+    public readonly content: ContentRef,
+    public readonly visibility: Visibility,
+    public readonly revision: Revision,
+  ) {}
+
+  public share(): Note {
+    return new Note(this.id, this.content, Visibility.shared, this.revision.next());
+  }
+}
+
+// A codec lives beside the record (§8.3): NoteCodec.encode/decode with a version tag,
+// tolerant-read within a major, typed rejection of unknown majors. A record without one
+// is unfinished.
+```
+
+An operation declares its impact and does the work; the pipeline (§7) adds authority,
+tiering, approval, receipt, and audit around it — the handler never reaches for those
+itself:
+
+```ts
+class ShareNoteHandler extends FacetOperationHandler<ShareInput, FacetData> {
+  public constructor(private readonly notes: NoteStore) { super(); }
+  public async execute(_ctx: OperationContext, input: ShareInput): Promise<FacetData> {
+    const note = (await this.notes.load(input.noteId)).share();  // mutate = returns new
+    await this.notes.save(note);
+    return { noteId: note.id.value, visibility: "shared" };
+  }
+}
+// registered with its impact, so policy can tier it:
+operation("note.share", "Share a note.", "mutate", new ShareNoteHandler(store))
+```
+
+The store (`NoteStore`) is an **interface** with a memory reference implementation used
+by tests and a substrate implementation under `src/substrates/`; the handler depends on
+the interface, never on a concrete backend.
