@@ -1,0 +1,27 @@
+{
+  "edition": "1.0.0",
+  "owner": "W6",
+  "kind": "exports",
+  "requests": [
+    {
+      "specifier": "@agent-core/core/invocations",
+      "symbol": "INVOCATION_CONTEXT_EXPORTS",
+      "kind": "context-barrel-manifest",
+      "spec": "7,8.3-8.4",
+      "tests": [
+        "test/invocations/barrel.test.ts#invocation context barrel exports the complete W6 runtime API",
+        "test/integration-consumer/invocations.test.ts#packed NodeNext consumer exposes the W6 invocation context manifest"
+      ]
+    },
+    {
+      "specifier": "@agent-core/core",
+      "symbol": "INVOCATION_CONTEXT_EXPORTS",
+      "kind": "root-aggregate-manifest",
+      "spec": "7,8.3-8.4",
+      "tests": [
+        "test/invocations/barrel.test.ts#invocation context barrel exports the complete W6 runtime API",
+        "test/integration-consumer/invocations.test.ts#packed NodeNext consumer exposes the W6 invocation root aggregate manifest"
+      ]
+    }
+  ]
+}

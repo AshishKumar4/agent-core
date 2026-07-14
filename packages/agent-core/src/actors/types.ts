@@ -1,34 +1,64 @@
-import { TextId } from "../core";
+import { isExactActorId, type ActorId } from "./id";
 
-export class ActorId extends TextId {
-    public constructor(value: string) {
-        super(value, "Actor ID");
+export type ActorKind = "tenant" | "workspace" | "run" | "environment" | "slate";
+
+export class ActorRef {
+    public readonly kind: ActorKind;
+    public readonly id: ActorId;
+
+    public constructor(kind: ActorKind, id: ActorId) {
+        if (!isActorKind(kind) || !isExactActorId(id)) {
+            throw new TypeError("Actor reference requires a valid kind and exact Actor ID");
+        }
+        this.kind = kind;
+        this.id = id;
+        Object.freeze(this);
     }
+
+    public equals(other: ActorRef): boolean {
+        return this.kind === other.kind && this.id.equals(other.id);
+    }
+}
+
+function isActorKind(value: unknown): value is ActorKind {
+    return (
+        value === "tenant" ||
+        value === "workspace" ||
+        value === "run" ||
+        value === "environment" ||
+        value === "slate"
+    );
 }
 
 export class ActorFence {
     public constructor(
-        public readonly actorId: ActorId,
+        public readonly actor: ActorRef,
         public readonly epoch: number
     ) {
         if (!Number.isSafeInteger(epoch) || epoch < 0) {
             throw new TypeError("Actor fence epoch must be a non-negative safe integer");
         }
+        Object.freeze(this);
     }
 
-    public matches(actorId: ActorId, epoch: number): boolean {
-        return this.actorId.equals(actorId) && this.epoch === epoch;
+    public matches(actor: ActorRef, epoch: number): boolean {
+        return this.actor.equals(actor) && this.epoch === epoch;
     }
 }
 
-export type TransactionOperation<TTransaction, TResult> = (
-    transaction: TTransaction
-) => TResult | Promise<TResult>;
+export type TransactionOperation<TTransaction, TResult> = (transaction: TTransaction) => TResult;
 
 export type ActorCommand<TTransaction, TResult> = TransactionOperation<TTransaction, TResult>;
 
+export type SynchronousResultGuard<TResult> = [Extract<TResult, PromiseLike<unknown>>] extends [
+    never
+]
+    ? []
+    : [error: "Actor transaction callbacks must be synchronous"];
+
 export interface TransactionalStore<TTransaction> {
     transaction<TResult>(
-        operation: TransactionOperation<TTransaction, TResult>
-    ): Promise<TResult>;
+        operation: TransactionOperation<TTransaction, TResult>,
+        ...guard: SynchronousResultGuard<TResult>
+    ): TResult;
 }

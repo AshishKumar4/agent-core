@@ -1,0 +1,342 @@
+{
+  "edition": "1.0.0",
+  "owner": "W3",
+  "records": [
+    {
+      "symbol": "BoundOperationRef",
+      "kind": "facet.bound-operation-ref",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/operation.ts#BoundOperationRef",
+      "codec": "src/facets/operation.ts#BoundOperationRef.codec",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.bound-operation-ref] [facet.operation-ref] covers strict W3 declaration constructor and codec branches"
+      ]
+    },
+    {
+      "symbol": "FacetOperationRef",
+      "kind": "facet.operation-ref",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/operation.ts#FacetOperationRef",
+      "codec": "src/facets/operation.ts#FacetOperationRef.codec",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.bound-operation-ref] [facet.operation-ref] covers strict W3 declaration constructor and codec branches"
+      ]
+    },
+    {
+      "symbol": "McpDiscoveryRegistration",
+      "kind": "facet.mcp-discovery-registration",
+      "durability": "durable",
+      "ownerActor": "facet-host-actor",
+      "source": "src/facets/mcp/facet.ts#McpDiscoveryRegistration",
+      "codec": "src/facets/mcp/facet.ts#McpDiscoveryRegistration.encode",
+      "store": "src/facets/mcp/facet.ts#MemoryMcpDiscoveryRegistrationStore",
+      "tests": [
+        "test/profiles/facets/mcp.test.ts#MCP protected lifecycle and durable operation registration [P11-MCP-ADAPTER] [P11-MCP-TOOLS] [facet.mcp-discovery-registration] restores validated immutable operation registration without rediscovery"
+      ]
+    },
+    {
+      "symbol": "Automation",
+      "kind": "facet.automation",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/automation.ts#Automation",
+      "codec": "src/facets/automation.ts#Automation.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "CapabilitySpec",
+      "kind": "authority.capability-spec",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/capability.ts#CapabilitySpec",
+      "codec": "src/facets/capability.ts#CapabilitySpec.codec",
+      "store": null,
+      "tests": [
+        "test/authority/hard-gates.test.ts#canonical capability hard gates [C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths"
+      ]
+    },
+    {
+      "symbol": "Command",
+      "kind": "facet.command",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/command.ts#Command",
+      "codec": "src/facets/command.ts#Command.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "Contribution",
+      "kind": "facet.contribution",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/contribution.ts#Contribution",
+      "codec": "src/facets/contribution.ts#Contribution.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "Contributions",
+      "kind": "facet.contributions",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/contribution.ts#Contributions",
+      "codec": "src/facets/contribution.ts#Contributions.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "OperationDescriptor",
+      "kind": "facet.operation-descriptor",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/contribution.ts#OperationDescriptor",
+      "codec": "src/facets/contribution.ts#OperationDescriptor.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "SurfaceDescriptor",
+      "kind": "facet.surface-descriptor",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/contribution.ts#SurfaceDescriptor",
+      "codec": "src/facets/contribution.ts#SurfaceDescriptor.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "EventDeclaration",
+      "kind": "facet.event-declaration",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/event.ts#EventDeclaration",
+      "codec": "src/facets/event.ts#EventDeclaration.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "EventPattern",
+      "kind": "facet.event-pattern",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/event.ts#EventPattern",
+      "codec": "src/facets/event.ts#EventPattern.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "IngressDeclaration",
+      "kind": "facet.ingress-declaration",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/event.ts#IngressDeclaration",
+      "codec": "src/facets/event.ts#IngressDeclaration.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "IngressVerification",
+      "kind": "facet.ingress-verification",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/event.ts#IngressVerification",
+      "codec": "src/facets/event.ts#IngressVerification.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "InterceptorDeclaration",
+      "kind": "facet.interceptor-declaration",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/interceptor.ts#InterceptorDeclaration",
+      "codec": "src/facets/interceptor.ts#InterceptorDeclaration.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "BindingRequirement",
+      "kind": "facet.binding-requirement",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/manifest.ts#BindingRequirement",
+      "codec": "src/facets/manifest.ts#BindingRequirement.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "FacetManifest",
+      "kind": "facet.manifest",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/manifest.ts#FacetManifest",
+      "codec": "src/facets/manifest.ts#FacetManifest.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "FieldMapping",
+      "kind": "facet.field-mapping",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/mapping.ts#FieldMapping",
+      "codec": "src/facets/mapping.ts#FieldMapping.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "FieldMove",
+      "kind": "facet.field-move",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/mapping.ts#FieldMove",
+      "codec": "src/facets/mapping.ts#FieldMove.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "OperationPattern",
+      "kind": "facet.operation-pattern",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/mapping.ts#OperationPattern",
+      "codec": "src/facets/mapping.ts#OperationPattern.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "OperationSelector",
+      "kind": "facet.operation-selector",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/mapping.ts#OperationSelector",
+      "codec": "src/facets/mapping.ts#OperationSelector.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "PayloadMapping",
+      "kind": "facet.payload-mapping",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/mapping.ts#PayloadMapping",
+      "codec": "src/facets/mapping.ts#PayloadMapping.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "ProvenanceMapping",
+      "kind": "facet.provenance-mapping",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/mapping.ts#ProvenanceMapping",
+      "codec": "src/facets/mapping.ts#ProvenanceMapping.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "Prompt",
+      "kind": "facet.prompt",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/prompt.ts#Prompt",
+      "codec": "src/facets/prompt.ts#Prompt.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "PromptContribution",
+      "kind": "facet.prompt-contribution",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/prompt.ts#PromptContribution",
+      "codec": "src/facets/prompt.ts#PromptContribution.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "SlotEntry",
+      "kind": "facet.slot-entry",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/slot-entry.ts#SlotEntry",
+      "codec": "src/facets/slot-entry.ts#SlotEntry.codec",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.slot-entry] preserves SlotEntry golden bytes and round-trips immutable canonical data"
+      ]
+    },
+    {
+      "symbol": "SlotAuthorityPolicy",
+      "kind": "facet.slot-authority-policy",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/slot.ts#SlotAuthorityPolicy",
+      "codec": "src/facets/slot.ts#SlotAuthorityPolicy.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    },
+    {
+      "symbol": "SlotDeclaration",
+      "kind": "facet.slot-declaration",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/slot.ts#SlotDeclaration",
+      "codec": "src/facets/slot.ts#SlotDeclaration.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
+      ]
+    }
+  ]
+}

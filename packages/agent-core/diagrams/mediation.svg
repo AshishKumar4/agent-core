@@ -15,8 +15,8 @@
   <text x="142" y="127" font-size="11px" fill="#5A6472" text-anchor="middle">+ event trust tier</text>
 
   <rect x="284" y="88" width="130" height="56" rx="8" fill="#F0F2F5" stroke="#97A1AE"/>
-  <text x="349" y="111" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">defaults</text>
-  <text x="349" y="127" font-size="11px" fill="#5A6472" text-anchor="middle">per impact</text>
+  <text x="349" y="111" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">floors</text>
+  <text x="349" y="127" font-size="11px" fill="#5A6472" text-anchor="middle">policy only tightens</text>
   <line x1="232" y1="116" x2="282" y2="116" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
 
   <rect x="472" y="60" width="176" height="52" rx="8" fill="#FFFFFF" stroke="#97A1AE"/>
@@ -27,7 +27,7 @@
 
   <rect x="694" y="60" width="140" height="52" rx="8" fill="#E9F5F2" stroke="#5FA99B"/>
   <text x="764" y="81" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">direct</text>
-  <text x="764" y="97" font-size="11px" fill="#5A6472" text-anchor="middle">in-memory checks</text>
+  <text x="764" y="97" font-size="11px" fill="#5A6472" text-anchor="middle">bypasses durable evidence</text>
   <line x1="648" y1="86" x2="692" y2="86" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
   <text x="660" y="78" font-size="11px" fill="#3D4654">yes</text>
 
@@ -40,33 +40,36 @@
   <path d="M600,112 C 630,132 660,144 692,152" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
   <text x="596" y="128" font-size="11px" fill="#3D4654">no</text>
 
-  <!-- approval continuation -->
+  <!-- prepared invocation and approval -->
   <rect x="30" y="230" width="820" height="216" fill="#FFFFFF" stroke="#E3E6EB" rx="12"/>
-  <text x="48" y="252" font-size="11px" fill="#8A93A1" letter-spacing=".08em">THE APPROVAL CONTINUATION · §7.3</text>
+  <text x="48" y="252" font-size="11px" fill="#8A93A1" letter-spacing=".08em">MEDIATED ONLY · APPROVAL CONDITIONAL · §7.3–§7.4</text>
 
   <rect x="52" y="284" width="150" height="54" rx="8" fill="#FBF3E4" stroke="#C9A15E"/>
-  <text x="127" y="306" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Pending</text>
-  <text x="127" y="322" font-size="11px" fill="#5A6472" text-anchor="middle">digest-bound, persisted</text>
+  <text x="127" y="306" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">PreparedInvocation</text>
+  <text x="127" y="322" font-size="11px" fill="#5A6472" text-anchor="middle">header | separate payload</text>
 
   <rect x="292" y="284" width="140" height="54" rx="8" fill="#E9F5F2" stroke="#5FA99B"/>
-  <text x="362" y="306" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Approved</text>
-  <text x="362" y="322" font-size="11px" fill="#5A6472" text-anchor="middle">survives process death</text>
+  <text x="362" y="306" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">[Approval]</text>
+  <text x="362" y="322" font-size="11px" fill="#5A6472" text-anchor="middle">single-use whole digest</text>
   <line x1="202" y1="311" x2="290" y2="311" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="220" y="302" font-size="10.5px" fill="#7A8494">if required</text>
 
   <rect x="668" y="284" width="160" height="54" rx="8" fill="#F9ECEF" stroke="#C88A9A"/>
-  <text x="748" y="306" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Consumed</text>
-  <text x="748" y="322" font-size="11px" fill="#5A6472" text-anchor="middle">Receipt · Audit · Event</text>
+  <text x="748" y="306" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Evidence</text>
+  <text x="748" y="322" font-size="11px" fill="#5A6472" text-anchor="middle">Attempt? · Receipt · local Audit</text>
   <line x1="432" y1="311" x2="666" y2="311" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
-  <text x="440" y="290" font-size="11px" fill="#3D4654">resume — revalidate Grant · Binding · lease</text>
-  <text x="440" y="304" font-size="11px" fill="#3D4654">epoch · revocation epoch · digest — execute</text>
+  <path d="M202,326 C 360,360 520,360 666,326" stroke="#9AA3B0" stroke-width="1.1" fill="none" marker-end="url(#a)" stroke-dasharray="5 4"/>
+  <text x="390" y="362" font-size="10.5px" fill="#7A8494">no approval floor</text>
+  <text x="440" y="290" font-size="11px" fill="#3D4654">optional token; absent → authenticated domain owner</text>
+  <text x="440" y="304" font-size="11px" fill="#3D4654">preexisting local cause · current epochs · whole digest</text>
 
   <rect x="52" y="382" width="210" height="42" rx="8" fill="#FDF5F7" stroke="#C88A9A"/>
-  <text x="157" y="408" font-size="11px" fill="#5A6472" text-anchor="middle">denied → denied Receipt</text>
+  <text x="157" y="408" font-size="11px" fill="#5A6472" text-anchor="middle">deniedPreEffect · no attempt</text>
   <path d="M110,338 L120,380" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
   <rect x="292" y="382" width="230" height="42" rx="8" fill="#FDF5F7" stroke="#C88A9A"/>
-  <text x="407" y="408" font-size="11px" fill="#5A6472" text-anchor="middle">expired → cancelled Receipt</text>
+  <text x="407" y="408" font-size="11px" fill="#5A6472" text-anchor="middle">cancelledPreEffect · no attempt</text>
   <path d="M180,338 C 220,368 260,382 300,392" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
 
-  <text x="560" y="402" font-size="11px" fill="#3D4654">single use: a consumed approval can never</text>
-  <text x="560" y="417" font-size="11px" fill="#3D4654">resume again (a proven property of the model)</text>
+  <text x="560" y="402" font-size="11px" fill="#3D4654">attempted Receipts cite immutable EffectAttemptId;</text>
+  <text x="560" y="417" font-size="11px" fill="#3D4654">indeterminate → one final supersession</text>
 </svg>

@@ -1,0 +1,224 @@
+{
+  "edition": "1.0.0",
+  "owner": "W5",
+  "records": [
+    {
+      "symbol": "ForcedTurnCancellation",
+      "kind": "run.forced-turn-cancellation",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/forced-cancellation.ts#ForcedTurnCancellation",
+      "codec": "src/agents/runs/forced-cancellation.ts#ForcedTurnCancellation.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/forced-cancellation.test.ts#ForcedTurnCancellation record [run.forced-turn-cancellation] round-trips every exact evidence identity and fence epoch",
+        "test/agents/runs/forced-cancellation.test.ts#ForcedTurnCancellation record [run.forced-turn-cancellation] persists immutably through memory snapshot restart and rejects identity conflict",
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [run.forced-turn-cancellation] survives file-backed close and reopen with owner and bytes intact"
+      ]
+    },
+    {
+      "symbol": "AgentRevisionRecord",
+      "kind": "agent.revision",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/source.ts#AgentRevisionRecord",
+      "codec": "src/agents/source.ts#AgentRevisionRecord.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records"
+      ]
+    },
+    {
+      "symbol": "AgentPolicyRevisionRecord",
+      "kind": "agent.policy-revision",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/source.ts#AgentPolicyRevisionRecord",
+      "codec": "src/agents/source.ts#AgentPolicyRevisionRecord.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records"
+      ]
+    },
+    {
+      "symbol": "ModelPolicyRevisionRecord",
+      "kind": "agent.model-revision",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/source.ts#ModelPolicyRevisionRecord",
+      "codec": "src/agents/source.ts#ModelPolicyRevisionRecord.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records"
+      ]
+    },
+    {
+      "symbol": "RunPins",
+      "kind": "run.pins",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/runs/pins.ts#RunPins",
+      "codec": "src/agents/runs/pins.ts#RunPins.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "RunConfigurationSnapshot",
+      "kind": "run.configuration-snapshot",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/pins.ts#RunConfigurationSnapshot",
+      "codec": "src/agents/runs/pins.ts#RunConfigurationSnapshot.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "RunCommit",
+      "kind": "run.commit",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/commit.ts#RunCommit",
+      "codec": "src/agents/runs/commit.ts#RunCommit.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "Run",
+      "kind": "run.record",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/run.ts#Run",
+      "codec": "src/agents/runs/run.ts#Run.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "RunBranch",
+      "kind": "run.branch",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/run.ts#RunBranch",
+      "codec": "src/agents/runs/run.ts#RunBranch.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "Turn",
+      "kind": "turn.record",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/turn.ts#Turn",
+      "codec": "src/agents/runs/turn.ts#Turn.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "TurnPlacementSnapshot",
+      "kind": "turn.placement-snapshot",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/placement.ts#TurnPlacementSnapshot",
+      "codec": "src/agents/runs/placement.ts#TurnPlacementSnapshot.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "RunCheckpoint",
+      "kind": "run.checkpoint",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/turn.ts#RunCheckpoint",
+      "codec": "src/agents/runs/turn.ts#RunCheckpoint.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "TurnInboxEntry",
+      "kind": "turn.inbox-entry",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/turn.ts#TurnInboxEntry",
+      "codec": "src/agents/runs/turn.ts#TurnInboxEntry.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "RunAdmissionRegistry",
+      "kind": "run.admission-registry",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/admission.ts#RunAdmissionRegistry",
+      "codec": "src/agents/runs/admission.ts#RunAdmissionRegistry.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "SettlementObligation",
+      "kind": "run.settlement-obligation",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/runs/settlement.ts#SettlementObligation",
+      "codec": "src/agents/runs/settlement.ts#SettlementObligation.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "TerminalSnapshot",
+      "kind": "run.terminal-snapshot",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/runs/settlement.ts#TerminalSnapshot",
+      "codec": "src/agents/runs/settlement.ts#TerminalSnapshot.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "SpawnReservation",
+      "kind": "run.spawn-reservation",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/spawn.ts#SpawnReservation",
+      "codec": "src/agents/runs/spawn.ts#SpawnReservation.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "TurnLease",
+      "kind": "turn-lease",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/runs/lease.ts#TurnLease",
+      "codec": "src/agents/runs/lease.ts#TurnLease.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/lease.test.ts#TurnLease [turn-lease] round-trips held and fenced leases through the canonical codec"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "edition": "1.0.0",
+  "evidenceNodes": ["coverage", "exports"],
+  "nodes": {
+    "format": [],
+    "lint": [],
+    "core-declarations": [],
+    "types": ["core-declarations"],
+    "dag": [],
+    "governance": [],
+    "scope": ["governance"],
+    "imports": [],
+    "records": ["tests"],
+    "requests": [],
+    "seams": ["tests"],
+    "migrations": ["tests"],
+    "architecture": [],
+    "tests": ["types", "dag", "scope", "imports", "requests", "architecture"],
+    "coverage": ["tests"],
+    "agents": ["tests"],
+    "invariants": ["dag", "scope", "imports", "records", "seams", "coverage", "agents"],
+    "ledger": ["invariants"],
+    "build": ["types"],
+    "exports": ["build"],
+    "traceability": [],
+    "integration": ["build", "tests", "coverage", "exports"],
+    "conformance": ["ledger", "migrations", "architecture", "integration"],
+    "building-attestation": [
+      "format",
+      "governance",
+      "lint",
+      "scope",
+      "migrations",
+      "coverage",
+      "agents",
+      "exports",
+      "integration",
+      "ledger",
+      "traceability"
+    ],
+    "attestation": [
+      "format",
+      "governance",
+      "lint",
+      "scope",
+      "imports",
+      "records",
+      "requests",
+      "seams",
+      "migrations",
+      "coverage",
+      "agents",
+      "exports",
+      "traceability",
+      "conformance"
+    ]
+  },
+  "stages": {
+    "building": ["building-attestation"],
+    "final": ["attestation"]
+  }
+}

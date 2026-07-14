@@ -1,0 +1,5480 @@
+{
+  "edition": "1.0.0",
+  "owner": "W0-seed",
+  "requirements": [
+    {
+      "id": "C13-ADV-ADMITTED-SIBLING",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-ADMITTED-SIBLING",
+      "specTextSha256": "sha256:899f8ebce5cb35a52a0af22ef2b31d656bb104a78ce9297c54b677df858f2204",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-APPROVAL-REPLAY",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-APPROVAL-REPLAY",
+      "specTextSha256": "sha256:267526fd33ceaf1250e7efef5b4ec52957ffde0b6874472128c1d3b28f15f2fc",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-CACHE-LOSS",
+      "owner": "W0",
+      "specAnchor": "C13-ADV-CACHE-LOSS",
+      "specTextSha256": "sha256:deb106456ec87ab4a45f4696e4bab7d065ce3545e635a39937723642a2e4eb4d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-CHANGED-ITEM-KEY",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-CHANGED-ITEM-KEY",
+      "specTextSha256": "sha256:4a7e1a5137ed5ce2bbb4bd8a1ee8ed2cc26c640249693e2bf007809fc40305aa",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-COMMAND-REJECTIONS",
+      "owner": "W1",
+      "specAnchor": "C13-ADV-COMMAND-REJECTIONS",
+      "specTextSha256": "sha256:1c91fabba1ef86b01e936edfa9f94afd16e21c8a0f386bb7db9f9f2cbe2e8015",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-COMPETING-CLAIMS",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-COMPETING-CLAIMS",
+      "specTextSha256": "sha256:f2bf224f42d3ddd3b369c10cd82bcf22b5a81db00bc06f318c6d8f0a6965c732",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-DELAYED-WATERMARK",
+      "owner": "W2",
+      "specAnchor": "C13-ADV-DELAYED-WATERMARK",
+      "specTextSha256": "sha256:bff616f1a46d0290893b91a6f3ccfd685e0368e1f34fd48cfcf52102f098b9c4",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-DUPLICATE-ROUTE",
+      "owner": "W7",
+      "specAnchor": "C13-ADV-DUPLICATE-ROUTE",
+      "specTextSha256": "sha256:64dbf182a186666601b3195d26848ea26ca8c3955b83aae43a2b20a0a1335dc7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-EARLY-AGGREGATE",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-EARLY-AGGREGATE",
+      "specTextSha256": "sha256:ae9d14a81a383458756e12dbee3757c4030552120c7b585684a7f4fd6d256ed6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-EMPTY-BATCH",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-EMPTY-BATCH",
+      "specTextSha256": "sha256:68aa08a4ec7e32d1b84571d2177ee1c05e51ea4a6d42d098d79b69aef9b9dea4",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-EMPTY-PLACEMENT",
+      "owner": "W4",
+      "specAnchor": "C13-ADV-EMPTY-PLACEMENT",
+      "specTextSha256": "sha256:fa91b059007276909c928df0d26bcb099254f951e467bf407465bdbb9440c5a5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-FORGED-INITIATOR",
+      "owner": "W7",
+      "specAnchor": "C13-ADV-FORGED-INITIATOR",
+      "specTextSha256": "sha256:b727a7963e31af899969f37ac35a97d63b3a5732e1476cbca60bf2ba08b1c2a2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-HOSTILE-TIER",
+      "owner": "W7",
+      "specAnchor": "C13-ADV-HOSTILE-TIER",
+      "specTextSha256": "sha256:6da27759c9a4dba3fe5bf2da3e066677fea64efe74452343579593fe1f4ddbee",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-IMMUTABLE-DEADLINE",
+      "owner": "W2",
+      "specAnchor": "C13-ADV-IMMUTABLE-DEADLINE",
+      "specTextSha256": "sha256:322a8a45587b927defe0fe6cf530b096ca40611e8fbe65cc61fe1bccee7e0202",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-INCOMPLETE-PACKAGE-CLOSURE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-INCOMPLETE-PACKAGE-CLOSURE",
+      "specTextSha256": "sha256:efe03833e40129009db1adec245a548042e443c182c4a327e2c228dd6be066e4",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-MEDIATED-STALE",
+      "owner": "W2",
+      "specAnchor": "C13-ADV-MEDIATED-STALE",
+      "specTextSha256": "sha256:96bdcfef71d88dbf656a603915c7887f5ce724d075a27d1a3aef59f0ccdd6ebb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-MISSING-CROSS-TENANT-BINDING",
+      "owner": "W7",
+      "specAnchor": "C13-ADV-MISSING-CROSS-TENANT-BINDING",
+      "specTextSha256": "sha256:40a3e3e0940e3881d577df8ab458d8f2cc3a0eea1a96259e1d759b2400ddbbf2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-NEW-DENY",
+      "owner": "W2",
+      "specAnchor": "C13-ADV-NEW-DENY",
+      "specTextSha256": "sha256:558477eb8b76365a7cd819d9dfc5726f4960a27389845d1ff265d5e8b9721bcb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-NONBINARY-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-NONBINARY-MERGE",
+      "specTextSha256": "sha256:3e3b6f2b958433fd31c9e31ada78092355954c73622132d5b2dcc302af14e369",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-NONFUTURE-CLAIM",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-NONFUTURE-CLAIM",
+      "specTextSha256": "sha256:deeed303ae8a6e8e9f091fbe7b6b36a2cabdc698e6492b6556e8ca82d64f272b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-NONHOMOGENEOUS-BATCH",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-NONHOMOGENEOUS-BATCH",
+      "specTextSha256": "sha256:d9b2d686e7fbd1966149914d125326861addcb5d2cf5d67a8744e1088a848e6e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-NONPREEXISTING-AUDIT",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-NONPREEXISTING-AUDIT",
+      "specTextSha256": "sha256:7c01745f3f320cb00bfc225e79c1af2da55441bd5e18f19f04c88e47bbb39d77",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-OMITTED-TRUST-SET",
+      "owner": "W7",
+      "specAnchor": "C13-ADV-OMITTED-TRUST-SET",
+      "specTextSha256": "sha256:0d8e7cb2462b89d560544a1e5fac4c2d713d8a73bc948f8512e827b303c62a68",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-POST-ATTEMPT-RECOVERY",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-POST-ATTEMPT-RECOVERY",
+      "specTextSha256": "sha256:60993ae2dd81e5b6d2e9cd72c7f88951fba9a7fd5a422db7358aa6d3c9427da6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-POST-FENCE-SYSTEM-EVIDENCE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-FENCE-SYSTEM-EVIDENCE",
+      "specTextSha256": "sha256:062b598cb829bb6a6ede5f52abc1d8bf529558aa23d62e43aa539a3cf7b22fc8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-POST-PREPARATION-INTERCEPTOR",
+      "owner": "W3",
+      "specAnchor": "C13-ADV-POST-PREPARATION-INTERCEPTOR",
+      "specTextSha256": "sha256:0ce875a21bef453c91cdcff24a1c6f4242f35de7620bce54990299dafb608a76",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-POST-TERMINAL-CONTROL",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-TERMINAL-CONTROL",
+      "specTextSha256": "sha256:401ae01931a17c6f04653159c32af38f57862162e2be9479e858a8b269e31ee7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-POST-TERMINAL-PREPARATION",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-TERMINAL-PREPARATION",
+      "specTextSha256": "sha256:f2920a970cda64f5dd91184ca0b069abca5f034ad6ed0952221816bfbebaf8d1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-POST-TERMINAL-ROUTE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-TERMINAL-ROUTE",
+      "specTextSha256": "sha256:93e54c54ae2a9b7fc2bb079a27e82a5b4508bcf371b11a4cb38e58f9b7a14560",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-PREMATURE-RECOVERY",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-PREMATURE-RECOVERY",
+      "specTextSha256": "sha256:c99f40b90e446dc2ac326910b3236859754bf58dcd855980cd86e67c86a8466d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECEIPT-AGGREGATE",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECEIPT-AGGREGATE",
+      "specTextSha256": "sha256:029c9361d1ea5786346e88021c3ed217e197dfb64f21cddc63c6877f1c4a886a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECEIPT-CANCELLED",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECEIPT-CANCELLED",
+      "specTextSha256": "sha256:3314c35cc95c3904d2f8018294093a18355772cc5f7590c5ca7ac671daf1ddbe",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECEIPT-DENIED",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECEIPT-DENIED",
+      "specTextSha256": "sha256:2a20460f480ae79a2fe2fb3ddde78c3b96ca4a025005055e10529ccefee537f6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECEIPT-FAILED",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECEIPT-FAILED",
+      "specTextSha256": "sha256:5ca83704eeee381fd77036ed49c516b7bf2b133e52249e3d25ebc837b72258a3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECEIPT-INDETERMINATE",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECEIPT-INDETERMINATE",
+      "specTextSha256": "sha256:7bc6ebc72f02f809972575f541cc67141db8fc54c5b24f6cbbc6477b3940815a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECEIPT-SUCCEEDED",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECEIPT-SUCCEEDED",
+      "specTextSha256": "sha256:e75ac5363240f9407557a8563b2977d29ee8bd6764c4c96c1b077b7460e621fb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECEIPT-SUPERSESSION",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECEIPT-SUPERSESSION",
+      "specTextSha256": "sha256:450462879eebd80c1ffcb207c90f10262b76956f93b8807eaebb8bca5177bd67",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-RECOVERY-ORDINAL",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-RECOVERY-ORDINAL",
+      "specTextSha256": "sha256:9253ee9f91bba3ae001088562ec90e3508d6ac2969306b35e439aa9ec2a0d731",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-REORDERED-INTENT",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-REORDERED-INTENT",
+      "specTextSha256": "sha256:fa82de08a72e3d123cc86b582361256724f1eea7338be6fa1c815607773b3b27",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-REVOKED-ALLOW",
+      "owner": "W2",
+      "specAnchor": "C13-ADV-REVOKED-ALLOW",
+      "specTextSha256": "sha256:a27f5ac9d75c778642d216536562839dbfd04c672d97eaeeeaadf9635578beac",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-STALE-LEASE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-STALE-LEASE",
+      "specTextSha256": "sha256:593ce99bdc2992136e5847ea433af3a7cdd2faf86ad2b04a6e50aa77e4d4818a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-STALE-RECOVERY-OWNER",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-STALE-RECOVERY-OWNER",
+      "specTextSha256": "sha256:aabb47ba0a85fa4056f1baf2704341f488cebc007da760c31e206e0daf91255f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-STRUCTURAL-INTENT-CHANGE",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-STRUCTURAL-INTENT-CHANGE",
+      "specTextSha256": "sha256:7dbbdf31c2615ea7511b6fe9b9d4e6f30adacc0490eac2373726499a3fc99837",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-SUBSTITUTED-INITIATOR",
+      "owner": "W7",
+      "specAnchor": "C13-ADV-SUBSTITUTED-INITIATOR",
+      "specTextSha256": "sha256:603ee6c666728a649a7c3d34e0ced7868e43071c9f3494cf946c874788ec7001",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-SUPPLIED-ITEM-KEY",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-SUPPLIED-ITEM-KEY",
+      "specTextSha256": "sha256:508894d3e2123b738beaf917b20bd62b537b16d99dad7a06a645d7b30defe489",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-TURN-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-TURN-MERGE",
+      "specTextSha256": "sha256:c96823bb27c75631503527aa4428bdbdd519ce71727d06c03b500c7ba8d87f40",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-UNAUTHENTICATED-PROJECTION",
+      "owner": "W7",
+      "specAnchor": "C13-ADV-UNAUTHENTICATED-PROJECTION",
+      "specTextSha256": "sha256:d7dd07bf0249b204347ce7a7c32985944464d6b282142064d2a34f0f0db496ae",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-UNAUTHORIZED-SLOT",
+      "owner": "W3",
+      "specAnchor": "C13-ADV-UNAUTHORIZED-SLOT",
+      "specTextSha256": "sha256:d1965d49603dab9d0a0832ceabf11505376abdbaebe59503249bdf8e3f9fc858",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-UNAUTHORIZED-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-UNAUTHORIZED-WRITER",
+      "specTextSha256": "sha256:d1617fc328f6ba2d6a004f56a34e81a7aceab29310bfe12907284073dce6aff9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT",
+      "specTextSha256": "sha256:b12ca4d5f4bbee2081c45363178c325c10235df6c1e2704df076a4afeb8d29d0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-UNCHANGED-RECOVERY-OWNER",
+      "owner": "W6",
+      "specAnchor": "C13-ADV-UNCHANGED-RECOVERY-OWNER",
+      "specTextSha256": "sha256:7ea7d179a075011017aad9b4ebcfdd50fc079527b058662c4520a9ba097ade07",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-UNEQUAL-PIN-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-UNEQUAL-PIN-MERGE",
+      "specTextSha256": "sha256:eb23027c0e8bc53c7b96eb9fa6f03848b34955e0d06ef15514b7e98b3c44c274",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ADV-WRONG-TURN-LEASE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-WRONG-TURN-LEASE",
+      "specTextSha256": "sha256:829bd1718ed1fa7751af8a189ef3509c2a959af36e93b0200b8f3922d161ed86",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ATTEMPT-ORDINAL-AFTER-FAILURE",
+      "owner": "W6",
+      "specAnchor": "C13-ATTEMPT-ORDINAL-AFTER-FAILURE",
+      "specTextSha256": "sha256:609033b397ff546567e06309a2b8e661ea6a69433e095ee3a9adad3c3a1ed884",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUDIT-APPEND-ONLY",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-APPEND-ONLY",
+      "specTextSha256": "sha256:e625da5af6d930041c9ff85093f9909a2f24cca13a296664df0ea182f54e735a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUDIT-EDGE-RELATION",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-EDGE-RELATION",
+      "specTextSha256": "sha256:0649e5133d084cdd3c499690f730b0ceb2054b0790599a1ad03dcb8cbdb2dabd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUDIT-PREEXISTING-CAUSE",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-PREEXISTING-CAUSE",
+      "specTextSha256": "sha256:aa7c81d741f2b28666c4c1db5b08b96dbe6a74957439332c5ee4f731fe0cc23c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUDIT-RECEIPT-OUTCOMES",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-RECEIPT-OUTCOMES",
+      "specTextSha256": "sha256:f4e72a5f3f10f833d4f31043a86b2e22ecb23716fae0a71961bec00c88321db2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUDIT-ROUTE-BRIDGE",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-ROUTE-BRIDGE",
+      "specTextSha256": "sha256:ebc3289cded46516d1a61a7f857c3e8a29f21cd5adf307d5f00ca88261e81c46",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUDIT-SETTLED-OBLIGATION",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-SETTLED-OBLIGATION",
+      "specTextSha256": "sha256:da4ad8edc4634a444aaad53f34f1c4551566e3b0acd47371153ea511ac3e9dc7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUDIT-SYSTEM-WRITER",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-SYSTEM-WRITER",
+      "specTextSha256": "sha256:143fdd0a5965a0ad27c6b9d25efa5d3582de1e34c5c614de084ab465f5f8ecfd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-BINDING-RESOLUTION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-BINDING-RESOLUTION",
+      "specTextSha256": "sha256:39d23e804aa147c08a268b2a0a2d8472d511fb3ed23714fef4177027aab1b554",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-DENY-PATH",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-DENY-PATH",
+      "specTextSha256": "sha256:3ffe3609d306e3ae6605911e972e9f422589eab302fad5795af189be20aaf236",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-DENY-PRECEDENCE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-DENY-PRECEDENCE",
+      "specTextSha256": "sha256:483a8027d6bb1b9084e0cdcfa0317eb41c08fe5ea9fbc07820528062d9423cfd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-DIRECT-DEADLINE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-DIRECT-DEADLINE",
+      "specTextSha256": "sha256:fe7420c20fc9a051555c0461bd6fa81fb890c1d5198a1de56acd25a1feddee52",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-DIRECT-LEASE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-DIRECT-LEASE",
+      "specTextSha256": "sha256:97bee9bbac899542139125fffc7be358834f86265def339785ebf64059157b90",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-DIRECT-SUBJECT",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-DIRECT-SUBJECT",
+      "specTextSha256": "sha256:d684c31ef21318fe3d60fb3d5a5c6a0c2672e40aa7947753dd95c9d60dfb9ff6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-DIRECT-WATERMARK",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-DIRECT-WATERMARK",
+      "specTextSha256": "sha256:d118a9a907abe5aee3076d3abed2cfeaa800843a4f81dd06178d4335393ada6e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-EPOCH-ADVANCEMENT",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-EPOCH-ADVANCEMENT",
+      "specTextSha256": "sha256:f301377ed6476de98a2613ea30f3d645d6e53a59376110eb751e9d96d2a8cba0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-GUEST-ELEVATION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-GUEST-ELEVATION",
+      "specTextSha256": "sha256:ff657fa78256bc9ede3e5c76b9a360cbce8a15118d3553a9d3908fecfe973d2a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-GUEST-SUBJECT",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-GUEST-SUBJECT",
+      "specTextSha256": "sha256:65ce465c8bf7ea4152916c87170b1c2326537196590cb8c5fd7d4ca729407329",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-MEDIATED-ADMISSION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",
+      "specTextSha256": "sha256:83b9f393db4e29ca47fa6611d447de3e3d56bce41d61e811766877fd3392345e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-MEDIATED-STALE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-MEDIATED-STALE",
+      "specTextSha256": "sha256:83b9f393db4e29ca47fa6611d447de3e3d56bce41d61e811766877fd3392345e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-PATH-EVIDENCE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-PATH-EVIDENCE",
+      "specTextSha256": "sha256:c69e2b8de81c63d42bb2fce158ebf55d5e3fd5fa5674cb4c1853930abcb76f60",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-PATH-ORDER",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-PATH-ORDER",
+      "specTextSha256": "sha256:149400fd03440427b2925005e6ec980281acce02d306676a13fbd8ae8e1322e7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-PLANE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-PLANE",
+      "specTextSha256": "sha256:e6003dccb470010a11df76cacc7be09cef3edfffcc88f0283f520052c22a229f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-PRINCIPAL-REF",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-PRINCIPAL-REF",
+      "specTextSha256": "sha256:ada6218fb2cf27037eb1311f84131fc60876b2497601ae1cce2526dbe6d143e8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-ROLE-MATERIALIZATION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-ROLE-MATERIALIZATION",
+      "specTextSha256": "sha256:3ba9ee9f4625a4db6be0077570b7eba85a302d3ba4176ea25807dbb0e30c1f4e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-TEAM-SUBJECT",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-TEAM-SUBJECT",
+      "specTextSha256": "sha256:6eb053f7a61a552245702f1a9ac26ffea1a1d4039425bd0c3e9f0b966b030fa4",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-WATERMARK-MONOTONE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-WATERMARK-MONOTONE",
+      "specTextSha256": "sha256:8c0d8a7eeb9c01fddc4bc381e967c40bfcc1918bf421676f242c6dbe9684d061",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-BATCH-OUTCOME-COMPLETE",
+      "owner": "W6",
+      "specAnchor": "C13-BATCH-OUTCOME-COMPLETE",
+      "specTextSha256": "sha256:b7584f7422ce3c58a8de7c5370cdc63adda0f508fd25aa39e48fa4c2e786ed21",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-BATCH-OUTCOME-TERMINAL",
+      "owner": "W6",
+      "specAnchor": "C13-BATCH-OUTCOME-TERMINAL",
+      "specTextSha256": "sha256:5d8f5314a5a7b30dafbda3da1b37d62688e82f6c23b6de3adeac13a24af176fa",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-BLUEPRINT-REMATERIALIZE",
+      "owner": "W4",
+      "specAnchor": "C13-BLUEPRINT-REMATERIALIZE",
+      "specTextSha256": "sha256:24c2e693a4af5f20d29a29d1223479fef91705c6ac9953775a25d50a249ff189",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-BLUEPRINT-RUN-PINS",
+      "owner": "W4",
+      "specAnchor": "C13-BLUEPRINT-RUN-PINS",
+      "specTextSha256": "sha256:02a893734d7a62ff01191edec5a872ec2a68e7152d50d41a62798607500bd70c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+      "owner": "W4",
+      "specAnchor": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+      "specTextSha256": "sha256:c63014a32d2617e3a63590c3e26f7bc275f0bcf008cdeb0448593a9fe0381fc0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLAIM-FUTURE-EXPIRY",
+      "owner": "W6",
+      "specAnchor": "C13-CLAIM-FUTURE-EXPIRY",
+      "specTextSha256": "sha256:e454a1db378909d86caa54e6a6668e274de8ddf6b2f77985ece90c7d19dbce98",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLAIM-INITIAL-ATOMIC",
+      "owner": "W6",
+      "specAnchor": "C13-CLAIM-INITIAL-ATOMIC",
+      "specTextSha256": "sha256:5098db298fdb2144cb78dab0a5b696d387558e8d7ed68437210e48cd99213224",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLAIM-RECOVERY-FUTURE-EXPIRY",
+      "owner": "W6",
+      "specAnchor": "C13-CLAIM-RECOVERY-FUTURE-EXPIRY",
+      "specTextSha256": "sha256:81363106d0b5ddcddfb905b6c5bfa7e703cfba5177e2fd3bb5f8346124cbaa85",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLAIM-RECOVERY-NEW-OWNER",
+      "owner": "W6",
+      "specAnchor": "C13-CLAIM-RECOVERY-NEW-OWNER",
+      "specTextSha256": "sha256:c0ab3fea5f1045e55f335536afbb033a0d465c4ea58bcadf41b142cec93fbe64",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLAIM-RECOVERY-NO-ATTEMPT",
+      "owner": "W6",
+      "specAnchor": "C13-CLAIM-RECOVERY-NO-ATTEMPT",
+      "specTextSha256": "sha256:372c55c673a799589074b5777fa3311d40fcbcaa56ea25ce7d1129e6a4cee980",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLAIM-RECOVERY-SAME-ORDINAL",
+      "owner": "W6",
+      "specAnchor": "C13-CLAIM-RECOVERY-SAME-ORDINAL",
+      "specTextSha256": "sha256:16c842f0d77b3f40c9c546656f1612bbc54557bf62519a4422bfa14cab94cc47",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
+      "specTextSha256": "sha256:53f5e9fc29614895da006f4b4532a4bff19a1dc8e02f12788f34583473cc31dd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
+      "specTextSha256": "sha256:53f5e9fc29614895da006f4b4532a4bff19a1dc8e02f12788f34583473cc31dd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CODEC-VERSIONING",
+      "owner": "W1",
+      "specAnchor": "C13-CODEC-VERSIONING",
+      "specTextSha256": "sha256:db347fce47b9f8152a6c4e5f25ac8dd394e19789e2c39ac8385cca23b52a18b5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-COMMAND-ARGUMENT-BINDING",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-ARGUMENT-BINDING",
+      "specTextSha256": "sha256:501db9361554afdc3a6e9c8f9a4f8ce6a4dfb197c373ae049bcf08fe0b115d12",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-COMMAND-COLLISION",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-COLLISION",
+      "specTextSha256": "sha256:939dde511c260374e733c00f50d01f290301c7ee5d97079377b2214e7cec3b2c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-COMMAND-INSTALL-MAPPING",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-INSTALL-MAPPING",
+      "specTextSha256": "sha256:cfa185f26f989414b3606d699ad048492f934904bafdbea957a504da1ea71755",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-COMMAND-RESULT",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-RESULT",
+      "specTextSha256": "sha256:9cfd78270dcb530e8b4a4e313b8dc90a1cbfc77e7d5d2ea15bd6ff5998734b22",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-COMMAND-SUBSCRIPTION-DEFAULTS",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-SUBSCRIPTION-DEFAULTS",
+      "specTextSha256": "sha256:87356c8eb6e84df6c094500ad778307f1171211fe1b0972c029f9b37dc658abf",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CONFIG-SECRET-REF",
+      "owner": "W4",
+      "specAnchor": "C13-CONFIG-SECRET-REF",
+      "specTextSha256": "sha256:62bf9cf98ec65a399e38c14ab6d1bdeaace4c96105746d18023c2f51325d7b90",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CONTENT-RESOLUTION",
+      "owner": "W1",
+      "specAnchor": "C13-CONTENT-RESOLUTION",
+      "specTextSha256": "sha256:70080ca902cbfb631950d321227bb8e583f128db7ee7dbbbe68dfc2f416232e8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-EFFECT-ATTEMPT-IMMUTABLE",
+      "owner": "W6",
+      "specAnchor": "C13-EFFECT-ATTEMPT-IMMUTABLE",
+      "specTextSha256": "sha256:40d2e7d13e77fcd1d7d5a726fe4010ad96db8d45d0f214cd075e2218bea0cb28",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-EFFECT-IDEMPOTENCY",
+      "owner": "W6",
+      "specAnchor": "C13-EFFECT-IDEMPOTENCY",
+      "specTextSha256": "sha256:0a3091c0031caa93e771f0b302c2f26c7844c18d66dfc13e84e8384a2702922e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-EFFECT-RECONCILIATION",
+      "owner": "W6",
+      "specAnchor": "C13-EFFECT-RECONCILIATION",
+      "specTextSha256": "sha256:7dbbb2c4d9c52c76cfe7efbf37885d9f65a1e38ac5d1a60b996fa208d7dc7201",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-EFFECT-RECONCILIATION-DRIVER",
+      "owner": "W6",
+      "specAnchor": "C13-EFFECT-RECONCILIATION-DRIVER",
+      "specTextSha256": "sha256:c77d3a8dc758635d819b0ece6db52ee347d4a425dd1db890d9916e2efb7e25b7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-EFFECT-SUPERSEDING-RECEIPT",
+      "owner": "W6",
+      "specAnchor": "C13-EFFECT-SUPERSEDING-RECEIPT",
+      "specTextSha256": "sha256:16e24d81f0d33a3e6aa08954628a1d94da4c4c8cd190ace25921496302021dc2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-EFFECT-WRITE-AHEAD",
+      "owner": "W6",
+      "specAnchor": "C13-EFFECT-WRITE-AHEAD",
+      "specTextSha256": "sha256:54a6cb91c73957733f39c0b585dca3fc398dbcf24395ae0d464aed926e8bf074",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ENVIRONMENT-DISPOSE-CLOSE",
+      "owner": "W8",
+      "specAnchor": "C13-ENVIRONMENT-DISPOSE-CLOSE",
+      "specTextSha256": "sha256:1e61e9b95de75108ddbcaff105fe5e1828515b41b39b57236702e151c2b001ed",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ENVIRONMENT-ROTATION",
+      "owner": "W8",
+      "specAnchor": "C13-ENVIRONMENT-ROTATION",
+      "specTextSha256": "sha256:e12e8cafe5a69ded719044c88cbc19b2b72d1862159a1aa21ae7d50dee9bb7f1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ENVIRONMENT-STALE-SESSION",
+      "owner": "W8",
+      "specAnchor": "C13-ENVIRONMENT-STALE-SESSION",
+      "specTextSha256": "sha256:cdf689900c052b79b4e016051d0cbd2c3fb483ebb0b1fa6ab4fbe914f628e1ae",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
+      "specTextSha256": "sha256:24b61eee1bb919234b5c0400a995a867e6203e4df364e8dc8097d17903f0f88f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-FACET-MANIFEST",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-MANIFEST",
+      "specTextSha256": "sha256:fc67d792035e31bff8dd0d78e62a445cb24d8642e4003fa5c6bea392a7bd2bf9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-FACET-REF-CANONICAL",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-REF-CANONICAL",
+      "specTextSha256": "sha256:7795ad273055316bd20e51de7a057102222a07e0774f880f815e9f092dd30636",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-FACET-SLOT-AUTHORITY",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-SLOT-AUTHORITY",
+      "specTextSha256": "sha256:1009c05445fcf6f965e20026be8578abd4642bd0e05be69a9d5e58105f129eaf",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-FACET-SLOT-VISIBILITY",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-SLOT-VISIBILITY",
+      "specTextSha256": "sha256:6e8a0a4486deadb58f8b113812cb32be51c0faa18fa8348e51208a15ffa114e5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-ATTRIBUTION",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-ATTRIBUTION",
+      "specTextSha256": "sha256:90d34373dfad90f82504cd2069eb9b398a57cea21c736270bd8bb01512d32f17",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-CROSS-FACET",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-CROSS-FACET",
+      "specTextSha256": "sha256:edc6171cebcf332992847529b36c54504676d02137b492811e942c0ebc368771",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-FROZEN-RETRY",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-FROZEN-RETRY",
+      "specTextSha256": "sha256:2212b0830a8fb6936c24cf39ee06f4ca4fa45125b85b4da21bb417854d75eccc",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-ORDER",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-ORDER",
+      "specTextSha256": "sha256:efaa89dbdf92bf0e71eda8fb9a0f849891f1af91104a4db2a72cc3051fae0d9e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-REPLAY",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-REPLAY",
+      "specTextSha256": "sha256:f08009da49c1d99197e8b060779566d25a4ff326f49770e53fc2b87afffb3558",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-SELF-SCOPE",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-SELF-SCOPE",
+      "specTextSha256": "sha256:7fda97d23891d3144f0079f229cc298b40f2753d55a0a662dde1be3e759ddd57",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-THROW-BLOCK",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-THROW-BLOCK",
+      "specTextSha256": "sha256:da39558f51ff7b9bb8ee03ed057980c47b3a76797ab6732081cfbdbf71a50ad9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-OWNERSHIP-MAP",
+      "owner": "W0",
+      "specAnchor": "C13-OWNERSHIP-MAP",
+      "specTextSha256": "sha256:b0a446eb5731bfc995f51161584f933046402741a4c9bfe0044187fedf75c932",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PLACEMENT-EMPTY",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-EMPTY",
+      "specTextSha256": "sha256:e8bba373c592b862247b43e3912803f0f317f7557b44f0cfbdb1fd884192a3d4",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PLACEMENT-INTERSECTION",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-INTERSECTION",
+      "specTextSha256": "sha256:7792aad0c34b456981f9934caf6c3a29f7120916dcdca1d6fd66f5f12ae89c1a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PLACEMENT-ORDER",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-ORDER",
+      "specTextSha256": "sha256:e55c0a160933455879b52935bb9f82e4d8b8ba095cc533549b23ee6ba3afb881",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PLACEMENT-UNTRUSTED-BUNDLED",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-UNTRUSTED-BUNDLED",
+      "specTextSha256": "sha256:71d0eb2975f6052ab5af869a9d303bb6b6799da8cd172e352ff6039f78f060de",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-POLICY-APPROVAL-FLOOR",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-APPROVAL-FLOOR",
+      "specTextSha256": "sha256:993a5ebac824b91f1732b3496583f7a752506e74d9561affb02545967ccb3d99",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-POLICY-DIRECT-COLOCATION",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-DIRECT-COLOCATION",
+      "specTextSha256": "sha256:d2006c6ccd2e98dc60e0ab35d06f252691bf5fc35ac31d880cced5e8d8370fd1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-POLICY-DIRECT-ESCALATION",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-DIRECT-ESCALATION",
+      "specTextSha256": "sha256:9187db4f59f64f4ceb11478a13347bb0f25ced1076b0bc0c6f584dde24d288de",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-POLICY-EPOCH-RECHECK",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-EPOCH-RECHECK",
+      "specTextSha256": "sha256:5db97aedd6cc13d3a92d4352f2610582ce1ac78313e1345a2dd619cbdbfb3b4e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-POLICY-MEDIATION-FLOOR",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-MEDIATION-FLOOR",
+      "specTextSha256": "sha256:4764175261848895fe9dcbc11b9656f1aa7fb7ae9357420ebfd4f982f5dd6184",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-APPROVAL-BINDING",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-APPROVAL-BINDING",
+      "specTextSha256": "sha256:74cb61d0368381a14955a71dee6726dc894cd1f7258fbcabd0779839a340668a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-APPROVAL-CONTINUATION",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-APPROVAL-CONTINUATION",
+      "specTextSha256": "sha256:afe90cc1ecb6737f8d66d58bbc769b18f613c8a961417f2e8125c4e1831dc46b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-APPROVAL-FIRST-ATTEMPT",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-APPROVAL-FIRST-ATTEMPT",
+      "specTextSha256": "sha256:afe90cc1ecb6737f8d66d58bbc769b18f613c8a961417f2e8125c4e1831dc46b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-APPROVAL-SINGLE-USE",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-APPROVAL-SINGLE-USE",
+      "specTextSha256": "sha256:42b24d7cd50498d0ad292c19aa649b3b908d3d37123d450f8c316b4dd1f346c6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-APPROVAL-UNIQUE",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-APPROVAL-UNIQUE",
+      "specTextSha256": "sha256:fcac307ed2996bb9270327b6e0fd598288d12daefcf4037de5962e7c15035851",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-CONTINUATION-ABSENT",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-CONTINUATION-ABSENT",
+      "specTextSha256": "sha256:fcac307ed2996bb9270327b6e0fd598288d12daefcf4037de5962e7c15035851",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-ITEM-KEYS",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-ITEM-KEYS",
+      "specTextSha256": "sha256:95a50b737c99b6dc2f8c2dea626a0d81c992807a6f08fc98aaf58a683e226b49",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-NO-TURN-AUDIT",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-NO-TURN-AUDIT",
+      "specTextSha256": "sha256:9ef345b4e44318ab6809c057a24ce89240b51a47e3d1878d3724c105b636cbce",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-NO-TURN-OWNER",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-NO-TURN-OWNER",
+      "specTextSha256": "sha256:a9c84d312dfae9a68c4fc76c9cbb7d9b82d15be0b7055c3e6684c2277fe9db4d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-OPTIONAL-LEASE",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-OPTIONAL-LEASE",
+      "specTextSha256": "sha256:2ddbfda964c109d6c4408c819bab8d1626c32180243de825e1f0d9dbb6aa18c3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-PAYLOAD-SHAPE",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-PAYLOAD-SHAPE",
+      "specTextSha256": "sha256:9433de5133dadd00ac8e754d003a6d6d46470a53f053b9bde9aae03a15504cfb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-REPLAY-IDENTITY",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-REPLAY-IDENTITY",
+      "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-REPLAY-POST",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-REPLAY-POST",
+      "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-REPLAY-PRE",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-REPLAY-PRE",
+      "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-ROUTED-PROJECTION",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-ROUTED-PROJECTION",
+      "specTextSha256": "sha256:a3fc4272ce8bc9f77c307aeb8dbbb0f3d457d4ce8ebc1287a6d75821d3b3c4a3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-SHARED-HEADER",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-SHARED-HEADER",
+      "specTextSha256": "sha256:1c7b5665fe623ad3c1fc70960abe34f7f9628a202cb53d7c9c0eab8319138444",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PREPARED-WHOLE-DIGEST",
+      "owner": "W6",
+      "specAnchor": "C13-PREPARED-WHOLE-DIGEST",
+      "specTextSha256": "sha256:486b059133044b8fc7299879332b798423c909cfd3866c1d6b8129fac5066da3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PROFILE-SOURCE-EVENT-CAUSALITY",
+      "owner": "W8",
+      "specAnchor": "C13-PROFILE-SOURCE-EVENT-CAUSALITY",
+      "specTextSha256": "sha256:a1e9a381283bfec069a0e886ed6fffebb551d7703e9320c5c02891ffe2de62c1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PROTOCOL-ATOMIC-EVIDENCE",
+      "owner": "W1",
+      "specAnchor": "C13-PROTOCOL-ATOMIC-EVIDENCE",
+      "specTextSha256": "sha256:80fb9bcada9a0d76261521c3eb046aea00961147925f3ee8a894d19d6ab14e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PROTOCOL-DUPLICATE",
+      "owner": "W1",
+      "specAnchor": "C13-PROTOCOL-DUPLICATE",
+      "specTextSha256": "sha256:3a0b1d19765960642efbeb98fa593244250866930937bb8299e87cca8c35aafb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PROTOCOL-EXACT-ENVELOPE",
+      "owner": "W1",
+      "specAnchor": "C13-PROTOCOL-EXACT-ENVELOPE",
+      "specTextSha256": "sha256:bb23800e6b014023aa04c0dcebfdf5df5a6a92f87e60d291fe7a41f4b1696f32",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PROTOCOL-OUTCOMES",
+      "owner": "W1",
+      "specAnchor": "C13-PROTOCOL-OUTCOMES",
+      "specTextSha256": "sha256:35866391fac7f58b02644ee134ac4648e23f11ec18cd21ff27687d36a0da9812",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PROTOCOL-REJECTION-ROOT",
+      "owner": "W1",
+      "specAnchor": "C13-PROTOCOL-REJECTION-ROOT",
+      "specTextSha256": "sha256:70d0394eba47880f818b628defdc0fdee3e6392965b7c8267f56c8254d604e79",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-PROTOCOL-WRITE-AUDIT-LINK",
+      "owner": "W1",
+      "specAnchor": "C13-PROTOCOL-WRITE-AUDIT-LINK",
+      "specTextSha256": "sha256:1623757cc1d51507f7bb4c69223de7bd982d95ba30f70a3f1010a607f4f305fe",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RECEIPT-ATTEMPT-CHAIN",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-ATTEMPT-CHAIN",
+      "specTextSha256": "sha256:1870163fa985dcff15aa89ad3c48ac2b7a0e67c27272ea1a923f322735abc363",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RECEIPT-ID-NAMESPACE",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-ID-NAMESPACE",
+      "specTextSha256": "sha256:5dfe162317e3a13b1277bfdfad3834d86d5952407558c6a8972a8719271d44a3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RECEIPT-INDETERMINATE-SUPERSESSION",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-INDETERMINATE-SUPERSESSION",
+      "specTextSha256": "sha256:e2613711d22689a33fa3e97c13b4e6d0a7876bd71675a9d21c3c2613d85c6945",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RECEIPT-PRE-EFFECT",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-PRE-EFFECT",
+      "specTextSha256": "sha256:cf6c5a707402ce63c93dbfc9134cfcdb3e2379a452b7e339c9ef9abefe5246fb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ROUTE-AUDIT-CAUSE",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-AUDIT-CAUSE",
+      "specTextSha256": "sha256:4265aa878c31df334b5b6f3d0fe311ed0a64a6ab402e98860ffad22c033a99a3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ROUTE-CROSS-TENANT-BINDING",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-CROSS-TENANT-BINDING",
+      "specTextSha256": "sha256:72c2295103d49ee79354339b9080ac7fe0907c66d779fbb9b0cd1dfae54129fd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ROUTE-PROJECTION-DIGEST",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-PROJECTION-DIGEST",
+      "specTextSha256": "sha256:4cff6ebed5175dc925b8cfdef950a5a5b46ae993809df414e86b4d77db463a42",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ROUTE-SOURCE-EVENT",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-SOURCE-EVENT",
+      "specTextSha256": "sha256:876fc95c8c7f6035bd7a224cbb0a7d9123dbe62e286250223e3d7c25212020ab",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ROUTE-SOURCE-OWNED",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-SOURCE-OWNED",
+      "specTextSha256": "sha256:2457696afb8b24a5f9c3780a0a12db0d74520057a6633013fb4ffd2fa3491b95",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ROUTE-STABLE-INVOCATION",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-STABLE-INVOCATION",
+      "specTextSha256": "sha256:1b432dff9fcf9d371a582f676a88849a3e193735de4ac29edda1caff83170d11",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-ROUTE-TENANT-RELATION",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-TENANT-RELATION",
+      "specTextSha256": "sha256:fd7175b8e0a052bd1cb0337c96b64ab15cb1cb7214e762ae60e7cd94ff5b014f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-ADMISSION-REGISTRY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-ADMISSION-REGISTRY",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-ANCESTRY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-ANCESTRY",
+      "specTextSha256": "sha256:ec2b5bf2a0bbdf90247803a63ddc27ceb8c8ffb2646052d716358047550d8e8c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-BINARY-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-BINARY-MERGE",
+      "specTextSha256": "sha256:cda0b213ccb7a786138cf47e2b60049aa8247a60039db81524adcf30df3c8c36",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-BINARY-TREE-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-BINARY-TREE-MERGE",
+      "specTextSha256": "sha256:10f659f52298d7635e6b6ea3f47e7078edf7460f977b54579a5a2a617538b7e6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-EQUAL-PIN-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-EQUAL-PIN-MERGE",
+      "specTextSha256": "sha256:cf1dc2e1997149887f330625751806a17c2bef93c3aadb81d5093df118dd771f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-EXPLICIT-MIGRATION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-EXPLICIT-MIGRATION",
+      "specTextSha256": "sha256:148edd0216002a6f75f0a80a698a00ae58bf153e818f49b347e4f55a426985c8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-FORCED-CANCELLATION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FORCED-CANCELLATION",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-FRONTIER-COMPLETE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FRONTIER-COMPLETE",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-FRONTIER-EMPTY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FRONTIER-EMPTY",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-GRAPH-ARITY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-GRAPH-ARITY",
+      "specTextSha256": "sha256:fdc7c7c782b16e960fc119cd5dcbed09525dd14d1196a52b5c9a3e146a39cbe9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-MIGRATED-TURN-REJECTION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-MIGRATED-TURN-REJECTION",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PARENT-PIN-INHERITANCE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PARENT-PIN-INHERITANCE",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PINS-BLUEPRINT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-BLUEPRINT",
+      "specTextSha256": "sha256:7c200d15ffde189f11d4a22cd36a38d7c79dbad4504876f42eae907f1eb2c7bf",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PINS-ENVIRONMENT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-ENVIRONMENT",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PINS-IMMUTABLE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-IMMUTABLE",
+      "specTextSha256": "sha256:2c95dd931d72314cc9a0d86282cc7733bf079ecb66a054c9e4cd71f9abcc5f98",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PINS-PACKAGES",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-PACKAGES",
+      "specTextSha256": "sha256:5e4df25a885f788d84b4384aa5f3f203db78500b9f3b84803c4fa1dc8477f0bc",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PINS-SOURCES",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-SOURCES",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PINS-VALIDITY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-VALIDITY",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-PLACEMENT-SNAPSHOT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PLACEMENT-SNAPSHOT",
+      "specTextSha256": "sha256:a7b1bf97534c9509c8b74fe5b0b04ed82e82796520ca2b5bcde9987be0ce9865",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-RESERVATION-EPOCH",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-RESERVATION-EPOCH",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-SETTLED-DERIVED",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-SETTLED-DERIVED",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-TERMINAL-OBLIGATIONS",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-TERMINAL-OBLIGATIONS",
+      "specTextSha256": "sha256:3bcc2507107372f6a5b6b4a35e31c1b3fba1396405df85796f562daa2bc0c960",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-TERMINAL-SIBLINGS",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-TERMINAL-SIBLINGS",
+      "specTextSha256": "sha256:7aa26ca4981af9fa67cefa711f57fa869e8f566dc6a743adf64f111920147a31",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-UNDO-REDO",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-UNDO-REDO",
+      "specTextSha256": "sha256:0c027866c87033f5ad4397cf538abdb2432fba59cdf6491deb9cb5596a513526",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-SUBSCRIPTION-ACCEPTED-TIERS",
+      "owner": "W7",
+      "specAnchor": "C13-SUBSCRIPTION-ACCEPTED-TIERS",
+      "specTextSha256": "sha256:5a1d8853f0cdcf18486142e9a5dfb194d7785a7d65ead579daaea4afcd0fedfd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-SUBSCRIPTION-AUTHORITY",
+      "owner": "W7",
+      "specAnchor": "C13-SUBSCRIPTION-AUTHORITY",
+      "specTextSha256": "sha256:c2f13ff3be208bc1a2ac17ed6319ca35fe9c2f73bebe46a38119e818f6a90629",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TRUST-ASSERTION-REJECTION",
+      "owner": "W7",
+      "specAnchor": "C13-TRUST-ASSERTION-REJECTION",
+      "specTextSha256": "sha256:a1ae2cacaf3348673421e7d62735a8e7e905b22da8dd9ab71a6bf05e51afb620",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TRUST-HOST-DERIVED",
+      "owner": "W7",
+      "specAnchor": "C13-TRUST-HOST-DERIVED",
+      "specTextSha256": "sha256:331e06c2ef4f693b1cba0c9a12f35f1201f627994bff109d4097f6ab802101f3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TRUST-VERIFIED-INGRESS",
+      "owner": "W7",
+      "specAnchor": "C13-TRUST-VERIFIED-INGRESS",
+      "specTextSha256": "sha256:005827b4de4d51778fc9d44ce6ceceaf2c37cba49e3be80dde1fa84f94c0fec2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-CALLBACK-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-CALLBACK-WRITER",
+      "specTextSha256": "sha256:ad6e8e4a1a44c1310cbfe28cd7b2631a7363591eef36d064905c4a5f9d2ed552",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-CHECKPOINT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-CHECKPOINT-WRITER",
+      "specTextSha256": "sha256:63ecfe592284a76d79e40a5185bad1198fae3c8fc5b6ae8f70fe84bb3ced7d0b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-CHILD-RUN-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-CHILD-RUN-WRITER",
+      "specTextSha256": "sha256:04987f9296d50978f2c351ec56b7371e4e26dd47588fefd27213b089395754bc",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-EFFECT-ATTEMPT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-EFFECT-ATTEMPT-WRITER",
+      "specTextSha256": "sha256:9560acd02d973935081e36539e43f89aa5f05d03f7004ed47e2e7c05e68bae8c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-EXACT-LEASE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-EXACT-LEASE",
+      "specTextSha256": "sha256:80ea987e35963daa701fe349cc8915e69aa275cb2a1a48645cb474fac4db04b1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-INVOCATION-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-INVOCATION-WRITER",
+      "specTextSha256": "sha256:a7d0ec5cbaa1a24457feda44c2e9ba5a4f56daa0247f8b9db0c49d5b358be75c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-LIFECYCLE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-LIFECYCLE",
+      "specTextSha256": "sha256:d956d969985d744a9fc8db829da25cf6844979ce6d4aa4145d6fbab371d8fd6c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-NO-RETRY",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-EXPORT",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-EXPORT",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-PROTOCOL",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-PROTOCOL",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-RECORD",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-RECORD",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-RUNTIME",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-RUNTIME",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-RUN-COMMIT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-RUN-COMMIT-WRITER",
+      "specTextSha256": "sha256:e3ebf1e1f7b2dfaa165ae8aa7f19f1afa06de5f807886c84568b12aaae5d014b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-TERMINAL-RESULT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-TERMINAL-RESULT-WRITER",
+      "specTextSha256": "sha256:05180a3d8a3233899b0fe72e794d9d5a96b9989fd3ae808620869b080af06941",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-VIEW-DELTA-REPLAY",
+      "owner": "W7",
+      "specAnchor": "C13-VIEW-DELTA-REPLAY",
+      "specTextSha256": "sha256:9ae9249caec2b7dd9d12bc6dc553e5ebcd684e10aba9f0423146beff72f94662",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-VIEW-NO-LIVE-STATE",
+      "owner": "W7",
+      "specAnchor": "C13-VIEW-NO-LIVE-STATE",
+      "specTextSha256": "sha256:c944307a967cb2540ad2ca8c77efb1e13396dc14fe36b3f42ae586ae16fe6cf7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-WRITER-MATRIX",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-MATRIX",
+      "specTextSha256": "sha256:61a4221336b2aa2cba0d0d97ad8d910bb3b59cedc82c5982278d2a35b68a8050",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-WRITER-POST-FENCE-EVIDENCE",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-POST-FENCE-EVIDENCE",
+      "specTextSha256": "sha256:70fe79e00295cd92ea76ffda978589bd0b0561f27f23d78cf37c576450c98f4c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-WRITER-SYNTHESIS",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-SYNTHESIS",
+      "specTextSha256": "sha256:735d22c968ed74b479863c0a3e66eed431badae137c758954fedb2deb7ae0d9a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-WRITER-SYSTEM-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-SYSTEM-MERGE",
+      "specTextSha256": "sha256:a29896a9f0689826dd7330b70ae705294e6c60bb1c0b344a749250e200624532",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-APPLY",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-APPLY",
+      "specTextSha256": "sha256:3abbd2e6aa3a107c6216bd01ab850b2a2d7f3404cb0031e6cb6891f06f1d85a2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-CONTINUATION",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-CONTINUATION",
+      "specTextSha256": "sha256:e8e6de6aa042ad5d13f9084ea323ff6c1abbbbdb31c9b7ec72dc1ef63db3c724",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-CREDENTIAL",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-CREDENTIAL",
+      "specTextSha256": "sha256:af14242dc74f5ff7b65aed13a08c5f4ff454a96ee5e8cbb366b9d8b771fd74b9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-MATCH",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-MATCH",
+      "specTextSha256": "sha256:9b3326b69aa68702dbd7e82d3d0b9b65aeb06eaf4ea6dd65522071bc4e44df59",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-OBSERVE",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-OBSERVE",
+      "specTextSha256": "sha256:43ffe3934d340319f2e7036c6e5d2276b2c5d67a3a8e8885ad06545aa200f9f1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-PROVIDER",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-PROVIDER",
+      "specTextSha256": "sha256:783b6d97be17881f154697a61f62e505d72e7a25ed4447a89d63e070effe3f2b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-READS",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-READS",
+      "specTextSha256": "sha256:9b624fb3bf5e2e37f355824b796f17d137abe5f92b59e66b91e9b54c97a3c1a7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-RECEIPTS",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-RECEIPTS",
+      "specTextSha256": "sha256:d87ebc041059108e527d7b205e29ed654f691d6b0c173284808ab5a602664ec2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-RECONCILIATION",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-RECONCILIATION",
+      "specTextSha256": "sha256:4549036c80b41c1f807c92135a459745055353431b84d7e2838a6abdee58a0a1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-APPROVAL-GATEWAY-SURFACE",
+      "owner": "W8",
+      "specAnchor": "P11-APPROVAL-GATEWAY-SURFACE",
+      "specTextSha256": "sha256:64596ecf9a4f7d82f9da3eef8d8a198aec170905e6e31c5bb4f406498af2ff6a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-BASE-COMPOSITION",
+      "owner": "W8",
+      "specAnchor": "P11-BASE-COMPOSITION",
+      "specTextSha256": "sha256:953be41e0f8a3b8b0b80da5b2c81cc848ab097da9326e377e2bab05396626fa0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-BASE-CONTRACT",
+      "owner": "W8",
+      "specAnchor": "P11-BASE-CONTRACT",
+      "specTextSha256": "sha256:24bf132536e56f6c3e0d73d768f7330b3b4d1a20eeca3fba8fc34cadfc25941b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-BASE-EVIDENCE",
+      "owner": "W8",
+      "specAnchor": "P11-BASE-EVIDENCE",
+      "specTextSha256": "sha256:f5962502d6b6d914094866632bcbe03fe52db4c9775bb05ee2f2a0ca826a47d5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-BASE-NAMES",
+      "owner": "W8",
+      "specAnchor": "P11-BASE-NAMES",
+      "specTextSha256": "sha256:d3c4e75dd18d886fe40bc9ea4817a8466ed89664bae6cb6e7e23aad00da5e6cb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-BASE-TESTS",
+      "owner": "W8",
+      "specAnchor": "P11-BASE-TESTS",
+      "specTextSha256": "sha256:c3b024ee6cb935f1309eba35e0c5acff25a5db4d05a382874d0ce79db4e8c1fe",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CACHED-READ",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CACHED-READ",
+      "specTextSha256": "sha256:633cde3565d3f463853964a4360eed7931d4affab5c36eeadadbeb16a6f07343",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CAMERA",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CAMERA",
+      "specTextSha256": "sha256:a079c581187a9fbf1cd2f4e0b971e5946c3e47dea58e2c264872604bf17cef31",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-COMMAND-EVENTS",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-COMMAND-EVENTS",
+      "specTextSha256": "sha256:9981eb2d6078c246ff0515f6661d9663d2b81e47e7bc1634f65ae3022669ef28",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CONSENT-ABSENT",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CONSENT-ABSENT",
+      "specTextSha256": "sha256:afe92b54bec641a5b2f0043d4400654b513f97174b8b16692ad65c392443c470",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CONSENT-ADMITTED",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CONSENT-ADMITTED",
+      "specTextSha256": "sha256:cdce1587f03be7981714ac1c7a84b5979e93aa38c609b98ebf9b7f12f20fa66a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CONSENT-FINAL-CHECK",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CONSENT-FINAL-CHECK",
+      "specTextSha256": "sha256:f4b081413fb1d0f225fc24abb0ced71db9e578f7ceebebc382419437c0b526eb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CONSENT-ISOLATION",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CONSENT-ISOLATION",
+      "specTextSha256": "sha256:eef773169559497a8630f1ab04de8d7b100efa935b3af52f9744a660ec57b524",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CONSENT-LIVE",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CONSENT-LIVE",
+      "specTextSha256": "sha256:2ec4a8fcbbd4c528aed4ad4ad9057775959aa6e0472e11c2a206cc932877fb36",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CONSENT-PAIR",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CONSENT-PAIR",
+      "specTextSha256": "sha256:8a6eafbbc5e464d1a8a0e10c50db92b76c12d0593c8f4ea653b24fb0bbf540c1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-CONSENT-REVOCATION",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-CONSENT-REVOCATION",
+      "specTextSha256": "sha256:35f8e2e6235d86858c15981c74d6bb37128eb9b2f0fb8e802d63b2cdbe345b68",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-ENVIRONMENT",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-ENVIRONMENT",
+      "specTextSha256": "sha256:fd5203c0e1c02d7e57475146d4ccd0d900d71b6738176593edd40f1a7319ab65",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-LIVE-IMPACT",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-LIVE-IMPACT",
+      "specTextSha256": "sha256:819938080e484efdd5f31c3198f3902dbcf05b6857d9a6eefc9a9ca3883fcc22",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-LOCATION",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-LOCATION",
+      "specTextSha256": "sha256:eeda2d324ec5ed192f0ef3bf8202814fc787df48eadc7a306f35e2feaa60465e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-NO-PROFILE-EVENTS",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-NO-PROFILE-EVENTS",
+      "specTextSha256": "sha256:853b361e3878c857f9ea25d39106c9c452eb7d48908ad21b18f0a8d7b1b7d5b9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-PAIRING",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-PAIRING",
+      "specTextSha256": "sha256:c7d8d3a2d4638a72aa9d9983520167d55919cc8b5b4480eb895be43246a85ce1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-SCHEMA-VERSION",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-SCHEMA-VERSION",
+      "specTextSha256": "sha256:d1df9fdf82a83fa4d86aebff065897a655faf540ac6fc70f557ec53464284ae1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-SCREEN",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-SCREEN",
+      "specTextSha256": "sha256:a312db1e2d80aea1edd1a2c337a902fddf871aed9fc4a07b51b4efd6f9564693",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-SMS",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-SMS",
+      "specTextSha256": "sha256:63a016f8853a8c3700163b1b3869eb24e07f5c1850cc6c08f5520b0b4fb93eb1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-SYSTEM-RUN",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-SYSTEM-RUN",
+      "specTextSha256": "sha256:8bee94eae8f4375bf983746dbd7af4c7b4ee32445bd3fd2d07c7d751b0187b82",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-DEVICE-TYPED-SURFACE",
+      "owner": "W8",
+      "specAnchor": "P11-DEVICE-TYPED-SURFACE",
+      "specTextSha256": "sha256:8c2035b6ba006879c8364c63920676dbd61f4e38ae0d964655cfbcadbf5987a1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-CHILD-CONTRACTS",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-CHILD-CONTRACTS",
+      "specTextSha256": "sha256:5fe49507963cb5c7238de925379d10cc31159e1abc1ec05bf109fe9640552902",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-CHILD-FACETS",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-CHILD-FACETS",
+      "specTextSha256": "sha256:f19522d5faba07de056ff316f2c070503d5ba3de92b470d744533befc134010f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-CLOSE",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-CLOSE",
+      "specTextSha256": "sha256:954ad7d191eb4361a534ed5fc25d6b7760c69fcf2da839e976fc4ed31f595c7b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-CREDENTIAL-SEAM",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-CREDENTIAL-SEAM",
+      "specTextSha256": "sha256:438273aead09a41b117f1309b8e2cb87bc9e17679697435a8aff585b44f0df43",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-DISPOSE",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-DISPOSE",
+      "specTextSha256": "sha256:97f7fb32a13d0382a5cdf3cd1fb647a95c3d1bf776f7e1ebc866ac8932b001c4",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+      "specTextSha256": "sha256:b7ab5a3236d620394183a2f7c4201ae795518ce13a41a8a20f5d930a5269b5d1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-FAIL-CLOSED",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-FAIL-CLOSED",
+      "specTextSha256": "sha256:036c4458b930ca7b557ec018bd9fba635d41e969148625ce8a0a08e69f195a41",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-NO-BASE-EVENTS",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-NO-BASE-EVENTS",
+      "specTextSha256": "sha256:0f7e5bf91428f6665b9b9b22e737bdbaccfe9f0daead7c8b5ad1dabf334a3ea0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-NO-BASE-IMPACTS",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-NO-BASE-IMPACTS",
+      "specTextSha256": "sha256:29b55ddc36a168e9628a014dfca616e4d021f23009f9384a6510434c43dd7f83",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-NO-BASE-OPERATIONS",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-NO-BASE-OPERATIONS",
+      "specTextSha256": "sha256:87e45a6dd68553e5d7dc764205432c919be20c2299280daa4f85c9c37368dba3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-OPEN",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-OPEN",
+      "specTextSha256": "sha256:8bfac4b2d7ac9cb31f9e7c62a0a4f1e8bf733d04fe5925b8accdf7481cac89cb",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-PREVIEW",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-PREVIEW",
+      "specTextSha256": "sha256:8c22d8da15746482125fe29d68e55b0eb62bba52c84e2c3598da1907335bf3a9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-ROTATION",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-ROTATION",
+      "specTextSha256": "sha256:83ac74cfed670995074bc69241ca43cbce9db3e19b54de6ef5bbf6f8b86c32af",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-SNAPSHOT",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-SNAPSHOT",
+      "specTextSha256": "sha256:d4032d243774cfedcf8a37104ce5069c0c662e9415f432203a202590bab9a849",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-SPECIFICATION",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-SPECIFICATION",
+      "specTextSha256": "sha256:2552844219c5417f5287d3583bf986746f7b12fe6537f2e393e1d4d0829abc86",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-STALE",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-STALE",
+      "specTextSha256": "sha256:bc8f04cb8eeb0786da3d6a04d4eff0a2380b95f15c5ebc503015f97096f826b6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-ENVIRONMENT-USE",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-USE",
+      "specTextSha256": "sha256:5346f8b87bf197208cf8c8d311d83ceeafcabff5f1e019cd1e8d2d592527b35c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-ATOMIC-WRITE",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-ATOMIC-WRITE",
+      "specTextSha256": "sha256:155cd16c9468c461a798d35a820d29f4b7268cbc9394617382246d89950edd0f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-ATOMICITY-ASSERTIONS",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-ATOMICITY-ASSERTIONS",
+      "specTextSha256": "sha256:39384ba383eb78e631e4c6ea866d5d278a774076da695f1b24b8c37c5578277d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-BACKINGS",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-BACKINGS",
+      "specTextSha256": "sha256:7ca002c22bef54e9082d59025b83a6e41103ef27e2a42e4e79da297cf7490f6b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-CODE-ASSERTIONS",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-CODE-ASSERTIONS",
+      "specTextSha256": "sha256:591e8852817d23bb723c55a3a6ec8b697c9eff2cf6eab033ef70c9bb6c9b1954",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-ERROR-BRANCHING",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-ERROR-BRANCHING",
+      "specTextSha256": "sha256:9b0600261478deda5ece58b9073411ce41394490ebe83455badb46df502182b9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-ERROR-CLOSED",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-ERROR-CLOSED",
+      "specTextSha256": "sha256:23fbdf13dcd72d751cadbbe913c1b97787c28b72de649186dff9ed0fd8f76521",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-ERROR-CODES",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-ERROR-CODES",
+      "specTextSha256": "sha256:e524240a73b497493ed60615f9fad9beef6e266c6339637d3204a82fa17c25fe",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-LIST",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-LIST",
+      "specTextSha256": "sha256:e0125595510fb02652d0ad61a22e69c93e9f620612316aee4fa1e35797c899b5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-MKDIR",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-MKDIR",
+      "specTextSha256": "sha256:5e77a390d3c4bbe9c3f91503c88b5b08238290eb73bc9cf228461a17f2c576f9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-MOVE",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-MOVE",
+      "specTextSha256": "sha256:d4a90810214ba7cff9e5198e10da312fbb630c5a20108aeed7d31b26606cc622",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-MOVE-ASSERTIONS",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-MOVE-ASSERTIONS",
+      "specTextSha256": "sha256:34229921764fe9862445487b0b10326c3d0f4e2b5746b7bcf24ff58382b01df6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-PAGING-ASSERTIONS",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-PAGING-ASSERTIONS",
+      "specTextSha256": "sha256:f3569a68432f3750a71263d39e0fa85a4d9af289663083a0818638717519ecba",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-PATHS",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-PATHS",
+      "specTextSha256": "sha256:5b654d34028e2709ade913104ee45c4f79bd49f13de4e973b81a7e8151b0cd27",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-RANGES",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-RANGES",
+      "specTextSha256": "sha256:09dcc44109955eb7147120c09a0f275bdd302a6042509e87c41a50d22de720fa",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-READ",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-READ",
+      "specTextSha256": "sha256:c62f53a1861d88c5a3d331a6b12b0bb8cd44bb2e0be1731c0a3a637c27f61d75",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-READONLY",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-READONLY",
+      "specTextSha256": "sha256:a0a0158c5e4fac943e42d049ee7c989f7ff8b03863f5bbdee2d40b79294fb386",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-RECEIPT",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-RECEIPT",
+      "specTextSha256": "sha256:83a6c035b550242fbb76281d88993c19fec41ffa7e66f0e1fc26a5a508d8a87d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-REMOVE",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-REMOVE",
+      "specTextSha256": "sha256:f06b95c2bda5627fcdc36cd688e7a6525c25e65afbd5e30b46f065821d0dc0de",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-STAT",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-STAT",
+      "specTextSha256": "sha256:755634ac7597b44430f372f518e4609554a1b2686d9308b0f38c3442fcfda730",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-SUITE",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-SUITE",
+      "specTextSha256": "sha256:395ad43c54e251e867f55a67576806d4a7df24b65fa5810c29e0742fb1d31f02",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-WRITE",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-WRITE",
+      "specTextSha256": "sha256:3213688d29dcbf10e2ecf0f7b93ff397c9b50f9d918c18afb5a88cb82bcab09e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-ADAPTER",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-ADAPTER",
+      "specTextSha256": "sha256:7cb1a4d6edf83e2fef7b39e26b8edc15684603095f3d7b88006467b30aff7de6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-IMPACT-ANNOTATION",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-IMPACT-ANNOTATION",
+      "specTextSha256": "sha256:feaaa059ffb80bc98cc62a00825719f81b5a21f7bd39328b09cbaa48facb8a04",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-IMPACT-DEFAULT-LOCAL",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-IMPACT-DEFAULT-LOCAL",
+      "specTextSha256": "sha256:4670d8f4856f371648e629b7f60b7cbff1970ff3214236ad11766e431892e117",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-IMPACT-DEFAULT-REMOTE",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-IMPACT-DEFAULT-REMOTE",
+      "specTextSha256": "sha256:5eb4a2016c02b011560ba96c72828dbdd2886964efebd177788f35ded7b68fbf",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-IMPACT-UNKNOWN",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-IMPACT-UNKNOWN",
+      "specTextSha256": "sha256:c4160c5326ae8b77d72130920fc3add4196f9abb9d394a9abd299c84a2b573c9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-INVOCATION",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-INVOCATION",
+      "specTextSha256": "sha256:776b18d321eabd77dc54842b90afa3313cff6595dfbb3ca667b332098b44ff06",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-LIFECYCLE",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-LIFECYCLE",
+      "specTextSha256": "sha256:924c48106cf22163c724bbd3ab623a055af5bdb2b2c447ca50d82595ea64fd44",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-MALFORMED-SCHEMA",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-MALFORMED-SCHEMA",
+      "specTextSha256": "sha256:3f2ba9a19f0a4a0617c12f539569d71b478007b5c21d47fb8a8e4b23e509208b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-NO-LATE-SCHEMA",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-NO-LATE-SCHEMA",
+      "specTextSha256": "sha256:e5f6891f036f2b80575c6e8d7e80347131f9d8b974a347bb6ae51241f5b8e606",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-POSITIVE-BOUNDS",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-POSITIVE-BOUNDS",
+      "specTextSha256": "sha256:10cc7d1fabee71506c31227217b86f0b500f6dc7f61d0c60992ee1a54a77ecc8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-PROMPT-BYTES",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-PROMPT-BYTES",
+      "specTextSha256": "sha256:1c06afd81b9ba380efefff472c85f8e4553d9c15351f1ec7387aa47a1546eeec",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-PROMPT-COUNT",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-PROMPT-COUNT",
+      "specTextSha256": "sha256:d1f407d43632f2647dd26d9926a41276e066a2034f8287b9d4b1578d622c3d0e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-PROMPTS",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-PROMPTS",
+      "specTextSha256": "sha256:2592fade089581c4fd93ed63899a98f31deba0e62d2829a9bd71b30279949d5b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-RESOURCES",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-RESOURCES",
+      "specTextSha256": "sha256:bef9a7f55e375f02003f3002edd68e708d5423d70cf10ad18bb8cb920aae4d13",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-REVISION",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-REVISION",
+      "specTextSha256": "sha256:da0fb5b54a3541079698225ae014de3e25a71e360812f93fc095a549663bc15d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-SCHEMA-BOUNDARY",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-SCHEMA-BOUNDARY",
+      "specTextSha256": "sha256:d338435ff6fd50ac99df13d9d2454916c6a94dd264b9729474b61863ddef27dc",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MCP-TOOLS",
+      "owner": "W8",
+      "specAnchor": "P11-MCP-TOOLS",
+      "specTextSha256": "sha256:6b5887f21f138d4b9a8ff102a998afd77635b067a53ba1e7ab18d076b2366ca7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-CANONICAL",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-CANONICAL",
+      "specTextSha256": "sha256:df86f3a26d66e72719d349076491f8315b0b8705f72cb0ff1883452c2d0d4653",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-COMPOSITION",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-COMPOSITION",
+      "specTextSha256": "sha256:623dc58b43a3643f102885dae0ab940ad9f30064331ff0f298b0fb5368450c12",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-DISCOVERY",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-DISCOVERY",
+      "specTextSha256": "sha256:a2e2d4f6a9ebcb727591747685957a45baaa98742482d6be7c22ba78b42bae29",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-FORGET",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-FORGET",
+      "specTextSha256": "sha256:b02a2e0944ba15b3ed4474f5bcddc2e60367e8f23b4749d89aa4ab4bd495fa1d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-INDEXES",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-INDEXES",
+      "specTextSha256": "sha256:ada33a6233622b7e4bc06405d6c3fedfa77ce022277cf1b8e14970b275074f13",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-PROMPT",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-PROMPT",
+      "specTextSha256": "sha256:b8ef59ace8f202017961526961e428d02565f89fa839943ce0a677fe20d25981",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-PRUNE-PAST",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-PRUNE-PAST",
+      "specTextSha256": "sha256:c681792c34720f7d2475b75f6029e4f2e9bde1342317250cb9bef99b432c4649",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-PRUNE-WITHIN",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-PRUNE-WITHIN",
+      "specTextSha256": "sha256:dfe02bb90c1b07b18ef118fc77f093b08e972f6b24ac023ec17e971084cb7784",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-REBUILD",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-REBUILD",
+      "specTextSha256": "sha256:47f60812cfdaa610c630a5c76aa4d5b933497775838756d2490df0519bf3dc5c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-RECALL",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-RECALL",
+      "specTextSha256": "sha256:b47917b6ea92d0182dfd726cc74cf0e03c48bab7cbcc1daa3f77767b3268e613",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-MEMORY-REMEMBER",
+      "owner": "W8",
+      "specAnchor": "P11-MEMORY-REMEMBER",
+      "specTextSha256": "sha256:386f3fefd3767df879e82f32d261c800d037c263f697ef176570695b9f4a4bd7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-ATTENUATION",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-ATTENUATION",
+      "specTextSha256": "sha256:ba382341e176d4c743e86f17bd9507071ed101643823b6f4d4f989f8078bb205",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-AUDIT",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-AUDIT",
+      "specTextSha256": "sha256:bf079494455b62534cb9acf4e41f43ba5e8c8f795c3d8744f14b044479a632e0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-AUTHORITY",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-AUTHORITY",
+      "specTextSha256": "sha256:9327edacf181cf588c6b800d9281b28f1d56a56410a59e9d55e1bd7139e387a2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-CHECKPOINT",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-CHECKPOINT",
+      "specTextSha256": "sha256:8aa6a8a6309890e99195db3878cb8d1b961f4c2d559a6ab7834c407dc323323e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-COMMIT-MESSAGE",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-COMMIT-MESSAGE",
+      "specTextSha256": "sha256:f4c081e844332967109a1dfff0de22ea9a76fc29db193d1059d250429ba80da2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-COMPOSITION",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-COMPOSITION",
+      "specTextSha256": "sha256:e55ae07175d423106a6985baaffc1aa0520cf7c2da0b43e17b5e60480f49418e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-FINISH",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-FINISH",
+      "specTextSha256": "sha256:736b2d3cb7ebdc634eceaabc4c36111dbca7dee85b6947ace415a3e35cd67603",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-FINISH-MEMBRANE",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-FINISH-MEMBRANE",
+      "specTextSha256": "sha256:1bdbbed700ca946edc1e9164d4e3b4c19f2f8cf6a4e9b5befbce366ded66a069",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-LEASE",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-LEASE",
+      "specTextSha256": "sha256:bbc72b48cd2a4541883f415d3ebc0f620721d5fb1cdab3829648e0005d814172",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-MEDIATION",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-MEDIATION",
+      "specTextSha256": "sha256:eee4bc1fd46f009675f267784c9e9f7f33dbf2d2e6f8dda47998a26e66e34598",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-NO-WIDENING",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-NO-WIDENING",
+      "specTextSha256": "sha256:ffae17e98cfe1139c4a60871b93a03fb3118b55bfe72d1486bd42bfda948d646",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-PROPOSE-MIGRATION",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-PROPOSE-MIGRATION",
+      "specTextSha256": "sha256:7240cf79c8279e111f3074b5c39c79bac0a17631cacfcc7c67106187886c1688",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-RECEIPTS",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-RECEIPTS",
+      "specTextSha256": "sha256:351b0f50d2f59c835b308b1243bff5bd8cd98f87a7592586b39b4d33f9e79be9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-SPAWN",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-SPAWN",
+      "specTextSha256": "sha256:42b4e57aca0839ab6c7592fc68e0c6d0a75e58428f1e74ef75893ec7dfb1a4e8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SELF-SPAWN-MEMBRANE",
+      "owner": "W8",
+      "specAnchor": "P11-SELF-SPAWN-MEMBRANE",
+      "specTextSha256": "sha256:5a60e1131962bf8973f2284bfd3c00d7d9345efc325ff6fac31b0d520295da0a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-BOUNDARY",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-BOUNDARY",
+      "specTextSha256": "sha256:a90fc988ff1db41c3efd880756d2e00b570d93441865e3c7e3c79449a0516021",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-CANCEL",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-CANCEL",
+      "specTextSha256": "sha256:e5b99dbea824393181b74d86d29f084bd90bdadf38172993301ae7e45780dbc1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-CANCELLATION",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-CANCELLATION",
+      "specTextSha256": "sha256:301c9ff5f9eaeda0c7e9ce0e7f90e723fb48ad5b7dd4c5274f3686117d75d4e6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-COMPOSITION",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-COMPOSITION",
+      "specTextSha256": "sha256:2c115f1bb09c7fd88bca3eef1f89f9ba2d49fbc16eff3ad7ce06bc12176080c0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-FILESYSTEM",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-FILESYSTEM",
+      "specTextSha256": "sha256:511616681dcd03fc3535906fb2917de4874685282015c51eb04993b803e6ce68",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-HANDOFF",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-HANDOFF",
+      "specTextSha256": "sha256:fb264b7865bf0ba4314ac2a77f0a6c38189b6943f74a271aa425e9a899fddf12",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-PARSER",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-PARSER",
+      "specTextSha256": "sha256:ba5ec64cd9b28547783f8a7d7875f8e0ccd854424e5a0c5535434f8ac1e5d1c8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-REGISTRY",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-REGISTRY",
+      "specTextSha256": "sha256:8248f95bdaac8d6423d0dc994105346d6499931b636e2dedcdf634db9c4594d2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-RUN",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-RUN",
+      "specTextSha256": "sha256:d0b18672be9a64b6601048d1fc91a975be8bb9c335002946bbd6a83d4d8a30f7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-SINGLE-AUTHORITY",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-SINGLE-AUTHORITY",
+      "specTextSha256": "sha256:79810eef3f99b34a36df4b3cdc73d75d86db573974429343e5deebea899a8272",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-STREAMS",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-STREAMS",
+      "specTextSha256": "sha256:a8bce031edc41f91d5a8153a56c11da314e0e8ad00b22aa3fe1f2e7e80df25ee",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SHELL-UNKNOWN",
+      "owner": "W8",
+      "specAnchor": "P11-SHELL-UNKNOWN",
+      "specTextSha256": "sha256:f9ea0d4023e274b56d2072e0a277dc38b67bedde9e8bf84e5707c1f66ea93506",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-ASSEMBLY",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-ASSEMBLY",
+      "specTextSha256": "sha256:3dfb54cde077f43bcd467f85883b47693d822f7a171623f751b17d187d3ae087",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-NO-EVENTS",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-NO-EVENTS",
+      "specTextSha256": "sha256:2315e4577e33ddcba8c3aa661ed9f1f941db99369fde8f70b6e09ad37366c9b0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-NO-MACHINERY",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-NO-MACHINERY",
+      "specTextSha256": "sha256:c0c0495bf1e1c7a7d0674a67eeab06aa9891c9d70e2239053837f942f394ba1b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-NO-OPERATIONS",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-NO-OPERATIONS",
+      "specTextSha256": "sha256:fabacf20177ee2fdd1446c3547f1282f385f5a676017fd9902cd84a2fbb7ff0c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-OWNER",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-OWNER",
+      "specTextSha256": "sha256:d1314b9336432ed60c6f4043e874b650be66cee687c94b8fc5011b9537865830",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-POLICY",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-POLICY",
+      "specTextSha256": "sha256:7502e3efa434f7a655ec8318f7537c245e256fae97681e95b4487828c36d855a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-PRINCIPAL",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-PRINCIPAL",
+      "specTextSha256": "sha256:757ac6e01b21ca70da63894f04985027d3197c0ae01860526934ab437a2ac071",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-PROMOTION",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-PROMOTION",
+      "specTextSha256": "sha256:57d2190658c7e2bbb1998949ba970c439b697f27128d556212b116cfb2084c6f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-RECORDS",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-RECORDS",
+      "specTextSha256": "sha256:d9a31068af75591788782a0714cec6c1888b2cde0dee43dddd65d2de53b8429b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SINGLE-TENANT-TENANT",
+      "owner": "W8",
+      "specAnchor": "P11-SINGLE-TENANT-TENANT",
+      "specTextSha256": "sha256:b778a92dc97fc32b5a132827eed58ecfca4674185c05a8f738ef4da6114e058e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-BINDINGS",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-BINDINGS",
+      "specTextSha256": "sha256:d52f2089fa697019d7f9c2227cbae20bc9599f490a2c2d1b48e13ba883b0ddf6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-COMMIT",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-COMMIT",
+      "specTextSha256": "sha256:72b902ca84db1ad02a1f6c3bd233a6339e35c3d6f2d405f5fe28f3c0d15021c6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-DEPLOY",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-DEPLOY",
+      "specTextSha256": "sha256:07124f5fe93b5bfac4224331da6b5a1f063e6971639eefc3d91a3d0b53ba1709",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-DYNAMIC",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-DYNAMIC",
+      "specTextSha256": "sha256:8ab98b12adc2a56df94d1d61d3a1818ff032599cf0f7d5a61f689a9a2846b74a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-FORK",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-FORK",
+      "specTextSha256": "sha256:96022db8dff7a8064f876df040da475b532fe95d6216ddadbe393b4cf4b59280",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-IMMUTABLE-PUBLICATION",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-IMMUTABLE-PUBLICATION",
+      "specTextSha256": "sha256:1e9b5460cc182fdcd370f4ae10099cadae6fb46e84187ced086b776e9e06f6ba",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-MEDIATED-DEPLOY",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-MEDIATED-DEPLOY",
+      "specTextSha256": "sha256:f46cae567e5d31cbe8c3f36a72af9eaad62143453204e248412944b8db66891c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-PREVIEW",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-PREVIEW",
+      "specTextSha256": "sha256:165b1b1b6f5e93de9867402d89f29ad2968a0622ccc0904ceffadb8fd1b6cdb2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-PUBLISH",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-PUBLISH",
+      "specTextSha256": "sha256:bae66a60496f355d70e4b95a6add1fd25d2d709719478b5afa9d2206abfe3ca4",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-ROLLBACK",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-ROLLBACK",
+      "specTextSha256": "sha256:6ec96cbd5156fe3c3b0e3946a9567fa8a0573ee7efecebacded2afd0de0b3491",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-ROLLBACK-NO-DEPLOY",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-ROLLBACK-NO-DEPLOY",
+      "specTextSha256": "sha256:6b8ecc661fdb709ec4b596221a0012b4f517bb5441d63a12a3c42ce03fdc89dd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-ROLLBACK-POINTER",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-ROLLBACK-POINTER",
+      "specTextSha256": "sha256:38bbb4cff2b2d7a8977730061ba54d84a8f614733cbe120e222ae738a1244aaf",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-SOURCE",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-SOURCE",
+      "specTextSha256": "sha256:0fc71cf3988323309e81a05fb837dd95c2917326feddb9c1de49a7e3bdff65e5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-SPECIFICATION",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-SPECIFICATION",
+      "specTextSha256": "sha256:cb9e0f797df286bfa63977b53b6d5ab67346c2ee6567529e184a91c318bfc233",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-SLATE-UPDATE",
+      "owner": "W8",
+      "specAnchor": "P11-SLATE-UPDATE",
+      "specTextSha256": "sha256:86770f98b5ac7c8230014d6d96df2d3710eb5c7ecf37fdafa72e5b73903f9176",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-COMPOSITION",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-COMPOSITION",
+      "specTextSha256": "sha256:bf640d7c5bc9790016474175d907aec6896839580d9395f5025e23db748d48b1",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-CREATE",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-CREATE",
+      "specTextSha256": "sha256:563d2cc0c6cea21f8b51ed768fbeef45d8e948d05dcbba49abb0c175837000d7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-CYCLE-REJECTION",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-CYCLE-REJECTION",
+      "specTextSha256": "sha256:420bf545ed0ee959516f452d8d497fc438e94096fc5ecd976e1d2f3979fa7b9f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-EVENT",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-EVENT",
+      "specTextSha256": "sha256:d5de1662266a9c409073726bc0629617a08c87965d95c313467b101ffa210ba5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-HIERARCHY",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-HIERARCHY",
+      "specTextSha256": "sha256:49e02d7b244522e79142ce914554cc67de37815674c640469abf96716cb9b066",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-LIST",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-LIST",
+      "specTextSha256": "sha256:a4d37cc32d7894521ad39fc28d078453c571e721e361508c8d46923db10c9727",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-NO-BASE-LIFECYCLE",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-NO-BASE-LIFECYCLE",
+      "specTextSha256": "sha256:70be748457ba85e470e2cfe309491e65584adb444112a77dfd306e6de99a660b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-NO-RUN-COPY",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-NO-RUN-COPY",
+      "specTextSha256": "sha256:efb91b56b7ef3fbb10a40dc7033fd4c66ab92096fa58d01822f0ba2092c6de44",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-PRODUCT-LIFECYCLE",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-PRODUCT-LIFECYCLE",
+      "specTextSha256": "sha256:5ffc9e4de41e0f7bdc7f6d0e7133552b39d3df7756b7533ec59b1ad234f49eaa",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-RUN-REFERENCE",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-RUN-REFERENCE",
+      "specTextSha256": "sha256:757b6bafb2cbc04280df2f4904b0ed73e3aa8343faa480ef7ce24063d24cf553",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-RUN-RELATION",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-RUN-RELATION",
+      "specTextSha256": "sha256:3583cb32b56de8ce0b487de25c6cc69ec9a27752e213df3c6587813a3b75d8e2",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-TASK-UPDATE",
+      "owner": "W8",
+      "specAnchor": "P11-TASK-UPDATE",
+      "specTextSha256": "sha256:db84ca8fa5e6e2a3f3190f7e02b9db0eb37b5e1f146facf8d71320f9ca93776e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-BLOCK",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-BLOCK",
+      "specTextSha256": "sha256:ad270887cb5bef94b004ba58db1a6d657ac0cacc95f293e141380ffd5302af1c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-BOUNDS",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-BOUNDS",
+      "specTextSha256": "sha256:d75d19578068547f42f7fe30de521ab00bf5027c9942ba012178566c60c66aad",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-CACHED",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-CACHED",
+      "specTextSha256": "sha256:9ec722afd5ef7551246d79c8a251b832c8a6abea6539dbebdafe9dcb9d14f72c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-CREDENTIAL-ATTACHMENT",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-CREDENTIAL-ATTACHMENT",
+      "specTextSha256": "sha256:20dd6e745649e0b2594262bc4ca78097227cb0d55c21d1d51bad43d84e384228",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-CREDENTIAL-POLICY",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-CREDENTIAL-POLICY",
+      "specTextSha256": "sha256:ea3370dcb3af1e509c1210a4040cad18e3d79c83adf024ac7f760b420dba165a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-DISALLOWED",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-DISALLOWED",
+      "specTextSha256": "sha256:6568bbb67caa3b43f692aba4d3ab524ba6ce4d62dff66c7f35ea3ee4b3a88243",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-FETCH",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-FETCH",
+      "specTextSha256": "sha256:3711efb70f9deb0b6c65d163017827fae947ecae692d8689ff4689e6de3f9dc6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-LIMIT-POLICY",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-LIMIT-POLICY",
+      "specTextSha256": "sha256:9a7b1ca9f121886731e47515b8faf6656bb49a341244ff23570b7699ce434ea3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-SEARCH",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-SEARCH",
+      "specTextSha256": "sha256:72771b2e38a146afd496ea7d1d4431e7ec712ee45ed44b0409990faf252f04a9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-WEB-URL-SAFETY",
+      "owner": "W8",
+      "specAnchor": "P11-WEB-URL-SAFETY",
+      "specTextSha256": "sha256:f16c27c4c6e081084c6ac745b5085628baa8fc43e5064ecb75d1133aa979ff35",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    }
+  ]
+}

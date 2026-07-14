@@ -1,204 +1,134 @@
-import AgentCore.Model
+import AgentCore.Lease
 
-/-!
-SPEC v2 §7.3: the approval continuation. An Approval is digest-bound, single-use,
-and survives process death; resuming revalidates the argument digest against the
-approved digest before execution.
-
-This file models the approval ledger as its own small labeled transition system and
-proves the continuation contract: resume requires an approved ticket with a matching
-digest; denied tickets never execute; and once a ticket is consumed, no later step in
-any trace can resume it again (single use).
--/
+/-! Approval owns decision state only; execution consumption remains composed. -/
 
 namespace AgentCore
 
-structure ArgumentDigest where
-  value : Nat
-  deriving DecidableEq, Repr
-
-inductive ApprovalPhase where
-  | pending | approved | denied | consumed
-  deriving DecidableEq, Repr
+inductive ApprovalPhase where | pending | approved | denied | expired deriving DecidableEq, Repr
 
 structure ApprovalTicket where
-  invocation : Nat
-  digest : ArgumentDigest
+  invocation : InvocationId
+  identity : InvocationIdentity
+  digest : InvocationDigest
+  approver : PrincipalId
+  expiresAt : Time
   phase : ApprovalPhase
   deriving DecidableEq, Repr
 
+structure ApprovalContinuation where
+  approval : ApprovalId
+  invocation : InvocationId
+  identity : InvocationIdentity
+  digest : InvocationDigest
+  firstAttempt : AttemptId
+  deriving DecidableEq, Repr
+
 structure ApprovalLedger where
-  tickets : Nat → Option ApprovalTicket
+  tickets : ApprovalId → Option ApprovalTicket
+  approvalFor : InvocationId → Option ApprovalId
+  consumedBy : ApprovalId → Option InvocationId
+  continuations : InvocationId → Option ApprovalContinuation
 
-def ApprovalLedger.set (ledger : ApprovalLedger) (id : Nat) (ticket : ApprovalTicket) :
-    ApprovalLedger :=
-  ⟨fun candidate => if candidate = id then some ticket else ledger.tickets candidate⟩
+instance : Inhabited ApprovalLedger where
+  default := ⟨fun _ => none, fun _ => none, fun _ => none, fun _ => none⟩
 
-theorem ApprovalLedger.set_lookup (ledger : ApprovalLedger) (id target : Nat)
-    (ticket : ApprovalTicket) :
-    (ledger.set id ticket).tickets target =
-      if target = id then some ticket else ledger.tickets target := rfl
+def ApprovalLedger.setTicket (ledger : ApprovalLedger) (id : ApprovalId)
+    (ticket : ApprovalTicket) : ApprovalLedger :=
+  { ledger with
+    tickets := tableSet ledger.tickets id ticket
+    approvalFor := tableSet ledger.approvalFor ticket.invocation id }
+
+def ApprovalLedger.consume (ledger : ApprovalLedger) (id : ApprovalId)
+    (prepared : PreparedInvocation) (firstAttempt : AttemptId) : ApprovalLedger :=
+  { ledger with
+    consumedBy := tableSet ledger.consumedBy id prepared.header.invocation
+    continuations := tableSet ledger.continuations prepared.header.invocation
+      ⟨id, prepared.header.invocation, prepared.identity, prepared.digest, firstAttempt⟩ }
 
 inductive ApprovalLabel where
-  | request (id : Nat) (invocation : Nat) (digest : ArgumentDigest)
-  | approve (id : Nat)
-  | deny (id : Nat)
-  /-- Resuming executes the approved invocation with `digest` as the argument digest
-      presented at execution time (SPEC §7.3 revalidation). -/
-  | resume (id : Nat) (digest : ArgumentDigest)
+  | request (id : ApprovalId) | approve (id : ApprovalId) (approver : PrincipalId) (now : Time)
+  | deny (id : ApprovalId) (approver : PrincipalId) | expire (id : ApprovalId) (now : Time)
   deriving DecidableEq, Repr
 
 inductive ApprovalStep : ApprovalLedger → ApprovalLabel → ApprovalLedger → Prop
-  | request {ledger id invocation digest} :
-      ledger.tickets id = none →
-      ApprovalStep ledger (.request id invocation digest)
-        (ledger.set id ⟨invocation, digest, .pending⟩)
-  | approve {ledger id ticket} :
+  | request {ledger id ticket} :
+      ledger.tickets id = none → ledger.approvalFor ticket.invocation = none →
+      ledger.continuations ticket.invocation = none → ticket.phase = .pending →
+      ApprovalStep ledger (.request id) (ledger.setTicket id ticket)
+  | approve {ledger id ticket approver now} :
+      ledger.tickets id = some ticket → ticket.phase = .pending →
+      ticket.approver = approver → now.tick < ticket.expiresAt.tick →
+      ApprovalStep ledger (.approve id approver now)
+        (ledger.setTicket id { ticket with phase := .approved })
+  | deny {ledger id ticket approver} :
+      ledger.tickets id = some ticket → ticket.phase = .pending → ticket.approver = approver →
+      ApprovalStep ledger (.deny id approver) (ledger.setTicket id { ticket with phase := .denied })
+  | expire {ledger id ticket now} :
       ledger.tickets id = some ticket →
-      ticket.phase = .pending →
-      ApprovalStep ledger (.approve id) (ledger.set id { ticket with phase := .approved })
-  | deny {ledger id ticket} :
-      ledger.tickets id = some ticket →
-      ticket.phase = .pending →
-      ApprovalStep ledger (.deny id) (ledger.set id { ticket with phase := .denied })
-  | resume {ledger id ticket digest} :
-      ledger.tickets id = some ticket →
-      ticket.phase = .approved →
-      digest = ticket.digest →
-      ApprovalStep ledger (.resume id digest) (ledger.set id { ticket with phase := .consumed })
+      (ticket.phase = .pending ∨ ticket.phase = .approved) → ticket.expiresAt.tick ≤ now.tick →
+      ApprovalStep ledger (.expire id now) (ledger.setTicket id { ticket with phase := .expired })
 
-inductive ApprovalExec : ApprovalLedger → List ApprovalLabel → ApprovalLedger → Prop
-  | nil (ledger) : ApprovalExec ledger [] ledger
-  | cons {start middle finish label labels} :
-      ApprovalStep start label middle →
-      ApprovalExec middle labels finish →
-      ApprovalExec start (label :: labels) finish
+def ApprovalLedger.Available (ledger : ApprovalLedger) (id : ApprovalId)
+    (prepared : PreparedInvocation) (now : Time) : Prop :=
+  ∃ ticket, ledger.tickets id = some ticket ∧ ticket.phase = .approved ∧
+    ticket.invocation = prepared.header.invocation ∧ ticket.identity = prepared.identity ∧
+    ticket.digest = prepared.digest ∧ now.tick < ticket.expiresAt.tick ∧
+    ledger.approvalFor prepared.header.invocation = some id ∧
+    ledger.consumedBy id = none ∧ ledger.continuations prepared.header.invocation = none
 
-/-- SPEC §7.3: resuming requires an approved ticket whose recorded digest matches the
-    digest presented at execution time. -/
-theorem resume_requires_approved_matching_digest {ledger after id digest}
-    (step : ApprovalStep ledger (.resume id digest) after) :
+theorem approval_available_is_exact {ledger : ApprovalLedger} {id prepared now}
+    (available : ledger.Available id prepared now) :
     ∃ ticket, ledger.tickets id = some ticket ∧
-      ticket.phase = .approved ∧ digest = ticket.digest := by
-  cases step with
-  | resume lookup phase digestEq => exact ⟨_, lookup, phase, digestEq⟩
+      ticket.invocation = prepared.header.invocation ∧ ticket.identity = prepared.identity ∧
+      ticket.digest = prepared.digest := by
+  obtain ⟨ticket, lookup, approved, invocation, identity, digest, live, unique, unused,
+    absent⟩ := available
+  exact ⟨ticket, lookup, invocation, identity, digest⟩
 
-/-- A digest mismatch can never execute: no resume step exists for a presented digest
-    different from the approved one. -/
-theorem digest_mismatch_never_resumes {ledger after id ticket digest}
-    (lookup : ledger.tickets id = some ticket)
-    (mismatch : digest ≠ ticket.digest) :
-    ¬ ApprovalStep ledger (.resume id digest) after := by
-  intro step
-  cases step with
-  | resume lookup' _ digestEq =>
-      rw [lookup] at lookup'
-      injection lookup' with eq
-      subst eq
-      exact mismatch digestEq
+theorem approval_available_binds_authority_principal {ledger : ApprovalLedger}
+    {id prepared now} (available : ledger.Available id prepared now) :
+    ∃ ticket, ledger.tickets id = some ticket ∧
+      ticket.identity.header.authority.principal = prepared.header.authority.principal := by
+  obtain ⟨ticket, lookup, approved, invocation, identity, digest, live, unique, unused,
+    absent⟩ := available
+  exact ⟨ticket, lookup, by rw [identity]; rfl⟩
 
-/-- Only approved tickets can resume: any non-approved phase blocks execution. This
-    subsumes SPEC §7.3's "denial produces a denied Receipt, never an execution" and
-    the single-use consumed case. -/
-theorem unapproved_never_resumes {ledger after id ticket digest}
-    (lookup : ledger.tickets id = some ticket)
-    (unapproved : ticket.phase ≠ .approved) :
-    ¬ ApprovalStep ledger (.resume id digest) after := by
-  intro step
-  cases step with
-  | resume lookup' phase _ =>
-      rw [lookup] at lookup'
-      injection lookup' with eq
-      subst eq
-      exact unapproved phase
+theorem consumed_approval_unavailable {ledger : ApprovalLedger} {id prepared now invocation}
+    (consumed : ledger.consumedBy id = some invocation) : ¬ ledger.Available id prepared now := by
+  intro available
+  obtain ⟨ticket, lookup, approved, exactInvocation, identity, digest, live, unique, unused,
+    absent⟩ := available
+  rw [consumed] at unused
+  contradiction
 
-/-- Denied approvals never execute. -/
-theorem denied_never_resumes {ledger after id ticket digest}
-    (lookup : ledger.tickets id = some ticket)
-    (denied : ticket.phase = .denied) :
-    ¬ ApprovalStep ledger (.resume id digest) after :=
-  unapproved_never_resumes lookup (by rw [denied]; intro h; cases h)
+def ApprovalLedger.Continues (ledger : ApprovalLedger) (id : ApprovalId)
+    (prepared : PreparedInvocation) : Prop :=
+  ∃ continuation,
+    ledger.consumedBy id = some prepared.header.invocation ∧
+    ledger.continuations prepared.header.invocation = some continuation ∧
+    continuation.approval = id ∧ continuation.invocation = prepared.header.invocation ∧
+    continuation.identity = prepared.identity ∧ continuation.digest = prepared.digest
 
-/-- Once consumed, a ticket stays consumed across every step. -/
-theorem consumed_stable {ledger after label id ticket}
-    (step : ApprovalStep ledger label after)
-    (lookup : ledger.tickets id = some ticket)
-    (consumed : ticket.phase = .consumed) :
-    ∃ ticket', after.tickets id = some ticket' ∧ ticket'.phase = .consumed := by
-  cases step with
-  | @request id' _ _ empty =>
-      refine ⟨ticket, ?_, consumed⟩
-      rw [ApprovalLedger.set_lookup]
-      split
-      · next eq => rw [eq] at lookup; rw [lookup] at empty; cases empty
-      · exact lookup
-  | @approve id' ticket' lookup' pending =>
-      refine ⟨ticket, ?_, consumed⟩
-      rw [ApprovalLedger.set_lookup]
-      split
-      · next eq =>
-          rw [eq] at lookup
-          rw [lookup] at lookup'
-          injection lookup' with eq'
-          subst eq'
-          rw [consumed] at pending
-          cases pending
-      · exact lookup
-  | @deny id' ticket' lookup' pending =>
-      refine ⟨ticket, ?_, consumed⟩
-      rw [ApprovalLedger.set_lookup]
-      split
-      · next eq =>
-          rw [eq] at lookup
-          rw [lookup] at lookup'
-          injection lookup' with eq'
-          subst eq'
-          rw [consumed] at pending
-          cases pending
-      · exact lookup
-  | @resume id' ticket' _ lookup' approved _ =>
-      refine ⟨ticket, ?_, consumed⟩
-      rw [ApprovalLedger.set_lookup]
-      split
-      · next eq =>
-          rw [eq] at lookup
-          rw [lookup] at lookup'
-          injection lookup' with eq'
-          subst eq'
-          rw [consumed] at approved
-          cases approved
-      · exact lookup
+theorem approval_continuation_is_exact {ledger : ApprovalLedger} {id prepared}
+    (continues : ledger.Continues id prepared) :
+    ∃ continuation,
+      ledger.continuations prepared.header.invocation = some continuation ∧
+      continuation.approval = id ∧ continuation.invocation = prepared.header.invocation ∧
+      continuation.identity = prepared.identity ∧ continuation.digest = prepared.digest := by
+  obtain ⟨continuation, consumed, lookup, approval, invocation, identity, digest⟩ := continues
+  exact ⟨continuation, lookup, approval, invocation, identity, digest⟩
 
-/-- No trace starting from a consumed ticket ever resumes it again. -/
-theorem no_resume_when_consumed {ledger labels finish id}
-    (exec : ApprovalExec ledger labels finish) :
-    ∀ ticket, ledger.tickets id = some ticket → ticket.phase = .consumed →
-      ∀ digest, ApprovalLabel.resume id digest ∉ labels := by
-  induction exec with
-  | nil => intro ticket _ _ digest mem; cases mem
-  | @cons start middle finish label labels step _ ih =>
-      intro ticket lookup consumed digest mem
-      cases mem with
-      | head =>
-          exact unapproved_never_resumes lookup
-            (by rw [consumed]; intro h; cases h) step
-      | tail _ rest =>
-          obtain ⟨ticket', lookup', consumed'⟩ := consumed_stable step lookup consumed
-          exact ih ticket' lookup' consumed' digest rest
+theorem approval_is_unique_per_invocation {ledger : ApprovalLedger} {invocation first second}
+    (firstLookup : ledger.approvalFor invocation = some first)
+    (secondLookup : ledger.approvalFor invocation = some second) : first = second := by
+  rw [firstLookup] at secondLookup
+  exact Option.some.inj secondLookup
 
-/-- SPEC §7.3 single use: after a resume executes, no later step in the trace can
-    resume the same approval again. -/
-theorem approval_single_use {ledger middle finish id digest labels}
-    (step : ApprovalStep ledger (.resume id digest) middle)
-    (exec : ApprovalExec middle labels finish) :
-    ∀ digest', ApprovalLabel.resume id digest' ∉ labels := by
-  cases step with
-  | @resume _ ticket _ lookup _ _ =>
-      have lookup' : (ledger.set id { ticket with phase := .consumed }).tickets id
-          = some { ticket with phase := .consumed } := by
-        rw [ApprovalLedger.set_lookup]
-        simp
-      intro digest'
-      exact no_resume_when_consumed exec _ lookup' rfl digest'
+theorem approval_available_has_no_continuation {ledger : ApprovalLedger} {id prepared now}
+    (available : ledger.Available id prepared now) :
+    ledger.continuations prepared.header.invocation = none := by
+  obtain ⟨ticket, lookup, approved, invocation, identity, digest, live, unique, unused,
+    absent⟩ := available
+  exact absent
 
 end AgentCore

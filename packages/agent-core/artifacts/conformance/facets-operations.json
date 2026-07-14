@@ -1,0 +1,272 @@
+{
+  "edition": "1.0.0",
+  "owner": "W3",
+  "requirements": [
+    {
+      "id": "C13-ADV-POST-PREPARATION-INTERCEPTOR",
+      "owner": "W3",
+      "specAnchor": "C13-ADV-POST-PREPARATION-INTERCEPTOR",
+      "specTextSha256": "sha256:0ce875a21bef453c91cdcff24a1c6f4242f35de7620bce54990299dafb608a76",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-ADV-POST-PREPARATION-INTERCEPTOR] routes mediated effects through the invocation port with frozen interceptor traces"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-UNAUTHORIZED-SLOT",
+      "owner": "W3",
+      "specAnchor": "C13-ADV-UNAUTHORIZED-SLOT",
+      "specTextSha256": "sha256:d1965d49603dab9d0a0832ceabf11505376abdbaebe59503249bdf8e3f9fc858",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
+      "testSelectors": [
+        "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-COMMAND-ARGUMENT-BINDING",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-ARGUMENT-BINDING",
+      "specTextSha256": "sha256:501db9361554afdc3a6e9c8f9a4f8ce6a4dfb197c373ae049bcf08fe0b115d12",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before executable dispatch"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-COMMAND-COLLISION",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-COLLISION",
+      "specTextSha256": "sha256:939dde511c260374e733c00f50d01f290301c7ee5d97079377b2214e7cec3b2c",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-COMMAND-INSTALL-MAPPING",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-INSTALL-MAPPING",
+      "specTextSha256": "sha256:cfa185f26f989414b3606d699ad048492f934904bafdbea957a504da1ea71755",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-COMMAND-RESULT",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-RESULT",
+      "specTextSha256": "sha256:9cfd78270dcb530e8b4a4e313b8dc90a1cbfc77e7d5d2ea15bd6ff5998734b22",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] publishes success and failure completion Events correlated to the invocation"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-COMMAND-SUBSCRIPTION-DEFAULTS",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-SUBSCRIPTION-DEFAULTS",
+      "specTextSha256": "sha256:87356c8eb6e84df6c094500ad778307f1171211fe1b0972c029f9b37dc658abf",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
+      "specTextSha256": "sha256:24b61eee1bb919234b5c0400a995a867e6203e4df364e8dc8097d17903f0f88f",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
+      "testSelectors": [
+        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-CONTRIBUTION-MATERIALIZATION] supports idempotent high-level install and contribution operations"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-FACET-MANIFEST",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-MANIFEST",
+      "specTextSha256": "sha256:fc67d792035e31bff8dd0d78e62a445cb24d8642e4003fa5c6bea392a7bd2bf9",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/facets/manifest.ts#FacetManifest"],
+      "testSelectors": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-MANIFEST] canonicalizes manifests without changing ordered mapping semantics"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-FACET-REF-CANONICAL",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-REF-CANONICAL",
+      "specTextSha256": "sha256:7795ad273055316bd20e51de7a057102222a07e0774f880f815e9f092dd30636",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/facets/id.ts#FacetRef"],
+      "testSelectors": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-REF-CANONICAL] uses canonical instance, bound, and Facet operation references"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-FACET-SLOT-AUTHORITY",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-SLOT-AUTHORITY",
+      "specTextSha256": "sha256:1009c05445fcf6f965e20026be8578abd4642bd0e05be69a9d5e58105f129eaf",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/protocol/facet-commands.ts#FacetSlotContributeCommand"],
+      "testSelectors": [
+        "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-FACET-SLOT-VISIBILITY",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-SLOT-VISIBILITY",
+      "specTextSha256": "sha256:6e8a0a4486deadb58f8b113812cb32be51c0faa18fa8348e51208a15ffa114e5",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
+      "testSelectors": [
+        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-SLOT-VISIBILITY] binds SlotCatalog to an authenticated Workspace viewer and filters every entry"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-INTERCEPTOR-ATTRIBUTION",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-ATTRIBUTION",
+      "specTextSha256": "sha256:90d34373dfad90f82504cd2069eb9b398a57cea21c736270bd8bb01512d32f17",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ATTRIBUTION] persists attributable pre-preparation rewrite evidence"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-INTERCEPTOR-CROSS-FACET",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-CROSS-FACET",
+      "specTextSha256": "sha256:edc6171cebcf332992847529b36c54504676d02137b492811e942c0ebc368771",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-CROSS-FACET] rejects cross-workspace restore, non-Promise thenables, and duplicate draft origins"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-INTERCEPTOR-FROZEN-RETRY",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-FROZEN-RETRY",
+      "specTextSha256": "sha256:2212b0830a8fb6936c24cf39ee06f4ca4fa45125b85b4da21bb417854d75eccc",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-INTERCEPTOR-ORDER",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-ORDER",
+      "specTextSha256": "sha256:efaa89dbdf92bf0e71eda8fb9a0f849891f1af91104a4db2a72cc3051fae0d9e",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-ORDER] validates every committed map edge and deterministic snapshot ordering"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-INTERCEPTOR-REPLAY",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-REPLAY",
+      "specTextSha256": "sha256:f08009da49c1d99197e8b060779566d25a4ff326f49770e53fc2b87afffb3558",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-INTERCEPTOR-SELF-SCOPE",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-SELF-SCOPE",
+      "specTextSha256": "sha256:7fda97d23891d3144f0079f229cc298b40f2753d55a0a662dde1be3e759ddd57",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-SELF-SCOPE] defaults an omitted selector to only the contributing Facet"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-INTERCEPTOR-THROW-BLOCK",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-THROW-BLOCK",
+      "specTextSha256": "sha256:da39558f51ff7b9bb8ee03ed057980c47b3a76797ab6732081cfbdbf71a50ad9",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-THROW-BLOCK] rejects malformed snapshots, immutable origins, and out-of-transaction access with typed errors"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    }
+  ]
+}

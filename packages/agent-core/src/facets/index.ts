@@ -1,33 +1,76 @@
-export { Facet, FacetSet } from "./facet";
-export { FacetContext } from "./context";
-export { AuthoritySummary, FacetDescription } from "./description";
 export type { FacetData, FacetDataMap } from "./data";
-export { FacetDataSchemas } from "./data";
-export type { FacetDataSchema } from "./data";
+export { canonicalFacetData, canonicalFacetDataMap, isFacetData, isFacetDataMap } from "./data";
 export {
     BindingName,
-    FacetEventName,
-    FacetId,
-    FacetOperationName,
-    FacetVersion,
+    EventKind,
+    FacetPackageId,
+    FacetRef,
+    InterceptorId,
+    OperationName,
+    OperationRef,
+    SlotEntryId,
+    SlotName,
     SurfaceId
 } from "./id";
-export { EventAddress, EventDeclaration, EventDeclarationSet } from "./event";
+export { CapabilitySpec, isCapabilityEffect } from "./capability";
+export type { CapabilityEffect, CapabilityIntent, CapabilitySpecInit } from "./capability";
+export { BindingRequirement, FacetManifest, canonicalIsolationModes } from "./manifest";
+export type { FacetManifestInit, IsolationMode } from "./manifest";
 export {
-    FacetOperation,
-    FacetOperationHandler,
-    Operation,
-    OperationAddress,
-    OperationBinding,
-    OperationCatalog,
-    OperationDescriptor
-} from "./operation";
-export { OperationSet } from "./operation";
+    Contribution,
+    Contributions,
+    OperationDescriptor,
+    SurfaceDescriptor
+} from "./contribution";
+export type { Impact } from "./contribution";
+export { SlotAuthorityPolicy, SlotDeclaration } from "./slot";
+export { SlotEntry } from "./slot-entry";
+export { WorkspaceSlotStore } from "./slot-store";
+export {
+    EventDeclaration,
+    EventPattern,
+    IngressDeclaration,
+    IngressVerification,
+    canonicalTrustTiers
+} from "./event";
+export type { EventVisibility, TrustTier, VerificationScheme } from "./event";
+export { Prompt, PromptContribution } from "./prompt";
+export { Command } from "./command";
+export type { CommandInit } from "./command";
+export { Automation } from "./automation";
+export type { AutomationAuthority, AutomationInit, DedupePolicy } from "./automation";
+export {
+    FieldMapping,
+    FieldMove,
+    OperationPattern,
+    OperationSelector,
+    PayloadMapping,
+    ProvenanceMapping
+} from "./mapping";
+export { InterceptorDeclaration } from "./interceptor";
+export type { CutPoint } from "./interceptor";
 export { ProtectionDomain } from "./protection";
-export type { ProtectionDomainKind, ProtectionDomainSecretPolicy } from "./protection";
-export { PromptContribution, PromptSection } from "./prompt";
-export { EventCursor, Surface, SurfaceAction, SurfaceActionSet, SurfaceSet, View, ViewRequest } from "./surface";
-export { ApprovalGatewayFacet } from "./approval-gateway";
-export { McpFacet } from "./mcp";
-export { SelfFacet } from "./self";
-export { WebFacet } from "./web";
+export { PackageInstallationRef } from "./installation";
+export { Facet, Interceptor, Operation, ProtectedOperationPort, Surface } from "./runtime";
+export type {
+    FacetLifecycleContext,
+    InterceptContext,
+    InterceptResult,
+    OperationAttemptIdentity,
+    OperationContext,
+    ProtectedOperationRequest,
+    ProtectedOperationResult
+} from "./runtime";
+export * from "./approval-gateway";
+export * from "./device";
+export * from "./environment";
+export * from "./filesystem";
+export * from "./mcp";
+export * from "./memory";
+export * from "./profile-runtime";
+export * from "./self";
+export * from "./shell";
+export * from "./single-tenant";
+export * from "./slate";
+export * from "./task";
+export * from "./web";

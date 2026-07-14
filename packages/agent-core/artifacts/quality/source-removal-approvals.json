@@ -1,0 +1,122 @@
+{
+  "edition": "2.0.0",
+  "approvals": [
+    {
+      "path": "packages/agent-core/src/authority/capability.ts",
+      "owner": "W2",
+      "replacements": ["packages/agent-core/src/facets/capability.ts"],
+      "rationale": "The coordinated W2/W3 transition establishes the W3-owned CapabilitySpec as the single canonical runtime and codec identity; retaining the W2 declaration would preserve a forbidden duplicate authority model.",
+      "original": {
+        "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+        "sha256": "baa48a61d5c000b2ab0e542a8e007e22de5f12707f7e5721deab36e60fcb01d2"
+      },
+      "review": {
+        "disposition": {
+          "owner": "W2",
+          "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a"
+        },
+        "resolution": {
+          "source": "packages/agent-core/artifacts/requests/W2/shared-seams.json",
+          "sha256": "6f606c4a8af536c10982616ff093f2678dfedaf72c9b443f344aabb478287027"
+        },
+        "transition": "TRANSITION-FACET-CAPABILITY-IDENTITY"
+      },
+      "tests": [
+        "test/authority/canonical-facet-transition.test.ts#coordinated FacetRef and CapabilitySpec transition [C13-AUTH-ROLE-MATERIALIZATION] retains the exact W3 CapabilitySpec through Role and Grant runtime records",
+        "test/authority/canonical-facet-transition.test.ts#coordinated FacetRef and CapabilitySpec transition [C13-AUTH-BINDING-RESOLUTION] retains the exact W3 FacetRef through Binding runtime records"
+      ],
+      "digest": "2fe87c769995e45e0622516f14866646a81cbe58a0ec8aed305138492ba89b98"
+    },
+    {
+      "path": "packages/agent-core/src/content/record.ts",
+      "owner": "W1",
+      "replacements": [
+        "packages/agent-core/src/content/media.ts",
+        "packages/agent-core/src/content/retention.ts",
+        "packages/agent-core/src/content/stat.ts",
+        "packages/agent-core/src/content/transient.ts"
+      ],
+      "rationale": "The reviewed W1 split moves ContentStat to its own module and retains media, owner-edge retention, and transient lease records as separate concepts, eliminating the mixed legacy record module without dropping behavior.",
+      "original": {
+        "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+        "sha256": "f356022ec013c2c0f549191bac6551b13b0a171f4ac8e7fbc1141f8f54233a02"
+      },
+      "review": {
+        "disposition": {
+          "owner": "W1",
+          "commit": "aef9246e02cf3f5ca54ea9b1f84524743d789d26"
+        },
+        "resolution": {
+          "source": "packages/agent-core/artifacts/requests/W1/shared-integration.json",
+          "sha256": "e9932ebd2df84bb257aef5f66162e6cebeff876c42b8a12f2fd5362d8558d5d0"
+        },
+        "transition": "TRANSITION-FOUNDATION-PUBLIC-CONTRACT"
+      },
+      "tests": [
+        "test/content/records.test.ts#content record codecs [content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds",
+        "test/content/records.test.ts#content record codecs content stat rejects every malformed field and invalid value",
+        "test/content/records.test.ts#content value contracts models active, released, expired, and idempotently closed lease orders"
+      ],
+      "digest": "98fe4b5803d554dab1b46f9dc51ad73fc77d38c34989673ceb9fc9b43ee6e99e"
+    },
+    {
+      "path": "packages/agent-core/src/core/value.ts",
+      "owner": "W1",
+      "replacements": [
+        "packages/agent-core/src/core/content-ref.ts",
+        "packages/agent-core/src/core/revision.ts",
+        "packages/agent-core/src/core/secret-ref.ts",
+        "packages/agent-core/src/core/index.ts",
+        "packages/agent-core/src/index.ts"
+      ],
+      "rationale": "The reviewed W1 split gives ContentRef, Revision, and SecretRef independent modules and exposes those exact identities through the core and package barrels; the combined value module is no longer canonical.",
+      "original": {
+        "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+        "sha256": "5f0bc6585519a4798908dcbe62355ad35c4091a00e854890a0f6de71eef046cd"
+      },
+      "review": {
+        "disposition": {
+          "owner": "W1",
+          "commit": "aef9246e02cf3f5ca54ea9b1f84524743d789d26"
+        },
+        "resolution": {
+          "source": "packages/agent-core/artifacts/requests/W1/shared-integration.json",
+          "sha256": "e9932ebd2df84bb257aef5f66162e6cebeff876c42b8a12f2fd5362d8558d5d0"
+        },
+        "transition": "TRANSITION-FOUNDATION-PUBLIC-CONTRACT"
+      },
+      "tests": [
+        "test/core/content-ref.test.ts#ContentRef round-trips a SHA-256 content address through a detached digest",
+        "test/core/revision.test.ts#Revision increments without mutating the prior value",
+        "test/core/secret-ref.test.ts#SecretRef validates and compares structured references"
+      ],
+      "digest": "09a49902f0a935fb2a2bf0b52acae1e2353da5d1668dcafa288d0e3caf47a922"
+    },
+    {
+      "path": "packages/agent-core/src/core/version.ts",
+      "owner": "W1",
+      "replacements": ["packages/agent-core/src/core/semver.ts"],
+      "rationale": "SemVer is now the exact W1-owned semantic-version value and strict codec; removing the generic version module prevents the retired mixed compatibility surface from surviving beside it.",
+      "original": {
+        "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+        "sha256": "7be34c50325209dd411fd656eb95d81b630655bff10c119928367ade0484834f"
+      },
+      "review": {
+        "disposition": {
+          "owner": "W1",
+          "commit": "aef9246e02cf3f5ca54ea9b1f84524743d789d26"
+        },
+        "resolution": {
+          "source": "packages/agent-core/artifacts/requests/W1/shared-integration.json",
+          "sha256": "e9932ebd2df84bb257aef5f66162e6cebeff876c42b8a12f2fd5362d8558d5d0"
+        },
+        "transition": "TRANSITION-FOUNDATION-PUBLIC-CONTRACT"
+      },
+      "tests": [
+        "test/core/semver.test.ts#SemVer parses and renders the complete SemVer 2.0.0 form",
+        "test/core/semver.test.ts#SemVer [core.semver] round-trips deterministically through its strict codec"
+      ],
+      "digest": "5d10618b4341b083e18e62dad5d56ee9033c31db57dda57a76656aa8e010c974"
+    }
+  ]
+}

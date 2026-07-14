@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "agent-core-cloudflare-runtime-test",
+  "main": "test/cloudflare/worker.ts",
+  "compatibility_date": "2026-07-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "ACTORS", "class_name": "TestActorDurableObject" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TestActorDurableObject"] }],
+  "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],
+  "queues": {
+    "producers": [{ "binding": "DELIVERIES", "queue": "agent-core-cloudflare-test-deliveries" }],
+    "consumers": [{ "queue": "agent-core-cloudflare-test-deliveries", "max_batch_size": 10 }]
+  },
+  "worker_loaders": [{ "binding": "LOADER" }]
+}

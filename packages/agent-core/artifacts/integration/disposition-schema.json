@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/integration-dispositions.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edition", "waves"],
+  "properties": {
+    "edition": { "const": "1.0.0" },
+    "waves": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["owner", "state", "commit", "tree", "clean", "artifacts", "blockers"],
+        "properties": {
+          "owner": { "type": "string", "pattern": "^W[0-9]+$" },
+          "state": {
+            "enum": [
+              "governance",
+              "accepted-input",
+              "pending-final-head",
+              "integration-candidate",
+              "completed"
+            ]
+          },
+          "commit": { "type": ["string", "null"], "pattern": "^[a-f0-9]{40}$" },
+          "tree": { "type": ["string", "null"], "pattern": "^[a-f0-9]{40}$" },
+          "clean": { "type": ["boolean", "null"] },
+          "artifacts": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "blob", "sha256"],
+                  "properties": {
+                    "path": { "type": "string", "minLength": 1 },
+                    "blob": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+                  }
+                }
+              ]
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

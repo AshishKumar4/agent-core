@@ -35,21 +35,24 @@ version.
 ## The core ideas
 
 **Authority works like a capability.** The idea is that nothing in the system acts
-because of *who it is* — things act because of *what they hold*. A *Grant* records
-authority, a *Binding* gives it a name inside one isolation domain, and resolving a
-binding produces a live capability that can be narrowed, delegated, and revoked. Roles
-and memberships exist so humans can reason about access, but they materialize *into*
-grants, so there is only one enforcement path to get right. Revoking a grant disables
-everything derived from it. This is the object-capability model (the ideas go back to
+because of *who it is* — things act because of *what they hold*. Durable allow and deny
+*Grants* share one enforcement plane; a *Binding* names an allowed Facet inside one
+isolation domain, and resolution evaluates every matching Grant on the exact Scope
+path. Roles materialize ordered allow/deny rules into those Grants rather than creating
+a second access path. Direct use requires path-epoch evidence, an unstaled delivered
+watermark, an exact Turn lease, and an immutable deadline. This is the object-capability model (the ideas go
+back to
 Mark Miller's work), and the reason I care about it is prompt injection: an agent reads
 untrusted content all day, and if it also holds broad ambient authority, injected
 instructions will eventually find something to do with it. Capabilities keep the blast
 radius of any single compromise small and revocable.
 
 **Everything durable is a record with a single owner, and every input is an event.** A
-conversation is stored as an append-only commit graph with named branches, so branching
+conversation is stored as an append-only commit graph with named branches and exact
+root/Turn/system writers, so branching
 a conversation, undoing a step, and running parallel attempts are just graph
-operations. An execution attempt is a *Turn* that holds a lease with a fencing epoch,
+operations. An execution attempt is a *Turn* that holds an exact-Turn lease with a
+fencing epoch,
 which means a crashed executor that comes back later simply cannot write anything — all
 of its writes carry a stale epoch and get rejected. And a webhook, a cron tick, a slash
 command, and a button press are all the same thing: an *Event*, routed by a
@@ -59,8 +62,10 @@ command, and a button press are all the same thing: an *Event*, routed by a
 agent loop makes thousands of small read calls per session, and writing five durable
 records for every file read would make the whole thing unusable. So enforcement
 depends on the operation's declared impact: reading a file in the agent's own sandbox
-is a plain in-memory call, while sending an email goes through a durable pipeline of
-intent, approval, receipt, and audit. You can always tighten the policy; the defaults
+is a plain in-memory call with a bounded resolution deadline, while sending an email
+freezes one shared PreparedInvocation header plus ordered payload and records optional approval,
+optional effect attempts, immutable receipts, and Actor-local audit lineage. You can always tighten policy; the
+defaults
 are just honest about what each kind of call costs.
 
 ## The primitives
@@ -93,7 +98,10 @@ And this is what the whole thing is for — a platform ends up being a document:
   ],
   "agents": [{ "name": "helper", "instructions": "…", "model": { "policy": "balanced" } }],
   "policies": {
-    "placement": { "trusted": ["core.*"], "default": "provider" },
+    "placement": {
+      "trusted": ["core.*"],
+      "defaultAllowed": ["provider", "dynamic"]
+    },
     "tiers": { "acme.deploy:deploy.run": "mediated" }
   }
 }
@@ -105,24 +113,17 @@ platform is the one a reviewer can diff and a second backend can deploy.
 
 ## The formal model
 
-I also maintain a Lean 4 model of the core semantics (`packages/agent-core/formal/`) —
-the parts where an informal argument is most likely to be subtly wrong: grant-chain
-attenuation, tenant isolation, revocation and its bounded window, lease-epoch fencing,
-the deny-overrides precedence rule, approval single-use and digest binding, and the
-append-only undo semantics. I try to be careful about what is actually proven versus
-what is merely designed: `artifacts/traceability.yaml` maps each requirement to its
-theorems, and `pnpm check:traceability` verifies that map against the real build output
-in both directions, so the claims can't silently drift from the proofs. The model
-covers the abstract state machine; correctness of the implementation against it is
-tracked separately as refinement obligations.
+The Lean 4 package (`packages/agent-core/formal/`) checks an abstract subset only.
+[`packages/agent-core/artifacts/traceability.yaml`](packages/agent-core/artifacts/traceability.yaml)
+is the detailed claim ledger; SPEC §14 lists its coverage
+categories and explicit nonclaims. It does not prove that the TypeScript, storage
+adapters, or a deployment refine the model. Those are conformance-test obligations.
 
 ## Status
 
-The specification is complete enough to implement against.
-The reference implementation currently covers the authority, invocation (including the
-approval continuation), subscription, run/turn, and filesystem/shell/memory layers,
-with a behavior-first test suite. The Durable Object adapter, the record codecs, the
-command dispatcher, and the Blueprint materializer are the next pieces, in that order.
+The normative target is the specification, not the current implementation. Conformance
+requires the evidence in SPEC §13. Versioned record codecs remain required and are the
+source for any future generated machine schema.
 The open questions — starting with the project's public name — are listed in
 [SPEC §15](packages/agent-core/SPEC.md#15-open-questions). If you spot mistakes or
 have suggestions, please open an issue.
@@ -134,9 +135,9 @@ packages/agent-core/
   SPEC.md          the specification — start here
   diagrams/        the spec's diagrams (hand-built SVG)
   src/             reference implementation (TypeScript)
-  test/            behavior + conformance suites
-  formal/          Lean 4 model and proofs
-  artifacts/       schemas + machine-verified traceability
+  test/            behavior + conformance tests
+  formal/          abstract Lean 4 model
+  artifacts/       formal claim traceability
 ```
 
 ## License

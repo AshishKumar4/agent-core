@@ -1,0 +1,430 @@
+{
+  "edition": "1.0.0",
+  "stage": "building",
+  "entries": [
+    {
+      "owner": "W1",
+      "commit": "aef9246e02cf3f5ca54ea9b1f84524743d789d26",
+      "tree": "6544042f9953a83121f3bb987a9cdab695ef3780",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/coverage.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/coverage.md",
+          "sourceSha256": "beeb9e86dbf84f0651af92dc5e5de6e9d7dbe9445fe4aec4e7f5cd0c50a1e796",
+          "sha256": "beeb9e86dbf84f0651af92dc5e5de6e9d7dbe9445fe4aec4e7f5cd0c50a1e796",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/error-taxonomy.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/error-taxonomy.json",
+          "sourceSha256": "434828f95e6d613b5fd2ef7d67674a06d126f40e5d69fc906ef02069509a57a8",
+          "sha256": "434828f95e6d613b5fd2ef7d67674a06d126f40e5d69fc906ef02069509a57a8",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/exports.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/exports.json",
+          "sourceSha256": "7f0be71d8362f2022cf1ee78bc1dfc81d2b4e91c178055e0a42ee8abc1d5f4fd",
+          "sha256": "7f0be71d8362f2022cf1ee78bc1dfc81d2b4e91c178055e0a42ee8abc1d5f4fd",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/ownership.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/ownership.json",
+          "sourceSha256": "4ecc432d1a95f8247d6a02c07d1924d501c81617f2284349a075cc9ec6ea6849",
+          "sha256": "4ecc432d1a95f8247d6a02c07d1924d501c81617f2284349a075cc9ec6ea6849",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/shared-integration.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/shared-integration.json",
+          "sourceSha256": "e9932ebd2df84bb257aef5f66162e6cebeff876c42b8a12f2fd5362d8558d5d0",
+          "sha256": "e9932ebd2df84bb257aef5f66162e6cebeff876c42b8a12f2fd5362d8558d5d0",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/verification-manifest.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/verification-manifest.json",
+          "sourceSha256": "dc6e208fb87e3a555976df3c2731c685957bf844135b8d8afed313c4738ffad4",
+          "sha256": "dc6e208fb87e3a555976df3c2731c685957bf844135b8d8afed313c4738ffad4",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/verification.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/verification.md",
+          "sourceSha256": "710667b4969849ae94fb5780f18762eab551c49f9d0f81cd68638b0015fa3fa2",
+          "sha256": "710667b4969849ae94fb5780f18762eab551c49f9d0f81cd68638b0015fa3fa2",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W1/vitest.config.mjs",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W1/vitest.config.mjs",
+          "sourceSha256": "5620efbc0e9681407164ee5297f735a9cb980ed4d7dda24c16a4a28f6fccc554",
+          "sha256": "5620efbc0e9681407164ee5297f735a9cb980ed4d7dda24c16a4a28f6fccc554",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "owner": "W2",
+      "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a",
+      "tree": "5695314d1fea86ba594d2c10a30676b47800202e",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/check-changed-coverage.mjs",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/check-changed-coverage.mjs",
+          "sourceSha256": "66ec187e014baa8329a317d149afbb54527e01a532e63f17cc3a6504ef5695b3",
+          "sha256": "66ec187e014baa8329a317d149afbb54527e01a532e63f17cc3a6504ef5695b3",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/conformance.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/conformance.json",
+          "sourceSha256": "af716ad9d3fa26a1619aa2acfce9e0fbf78f93ad217a942e38bfffcf1b133a40",
+          "sha256": "af716ad9d3fa26a1619aa2acfce9e0fbf78f93ad217a942e38bfffcf1b133a40",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/coverage-manifest.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/coverage-manifest.json",
+          "sourceSha256": "8385ae9f31611e2019eea8d052191adc2d5d3b5b2e41dab30214997f2fa24c94",
+          "sha256": "8385ae9f31611e2019eea8d052191adc2d5d3b5b2e41dab30214997f2fa24c94",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/cross-wave.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/cross-wave.json",
+          "sourceSha256": "bbf659431a2c992d89e7a1db9a4482a748bec66448a88bb9c603175d6fd88737",
+          "sha256": "bbf659431a2c992d89e7a1db9a4482a748bec66448a88bb9c603175d6fd88737",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/exports.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/exports.json",
+          "sourceSha256": "8ce2beb37e75f1d6d1b524a37022e629133ecb107cb6955e7220feac0dddfc3e",
+          "sha256": "8ce2beb37e75f1d6d1b524a37022e629133ecb107cb6955e7220feac0dddfc3e",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/ownership.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/ownership.json",
+          "sourceSha256": "dd0eac5b32b63585b68bb4a35b8bb5eaa99a517d8fd938111887d37c18fce466",
+          "sha256": "dd0eac5b32b63585b68bb4a35b8bb5eaa99a517d8fd938111887d37c18fce466",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/shared-seams.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/shared-seams.json",
+          "sourceSha256": "6f606c4a8af536c10982616ff093f2678dfedaf72c9b443f344aabb478287027",
+          "sha256": "6f606c4a8af536c10982616ff093f2678dfedaf72c9b443f344aabb478287027",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/typeerror-classification.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/typeerror-classification.json",
+          "sourceSha256": "cc481ca05418880ab6f0232642fe143b563938a42b091c41e2f54a9abaebab1f",
+          "sha256": "cc481ca05418880ab6f0232642fe143b563938a42b091c41e2f54a9abaebab1f",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W2/vitest.config.mjs",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W2/vitest.config.mjs",
+          "sourceSha256": "b9220bb921cc02eff8dc01839cd30722ad1247fd407927631b2e31bd1abbfdda",
+          "sha256": "b9220bb921cc02eff8dc01839cd30722ad1247fd407927631b2e31bd1abbfdda",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "owner": "W3",
+      "commit": "1daf42bf5ca1a71ddc619be78f6f23da213717d3",
+      "tree": "a15d6218311c739fb52d232fb11986d4b387f7f8",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "packages/agent-core/artifacts/requests/W3/README.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W3/README.md",
+          "sourceSha256": "e2d7cf203ab0a268bc48a04ae1da8ef2b6445c950d1e7d75c887e48c02419659",
+          "sha256": "e2d7cf203ab0a268bc48a04ae1da8ef2b6445c950d1e7d75c887e48c02419659",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W3/W0-aggregate-exports.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W3/W0-aggregate-exports.json",
+          "sourceSha256": "7b2aa06132cf02c6b4a0d2839a2b87644a530498217af10ed3afbefecebf7dba",
+          "sha256": "7b2aa06132cf02c6b4a0d2839a2b87644a530498217af10ed3afbefecebf7dba",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W3/W2-authority-port.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W3/W2-authority-port.json",
+          "sourceSha256": "96ecd8009c96397658df74ad3d0e4961a6ec83d5929ce7028bfa77184362a989",
+          "sha256": "96ecd8009c96397658df74ad3d0e4961a6ec83d5929ce7028bfa77184362a989",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W3/W4-package-loader.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W3/W4-package-loader.json",
+          "sourceSha256": "a2bece2a92f6f52265e9826a25246abb832670ec804fce924b6031d6c26bcf34",
+          "sha256": "a2bece2a92f6f52265e9826a25246abb832670ec804fce924b6031d6c26bcf34",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W3/W5-interceptor-context.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W3/W5-interceptor-context.json",
+          "sourceSha256": "207eab31d9b7c3ea31bf41efd1e187b197eba718fe1bc75e624a24590ce15f1a",
+          "sha256": "207eab31d9b7c3ea31bf41efd1e187b197eba718fe1bc75e624a24590ce15f1a",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W3/W6-invocation-port.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W3/W6-invocation-port.json",
+          "sourceSha256": "00c7c9260d00795542286769e234c9998dc8e0414e9f01b78ebee7802b044c44",
+          "sha256": "00c7c9260d00795542286769e234c9998dc8e0414e9f01b78ebee7802b044c44",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W3/W7-command-surface-runtime.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W3/W7-command-surface-runtime.json",
+          "sourceSha256": "ab9f1bd182dce14b09c056600d39daa9b3c71c3772cd16d125b96bdf55f17d2b",
+          "sha256": "ab9f1bd182dce14b09c056600d39daa9b3c71c3772cd16d125b96bdf55f17d2b",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "owner": "W4",
+      "commit": "e89dff315b2e55d6d092c24fc1888978b72cbebd",
+      "tree": "0384d71d927dceb8e25725c0f0d828025622ab5b",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/check-coverage.mjs",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/check-coverage.mjs",
+          "sourceSha256": "feb680611705af8c57675013454579b680e3410b1204155f9ec27171fe96b027",
+          "sha256": "feb680611705af8c57675013454579b680e3410b1204155f9ec27171fe96b027",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/check-error-taxonomy.mjs",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/check-error-taxonomy.mjs",
+          "sourceSha256": "4e96f32681854653b72962c5b3a75f1b62be6a5a9616ea8557a0cdf4ab1548e3",
+          "sha256": "4e96f32681854653b72962c5b3a75f1b62be6a5a9616ea8557a0cdf4ab1548e3",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/coverage.manifest",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/coverage.manifest",
+          "sourceSha256": "a53d8adad1cdd652d68a816185a8fd01054a66242848c75fc0816299cf475526",
+          "sha256": "a53d8adad1cdd652d68a816185a8fd01054a66242848c75fc0816299cf475526",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/dependencies.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/dependencies.json",
+          "sourceSha256": "77202df38eda03d21f950b6e7d666fa07068ac0f05e3611a15390e9022b0f0a8",
+          "sha256": "77202df38eda03d21f950b6e7d666fa07068ac0f05e3611a15390e9022b0f0a8",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/error-taxonomy.manifest",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/error-taxonomy.manifest",
+          "sourceSha256": "74fe246e787f339f53d0c797aced8f5a1c5ecf159ba293bb9dbc06c0f7f95e29",
+          "sha256": "74fe246e787f339f53d0c797aced8f5a1c5ecf159ba293bb9dbc06c0f7f95e29",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/errors.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/errors.json",
+          "sourceSha256": "668c5bc93c6802afa86e3fc91b875fb630786d4eeda0ca3a79c93f8c8cb5c145",
+          "sha256": "668c5bc93c6802afa86e3fc91b875fb630786d4eeda0ca3a79c93f8c8cb5c145",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/exports.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/exports.json",
+          "sourceSha256": "2283d70f51624592304538d7273a913c907d50ac38041937a4a432a688010e1e",
+          "sha256": "2283d70f51624592304538d7273a913c907d50ac38041937a4a432a688010e1e",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W4/vitest.config.mjs",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W4/vitest.config.mjs",
+          "sourceSha256": "c3c50b815ef2b7beb4b9e62396d709eeb7c97125ee0f3a5242f2576f4f67bdce",
+          "sha256": "c3c50b815ef2b7beb4b9e62396d709eeb7c97125ee0f3a5242f2576f4f67bdce",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "owner": "W5",
+      "commit": "0fcd7141898615b2234d875ce1018f11c89e354d",
+      "tree": "a90ce6a9b197dbc214f2fb25c2b4cd1c954649ec",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "packages/agent-core/artifacts/requests/W5/README.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W5/README.md",
+          "sourceSha256": "adf0c625441d887d0ebca88281fb499b29dd967eef96e4848454b5bab39b0de7",
+          "sha256": "adf0c625441d887d0ebca88281fb499b29dd967eef96e4848454b5bab39b0de7",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W5/clarifications.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W5/clarifications.json",
+          "sourceSha256": "589bfc6c9b747f72eeab5d401b593eef8a2cf31cd818d159ff4c0b18eb8b4e8b",
+          "sha256": "589bfc6c9b747f72eeab5d401b593eef8a2cf31cd818d159ff4c0b18eb8b4e8b",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W5/coverage.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W5/coverage.json",
+          "sourceSha256": "d66f3b2633346f24efd53fe5e2c55c61ff52dc160097e818aa8a4c90c96a6512",
+          "sha256": "f5fe61112fdf98258f90c592628a63d8ec63dab616cab3bd0ebf7be1f4514d46",
+          "normalization": "canonical-json-v1"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W5/exports.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W5/exports.json",
+          "sourceSha256": "3ed69601d8899fb3f756b8be47dcb2e1bf1585cc9ba30ef48e2b2961332f6f84",
+          "sha256": "b0981120ed12ff386ab4428acb4d23f03d4d37ab2d0568ea2be2c3db30f6f48d",
+          "normalization": "canonical-json-v1"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W5/ownership.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W5/ownership.json",
+          "sourceSha256": "5f41470af4edf67f0af9eef8898004750280ab8e06a5798d8f6331ce50518bb2",
+          "sha256": "5f41470af4edf67f0af9eef8898004750280ab8e06a5798d8f6331ce50518bb2",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W5/ports.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W5/ports.json",
+          "sourceSha256": "26f53e99deded68ff190bc2d3df9824fa7a5f8f829b3d4e53a76acbcb2c5c3f1",
+          "sha256": "26f53e99deded68ff190bc2d3df9824fa7a5f8f829b3d4e53a76acbcb2c5c3f1",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W5/quality.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W5/quality.json",
+          "sourceSha256": "327b2dc2da675c82f5dfff8bffb2ed9f2a4970c6ec965c995327e5360764ce41",
+          "sha256": "327b2dc2da675c82f5dfff8bffb2ed9f2a4970c6ec965c995327e5360764ce41",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "owner": "W6",
+      "commit": "01a457f9207039ba41aabf1a94f6ab3aaddbfdd2",
+      "tree": "b8f7a6abe47a7dd1d7ee5c40e09a8c44ac561bf6",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "packages/agent-core/artifacts/requests/W6/README.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W6/README.md",
+          "sourceSha256": "db457bb7b1e7ee4067f7d70e38e2ad48692caaa39e862cecf18aa933d5703322",
+          "sha256": "db457bb7b1e7ee4067f7d70e38e2ad48692caaa39e862cecf18aa933d5703322",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W6/coverage.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W6/coverage.md",
+          "sourceSha256": "f292c8bc5c284ae047a2bf0d281d0a2e703ac1c1d64827b320016deabb58d0de",
+          "sha256": "f292c8bc5c284ae047a2bf0d281d0a2e703ac1c1d64827b320016deabb58d0de",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W6/dependencies.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W6/dependencies.json",
+          "sourceSha256": "68fcb42291e90fbb113c4edf88bf78590c712dd773d7ba88927bdf168f8b4a8c",
+          "sha256": "68fcb42291e90fbb113c4edf88bf78590c712dd773d7ba88927bdf168f8b4a8c",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W6/exports.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W6/exports.json",
+          "sourceSha256": "3a65b521884998c9abb6e0f908643b56d939e0726e9bc00eeaba5fd14c8651a1",
+          "sha256": "3a65b521884998c9abb6e0f908643b56d939e0726e9bc00eeaba5fd14c8651a1",
+          "normalization": "none"
+        },
+        {
+          "source": "packages/agent-core/artifacts/requests/W6/verification.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W6/verification.md",
+          "sourceSha256": "c2ee1709e29a58635cb34bf26bd83cbe16947a32de046e1b64cdc952d32f9064",
+          "sha256": "c2ee1709e29a58635cb34bf26bd83cbe16947a32de046e1b64cdc952d32f9064",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "owner": "W7",
+      "commit": "96fbfc9b32ac0ee3705ccfe108ce04f22c83d18c",
+      "tree": "9de0bb8835b4818a32e805f7fdea0b3a719321d5",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "packages/agent-core/artifacts/requests/W7/dependencies.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W7/dependencies.json",
+          "sourceSha256": "dc3fa90b802f0800331140a6f4c4f968cd7b38465449238ac249cb1cbb500f8c",
+          "sha256": "dc3fa90b802f0800331140a6f4c4f968cd7b38465449238ac249cb1cbb500f8c",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "owner": "W8",
+      "commit": "a6753495cf0bcacc0ada8b76f3fef6b3f54c80f0",
+      "tree": "28117468fda9ba87da57e883ab9e763e5de531cd",
+      "commitSignature": {
+        "status": "unsigned",
+        "keyFingerprint": null
+      },
+      "artifacts": [
+        {
+          "source": "artifacts/requests/W8/normative-clarifications.md",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W8/normative-clarifications.md",
+          "sourceSha256": "ff84559cc58d93d09ff4ee08170bd55c47c9e3b4e43465584e7d3b854cd9b325",
+          "sha256": "ff84559cc58d93d09ff4ee08170bd55c47c9e3b4e43465584e7d3b854cd9b325",
+          "normalization": "none"
+        },
+        {
+          "source": "artifacts/requests/W8/shared-integration.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W8/shared-integration.json",
+          "sourceSha256": "f7659c2527f7ad706dcdf37aa9b10edf82ce0615c879f6e5b718cbbe8ad6d238",
+          "sha256": "97d6f0c40e036560d9824876a8b71124f61b57143d6b3bbe04c58e54e3fcbc45",
+          "normalization": "canonical-json-v1"
+        },
+        {
+          "source": "artifacts/requests/W8/remote-gates.json",
+          "destination": "packages/agent-core/artifacts/integration/request-archive/W8/remote-gates.json",
+          "sourceSha256": "5b2a416e553143f76021e35372175eb010326b797bb288c8db6b6575d8444110",
+          "sha256": "a385b9ce7c804f671e15c08aaaff0af00aa7833005f6f3756d45cea2adb96c05",
+          "normalization": "canonical-json-v1"
+        }
+      ]
+    }
+  ]
+}

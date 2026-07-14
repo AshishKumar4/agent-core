@@ -1,0 +1,50 @@
+{
+  "requester": "W2",
+  "owner": "W0",
+  "status": "requested",
+  "records": [
+    {
+      "kind": "identity.workspace",
+      "symbol": "Workspace",
+      "owner": "tenant",
+      "codec": "src/identity/workspace.ts",
+      "stores": ["src/authority/memory.ts", "src/substrates/sqlite/identity.ts"]
+    },
+    {
+      "kind": "identity.guest-trust",
+      "symbol": "GuestTrust",
+      "owner": "tenant",
+      "codec": "src/identity/guest-trust.ts",
+      "stores": ["src/authority/memory.ts", "src/substrates/sqlite/identity.ts"]
+    },
+    {
+      "kind": "authority.binding",
+      "symbol": "Binding",
+      "owner": "workspace",
+      "codec": "src/authority/binding.ts",
+      "stores": [
+        "src/authority/binding-store.ts",
+        "src/substrates/sqlite/binding.ts"
+      ]
+    },
+    {
+      "kind": "authority.invalidation-watermark",
+      "symbol": "InvalidationWatermark",
+      "owner": "invocation-owner",
+      "codec": "src/authority/epoch.ts",
+      "stores": [
+        "src/authority/watermark-store.ts",
+        "src/substrates/sqlite/watermark.ts"
+      ]
+    }
+  ],
+  "values": [
+    "identity.principal-ref",
+    "identity.guest-verification",
+    "authority.path-epoch-evidence",
+    "authority.binding-validation-evidence",
+    "authority.check-evidence",
+    "protocol.binding-validation-reply",
+    "protocol.authority-check-reply"
+  ]
+}

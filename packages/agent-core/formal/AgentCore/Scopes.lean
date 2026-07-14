@@ -1,296 +1,287 @@
 import AgentCore.Model
 
 /-!
-SPEC v2 §3 (identity & authority): the Scope chain, Memberships/Teams/Roles with
-deny-overrides precedence, and bounded-window revocation epochs.
+# Canonical authority and bounded resolution evidence
 
-Modeling scope: this file formalizes the *authority algebra* of SPEC §3.1–§3.4 —
-effective authority over the scope chain and epoch staleness. Integration of these
-records into the full `Step` transition system is a declared refinement obligation
-(SPEC §14), not a claim of this file.
+Bindings authorize the exact operation facet. Delegation follows scope containment,
+cannot widen the permission, and cannot delegate deny. Issued direct evidence is tied
+to the exact optional lease incarnation, complete path epochs, original lease expiry,
+and configured maximum window. Invalidation is a per-holder Scope→epoch join.
 -/
 
 namespace AgentCore
 
-structure ProjectId where
-  value : Nat
-  deriving DecidableEq, Repr
+def Scope.tenantOf : Scope → TenantId
+  | .tenant t => t | .project t _ => t | .workspace t _ _ => t
 
-structure TeamId where
-  value : Nat
-  deriving DecidableEq, Repr
+def Scope.path : Scope → List Scope
+  | .tenant t => [.tenant t]
+  | .project t p => [.project t p, .tenant t]
+  | .workspace t none w => [.workspace t none w, .tenant t]
+  | .workspace t (some p) w => [.workspace t (some p) w, .project t p, .tenant t]
 
-structure MembershipId where
-  value : Nat
-  deriving DecidableEq, Repr
-
-/-- SPEC §3.2: one Scope primitive, three roles, fixed non-recursive chain. -/
-inductive Scope where
-  | tenant (t : TenantId)
-  | project (t : TenantId) (p : ProjectId)
-  | workspace (t : TenantId) (p : Option ProjectId) (w : WorkspaceId)
-  deriving DecidableEq, Repr
+def Scope.Contains (parent child : Scope) : Prop := parent ∈ child.path
+def Scope.orderedPath (scope : Scope) : List Scope := scope.path.reverse
 
 namespace Scope
 
-def tenantOf : Scope → TenantId
-  | .tenant t => t
-  | .project t _ => t
-  | .workspace t _ _ => t
-
-/-- The scope's chain: itself and every ancestor, innermost first (SPEC §3.2). -/
-def path : Scope → List Scope
-  | .tenant t => [Scope.tenant t]
-  | .project t p => [Scope.project t p, Scope.tenant t]
-  | .workspace t none w => [Scope.workspace t none w, Scope.tenant t]
-  | .workspace t (some p) w =>
-      [Scope.workspace t (some p) w, Scope.project t p, Scope.tenant t]
-
 theorem self_mem_path (scope : Scope) : scope ∈ scope.path := by
   cases scope with
-  | tenant t =>
-      simp only [path]
-      exact List.mem_cons_self ..
-  | project t p =>
-      simp only [path]
-      exact List.mem_cons_self ..
-  | workspace t p w =>
-      cases p <;> (simp only [path]; exact List.mem_cons_self ..)
+  | tenant => simp [path]
+  | project => simp [path]
+  | workspace _ project _ => cases project <;> simp [path]
 
-theorem tenant_mem_path (scope : Scope) : Scope.tenant scope.tenantOf ∈ scope.path := by
-  cases scope with
-  | tenant t =>
-      simp only [path, tenantOf]
-      exact List.mem_cons_self ..
-  | project t p =>
-      simp only [path, tenantOf]
-      exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
-  | workspace t p w =>
-      cases p with
-      | none =>
-          simp only [path, tenantOf]
-          exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
-      | some p =>
-          simp only [path, tenantOf]
-          exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))
+theorem contains_refl (scope : Scope) : scope.Contains scope := self_mem_path scope
 
-/-- The chain never crosses tenants: every scope on a path shares the tenant
-    (SPEC §3.2 — the Tenant is the isolation boundary). -/
-theorem path_preserves_tenant {scope ancestor : Scope}
-    (mem : ancestor ∈ scope.path) : ancestor.tenantOf = scope.tenantOf := by
+theorem path_preserves_tenant {scope ancestor : Scope} (member : ancestor ∈ scope.path) :
+    ancestor.tenantOf = scope.tenantOf := by
   cases scope with
-  | tenant t =>
-      simp only [path] at mem
-      cases mem with
-      | head => rfl
-      | tail _ h => cases h
-  | project t p =>
-      simp only [path] at mem
-      cases mem with
-      | head => rfl
-      | tail _ h =>
-          cases h with
-          | head => rfl
-          | tail _ h' => cases h'
-  | workspace t p w =>
-      cases p with
-      | none =>
-          simp only [path] at mem
-          cases mem with
-          | head => rfl
-          | tail _ h =>
-              cases h with
-              | head => rfl
-              | tail _ h' => cases h'
-      | some p =>
-          simp only [path] at mem
-          cases mem with
-          | head => rfl
-          | tail _ h =>
-              cases h with
-              | head => rfl
-              | tail _ h' =>
-                  cases h' with
-                  | head => rfl
-                  | tail _ h'' => cases h''
+  | tenant => simp [path] at member; subst ancestor; rfl
+  | project => simp [path] at member; rcases member with rfl | rfl <;> rfl
+  | workspace tenant project workspace =>
+      cases project with
+      | none => simp [path] at member; rcases member with rfl | rfl <;> rfl
+      | some project => simp [path] at member; rcases member with rfl | rfl | rfl <;> rfl
 
 end Scope
 
-/-- SPEC §3.3: Membership subjects are principals or teams. -/
-inductive Subject where
-  | principal (id : PrincipalId)
-  | team (id : TeamId)
+structure Resolution where
+  id : ResolutionId
+  principal : PrincipalRef
+  header : InvocationHeader
+  targetScope : Scope
+  issuedAt : Time
+  deadline : Time
+  originalLeaseExpiry : Option Time
   deriving DecidableEq, Repr
 
-/-- A Role names a capability set; assigning it materializes Grants (SPEC §3.3). -/
-structure Role where
-  allows : List Permission
-  deriving Repr
-
-structure Membership where
-  subject : Subject
-  scope : Scope
-  role : Role
-  deriving Repr
-
-/-- The scope-authority records of SPEC §3: memberships, team membership, explicit
-    denies, and per-scope revocation epochs. -/
-structure ScopeAuthority where
-  memberships : MembershipId → Option Membership
+structure AuthorityLedger where
+  grants : GrantId → Option Grant
+  bindings : BindingId → Option Binding
+  revoked : GrantId → Prop
   teamMembers : TeamId → PrincipalId → Prop
-  denies : Scope → PrincipalId → Permission → Prop
+  foreignVerified : TenantId → PrincipalId → Prop
   epoch : Scope → Nat
+  maxDirectWindow : Nat
+  resolutions : ResolutionId → Option Resolution
+  issuedAuthorized : ResolutionId → Prop
+  holderWatermark : PrincipalRef → Scope → Nat
 
-namespace ScopeAuthority
+instance : Inhabited AuthorityLedger where
+  default := {
+    grants := fun _ => none
+    bindings := fun _ => none
+    revoked := fun _ => False
+    teamMembers := fun _ _ => False
+    foreignVerified := fun _ _ => False
+    epoch := fun _ => 0
+    maxDirectWindow := 10
+    resolutions := fun _ => none
+    issuedAuthorized := fun _ => False
+    holderWatermark := fun _ _ => 0
+  }
 
-/-- A principal acts under a subject directly or through team membership (SPEC §3.1). -/
-def ActsUnder (auth : ScopeAuthority) (principal : PrincipalId) : Subject → Prop
-  | .principal id => id = principal
-  | .team id => auth.teamMembers id principal
+namespace AuthorityLedger
 
-/-- An allow exists at some scope on the target's chain (SPEC §3.3: authority
-    attached at a scope flows to descendant scopes). -/
-def Allowed (auth : ScopeAuthority) (principal : PrincipalId)
-    (permission : Permission) (target : Scope) : Prop :=
-  ∃ id membership,
-    auth.memberships id = some membership ∧
-    auth.ActsUnder principal membership.subject ∧
-    membership.scope ∈ target.path ∧
-    permission ∈ membership.role.allows
+def ActsUnder (ledger : AuthorityLedger) (principal : PrincipalRef) : Subject → Prop
+  | .principal id => id = principal.id
+  | .team id => ledger.teamMembers id principal.id
+  | .foreign home id => home = principal.tenant ∧ id = principal.id ∧
+      ledger.foreignVerified home principal.id
 
-/-- An explicit deny exists at some scope on the target's chain. -/
-def DeniedOnPath (auth : ScopeAuthority) (principal : PrincipalId)
-    (permission : Permission) (target : Scope) : Prop :=
-  ∃ scope, scope ∈ target.path ∧ auth.denies scope principal permission
+inductive LiveGrant (ledger : AuthorityLedger) : GrantId → Grant → Prop
+  | root {id grant} :
+      ledger.grants id = some grant → grant.parent = none → ¬ ledger.revoked id →
+      LiveGrant ledger id grant
+  | child {id grant parent parentGrant} :
+      ledger.grants id = some grant → grant.parent = some parent → ¬ ledger.revoked id →
+      LiveGrant ledger parent parentGrant → LiveGrant ledger id grant
 
-/-- SPEC §3.3 precedence: effective authority is the union of allows minus explicit
-    denies, with deny-overrides along the whole chain. -/
-def Effective (auth : ScopeAuthority) (principal : PrincipalId)
-    (permission : Permission) (target : Scope) : Prop :=
-  auth.Allowed principal permission target ∧
-    ¬ auth.DeniedOnPath principal permission target
+def Applies (ledger : AuthorityLedger) (principal : PrincipalRef) (target : Scope)
+    (permission : Permission) (grant : Grant) : Prop :=
+  principal.tenant = target.tenantOf ∧ ledger.ActsUnder principal grant.subject ∧ grant.scope.Contains target ∧
+  grant.permission = permission ∧ permission.resource.tenant = target.tenantOf
 
-/-- Deny-overrides: an explicit deny at any scope on the chain defeats every allow,
-    wherever the allow sits (SPEC §3.3). -/
-theorem deny_overrides {auth : ScopeAuthority} {principal permission target scope}
-    (deny : auth.denies scope principal permission)
-    (onPath : scope ∈ target.path) :
-    ¬ auth.Effective principal permission target :=
-  fun effective => effective.2 ⟨scope, onPath, deny⟩
+def Denied (ledger : AuthorityLedger) (principal : PrincipalRef) (target : Scope)
+    (permission : Permission) : Prop :=
+  ∃ id grant, ledger.LiveGrant id grant ∧ grant.effect = .deny ∧
+    ledger.Applies principal target permission grant
 
-/-- A descendant allow cannot re-widen an ancestor deny (SPEC §3.3): a deny at the
-    tenant blocks even a workspace-level membership allow. -/
-theorem descendant_allow_cannot_rewiden {auth : ScopeAuthority}
-    {principal permission} {target : Scope}
-    (deny : auth.denies (.tenant target.tenantOf) principal permission) :
-    ¬ auth.Effective principal permission target :=
-  deny_overrides deny (Scope.tenant_mem_path target)
+def Authorized (ledger : AuthorityLedger) (principal : PrincipalRef)
+    (header : InvocationHeader) (target : Scope) : Prop :=
+  ∃ binding allow,
+    ledger.bindings header.binding = some binding ∧ binding.domain = header.domain ∧
+    binding.scope = target ∧ binding.facet = header.operation.facet ∧
+    target.tenantOf = header.domain.tenant ∧
+    ledger.LiveGrant binding.grant allow ∧ allow.effect = .allow ∧
+    ledger.Applies principal target header.permission allow ∧
+    ¬ ledger.Denied principal target header.permission
 
-/-- Downward flow: a tenant-level membership allow is effective at every scope of
-    that tenant, absent explicit denies (SPEC §3.3). -/
-theorem allow_flows_down {auth : ScopeAuthority} {principal permission}
-    {id : MembershipId} {membership : Membership} {target : Scope}
-    (lookup : auth.memberships id = some membership)
-    (acts : auth.ActsUnder principal membership.subject)
-    (atTenant : membership.scope = .tenant target.tenantOf)
-    (allows : permission ∈ membership.role.allows)
-    (noDeny : ¬ auth.DeniedOnPath principal permission target) :
-    auth.Effective principal permission target :=
-  ⟨⟨id, membership, lookup, acts, atTenant ▸ Scope.tenant_mem_path target, allows⟩, noDeny⟩
+theorem deny_overrides {ledger : AuthorityLedger} {principal header target}
+    (denied : ledger.Denied principal target header.permission) :
+    ¬ ledger.Authorized principal header target := by
+  intro authorized
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, noDeny⟩ := authorized
+  exact noDeny denied
 
-/-- Team access: a principal in a team holding a membership gets the team's
-    effective authority (SPEC §3.1/§3.3 union semantics, constructive direction). -/
-theorem team_confers_member_access {auth : ScopeAuthority} {principal team}
-    {id : MembershipId} {membership : Membership} {permission} {target : Scope}
-    (member : auth.teamMembers team principal)
-    (lookup : auth.memberships id = some membership)
-    (subject : membership.subject = .team team)
-    (onPath : membership.scope ∈ target.path)
-    (allows : permission ∈ membership.role.allows)
-    (noDeny : ¬ auth.DeniedOnPath principal permission target) :
-    auth.Effective principal permission target := by
-  refine ⟨⟨id, membership, lookup, ?_, onPath, allows⟩, noDeny⟩
-  rw [subject]
-  exact member
+theorem authorized_binding_matches_operation_facet {ledger : AuthorityLedger}
+    {principal header target} (authorized : ledger.Authorized principal header target) :
+    ∃ binding, ledger.bindings header.binding = some binding ∧
+      binding.facet = header.operation.facet := by
+  obtain ⟨binding, _, lookup, _, _, facet, _⟩ := authorized
+  exact ⟨binding, lookup, facet⟩
 
-end ScopeAuthority
+def PathEvidenceComplete (ledger : AuthorityLedger) (header : InvocationHeader)
+    (target : Scope) : Prop :=
+  header.pathEvidence.map PathEpoch.scope = target.orderedPath ∧
+  ∀ evidence, evidence ∈ header.pathEvidence → evidence.epoch = ledger.epoch evidence.scope
 
-/-! ### Bounded-window revocation (SPEC §3.4 rule 5) -/
+def HolderCurrentFor (ledger : AuthorityLedger) (header : InvocationHeader) : Prop :=
+  match header.lease with
+  | none => True
+  | some token => ∀ evidence, evidence ∈ header.pathEvidence →
+      ledger.holderWatermark token.holder evidence.scope ≤ evidence.epoch
 
-/-- The epoch a capability was resolved under (SPEC §3.4: every ResolvedFacet is
-    stamped at resolution). -/
-structure ResolutionStamp where
-  scope : Scope
-  epoch : Nat
-  deriving DecidableEq, Repr
+def deadlineBounded (ledger : AuthorityLedger) (resolution : Resolution) : Prop :=
+  resolution.deadline.tick ≤ resolution.issuedAt.tick + ledger.maxDirectWindow ∧
+  match resolution.header.lease, resolution.originalLeaseExpiry with
+  | some _, some expiry => resolution.deadline.tick ≤ expiry.tick
+  | none, none => True
+  | _, _ => False
 
-namespace ScopeAuthority
+def issueResolution (ledger : AuthorityLedger) (resolution : Resolution) : AuthorityLedger :=
+  { ledger with
+    resolutions := tableSet ledger.resolutions resolution.id resolution
+    issuedAuthorized := mark ledger.issuedAuthorized resolution.id }
 
-/-- Freshness: the stamp matches the scope's current revocation epoch. Mediated
-    invocations revalidate this on their durable path (SPEC §7.2). -/
-def Fresh (auth : ScopeAuthority) (stamp : ResolutionStamp) : Prop :=
-  stamp.epoch = auth.epoch stamp.scope
+def bumpScope (ledger : AuthorityLedger) (scope : Scope) : AuthorityLedger :=
+  { ledger with epoch := fun candidate =>
+      if candidate = scope then ledger.epoch candidate + 1 else ledger.epoch candidate }
 
-/-- Revocation bumps the scope's epoch (SPEC §3.4 rule 5). -/
-def bumpEpoch (auth : ScopeAuthority) (scope : Scope) : ScopeAuthority :=
-  { auth with
-    epoch := fun candidate =>
-      if candidate = scope then auth.epoch candidate + 1 else auth.epoch candidate }
+def observeForHolder (ledger : AuthorityLedger) (holder : PrincipalRef) (target : Scope) :
+    AuthorityLedger :=
+  { ledger with holderWatermark := fun principal scope =>
+      if principal = holder then
+        if scope ∈ target.path then max (ledger.holderWatermark principal scope) (ledger.epoch scope)
+        else ledger.holderWatermark principal scope
+      else ledger.holderWatermark principal scope }
 
-theorem bumpEpoch_epoch (auth : ScopeAuthority) (bumped scope : Scope) :
-    (auth.bumpEpoch bumped).epoch scope =
-      if scope = bumped then auth.epoch scope + 1 else auth.epoch scope := rfl
+inductive AuthorityLabel where
+  | issueGrant (id : GrantId)
+  | delegate (id : GrantId)
+  | bind (id : BindingId)
+  | revoke (id : GrantId)
+  | setTeamMember (team : TeamId) (principal : PrincipalId) (scope : Scope)
+  | setForeignVerification (home : TenantId) (principal : PrincipalId) (scope : Scope)
+  | resolve (resolution : Resolution)
+  | observe (holder : PrincipalRef) (target : Scope)
 
-theorem bumpEpoch_monotone (auth : ScopeAuthority) (bumped scope : Scope) :
-    auth.epoch scope ≤ (auth.bumpEpoch bumped).epoch scope := by
-  rw [bumpEpoch_epoch]
-  split <;> omega
+inductive AuthorityStep : AuthorityLedger → AuthorityLabel → AuthorityLedger → Prop
+  | issueGrant {ledger id grant} :
+      ledger.grants id = none → grant.parent = none →
+      grant.permission.resource.tenant = grant.scope.tenantOf →
+      AuthorityStep ledger (.issueGrant id)
+        { ledger.bumpScope grant.scope with grants := tableSet ledger.grants id grant }
+  | delegate {ledger id grant parent parentGrant} :
+      ledger.grants id = none → grant.parent = some parent →
+      ledger.LiveGrant parent parentGrant → parentGrant.effect = .allow → grant.effect = .allow →
+      grant.subject = parentGrant.subject → parentGrant.scope.Contains grant.scope →
+      grant.permission = parentGrant.permission →
+      AuthorityStep ledger (.delegate id)
+        { ledger.bumpScope grant.scope with grants := tableSet ledger.grants id grant }
+  | bind {ledger id binding grant} :
+      ledger.LiveGrant binding.grant grant → grant.effect = .allow →
+      binding.scope.tenantOf = binding.domain.tenant →
+      AuthorityStep ledger (.bind id)
+        { ledger.bumpScope binding.scope with bindings := tableSet ledger.bindings id binding }
+  | revoke {ledger id grant} :
+      ledger.grants id = some grant →
+      AuthorityStep ledger (.revoke id) {
+        ledger.bumpScope grant.scope with revoked := mark ledger.revoked id }
+  | setTeamMember {ledger team principal scope} :
+      AuthorityStep ledger (.setTeamMember team principal scope) {
+        ledger.bumpScope scope with teamMembers := fun candidate member =>
+          (candidate = team ∧ member = principal) ∨ ledger.teamMembers candidate member }
+  | setForeignVerification {ledger home principal scope} :
+      AuthorityStep ledger (.setForeignVerification home principal scope) {
+        ledger.bumpScope scope with foreignVerified := fun candidate member =>
+          (candidate = home ∧ member = principal) ∨ ledger.foreignVerified candidate member }
+  | resolve {ledger resolution} :
+      ledger.resolutions resolution.id = none →
+      ledger.Authorized resolution.principal resolution.header resolution.targetScope →
+      ledger.PathEvidenceComplete resolution.header resolution.targetScope →
+      ledger.HolderCurrentFor resolution.header → ledger.deadlineBounded resolution →
+      AuthorityStep ledger (.resolve resolution) (ledger.issueResolution resolution)
+  | observe {ledger holder target} :
+      AuthorityStep ledger (.observe holder target) (ledger.observeForHolder holder target)
 
-/-- Epochs strictly advance at the revoked scope. -/
-theorem bumpEpoch_advances (auth : ScopeAuthority) (scope : Scope) :
-    auth.epoch scope < (auth.bumpEpoch scope).epoch scope := by
-  rw [bumpEpoch_epoch]
-  simp
+def DirectResolutionUsable (ledger : AuthorityLedger) (resolution : Resolution)
+    (header : InvocationHeader) (now : Time) : Prop :=
+  ledger.resolutions resolution.id = some resolution ∧ ledger.issuedAuthorized resolution.id ∧
+  resolution.header = header ∧ now.tick < resolution.deadline.tick ∧
+  ledger.HolderCurrentFor header
 
-/-- The revocation theorem: any stamp that was fresh before a revocation of its
-    scope is stale after it — so every subsequent mediated invocation under that
-    stamp is denied (SPEC §3.4 rule 5 deadline (b)). -/
-theorem bump_stales_stamp {auth : ScopeAuthority} {stamp : ResolutionStamp}
-    (fresh : auth.Fresh stamp) :
-    ¬ (auth.bumpEpoch stamp.scope).Fresh stamp := by
-  unfold Fresh at *
-  rw [bumpEpoch_epoch, if_pos rfl]
-  omega
+def MediatedResolutionUsable (ledger : AuthorityLedger) (resolution : Resolution)
+    (principal : PrincipalRef) (header : InvocationHeader) (target : Scope) : Prop :=
+  ledger.resolutions resolution.id = some resolution ∧ resolution.header = header ∧
+  ledger.Authorized principal header target ∧ ledger.PathEvidenceComplete header target
 
-/-- Staleness is permanent: no number of further revocations restores freshness. -/
-theorem stale_stays_stale {auth : ScopeAuthority} {stamp : ResolutionStamp}
-    (stale : stamp.epoch < auth.epoch stamp.scope) (scope : Scope) :
-    stamp.epoch < (auth.bumpEpoch scope).epoch stamp.scope :=
-  Nat.lt_of_lt_of_le stale (auth.bumpEpoch_monotone scope stamp.scope)
+theorem resolution_issue_records_authorized_evidence {before after resolution}
+    (step : AuthorityStep before (.resolve resolution) after) :
+    after.issuedAuthorized resolution.id ∧
+    before.Authorized resolution.principal resolution.header resolution.targetScope ∧
+    before.deadlineBounded resolution := by
+  cases step with
+  | resolve fresh authorized complete holder deadline =>
+      exact ⟨Or.inr rfl, authorized, deadline⟩
 
-end ScopeAuthority
+theorem bump_scope_stales_path_evidence {ledger : AuthorityLedger} {header : InvocationHeader}
+    {target scope : Scope} {evidence : PathEpoch}
+    (complete : ledger.PathEvidenceComplete header target)
+    (evidenceMember : evidence ∈ header.pathEvidence) (evidenceScope : evidence.scope = scope) :
+    ¬ (ledger.bumpScope scope).PathEvidenceComplete header target := by
+  intro after
+  have beforeEpoch := complete.2 evidence evidenceMember
+  have afterEpoch := after.2 evidence evidenceMember
+  rw [evidenceScope] at beforeEpoch afterEpoch
+  rw [beforeEpoch] at afterEpoch
+  simp [bumpScope] at afterEpoch
 
-/-! ### One authority plane (SPEC §3.3)
+theorem delegated_allow_is_contained_and_not_wider {before after id}
+    (step : AuthorityStep before (.delegate id) after) :
+    ∃ child parent : Grant,
+      after.grants id = some child ∧ child.effect = .allow ∧ parent.effect = .allow ∧
+      parent.scope.Contains child.scope ∧ child.permission = parent.permission := by
+  cases step with
+  | delegate fresh parentEdge live parentAllow childAllow subject contained permission =>
+      exact ⟨_, _, tableSet_self .., childAllow, parentAllow, contained, permission⟩
 
-Enforcement reads only Grants and Bindings: `AuthorizedBy` (Model.lean) is defined
-over the grant/binding tables alone, so callable authorization is invariant under
-*any* change to memberships, teams, denies, or epochs. The theorem below is true
-**by construction** (`Iff.rfl`) — it is recorded as a structural witness that the
-model admits no second enforcement path, not as a deep proof. -/
+theorem direct_deadline_cannot_exceed_original_lease {ledger : AuthorityLedger}
+    {resolution : Resolution}
+    (bounded : ledger.deadlineBounded resolution)
+    {token : LeaseToken} {expiry : Time} (lease : resolution.header.lease = some token)
+    (original : resolution.originalLeaseExpiry = some expiry) :
+    resolution.deadline.tick ≤ expiry.tick := by
+  unfold deadlineBounded at bounded
+  rw [lease, original] at bounded
+  exact bounded.2
 
-structure ScopedState where
-  core : State
-  authority : ScopeAuthority
+theorem holder_observation_joins_epoch {ledger : AuthorityLedger} {holder : PrincipalRef}
+    {target scope : Scope}
+    (member : scope ∈ target.path) :
+    (ledger.observeForHolder holder target).holderWatermark holder scope =
+      max (ledger.holderWatermark holder scope) (ledger.epoch scope) := by
+  simp [observeForHolder, member]
 
-def ScopedState.AuthorizedBy (state : ScopedState) (domain : Domain)
-    (binding : BindingId) (permission : Permission) : Prop :=
-  AgentCore.AuthorizedBy state.core domain binding permission
+theorem direct_holder_watermark_is_not_ahead {ledger : AuthorityLedger}
+    {header : InvocationHeader} {token : LeaseToken} {evidence : PathEpoch}
+    (lease : header.lease = some token) (current : ledger.HolderCurrentFor header)
+    (member : evidence ∈ header.pathEvidence) :
+    ledger.holderWatermark token.holder evidence.scope ≤ evidence.epoch := by
+  unfold HolderCurrentFor at current
+  rw [lease] at current
+  exact current evidence member
 
-theorem enforcement_independent_of_memberships
-    (core : State) (a b : ScopeAuthority)
-    (domain : Domain) (binding : BindingId) (permission : Permission) :
-    ScopedState.AuthorizedBy ⟨core, a⟩ domain binding permission ↔
-      ScopedState.AuthorizedBy ⟨core, b⟩ domain binding permission :=
-  Iff.rfl
+end AuthorityLedger
 
 end AgentCore

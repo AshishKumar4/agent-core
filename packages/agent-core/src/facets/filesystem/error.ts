@@ -1,39 +1,27 @@
-import type { FilePath } from "./path";
+import { DetailedProfileError } from "../profile-runtime";
 
-export enum FileOperation {
-    stat = "stat",
-    read = "read",
-    write = "write",
-    list = "list",
-    makeDirectory = "make_directory",
-    remove = "remove",
-    move = "move",
-    flush = "flush"
-}
+export type FilesystemErrorCode =
+    "not-found" | "exists" | "not-a-directory" | "is-a-directory" | "path.invalid" | "too-large";
 
-export enum FileErrorCode {
-    invalidPath = "invalid_path",
-    invalidCursor = "invalid_cursor",
-    notFound = "not_found",
-    alreadyExists = "already_exists",
-    isDirectory = "is_directory",
-    notDirectory = "not_directory",
-    directoryNotEmpty = "directory_not_empty",
-    readOnly = "read_only",
-    crossDevice = "cross_device",
-    unsupported = "unsupported",
-    unavailable = "unavailable",
-    ioFailure = "io_failure"
-}
+export const FILESYSTEM_ERROR_CODES: readonly FilesystemErrorCode[] = Object.freeze([
+    "not-found",
+    "exists",
+    "not-a-directory",
+    "is-a-directory",
+    "path.invalid",
+    "too-large"
+]);
 
-export class FileError extends Error {
+export class FilesystemError extends DetailedProfileError<FilesystemErrorCode> {
     public constructor(
-        public readonly code: FileErrorCode,
-        public readonly operation: FileOperation,
-        public readonly path: FilePath,
+        code: FilesystemErrorCode,
+        public readonly path: string,
         message: string
     ) {
-        super(message);
-        this.name = "FileError";
+        if (!FILESYSTEM_ERROR_CODES.includes(code)) {
+            throw new TypeError("Filesystem error code is outside the fixed profile set");
+        }
+        super("operation.invalid-input", code, message);
+        this.name = "FilesystemError";
     }
 }

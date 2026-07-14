@@ -1,0 +1,13 @@
+{
+  "edition": "1.0.0",
+  "scope": "20 instrumented W5 source files across 21 files changed from f558d0f; index-only barrel excluded because it has no executable counters",
+  "command": "vitest run --coverage --coverage.reporter=json-summary, then sum raw covered and total counters for the union of git diff --name-only f558d0f -- packages/agent-core/src and untracked W5 source files",
+  "minimumPercent": 95,
+  "metrics": {
+    "statements": { "covered": 1476, "total": 1512, "percent": 97.62 },
+    "branches": { "covered": 1067, "total": 1113, "percent": 95.87 },
+    "functions": { "covered": 526, "total": 529, "percent": 99.43 },
+    "lines": { "covered": 1360, "total": 1390, "percent": 97.84 }
+  },
+  "status": "verified"
+}

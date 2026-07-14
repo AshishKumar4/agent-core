@@ -1,16 +1,5 @@
 import { TextId } from "../../core";
-
-export class RunId extends TextId {
-    public constructor(value: string) {
-        super(value, "Run ID");
-    }
-}
-
-export class TurnId extends TextId {
-    public constructor(value: string) {
-        super(value, "Turn ID");
-    }
-}
+export { RunCommitId, RunId, TurnId } from "../../execution-references";
 
 export class RunBranchId extends TextId {
     public constructor(value: string) {
@@ -18,8 +7,20 @@ export class RunBranchId extends TextId {
     }
 }
 
-export class RunCommitId extends TextId {
+export class RunCheckpointId extends TextId {
     public constructor(value: string) {
-        super(value, "Run commit ID");
+        super(value, "Run checkpoint ID");
+    }
+}
+
+export class TurnInboxEntryId extends TextId {
+    public constructor(value: string) {
+        super(value, "Turn inbox entry ID");
+    }
+}
+
+export class SpawnReservationId extends TextId {
+    public constructor(value: string) {
+        super(value, "Spawn reservation ID");
     }
 }

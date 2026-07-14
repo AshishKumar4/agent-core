@@ -1,0 +1,279 @@
+{
+  "schemaVersion": "agent-core.integration-request/v1",
+  "workstream": "W1",
+  "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+  "requests": [
+    {
+      "id": "W1-W2-AUTHENTICATED-TENANT-CUTOVER",
+      "owner": "W2",
+      "kind": "typed-seam",
+      "state": "requested",
+      "evidenceFiles": [
+        "packages/agent-core/src/identity/principal-ref.ts",
+        "packages/agent-core/src/authority/runtime.ts",
+        "packages/agent-core/src/protocol/bootstrap.ts",
+        "packages/agent-core/src/protocol/bootstrap-memory.ts",
+        "packages/agent-core/src/substrates/sqlite/bootstrap.ts"
+      ],
+      "requiredSymbols": [
+        "PrincipalRef",
+        "CommandAuthenticator",
+        "TransientContentAccess"
+      ],
+      "requirements": [
+        "Use W2's canonical PrincipalRef for every principal caller and lease holder crossing the command boundary; retained caller and idempotency projections must preserve its Tenant.",
+        "Bind every authenticated principal or Actor caller to the target Tenant before dispatch. ActorRef alone is not authenticated Tenant evidence.",
+        "Supply a closed CommandAuthenticator to MemoryTenantBootstrap and SqliteTenantBootstrap; tenant.bootstrap must not accept application-constructed authentication.",
+        "Replace the deleted HeldContentStore, HeldContentVerifier, heldContentVerifier, and holdForMilliseconds integration with TransientContentAccess and leaseForMilliseconds.",
+        "Keep tenant.bootstrap atomic with W2's immutable anchor and Tenant-control bootstrap plan, and require the initial PrincipalRef Tenant to equal the target Tenant."
+      ],
+      "spec": ["3.1", "3.3", "8.2", "8.5", "10.1"]
+    },
+    {
+      "id": "W1-W3-TYPED-COMMAND-REGISTRATIONS",
+      "owner": "W3",
+      "kind": "command-registration",
+      "state": "requested",
+      "evidenceFiles": [
+        "packages/agent-core/src/facets/id.ts",
+        "packages/agent-core/src/protocol/facet-commands.ts"
+      ],
+      "requiredSymbols": [
+        "FacetRef",
+        "FACET_SLOT_COMMANDS",
+        "FacetSlotInstallCommand",
+        "FacetSlotContributeCommand",
+        "ProtocolCommandRegistration"
+      ],
+      "requirements": [
+        "Use FacetRef as the sole canonical '<scope>:<instance>' constructor in Slot contributor provenance, authority capabilities, and operation targets.",
+        "Publish facet.slot.install and facet.slot.contribute as ProtocolCommandRegistration instances using the generic Request, Reply, and Observation types.",
+        "Accept W1's exact dispatcher decision Date in currentLease and execute, and provide replyCodec or observationCodec whenever execution returns typed evidence.",
+        "Derive contribution identity from authenticated installation provenance; a caller-supplied FacetRef does not confer authority."
+      ],
+      "spec": ["4.1", "4.2", "8.5"]
+    },
+    {
+      "id": "W1-W4-MATERIALIZATION-ACTIVATION-RETENTION",
+      "owner": "W4",
+      "kind": "command-registration",
+      "state": "requested",
+      "evidenceFiles": [
+        "packages/agent-core/src/definition/code-manifest.ts",
+        "packages/agent-core/src/definition/materializer.ts",
+        "packages/agent-core/src/protocol/materialization-commands.ts",
+        "packages/agent-core/test/definition/materialization-harness.ts"
+      ],
+      "requiredSymbols": [
+        "MATERIALIZATION_COMMANDS",
+        "MaterializationApplyLocalCommand",
+        "MaterializationCommandBackend",
+        "PackageCodeManifest"
+      ],
+      "requirements": [
+        "Adapt materialization.applyLocal and its harness to W1's ActorActivationStore, CommandAuthenticator, TransientContentAccess, leaseForMilliseconds, and decision-time ProtocolCommandRegistration contract.",
+        "Register only a canonical persisted single-target MaterializationPlan; W1 must not reconstruct materialization policy or payload codecs.",
+        "Project the exact Blueprint, PackageLock, Package release, and PackageCodeManifest module ContentRefs retained by an accepted generation.",
+        "Persist the generation and ContentOwnerEdge projection in the same owner-local transaction, and release superseded edges only after the generation pointer commits."
+      ],
+      "spec": ["8.2", "8.3", "8.4", "8.5", "9.3", "10.3"]
+    },
+    {
+      "id": "W1-W5-RUN-REFERENCES-DECISION-TIME",
+      "owner": "W5",
+      "kind": "typed-seam",
+      "state": "requested",
+      "evidenceFiles": [
+        "packages/agent-core/src/agents/runs/lease.ts",
+        "packages/agent-core/src/protocol/run-commands.ts",
+        "packages/agent-core/artifacts/requests/W5/ports.json"
+      ],
+      "requiredSymbols": [
+        "LeaseToken",
+        "RunRef",
+        "TurnRef",
+        "RUN_COMMANDS",
+        "createRunProtocolCommands"
+      ],
+      "requirements": [
+        "Publish canonical RunRef and TurnRef values binding Run and Turn IDs to their exact owning Actor.",
+        "LeaseToken must identify the exact TurnRef, W2-qualified PrincipalRef holder, and current epoch without becoming a second durable lease record.",
+        "Register the complete Run command family through ProtocolCommandRegistration without duplicating W5 payload codecs in W1.",
+        "Use the dispatcher's single guarded decision Date in currentLease and execute; no second clock sample may occur between the isolated lease read and mutation."
+      ],
+      "spec": ["5.2", "5.3", "8.5", "10.3"]
+    },
+    {
+      "id": "W1-W6-PROTOCOL-EVIDENCE-ATOMICITY",
+      "owner": "W6",
+      "kind": "typed-seam",
+      "state": "requested",
+      "evidenceFiles": [
+        "packages/agent-core/src/invocations/audit.ts",
+        "packages/agent-core/src/invocations/persistence.ts",
+        "packages/agent-core/src/invocations/ports.ts"
+      ],
+      "requiredSymbols": [
+        "ProtocolEvidencePort",
+        "AuditRecord",
+        "AuditRecordId"
+      ],
+      "requirements": [
+        "Define ProtocolEvidencePort as the W6-owned adapter between W1 command outcomes and the closed Audit relation; W1 must not broaden AuditKind.",
+        "Validate supplied caller causes and create the required host-attributed local root for attributable rejections lacking a cause.",
+        "Append AuditRecord and WriteRecord major 2 minor 0, including observation bytes, reciprocal IDs, idempotency identity, and duplicate lineage, in the same Actor-local transaction as the command outcome.",
+        "Rollback must leave no AuditRecord, WriteRecord, identity reservation, or domain mutation; a committed missing reciprocal half is corruption."
+      ],
+      "spec": ["7.4", "8.3", "8.5", "10.3"]
+    },
+    {
+      "id": "W1-W7-ROUTING-CONTENT-RETENTION",
+      "owner": "W7",
+      "kind": "typed-seam",
+      "state": "requested",
+      "evidenceFiles": [
+        "packages/agent-core/src/workspaces/retention.ts",
+        "packages/agent-core/src/workspaces/source-protocol.ts",
+        "packages/agent-core/src/workspaces/target-protocol.ts"
+      ],
+      "requiredSymbols": [
+        "SourceEventProtocol",
+        "TargetProjectionProtocol",
+        "ContentRetentionReference",
+        "ContentRetentionPort"
+      ],
+      "requirements": [
+        "Provide authenticated source-routing and target-projection command registrations with stable idempotency and duplicate checks before mutable gates.",
+        "Keep asynchronous route preparation outside the Actor transaction and perform current trust, authority, retention, audit, and delivery admission in one synchronous owner-local commit.",
+        "Map every durable Event, RouteReservation, and RouteProjection content reference to a W1 ContentOwnerEdge owned by the exact Actor and Tenant.",
+        "PayloadLeaseBinding and TransientContentLease are preparation-only; they do not replace W7 durable routing retention or authorize cross-Actor projection."
+      ],
+      "spec": ["6.1", "6.2", "6.3", "7.4", "8.5", "10.1"]
+    },
+    {
+      "id": "W1-W8-CLOUDFLARE-ADAPTERS",
+      "owner": "W8",
+      "kind": "substrate-adapter",
+      "state": "requested",
+      "evidenceFiles": [
+        "packages/agent-core-cloudflare/src/sqlite.ts",
+        "packages/agent-core-cloudflare/src/content-object.ts",
+        "packages/agent-core-cloudflare/src/durable-object.ts",
+        "packages/agent-core-cloudflare/src/worker.ts"
+      ],
+      "requiredSymbols": [
+        "CloudflareSqlite",
+        "SqliteRunResult",
+        "R2ContentObjectRepository",
+        "createCloudflareDurableObjectClass",
+        "createCloudflareWorker"
+      ],
+      "requirements": [
+        "Map an exhausted Cloudflare SQLite cursor's non-negative safe-integer rowsWritten to the canonical SqliteRunResult { readonly changes: number }.",
+        "Authenticate Worker and Durable Object ingress in the host and pass transport evidence to CommandAuthenticator; request data must not construct CommandAuthentication or Tenant binding.",
+        "Provide idempotent exact-key R2 deletion only after authoritative ContentOwnerEdge removal and expiry of every TransientContentLeaseState for the content.",
+        "Do not use prefix scans, age alone, or caller-selected object keys as GC authority."
+      ],
+      "spec": ["8.2", "8.3", "8.5", "10.1", "10.3"]
+    },
+    {
+      "id": "W1-W0-ERROR-RECORD-CONFORMANCE-REGISTRIES",
+      "owner": "W0",
+      "kind": "quality-registry",
+      "state": "integration-dependent",
+      "files": [
+        "packages/agent-core/src/errors.ts",
+        "packages/agent-core/artifacts/implementation-conformance.yaml",
+        "packages/agent-core/artifacts/migration-inventory.yaml",
+        "packages/agent-core/artifacts/ownership-map.yaml",
+        "packages/agent-core/artifacts/ownership/actors.json",
+        "packages/agent-core/artifacts/ownership/protocol.json",
+        "packages/agent-core/scripts/check-record-registry.mjs"
+      ],
+      "requiredErrorCodes": [
+        "actor.commit-unknown",
+        "content.collision"
+      ],
+      "recordFragments": [
+        "content.owner-edge",
+        "content.transient-lease"
+      ],
+      "pathReplacements": [
+        {
+          "deleted": "src/core/value.ts",
+          "current": [
+            "src/core/content-ref.ts",
+            "src/core/revision.ts",
+            "src/core/secret-ref.ts"
+          ]
+        },
+        {
+          "deleted": "test/core/value.test.ts",
+          "current": [
+            "test/core/content-ref.test.ts",
+            "test/core/revision.test.ts",
+            "test/core/secret-ref.test.ts"
+          ]
+        },
+        {
+          "deleted": "src/core/version.ts",
+          "current": [
+            "src/core/compat-range.ts",
+            "src/core/semver.ts"
+          ]
+        },
+        {
+          "deleted": "test/core/version.test.ts",
+          "current": [
+            "test/core/compat-range.test.ts",
+            "test/core/semver.test.ts"
+          ]
+        },
+        {
+          "deleted": "src/content/record.ts",
+          "current": [
+            "src/content/media.ts",
+            "src/content/retention.ts",
+            "src/content/stat.ts",
+            "src/content/transient.ts"
+          ]
+        },
+        {
+          "deleted": "test/content/hold-contract.ts",
+          "current": [
+            "test/content/records.test.ts",
+            "test/content/retention-contract.ts",
+            "test/content/sqlite-lifecycle.test.ts"
+          ]
+        }
+      ],
+      "requirements": [
+        "Add stable actor.commit-unknown and content.collision codes to the closed AgentCoreErrorCode union, replacing temporary actor.closed and protocol.invalid-state fallbacks.",
+        "Merge the ownership rows in ownership.json for ContentOwnerEdge and TransientContentLeaseState before check:records can pass.",
+        "Replace every deleted source and test path in conformance, migration, implementation, export, and coverage registries with the current split files above; do not preserve compatibility files.",
+        "Register WriteRecord codec major 2 minor 0 and ActorRecoveryState major 1 minor 0; the pre-public WriteRecord 1.x shape is intentionally rejected because it cannot reconstruct idempotency identity."
+      ]
+    },
+    {
+      "id": "W1-W0-AGGREGATE-COMPOSITION",
+      "owner": "W0",
+      "kind": "aggregate-integration",
+      "state": "integration-dependent",
+      "files": [
+        "packages/agent-core/package.json",
+        "packages/agent-core/src/index.ts",
+        "packages/agent-core/src/substrates/sqlite/index.ts",
+        "packages/agent-core/scripts/check-exports.mjs",
+        "packages/agent-core/scripts/check-implementation.mjs",
+        "packages/agent-core/test/helpers/sqlite.ts",
+        "packages/agent-core/test/bun-sqlite.d.ts"
+      ],
+      "requirements": [
+        "Merge exports.json without exposing CommandAuthentication issuance, prepared-payload issuance, record-storage constructors, or security-port implementations.",
+        "Export SqliteContentRetention and SqliteTransientContentAccess from the SQLite subpath only after packed runtime and declaration tests pass.",
+        "Update TransactionalSqlite, local helpers, Bun declarations, and W8 together for the exact SqliteRunResult contract.",
+        "Treat coverage.md as an external raw-counter requirement until W0 deliberately adds an aggregate script; do not claim a check:coverage:w1 package command currently exists."
+      ]
+    }
+  ]
+}

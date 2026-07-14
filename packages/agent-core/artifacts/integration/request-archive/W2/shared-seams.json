@@ -1,0 +1,150 @@
+{
+  "requester": "W2",
+  "owner": "W0",
+  "baseline": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+  "status": "requested",
+  "requests": [
+    {
+      "id": "W2-SHARED-PRINCIPAL-REF",
+      "files": [
+        "src/identity/index.ts",
+        "src/actors/types.ts",
+        "src/protocol/envelope.ts",
+        "src/agents/runs/lease.ts"
+      ],
+      "change": "Export PrincipalRef and replace unqualified principal caller and lease-holder fields with PrincipalRef. Tenant-qualify ActorRef or bind its Tenant in authenticated transport evidence.",
+      "requiredBy": [
+        "qualified guest caller authentication",
+        "exact authority check evidence",
+        "foreign-principal invalidation watermarks",
+        "exact Turn lease integration"
+      ]
+    },
+    {
+      "id": "W2-SHARED-CAPABILITY-OWNER",
+      "files": [
+        "src/facets/id.ts",
+        "src/facets/capability.ts",
+        "src/facets/index.ts",
+        "src/identity/role.ts",
+        "src/authority/capability.ts",
+        "src/authority/id.ts"
+      ],
+      "change": "Move FacetRef and the canonical CapabilitySpec implementation into facets, then make RoleRule and Grant consume those exact classes. Remove the temporary W2 FacetRef and conversion boundary without compatibility aliases.",
+      "requiredBy": [
+        "single capability schema",
+        "stable Binding target identity",
+        "no identity-authority import cycle"
+      ]
+    },
+    {
+      "id": "W2-SHARED-CONTEXT-EXPORTS",
+      "files": [
+        "src/identity/index.ts",
+        "src/authority/index.ts",
+        "src/protocol/index.ts",
+        "src/substrates/sqlite/index.ts"
+      ],
+      "change": "Export approved W2 records and evidence through context barrels so cross-context deep imports can be replaced. Keep stores, evaluators, payload codecs, and constructors for authenticated evidence internal.",
+      "requiredBy": [
+        "zero deep-import boundary violations",
+        "packed declaration closure"
+      ]
+    },
+    {
+      "id": "W2-SHARED-SQLITE-CAS",
+      "files": [
+        "src/substrates/sqlite/sqlite.ts",
+        "test/helpers/sqlite.ts"
+      ],
+      "change": "Return affected-row counts from TransactionalSqlite.run so W2 Binding, guest-trust, Grant, epoch, and watermark writes can prove exactly-one-row CAS rather than update-then-read only.",
+      "requiredBy": [
+        "concurrent revision conflict proof",
+        "SQLite parity under competing writers"
+      ]
+    },
+    {
+      "id": "W2-SHARED-CLOSED-AUTHENTICATION",
+      "files": [
+        "src/protocol/ingress.ts",
+        "src/protocol/dispatcher.ts",
+        "src/protocol/bootstrap-memory.ts",
+        "src/substrates/sqlite/bootstrap.ts"
+      ],
+      "change": "Replace public authenticatedCaller arguments with an internal authenticated transport context. Register binding.validate and authority.check only in closed Tenant compositions and bind typed replies to the resulting WriteRecord and exact source Actor.",
+      "requiredBy": [
+        "non-spoofable Binding coordination",
+        "authenticated authority check evidence",
+        "removal of caller-assembled authority"
+      ]
+    },
+    {
+      "id": "W2-SHARED-RUN-ADMISSION",
+      "files": [
+        "src/agents/runs/**",
+        "src/invocations/**"
+      ],
+      "change": "Bind each authority.check request to the exact current Turn lease and each EffectAttempt to the accepted check WriteRecord/reply digest. Atomically join the owner-local watermark with deniedPreEffect evidence on stale checks.",
+      "requiredBy": [
+        "direct cutoff completion",
+        "mediated pre-effect admission",
+        "single-use check evidence"
+      ]
+    },
+    {
+      "id": "W2-SHARED-GUEST-VERIFIER",
+      "files": [
+        "src/protocol/ingress.ts",
+        "src/substrates/cloudflare/**"
+      ],
+      "change": "Mint GuestVerification only inside the closed host after token signature or authenticated callback verification. Bind the result to GuestTrust ID/revision, qualified PrincipalRef, evidence digest, verifiedAt, and expiry; application callers must not construct or decode it into an admitted value.",
+      "requiredBy": [
+        "non-forgeable guest provenance",
+        "token/callback substrate integration"
+      ]
+    },
+    {
+      "id": "W2-SHARED-ACTOR-TRANSACTION-COMPOSITION",
+      "files": [
+        "src/actors/store.ts",
+        "src/invocations/**"
+      ],
+      "change": "Provide transaction-scoped Binding and watermark writers so a stale authority result can join the owner-local watermark and append deniedPreEffect Receipt/Audit in one Actor transaction. Standalone W2 SQLite stores intentionally cannot claim this cross-domain atomicity.",
+      "requiredBy": [
+        "mediated stale-denial atomicity",
+        "effect admission linearization"
+      ]
+    },
+    {
+      "id": "W2-SHARED-RECORD-REGISTRY",
+      "files": [
+        "scripts/check-record-registry.mjs",
+        "artifacts/ownership-map.yaml",
+        "artifacts/ownership/identity.json",
+        "artifacts/ownership/authority.json",
+        "artifacts/ownership/substrates-sqlite.json"
+      ],
+      "change": "Classify W2 value codecs and merge the durable Workspace, GuestTrust, Binding, and InvalidationWatermark ownership rows from artifacts/requests/W2/ownership.json. Remove Binding/watermark retirement only when the release atoms are accepted.",
+      "requiredBy": [
+        "durable codec registry gate",
+        "ownership map conformance",
+        "official coverage and full-suite aggregation"
+      ]
+    },
+    {
+      "id": "W2-SHARED-SURFACE-RELEASE",
+      "files": [
+        "package.json",
+        "src/index.ts",
+        "scripts/check-exports.mjs",
+        "scripts/check-implementation.mjs"
+      ],
+      "change": "Keep W2 runtime files internal until every listed release blocker closes, then expose only the symbols approved by artifacts/requests/W2/exports.json and update retired-surface checks atomically.",
+      "requiredBy": [
+        "honest packed exports",
+        "implementation gate",
+        "no caller-assembled runtime surface"
+      ]
+    }
+  ]
+}
