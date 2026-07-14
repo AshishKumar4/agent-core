@@ -34,6 +34,6 @@
   <path d="M740,138 C 660,190 480,180 412,140" stroke="#9B7FC7" stroke-width="1.2" fill="none" marker-end="url(#av)" stroke-dasharray="5 4"/>
   <text x="560" y="164" font-size="11px" fill="#7A8494">U′ selects C</text>
 
-  <text x="46" y="238" font-size="12px" fill="#3D4654">The graph only appends and heads only advance. After U: head = U, effective = A, and B/C stay reachable — the pending</text>
-  <text x="46" y="256" font-size="12px" fill="#3D4654">revert. Undo against a branch whose Turn still holds its lease is rejected until that Turn is fenced (§5.3).</text>
+  <text x="46" y="238" font-size="12px" fill="#3D4654">Every merge is system-authored after a successful matching administer control Receipt; exactly two current heads.</text>
+  <text x="46" y="256" font-size="12px" fill="#3D4654">Synthesize also records the producing exact LeaseToken and successful execute Receipt.</text>
 </svg>

@@ -7,6 +7,9 @@ dist/
 **/.lake/
 packages/*/dist/
 packages/*/node_modules/
+packages/*/coverage/
+reports/
+packages/*/reports/
 *.tsbuildinfo
 
 # internal research / interim notes stay local

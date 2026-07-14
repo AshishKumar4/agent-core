@@ -1,0 +1,35 @@
+{
+  "edition": "1.0.0",
+  "owner": "W4",
+  "kind": "exports",
+  "requests": [
+    {
+      "specifier": "@agent-core/core/definition",
+      "symbol": "BlueprintDeclarationCodecPort|BlueprintLoader|DefinitionSourceRevisionPort|DeploymentId|DeploymentKey|DeploymentRecord|FailClosedRunPinsReservationPort|ManagedResourcePort|MaterializationApplyReceipt|MaterializationControlStore|MaterializationOutboxEntry|MaterializationPlanAdmissionPort|MaterializationRollout|MaterializationRolloutController|MaterializationTopologyPort|PackageCodeEntrypoint|PackageCodeManifest|PackageCodeModule|PackageCorrespondencePort|PackageModuleEvaluator|PackageModuleInspector|PlacementSourcePort|PlatformCompatibility|RunPinEvidence|RunPinsReservationPort|ValidationAttestation|applyReconciliation|expectedOutboxEntries|forwardRollbackPlan|planReconciliation|requireExactOutboxClosure|requirePlanAttestation",
+      "kind": "context-barrel-manifest",
+      "spec": "3.5,4.1,5.2,8.3-8.4,9",
+      "tests": ["test/definition/code-manifest.test.ts#canonicalizes a complete content-addressed closure and derives its digest", "test/definition/loader.test.ts#does not resolve or evaluate code when config validation fails", "test/definition/rollout.test.ts#memory persists union-target outbox and completes only after every acknowledgement"]
+    },
+    {
+      "specifier": "@agent-core/core",
+      "symbol": "BlueprintDeclarationCodecPort|BlueprintLoader|DefinitionSourceRevisionPort|DeploymentId|DeploymentKey|DeploymentRecord|FailClosedRunPinsReservationPort|ManagedResourcePort|MaterializationApplyReceipt|MaterializationControlStore|MaterializationOutboxEntry|MaterializationPlanAdmissionPort|MaterializationRollout|MaterializationRolloutController|MaterializationTopologyPort|PackageCodeEntrypoint|PackageCodeManifest|PackageCodeModule|PackageCorrespondencePort|PackageModuleEvaluator|PackageModuleInspector|PlacementSourcePort|PlatformCompatibility|RunPinEvidence|RunPinsReservationPort|ValidationAttestation|applyReconciliation|expectedOutboxEntries|forwardRollbackPlan|planReconciliation|requireExactOutboxClosure|requirePlanAttestation",
+      "kind": "root-aggregate-manifest",
+      "spec": "3.5,4.1,5.2,8.3-8.4,9",
+      "tests": ["test/definition/code-manifest.test.ts#canonicalizes a complete content-addressed closure and derives its digest", "test/definition/loader.test.ts#does not resolve or evaluate code when config validation fails", "test/definition/rollout.test.ts#memory persists union-target outbox and completes only after every acknowledgement"]
+    },
+    {
+      "specifier": "@agent-core/core/protocol",
+      "symbol": "MATERIALIZATION_COMMANDS|MaterializationApplyLocalCommand|MaterializationCommandPayload",
+      "kind": "materialization-protocol-adapter",
+      "spec": "8.5,9.3",
+      "tests": ["test/protocol/materialization-commands.test.ts#payload helper emits a command payload accepted by the strict codec", "test/protocol/materialization-commands.test.ts#rolls back a failed local apply and permits the same-key retry"]
+    },
+    {
+      "specifier": "@agent-core/core/substrates/sqlite",
+      "symbol": "SqliteMaterializationStore|SqliteMaterializationControlStore|SqlitePackageStore",
+      "kind": "sqlite-adapter-manifest",
+      "spec": "8.3-8.4,9,10.3",
+      "tests": ["test/definition/rollout.test.ts#restores SQLite control state and fails closed on projection corruption", "test/substrates/sqlite/materialization-schema.test.ts#creates the exact marked schema with a closed managed-state kind constraint"]
+    }
+  ]
+}

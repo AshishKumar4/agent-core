@@ -1,0 +1,173 @@
+{
+  "edition": "1.0.0",
+  "owner": "W8",
+  "records": [
+    {
+      "symbol": "Environment",
+      "kind": "environment.head",
+      "durability": "durable",
+      "ownerActor": "environment",
+      "source": "src/environments/environment.ts#Environment",
+      "codec": "src/environments/environment.ts#Environment.codec",
+      "store": "src/environments/store.ts#EnvironmentStore",
+      "tests": [
+        "test/environments/records.test.ts#Environment records [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0",
+        "test/environments/records.test.ts#MemoryEnvironmentStore [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS"
+      ]
+    },
+    {
+      "symbol": "EnvironmentRevisionRecord",
+      "kind": "environment.revision",
+      "durability": "durable",
+      "ownerActor": "environment",
+      "source": "src/environments/environment.ts#EnvironmentRevisionRecord",
+      "codec": "src/environments/environment.ts#EnvironmentRevisionRecord.codec",
+      "store": "src/environments/store.ts#EnvironmentStore",
+      "tests": [
+        "test/environments/records.test.ts#Environment records [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0",
+        "test/environments/records.test.ts#MemoryEnvironmentStore [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS"
+      ]
+    },
+    {
+      "symbol": "PortExposure",
+      "kind": "environment.port-exposure",
+      "durability": "durable",
+      "ownerActor": "environment",
+      "source": "src/environments/exposure.ts#PortExposure",
+      "codec": "src/environments/exposure.ts#PortExposure.codec",
+      "store": "src/environments/store.ts#EnvironmentStore",
+      "tests": [
+        "test/environments/records.test.ts#Environment records [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0",
+        "test/environments/records.test.ts#MemoryEnvironmentStore [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS"
+      ]
+    },
+    {
+      "symbol": "EnvironmentSession",
+      "kind": "environment.session",
+      "durability": "durable",
+      "ownerActor": "environment",
+      "source": "src/environments/session.ts#EnvironmentSession",
+      "codec": "src/environments/session.ts#EnvironmentSession.codec",
+      "store": "src/environments/store.ts#EnvironmentStore",
+      "tests": [
+        "test/environments/records.test.ts#Environment records [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0",
+        "test/environments/records.test.ts#MemoryEnvironmentStore [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS"
+      ]
+    },
+    {
+      "symbol": "EnvironmentSnapshot",
+      "kind": "environment.snapshot",
+      "durability": "durable",
+      "ownerActor": "environment",
+      "source": "src/environments/snapshot.ts#EnvironmentSnapshot",
+      "codec": "src/environments/snapshot.ts#EnvironmentSnapshot.codec",
+      "store": "src/environments/store.ts#EnvironmentStore",
+      "tests": [
+        "test/environments/records.test.ts#Environment records [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0",
+        "test/environments/records.test.ts#MemoryEnvironmentStore [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS"
+      ]
+    },
+    {
+      "symbol": "SlateDeployment",
+      "kind": "slate.deployment",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/deployment.ts#SlateDeployment",
+      "codec": "src/slates/deployment.ts#SlateDeployment.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
+      ]
+    },
+    {
+      "symbol": "SlatePreview",
+      "kind": "slate.preview",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/preview.ts#SlatePreview",
+      "codec": "src/slates/preview.ts#SlatePreview.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
+      ]
+    },
+    {
+      "symbol": "SlatePublication",
+      "kind": "slate.publication",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/publication.ts#SlatePublication",
+      "codec": "src/slates/publication.ts#SlatePublication.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
+      ]
+    },
+    {
+      "symbol": "SlateResource",
+      "kind": "slate.resource",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/resource.ts#SlateResource",
+      "codec": "src/slates/resource.ts#SlateResource.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
+      ]
+    },
+    {
+      "symbol": "Slate",
+      "kind": "slate",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/slate.ts#Slate",
+      "codec": "src/slates/slate.ts#Slate.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
+      ]
+    },
+    {
+      "symbol": "SlateDeploymentReservation",
+      "kind": "slate.deployment-reservation",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/store.ts#SlateDeploymentReservation",
+      "codec": "src/slates/store.ts#SlateDeploymentReservation.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/store.test.ts#MemorySlateStore [slate.deployment-reservation] [slate.resource-reservation] validates reservation constructors and immutable reservation replay"
+      ]
+    },
+    {
+      "symbol": "SlateResourceReservation",
+      "kind": "slate.resource-reservation",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/store.ts#SlateResourceReservation",
+      "codec": "src/slates/store.ts#SlateResourceReservation.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/store.test.ts#MemorySlateStore [slate.deployment-reservation] [slate.resource-reservation] validates reservation constructors and immutable reservation replay"
+      ]
+    },
+    {
+      "symbol": "SlateVersion",
+      "kind": "slate.version",
+      "durability": "durable",
+      "ownerActor": "slate",
+      "source": "src/slates/version.ts#SlateVersion",
+      "codec": "src/slates/version.ts#SlateVersion.codec",
+      "store": "src/slates/store.ts#SlateStore",
+      "tests": [
+        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
+      ]
+    }
+  ]
+}

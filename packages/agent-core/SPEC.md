@@ -66,10 +66,8 @@ The rest is composition. Facets bundle operations, UI, events, and prompt text i
 one installable capability. Contributions let any facet add commands, automations, and
 settings to a platform *as data* — a slash command is a manifest entry, not a code
 change. A Slate is an application the agent builds for you, running with no ambient
-authority at all. And because the primitives are small and the rules are mechanical,
-the core of the model is machine-checked in Lean rather than just written down:
-authority attenuation, revocation, lease fencing, approval single-use, and the undo
-semantics are all proven properties of the abstract model.
+authority at all. A Lean model checks a documented abstract subset of these semantics;
+§14 states its exact boundary and makes no implementation-refinement claim.
 
 ### 1.2 What this specifies — and what it leaves to you
 
@@ -94,9 +92,13 @@ reasoning itself can be checked and challenged, not just the rules.
 
 Identifiers ending in `Id` or `Name` (`PrincipalId`, `SurfaceId`, `BindingName`,
 `SlotName`) are opaque, codec-stable identifier types, as are the simple reference
-types `ContentRef`, `OperationRef`, `FacetRef`, `RunRef`, and `TurnRef`. Two `Ref`
-types are structured records, defined where they appear: `SecretRef` (§3.5) and
-`ForeignPrincipalRef` (§3.3). Types ending in `Schema`, `Spec`, `Policy`, `Template`,
+types `ContentRef`, `OperationRef`, `FacetRef`, `RunRef`, and `TurnRef`. Three `Ref`
+types are structured records: `PrincipalRef`, `SecretRef` (§3.5), and
+`ForeignPrincipalRef` (§3.3). `PrincipalRef` is always tenant-qualified:
+`{ tenant: TenantId, id: PrincipalId }`. Every caller, authority initiator or delegate, lease
+holder, route initiator, and cross-Actor permit carries this canonical form; an
+unqualified id or mismatched tenant rejects rather than being inferred. This maps to
+**C13-AUTH-PRINCIPAL-REF**. Types ending in `Schema`, `Spec`, `Policy`, `Template`,
 `Mapping` (declarative field maps: `FieldMapping`, `PayloadMapping`,
 `ProvenanceMapping`), `Selector` (predicate sets over descriptors:
 `OperationSelector`), `Entry` (`SlotEntry` — a validated contribution instance plus its
@@ -121,7 +123,11 @@ digest, SHA-256 or stronger; `ContentRef` — resolvable through a ContentStore 
 
 A `FacetRef` *identifies* a facet instance; a `Binding` *names* a Grant-backed instance
 in one protection domain; a `ResolvedFacet` is the *live capability* returned by
-resolution. The order is always the same: identify, then name, then resolve.
+resolution. The W3-owned canonical serialized `FacetRef` is exactly
+`<scope>:<instance>`. It contains one and only one `:` separator, and each segment
+matches `^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$`; empty, noncanonical, or additionally
+separated forms reject rather than normalize. The order is always the same: identify,
+then name, then resolve. This clause maps to **C13-FACET-REF-CANONICAL**.
 
 ### 1.5 Protection domains
 
@@ -159,7 +165,7 @@ composing the others.
 | L3 Interaction | **Event** | provenance, TrustTier |
 | | **Subscription** | PayloadMapping, DedupePolicy |
 | | **Surface** | View, ViewDelta |
-| L4 Mediation | **Invocation** | Approval, Receipt, AuditRecord |
+| L4 Mediation | **Invocation** | PreparedInvocation, Approval, EffectAttempt, Receipt, AuditRecord |
 
 Substrate contracts (L5): **Actor**, **ContentStore**, **RecordCodec**, and the command
 protocol dispatcher (§8.5). The definition plane (L6) adds two artifacts: **Package**
@@ -170,9 +176,9 @@ and **Blueprint** — eighteen nouns in total.
 Three paths describe almost every interaction in the system:
 
 ```text
-ACTIVE       resolved Facet → Operation → Invocation(tier) → [Approval] → Receipt → Audit → Event
-INTERACTION  surface action / ingress / schedule / command / callback → Event → Subscription → Operation
-AUTHORITY    Membership/Role ⇒ materialized Grants → Binding → resolved Facet → Operation → Invocation
+ACTIVE       Facet → Invocation(tier) → direct return | mediated PreparedInvocation → [Approval] → [EffectAttempt] → Receipt → Audit → Event
+INTERACTION  input → Event → RouteReservation → Subscription target → PreparedInvocation
+AUTHORITY    Role allow/deny rules ⇒ Grants → Binding resolver + path epochs → ResolvedFacet
 ```
 
 These three paths are worth internalizing before reading further — every feature in
@@ -216,44 +222,53 @@ them.
 ### 3.3 Membership, roles, and sharing
 
 A **Membership** binds a subject (`Principal | Team`) to a Scope with a **Role**. A
-**Role** is a named, declared set of capabilities:
+**Role** is a named, declared set of authority rules:
 
 ```ts
 interface Role {
-  readonly name: RoleName;                        // "owner", "editor", "reader", …
-  readonly capabilities: readonly CapabilitySpec[]; // what a holder may do
+  readonly name: RoleName;                         // "owner", "editor", "reader", …
+  readonly rules: readonly RoleRule[];
+}
+
+interface RoleRule {
+  readonly effect: "allow" | "deny";
+  readonly capability: CapabilitySpec;
 }
 ```
 
 A `CapabilitySpec` describes one grantable authority: a Facet or Facet pattern, the
-Operations (or Operation impacts) it covers, and any argument constraints. Roles are
+Operations (or Operation impacts) it covers, and any argument constraints. Rule order
+is stable for materialization but does not alter precedence: any matching deny
+overrides every matching allow. Roles are
 declared in a Blueprint (`policies.roles`) or supplied by a Package; the spec fixes
 three built-in roles every platform provides — `owner` (all capabilities at the scope,
 including `administer`), `editor` (everything except `administer`), and `reader`
-(`observe`-impact capabilities only) — and platforms MAY declare more. A Role is a
-template; it becomes authority only when a Membership assigns it (below).
+(`observe`-impact capabilities only) — each as allow rules, and platforms MAY declare
+more rules including denies. A Role is a template; it becomes authority only when a
+Membership assigns it.
 
 **Roles materialize Grants.** A Membership is not itself callable authority. Assigning
 a Role at a Scope materializes — idempotently, exactly as a Blueprint materializes
-records (§9.3) — one Grant per capability in the Role, for that subject at that Scope.
-Downward flow, attenuation, and revocation all operate on those Grants. The enforcement
-plane (§7) resolves only Grants and Bindings; Roles and Memberships have no second
-enforcement path. Revoking a Membership revokes its materialized Grants and bumps the
-Scope's revocation epoch (§3.4). A guest Membership materializes the same way, except
-the Role's capabilities are first filtered to drop `delegate` and `administer` (the
-formal model, `AC-MATERIALIZE-001`, proves the filter is total).
+records (§9.3) — one durable allow- or deny-Grant per Role rule, identified by
+`(membership, rule ordinal)`, for that subject at that Scope. Reapplying the same Role
+reconciles those Grants rather than adding authority. Downward flow, attenuation, and
+revocation operate only on Grants. The enforcement plane resolves only Grants and
+Bindings; Roles and Memberships have no second path. Revoking or changing a Membership
+revokes its obsolete materialized Grants and advances the affected path epoch (§3.4).
+A guest Membership materializes the same way after removing all allow rules that could
+grant `delegate` or `administer`; deny rules are retained.
 
 *Why:* the moment roles and grants are two separate enforcement systems, they drift
 apart, and that kind of drift tends to be discovered during an incident rather than
 before it. With one plane, the question "what can this subject actually do" always has
 exactly one answer, computed one way.
 
-**Precedence.** Effective authority is the union of allow-Grants from all direct and
-team Memberships, each attenuated along its flow path, minus explicit denies. A deny at
-any Scope on the path overrides allows from ancestor Scopes, and a descendant allow
-cannot re-widen an ancestor deny. Example: Team A holds `reader` on Project P, so its
-members read every Workspace in P; a deny for W2 at W2's scope removes W2 without
-touching W1.
+**Precedence.** Effective authority exists exactly when at least one live matching
+allow-Grant reaches the target Scope and no live matching deny-Grant exists on the
+ordered Tenant-to-target path. Direct and team Grants are considered together. A
+descendant allow cannot re-widen an ancestor deny. Example: Team A holds `reader` on
+Project P, so its members read every Workspace in P; a deny-Grant for W2 removes W2
+without touching W1.
 
 **Sharing** is Membership issuance — there is no second mechanism. Sharing a Project
 with a user is a Membership at that Project; a team owning a Project is a Team
@@ -262,7 +277,7 @@ sharing uses a **guest Membership** whose subject is a `ForeignPrincipalRef
 { homeTenant, principalId, verifiedVia }`. Guest-materialized Grants are always
 attenuated, MUST NOT carry `delegate` or `administer` capability, and MUST NOT resolve
 the host Tenant's credentials. Credential custody never leaves the owning Tenant. The
-formal model proves the attenuation (`AC-MATERIALIZE-001`).
+same Grant precedence and Binding resolver apply to guests.
 
 **Verifying a guest.** `verifiedVia` names how the host Tenant establishes that a
 request actually comes from the foreign principal. It is one of three schemes, in
@@ -289,20 +304,46 @@ endpoint; this document fixes the three schemes and the before-materialization o
 
 ### 3.4 Grant, Binding, resolution, revocation
 
-A **Grant** records authority: subject, Scope, capability, attenuation lineage,
-revocation state. A **Binding** associates a subject-local name with a Grant-backed
-Facet instance in one protection domain. Callable access requires a **ResolvedFacet**
-produced by the authorization and Binding-resolution path; identifiers alone confer
-nothing.
+A **Grant** is a durable authority rule: subject, Scope, `allow | deny` effect,
+capability, origin, attenuation lineage, and revocation state. An allow may be
+delegated only to an equal or narrower capability; a deny is not callable or
+delegable. A **Binding** associates a subject-local name with an allow-Grant-backed
+Facet instance in one protection domain. Binding resolution evaluates all matching
+allow and deny Grants through §3.3 precedence. There is no deny list or role check
+beside this plane. Callable access requires a **ResolvedFacet** produced by that
+resolver; identifiers alone confer nothing.
 
 ![One authority plane](diagrams/authority.svg)
 
 ```ts
+interface PathEpochEvidence {
+  readonly path: readonly [ScopeEpoch, ...ScopeEpoch[]]; // exact Tenant→target path
+}
+
+interface ScopeEpoch {
+  readonly scope: ScopeRef;
+  readonly epoch: number;
+}
+
+interface ResolutionStamp {
+  readonly pathEpochs: PathEpochEvidence;
+  readonly lease: LeaseToken;
+  readonly originalLeaseExpiresAt: Date;
+  readonly resolvedAt: Date;
+  readonly resolutionDeadline: Date; // immutable; renewal cannot extend it
+}
+
+interface InvalidationWatermark {
+  readonly holder: PrincipalRef;
+  readonly delivered: readonly ScopeEpoch[]; // unique Scope keys; missing means epoch 0
+}
+
 abstract class AuthorityService {
   abstract assignMembership(scope: ScopeRef, subject: SubjectRef, role: RoleSpec): Promise<Membership>;
   abstract revokeMembership(membership: MembershipId): Promise<void>;   // revokes materialized grants, bumps epoch
   abstract grant(scope: ScopeRef, subject: SubjectRef, capability: CapabilitySpec,
-                 attenuationOf?: GrantId): Promise<Grant>;
+                  attenuationOf?: GrantId): Promise<Grant>;
+  abstract deny(scope: ScopeRef, subject: SubjectRef, capability: CapabilitySpec): Promise<Grant>;
   abstract revoke(grant: GrantId): Promise<void>;                       // disables descendants, bumps epoch
   abstract bind(domain: ProtectionDomain, name: BindingName, grant: GrantId,
                 facet: FacetRef): Promise<Binding>;
@@ -319,24 +360,55 @@ Authority rules:
    secrets.
 4. Discovery is policy-controlled: a Turn receives a redacted view of installed Facets
    under the same policy that governs direct reads.
-5. **Revocation is bounded-window.** Each Scope carries a monotonically increasing
-   revocation epoch; every ResolvedFacet is stamped with the epoch at resolution.
-   Revocation bumps the epoch and pushes invalidation to Actors holding live
-   resolutions (the authority Actor keeps a rebuildable reverse index of holders). A
-   revocation takes effect no later than the earliest of: (a) invalidation delivery,
-   (b) the subject's next **mediated** Invocation — which always revalidates the epoch
-   on its durable path — or (c) expiry of the current Turn lease. `direct`-tier calls
-   MAY run against the Turn-start resolution for at most that window, so the lease
-   duration caps revocation staleness.
-6. Resolved-facet lifetime follows the isolation mode: `bundled` resolutions live for
-   the Turn; `provider`/`dynamic` resolutions are scoped to a single Turn step and
-   re-resolved, with epoch revalidation, each step (§10.2).
+5. **Path evidence is complete.** Each Scope carries a monotonically increasing
+   authority epoch. Every ResolvedFacet carries a `ResolutionStamp` whose
+   `PathEpochEvidence` is the exact ordered
+   Tenant-to-target Scope path and the current epoch of every Scope on it. It contains
+   each path Scope exactly once, in order, with no omissions, duplicates, or extra
+   Scopes. Evidence is
+   fresh only if the path is still exact and every recorded epoch equals the current
+   epoch. Creating, revoking, or changing any allow or deny advances the epoch of its
+   Scope.
+6. **Direct revocation has one bounded window.** Each holder has one Scope → epoch
+   delivered invalidation map shared by all its resolutions. Delivery and observation
+   join maps pointwise with `max`; entries never decrease. A direct-capable resolution
+   records the expiry of the stamp's exact LeaseToken at issuance as
+   `originalLeaseExpiresAt` and sets
+   `resolutionDeadline = min(originalLeaseExpiresAt, resolvedAt +
+   policy.maxDirectRevocationWindow)` at resolution; renewal never extends that
+   immutable deadline. The configured window is finite and nonnegative. After a relevant epoch advances, let `deliveredAt` be invalidation
+   delivery to the holder and `observedAt` be the first mediated check by that holder
+   that observes any stale path epoch; an absent time is infinity. The resolution
+   ceases to authorize direct calls at
+   `min(deliveredAt, observedAt, resolutionDeadline)`. A direct call requires the
+   stamp's exact Turn id, holder, and lease epoch to be current, current time strictly before the
+   immutable deadline, and, for every Scope on its path, holder watermark ≤ recorded
+   epoch.
+7. **Mediated authority has one final admission point.** Actor-local mediation compares
+   canonical authority and current path epochs in the guarded transaction that admits
+   its EffectAttempt. Cross-Actor mediation performs that final comparison in the
+   authoritative Tenant Actor only after the exact target claim, target fence,
+   reservation epoch, item key, ordinal, arguments digest, and whole intent are known;
+   issuing the §10.3 `AuthorityPermit` is the final authority-admission linearization
+   point immediately before target attempt admission. Permit issuance linearizes
+   against Grant, Binding-generation, and path-epoch mutation. Revocation committed
+   before issuance blocks the permit; revocation committed after issuance cannot cancel
+   the already admitted attempt, but blocks every not-yet-issued permit. Before permit
+   issuance, or during Actor-local admission, a stale comparison atomically joins the
+   current path Scope epochs into the holder map, invalidates the cached resolution,
+   and records `deniedPreEffect` without an EffectAttempt. The target does not perform
+   a contradictory second authoritative Grant/epoch decision; it validates and consumes
+   the exact permit under `C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION`. This rule maps
+   to **C13-AUTH-MEDIATED-ADMISSION** and **C13-AUTH-MEDIATED-STALE**.
+8. Resolved-facet lifetime follows the isolation mode: `bundled` resolutions last no
+   longer than their exact Turn and deadline; `provider`/`dynamic` resolutions last one
+   Turn step and are mediated with current path epochs (§10.2).
 
-*Why bounded-window rather than instantaneous:* on any real distributed substrate
-there is no transaction that spans the authority store and every holder of a live
-capability. Rule 5 states the guarantee a substrate can actually keep, ties the worst
-case to a knob you control (lease duration), and makes the mediated path — the one
-that touches the outside world — always-fresh.
+*Why bounded-window rather than instantaneous:* no distributed substrate can update
+every live holder atomically. Rules 6–7 give direct calls a safety bound without a
+delivery-liveness assumption and require current evidence for mediated effects.
+Eventual delivery and reconciliation use only the external liveness assumptions in
+§14.
 
 ### 3.5 SecretRef
 
@@ -367,8 +439,7 @@ interface FacetManifest {
   readonly id: FacetPackageId;                 // e.g. "core.fs", "acme.deploy"
   readonly version: SemVer;
   readonly compat: CompatRange;                // spec + host compatibility
-  readonly isolation: IsolationMode;           // the MINIMUM isolation this facet tolerates;
-                                               // placement is decided by platform policy (§9.2)
+  readonly isolation: readonly [IsolationMode, ...IsolationMode[]]; // unique admissible modes (§9.2)
   readonly bindings: readonly BindingRequirement[];
   readonly configSchema?: JsonSchema;          // merged into the platform config schema
   readonly contributions: Contributions;       // open map keyed by SlotName (§4.2)
@@ -391,11 +462,10 @@ abstract class Operation<I, O> {
 ```
 
 The host verifies at install time that the runtime provides every implementation the
-manifest declares, refuses contributions the manifest does not declare, and treats the
-manifest's `isolation` as a *minimum*: placement at a stronger isolation mode is always
-permitted, and placement at `bundled` is granted only by platform policy (§9.2), never
-by the manifest alone — untrusted code should never be able to place itself into the
-trusted process.
+manifest declares and refuses contributions the manifest does not declare. Placement
+uses the deterministic admissible-set rule in §9.2. A manifest can exclude modes but
+cannot admit itself to `bundled`; platform trust policy remains an independent
+constraint.
 
 Facet lifecycle hooks are idempotent from the caller's perspective. Protected
 invocation requires an active, undisposed Facet whose Grant, Binding, lease, and
@@ -473,11 +543,44 @@ interface Command {
   readonly help?: string;
   readonly arguments: JsonSchema;           // validation + autocomplete
   readonly operation: OperationRef;         // target
+  readonly binding: BindingName;             // target capability for initiator authority
   readonly mapping?: FieldMapping;          // arguments → operation input (see below)
+  readonly acceptedTrust?: readonly [TrustTier, ...TrustTier[]];
   readonly completion?: OperationRef;       // optional observe-impact completion provider
   readonly surfaces: readonly SlotName[];   // where discoverable (chat.composer, cli, palette)
 }
+
+interface SubscriptionTemplate {
+  readonly source: EventPattern;
+  readonly target: OperationRef;
+  readonly binding: BindingName;
+  readonly mapping?: PayloadMapping;
+  readonly dedupe?: DedupePolicy;
+  readonly authority?: "initiator" | "delegated";
+}
 ```
+
+Materialization is deterministic. A Command first applies `mapping`, or identity when
+absent, and emits `command.invoked` with the validated Operation input at `/input`. Its
+derived Subscription is exactly:
+
+```ts
+{
+  source: {
+    kind: "command.invoked",
+    source: `${facetId}:${command.name}`,
+    acceptedTrust: command.acceptedTrust ?? ["owner", "authenticated", "self"],
+  },
+  target: command.operation,
+  mapping: [{ from: "/input", to: "" }],
+  dedupe: "event",
+  authority: { kind: "initiator", binding: command.binding },
+}
+```
+
+An automation template defaults `mapping` to root-to-root identity, `dedupe` to
+`event`, and `authority` to initiator using its `binding`. Delegated automation MUST be
+explicit. Its `source.acceptedTrust` is always explicit and nonempty.
 
 The lifecycle, end to end:
 
@@ -488,17 +591,17 @@ The lifecycle, end to end:
 2. **Discovery.** Surfaces render catalogs via `SlotCatalog.query`. For dynamic
    argument completion beyond schema enums, the host MAY call the command's
    `completion` Operation (`observe` impact) with the partial argument context.
-3. **Argument binding.** A surface binds raw input to `arguments` deterministically:
-   required ordered scalar properties fill positionally from whitespace-delimited
-   tokens; `--key value` binds by name; a single string property annotated
-   `x-rest: true` captures the remainder. The bound object MUST validate against
-   `arguments` before any Event is emitted.
+3. **Argument binding.** A Surface owns its input grammar and produces a `FacetData`
+   value that validates against `arguments` before any Event is emitted. CLI token
+   ordering, quoting, and flags belong to the CLI Surface profile, not this core
+   contract. With no `mapping`, the validated value is passed through unchanged;
+   otherwise the declared pure mapping produces the Operation input. The resulting
+   value MUST validate against the Operation input schema at install and execution.
 4. **Invocation.** The surface emits `Event(command.invoked)` whose correlation MUST
    carry the originating `SurfaceId` and, when invoked from a conversation, the
    `RunRef`/branch. The derived Subscription routes it to the target Operation.
-   `arguments` MUST be structurally assignable to the Operation's input schema, or the
-   contribution MUST supply `mapping`, validated at install; the Operation's input
-   schema is authoritative at execution.
+   The derived Subscription uses exactly the fixed defaults above; no inferred
+   compatibility relation or alternate authority source is permitted.
 5. **Result.** The host MUST emit `Event(command.completed)` correlated to the
    invoking Event's id, carrying the Operation's output reference (or the failure).
    Surfaces that render a `commands` slot MUST subscribe to `command.completed` for
@@ -513,7 +616,7 @@ contributions: {
   operations: [{ name: "deploy.run", impact: "externalSend", input: DeployArgs }],
   commands: [{
     name: "deploy", title: "Deploy the current slate",
-    arguments: DeployArgs, operation: "deploy.run",
+    arguments: DeployArgs, operation: "deploy.run", binding: "deploy",
     surfaces: ["chat.composer", "cli"],
   }],
 }
@@ -549,11 +652,11 @@ interface InterceptorDeclaration {
   readonly id: InterceptorId;
   readonly cutPoint: CutPoint;
   readonly appliesTo: OperationSelector;    // DEFAULT: the contributing facet's own operations
-  readonly priority: number;                // total order: (priority, facetId)
+  readonly priority: number;                // total order: (priority, facetId, id)
 }
 
 abstract class Interceptor {
-  abstract intercept(ctx: InterceptContext, value: unknown): Promise<InterceptResult>;
+  abstract intercept(ctx: InterceptContext, value: unknown): InterceptResult;
 }
 
 // The value's type at each cut point is fixed by the table above; `unknown` is
@@ -563,7 +666,7 @@ abstract class Interceptor {
 interface InterceptContext {
   readonly cutPoint: CutPoint;              // which point fired (narrows `value`)
   readonly operation?: OperationDescriptor; // present at operation.before/after
-  readonly turn: TurnRef;                   // the Turn this interception runs inside
+  readonly turn?: TurnRef;                  // required only for Turn-bound cut points
   readonly interceptor: InterceptorId;      // self, for attributable rewrites (rule 5)
 }
 
@@ -580,15 +683,27 @@ Rules:
    another facet's operations requires that facet to declare the operation
    `interceptable` and the interceptor's facet to hold a Grant for it. Sharing a
    domain confers no interception rights.
-3. Ordering is total and deterministic: ascending `(priority, facetId)`. Hosts record
+3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`;
+   interceptor ids MUST be unique within a Facet. Hosts record
    which interceptor last rewrote a value.
 4. A thrown error blocks — scoped to the interceptor's `appliesTo`, surfaced as a
    typed operation error, never as a silent global veto.
 5. Mutating interceptions are attributable: the host records interceptor identity plus
    before/after value digests through the invocation's tier-appropriate audit channel
    (§7.2).
-6. Interceptors are not durable; a crash between an interceptor's decision and the
-   operation's effect re-runs the chain on retry.
+6. `operation.before` completes before preparation. Its final rewritten input is what
+   the PreparedInvocation freezes and structurally digests. No interceptor may rewrite
+   a PreparedInvocation, Approval, EffectAttempt, or effect arguments afterward.
+7. The host persists the ordered `operation.before` transformation trace, including
+   each interceptor identity and before/after digest, with the PreparedInvocation. A
+   replay reuses the persisted transformed input and trace and does not rerun mutating
+   pre-effect interceptors. A new interceptor pass creates a new InvocationId and
+   whole-intent digest.
+8. `operation.after` may rewrite only the returned presentation value; it cannot alter
+   the effect, Receipt, or audit lineage. The host persists its ordered transformations
+   and trace with the returned invocation evidence. Replaying the same invocation
+   presentation reuses that persisted post-effect value and trace and does not rerun
+   `operation.after`. These replay clauses map to **C13-INTERCEPTOR-REPLAY**.
 
 Example: a policy facet contributes `{ cutPoint: "operation.before",
 appliesTo: own("web.fetch"), priority: 10 }` that rewrites outbound URLs onto an
@@ -646,16 +761,188 @@ and task relationships, Run history. A model call happens only inside a Turn.
 
 A **Run** is a branchable, durable work session and conversation lineage. It owns
 input history, RunBranches (named movable heads), RunCommits (immutable records:
-message, checkpoint, invocation, event delivery, result, merge, verdict, undo,
+root, message, checkpoint, invocation, event delivery, result, merge, verdict, undo,
 migration), status, an optional parent Run, and results. There is no separate
 conversation primitive — conversation state *is* the Run's branch/commit graph, which
 is why branching a conversation, undoing a step, and running parallel attempts are
 graph operations here rather than product features bolted on later.
 
-- Starting a Run creates an initial RunBranch and RunCommit and **pins** the Blueprint
-  and Package versions in effect. Turns replay against pinned versions. **Run
-  migration** — moving a Run to newer pins — is an `administer`-impact Operation that
-  records a migration RunCommit; a Run is never migrated silently.
+```ts
+interface RunPins {
+  readonly blueprint: { readonly id: BlueprintId; readonly version: SemVer;
+      readonly digest: Digest };
+  readonly packages: readonly PackagePin[]; // complete transitive closure, unique by id
+  readonly agent: { readonly id: AgentId; readonly revision: Revision;
+      readonly digest: Digest };
+  readonly effectivePolicy: { readonly id: PolicySetId; readonly revision: Revision;
+      readonly digest: Digest };
+  readonly modelPolicy: { readonly id: ModelPolicyId; readonly revision: Revision;
+      readonly digest: Digest };
+  readonly environment: { readonly id: EnvironmentId; readonly revision: Revision;
+      readonly digest: Digest };
+}
+
+interface PackagePin {
+  readonly id: PackageId;
+  readonly version: SemVer;                  // exact, never a range
+  readonly manifestDigest: Digest;
+  readonly codeDigest: Digest;
+}
+
+interface TurnPlacementSnapshot {
+  readonly turn: TurnId;
+  readonly pins: RunPins;
+  readonly placements: readonly PlacementPin[]; // every resolved Facet, unique by ref
+}
+
+interface PlacementPin {
+  readonly facet: FacetRef;
+  readonly manifest: readonly IsolationMode[];
+  readonly policy: readonly IsolationMode[];
+  readonly substrate: readonly IsolationMode[];
+  readonly trust: readonly IsolationMode[];
+  readonly selected: IsolationMode;
+}
+
+type RunLifecycle =
+  | { readonly kind: "active" }
+  | { readonly kind: "terminal"; readonly outcome: "succeeded" | "failed" | "cancelled";
+      readonly terminalCommit: RunCommitId; readonly obligation: SettlementObligation };
+
+type RunObligation =
+  | { readonly kind: "approval"; readonly approval: ApprovalId }
+  | { readonly kind: "invocationItem"; readonly invocation: InvocationId;
+      readonly itemIndex: number; readonly itemKey: string }
+  | { readonly kind: "route"; readonly reservation: RouteReservationId }
+  | { readonly kind: "reconciliation"; readonly attempt: EffectAttemptId }
+  | { readonly kind: "systemCommit"; readonly commit: RunCommitId };
+
+interface RunAdmissionRegistry {
+  readonly run: RunId;
+  readonly epoch: number;
+  readonly open: boolean;
+  readonly reserved: readonly RunObligation[];  // unique canonical identities
+  readonly completed: readonly RunObligation[]; // subset of reserved
+}
+
+interface RunAdmissionReservation {
+  readonly run: RunId;
+  readonly registryEpoch: number;
+  readonly obligation: RunObligation;
+}
+
+interface SettlementObligation {
+  readonly registryEpoch: number;
+  readonly obligations: readonly RunObligation[];
+  readonly requiredAudits: readonly SettlementAuditObligation[];
+}
+
+interface ForcedTurnCancellation {
+  readonly run: RunId;
+  readonly terminalTurn: TurnId;
+  readonly turn: TurnId;
+  readonly priorLeaseEpoch: number;
+  readonly fencedLeaseEpoch: number;
+  readonly controlReceipt: ReceiptId;
+  readonly controlAudit: AuditRecordId;
+  readonly cancellationEvent: EventId;       // token-scoped turn.cancel inbox evidence
+  readonly cancellationAudit: AuditRecordId;
+}
+
+interface SettlementAuditObligation {
+  readonly audit: AuditRecordId;
+  readonly evidence:
+    | { readonly kind: "receipt"; readonly invocation: InvocationId;
+        readonly receipt: ReceiptId }
+    | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
+    | { readonly kind: "commit"; readonly id: RunCommitId };
+}
+```
+
+`PackagePin.id` identifies the distributable Package release, not a contained
+`FacetManifest.id`. `PackageId` and `FacetPackageId` are distinct opaque identities and
+MUST NOT be converted or compared by string value. One Package may contain multiple
+independently identified FacetManifests.
+
+- Starting a Run creates one root RunCommit and immutable **RunPins** fixing the exact
+  Blueprint id, version, and digest; complete transitive Package version closure; Agent
+  id, revision, and digest; effective PolicySet id, revision, and digest; ModelPolicy
+  id, revision, and digest; and Environment id, revision, and digest. `Run.agent` MUST
+  equal `RunPins.agent.id`, and the complete Package closure MUST be nonempty and unique
+  by `PackagePin.id`. Package ranges never appear in RunPins.
+  Every referenced source record and Package release remains resolvable while any Run,
+  Turn, Session, tree checkpoint, or Snapshot pins it. These exact identities map to
+  **C13-RUN-PINS-SOURCES**, **C13-RUN-PINS-ENVIRONMENT**, and
+  **C13-RUN-PINS-VALIDITY**.
+  Every commit names its RunPins. Every non-root, non-migration unary commit inherits
+  its exact parent's pins; a merge requires equal pins on both parents. **Run migration** is
+  an `administer`-impact Operation that appends a unary migration commit naming exact
+  `from` and `to` RunPins; its parent uses `from` and the migration commit uses `to`.
+  Before installation, the target `to` pins MUST satisfy the same
+  `RunPins.Valid(Run.agent)` constraints as Run creation; invalid Agent identity,
+  empty/duplicate Package closure, or malformed source identity rejects without
+  appending or installing the migration commit.
+  A Turn retains the pins captured at its start; only Turns
+  started from the migration commit or its descendants use the new pins. Migration is
+  never implicit, and branches with different pins cannot merge until explicitly
+  migrated to equal pins. Parent inheritance maps to
+  **C13-RUN-PARENT-PIN-INHERITANCE**.
+- Each Turn separately captures one immutable **TurnPlacementSnapshot** after §9.2
+  selection. RunPins do not encode placement, and later policy or substrate changes do
+  not retarget that Turn. Terminalization requires the terminal Turn's snapshot pins to
+  equal the Run's current pins and its terminal commit to inherit those exact pins from
+  the current head. A Turn retained across migration keeps its old pins and MUST be
+  rejected as terminalizer after the Run migrates. These pin-validity clauses map to
+  **C13-RUN-MIGRATED-TURN-REJECTION**.
+- Before any Run-associated Approval, Invocation item, RouteReservation,
+  reconciliation, or required system commit is admitted locally or remotely, the
+  Run-owning Actor MUST reserve its canonical `RunObligation` in the durable
+  `RunAdmissionRegistry` transaction. Reservation uses only identities known before
+  remote work: ApprovalId; InvocationId plus item index and item key;
+  RouteReservationId; EffectAttemptId for reconciliation; or planned RunCommitId.
+  Receipt, delivery, projection, and Audit ids are never reserved. Duplicate canonical
+  keys reuse the existing reservation. Completion atomically adds that exact reserved
+  identity to `completed`; an unreserved identity cannot complete. Every remote actor
+  validates the exact `RunAdmissionReservation` identity, Run, and registry epoch before
+  admission; a substituted identity or closed/changed epoch rejects. This maps to
+  **C13-RUN-ADMISSION-REGISTRY** and **C13-RUN-RESERVATION-EPOCH**.
+- **Terminalization** is one Run-owner transaction: close the admission registry,
+  advance its epoch, snapshot exactly `reserved − completed`, append the
+  terminal result commit under the exact current Turn token, fence that Turn, record the
+  Run outcome, and capture one finite SettlementObligation. Every sibling Turn MUST
+  already be both terminal and unheld, or, only while this terminalization is open, the
+  system MUST force-cancel it through the closed §5.3 rows. The sibling MUST be a
+  distinct Turn in the same Run. One exact successful `administer` control Receipt and
+  its matching AuditRecord authorize the sequence. Each cancellation fences the
+  sibling, appends token-scoped `turn.cancel` inbox and Audit evidence, and records
+  `ForcedTurnCancellation` with both fence epochs and the exact control evidence.
+  Forced cancellation appends no sibling result commit and never presents or
+  impersonates the sibling's LeaseToken or `CommitWriter.turn`.
+  Terminalization commits only after every sibling is both terminal and unheld. No
+  running sibling retains admission. This maps to **C13-RUN-FORCED-CANCELLATION**. Once closed, the Run rejects new routes,
+  preparations, Turns, migrations, merges, undo, and other control writes; system
+  writers may complete only captured evidence obligations.
+- The terminal snapshot is exactly the just-closed registry's reserved-minus-completed
+  set, not a remote discovery
+  query: all pending Approvals, admitted Invocation items without a terminal current
+  Receipt, RouteReservations without terminal delivery, EffectAttempts requiring
+  reconciliation, and required system commits. It
+  contains no completed or unreserved work. The finite registry MAY honestly be empty
+  when no reservation was admitted; empty does not mean discovery was skipped. This
+  maps to **C13-RUN-FRONTIER-COMPLETE** and
+  **C13-RUN-FRONTIER-EMPTY**.
+- Terminal does not assert all asynchronous evidence has arrived. **Settled** is
+  derived, never assigned: a Run is Settled exactly when every captured Invocation item
+  has a terminal current Receipt, no indeterminate Receipt is current, every captured
+  RouteReservation has delivery or terminal rejection evidence, and every captured
+  system RunCommit exists. Every required audit obligation must resolve to an existing
+  AuditRecord of the stated evidence kind whose typed causal chain reaches that exact
+  terminal Receipt, route delivery, or commit. Every captured Approval must resolve for
+  its exact Invocation as consumed, denied, or expired. Every captured reconciliation
+  must resolve the exact captured indeterminate Receipt to one final Receipt for the
+  same EffectAttempt with the required `receiptSuperseded` lineage. BatchOutcome is available when every item has
+  a current Receipt; its terminal form additionally requires non-indeterminate outcome.
+  This maps to **C13-RUN-SETTLED-DERIVED**.
 - `spawn` creates a child Run under attenuated authority (`delegate` impact, §11 Self
   profile).
 - The commit graph is **append-only**. An `undo` appends an undo RunCommit `U` whose
@@ -663,53 +950,57 @@ graph operations here rather than product features bolted on later.
   branch head advances to `U`, and the branch's **effective state** becomes the
   selected commit. Redo appends another undo commit selecting the prior effective
   commit. The interval until the next non-undo commit is the **pending revert**: it is
-  durable, epoch-carrying, and reversible. Prior heads remain reachable; ancestry
+  durable and reversible. Prior heads remain reachable; ancestry
   queries are unaffected.
 - Undo targeting a branch whose Turn holds an unexpired lease MUST first fence that
   Turn (§5.3); an undo that would orphan an in-flight Turn is rejected until the Turn
   is fenced or completes.
-- `merge` records a RunCommit with two or more parents and resolution metadata, and it
-  advances the branch head like any other commit. Conversation state — the message and
-  commit lineage — always merges cleanly, because a merge only *adds* a commit whose
-  parents are the merged heads; nothing is rewritten, so there is no conflict to
-  resolve at the graph level. The merge's *content* is produced by the platform: a
-  merge MUST record a `resolution` describing how its content was derived from the
-  parents, and the spec defines three resolution kinds (§5.2.1). The graph records
-  lineage and the resolution kind; it does not compute the content.
+- `merge` is binary: it appends one RunCommit whose ordered parents are exactly the
+  target branch's current head followed by the distinct source branch's current head.
+  Multiway merge is a deterministic left fold of binary merges in caller-supplied
+  branch order. A merge records one of the three content resolutions in §5.2.1; the
+  graph records lineage and does not compute content.
 - Conforming stores support ancestry and reachability queries, not merely head moves.
+
+The **canonical graph** has one root with zero parents; every non-root, non-merge commit
+has exactly one parent equal to its branch head at append; every merge has exactly the two
+parents above; and no other parent arity is valid. Appending atomically advances only
+the target branch head. Commit records and parent order never change.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
 Two things can be in conflict at a merge: the *conversation* and the *filesystem tree*.
 They are handled separately, because §5.4 already separates their checkpoints.
 
-**Conversation resolution.** A merge's `resolution` names one of three kinds:
+**Conversation resolution.** A merge's `resolution` names one of three kinds over its
+ordered pair of parents:
 
 - `pick` — the content is one parent's content verbatim (the chosen branch wins). The
   resolution records which parent was picked.
-- `concat` — the content is the ordered concatenation of the parents' contents (used
+- `concat` — the content is the parent-order concatenation of their contents (used
   when the branches contributed to disjoint parts of the answer).
 - `synthesize` — the content is produced by an aggregating Turn that read the parent
-  heads and wrote new content. The resolution records the Turn that produced it, so the
-  synthesis is itself an auditable, lease-fenced Invocation.
+  heads. The resolution records its exact LeaseToken and a successful `execute`
+  Receipt whose PreparedInvocation binds that token and whose result is the synthesized
+  content. A separate successful `administer` control Receipt authorizes the system
+  writer to append the merge.
 
-Because these are the only three kinds, a reader of the graph can always tell how a
-merge's content relates to its parents without re-running anything. `synthesize` is the
-mixture-of-agents case (§12); the formal model proves that a merge's recorded parents
-are exactly the heads it combined (`AC-PLATFORM-MOA`).
+Because these are the only three kinds, a reader can tell how merge content relates to
+its parents without re-running anything. `synthesize` is the mixture-of-agents case
+(§12).
 
-**Tree conflicts.** When merged branches carry `treeCheckpoint`s (§5.4) over the same
-Environment, the platform MUST resolve the tree separately and record the outcome on
-the merge commit's `treeCheckpoint`. The resolution policy is a Blueprint policy
-(`policies.treeMerge`) with three settings, and the platform MUST NOT pick silently:
+**Tree conflicts.** Tree merge is defined only for the same binary parent pair, over
+the same Environment and one common-ancestor tree. The platform MUST resolve the tree
+separately and record the outcome on the merge commit's `treeCheckpoint`. A merge with
+more than two tree inputs is invalid rather than implementation-defined. The
+`policies.treeMerge` policy has three settings and MUST NOT pick silently:
 
 - `ours` / `theirs` — take one side's tree wholesale (the resolution records which);
 - `perPath` — take, per path, the side that changed it relative to the common ancestor;
-  paths changed on **both** sides are *conflicts* and are surfaced, not merged. A merge
-  with unresolved path conflicts is **blocked**: it records a `conflicts` list and MUST
-  NOT complete until each listed path is resolved by an operator or an
-  `administer`-impact Operation. This is the "never silent" rule — a tree conflict
-  stops the merge rather than guessing.
+  paths changed on **both** sides are conflicts and are surfaced, not guessed. No merge
+  commit is appended while any conflict is unresolved. The operator or an
+  `administer`-impact Operation supplies an explicit side for every conflict; the final
+  merge records those path resolutions.
 
 A platform that never merges over a shared tree (each branch owns a disjoint
 Environment, the Cognition read/write-split pattern) never encounters tree conflicts
@@ -721,23 +1012,68 @@ and MAY omit `policies.treeMerge`.
 interface RunCommit {
   readonly id: RunCommitId;
   readonly branch: RunBranchId;
-  readonly kind: "message" | "checkpoint" | "invocation" | "event" | "result"
-               | "merge" | "verdict" | "undo" | "migration";
+  readonly kind: "root" | "message" | "checkpoint" | "invocation" | "eventDelivery"
+               | "result" | "merge" | "verdict" | "undo" | "migration";
   readonly parents: readonly RunCommitId[];
-  readonly leaseEpoch: number;                    // §5.3
+  readonly pins: RunPins;
+  readonly writer: CommitWriter;
+  readonly subjectTurn?: TurnId;
   readonly content?: ContentRef;
   readonly selects?: RunCommitId;                 // undo/redo only
   readonly treeCheckpoint?: ContentRef;           // §5.4 — associated tree snapshot, if any
   readonly resolution?: MergeResolution;          // merge only (§5.2.1)
-  readonly conflicts?: readonly string[];         // merge only — unresolved tree paths
+  readonly treeResolution?: TreeMergeResolution;  // merge only (§5.2.1)
+  readonly invocation?: InvocationId;                 // invocation only (§7.3)
+  readonly receipt?: ReceiptId;                   // invocation or control effect
+  readonly reservation?: RouteReservationId;      // eventDelivery only
+  readonly migration?: { readonly from: RunPins; readonly to: RunPins }; // migration only
 }
+
+type CommitWriter =
+  | { readonly kind: "root" }
+  | { readonly kind: "turn"; readonly token: LeaseToken }
+  | { readonly kind: "system"; readonly cause: SystemCause };
+
+type SystemCause =
+  | { readonly kind: "receipt"; readonly audit: AuditRecordId; readonly receipt: ReceiptId }
+  | { readonly kind: "delivery"; readonly audit: AuditRecordId;
+      readonly reservation: RouteReservationId }
+  | { readonly kind: "control"; readonly audit: AuditRecordId; readonly receipt: ReceiptId };
 
 type MergeResolution =
   | { readonly kind: "pick"; readonly parent: RunCommitId }
   | { readonly kind: "concat" }
-  | { readonly kind: "synthesize"; readonly by: TurnId }
-  | { readonly kind: "tree"; readonly policy: "ours" | "theirs" | "perPath"; readonly side?: RunCommitId };
+  | { readonly kind: "synthesize"; readonly token: LeaseToken;
+      readonly receipt: ReceiptId };
+
+type TreeMergeResolution =
+  | { readonly policy: "ours" | "theirs"; readonly side: RunCommitId }
+  | { readonly policy: "perPath"; readonly resolutions: readonly PathResolution[] };
+
+interface PathResolution {
+  readonly path: string;
+  readonly side: RunCommitId;
+}
+
 ```
+
+Every SystemCause names exact evidence and a preexisting compatible AuditRecord. The
+commit-kind matrix is closed:
+
+| CommitWriter | Permitted kinds | Additional requirement |
+| --- | --- | --- |
+| `root` | `root` | atomic with Run creation |
+| `turn(token)` | `message`, `checkpoint`, `result`, `verdict` | exact current LeaseToken; `subjectTurn = token.turn` |
+| `system(receipt)` | `invocation` | exact Receipt for any outcome and matching Receipt audit |
+| `system(delivery)` | `eventDelivery` | exact terminal RouteDelivery and matching delivery audit |
+| `system(control)` | `merge`, `undo`, `migration` | exact successful `administer` Receipt and matching audit |
+
+No other pair commits. Root, Turn-authored content, Receipt evidence, and delivery
+evidence do not require a successful Invocation. Only control effects do. A system
+writer may append Receipt or delivery evidence after the originating Turn is fenced;
+it gains no Turn authority. Every merge is system-authored by its successful matching
+control Receipt. A `synthesize` merge additionally records a LeaseToken and a successful
+`execute` Receipt whose PreparedInvocation binds that exact token and content.
 
 *Why selection instead of head-rewind:* an append-only graph means nothing is ever
 lost, undo is itself undoable, ancestry queries stay simple, and two observers can
@@ -747,28 +1083,60 @@ selected, which is one field.
 ### 5.3 Turn: lease-fenced execution attempts
 
 A **Turn** is one lease-fenced execution attempt inside a Run: input, status, lease,
-branch, resolved FacetSet, checkpoints, Invocations, result.
+branch, immutable TurnPlacementSnapshot, resolved FacetSet, checkpoints, Invocations,
+result.
 
 ```ts
+interface LeaseToken {
+  readonly turn: TurnId;
+  readonly holder: PrincipalRef;
+  readonly epoch: number;
+}
+
 abstract class TurnLease {
-  abstract readonly holder: PrincipalId | undefined;
+  abstract readonly turn: TurnId;                                     // exact, immutable
+  abstract readonly holder: PrincipalRef | undefined;
   abstract readonly epoch: number;                                   // monotonic
   abstract readonly expiresAt: Date | undefined;
-  abstract claim(holder: PrincipalId, expiresAt: Date): TurnLease;   // epoch += 1
-  abstract renew(holder: PrincipalId, epoch: number, expiresAt: Date): TurnLease;
+  abstract claim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
+  abstract renew(holder: PrincipalRef, epoch: number, now: Date, expiresAt: Date): TurnLease;
+  abstract reclaim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
   abstract fence(): TurnLease;                                       // epoch += 1, holder cleared
 }
 ```
 
-A Turn starts queued at epoch 0; claiming records an executor and increments the
-epoch; renewal extends the current holder; reclaiming an expired lease replaces the
-executor and increments the epoch; suspension persists a checkpoint and fences. **Every
-Turn-owned commit carries the current lease epoch** — checkpoint writes, RunCommit
-appends, Invocation preparation, terminal completion, child-Run spawning, and callbacks
-from external executors. A stale epoch is rejected at the owning Actor. Where the
-substrate permits, the epoch is presented to external resources as a fencing token
-whose check MUST be atomic with the guarded write; where it does not, delivery is
-at-least-once and the owning Actor's epoch check is the fence (§10.3).
+A Turn starts `queued` with an unheld exact-Turn lease at epoch 0. The only lifecycle
+transitions are:
+
+| From | Operation | To | Lease rule |
+| --- | --- | --- | --- |
+| `queued` | claim | `running` | set holder and expiry; epoch + 1 |
+| `running` | renew | `running` | same holder and epoch, unexpired lease, later expiry |
+| `running` with expired lease | reclaim | `running` | replace holder and expiry; epoch + 1 |
+| `running` | suspend | `suspended` | persist checkpoint, then fence; epoch + 1 |
+| `suspended` | claim | `running` | set holder and expiry; epoch + 1 |
+| `running` | succeed | `succeeded` | commit result, then fence; epoch + 1 |
+| `running` | fail | `failed` | commit result, then fence; epoch + 1 |
+| `running` | cancel | `cancelled` | fence; epoch + 1 |
+| `queued` | cancel | `cancelled` | clear holder; epoch + 1 |
+| `suspended` | cancel | `cancelled` | remain unheld; epoch + 1 |
+| `queued` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
+| `running` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
+| `suspended` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
+
+Terminal Turns never transition. A lease never changes its `turn` and cannot authorize
+a write for another Turn. Every executor-authored RunCommit, Invocation intent,
+EffectAttempt, child-Run spawn, callback, checkpoint, and terminal result presents that
+exact Turn id and the current lease epoch; mismatch, expiry, or stale epoch rejects it.
+A system writer may append only the evidence and control kinds allowed by the §5.2
+CommitWriter matrix.
+Every claim, renew, or reclaim requires `expiresAt > now`; reclaim additionally
+requires the recorded expiry to be at or before `now`.
+
+For running success, failure, or cancellation, the terminal result commit is validated
+with the current LeaseToken and the fence is applied in the same transition, with the
+result logically before the fence. Queued and suspended cancellation produces no Turn
+result commit unless Run terminalization records it as a captured system obligation.
 
 ![Turn lease lifecycle](diagrams/turn-lease.svg)
 
@@ -819,6 +1187,17 @@ queue" — re-read the inbox each step. **Cancellation** is the reserved inbox E
 `turn.cancel`: fencing a Turn (undo, takeover, timeout) delivers it, and a conforming
 executor observes the cancellation signal between steps and stops committing.
 
+The Turn lifecycle above is closed. There is no normative `retryTurn` transition and a
+failed or cancelled Turn is never resurrected. A product may request another execution
+through ordinary Run/Turn admission, but no retry linkage or inherited authority is
+created by this specification. Conforming runtime, protocol command, package export,
+and record registries MUST contain no Turn-retry operation, command family, public
+symbol, durable record, or migration/upcast that can recreate it. Later W5 integration
+must delete such extension surfaces rather than adapt them. This maps to
+**C13-TURN-NO-RETRY**, **C13-TURN-NO-RETRY-RUNTIME**,
+**C13-TURN-NO-RETRY-PROTOCOL**, **C13-TURN-NO-RETRY-EXPORT**, and
+**C13-TURN-NO-RETRY-RECORD**.
+
 ---
 
 ## 6. Interaction (L3)
@@ -843,6 +1222,9 @@ policy:
 - `self` — emitted by a Turn executor under a valid lease. Assignable only by the
   host for lease-fenced emissions.
 
+TrustTier is categorical, not ordered. Consumers declare an explicit accepted set;
+there is no minimum-tier comparison.
+
 An Event whose tier was set by a non-host source is rejected. The reason for this
 rule: if a channel adapter could stamp its own trust tier, then a compromised adapter
 could mark an attacker's message as `owner` and defeat every policy keyed on the tier.
@@ -862,6 +1244,23 @@ The host exposes declared endpoints, verifies per `verification`, and mints Even
 with derived provenance; unverified requests never mint Events. This is how a
 messaging channel's inbound webhook becomes a trusted Event stream.
 
+The standard source actions enter through ordinary mediated host Operations and the
+closed Receipt-to-Event causal edge; they do not create a WriteRecord-to-Event edge or
+another audit root. The exact mapping is:
+
+| Source Event | Host Operation | Required source outcome |
+| --- | --- | --- |
+| `task.actionSubmitted` | `host.task.submitAction` (`mutate`) | successful AttemptReceipt |
+| `command.invoked` | `host.command.submit` (`mutate`) | successful AttemptReceipt |
+| verified ingress Event | `host.ingress.accept` (`mutate`) | successful AttemptReceipt after transport verification |
+| scheduler Event | `host.schedule.fire` (`mutate`) | successful AttemptReceipt for the exact `(subscription, fireTime)` key |
+
+The successful Receipt's AuditRecord causes the Event AuditRecord, after which routing
+continues `Event → RouteReserved`. A denied, cancelled, failed, indeterminate, or
+unverified source action emits no source Event. `command.completed` is similarly caused
+by the target Operation's terminal Receipt. This maps to
+**C13-PROFILE-SOURCE-EVENT-CAUSALITY**.
+
 **Ownership.** An Event is owned by the Actor that accepts it (§8.4). Appending and
 routing are transactional within that owning Actor; routing over Events owned by a
 different Actor is an asynchronous, at-least-once, idempotency-keyed projection
@@ -872,20 +1271,65 @@ different Actor is an asynchronous, at-least-once, idempotency-keyed projection
 A **Subscription** is a durable route from matching Events to an Operation:
 
 ```ts
+type DedupePolicy = "none" | "event" | "causation" | "payload";
+
 interface Subscription {
   readonly source: EventPattern;             // which Events match
   readonly target: OperationRef;
   readonly mapping: PayloadMapping;          // event payload → operation input
   readonly dedupe: DedupePolicy;             // "none" | "event" | "causation" | "payload"
-  readonly authority: BindingRequirement;    // the authority the invocation runs under
+  readonly authority: AuthoritySource;
+}
+
+type AuthoritySource =
+  | { readonly kind: "initiator"; readonly binding: BindingName }
+  | { readonly kind: "delegated"; readonly binding: BindingName };
+
+type TenantRelation =
+  | { readonly kind: "same"; readonly tenant: TenantId }
+  | { readonly kind: "cross"; readonly source: TenantId; readonly target: TenantId;
+      readonly authority: BindingName };
+
+interface RouteReservation {
+  readonly id: RouteReservationId;
+  readonly invocation: InvocationId;          // stable across every delivery retry
+  readonly event: EventId;
+  readonly sourceAuditCause: AuditRecordId;
+  readonly sourceActor: ActorRef;
+  readonly targetActor: ActorRef;
+  readonly tenants: TenantRelation;
+  readonly subscription: SubscriptionId;
+  readonly dedupeKey: string;
+  readonly operation: OperationRef;
+  readonly authority: AuthoritySource;
+  readonly projection: RouteProjectionId;
+  readonly projectionRef: ContentRef;
+  readonly projectionDigest: Digest;
+  readonly trust: TrustTier;
+  readonly initiator?: PrincipalRef;
+}
+
+interface RouteProjection {
+  readonly id: RouteProjectionId;
+  readonly reservation: RouteReservationId;
+  readonly content: ContentRef;
+  readonly digest: Digest;
+  readonly authenticated: true;
+}
+
+interface RouteDelivery {
+  readonly reservation: RouteReservationId;
+  readonly outcome: "delivered" | "rejected";
+  readonly targetAudit: AuditRecordId;
+  readonly reason?: string;                  // required exactly when rejected
 }
 
 // An EventPattern matches on kind and source, each a literal or a "*"-terminated
-// prefix wildcard, plus an optional minimum trust tier. All present fields must match.
+// prefix wildcard, and an explicit nonempty accepted-tier set. All fields must match.
 interface EventPattern {
   readonly kind: string;                     // "task.*" matches "task.statusChanged"
   readonly source?: string;                  // Facet/Actor id, prefix-wildcarded
-  readonly minTrust?: TrustTier;             // reject events below this tier
+  readonly acceptedTrust: readonly [TrustTier, ...TrustTier[]]; // unique; no tier ordering
 }
 
 // A PayloadMapping (and the FieldMapping used by Commands, §4.3) is an ordered list of
@@ -900,11 +1344,37 @@ interface FieldMove {
 ```
 
 Routing is at-least-once with deduplication on the subscription's dedupe key: `event`
-dedupes on the event id, `causation` on the causing event, `payload` on the payload
-digest, `none` disables dedup. A scheduled automation is a Subscription from a
+dedupes on the Event id, `causation` on its cause, `payload` on its payload digest, and
+`none` assigns each delivery a distinct key. Before delivery, the Event-owning source
+Actor authenticates the Event and mapping, derives trust, validates it is in
+`acceptedTrust`, maps the payload, and appends the authoritative **RouteReservation**.
+The reservation's projection and digest are immutable; the target never remaps source
+data or accepts an unauthenticated projection.
+
+`initiator` uses the authenticated initiating Principal recorded by the source Actor in
+the reservation through exactly its named Binding; an Event without one cannot use that
+source. The target copies that Principal into InvocationAuthority and cannot substitute
+another principal. The complete PrincipalRef, including tenant, MUST exact-match the
+source Event, RouteReservation tenant relation, PreparedInvocation authority, optional
+LeaseToken holder, and any AuthorityPermit; matching `PrincipalId` values in different
+Tenants are different principals.
+`delegated` uses the named Binding independently of the initiator. A same-tenant reservation prohibits cross-tenant authority. A cross-tenant
+reservation requires the `TenantRelation.cross.authority` Binding in addition to the
+Subscription's AuthoritySource; absence or tenant mismatch denies delivery.
+
+For a deduplicating policy, `(subscription, dedupeKey)` identifies one reservation and
+one stable InvocationId; redelivery reuses both and cannot prepare another intent.
+One terminal RouteDelivery is recorded at most once. `sourceAuditCause` MUST be the
+preexisting source-Actor Event AuditRecord for `event` and causes the source-local
+reservation audit entry. The source-owned reservation is the only cross-Actor causal
+bridge. Its authenticated projection admits a cause-free, target-local
+`routeProjected` bridge root; that root is not caused by any source AuditRecord.
+Target-local delivery and preparation cite the bridge root. A scheduled automation is a Subscription from a
 scheduler Event (idempotency key derived from `(subscription, fireTime)`); a webhook
 automation is a Subscription from a verified ingress Event. Example:
-`{ source: { kind: "schedule.daily-report" }, target: "report.generate", dedupe: "event" }`.
+`{ source: { kind: "schedule.daily-report", acceptedTrust: ["self"] },
+target: "report.generate", dedupe: "event",
+authority: { kind: "delegated", binding: "daily-report" } }`.
 
 ### 6.3 Surface, View, ViewDelta
 
@@ -961,22 +1431,33 @@ response is `observe`. A web fetch is `externalSend`; listing its cached result 
 Every protected call is an **Invocation**; enforcement is tiered. Workspace policy
 maps `(facet, operation, impact, event trust tier)` to an `EnforcementTier`:
 
-- **mediated** — the durable pipeline: resolve Binding → durably record intent →
-  evaluate policy → Approval when required (§7.3) → revalidate the revocation epoch on
-  the durable path → invoke under stable operation identity → persist Receipt (or an
-  explicit *indeterminate*) → append AuditRecord → emit Event.
-- **direct** — an in-process call. Authority — Binding validity, lease epoch,
-  Turn-start revocation stamp — is checked in memory; no durable writes occur on the
-  call path; audit is a sampled, batched observability record. The `direct` tier
+- **mediated** — the durable pipeline: resolve initiator or delegated-Binding authority → durably record intent →
+  reserve the Run obligation when Run-associated → evaluate policy → Approval when
+  required (§7.3) → establish the exact item claim → perform the final Actor-local
+  authority admission or issue the cross-Actor §10.3 permit → pre-effect Receipt
+  **or** EffectAttempt → invoke under stable operation identity →
+  attempted Receipt → AuditRecord → Event.
+- **direct** — an in-process call. Authority, exact current Turn lease, delivered
+  watermark, PathEpochEvidence, and immutable §3.4 deadline are checked in memory; no durable
+  writes occur on the call path; telemetry MAY be sampled. The `direct` tier
   REQUIRES the facet to be `bundled` in the Actor that owns the Turn lease; a
   provider- or dynamic-mode facet is never `direct`, because its authority check would
   cross an isolate boundary.
 
-Defaults (policy may override explicitly): `observe` → direct; `execute` scoped to a
-session the Turn owns → direct, all other `execute` → mediated; `mutate` → mediated;
-`externalSend`, `delegate`, `administer` → mediated. When a default selects `direct`
-but the facet is not bundled with the lease-owning Actor, the invocation escalates to
-`mediated` — the co-location requirement always wins.
+Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct;
+Turn-owned session `execute` → direct; every other `execute`, plus `mutate`,
+`externalSend`, `delegate`, and `administer` → mediated. Policy MAY raise a direct floor
+to mediated and MAY add approval. It MUST NOT lower a mediated floor or remove an
+approval required by a profile, Operation, Package, or ancestor policy. Lack of bundled
+co-location also raises direct to mediated. These tightenings are monotone.
+
+Every mediated effect, including an internal mutation or execution, uses the one final
+authority-admission linearization point in §3.4 rule 7. Actor-local admission performs
+the comparison in the attempt-admission transaction. Cross-Actor admission performs it
+when the Tenant Actor issues the exact-claim permit; target consumption validates local
+claim, fence, reservation epoch, watermark, single use, and expiry but does not reopen
+the Grant decision. This rule is not limited to external sends and maps to
+**C13-POLICY-EPOCH-RECHECK**.
 
 ![Tiers and the approval continuation](diagrams/mediation.svg)
 
@@ -988,46 +1469,355 @@ questions like "did we actually email that customer?". Tiering keeps one uniform
 model — everything is an Invocation — while matching the cost of each call to its
 consequences.
 
-### 7.3 Approval
+### 7.3 PreparedInvocation and Approval
 
-An **Approval** authorizes one described Invocation — operation identity, impact,
-target, **argument digest** (collision-resistant, §1.4), idempotency key — or a
-declared homogeneous batch. The lifecycle is a continuation, normative end to end:
+Preparation freezes the whole effect intent before policy or approval:
 
-```text
-invoke → policy: approval required → persist pending Approval (digest-bound)
-      → [out of band: resolver approves | denies | expires]
-      → resume: revalidate Grant, Binding, lease epoch, revocation epoch,
-                AND argument digest against the approved digest
-      → execute → Receipt → AuditRecord → Event
+```ts
+interface PreparedInvocationHeader {
+  readonly id: InvocationId;
+  readonly operation: OperationRef;
+  readonly impact: Impact;
+  readonly domain: ProtectionDomain;
+  readonly target: FacetRef;
+  readonly actor: ActorRef;
+  readonly authority: InvocationAuthority;
+  readonly lease?: LeaseToken;
+  readonly placement: PlacementPin;
+  readonly pathEpochs: PathEpochEvidence;
+  readonly route?: RouteReservationId;
+  readonly projectionDigest?: Digest;        // required exactly when route is present
+  readonly auditCause: AuditRecordId;
+  readonly requestKey: OperationRequestKey;
+  readonly idempotencySeed: string;
+}
+
+type InvocationAuthority =
+  | { readonly kind: "initiator"; readonly principal: PrincipalRef;
+      readonly binding: BindingName }
+  | { readonly kind: "delegated"; readonly principal: PrincipalRef;
+      readonly binding: BindingName };
+
+interface OperationRequestKey {
+  readonly caller: CommandCaller;
+  readonly key: string;
+}
+
+interface InterceptorTrace {
+  readonly interceptor: InterceptorId;
+  readonly before: Digest;
+  readonly after: Digest;
+}
+
+interface InterceptorTransformation {
+  readonly interceptor: InterceptorId;
+  readonly input: FacetData;
+  readonly output: FacetData;
+  readonly trace: InterceptorTrace;
+}
+
+interface ReplayItem {
+  readonly itemIndex: number;
+  readonly rawPayloadIdentity: Digest;
+  readonly before: readonly InterceptorTransformation[];
+  readonly preparedArguments: FacetData;
+  readonly after?: readonly InterceptorTransformation[];
+  readonly presentation?: FacetData;
+}
+
+interface MediatedReplayRecord {
+  readonly requestKey: OperationRequestKey;
+  readonly target: FacetRef;
+  readonly operation: OperationRef;
+  readonly package: PackagePin;
+  readonly lease?: LeaseToken;
+  readonly route?: RouteReservationId;
+  readonly invocation: InvocationId;
+  readonly items: readonly [ReplayItem, ...ReplayItem[]];
+}
+
+interface PreparedItem {
+  readonly arguments: FacetData;
+  readonly idempotencyKey: string;
+}
+
+type PreparedPayload =
+  | { readonly kind: "single"; readonly item: PreparedItem }
+  | { readonly kind: "batch"; readonly items: readonly [PreparedItem, ...PreparedItem[]] };
+
+interface PreparedInvocation {
+  readonly header: PreparedInvocationHeader;
+  readonly payload: PreparedPayload;
+  readonly intentDigest: Digest;
+}
+
+interface InvocationContinuation {
+  readonly invocation: InvocationId;
+  readonly intentDigest: Digest;
+  readonly approval: ApprovalId;
+  readonly firstAttempt: EffectAttemptId;
+  readonly firstItemIndex: number;
+  readonly firstOrdinal: number;
+  readonly firstClaim: ItemClaimId;
+  readonly firstClaimOwner: ItemClaimOwner;
+  readonly firstItemKey: string;
+  readonly admittedAt: Date;
+}
 ```
 
-Approvals are single-use, MAY expire, and survive process death: the persisted pending
-Approval plus the persisted Invocation intent are sufficient to resume on any executor
-holding a valid lease. Denial produces a denied Receipt; expiry produces a cancelled
-Receipt.
+A PreparedInvocation has exactly one shared header. A batch is nonempty and ordered;
+homogeneity is structural because operation, impact, target, authority, optional exact
+LeaseToken, and evidence occur only in that header. Every item validates against the shared
+Operation input schema. A single is not encoded as a one-item batch, item order is part
+of identity, and a batch is not atomic.
 
-The digest binding is the detail everything else depends on. An approval is a human's
-yes to *these exact arguments*, so the resume path recomputes the digest of what is
-about to execute and compares it to what was approved. If the payload changed by even
-one byte after approval, the invocation fails with a denied receipt.
+The host derives, never accepts, each item key from the complete tuple
+`("agent-core.item.v1", structuralDigest(completeSharedHeaderIdentity), payloadShape,
+itemIndex, structuralDigest(arguments), header.idempotencySeed)`. The shared-header
+identity commits every header field, not merely InvocationId; payload shape is `single`
+or `batch(itemCount)`. The derivation is domain-separated and collision resistant;
+index is zero for a single. `intentDigest` covers the canonical structural
+encoding of the complete header and payload, including shape, order, exact optional
+LeaseToken, authority, evidence, arguments, and every derived key. Invocation identity
+therefore explicitly binds both InvocationId and exact lease epoch. It is not byte
+concatenation and omits no field. Format, derivation, and digest algorithm are
+codec-versioned (§8.3).
 
-### 7.4 Receipt, AuditRecord, reconciliation
+Before any mutating interceptor runs, the host atomically looks up the
+`MediatedReplayRecord` by authenticated caller plus `OperationRequestKey`. A miss
+reserves that key together with the canonical raw structural payload identity, target
+Facet/Operation/Package pin, exact optional lease, and exact optional route. A hit with
+any changed bound field rejects before interceptors. A matching hit reuses the persisted
+per-item `before` transformations and prepared arguments; after completion it also
+reuses each item's persisted `after` transformations and presentation. `items` is the
+exact payload length and order, every `itemIndex` equals its position, each transformation
+chain is ordered and nested (`next.input = previous.output`), and an after chain remains
+associated with the output of that same item. Batch replay cannot reorder, merge, or
+substitute item traces or presentations. The record is completed atomically as each
+phase becomes durable, so process death cannot cause either interceptor phase to rerun.
+`direct` Invocations create no durable replay record or trace. These rules map to
+**C13-PREPARED-REPLAY-IDENTITY**, **C13-PREPARED-REPLAY-PRE**, and
+**C13-PREPARED-REPLAY-POST**.
 
-A **Receipt** records the known outcome: success, failure, denial, cancellation, or
-**indeterminate**. An **AuditRecord** is the durable security record — grants,
-bindings, attempts, denials, approvals, receipts, revocations, delegation lineage.
-Telemetry is diagnostic data and never substitutes for either.
+A routed preparation MUST use its RouteReservation's stable InvocationId, authority,
+projection digest, target Actor/domain, and audit bridge. `route` and `projectionDigest`
+are either both absent or both present; when present, the digest MUST equal the
+reservation's authenticated projection digest and `auditCause` MUST be the target
+Actor's `routeProjected` AuditRecord for that reservation. Initiator authority MUST name
+exactly the authenticated Principal owned by the source reservation. A local preparation has
+neither and allocates one stable InvocationId. The host also assigns the immutable
+idempotency seed. If `lease` is present, preparation and every executor effect require
+that exact current token and the matching entry in the TurnPlacementSnapshot. If
+absent, `actor` MUST be authenticated as the exact owner of `domain`; only that Actor
+may prepare or continue the invocation.
+In all cases `auditCause` MUST be a preexisting compatible record in that Actor's local
+audit chain with matching tenant and correlation.
 
-For mediated Invocations with external effects, reconciliation is mechanical:
+An **Approval** authorizes exactly one InvocationId and its `intentDigest`; an
+Invocation has at most one Approval record. An `InvocationContinuation` MUST be absent
+before first consumption. This maps to **C13-PREPARED-APPROVAL-UNIQUE** and
+**C13-PREPARED-CONTINUATION-ABSENT**.
+The lifecycle is:
 
-1. the intent is durably committed **before** the external effect (write-ahead);
-2. the external call carries the Invocation's idempotency key, so the provider can
-   deduplicate and answer "did key X land?";
-3. an intent with no Receipt after its executor's lease expires becomes
-   *indeterminate*, and a named **reconciliation driver** (substrate-defined: alarm
-   sweep or workflow, §10.3) re-queries by idempotency key or safely re-sends, then
-   persists the final Receipt.
+```text
+intercept → prepare once → evaluate policy → persist pending Approval if required
+  → approve | deny | expire
+  → resume once: establish exact first claim, perform final authority admission, and check whole-intent digest
+  → [EffectAttempt(s)] → Receipt(s) → AuditRecord(s) → Event(s)
+```
+
+Approval is invocation-level, single-use, and MAY expire. Pending state survives process death, but resume
+requires the exact token only when the header carries one. Denial or authority/digest
+mismatch emits one `deniedPreEffect` Receipt per untouched item; expiry, cancellation,
+or loss of a required Turn emits `cancelledPreEffect`. Neither creates an EffectAttempt.
+Approval consumption, persistence of one `InvocationContinuation`, and admission of the
+first EffectAttempt of the invocation are one guarded transition, so concurrent resumes
+cannot both execute. The continuation binds the exact first EffectAttempt id, item
+index, ordinal, claim id/owner, and item key, and the persisted attempt MUST exact-match
+all of them. That EffectAttempt's `invocation` MUST equal the continuation InvocationId,
+and its item index/key MUST identify an item in the bound PreparedInvocation. A malformed
+or substituted firstAttempt makes the continuation invalid. The Approval is consumed
+exactly once, not once per item. Every
+later batch item and retry validates the persisted continuation's InvocationId,
+whole-intent digest, ApprovalId, and exact persisted first-attempt identity before its own normal
+authority, epoch, claim, and effect admission; it neither consumes nor recreates an
+Approval. This maps to **C13-PREPARED-APPROVAL-FIRST-ATTEMPT** and
+**C13-PREPARED-APPROVAL-CONTINUATION**.
+
+### 7.4 EffectAttempt, Receipt, AuditRecord, reconciliation
+
+An **EffectAttempt** is immutable write-ahead evidence that one item may cross the
+effect boundary. Retry appends a new ordinal; pre-effect denial or cancellation never
+creates one.
+
+```ts
+type ItemClaimOwner =
+  | { readonly kind: "executor"; readonly token: LeaseToken }
+  | { readonly kind: "system"; readonly actor: ActorRef };
+
+interface ItemClaim {
+  readonly id: ItemClaimId;
+  readonly invocation: InvocationId;
+  readonly itemIndex: number;
+  readonly attemptOrdinal: number;
+  readonly owner: ItemClaimOwner;
+  readonly expiresAt: Date;                  // strictly future at claim or recovery
+}
+
+interface EffectAttempt {
+  readonly id: EffectAttemptId;
+  readonly invocation: InvocationId;
+  readonly itemIndex: number;
+  readonly ordinal: number;
+  readonly claim: ItemClaimId;
+  readonly token?: LeaseToken;
+  readonly startedAt: Date;
+  readonly idempotencyKey: string;
+  readonly auditCause: AuditRecordId;
+}
+
+type Receipt = PreEffectReceipt | AttemptReceipt;
+
+interface PreEffectReceipt {
+  readonly id: ReceiptId;
+  readonly invocation: InvocationId;
+  readonly itemIndex: number;
+  readonly outcome: "deniedPreEffect" | "cancelledPreEffect";
+  readonly recordedAt: Date;
+  readonly reason: string;
+}
+
+interface AttemptReceipt {
+  readonly id: ReceiptId;
+  readonly attempt: EffectAttemptId;
+  readonly outcome: "succeeded" | "failed" | "indeterminate";
+  readonly previous?: ReceiptId;
+  readonly recordedAt: Date;
+  readonly result?: ContentRef;
+}
+
+type BatchOutcome = "succeeded" | "partiallySucceeded" | "failed"
+  | "denied" | "cancelled" | "indeterminate";
+
+type TerminalBatchOutcome = "succeeded" | "partiallySucceeded" | "failed"
+  | "denied" | "cancelled";
+```
+
+A PreEffectReceipt is terminal for its item and has no EffectAttempt or supersession.
+An AttemptReceipt references one existing EffectAttempt. Its first record has no
+`previous`; only an `indeterminate` chain head may be superseded, exactly once, by
+`succeeded` or `failed` for the same attempt. No final Receipt may be superseded.
+Attempts and Receipts are never updated or deleted. An item's current Receipt is its
+PreEffectReceipt, or the chain head for its greatest attempt ordinal. A new ordinal is
+allowed only after the prior ordinal is finally `failed`; neither `succeeded` nor
+`indeterminate` admits a concurrent retry.
+
+ReceiptId is allocated from one owning-Actor namespace across both Receipt variants and
+all items; `previous` and `next` refer to that same namespace. An id is never reused.
+
+Each nonterminal item has at most one live claim. Claiming is an atomic
+compare-and-set over `(InvocationId, itemIndex)`; the first claim uses attempt ordinal 0
+and requires `expiresAt > now`. Claim ownership and expiry are scheduling state,
+separate from attempt ordinal. An abandoned claim may be recovered only when
+`expiresAt <= now` and no EffectAttempt exists for that item. Its replacement retains
+the same invocation, item index, and ordinal, names a different owner, and requires a
+new `expiresAt > now`. Recovery never advances the ordinal; a new ordinal is claimed
+only after the prior ordinal has a final `failed` Receipt. An executor claim embeds the
+exact LeaseToken; a system claim names its owning Actor. Only the current claim owner
+may append the one matching EffectAttempt for that ordinal. Attempted items are not
+eligible for abandoned-claim recovery and follow Receipt reconciliation instead.
+Pre-effect policy may terminalize an unclaimed item. A final
+Receipt clears the claim; `succeeded` terminalizes the item while `failed` permits the
+next ordinal. These rules apply to index 0 of a single too, and prevent two executors
+from continuing one item. When an EffectAttempt is appended, its invocation, item
+index, ordinal, and optional token MUST equal the admitting claim's invocation, item
+index, attemptOrdinal, and owner token.
+
+`BatchOutcome` is unavailable until every item has a current Receipt; those Receipts
+need not be final, so the derived outcome may be `indeterminate`. A
+`TerminalBatchOutcome` is available exactly when the derived BatchOutcome is
+non-indeterminate. Neither aggregate is a Receipt or substitutes for item evidence.
+Aggregate `denied` and
+`cancelled` therefore cannot be confused with the item outcomes `deniedPreEffect` and
+`cancelledPreEffect`. Derivation is the first matching rule: any indeterminate →
+`indeterminate`; all succeeded → `succeeded`; some succeeded → `partiallySucceeded`;
+otherwise any failed → `failed`; otherwise any cancelledPreEffect → `cancelled`;
+otherwise → `denied`.
+
+For mediated external effects, intent and EffectAttempt evidence precede the effect.
+The call carries the item's idempotency key. If its result is not known, the pipeline
+appends `indeterminate`; reconciliation re-queries that same attempt by idempotency key
+and appends its superseding final Receipt. A resend after final failure is a new
+EffectAttempt through the normal mediated path, never an unrecorded reconciler action. Eventual reconciliation
+depends only on the external liveness assumptions stated in §14.
+
+An **AuditRecord** is one immutable entry in an append-only typed causal chain:
+
+```ts
+interface AuditRecord {
+  readonly id: AuditRecordId;
+  readonly actor: ActorRef;
+  readonly tenant: TenantId;
+  readonly correlation: CorrelationId;
+  readonly cause?: AuditRecordId;
+  readonly kind: AuditKind;
+}
+
+type AuditKind =
+  | { readonly kind: "invocation"; readonly id: InvocationId }
+  | { readonly kind: "approval"; readonly id: ApprovalId;
+      readonly phase: "pending" | "approved" | "denied" | "expired" | "consumed" }
+  | { readonly kind: "attempt"; readonly id: EffectAttemptId }
+  | { readonly kind: "receipt"; readonly id: ReceiptId;
+      readonly outcome: PreEffectReceipt["outcome"] | AttemptReceipt["outcome"] }
+  | { readonly kind: "receiptSuperseded"; readonly previous: ReceiptId;
+      readonly next: ReceiptId }
+  | { readonly kind: "write"; readonly id: WriteRecordId; readonly outcome: WriteRecord["outcome"] }
+  | { readonly kind: "event"; readonly id: EventId }
+  | { readonly kind: "routeReserved"; readonly id: RouteReservationId }
+  | { readonly kind: "routeProjected"; readonly projection: RouteProjectionId;
+      readonly reservation: RouteReservationId }
+  | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
+  | { readonly kind: "commit"; readonly id: RunCommitId };
+```
+
+```text
+Invocation → Approval(approved) → EffectAttempt → Receipt → Event → RouteReserved
+Invocation → EffectAttempt
+Invocation or Approval(denied|expired) → pre-effect Receipt
+indeterminate Receipt → ReceiptSuperseded
+Receipt or ReceiptSuperseded → Commit
+source RouteReservation ═ authenticated projection ═> target RouteProjected(root) → Delivery → Commit
+```
+
+The permitted local typed edges are exactly: Invocation → Approval, EffectAttempt,
+pre-effect Receipt, or WriteRecord; approved Approval → EffectAttempt; denied Approval
+→ denied Receipt; expired Approval → cancelled Receipt; EffectAttempt → attempted
+Receipt; Receipt → Event or Commit; ReceiptSuperseded → Event or Commit; Event →
+RouteReserved; RouteProjected → Delivery; Delivery → Commit. ReceiptSuperseded is a
+specialized append caused by its prior indeterminate Receipt and names the final next
+Receipt. Every cause MUST exist before append and share tenant and correlation; append
+never rewrites an entry.
+Invocation records are ordinary roots. A `routeProjected` record is the special
+target-local bridge root described below, not an ordinary root. A host-created
+command-rejection WriteRecord MAY also be a root only under the §8.5 no-caller-cause
+rule.
+
+Cross-Actor causality never points directly into another Audit log. The source-owned
+RouteReservation is the authenticated bridge: it cites the preexisting source Event
+audit cause and authenticates source Actor, target Actor, tenants, projection,
+authority, and stable InvocationId. The target's `routeProjected` entry is a
+target-local bridge root with no AuditRecord cause; it is admitted only by authenticating
+that reservation projection. Delivery is caused by the target-local projection entry.
+Cross-tenant delivery also verifies the reservation's explicit cross-tenant Binding.
+
+Every Receipt outcome has an AuditRecord. Attempted outcomes are caused by their
+EffectAttempt audit; pre-effect outcomes are caused by Invocation or terminal Approval
+audit. Indeterminate supersession gets a separate `receiptSuperseded` entry linking both
+Receipt ids before the final Receipt is observed. Every SystemCause MUST name the exact
+preexisting receipt, delivery, or control AuditRecord required by the writer
+matrix. Telemetry is diagnostic
+and never substitutes for a Receipt, RouteReservation, WriteRecord, or AuditRecord.
 
 ---
 
@@ -1069,12 +1859,12 @@ record, and durable records never own live substrate resources.
 1. Every record type names exactly **one owning Actor**.
 2. Other actors hold identifiers and rebuildable indexes only. An index maps id →
    locator and is disposable; a Workspace's index over dedicated Runs is constrained
-   to `{ runId, actor locator, pins, terminal status }` and never carries replayable
+   to `{ runId, actor locator, pins, terminal outcome, settled }` and never carries replayable
    Run state.
 3. Caches are derived, versioned, rebuildable; a cache miss is never an error.
 4. Cross-actor reads use RPC or explicitly versioned snapshots — never dual writes.
-5. Authority evidence is resolved at Turn start and revalidated per the bounded-window
-   rule of §3.4 rule 5.
+5. Authority resolution returns complete PathEpochEvidence; direct and mediated paths
+   enforce §3.4 rules 5–8.
 6. Conformance includes an **ownership map** artifact — record type → owning Actor —
    verified against the implementation.
 
@@ -1086,18 +1876,77 @@ they do, both copies have already been read by something.
 
 Protocol **commands** (controller contracts — distinct from the user-facing Commands
 of §4.3) are how coordination is implemented. Every mutating command defines
-authority, valid lifecycle state, linearization point, optimistic-concurrency envelope
-(`expectedRevision`, `expectedLeaseEpoch`), durable mutation, emitted observation,
-reply, retry, and reconciliation behavior. Reference command families: Tenant,
+authority, valid lifecycle state, linearization point, durable mutation, emitted
+observation, reply, retry, and reconciliation behavior. Reference command families: Tenant,
 membership, resource, Grant, Binding, Event, Subscription, Run, Turn, RunBranch,
 RunCommit, Invocation, Approval, Environment, and Workspace portability.
 
 A conforming substrate provides a **dispatcher** that enforces the envelope at the
-protocol boundary. The envelope check and the guarded mutation execute as one atomic
-unit on the owning Actor — on substrates with interactive-gap hazards this means a
-single synchronous transaction with no intervening I/O (§10.3). "Emitted observation"
-is atomic only intra-Actor; cross-Actor observation is post-commit and asynchronous
-(§6.1).
+protocol boundary. The families include allow/deny Grant, Binding, RouteReservation,
+RunPins migration, PreparedInvocation, Approval consumption, EffectAttempt, Receipt,
+and AuditRecord append commands.
+
+```ts
+type CommandCaller =
+  | { readonly kind: "principal"; readonly principal: PrincipalRef }
+  | { readonly kind: "actor"; readonly actor: ActorRef };
+
+interface CommandEnvelope {
+  readonly command: string;
+  readonly caller: CommandCaller;
+  readonly idempotencyKey: string;
+  readonly expectedRevision?: Revision;
+  readonly lease?: LeaseToken;
+  readonly callerCause?: AuditRecordId;
+  readonly payload: ContentRef;
+  readonly payloadDigest: Digest;
+}
+
+type CommandOutcome =
+  | "committed"
+  | "rejectedMalformed"
+  | "rejectedAuthentication"
+  | "rejectedAuthority"
+  | "rejectedLifecycle"
+  | "rejectedRevision"
+  | "rejectedLease"
+  | "duplicate";
+
+interface WriteRecord {
+  readonly id: WriteRecordId;
+  readonly actor: ActorRef;
+  readonly envelopeDigest: Digest;
+  readonly caller?: CommandCaller;            // absent only when malformed before decode
+  readonly command?: string;
+  readonly at: Date;
+  readonly outcome: CommandOutcome;
+  readonly audit: AuditRecordId;
+  readonly duplicateOf?: WriteRecordId;       // present exactly for duplicate
+}
+```
+
+The dispatcher evaluates in this order: decode/shape, authenticate exact caller,
+duplicate lookup on `(caller, idempotencyKey)`, authority, lifecycle, expected revision,
+optional LeaseToken, then mutation. A Turn-owned command requires a token; a supplied
+token is always checked for exact Turn, holder, epoch, and non-expiry. Missing required,
+unexpected, stale, wrong-Turn, or expired tokens yield `rejectedLease`. Duplicate
+returns the original reply and records `duplicateOf` without re-running later gates or
+mutation.
+
+Each command family declares whether `expectedRevision` is required and whether a
+LeaseToken is required, optional, or forbidden. Missing required envelope fields and
+forbidden fields are `rejectedMalformed`, except token-policy violations, which are
+`rejectedLease`.
+
+Every request appends exactly one WriteRecord and one linked AuditRecord, including
+malformed and rejected requests. A valid `callerCause` must preexist and be a permitted
+typed cause. When rejection has no usable caller cause, the host creates an attributable
+root `write` AuditRecord; malformed input may omit caller and command. An accepted
+request without a caller cause first receives a host-created Invocation root. The
+envelope digest covers the raw submitted envelope even when decode fails. WriteRecord
+and AuditRecord contain each other's preallocated ids and commit atomically
+with the decision. RunCommit commands additionally enforce §5.2. Cross-Actor
+observation is post-commit and uses §6.2 reservation bridges.
 
 ---
 
@@ -1130,12 +1979,18 @@ interface Blueprint {
 }
 ```
 
-`policies.placement` decides isolation (§1.5): the platform places each facet at the
-strongest of (manifest minimum, policy assignment), and refuses `bundled` to any
-package not on the platform's trusted list. The composed platform config schema is the
-spec's base schema plus every installed package's `settings` fragments, and a
-Blueprint MUST validate against it **before any package code loads** — you can know
-exactly what a Blueprint will do while it is still just a document.
+`policies.placement` decides isolation (§1.5) using one explicit preference order.
+For each Facet, compute exactly `manifest ∩ policy ∩ substrate ∩ trust`, where each term
+is an independently derived admissible-mode set. One preference order applies
+everywhere: `dynamic`, then `provider`, then `bundled`. Placement is the first member of
+the intersection in that order. An empty intersection rejects the Blueprint; no
+fallback is inferred. The trust set excludes `bundled` for untrusted Packages. If
+the chosen mode cannot admit a policy-selected direct call, that call escalates to
+mediated (§7.2); placement itself does not change.
+
+The composed platform config schema is the spec's base schema plus every installed
+package's `settings` fragments, and a Blueprint MUST validate against it **before any
+package code loads**.
 
 A skeleton:
 
@@ -1148,7 +2003,10 @@ A skeleton:
   ],
   "agents": [{ "name": "helper", "instructions": "…", "model": { "policy": "balanced" } }],
   "policies": {
-    "placement": { "trusted": ["core.*"], "default": "provider" },
+    "placement": {
+      "trusted": ["core.*"],
+      "defaultAllowed": ["provider", "dynamic"]
+    },
     "tiers": { "acme.deploy:deploy.run": "mediated" }
   }
 }
@@ -1163,8 +2021,8 @@ records are marked Blueprint-managed; manual edits to managed records are reject
 adopted explicitly, per policy. The materializer enforces slot contribute-authority
 (§4.2), command uniqueness (§4.3), and role→Grant materialization (§3.3) through the
 same records the runtime uses. Reconciliation on a live platform orders changes so
-in-flight Runs keep their pins (§5.2); removing a package with live pinned Runs is
-deferred or forced-with-migration, per policy — never silent.
+existing RunPins remain resolvable (§5.2); removing a pinned Package is deferred until
+no Run references it or performed through explicit Run migration — never silent.
 
 ![From Blueprint to running platform](diagrams/blueprint.svg)
 
@@ -1188,25 +2046,27 @@ against those facts.
 
 | Construct | Hosting |
 | --- | --- |
-| Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, grants ledger, revocation epochs and holder index, credential custody, quotas |
+| Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
 | Workspace Actor | one DO per Workspace (SQLite): facet installs, bindings, its event log, subscriptions, runs (default) or run index (dedicated), tasks, slate records |
-| Run | Workspace-owned by default; MAY be pinned `dedicated` at start, in which case a Run DO owns the Run's records and its Run-scoped event log, and the Workspace keeps a locator index (§8.4 rule 2). Pinned at start; migration only per §5.2. |
-| Turn execution | in the Run-owning DO; long compute offloads to Workflows and Queues with application-level lease-epoch fencing on callbacks — delivery is at-least-once and the owning DO rejects stale epochs |
+| Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2. |
+| Turn execution | in the Run-owning DO; each Turn retains a placement snapshot, and offloaded callbacks carry exact Turn, holder, and epoch — delivery is at-least-once and mismatches reject |
 | Environment | Sandbox SDK container or session DO; tree checkpoints and filesystem durability via R2 snapshots; preview via authenticated exposed ports |
 | Slate | records in the owning DO; frontend on static assets; backend as dynamic-mode code (§10.2) |
 | ContentStore | R2, with DO SQLite for small content, content-addressed |
-| Events | owned by the accepting Actor. In-Actor append and route is one transaction. Cross-Actor — dedicated Run → Workspace subscriptions, or cross-workspace — is an asynchronous at-least-once projection via fenced RPC or Queues, idempotency-keyed, deduped by the Subscription's key. |
+| Events | owned by the accepting Actor. Cross-Actor delivery uses a source-owned authenticated RouteReservation with stable InvocationId and a target-local delivery record; Queues/RPC may redeliver but cannot remap or duplicate intent. |
 
 Projects are records in the Tenant DO — grouping adds zero DOs. Authority resolution
-costs one Tenant-DO hop per Turn start; revocation freshness follows the
-bounded-window rule (§3.4 rule 5), with the Tenant DO pushing invalidations to holders
-from its reverse index and mediated invocations revalidating on their durable path.
+returns complete PathEpochEvidence. The profile MUST monotonically deliver invalidation
+watermarks, atomically advance them on mediated stale observation, enforce the exact
+Turn lease and immutable deadline for direct calls, perform Actor-local final authority
+admission in the attempt transaction, and perform cross-DO final authority admission at
+Tenant permit issuance after exact claim identity is known (§3.4, §10.3).
 
 ![Cloudflare topology](diagrams/cloudflare.svg)
 
 ### 10.2 Facet hosting
 
-Placement follows §9.2 policy over the manifest's minimum isolation. It is
+Placement follows the §9.2 admissible-set intersection and preference order. It is
 emphatically **not** one Worker per Facet — isolation boundaries are drawn exactly
 where protection domains change, and same-domain separation is fanout and cold-start
 tax with no security benefit:
@@ -1218,8 +2078,8 @@ tax with no security benefit:
    capability-RPC stub (Workers RPC / Cap'n Web). This is where custody demands
    isolation: third-party integrations and credential-holding approval gateways. RPC stubs
    do not survive execution contexts, hibernation, or isolate eviction, so provider
-   resolutions are scoped to a single Turn step and re-resolved with epoch
-   revalidation each step (§3.4 rule 6). Revocation drops the stub; so do platform
+   resolutions are scoped to a single Turn step and re-resolved with current path
+   epochs each step (§3.4 rules 7–8). Revocation drops the stub; so do platform
    lifecycle events; re-resolution is the uniform recovery for both.
 3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: agent-generated
    facets and Slate backends. Hosts pass `globalOutbound: null` (or equivalent), so
@@ -1230,6 +2090,61 @@ tax with no security benefit:
 
 ### 10.3 Implementation constraints
 
+Cross-DO mediated authority uses this profile record:
+
+```ts
+interface AuthorityPermit {
+  readonly tenant: TenantId;
+  readonly issuer: ActorRef;                 // authoritative Tenant Actor
+  readonly source: ActorRef;
+  readonly target: { readonly actor: ActorRef; readonly fence: number;
+      readonly domain: ProtectionDomain };
+  readonly principal: PrincipalRef;
+  readonly binding: { readonly name: BindingName; readonly generation: Revision };
+  readonly facet: FacetRef;
+  readonly operation: OperationRef;
+  readonly package: PackagePin;
+  readonly impact: Impact;
+  readonly invocation: InvocationId;
+  readonly reservation: RunAdmissionReservation;
+  readonly itemIndex: number;
+  readonly attemptOrdinal: number;
+  readonly claim: ItemClaimId;
+  readonly claimOwner: ItemClaimOwner;
+  readonly itemKey: string;
+  readonly argumentsDigest: Digest;
+  readonly intentDigest: Digest;
+  readonly pathEpochs: PathEpochEvidence;
+  readonly authority: InvocationAuthority;
+  readonly lease?: LeaseToken;
+  readonly nonce: string;
+  readonly issuedAt: Date;
+  readonly expiresAt: Date;
+}
+```
+
+After the target has durably established the exact item claim and Run admission
+reservation, the Tenant Actor issues this short-lived permit as the final
+authority-admission linearization point immediately before target attempt admission.
+Issuance is one Tenant transaction against current Grants, Binding generation, complete
+path epochs, qualified PrincipalRef, and optional exact lease. Revocation or epoch
+mutation committed before issuance blocks it; mutation after issuance does not cancel
+that admitted permit but blocks every later issuance. The target Actor authenticates
+issuer and source, exact-matches every bound field to the persisted PreparedInvocation,
+Run reservation epoch, local claim id/owner, package pin, and target fence/domain,
+requires `issuedAt <= now < expiresAt`, and atomically
+consumes the nonce with EffectAttempt admission. A nonce is single-use even after
+expiry. A mismatch, substitution, replay, closed or changed reservation epoch, stale
+local claim/fence, or expiry records a pre-effect denial and no EffectAttempt. A newer
+target-local watermark arriving after issuance MUST NOT reject, cancel, or stale a
+valid issued permit: issuance is irreversible authority admission. Target watermark
+join and stale-denial evidence occur only when issuance failed, the permit is
+expired/substituted/invalid, or an unissued intent is compared. Post-issuance revocation
+blocks only future permit issuance. The permit
+delegates no ambient authority and creates no cross-DO transaction. These clauses map to
+**C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** and
+**C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION**.
+
 - DO SQLite is synchronous; the dispatcher's envelope check plus guarded mutation is
   one synchronous span with no intervening `await` (input-gate hazard, §8.5).
 - WebSocket surfaces use hibernation. ViewDelta streaming requires a durable,
@@ -1237,7 +2152,8 @@ tax with no security benefit:
   per-socket last-acked revision cursor in the WebSocket attachment (≤ 16 KB); replay
   cost is bounded by periodic snapshots.
 - Alarms drive schedules (idempotency key = `(subscription, fireTime)`) and serve as
-  the reconciliation driver (§7.4): an alarm sweep re-drives indeterminate intents.
+  the reconciliation driver (§7.4): an alarm sweep re-queries indeterminate attempts
+  and appends final Receipts; retry creates a new mediated EffectAttempt.
   Workflows `step.waitForEvent` MAY serve as the driver for provider-callback flows.
 - Queues and Workflows are at-least-once with no platform-fenced DO callback; all
   fencing is the application-level lease epoch (§5.3).
@@ -1248,148 +2164,217 @@ tax with no security benefit:
 
 ## 11. Profiles
 
-A profile is a named, conformance-testable composition of primitives — never a new
-primitive. Each profile below fixes its Operations (with impacts), the Events it
-emits, its defining invariants, and the conformance obligations a claimed
-implementation MUST meet. Operation names are conventional; a platform MAY rename them
-but MUST preserve the impacts and invariants. The filesystem profile is fully
-specified here and its conformance suite is the template every other profile follows.
+- **P11-BASE-COMPOSITION** A profile is a named, conformance-testable composition of primitives, never a new primitive.
+- **P11-BASE-CONTRACT** Each profile specifies its Operations, Events, invariants, and conformance obligations; a profile with no listed Event makes no Event-emission promise.
+- **P11-BASE-NAMES** Operation names are conventional; a platform MAY rename them but MUST preserve applicable impacts and invariants.
+- **P11-BASE-TESTS** Each claimed profile MUST provide tests for its listed Operations and invariants, plus Event shape and causality where Events are listed.
+- **P11-BASE-EVIDENCE** Conformance evidence is governed by §13; this section makes no claim about test implementation status.
 
 ### 11.1 Filesystem
 
-Operations: `read` (`observe`), `stat` (`observe`), `list` (`observe`, paged,
-stat-inclusive), `write` (`mutate`; modes create / replace / upsert), `remove`
-(`mutate`), `move` (`mutate`, same-filesystem), `mkdir` (`mutate`). Every mutating
-Operation returns a Receipt.
-
-Invariants: paths are strict (normalized, no traversal outside the root; a path
-escaping the root is a stable `path.invalid` error, never a silent clamp); reads are
-byte-ranged; writes are atomic at the path granularity; errors are a fixed, stable code
-set (`not-found`, `exists`, `not-a-directory`, `is-a-directory`, `path.invalid`,
-`too-large`), so callers can branch on codes rather than messages.
-
-Conformance: the parameterized filesystem suite, run against every backing store and
-every wrapper (readonly, observed, mount composition), asserting the code set, atomicity,
-paging with stat, and move semantics. This suite exists in the reference implementation.
+- **P11-FILESYSTEM-READ** Operation `read` has `observe` impact.
+- **P11-FILESYSTEM-STAT** Operation `stat` has `observe` impact.
+- **P11-FILESYSTEM-LIST** Operation `list` has `observe` impact and is paged and stat-inclusive.
+- **P11-FILESYSTEM-WRITE** Operation `write` has `mutate` impact and supports create, replace, and upsert modes.
+- **P11-FILESYSTEM-REMOVE** Operation `remove` has `mutate` impact.
+- **P11-FILESYSTEM-MOVE** Operation `move` has `mutate` impact and is same-filesystem only.
+- **P11-FILESYSTEM-MKDIR** Operation `mkdir` has `mutate` impact.
+- **P11-FILESYSTEM-RECEIPT** Every mutating Operation returns the canonical mediated Invocation `Receipt`; the profile defines no second Receipt type.
+- **P11-FILESYSTEM-PATHS** Paths are normalized and cannot traverse outside the root; escape rejects with stable `path.invalid`, never a silent clamp.
+- **P11-FILESYSTEM-RANGES** Reads are byte-ranged.
+- **P11-FILESYSTEM-ATOMIC-WRITE** Writes are atomic at path granularity.
+- **P11-FILESYSTEM-ERROR-CLOSED** Filesystem errors use one fixed, stable code set.
+- **P11-FILESYSTEM-ERROR-CODES** The set is `not-found`, `exists`, `not-a-directory`, `is-a-directory`, `path.invalid`, and `too-large`.
+- **P11-FILESYSTEM-ERROR-BRANCHING** Callers branch on stable codes, not messages.
+- **P11-FILESYSTEM-SUITE** Conformance uses the parameterized filesystem suite.
+- **P11-FILESYSTEM-BACKINGS** The suite runs against every backing store and every observed and mount-composition wrapper.
+- **P11-FILESYSTEM-READONLY** A readonly wrapper exposes only the reader contract and no mutating Operations; it does not accept a mutation and synthesize a profile-specific error.
+- **P11-FILESYSTEM-CODE-ASSERTIONS** The suite asserts the complete stable code set.
+- **P11-FILESYSTEM-ATOMICITY-ASSERTIONS** The suite asserts write atomicity.
+- **P11-FILESYSTEM-PAGING-ASSERTIONS** The suite asserts stat-inclusive paging.
+- **P11-FILESYSTEM-MOVE-ASSERTIONS** The suite asserts same-filesystem move semantics.
 
 ### 11.2 Shell
 
-Composed from Filesystem + Environment. Operations: `run` (`execute`, session-scoped →
-`direct`-tier eligible), `cancel` (`mutate`). A parser tokenizes the command line; a
-command registry resolves built-ins; unknown commands hand off to external execution
-through the Environment. stdin/stdout/stderr are streamed. The shell's filesystem
-Operations are the Filesystem profile bound to the session's `env.fs`, so the shell
-never has a second filesystem authority.
-
-Invariants: cancellation is prompt and leaves the session usable; a command that
-escapes the session's filesystem boundary fails with the filesystem code set;
-external-execution handoff is explicit (a declared command, not an implicit fallthrough).
+- **P11-SHELL-RUN** Operation `run` has `execute` impact and is direct-tier eligible only while session-scoped.
+- **P11-SHELL-CANCEL** Operation `cancel` has `mutate` impact.
+- **P11-SHELL-COMPOSITION** Shell is composed from Filesystem and Environment.
+- **P11-SHELL-PARSER** A parser tokenizes the command line.
+- **P11-SHELL-REGISTRY** A command registry resolves built-ins and explicitly declared external commands.
+- **P11-SHELL-UNKNOWN** Unknown commands reject rather than implicitly handing off.
+- **P11-SHELL-STREAMS** Standard input, output, and error are streamed.
+- **P11-SHELL-FILESYSTEM** Shell filesystem Operations are the Filesystem profile bound to session `env.fs`.
+- **P11-SHELL-SINGLE-AUTHORITY** Shell has no second filesystem authority.
+- **P11-SHELL-CANCELLATION** Cancellation is prompt and leaves the Session usable.
+- **P11-SHELL-BOUNDARY** A command escaping the Session filesystem boundary fails with the Filesystem code set.
+- **P11-SHELL-HANDOFF** External execution handoff is an explicitly declared command, never implicit fallthrough.
 
 ### 11.3 Memory
 
-Composed from Facet + Operations + a prompt contribution. Operations: `remember`
-(`mutate`), `recall` (`observe`), `forget` (`mutate`). Canonical content is stored once;
-derived indexes (full-text, vector, or both) are rebuildable caches over it (§8.4).
-The prompt contribution surfaces the most relevant recalled content.
-
-Invariants: `recall` never returns content the caller could not read directly (discovery
-policy, §3.4 rule 4); indexes are derived and a rebuild is never observable to a caller;
-pruning removes only content past retention, never silently drops within it.
+- **P11-MEMORY-REMEMBER** Operation `remember` has `mutate` impact.
+- **P11-MEMORY-RECALL** Operation `recall` has `observe` impact.
+- **P11-MEMORY-FORGET** Operation `forget` has `mutate` impact.
+- **P11-MEMORY-COMPOSITION** Memory is composed from Facet, Operations, and a prompt contribution.
+- **P11-MEMORY-CANONICAL** Canonical content is stored once.
+- **P11-MEMORY-INDEXES** Full-text, vector, or combined indexes are rebuildable caches over canonical content.
+- **P11-MEMORY-PROMPT** The prompt contribution surfaces the most relevant recalled content.
+- **P11-MEMORY-DISCOVERY** `recall` never returns content the caller could not read directly under §3.4 rule 4.
+- **P11-MEMORY-REBUILD** Indexes are derived and a rebuild is not observable to callers.
+- **P11-MEMORY-PRUNE-PAST** Pruning removes only content past retention.
+- **P11-MEMORY-PRUNE-WITHIN** Pruning never silently drops content within retention.
 
 ### 11.4 Task
 
-Composed from Facet + Operations + a task-board Surface. Operations: `create`
-(`mutate`), `update` (`mutate`), `list` (`observe`). Tasks form an acyclic hierarchy;
-each MAY relate to a Run. The Surface renders the board and emits `task.actionSubmitted`
-Events routed back to `update` (§6.3).
-
-Invariants: the hierarchy is acyclic (a cycle-forming `update` is rejected); status
-transitions follow the profile's declared lifecycle; a task's Run relation is a
-reference, never a copy of Run state.
+- **P11-TASK-CREATE** Operation `create` has `mutate` impact.
+- **P11-TASK-UPDATE** Operation `update` has `mutate` impact.
+- **P11-TASK-LIST** Operation `list` has `observe` impact.
+- **P11-TASK-COMPOSITION** Task is composed from Facet, Operations, and a task-board Surface.
+- **P11-TASK-HIERARCHY** Tasks form an acyclic hierarchy.
+- **P11-TASK-RUN-RELATION** A Task MAY relate to a Run.
+- **P11-TASK-EVENT** The Surface renders the board and emits `task.actionSubmitted` through the §6.1 mediated source Operation and Receipt causality.
+- **P11-TASK-CYCLE-REJECTION** A cycle-forming `update` rejects.
+- **P11-TASK-RUN-REFERENCE** A Task's Run relation is a reference.
+- **P11-TASK-NO-RUN-COPY** A Task never copies Run state.
+- **P11-TASK-PRODUCT-LIFECYCLE** Products MAY define a status lifecycle in their Task Facet schema.
+- **P11-TASK-NO-BASE-LIFECYCLE** The base profile defines no Task status lifecycle.
 
 ### 11.5 Web
 
-Operations: `fetch` (`externalSend`, per §7.1 the request crosses the trust boundary),
-`search` (`externalSend`). Reading a cached response is `observe`. URL safety
-(SSRF/allowlist), a credential policy, and rate/size limits are enforced before the
-request leaves.
-
-Invariants: no request to a disallowed host; credentials attach only per the policy;
-response size and rate are bounded; a blocked request denies rather than truncates.
+- **P11-WEB-FETCH** Operation `fetch` has `externalSend` impact because the request crosses the trust boundary.
+- **P11-WEB-SEARCH** Operation `search` has `externalSend` impact.
+- **P11-WEB-CACHED** Reading a cached response has `observe` impact.
+- **P11-WEB-URL-SAFETY** SSRF and allowlist policy is enforced before the request leaves.
+- **P11-WEB-CREDENTIAL-POLICY** Credential policy is enforced before the request leaves.
+- **P11-WEB-LIMIT-POLICY** Rate and size limits are enforced before the request leaves.
+- **P11-WEB-DISALLOWED** No request reaches a disallowed host.
+- **P11-WEB-CREDENTIAL-ATTACHMENT** Credentials attach only under credential policy.
+- **P11-WEB-BOUNDS** Response size and rate are bounded.
+- **P11-WEB-BLOCK** A blocked request denies rather than truncates.
 
 ### 11.6 MCP
 
-An adapter Facet. Discovered MCP tools become Operations, resources become `observe`
-Operations, and prompts become prompt contributions; each is schema-validated at the
-boundary. Server lifecycle (start, health, stop) is the Facet lifecycle. Targets the
-current MCP revision; prompt contributions are bounded so a server cannot flood the
-prompt.
-
-Invariants: an MCP tool call is an ordinary Invocation and gets the tool's declared
-impact (default `externalSend` for a remote server); a malformed tool schema is
-rejected at discovery, not at call time.
+- **P11-MCP-ADAPTER** MCP is an adapter Facet.
+- **P11-MCP-TOOLS** Discovered MCP tools become Operations.
+- **P11-MCP-RESOURCES** Discovered resources become `observe` Operations.
+- **P11-MCP-PROMPTS** Discovered prompts become prompt contributions.
+- **P11-MCP-SCHEMA-BOUNDARY** Tools, resources, and prompts are schema-validated at discovery.
+- **P11-MCP-LIFECYCLE** MCP start, health, and stop are the Facet lifecycle.
+- **P11-MCP-REVISION** Agent Core edition 1.0.0 targets exact MCP protocol revision `2025-11-25`; any other negotiated revision rejects discovery.
+- **P11-MCP-PROMPT-COUNT** A server contributes at most 32 prompt items per discovery.
+- **P11-MCP-PROMPT-BYTES** The canonical UTF-8 encoding of all contributed prompt titles and bodies is at most 262144 bytes per discovery.
+- **P11-MCP-POSITIVE-BOUNDS** Both MCP prompt maxima are positive, finite, and enforced before materialization.
+- **P11-MCP-INVOCATION** An MCP tool call is an ordinary Invocation.
+- **P11-MCP-IMPACT-ANNOTATION** Tool `_meta["io.agent-core/impact"]`, when present, is the exact Agent Core `Impact` annotation.
+- **P11-MCP-IMPACT-UNKNOWN** An annotation value outside the closed `Impact` set rejects discovery.
+- **P11-MCP-IMPACT-DEFAULT-REMOTE** A remote tool with no impact annotation defaults to `externalSend`.
+- **P11-MCP-IMPACT-DEFAULT-LOCAL** A local tool with no impact annotation defaults to `execute`.
+- **P11-MCP-MALFORMED-SCHEMA** A malformed tool schema rejects at discovery.
+- **P11-MCP-NO-LATE-SCHEMA** Schema rejection does not wait until call time.
 
 ### 11.7 Approval gateway
 
-A provider-mode Facet (§10.2) mediating a credential-holding external resource.
-Operations: `observe` (`observe`), `applyAction` (`externalSend`, always mediated).
-Observations are authorized reads; actions are digest-bound Invocations through the
-approval continuation (§7.3). The gateway persists Receipts and reconciles indeterminate
-outcomes (§7.4), and contributes an approval Surface.
-
-Invariants (proven, `AC-PLATFORM-GATEKEEPER`): the raw credential never enters the
-agent domain on any reachable path; an `applyAction` runs only against an approved,
-digest-matching ticket, so approving one action cannot authorize a tampered one.
+- **P11-APPROVAL-GATEWAY-OBSERVE** Operation `observe` has `observe` impact.
+- **P11-APPROVAL-GATEWAY-APPLY** Operation `applyAction` has `externalSend` impact and is always mediated.
+- **P11-APPROVAL-GATEWAY-PROVIDER** The gateway is a provider-mode Facet mediating a credential-holding external resource.
+- **P11-APPROVAL-GATEWAY-READS** Observations are authorized reads.
+- **P11-APPROVAL-GATEWAY-CONTINUATION** Actions are whole-intent-digest-bound Invocations through the invocation-level approval continuation.
+- **P11-APPROVAL-GATEWAY-RECEIPTS** The gateway persists canonical Receipts.
+- **P11-APPROVAL-GATEWAY-RECONCILIATION** The gateway reconciles indeterminate outcomes under §7.4.
+- **P11-APPROVAL-GATEWAY-SURFACE** The gateway contributes an approval Surface.
+- **P11-APPROVAL-GATEWAY-CREDENTIAL** Raw credentials never enter the agent domain.
+- **P11-APPROVAL-GATEWAY-MATCH** `applyAction` runs only against an approved, matching PreparedInvocation and persisted continuation.
 
 ### 11.8 Self
 
-Facet + Operations over L2. Operations: `checkpoint` (`mutate`), `commitMessage`
-(`mutate`), `spawn` (`delegate`), `finish` (`mutate`), `proposeMigration`
-(`administer`). The powerful lifecycle actions — spawning child Runs, finishing — flow
-through the Invocation membrane like any other Facet, so they get authority checks,
-receipts, and audit. `spawn` creates a child Run under attenuated Grants.
-
-Invariants: every Self Operation is lease-fenced (§5.3); `spawn`'s child authority is a
-strict attenuation of the parent's; no Self Operation bypasses mediation.
+- **P11-SELF-CHECKPOINT** Operation `checkpoint` has `mutate` impact.
+- **P11-SELF-COMMIT-MESSAGE** Operation `commitMessage` has `mutate` impact.
+- **P11-SELF-SPAWN** Operation `spawn` has `delegate` impact.
+- **P11-SELF-FINISH** Operation `finish` has `mutate` impact.
+- **P11-SELF-PROPOSE-MIGRATION** Operation `proposeMigration` has `administer` impact.
+- **P11-SELF-COMPOSITION** Self is a Facet plus Operations over L2.
+- **P11-SELF-SPAWN-MEMBRANE** Spawning child Runs flows through the Invocation membrane.
+- **P11-SELF-FINISH-MEMBRANE** Finishing flows through the Invocation membrane.
+- **P11-SELF-AUTHORITY** Self lifecycle actions receive normal authority checks.
+- **P11-SELF-RECEIPTS** Self lifecycle actions receive canonical Receipts.
+- **P11-SELF-AUDIT** Self lifecycle actions receive audit evidence.
+- **P11-SELF-ATTENUATION** `spawn` creates a child Run under attenuated Grants.
+- **P11-SELF-LEASE** Every Self Operation is lease-fenced.
+- **P11-SELF-NO-WIDENING** A spawned child's authority does not exceed its parent's authority.
+- **P11-SELF-MEDIATION** No Self Operation bypasses mediation.
 
 ### 11.9 Environment
 
-Specified in §4.5. Session lifecycle (open, use, close), session-scoped child Facets,
-stale-session failure, and rotation-without-retargeting are the base. A conforming
-Environment profile additionally specifies snapshot/restore, ephemeral-filesystem
-durability, preview exposure (an authenticated URL per exposed port), and the
-credential-isolation seam.
-
-Invariants: a stale session fails closed; closing disposes child Facets; rotation never
-retargets an open session (proven for the abstract model, `AC-ENV-001`).
+- **P11-ENVIRONMENT-SPECIFICATION** The Environment profile is specified with §4.5.
+- **P11-ENVIRONMENT-OPEN** The base Session lifecycle includes open.
+- **P11-ENVIRONMENT-USE** The base Session lifecycle includes use.
+- **P11-ENVIRONMENT-CLOSE** The base Session lifecycle includes close.
+- **P11-ENVIRONMENT-CHILD-FACETS** Child Facets are Session-scoped.
+- **P11-ENVIRONMENT-STALE** Stale Session use fails.
+- **P11-ENVIRONMENT-ROTATION** Rotation does not retarget open Sessions.
+- **P11-ENVIRONMENT-SNAPSHOT** A conforming Environment profile specifies snapshot and restore.
+- **P11-ENVIRONMENT-EPHEMERAL-DURABILITY** It specifies ephemeral-filesystem durability.
+- **P11-ENVIRONMENT-PREVIEW** It specifies an authenticated preview URL per exposed port.
+- **P11-ENVIRONMENT-CREDENTIAL-SEAM** It specifies the credential-isolation seam.
+- **P11-ENVIRONMENT-NO-BASE-OPERATIONS** The base profile declares no Operations.
+- **P11-ENVIRONMENT-NO-BASE-EVENTS** The base profile declares no Events.
+- **P11-ENVIRONMENT-NO-BASE-IMPACTS** Impacts are inapplicable to the base profile.
+- **P11-ENVIRONMENT-CHILD-CONTRACTS** Session child Facet profiles declare their own Operations, Events, and impacts.
+- **P11-ENVIRONMENT-FAIL-CLOSED** A stale Session fails closed.
+- **P11-ENVIRONMENT-DISPOSE** Closing a Session disposes its child Facets.
 
 ### 11.10 Device
 
-An Environment behind a reverse-connection transport. Adds pairing (key exchange +
-operator approval), transport-attached consent per (device × agent, fail-closed), and a
-typed device command surface (camera, location, SMS, screen, `system.run`).
-
-Invariants (proven, `AC-PLATFORM-CONSENT`): a device command executes only under live
-consent for its exact pair; absence of consent denies; revoking consent blocks a
-previously-live command; one device's consent never leaks to another.
+- **P11-DEVICE-CAMERA** Operation `camera` has the versioned input `{ deviceId: string, arguments: { facing: "front" | "rear" } }` with no additional properties.
+- **P11-DEVICE-LOCATION** Operation `location` has the versioned input `{ deviceId: string, arguments: { accuracyMeters?: nonnegative number } }` with no additional properties.
+- **P11-DEVICE-SMS** Operation `sms` has the versioned input `{ deviceId: string, arguments: { to: nonempty string, message: nonempty string } }` with no additional properties.
+- **P11-DEVICE-SCREEN** Operation `screen` has the versioned input `{ deviceId: string, arguments: { mode: "capture" | "stream" } }` with no additional properties.
+- **P11-DEVICE-SYSTEM-RUN** Operation `system.run` has the versioned input `{ deviceId: string, arguments: { command: nonempty string, arguments?: string[] } }` with no additional properties.
+- **P11-DEVICE-ENVIRONMENT** Device is an Environment behind a reverse-connection transport.
+- **P11-DEVICE-PAIRING** Pairing requires key exchange and operator approval.
+- **P11-DEVICE-CONSENT-PAIR** Consent is transport-attached, exact per device and Agent, and fail-closed.
+- **P11-DEVICE-TYPED-SURFACE** Device exposes a typed command Surface.
+- **P11-DEVICE-LIVE-IMPACT** Every live device request has `externalSend` impact.
+- **P11-DEVICE-CACHED-READ** Operation `readCached` has `observe` impact and versioned input `{ deviceId: nonempty string, key: nonempty string }` with no additional properties.
+- **P11-DEVICE-NO-PROFILE-EVENTS** The profile declares no profile-specific Events.
+- **P11-DEVICE-COMMAND-EVENTS** Command exposure uses standard `command.invoked` and `command.completed` Events with §6.1 Receipt causality.
+- **P11-DEVICE-CONSENT-LIVE** A device command executes only under live consent for its exact pair.
+- **P11-DEVICE-CONSENT-ABSENT** Absence of consent denies before an EffectAttempt.
+- **P11-DEVICE-CONSENT-FINAL-CHECK** The target performs the final exact-pair consent check immediately before EffectAttempt admission.
+- **P11-DEVICE-CONSENT-REVOCATION** Consent revocation committed before that final check denies without an EffectAttempt.
+- **P11-DEVICE-CONSENT-ADMITTED** Revocation does not cancel an external effect already admitted by an EffectAttempt.
+- **P11-DEVICE-CONSENT-ISOLATION** One device's consent never authorizes another device.
+- **P11-DEVICE-SCHEMA-VERSION** All six Device Operation input schemas are codec-versioned and reject unknown major versions.
 
 ### 11.11 Slate
 
-Specified in §4.6. Operations: `update`, `commit`, `fork`, `publish` (all `mutate` on
-the Slate's own record), `deploy` (`externalSend`), `rollback` (`mutate`). Source is
-content-addressed with an immutable version history; the backend runs in the `dynamic`
-domain with zero ambient authority; live preview is an Environment Session.
-
-Invariants: a published version is immutable; a deploy is a mediated Invocation; the
-backend receives capabilities only through explicitly passed Bindings.
+- **P11-SLATE-UPDATE** Operation `update` has `mutate` impact on the Slate record.
+- **P11-SLATE-COMMIT** Operation `commit` has `mutate` impact on the Slate record.
+- **P11-SLATE-FORK** Operation `fork` has `mutate` impact on the Slate record.
+- **P11-SLATE-PUBLISH** Operation `publish` has `mutate` impact on the Slate record.
+- **P11-SLATE-DEPLOY** Operation `deploy` has `externalSend` impact.
+- **P11-SLATE-ROLLBACK** Operation `rollback` has `mutate` impact.
+- **P11-SLATE-SPECIFICATION** The Slate profile is specified with §4.6.
+- **P11-SLATE-SOURCE** Source is content-addressed with immutable version history.
+- **P11-SLATE-DYNAMIC** The backend runs in a `dynamic` domain with zero ambient authority.
+- **P11-SLATE-PREVIEW** Live preview is an Environment Session.
+- **P11-SLATE-IMMUTABLE-PUBLICATION** A published version is immutable.
+- **P11-SLATE-MEDIATED-DEPLOY** `deploy` is a mediated Invocation.
+- **P11-SLATE-BINDINGS** The backend receives capabilities only through explicitly passed Bindings.
+- **P11-SLATE-ROLLBACK-POINTER** `rollback` atomically changes the active pointer to an existing successful deployment owned by the same Slate and does not contact a provider.
+- **P11-SLATE-ROLLBACK-NO-DEPLOY** Applying a new or prior version to an external provider is `deploy`, not `rollback`, and retains `externalSend` impact.
 
 ### 11.12 Single-tenant
 
-A policy profile, not new machinery: one Principal, one Tenant, and policy that
-auto-grants an `owner` Membership so the Grant/Binding ceremony collapses to a
-trusted-operator default. The records still exist — a single-tenant platform can be
-promoted to multi-tenant by changing policy, not by rewriting. This is how a personal
-assistant (§12) is a policy choice rather than a different architecture.
+- **P11-SINGLE-TENANT-POLICY** Single-tenant is a policy profile.
+- **P11-SINGLE-TENANT-NO-MACHINERY** It introduces no new machinery.
+- **P11-SINGLE-TENANT-PRINCIPAL** It has one Principal.
+- **P11-SINGLE-TENANT-TENANT** It has one Tenant.
+- **P11-SINGLE-TENANT-OWNER** Policy auto-grants an `owner` Membership as a trusted-operator default.
+- **P11-SINGLE-TENANT-RECORDS** The ordinary Grant and Binding records still exist.
+- **P11-SINGLE-TENANT-PROMOTION** Policy change can promote the platform to multi-tenant without rewriting records.
+- **P11-SINGLE-TENANT-ASSEMBLY** A personal assistant is a policy choice rather than a different architecture.
+- **P11-SINGLE-TENANT-NO-OPERATIONS** The profile declares no Operations.
+- **P11-SINGLE-TENANT-NO-EVENTS** The profile declares no Events and no impacts.
 
 ---
 
@@ -1420,101 +2405,304 @@ provenance (§6.1); devices are Device-profile Environments; skills are
 prompt-contribution Packages. The whole assistant is one Blueprint, and hot-reload is
 re-materialization.
 
-**Mixture-of-agents orchestration.** Proposer Turns on sibling branches from one
-parent commit; an aggregator Turn reads sibling heads and writes a merge RunCommit; a
-judge Turn writes a verdict commit; fan-out is `delegate`-impact spawning under
-attenuated Grants.
+**Mixture-of-agents orchestration.** Proposer Turns use sibling branches from one
+parent commit; an aggregator Turn reads two sibling heads and produces synthesis
+content under an exact LeaseToken and successful `execute` Receipt. After a matching
+`administer` control Receipt succeeds, a system writer appends the binary merge. More
+proposers are folded in caller-supplied order. A judge Turn writes a verdict commit;
+fan-out is `delegate`-impact spawning under attenuated Grants.
 
 ---
 
 ## 13. Conformance
 
+The bold labels below are the stable atomic conformance map for binding prose in
+§§2–10 and §13. Repeated explanations and cross-references map to the same concept
+label rather than creating duplicate requirements; modified clauses carry an inline
+map where their primary atom would otherwise be ambiguous. Every §11 atom carries its
+own authoritative `P11-*` label. Label order has no semantic meaning.
+
 A conforming implementation provides:
 
-- the Scope chain with Membership→Grant materialization (§3.3) and deny-overrides
-  precedence, tested with direct, team, and guest cases, including that
-  guest-materialized Grants never carry `delegate` or `administer`;
-- placement policy (§9.2): facets placed at the strongest of manifest minimum and
-  policy assignment, with `bundled` refused to untrusted packages;
-- the `direct`-tier co-location requirement with escalation to `mediated` (§7.2);
-- Grant/Binding authorization with bounded-window epoch revocation (§3.4 rule 5),
-  tested for the three effect deadlines;
-- SecretRef-only configuration — no raw credentials in manifests or Blueprints;
-- Facet manifests with contribution materialization, slot contribute-authority
-  enforcement, and viewer-filtered `SlotCatalog.query`;
-- the Command lifecycle end to end (§4.3): argument binding, mapping validation at
-  install, collision rejection, correlated `command.completed` result delivery;
-- Interceptor ordering `(priority, facetId)`, default self-scope, opt-in cross-facet
-  interception, attributable rewrites, throw-as-scoped-block;
-- Environment session lifecycle tests: stale session, dispose-on-close, rotation
-  non-retargeting;
-- host-derived trust tiers with rejection of tier-asserting sources, and verified
-  ingress minting;
-- the tiered Invocation pipeline including the approval continuation (§7.3), digest
-  strength, and the reconciliation mechanism (§7.4: write-ahead intent, idempotency
-  propagation, named driver);
-- Run/RunBranch/RunCommit with ancestry queries, append-only undo/redo selection,
-  undo-fences-live-turn, and version pinning with explicit migration;
-- lease-fenced Turns — stale-epoch rejection on every commit class — and executor
-  cancellation observance;
-- the View no-live-state invariant and ViewDelta revision replay;
-- ContentStore resolution for every ContentRef; codec compatibility (§8.3);
-- a command-protocol dispatcher enforcing concurrency envelopes atomically (§8.5);
-- the state-ownership map (§8.4 rule 6);
-- Blueprint validation-before-load and idempotent re-materialization with pin
-  preservation (§9.3);
-- adversarial tests: stale lease, revoked grant mid-turn, digest mismatch at approval
-  resume, duplicate event delivery, cache loss, hostile tier assertion, unauthorized
-  slot contribution, interceptor overreach.
+- **C13-AUTH-PLANE** One durable allow/deny Grant plane.
+- **C13-AUTH-ROLE-MATERIALIZATION** Idempotent Role-rule materialization.
+- **C13-AUTH-DENY-PATH** The `AuthorityService.deny` path.
+- **C13-AUTH-BINDING-RESOLUTION** Binding-only resolution.
+- **C13-AUTH-DENY-PRECEDENCE** Deny-overrides precedence.
+- **C13-AUTH-DIRECT-SUBJECT** Direct Principal authority cases.
+- **C13-AUTH-TEAM-SUBJECT** Team-derived authority cases.
+- **C13-AUTH-GUEST-SUBJECT** Guest authority cases.
+- **C13-AUTH-GUEST-ELEVATION** The guest elevation prohibition.
+- **C13-AUTH-PRINCIPAL-REF** Security-sensitive Principal references are tenant-qualified and exact-matched.
+- **C13-AUTH-PATH-EVIDENCE** Complete Tenant-to-target PathEpochEvidence.
+- **C13-AUTH-EPOCH-ADVANCEMENT** Path epoch advancement for allow and deny changes.
+- **C13-AUTH-PATH-ORDER** Path evidence in exact order and with no extra Scopes.
+- **C13-AUTH-WATERMARK-MONOTONE** Monotonic delivered invalidation watermarks.
+- **C13-AUTH-DIRECT-LEASE** Direct admission requires the exact current LeaseToken.
+- **C13-AUTH-DIRECT-DEADLINE** Direct admission requires a deadline derived from the original lease expiry.
+- **C13-AUTH-DIRECT-WATERMARK** Direct admission requires an unstaled watermark.
+- **C13-AUTH-MEDIATED-STALE** A mediated stale comparison atomically advances the watermark before recording pre-effect denial.
+- **C13-AUTH-MEDIATED-ADMISSION** Cross-DO permit issuance after exact claim identity is the final authority-admission linearization point.
+- **C13-PLACEMENT-INTERSECTION** Deterministic placement by admissible-set intersection over manifest, policy, substrate, and trust sets.
+- **C13-PLACEMENT-ORDER** Placement uses the one fixed preference order.
+- **C13-PLACEMENT-EMPTY** An empty placement intersection is rejected.
+- **C13-PLACEMENT-UNTRUSTED-BUNDLED** Untrusted placement excludes `bundled`.
+- **C13-POLICY-DIRECT-COLOCATION** The `direct`-tier co-location requirement is enforced.
+- **C13-POLICY-DIRECT-ESCALATION** A direct call that cannot be co-located escalates to `mediated` (§7.2).
+- **C13-POLICY-MEDIATION-FLOOR** No policy can make non-session `execute`, `mutate`, `externalSend`, `delegate`, or `administer` direct.
+- **C13-POLICY-APPROVAL-FLOOR** No policy can remove mandatory approval.
+- **C13-POLICY-EPOCH-RECHECK** Every mediated effect performs the current-epoch check.
+- **C13-CONFIG-SECRET-REF** Configuration is SecretRef-only, with no raw credentials in manifests or Blueprints.
+- **C13-FACET-MANIFEST** Facet manifests are implemented.
+- **C13-FACET-REF-CANONICAL** Every FacetRef uses the one W3-owned canonical `<scope>:<instance>` identity.
+- **C13-FACET-CONTRIBUTION-MATERIALIZATION** Facet contributions materialize through the specified primitive paths.
+- **C13-FACET-SLOT-AUTHORITY** Slot contribute-authority is enforced.
+- **C13-FACET-SLOT-VISIBILITY** `SlotCatalog.query` is viewer-filtered.
+- **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
+- **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
+- **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
+- **C13-COMMAND-COLLISION** Command collisions are rejected.
+- **C13-COMMAND-RESULT** Command results are delivered as correlated `command.completed` Events.
+- **C13-INTERCEPTOR-ORDER** Interceptors order by `(priority, facetId, interceptorId)`.
+- **C13-INTERCEPTOR-SELF-SCOPE** Interceptors default to self-scope.
+- **C13-INTERCEPTOR-CROSS-FACET** Cross-facet interception is opt-in.
+- **C13-INTERCEPTOR-ATTRIBUTION** Pre-preparation rewrites are attributable.
+- **C13-INTERCEPTOR-FROZEN-RETRY** Retrying a frozen intent does not rerun mutating interceptors.
+- **C13-INTERCEPTOR-REPLAY** Replay persists and reuses both pre-effect and post-effect interceptor transformations and traces.
+- **C13-INTERCEPTOR-THROW-BLOCK** A thrown interceptor error is a scoped block.
+- **C13-ENVIRONMENT-STALE-SESSION** Environment session lifecycle rejects a stale session.
+- **C13-ENVIRONMENT-DISPOSE-CLOSE** Environment session close disposes child Facets.
+- **C13-ENVIRONMENT-ROTATION** Environment rotation does not retarget open Sessions.
+- **C13-TRUST-HOST-DERIVED** Trust tiers are host-derived.
+- **C13-TRUST-ASSERTION-REJECTION** Tier-asserting sources are rejected.
+- **C13-TRUST-VERIFIED-INGRESS** Verified ingress mints Events.
+- **C13-PROFILE-SOURCE-EVENT-CAUSALITY** Standard profile source Events are caused by the exact successful host-Operation Receipt.
+- **C13-SUBSCRIPTION-ACCEPTED-TIERS** Subscriptions have explicit accepted-tier sets.
+- **C13-SUBSCRIPTION-AUTHORITY** Subscriptions use initiator or explicit delegated authority.
+- **C13-ROUTE-SOURCE-OWNED** RouteReservations are source-owned and authenticated.
+- **C13-ROUTE-STABLE-INVOCATION** RouteReservations carry a stable InvocationId.
+- **C13-ROUTE-SOURCE-EVENT** RouteReservations name their source Event.
+- **C13-ROUTE-AUDIT-CAUSE** RouteReservations name their audit cause.
+- **C13-ROUTE-PROJECTION-DIGEST** RouteReservations authenticate their projection digest.
+- **C13-ROUTE-TENANT-RELATION** RouteReservations authenticate their tenant relation.
+- **C13-ROUTE-CROSS-TENANT-BINDING** Cross-tenant RouteReservations authenticate their Binding.
+- **C13-PREPARED-SHARED-HEADER** PreparedInvocation uses one shared header.
+- **C13-PREPARED-OPTIONAL-LEASE** The shared header carries an optional exact LeaseToken.
+- **C13-PREPARED-PAYLOAD-SHAPE** Payload is exactly single or nonempty ordered homogeneous batch.
+- **C13-PREPARED-ITEM-KEYS** Per-item idempotency keys are derived from the complete specified identity.
+- **C13-PREPARED-WHOLE-DIGEST** Whole-intent digesting is canonical and structural.
+- **C13-PREPARED-REPLAY-IDENTITY** Mediated replay keys bind caller, request key, raw payload identity, target pin, lease, and route before interceptors.
+- **C13-PREPARED-REPLAY-PRE** Matching mediated replay reuses exact ordered per-item pre-effect transformations and prepared arguments.
+- **C13-PREPARED-REPLAY-POST** Matching batch replay preserves item-indexed output association while reusing exact per-item post-effect transformations and presentations; direct writes no replay record.
+- **C13-PREPARED-ROUTED-PROJECTION** Routed preparation obeys the exact projection rules.
+- **C13-PREPARED-NO-TURN-OWNER** No-Turn mediation authenticates the domain owner.
+- **C13-PREPARED-NO-TURN-AUDIT** No-Turn mediation requires a preexisting local audit cause.
+- **C13-PREPARED-APPROVAL-BINDING** Approval binds to the PreparedInvocation.
+- **C13-PREPARED-APPROVAL-SINGLE-USE** Approval is invocation-level and single use.
+- **C13-PREPARED-APPROVAL-UNIQUE** At most one Approval exists per Invocation.
+- **C13-PREPARED-CONTINUATION-ABSENT** Invocation continuation is absent before first Approval consumption.
+- **C13-PREPARED-APPROVAL-FIRST-ATTEMPT** Approval consumption is atomic with the first admitted EffectAttempt and persisted continuation.
+- **C13-PREPARED-APPROVAL-CONTINUATION** Later batch items and retries validate that the exact first EffectAttempt belongs to the continuation Invocation and PreparedInvocation item without consuming another Approval.
+- **C13-RECEIPT-PRE-EFFECT** Terminal pre-effect Receipts are distinct from attempted Receipts.
+- **C13-EFFECT-ATTEMPT-IMMUTABLE** EffectAttempts are immutable.
+- **C13-RECEIPT-ATTEMPT-CHAIN** Attempted Receipts form the specified attempt chains.
+- **C13-RECEIPT-ID-NAMESPACE** All Receipt kinds share one ReceiptId namespace.
+- **C13-CLAIM-INITIAL-ATOMIC** Initial item claims are atomic.
+- **C13-CLAIM-FUTURE-EXPIRY** Item claims require a future expiry.
+- **C13-CLAIM-RECOVERY-NO-ATTEMPT** Recovery is permitted only for an expired claim with no attempt.
+- **C13-CLAIM-RECOVERY-NEW-OWNER** Recovery uses a new owner.
+- **C13-CLAIM-RECOVERY-FUTURE-EXPIRY** Recovery records a new future expiry.
+- **C13-CLAIM-RECOVERY-SAME-ORDINAL** Recovery retains the same attempt ordinal.
+- **C13-ATTEMPT-ORDINAL-AFTER-FAILURE** A new attempt ordinal appears only after final failure.
+- **C13-RECEIPT-INDETERMINATE-SUPERSESSION** Indeterminate supersession follows the exact lineage rules.
+- **C13-BATCH-OUTCOME-COMPLETE** BatchOutcome exists only after every item has a current Receipt.
+- **C13-BATCH-OUTCOME-TERMINAL** A terminal aggregate exists only when no current outcome is indeterminate.
+- **C13-EFFECT-WRITE-AHEAD** Effect evidence is written before the external effect.
+- **C13-EFFECT-IDEMPOTENCY** Idempotency keys propagate to the provider effect.
+- **C13-EFFECT-RECONCILIATION** Indeterminate effects reconcile by the specified attempt identity.
+- **C13-EFFECT-SUPERSEDING-RECEIPT** Reconciliation obeys superseding Receipt rules.
+- **C13-EFFECT-RECONCILIATION-DRIVER** Reconciliation has a named driver.
+- **C13-AUDIT-APPEND-ONLY** Typed audit chains are append-only.
+- **C13-AUDIT-PREEXISTING-CAUSE** Audit causes preexist.
+- **C13-AUDIT-RECEIPT-OUTCOMES** Every Receipt outcome has an AuditRecord.
+- **C13-AUDIT-SYSTEM-WRITER** System-writer causes are audited.
+- **C13-AUDIT-EDGE-RELATION** Audit chains enforce the exact permitted edge relation.
+- **C13-AUDIT-ROUTE-BRIDGE** Source-owned RouteReservation bridges are the only cross-Actor audit bridge.
+- **C13-AUDIT-SETTLED-OBLIGATION** Settled audit obligations resolve to their exact captured evidence.
+- **C13-RUN-GRAPH-ARITY** The canonical Run graph enforces every parent arity.
+- **C13-RUN-BINARY-MERGE** Run merge is binary.
+- **C13-RUN-BINARY-TREE-MERGE** Tree merge is binary.
+- **C13-RUN-UNDO-REDO** Undo and redo are append-only selection.
+- **C13-RUN-ANCESTRY** Run storage supports ancestry queries.
+- **C13-WRITER-MATRIX** Run commits enforce the exact root/Turn/system CommitWriter matrix.
+- **C13-WRITER-POST-FENCE-EVIDENCE** Receipt and delivery evidence may complete after fencing only as specified.
+- **C13-WRITER-SYSTEM-MERGE** Merges are system-authored by successful control Receipts.
+- **C13-WRITER-SYNTHESIS** Synthesis records exact-token successful execute evidence.
+- **C13-RUN-PINS-IMMUTABLE** RunPins are immutable.
+- **C13-RUN-PINS-BLUEPRINT** RunPins include the exact Blueprint version and digest.
+- **C13-RUN-PINS-PACKAGES** RunPins include the complete Package closure.
+- **C13-RUN-PINS-SOURCES** RunPins identify exact Blueprint, Agent, effective PolicySet, and ModelPolicy source identities and digests.
+- **C13-RUN-PINS-ENVIRONMENT** RunPins identify exact Environment id, revision, and digest and keep every pinned source resolvable.
+- **C13-RUN-PINS-VALIDITY** RunPins bind Run.agent and a nonempty Package closure unique by PackageId.
+- **C13-RUN-PARENT-PIN-INHERITANCE** Every non-migration unary commit inherits exact parent pins.
+- **C13-RUN-MIGRATED-TURN-REJECTION** A Turn retaining pre-migration pins cannot terminalize a migrated Run.
+- **C13-RUN-PLACEMENT-SNAPSHOT** Each Turn has a separate immutable placement snapshot.
+- **C13-RUN-EQUAL-PIN-MERGE** Merge admission requires equal pins.
+- **C13-RUN-EXPLICIT-MIGRATION** Run migration is explicit, durably evidenced, and rejects invalid target RunPins before installation.
+- **C13-RUN-ADMISSION-REGISTRY** Every Run-associated asynchronous obligation uses canonical pre-remote identity reserve, completion, and close transitions in the Run-owner registry.
+- **C13-RUN-RESERVATION-EPOCH** Remote admission validates the exact reserved identity and open Run registry epoch.
+- **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
+- **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
+- **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
+- **C13-RUN-FRONTIER-COMPLETE** The terminal snapshot captures exactly reserved-minus-completed obligations with no omissions or extras.
+- **C13-RUN-FRONTIER-EMPTY** An honestly empty admitted unfinished frontier is valid.
+- **C13-RUN-SETTLED-DERIVED** Settled is derived from captured obligations, including exact Approval and reconciliation lineage discharge.
+- **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
+- **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
+- **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.
+- **C13-TURN-NO-RETRY-RUNTIME** Runtime integration contains no Turn retry operation.
+- **C13-TURN-NO-RETRY-PROTOCOL** Protocol integration contains no Turn retry command family.
+- **C13-TURN-NO-RETRY-EXPORT** Package integration exposes no Turn retry symbol.
+- **C13-TURN-NO-RETRY-RECORD** Record and migration registries contain no Turn retry record or upcast.
+- **C13-TURN-RUN-COMMIT-WRITER** Executor-authored RunCommit writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-INVOCATION-WRITER** Invocation intent writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-EFFECT-ATTEMPT-WRITER** EffectAttempt writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-CHILD-RUN-WRITER** Child-Run spawn writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-CALLBACK-WRITER** Callback writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-CHECKPOINT-WRITER** Checkpoint writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-TERMINAL-RESULT-WRITER** Terminal-result writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
+- **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
+- **C13-CONTENT-RESOLUTION** Every ContentRef resolves through ContentStore.
+- **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
+- **C13-PROTOCOL-EXACT-ENVELOPE** The command dispatcher enforces exact caller and optional LeaseToken envelopes.
+- **C13-PROTOCOL-OUTCOMES** The command dispatcher produces deterministic complete outcomes.
+- **C13-PROTOCOL-DUPLICATE** Duplicate commands return duplicate replies without repeating mutation.
+- **C13-PROTOCOL-REJECTION-ROOT** Host rejection roots follow §8.5.
+- **C13-PROTOCOL-WRITE-AUDIT-LINK** WriteRecord and AuditRecord evidence are linked.
+- **C13-PROTOCOL-ATOMIC-EVIDENCE** Domain decision, WriteRecord, and AuditRecord commit atomically.
+- **C13-OWNERSHIP-MAP** Conformance includes the state-ownership map required by §8.4 rule 6.
+- **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD** Blueprint validation completes before package code loads.
+- **C13-BLUEPRINT-REMATERIALIZE** Blueprint re-materialization is idempotent.
+- **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).
+- **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit binds every specified tenant, source, target, authority, intent, item, claim, pin, epoch, nonce, and time field.
+- **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim, fence, reservation identity/epoch, single use, and expiry, then irreversibly consumes a valid issued permit regardless of newer post-issuance watermark.
+- **C13-ADV-STALE-LEASE** Adversarial tests cover a stale lease.
+- **C13-ADV-WRONG-TURN-LEASE** Adversarial tests cover a wrong-Turn lease.
+- **C13-ADV-REVOKED-ALLOW** Adversarial tests cover a revoked allow.
+- **C13-ADV-NEW-DENY** Adversarial tests cover a newly created deny.
+- **C13-ADV-DELAYED-WATERMARK** Adversarial tests cover a delayed watermark.
+- **C13-ADV-MEDIATED-STALE** Adversarial tests cover mediated stale observation.
+- **C13-ADV-IMMUTABLE-DEADLINE** Adversarial tests cover an immutable direct deadline.
+- **C13-ADV-EMPTY-PLACEMENT** Adversarial tests cover every empty placement intersection.
+- **C13-ADV-OMITTED-TRUST-SET** Adversarial tests cover an omitted accepted-tier set.
+- **C13-ADV-FORGED-INITIATOR** Adversarial tests cover a forged initiator.
+- **C13-ADV-UNAUTHENTICATED-PROJECTION** Adversarial tests cover an unauthenticated projection.
+- **C13-ADV-SUBSTITUTED-INITIATOR** Adversarial tests cover a substituted initiator.
+- **C13-ADV-MISSING-CROSS-TENANT-BINDING** Adversarial tests cover a missing cross-tenant Binding.
+- **C13-ADV-DUPLICATE-ROUTE** Adversarial tests cover duplicate route delivery.
+- **C13-ADV-EMPTY-BATCH** Adversarial tests cover an empty batch.
+- **C13-ADV-NONHOMOGENEOUS-BATCH** Adversarial tests cover a non-homogeneous batch.
+- **C13-ADV-COMPETING-CLAIMS** Adversarial tests cover competing item claims.
+- **C13-ADV-NONFUTURE-CLAIM** Adversarial tests cover a nonfuture claim expiry.
+- **C13-ADV-PREMATURE-RECOVERY** Adversarial tests cover premature recovery.
+- **C13-ADV-POST-ATTEMPT-RECOVERY** Adversarial tests cover post-attempt recovery.
+- **C13-ADV-STALE-RECOVERY-OWNER** Adversarial tests cover a stale recovery owner.
+- **C13-ADV-UNCHANGED-RECOVERY-OWNER** Adversarial tests cover an unchanged recovery owner.
+- **C13-ADV-RECOVERY-ORDINAL** Adversarial tests cover recovery that advances an unattempted ordinal.
+- **C13-ADV-EARLY-AGGREGATE** Adversarial tests cover an early aggregate.
+- **C13-ADV-SUPPLIED-ITEM-KEY** Adversarial tests cover a supplied item key.
+- **C13-ADV-CHANGED-ITEM-KEY** Adversarial tests cover a changed item key.
+- **C13-ADV-REORDERED-INTENT** Adversarial tests cover a reordered intent.
+- **C13-ADV-STRUCTURAL-INTENT-CHANGE** Adversarial tests cover a structurally changed intent.
+- **C13-ADV-APPROVAL-REPLAY** Adversarial tests cover approval replay.
+- **C13-ADV-RECEIPT-DENIED** Adversarial tests cover denied pre-effect Receipt lineage.
+- **C13-ADV-RECEIPT-CANCELLED** Adversarial tests cover cancelled pre-effect Receipt lineage.
+- **C13-ADV-RECEIPT-SUCCEEDED** Adversarial tests cover successful attempted Receipt lineage.
+- **C13-ADV-RECEIPT-FAILED** Adversarial tests cover failed attempted Receipt lineage.
+- **C13-ADV-RECEIPT-INDETERMINATE** Adversarial tests cover indeterminate attempted Receipt lineage.
+- **C13-ADV-RECEIPT-SUPERSESSION** Adversarial tests cover Receipt supersession lineage.
+- **C13-ADV-RECEIPT-AGGREGATE** Adversarial tests cover every aggregate outcome case.
+- **C13-ADV-POST-FENCE-SYSTEM-EVIDENCE** Adversarial tests cover post-fence system evidence.
+- **C13-ADV-TURN-MERGE** Adversarial tests cover a Turn-authored merge.
+- **C13-ADV-NONBINARY-MERGE** Adversarial tests cover a non-binary merge.
+- **C13-ADV-UNEQUAL-PIN-MERGE** Adversarial tests cover an unequal-pin merge.
+- **C13-ADV-INCOMPLETE-PACKAGE-CLOSURE** Adversarial tests cover an incomplete Package closure.
+- **C13-ADV-ADMITTED-SIBLING** Adversarial tests cover terminalization with an admitted sibling.
+- **C13-ADV-POST-TERMINAL-ROUTE** Adversarial tests cover a post-terminal route.
+- **C13-ADV-POST-TERMINAL-PREPARATION** Adversarial tests cover post-terminal preparation.
+- **C13-ADV-POST-TERMINAL-CONTROL** Adversarial tests cover a post-terminal control write.
+- **C13-ADV-COMMAND-REJECTIONS** Adversarial tests cover every command-envelope rejection.
+- **C13-ADV-UNAUTHORIZED-WRITER** Adversarial tests cover an unauthorized commit writer.
+- **C13-ADV-NONPREEXISTING-AUDIT** Adversarial tests cover a non-preexisting audit cause.
+- **C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT** Adversarial tests cover an unbridged cross-Actor audit cause.
+- **C13-ADV-CACHE-LOSS** Adversarial tests cover cache loss.
+- **C13-ADV-HOSTILE-TIER** Adversarial tests cover a hostile tier assertion.
+- **C13-ADV-UNAUTHORIZED-SLOT** Adversarial tests cover an unauthorized slot contribution.
+- **C13-ADV-POST-PREPARATION-INTERCEPTOR** Adversarial tests cover an interceptor post-preparation rewrite.
 
 ## 14. The formal model
 
-A good part of the semantics in this document is machine-checked. A Lean 4 model
-under `formal/` covers the places where an informal argument is most likely to be
-subtly wrong. Two kinds of result live there.
+The Lean package models an abstract subset only. `artifacts/traceability.yaml` is the
+sole detailed claim ledger: its status and remaining-evidence fields bound every claim.
+This section names coverage categories and trace IDs, never inferred theorem names.
 
-**Core safety theorems** — properties of the abstract model itself: grant-chain
-attenuation and tenant isolation, revocation monotonicity and the bounded-window epoch
-rule, the full lease protocol with permanent fencing, role→Grant materialization with
-guest attenuation, Event acceptance and Subscription dedup, deny-overrides precedence,
-the approval continuation (digest binding, denial, trace-level single use), the
-append-only undo/redo/merge graph, direct-tier admission, the trust-tier event boundary,
-and ViewDelta revision replay.
+| Coverage category | Trace IDs | Boundary |
+| --- | --- | --- |
+| Structural Invocation identity and View replay | `AC-STRUCTURAL-001` | ideal whole-intent identity and structural replay only; no cryptographic or RFC 6902 claim |
+| Grants, Bindings, path epochs, and Role materialization | `AC-AUTH-001`, `AC-AUTH-RESOLUTION-001`, `AC-MATERIALIZE-001` | designated abstract authorization, path-evidence, deadline, holder-join, guest-attenuation, and rematerialization consequences only |
+| Placement, trust, and exact-Turn leases | `AC-PLACEMENT-001`, `AC-TRUST-001`, `AC-LEASE-001` | pure four-set selection, one source-tier rejection property, and listed LeaseStep consequences over supplied inputs; no complete lifecycle claim |
+| Approval, batch effects, and Receipt lineage | `AC-APPROVAL-001`, `AC-EFFECT-001` | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved |
+| Event routing and typed audit | `AC-EVENT-ROUTING-001`, `AC-AUDIT-001` | lease-backed self-Event checks, authenticated target projection without a source-audit edge, and designated Actor-local audit consequences; no reservation uniqueness, transport, storage, or complete-instrumentation claim |
+| Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, and exact-Turn controlled synthesis only; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, ancestry, migration, undo, or general settlement-preservation claim |
+| Integrated admission and settlement | `AC-COMPOSED-001` | designated direct/mediated admission consequences and a constructive exact-obligation settlement witness; no concrete transaction or general preservation refinement |
+| Platform mechanism shapes | `AC-REP-GATEKEEPER`, `AC-REP-CONSENT`, `AC-REP-REACTION`, `AC-REP-MOA` | component-shape non-claims; no theorem is designated for profile, product, UX, or implementation behavior |
+| Facet manifest/runtime | `NC-FACET-MANIFEST-RUNTIME` | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled |
+| Contributions and slots | `NC-CONTRIBUTIONS-SLOTS` | §4.2 validation, ownership, ordering, conflicts, and materialized semantics are not modeled |
+| Commands | `NC-COMMANDS` | §4.3 parsing, dispatch, argument validation, authorization, and result semantics are not modeled |
+| Interceptors | `NC-INTERCEPTORS` | §4.4 ordering, cut points, rewrite restrictions, persisted pre/post transformation traces, replay reuse, and execution are not modeled |
+| Environment and Session | `NC-ENVIRONMENT-LIFECYCLE`, `NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE` | §4.5 lifecycle/provider behavior and the normative Turn-owned direct-execute exception are not modeled |
+| Slate | `NC-SLATE-RUNTIME` | §4.6 versions, deployment, preview, authority, and generated-app behavior are not modeled |
+| Surface, profile, and patch semantics | `NC-SURFACE-RUNTIME-ACTIONS`, `NC-PROFILE-RUNTIME`, `NC-RFC6902-PATCH` | explicit non-claims beyond the structural View result |
+| Substrate and definition-plane behavior | `NC-CONTENTSTORE`, `NC-CODECS`, `NC-PROTOCOL-DISPATCHER`, `NC-BLUEPRINT-MATERIALIZATION`, `NC-CLOUDFLARE-BEHAVIOR` | specified but not modeled, including concrete command-envelope rejection ordering, audit linkage, and Cloudflare authority-permit issue/authentication/consumption |
+| Liveness, cryptography, and concrete refinement | `NC-TEMPORAL-LIVENESS`, `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE`, `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT` | explicit non-claims; assumptions are listed separately in the ledger |
 
-**Platform representation results** — each of four platform mechanisms is modeled as
-its own transition system and *reduced to* the core model, so the reduction, not just
-the shape, is checked: an approval-gateway's custody and action gate (the credential
-never enters the agent domain; the gate is the §7.3 approval resume), a device-consent
-gate (consent-before-effect, fail-closed, revocable), a reaction system (at-most-once
-routing reduces to Subscription dedup), and mixture-of-agents merge lineage. These
-verify *mechanism and security boundaries*, not UX or search quality — which are not
-formalizable claims, and are not claimed.
+No structural View result implies RFC 6902 correctness, the no-live-handle runtime
+boundary, Surface semantics, or profile behavior. No representation helper implies a
+profile implementation is safe or conforming. The ledger claims only the designated
+abstract consequences in each row and its narrower per-ID boundary. It does not close
+the full Run writer matrix, expected-head CAS, complete lifecycle, item-claim scheduler,
+command dispatcher, or any concrete persistence, authentication, timing, network,
+provider, resource-bound, or UI implementation.
 
-The model covers the abstract state machine; implementation correctness is a separate
-refinement obligation, tracked per requirement. `artifacts/traceability.yaml` maps
-requirements to theorems and is machine-verified against the Lean axiom report in both
-directions — every claimed theorem exists, every proven theorem is claimed, nothing
-depends on `sorry` — by `pnpm check:traceability`. The one profile-coverage result is
-labeled a representability witness, distinct from the safety theorems.
+Operational use relies on these external assumptions, not hidden formal conclusions:
 
-Build it yourself: `cd packages/agent-core/formal && lake build AgentCore`.
+- authentication and provenance map requests to the correct Principal, Actor, and
+  Tenant;
+- cross-tenant verification authenticates the claimed home Tenant and explicit bridge
+  Binding;
+- trusted monotonic time enforces lease expiry and immutable resolution deadlines;
+- codecs are canonical and chosen digests meet their stated collision assumptions;
+- persistence linearizes guarded writes and preserves append-only records;
+- loaded Facet code matches its manifest, schemas, declared impact, and placement;
+- provider idempotency keys identify the intended effect;
+- invalidation transport, cross-Actor delivery, reconciliation, and provider queries
+  are eventually scheduled only when an eventual-liveness result is required. Safety
+  rules fail closed and do not assume that eventual progress.
+
+Proving that TypeScript, an adapter, or a deployment refines Lean is explicitly not a
+goal of this formal package. Implementation conformance comes only from §13 evidence
+and tests under the declared operational assumptions.
 
 ## 15. Open questions
 
-Two of these are decisions for the author to make; the rest are implementation
-follow-ups, not gaps in the design.
+Two decisions remain:
 
 1. **The public name.** "Agent Core" collides with a shipping AWS product (Bedrock
    AgentCore). Undecided.
 2. **Run/Turn vocabulary.** Industry convention uses Run for one execution and
    Session or Thread for the container; Session/Run and Run/Attempt are the candidate
    alternatives. This document keeps the current names until decided.
-3. **Schema artifacts lag the spec.** The JSON schemas under `artifacts/schemas/`
-   still describe v1 shapes; until they are regenerated alongside the record codecs
-   (§8.3), the shapes in this document are the normative ones.
-4. **Per-profile conformance suites** — §11 now specifies every profile normatively,
-   and the filesystem suite exists in the reference implementation; the other suites
-   are still to be written against those specifications.
 
 ## Appendix A — Translation table *(informative)*
 
@@ -1529,13 +2717,14 @@ follow-ups, not gaps in the design.
 | Slate | canvas; artifact; generated app |
 | Blueprint | platform config; manifest; IaC definition |
 | Grant / Binding | scoped token; capability; connection |
-| mediated Invocation | approval-gated tool call with receipts |
+| mediated Invocation | durable intent/receipt pipeline; approval when policy requires |
 | Interceptor | plugin hook; middleware; tool wrapper |
 | ingress | webhook endpoint; channel adapter |
 
 ## Appendix B — Artifacts
 
-JSON schemas live under `artifacts/schemas/` (v1-era until regenerated — see §15.3);
-the implementation-manifest schema under `artifacts/`; the Lean model under `formal/`;
-generated traceability under `artifacts/traceability.yaml`. The condensed introduction
-to this project is the repository's [README](../../README.md).
+Future machine-readable record and protocol schemas MUST be generated from the
+versioned codecs required by §8.3 rather than maintained as a competing source of
+truth. The Lean model lives under `formal/`; its claim ledger is
+`artifacts/traceability.yaml`. The condensed introduction is the repository's
+[README](../../README.md).

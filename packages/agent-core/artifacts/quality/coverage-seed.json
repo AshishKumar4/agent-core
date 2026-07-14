@@ -1,0 +1,2442 @@
+{
+  "edition": "1.0.0",
+  "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+  "files": {
+    "packages/agent-core/src/actors/actor.ts": {
+      "sha256": "608c11e455116a23c0aecd25dfefc11dec5e564673d60376f91ff2cd465278f3",
+      "metrics": {
+        "statements": {
+          "covered": 60,
+          "total": 62
+        },
+        "branches": {
+          "covered": 18,
+          "total": 19
+        },
+        "functions": {
+          "covered": 20,
+          "total": 21
+        },
+        "lines": {
+          "covered": 59,
+          "total": 61
+        }
+      }
+    },
+    "packages/agent-core/src/actors/context.ts": {
+      "sha256": "3d0842f687113339cc8d86f5e9ce31f5390460c3577c57bf2cf858831c0ae8e6",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/actors/fence.ts": {
+      "sha256": "7db4fbd79d65049de5b28e0efd500dc407de2a97c8320f0c3fd29e472a3d65db",
+      "metrics": {
+        "statements": {
+          "covered": 34,
+          "total": 36
+        },
+        "branches": {
+          "covered": 36,
+          "total": 38
+        },
+        "functions": {
+          "covered": 13,
+          "total": 13
+        },
+        "lines": {
+          "covered": 34,
+          "total": 35
+        }
+      }
+    },
+    "packages/agent-core/src/actors/index.ts": {
+      "sha256": "2773660cbc8a2b19b481d93e418d19da22097c27069c18e1a9befc602e334fed",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/actors/store.ts": {
+      "sha256": "6fcd669ce7ade94505e628dc4df53ba5a1076f3137ae7df6a1a24b2445f8ae44",
+      "metrics": {
+        "statements": {
+          "covered": 258,
+          "total": 267
+        },
+        "branches": {
+          "covered": 189,
+          "total": 208
+        },
+        "functions": {
+          "covered": 46,
+          "total": 47
+        },
+        "lines": {
+          "covered": 231,
+          "total": 238
+        }
+      }
+    },
+    "packages/agent-core/src/actors/types.ts": {
+      "sha256": "a57c90ff29719b289e89d6450fb7fc2bf75407e33fa3565cf93e4f47c76a32fc",
+      "metrics": {
+        "statements": {
+          "covered": 10,
+          "total": 11
+        },
+        "branches": {
+          "covered": 7,
+          "total": 8
+        },
+        "functions": {
+          "covered": 5,
+          "total": 5
+        },
+        "lines": {
+          "covered": 10,
+          "total": 11
+        }
+      }
+    },
+    "packages/agent-core/src/agents/id.ts": {
+      "sha256": "44db740315a09d845e8951a99b3ba6a62099c05e71f43e6ac4b095c0c4a1fb15",
+      "metrics": {
+        "statements": {
+          "covered": 2,
+          "total": 2
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 2,
+          "total": 2
+        },
+        "lines": {
+          "covered": 2,
+          "total": 2
+        }
+      }
+    },
+    "packages/agent-core/src/agents/index.ts": {
+      "sha256": "a7880d41338746eb9b1a8ec401e9f1458a3f1caf4e128a85a39edc408addb518",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/agents/runs/id.ts": {
+      "sha256": "8349e8038f64909178fd5c5586d9b28c7b94491537c3200a9138397965649774",
+      "metrics": {
+        "statements": {
+          "covered": 4,
+          "total": 4
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 4,
+          "total": 4
+        },
+        "lines": {
+          "covered": 4,
+          "total": 4
+        }
+      }
+    },
+    "packages/agent-core/src/agents/runs/index.ts": {
+      "sha256": "43b4a0325f0e601a0d3a4d7eda81aeea149e364711adaa5eff5e459efde53052",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/agents/runs/lease.ts": {
+      "sha256": "38d9df588bbd332b684847157ad1382ef3d55ef75c5dbdd97fb82b67ff0b2ac6",
+      "metrics": {
+        "statements": {
+          "covered": 48,
+          "total": 55
+        },
+        "branches": {
+          "covered": 58,
+          "total": 67
+        },
+        "functions": {
+          "covered": 16,
+          "total": 16
+        },
+        "lines": {
+          "covered": 48,
+          "total": 55
+        }
+      }
+    },
+    "packages/agent-core/src/authority/capability.ts": {
+      "sha256": "baa48a61d5c000b2ab0e542a8e007e22de5f12707f7e5721deab36e60fcb01d2",
+      "metrics": {
+        "statements": {
+          "covered": 67,
+          "total": 89
+        },
+        "branches": {
+          "covered": 63,
+          "total": 83
+        },
+        "functions": {
+          "covered": 23,
+          "total": 31
+        },
+        "lines": {
+          "covered": 61,
+          "total": 76
+        }
+      }
+    },
+    "packages/agent-core/src/authority/data.ts": {
+      "sha256": "e370b30ddc7183a28703e055db4b68e50434388ca064f47a20739f28da57026e",
+      "metrics": {
+        "statements": {
+          "covered": 23,
+          "total": 29
+        },
+        "branches": {
+          "covered": 22,
+          "total": 28
+        },
+        "functions": {
+          "covered": 11,
+          "total": 11
+        },
+        "lines": {
+          "covered": 23,
+          "total": 29
+        }
+      }
+    },
+    "packages/agent-core/src/authority/epoch.ts": {
+      "sha256": "c442cebab6f831ae7b3139960e37fb8ba6bcad06d1de032eef6824c246156887",
+      "metrics": {
+        "statements": {
+          "covered": 18,
+          "total": 20
+        },
+        "branches": {
+          "covered": 6,
+          "total": 8
+        },
+        "functions": {
+          "covered": 11,
+          "total": 11
+        },
+        "lines": {
+          "covered": 18,
+          "total": 20
+        }
+      }
+    },
+    "packages/agent-core/src/authority/grant.ts": {
+      "sha256": "53f6cc3e90e72649fd0e6107944a175f727516a00bddfd902df12df6ac665bfd",
+      "metrics": {
+        "statements": {
+          "covered": 62,
+          "total": 72
+        },
+        "branches": {
+          "covered": 50,
+          "total": 60
+        },
+        "functions": {
+          "covered": 25,
+          "total": 25
+        },
+        "lines": {
+          "covered": 57,
+          "total": 65
+        }
+      }
+    },
+    "packages/agent-core/src/authority/id.ts": {
+      "sha256": "56683348309d818bd5d256320e7989f17bc28064d9edc9a8f2248ddc2d66af83",
+      "metrics": {
+        "statements": {
+          "covered": 9,
+          "total": 11
+        },
+        "branches": {
+          "covered": 7,
+          "total": 10
+        },
+        "functions": {
+          "covered": 3,
+          "total": 3
+        },
+        "lines": {
+          "covered": 9,
+          "total": 11
+        }
+      }
+    },
+    "packages/agent-core/src/authority/index.ts": {
+      "sha256": "024e5646e96905bbb6055d97cc6a4d143d847e9a4e4084beb432a0aabf8fb750",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/authority/materializer.ts": {
+      "sha256": "7e370d755f86e3cff27bc73d785e9325f8969d6e03dd585f69741d28dfd2f291",
+      "metrics": {
+        "statements": {
+          "covered": 43,
+          "total": 47
+        },
+        "branches": {
+          "covered": 15,
+          "total": 18
+        },
+        "functions": {
+          "covered": 16,
+          "total": 17
+        },
+        "lines": {
+          "covered": 36,
+          "total": 39
+        }
+      }
+    },
+    "packages/agent-core/src/authority/memory.ts": {
+      "sha256": "8a823e0d980876ba64688dde95cae83e0a7276bbfa9325126039c46dba3294c5",
+      "metrics": {
+        "statements": {
+          "covered": 224,
+          "total": 268
+        },
+        "branches": {
+          "covered": 176,
+          "total": 237
+        },
+        "functions": {
+          "covered": 77,
+          "total": 81
+        },
+        "lines": {
+          "covered": 204,
+          "total": 242
+        }
+      }
+    },
+    "packages/agent-core/src/authority/planner.ts": {
+      "sha256": "78658428ae30121a35cb04d174fbea51d0e6b8ff152ea8fbb240f366399fe313",
+      "metrics": {
+        "statements": {
+          "covered": 31,
+          "total": 35
+        },
+        "branches": {
+          "covered": 17,
+          "total": 20
+        },
+        "functions": {
+          "covered": 7,
+          "total": 8
+        },
+        "lines": {
+          "covered": 27,
+          "total": 30
+        }
+      }
+    },
+    "packages/agent-core/src/authority/reference.ts": {
+      "sha256": "0972ffa2cdfd4e39d5b0cfc463644004dbb6485831eeb711e1631eded1a6bd9a",
+      "metrics": {
+        "statements": {
+          "covered": 13,
+          "total": 14
+        },
+        "branches": {
+          "covered": 8,
+          "total": 10
+        },
+        "functions": {
+          "covered": 6,
+          "total": 6
+        },
+        "lines": {
+          "covered": 9,
+          "total": 10
+        }
+      }
+    },
+    "packages/agent-core/src/authority/service.ts": {
+      "sha256": "b46b9762188fcd4e521ffb87e57b1a64b9c6d1cfce6cf57ea76261da627d066a",
+      "metrics": {
+        "statements": {
+          "covered": 158,
+          "total": 198
+        },
+        "branches": {
+          "covered": 54,
+          "total": 75
+        },
+        "functions": {
+          "covered": 53,
+          "total": 60
+        },
+        "lines": {
+          "covered": 146,
+          "total": 177
+        }
+      }
+    },
+    "packages/agent-core/src/content/index.ts": {
+      "sha256": "309b8da090a79000ff70bd8f9e519c823765d124b15fa0eb5beaffa8508c3ffd",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/content/memory.ts": {
+      "sha256": "c7bd82dc85dd0a08703efd42c7cd2fe1ea98c09349c2eb5acc23dc9a7281860d",
+      "metrics": {
+        "statements": {
+          "covered": 81,
+          "total": 84
+        },
+        "branches": {
+          "covered": 45,
+          "total": 49
+        },
+        "functions": {
+          "covered": 17,
+          "total": 17
+        },
+        "lines": {
+          "covered": 81,
+          "total": 84
+        }
+      }
+    },
+    "packages/agent-core/src/content/range.ts": {
+      "sha256": "038fa6714d61563abe7dd1b7b97e7f9143c4aceb37d3ac55da4746a370df6226",
+      "metrics": {
+        "statements": {
+          "covered": 22,
+          "total": 22
+        },
+        "branches": {
+          "covered": 14,
+          "total": 14
+        },
+        "functions": {
+          "covered": 7,
+          "total": 7
+        },
+        "lines": {
+          "covered": 22,
+          "total": 22
+        }
+      }
+    },
+    "packages/agent-core/src/content/record.ts": {
+      "sha256": "f356022ec013c2c0f549191bac6551b13b0a171f4ac8e7fbc1141f8f54233a02",
+      "metrics": {
+        "statements": {
+          "covered": 88,
+          "total": 104
+        },
+        "branches": {
+          "covered": 90,
+          "total": 111
+        },
+        "functions": {
+          "covered": 22,
+          "total": 22
+        },
+        "lines": {
+          "covered": 88,
+          "total": 104
+        }
+      }
+    },
+    "packages/agent-core/src/content/store.ts": {
+      "sha256": "fc1ae36489ee8b67c8dff797ea7dc11fc7c5a1197389900be45b0ab8680e643a",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/core/base64.ts": {
+      "sha256": "294b9d2ce235edd4dc5b5abf6194de8c1ab81fda20be85262e2bcee361924a7f",
+      "metrics": {
+        "statements": {
+          "covered": 39,
+          "total": 40
+        },
+        "branches": {
+          "covered": 27,
+          "total": 28
+        },
+        "functions": {
+          "covered": 3,
+          "total": 3
+        },
+        "lines": {
+          "covered": 37,
+          "total": 38
+        }
+      }
+    },
+    "packages/agent-core/src/core/canonical.ts": {
+      "sha256": "eacb38f955530a3a61ddad3ca680bfdee2663208cda89df999116d4213640cbd",
+      "metrics": {
+        "statements": {
+          "covered": 35,
+          "total": 38
+        },
+        "branches": {
+          "covered": 24,
+          "total": 29
+        },
+        "functions": {
+          "covered": 8,
+          "total": 8
+        },
+        "lines": {
+          "covered": 32,
+          "total": 35
+        }
+      }
+    },
+    "packages/agent-core/src/core/codec.ts": {
+      "sha256": "d47e91df076b752eb6e72d95235677d239eee2576a3a2edfc24990d9f837c0ad",
+      "metrics": {
+        "statements": {
+          "covered": 29,
+          "total": 32
+        },
+        "branches": {
+          "covered": 38,
+          "total": 42
+        },
+        "functions": {
+          "covered": 9,
+          "total": 9
+        },
+        "lines": {
+          "covered": 28,
+          "total": 31
+        }
+      }
+    },
+    "packages/agent-core/src/core/digest.ts": {
+      "sha256": "e65b39a1514df6eee6fa2635a64a02106387c0064de9d30a41e094111fd5fc20",
+      "metrics": {
+        "statements": {
+          "covered": 6,
+          "total": 7
+        },
+        "branches": {
+          "covered": 4,
+          "total": 5
+        },
+        "functions": {
+          "covered": 2,
+          "total": 2
+        },
+        "lines": {
+          "covered": 6,
+          "total": 7
+        }
+      }
+    },
+    "packages/agent-core/src/core/id.ts": {
+      "sha256": "b0a88f75948af60751720f3d6f197b623bce43adb09de089b4a9887317d39a9d",
+      "metrics": {
+        "statements": {
+          "covered": 6,
+          "total": 6
+        },
+        "branches": {
+          "covered": 6,
+          "total": 6
+        },
+        "functions": {
+          "covered": 4,
+          "total": 4
+        },
+        "lines": {
+          "covered": 6,
+          "total": 6
+        }
+      }
+    },
+    "packages/agent-core/src/core/index.ts": {
+      "sha256": "2a11d0b625bb4156e99c75f9eac77d848b32441858c5475804df9d05077c2ddc",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/core/json.ts": {
+      "sha256": "546569950351c48d1b7eff08a2952bb73d74a7856b76a3e489fbc8b210cb454b",
+      "metrics": {
+        "statements": {
+          "covered": 46,
+          "total": 50
+        },
+        "branches": {
+          "covered": 49,
+          "total": 52
+        },
+        "functions": {
+          "covered": 7,
+          "total": 7
+        },
+        "lines": {
+          "covered": 43,
+          "total": 47
+        }
+      }
+    },
+    "packages/agent-core/src/core/schema.ts": {
+      "sha256": "a6aa2a024ab038c34127aed8e3e17c3a54d170acf930f5e24c997c3451e88771",
+      "metrics": {
+        "statements": {
+          "covered": 117,
+          "total": 124
+        },
+        "branches": {
+          "covered": 71,
+          "total": 77
+        },
+        "functions": {
+          "covered": 29,
+          "total": 29
+        },
+        "lines": {
+          "covered": 106,
+          "total": 113
+        }
+      }
+    },
+    "packages/agent-core/src/core/value.ts": {
+      "sha256": "5f0bc6585519a4798908dcbe62355ad35c4091a00e854890a0f6de71eef046cd",
+      "metrics": {
+        "statements": {
+          "covered": 23,
+          "total": 24
+        },
+        "branches": {
+          "covered": 14,
+          "total": 15
+        },
+        "functions": {
+          "covered": 10,
+          "total": 10
+        },
+        "lines": {
+          "covered": 23,
+          "total": 24
+        }
+      }
+    },
+    "packages/agent-core/src/core/version.ts": {
+      "sha256": "7be34c50325209dd411fd656eb95d81b630655bff10c119928367ade0484834f",
+      "metrics": {
+        "statements": {
+          "covered": 76,
+          "total": 79
+        },
+        "branches": {
+          "covered": 80,
+          "total": 91
+        },
+        "functions": {
+          "covered": 26,
+          "total": 26
+        },
+        "lines": {
+          "covered": 75,
+          "total": 78
+        }
+      }
+    },
+    "packages/agent-core/src/definition/blueprint.ts": {
+      "sha256": "f1bc70581fb2d9dd175059485395a5bc5770585f6b0a129e5f9c9f801c7ecd1d",
+      "metrics": {
+        "statements": {
+          "covered": 72,
+          "total": 79
+        },
+        "branches": {
+          "covered": 61,
+          "total": 68
+        },
+        "functions": {
+          "covered": 38,
+          "total": 40
+        },
+        "lines": {
+          "covered": 70,
+          "total": 76
+        }
+      }
+    },
+    "packages/agent-core/src/definition/config.ts": {
+      "sha256": "ae6f1f95a63e5ee506086ba86082aa18cc0b983911f2fed1220c3391e32d516f",
+      "metrics": {
+        "statements": {
+          "covered": 79,
+          "total": 93
+        },
+        "branches": {
+          "covered": 48,
+          "total": 61
+        },
+        "functions": {
+          "covered": 28,
+          "total": 28
+        },
+        "lines": {
+          "covered": 76,
+          "total": 89
+        }
+      }
+    },
+    "packages/agent-core/src/definition/generation.ts": {
+      "sha256": "2370ef97fa987ebb32d584681a9077a86b61425365b766ef1cf379014620cc40",
+      "metrics": {
+        "statements": {
+          "covered": 118,
+          "total": 131
+        },
+        "branches": {
+          "covered": 40,
+          "total": 57
+        },
+        "functions": {
+          "covered": 53,
+          "total": 53
+        },
+        "lines": {
+          "covered": 114,
+          "total": 127
+        }
+      }
+    },
+    "packages/agent-core/src/definition/id.ts": {
+      "sha256": "9e5ba3c547d28d1f47723d71ae4e09ade4fd5c9ec4495a68209823adb217da23",
+      "metrics": {
+        "statements": {
+          "covered": 4,
+          "total": 4
+        },
+        "branches": {
+          "covered": 4,
+          "total": 4
+        },
+        "functions": {
+          "covered": 1,
+          "total": 1
+        },
+        "lines": {
+          "covered": 4,
+          "total": 4
+        }
+      }
+    },
+    "packages/agent-core/src/definition/index.ts": {
+      "sha256": "f51196e546accff37b73b07f393646ee5cfdc662f33cc0656522cf594f6289d8",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/definition/materialization-kind.ts": {
+      "sha256": "44cda64178aaab0511388d6d0a8317d5afa62fd6412164681f2a1dfbdf33bacf",
+      "metrics": {
+        "statements": {
+          "covered": 33,
+          "total": 33
+        },
+        "branches": {
+          "covered": 25,
+          "total": 25
+        },
+        "functions": {
+          "covered": 12,
+          "total": 12
+        },
+        "lines": {
+          "covered": 33,
+          "total": 33
+        }
+      }
+    },
+    "packages/agent-core/src/definition/materialization-store.ts": {
+      "sha256": "58933de24e2cf7b2bb2f9708391590b722bc1c3111e40369944b29e54b3771b9",
+      "metrics": {
+        "statements": {
+          "covered": 237,
+          "total": 253
+        },
+        "branches": {
+          "covered": 132,
+          "total": 151
+        },
+        "functions": {
+          "covered": 86,
+          "total": 88
+        },
+        "lines": {
+          "covered": 221,
+          "total": 233
+        }
+      }
+    },
+    "packages/agent-core/src/definition/materializer.ts": {
+      "sha256": "a351a316452285ba0df156e3c47a3133e56893a79e8a94f77057a10999054afc",
+      "metrics": {
+        "statements": {
+          "covered": 65,
+          "total": 72
+        },
+        "branches": {
+          "covered": 46,
+          "total": 53
+        },
+        "functions": {
+          "covered": 17,
+          "total": 17
+        },
+        "lines": {
+          "covered": 62,
+          "total": 69
+        }
+      }
+    },
+    "packages/agent-core/src/definition/memory.ts": {
+      "sha256": "ebbde30302894a55448cca46a0bd1de808d462d149e9fc3761f8ff3444b7f479",
+      "metrics": {
+        "statements": {
+          "covered": 187,
+          "total": 200
+        },
+        "branches": {
+          "covered": 60,
+          "total": 81
+        },
+        "functions": {
+          "covered": 73,
+          "total": 76
+        },
+        "lines": {
+          "covered": 185,
+          "total": 196
+        }
+      }
+    },
+    "packages/agent-core/src/definition/origin.ts": {
+      "sha256": "501778a79f1ad9c9197e7af7c2b32a1530578361fc41bd456c6c2041bc1b1928",
+      "metrics": {
+        "statements": {
+          "covered": 26,
+          "total": 29
+        },
+        "branches": {
+          "covered": 19,
+          "total": 22
+        },
+        "functions": {
+          "covered": 13,
+          "total": 13
+        },
+        "lines": {
+          "covered": 26,
+          "total": 29
+        }
+      }
+    },
+    "packages/agent-core/src/definition/package-lock.ts": {
+      "sha256": "395c81ab8c4b30d699b4258f8210f54d9fc95ed50c6755eaadbd2e5cc6f4422e",
+      "metrics": {
+        "statements": {
+          "covered": 41,
+          "total": 45
+        },
+        "branches": {
+          "covered": 18,
+          "total": 22
+        },
+        "functions": {
+          "covered": 20,
+          "total": 20
+        },
+        "lines": {
+          "covered": 40,
+          "total": 44
+        }
+      }
+    },
+    "packages/agent-core/src/definition/package-store.ts": {
+      "sha256": "0ca0afbb13e04acb4279d02b1b02ddbdf9644746e7a4bac136e14afc88c5d2f2",
+      "metrics": {
+        "statements": {
+          "covered": 65,
+          "total": 72
+        },
+        "branches": {
+          "covered": 41,
+          "total": 50
+        },
+        "functions": {
+          "covered": 25,
+          "total": 26
+        },
+        "lines": {
+          "covered": 64,
+          "total": 70
+        }
+      }
+    },
+    "packages/agent-core/src/definition/package.ts": {
+      "sha256": "7c0feaf1a90a1c098ad530583377b86de3954a671da80792f79441dd09897107",
+      "metrics": {
+        "statements": {
+          "covered": 125,
+          "total": 135
+        },
+        "branches": {
+          "covered": 69,
+          "total": 80
+        },
+        "functions": {
+          "covered": 52,
+          "total": 53
+        },
+        "lines": {
+          "covered": 122,
+          "total": 132
+        }
+      }
+    },
+    "packages/agent-core/src/definition/placement.ts": {
+      "sha256": "bf6a0ad3b294c037f3c2b5ee1750a0451c77fa2b0d26af4dae4a75947c63f40f",
+      "metrics": {
+        "statements": {
+          "covered": 57,
+          "total": 61
+        },
+        "branches": {
+          "covered": 32,
+          "total": 36
+        },
+        "functions": {
+          "covered": 23,
+          "total": 23
+        },
+        "lines": {
+          "covered": 55,
+          "total": 59
+        }
+      }
+    },
+    "packages/agent-core/src/definition/plan.ts": {
+      "sha256": "b0b9b41f8018331e5996b0b3ca7a76ef8724a956961955b84d56c403574a0d0c",
+      "metrics": {
+        "statements": {
+          "covered": 157,
+          "total": 167
+        },
+        "branches": {
+          "covered": 67,
+          "total": 82
+        },
+        "functions": {
+          "covered": 63,
+          "total": 63
+        },
+        "lines": {
+          "covered": 146,
+          "total": 156
+        }
+      }
+    },
+    "packages/agent-core/src/definition/policy.ts": {
+      "sha256": "384721156bb4749a327815264bac12cfc5bcd574b8522249600396680332cb20",
+      "metrics": {
+        "statements": {
+          "covered": 81,
+          "total": 85
+        },
+        "branches": {
+          "covered": 53,
+          "total": 57
+        },
+        "functions": {
+          "covered": 27,
+          "total": 27
+        },
+        "lines": {
+          "covered": 77,
+          "total": 81
+        }
+      }
+    },
+    "packages/agent-core/src/definition/resolver.ts": {
+      "sha256": "82bb682f157de540905477769a4b7440e330bb4675b6c1556c1e1ff954fac5c2",
+      "metrics": {
+        "statements": {
+          "covered": 92,
+          "total": 93
+        },
+        "branches": {
+          "covered": 43,
+          "total": 47
+        },
+        "functions": {
+          "covered": 22,
+          "total": 22
+        },
+        "lines": {
+          "covered": 84,
+          "total": 85
+        }
+      }
+    },
+    "packages/agent-core/src/definition/validator.ts": {
+      "sha256": "4aab6a98499fa8c04c4ea694894d5b9ed885e1ca37b12786faed8fba16ee2492",
+      "metrics": {
+        "statements": {
+          "covered": 98,
+          "total": 138
+        },
+        "branches": {
+          "covered": 54,
+          "total": 87
+        },
+        "functions": {
+          "covered": 32,
+          "total": 35
+        },
+        "lines": {
+          "covered": 90,
+          "total": 120
+        }
+      }
+    },
+    "packages/agent-core/src/environments/id.ts": {
+      "sha256": "f8eeea9dc7dd3304c9720bdfb3b06520ff11268b0b5c9dbe02a3efb650ad8988",
+      "metrics": {
+        "statements": {
+          "covered": 3,
+          "total": 3
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 3,
+          "total": 3
+        },
+        "lines": {
+          "covered": 3,
+          "total": 3
+        }
+      }
+    },
+    "packages/agent-core/src/environments/index.ts": {
+      "sha256": "bb12b6ba95e26d58326ef0b7d1e0c781ed3ed8a0b816bf59f10efe6e92f3c378",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/errors.ts": {
+      "sha256": "d3eff75dba4dc5c48bcc214cdfcd16596bf2e988b57163c8c03f443956d59f05",
+      "metrics": {
+        "statements": {
+          "covered": 3,
+          "total": 5
+        },
+        "branches": {
+          "covered": 0,
+          "total": 2
+        },
+        "functions": {
+          "covered": 1,
+          "total": 2
+        },
+        "lines": {
+          "covered": 3,
+          "total": 5
+        }
+      }
+    },
+    "packages/agent-core/src/facets/automation.ts": {
+      "sha256": "51b903937d25950d0821c3f6d446450c7390da6aab3c7fbda66a843437dc4c26",
+      "metrics": {
+        "statements": {
+          "covered": 24,
+          "total": 26
+        },
+        "branches": {
+          "covered": 13,
+          "total": 24
+        },
+        "functions": {
+          "covered": 9,
+          "total": 9
+        },
+        "lines": {
+          "covered": 24,
+          "total": 26
+        }
+      }
+    },
+    "packages/agent-core/src/facets/command.ts": {
+      "sha256": "9954af08ad63285e1c55dd54145800ec15b77d00f27d40b3170e323f3f04ebf7",
+      "metrics": {
+        "statements": {
+          "covered": 45,
+          "total": 51
+        },
+        "branches": {
+          "covered": 26,
+          "total": 44
+        },
+        "functions": {
+          "covered": 14,
+          "total": 14
+        },
+        "lines": {
+          "covered": 43,
+          "total": 49
+        }
+      }
+    },
+    "packages/agent-core/src/facets/contribution.ts": {
+      "sha256": "01d3a398febdfa04269cd53c411d3566600f799799fbeb33ea86488a898ef59e",
+      "metrics": {
+        "statements": {
+          "covered": 70,
+          "total": 74
+        },
+        "branches": {
+          "covered": 18,
+          "total": 29
+        },
+        "functions": {
+          "covered": 35,
+          "total": 35
+        },
+        "lines": {
+          "covered": 66,
+          "total": 70
+        }
+      }
+    },
+    "packages/agent-core/src/facets/data.ts": {
+      "sha256": "0dc4b122a274bce14993c732b1147ace2ea747411698189d427c781910fa8368",
+      "metrics": {
+        "statements": {
+          "covered": 37,
+          "total": 43
+        },
+        "branches": {
+          "covered": 30,
+          "total": 36
+        },
+        "functions": {
+          "covered": 20,
+          "total": 20
+        },
+        "lines": {
+          "covered": 36,
+          "total": 42
+        }
+      }
+    },
+    "packages/agent-core/src/facets/event.ts": {
+      "sha256": "cace6b4fd88fa710c4a9c198c2d7d1156e9393f40b1b93b41521508efa1677d9",
+      "metrics": {
+        "statements": {
+          "covered": 80,
+          "total": 87
+        },
+        "branches": {
+          "covered": 31,
+          "total": 41
+        },
+        "functions": {
+          "covered": 36,
+          "total": 36
+        },
+        "lines": {
+          "covered": 78,
+          "total": 85
+        }
+      }
+    },
+    "packages/agent-core/src/facets/id.ts": {
+      "sha256": "01f829ebeb28b8950e4a3bdb1ffc2c82490f3098eea57b36a7f2c70c88d694ac",
+      "metrics": {
+        "statements": {
+          "covered": 25,
+          "total": 26
+        },
+        "branches": {
+          "covered": 3,
+          "total": 4
+        },
+        "functions": {
+          "covered": 9,
+          "total": 9
+        },
+        "lines": {
+          "covered": 25,
+          "total": 26
+        }
+      }
+    },
+    "packages/agent-core/src/facets/index.ts": {
+      "sha256": "797074659069a740788af4ea7553344567aca45085cffd4e94a0acfbd62107f0",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/facets/interceptor.ts": {
+      "sha256": "92d3ae16cd51f962254148e6201049d14902a9e33425b89fe51494fc2ca3060b",
+      "metrics": {
+        "statements": {
+          "covered": 23,
+          "total": 26
+        },
+        "branches": {
+          "covered": 13,
+          "total": 21
+        },
+        "functions": {
+          "covered": 8,
+          "total": 8
+        },
+        "lines": {
+          "covered": 23,
+          "total": 26
+        }
+      }
+    },
+    "packages/agent-core/src/facets/manifest.ts": {
+      "sha256": "b67c04ab5a4f5468f6819869b69e0483b6e4044523038dd77db95bba4df02097",
+      "metrics": {
+        "statements": {
+          "covered": 57,
+          "total": 62
+        },
+        "branches": {
+          "covered": 23,
+          "total": 28
+        },
+        "functions": {
+          "covered": 22,
+          "total": 22
+        },
+        "lines": {
+          "covered": 53,
+          "total": 58
+        }
+      }
+    },
+    "packages/agent-core/src/facets/mapping.ts": {
+      "sha256": "90b90bb3efaaec110def110cfe01ad5b40ddae0bd07c5d6569e4e5a766997af1",
+      "metrics": {
+        "statements": {
+          "covered": 84,
+          "total": 88
+        },
+        "branches": {
+          "covered": 29,
+          "total": 35
+        },
+        "functions": {
+          "covered": 47,
+          "total": 47
+        },
+        "lines": {
+          "covered": 81,
+          "total": 85
+        }
+      }
+    },
+    "packages/agent-core/src/facets/operation.ts": {
+      "sha256": "a880433ad915c9725e0d1d718f0e3fc1d46ded7f471ba17ed3593208f2123f30",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 3
+        },
+        "branches": {
+          "covered": 0,
+          "total": 2
+        },
+        "functions": {
+          "covered": 0,
+          "total": 2
+        },
+        "lines": {
+          "covered": 0,
+          "total": 3
+        }
+      }
+    },
+    "packages/agent-core/src/facets/prompt.ts": {
+      "sha256": "be2814076b497c6fd86b7aa24e3991fa280411a083dcf5d49e20c673b785ba7c",
+      "metrics": {
+        "statements": {
+          "covered": 28,
+          "total": 30
+        },
+        "branches": {
+          "covered": 3,
+          "total": 5
+        },
+        "functions": {
+          "covered": 16,
+          "total": 16
+        },
+        "lines": {
+          "covered": 27,
+          "total": 29
+        }
+      }
+    },
+    "packages/agent-core/src/facets/protection.ts": {
+      "sha256": "d44d4dc7e0357fa5fb548a9c5b6876130d58e078d331d620f0ad6c807ee09efb",
+      "metrics": {
+        "statements": {
+          "covered": 11,
+          "total": 11
+        },
+        "branches": {
+          "covered": 11,
+          "total": 11
+        },
+        "functions": {
+          "covered": 3,
+          "total": 3
+        },
+        "lines": {
+          "covered": 11,
+          "total": 11
+        }
+      }
+    },
+    "packages/agent-core/src/facets/slot-entry.ts": {
+      "sha256": "5ef088eb462ac6ac512b4a2b63f32db3f6abed60fe727517694c64672c6b0237",
+      "metrics": {
+        "statements": {
+          "covered": 17,
+          "total": 18
+        },
+        "branches": {
+          "covered": 3,
+          "total": 4
+        },
+        "functions": {
+          "covered": 8,
+          "total": 8
+        },
+        "lines": {
+          "covered": 17,
+          "total": 18
+        }
+      }
+    },
+    "packages/agent-core/src/facets/slot.ts": {
+      "sha256": "08559277a41acd914cc5b2f5487909f1c3b22dba0d942558523f6d9c87212edd",
+      "metrics": {
+        "statements": {
+          "covered": 36,
+          "total": 40
+        },
+        "branches": {
+          "covered": 8,
+          "total": 12
+        },
+        "functions": {
+          "covered": 18,
+          "total": 18
+        },
+        "lines": {
+          "covered": 36,
+          "total": 40
+        }
+      }
+    },
+    "packages/agent-core/src/facets/surface.ts": {
+      "sha256": "367315219a43ecdf27beb7773828d408f9a66b1f664b8600e0d9d05dc2b346b5",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/identity/codec.ts": {
+      "sha256": "ce3cadcbf6068f3cde1edf5fef2890dbe507931268591342d74b2bfdc25cc9c8",
+      "metrics": {
+        "statements": {
+          "covered": 19,
+          "total": 23
+        },
+        "branches": {
+          "covered": 17,
+          "total": 24
+        },
+        "functions": {
+          "covered": 7,
+          "total": 8
+        },
+        "lines": {
+          "covered": 19,
+          "total": 23
+        }
+      }
+    },
+    "packages/agent-core/src/identity/id.ts": {
+      "sha256": "d292be80f254573a3f6536a8ba5b8e9157933100e5187044d7794f9546c9ba09",
+      "metrics": {
+        "statements": {
+          "covered": 8,
+          "total": 9
+        },
+        "branches": {
+          "covered": 3,
+          "total": 4
+        },
+        "functions": {
+          "covered": 7,
+          "total": 7
+        },
+        "lines": {
+          "covered": 8,
+          "total": 9
+        }
+      }
+    },
+    "packages/agent-core/src/identity/index.ts": {
+      "sha256": "c7da35c527d476b001c988e7dc0a2fd311fdfba249b50b1a289b6d8d8f7a6a05",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/identity/member.ts": {
+      "sha256": "cb29aa33d87508bbfdcdaeda099424a90e5615920d64efc11b7becd9da773b97",
+      "metrics": {
+        "statements": {
+          "covered": 26,
+          "total": 27
+        },
+        "branches": {
+          "covered": 8,
+          "total": 9
+        },
+        "functions": {
+          "covered": 12,
+          "total": 12
+        },
+        "lines": {
+          "covered": 26,
+          "total": 27
+        }
+      }
+    },
+    "packages/agent-core/src/identity/principal.ts": {
+      "sha256": "b4c23c0e4570c4ed7a298dd87098b8b5f45cf26e7009e9b66f92644be7ba1a51",
+      "metrics": {
+        "statements": {
+          "covered": 19,
+          "total": 22
+        },
+        "branches": {
+          "covered": 7,
+          "total": 11
+        },
+        "functions": {
+          "covered": 9,
+          "total": 10
+        },
+        "lines": {
+          "covered": 19,
+          "total": 22
+        }
+      }
+    },
+    "packages/agent-core/src/identity/project.ts": {
+      "sha256": "0df993856e8d7addda121a3dea2ed508a332059ffc6164ff27e4493042fd6dd7",
+      "metrics": {
+        "statements": {
+          "covered": 14,
+          "total": 16
+        },
+        "branches": {
+          "covered": 4,
+          "total": 5
+        },
+        "functions": {
+          "covered": 6,
+          "total": 7
+        },
+        "lines": {
+          "covered": 14,
+          "total": 16
+        }
+      }
+    },
+    "packages/agent-core/src/identity/repository.ts": {
+      "sha256": "77fd92282a0408be1649019e78642860421652e9af18fed5e59968e1995c39c2",
+      "metrics": {
+        "statements": {
+          "covered": 31,
+          "total": 34
+        },
+        "branches": {
+          "covered": 38,
+          "total": 41
+        },
+        "functions": {
+          "covered": 17,
+          "total": 18
+        },
+        "lines": {
+          "covered": 30,
+          "total": 33
+        }
+      }
+    },
+    "packages/agent-core/src/identity/role.ts": {
+      "sha256": "978b81be68f0e59d5be82287a657775938dbbf5f1e6d11ede7ff7295f4d85df7",
+      "metrics": {
+        "statements": {
+          "covered": 42,
+          "total": 47
+        },
+        "branches": {
+          "covered": 14,
+          "total": 19
+        },
+        "functions": {
+          "covered": 15,
+          "total": 15
+        },
+        "lines": {
+          "covered": 41,
+          "total": 46
+        }
+      }
+    },
+    "packages/agent-core/src/identity/scope.ts": {
+      "sha256": "49c744ec3979f923efcd7877fb36650351615f0a7a657e2149914fc6f1b5d8cd",
+      "metrics": {
+        "statements": {
+          "covered": 41,
+          "total": 51
+        },
+        "branches": {
+          "covered": 28,
+          "total": 38
+        },
+        "functions": {
+          "covered": 12,
+          "total": 12
+        },
+        "lines": {
+          "covered": 41,
+          "total": 51
+        }
+      }
+    },
+    "packages/agent-core/src/identity/subject.ts": {
+      "sha256": "5f7d3dd088b33026707e336c55b8efe4a486034ade73b344474efa67ffa2ec74",
+      "metrics": {
+        "statements": {
+          "covered": 32,
+          "total": 38
+        },
+        "branches": {
+          "covered": 16,
+          "total": 21
+        },
+        "functions": {
+          "covered": 9,
+          "total": 10
+        },
+        "lines": {
+          "covered": 31,
+          "total": 35
+        }
+      }
+    },
+    "packages/agent-core/src/identity/team.ts": {
+      "sha256": "8e888001b3258b883e49dcb822dcffc64aea88c1961deb340ee633e483614135",
+      "metrics": {
+        "statements": {
+          "covered": 27,
+          "total": 31
+        },
+        "branches": {
+          "covered": 8,
+          "total": 11
+        },
+        "functions": {
+          "covered": 14,
+          "total": 15
+        },
+        "lines": {
+          "covered": 24,
+          "total": 27
+        }
+      }
+    },
+    "packages/agent-core/src/identity/tenant.ts": {
+      "sha256": "ba6a409b51372c15b711cd316a412d6a995711265bc65a65a327acb748f220a2",
+      "metrics": {
+        "statements": {
+          "covered": 19,
+          "total": 24
+        },
+        "branches": {
+          "covered": 5,
+          "total": 10
+        },
+        "functions": {
+          "covered": 8,
+          "total": 10
+        },
+        "lines": {
+          "covered": 19,
+          "total": 24
+        }
+      }
+    },
+    "packages/agent-core/src/index.ts": {
+      "sha256": "c27d4417405b22f04f5e91589431dadb39a5bfd9d7d6abe4b683d4a34c9c7941",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/invocations/audit.ts": {
+      "sha256": "08fe0e6d779e2bfc1521e499709a80ea4a59190b31e3549812c12c9a9f429aeb",
+      "metrics": {
+        "statements": {
+          "covered": 97,
+          "total": 104
+        },
+        "branches": {
+          "covered": 100,
+          "total": 109
+        },
+        "functions": {
+          "covered": 17,
+          "total": 17
+        },
+        "lines": {
+          "covered": 97,
+          "total": 104
+        }
+      }
+    },
+    "packages/agent-core/src/invocations/id.ts": {
+      "sha256": "99ce8e0da7674fca7f4fcef4c31a13ef3bcd140d35cc851483b1fda4a728335b",
+      "metrics": {
+        "statements": {
+          "covered": 9,
+          "total": 9
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 9,
+          "total": 9
+        },
+        "lines": {
+          "covered": 9,
+          "total": 9
+        }
+      }
+    },
+    "packages/agent-core/src/invocations/index.ts": {
+      "sha256": "a757298c44443356e15ab4f7fc29d98e9094fb17e313ffac307ff473b071f791",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/bootstrap-memory.ts": {
+      "sha256": "b7f1282bba6b1794fa507a01230af980f35f2474eb2bd0870d1b179ab76d07f3",
+      "metrics": {
+        "statements": {
+          "covered": 40,
+          "total": 43
+        },
+        "branches": {
+          "covered": 21,
+          "total": 24
+        },
+        "functions": {
+          "covered": 21,
+          "total": 21
+        },
+        "lines": {
+          "covered": 39,
+          "total": 41
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/bootstrap.ts": {
+      "sha256": "960332efafdc430e6f231e4a89344cee4e53dbfdf6040fcfa7570a1a80287528",
+      "metrics": {
+        "statements": {
+          "covered": 55,
+          "total": 62
+        },
+        "branches": {
+          "covered": 43,
+          "total": 51
+        },
+        "functions": {
+          "covered": 17,
+          "total": 18
+        },
+        "lines": {
+          "covered": 55,
+          "total": 62
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/dispatcher.ts": {
+      "sha256": "74a453b096c780ffdae42213023673bcacc1df9bb34794478cd137dbc9b0e7d9",
+      "metrics": {
+        "statements": {
+          "covered": 175,
+          "total": 188
+        },
+        "branches": {
+          "covered": 122,
+          "total": 135
+        },
+        "functions": {
+          "covered": 42,
+          "total": 43
+        },
+        "lines": {
+          "covered": 172,
+          "total": 184
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/envelope.ts": {
+      "sha256": "9fa2a10d777306b6281fe300ecd9b96cd9736ce488a3dd162b6cd733de9397f0",
+      "metrics": {
+        "statements": {
+          "covered": 50,
+          "total": 58
+        },
+        "branches": {
+          "covered": 47,
+          "total": 57
+        },
+        "functions": {
+          "covered": 16,
+          "total": 16
+        },
+        "lines": {
+          "covered": 48,
+          "total": 56
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/index.ts": {
+      "sha256": "61e7a3261e25d9b55bd363683c0ec2181ed81bd41b3dcad33cbf6b952d1e0c66",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/ingress.ts": {
+      "sha256": "62249f451baca2427c0e891a2e6e9f36206db568306a9b1d4ff0f4e9421f0274",
+      "metrics": {
+        "statements": {
+          "covered": 43,
+          "total": 46
+        },
+        "branches": {
+          "covered": 32,
+          "total": 36
+        },
+        "functions": {
+          "covered": 6,
+          "total": 6
+        },
+        "lines": {
+          "covered": 42,
+          "total": 45
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/materialization-commands.ts": {
+      "sha256": "d382d6eb97480a0cc8bb18e65105dc3bd71d0ac4b9df306b8e4ba26ad5d38cd5",
+      "metrics": {
+        "statements": {
+          "covered": 46,
+          "total": 53
+        },
+        "branches": {
+          "covered": 28,
+          "total": 35
+        },
+        "functions": {
+          "covered": 15,
+          "total": 16
+        },
+        "lines": {
+          "covered": 46,
+          "total": 53
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/memory.ts": {
+      "sha256": "6e43e3953a80bbcfdb1ab59255f46227781071247c4973f3272bfff27fa0772e",
+      "metrics": {
+        "statements": {
+          "covered": 41,
+          "total": 45
+        },
+        "branches": {
+          "covered": 30,
+          "total": 34
+        },
+        "functions": {
+          "covered": 19,
+          "total": 19
+        },
+        "lines": {
+          "covered": 40,
+          "total": 44
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/payload.ts": {
+      "sha256": "ef83376a1e22c46570a356bbc56734f83ff1b68b8320f57ff1c563b36fdf552f",
+      "metrics": {
+        "statements": {
+          "covered": 22,
+          "total": 25
+        },
+        "branches": {
+          "covered": 6,
+          "total": 7
+        },
+        "functions": {
+          "covered": 11,
+          "total": 13
+        },
+        "lines": {
+          "covered": 22,
+          "total": 25
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/persistence.ts": {
+      "sha256": "14f9efadee280a6c7f7564c85d835d9b7c312229dffb2a62b6a794fcf588b606",
+      "metrics": {
+        "statements": {
+          "covered": 108,
+          "total": 125
+        },
+        "branches": {
+          "covered": 94,
+          "total": 111
+        },
+        "functions": {
+          "covered": 27,
+          "total": 28
+        },
+        "lines": {
+          "covered": 108,
+          "total": 125
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/policy.ts": {
+      "sha256": "68a00b0b46651ace6e4496c51f04d7cef31d02fe97d44959a763c35c8cf64c71",
+      "metrics": {
+        "statements": {
+          "covered": 7,
+          "total": 7
+        },
+        "branches": {
+          "covered": 1,
+          "total": 2
+        },
+        "functions": {
+          "covered": 5,
+          "total": 5
+        },
+        "lines": {
+          "covered": 7,
+          "total": 7
+        }
+      }
+    },
+    "packages/agent-core/src/protocol/write.ts": {
+      "sha256": "320db46b4460cb663c40b9692604b10ea3cfc6ab78e5d55738dbd1fac43b101b",
+      "metrics": {
+        "statements": {
+          "covered": 40,
+          "total": 52
+        },
+        "branches": {
+          "covered": 55,
+          "total": 69
+        },
+        "functions": {
+          "covered": 10,
+          "total": 10
+        },
+        "lines": {
+          "covered": 40,
+          "total": 52
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/index.ts": {
+      "sha256": "ea57f174458e312b8716c5058c10ddd18c1f3620a1815b639dc85362ae3506ed",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/actor.ts": {
+      "sha256": "8da5a5ca232496f90ec3f7f5030f16421bca609c1df29de4015ad3b3dd11d665",
+      "metrics": {
+        "statements": {
+          "covered": 72,
+          "total": 80
+        },
+        "branches": {
+          "covered": 29,
+          "total": 34
+        },
+        "functions": {
+          "covered": 23,
+          "total": 25
+        },
+        "lines": {
+          "covered": 72,
+          "total": 79
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/authority.ts": {
+      "sha256": "39d45721ec9cc78c7ee43593ca34e995ac5832c884c12ffc3e156fac6767fdfb",
+      "metrics": {
+        "statements": {
+          "covered": 54,
+          "total": 65
+        },
+        "branches": {
+          "covered": 46,
+          "total": 57
+        },
+        "functions": {
+          "covered": 17,
+          "total": 17
+        },
+        "lines": {
+          "covered": 52,
+          "total": 58
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/bootstrap.ts": {
+      "sha256": "295166f503f7f0cbf63af6df0fce8e3571428f8476cee7f8bc6c86fe15f26062",
+      "metrics": {
+        "statements": {
+          "covered": 45,
+          "total": 51
+        },
+        "branches": {
+          "covered": 22,
+          "total": 27
+        },
+        "functions": {
+          "covered": 17,
+          "total": 18
+        },
+        "lines": {
+          "covered": 45,
+          "total": 48
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/content.ts": {
+      "sha256": "20d8099a335a7c8f65bb8bd573f5c96d17d9ad42c6fda441a1b0d6893d52ac52",
+      "metrics": {
+        "statements": {
+          "covered": 142,
+          "total": 155
+        },
+        "branches": {
+          "covered": 72,
+          "total": 88
+        },
+        "functions": {
+          "covered": 33,
+          "total": 33
+        },
+        "lines": {
+          "covered": 142,
+          "total": 155
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/identity.ts": {
+      "sha256": "791055541f91c0e8283b3f184aa5303ba252d402e52fda6da482bdbb65dc2979",
+      "metrics": {
+        "statements": {
+          "covered": 65,
+          "total": 79
+        },
+        "branches": {
+          "covered": 46,
+          "total": 61
+        },
+        "functions": {
+          "covered": 19,
+          "total": 20
+        },
+        "lines": {
+          "covered": 60,
+          "total": 71
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/index.ts": {
+      "sha256": "5f10f34a6ba2c9a5eb19e792101ce070c15eca3f45be55f1064dbc80c47b665a",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/materialization.ts": {
+      "sha256": "de7c8880473965066a0483972a03c0f5aec53e0c11b7eb24a669db59ec410958",
+      "metrics": {
+        "statements": {
+          "covered": 387,
+          "total": 416
+        },
+        "branches": {
+          "covered": 202,
+          "total": 234
+        },
+        "functions": {
+          "covered": 122,
+          "total": 126
+        },
+        "lines": {
+          "covered": 363,
+          "total": 387
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/package.ts": {
+      "sha256": "57a30acfeb7c4c99b6f0538b7e14b878755bc6f596dfcf03330f57d3b9f19fc6",
+      "metrics": {
+        "statements": {
+          "covered": 84,
+          "total": 94
+        },
+        "branches": {
+          "covered": 56,
+          "total": 69
+        },
+        "functions": {
+          "covered": 34,
+          "total": 34
+        },
+        "lines": {
+          "covered": 83,
+          "total": 93
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/protocol.ts": {
+      "sha256": "75e01863d40f325e0fe09c263f5cbdb11db14efd9b7a875f47c3d30112ad7c28",
+      "metrics": {
+        "statements": {
+          "covered": 59,
+          "total": 68
+        },
+        "branches": {
+          "covered": 52,
+          "total": 62
+        },
+        "functions": {
+          "covered": 20,
+          "total": 21
+        },
+        "lines": {
+          "covered": 59,
+          "total": 68
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/sqlite.ts": {
+      "sha256": "e0cdd340b7e36daa425108c733932a553c3defbd6442a19842bd419d72375b3c",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/substrates/sqlite/tenant.ts": {
+      "sha256": "96a4e7140aa81f3c01a76d30292755892c414906fac77786226afedfe13adf28",
+      "metrics": {
+        "statements": {
+          "covered": 176,
+          "total": 229
+        },
+        "branches": {
+          "covered": 124,
+          "total": 177
+        },
+        "functions": {
+          "covered": 50,
+          "total": 51
+        },
+        "lines": {
+          "covered": 169,
+          "total": 214
+        }
+      }
+    },
+    "packages/agent-core/src/workspaces/id.ts": {
+      "sha256": "4413fbd1544b12c6bc9b61b770778e236d0a6cdd5ae1906033cf391409d6ebd6",
+      "metrics": {
+        "statements": {
+          "covered": 4,
+          "total": 4
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 4,
+          "total": 4
+        },
+        "lines": {
+          "covered": 4,
+          "total": 4
+        }
+      }
+    },
+    "packages/agent-core/src/workspaces/index.ts": {
+      "sha256": "eeb956caa63d96757e537d3b25a5889ae70e7478a08fe4bf4683c614656763ec",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/spec-conformance.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edition", "owner", "requirements"],
+  "properties": {
+    "edition": { "const": "1.0.0" },
+    "owner": { "type": "string", "minLength": 1 },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "owner",
+          "specAnchor",
+          "specTextSha256",
+          "status",
+          "prerequisites",
+          "sourceSymbols",
+          "testSelectors",
+          "checkerInvariants",
+          "remainingEvidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(?:C13-[A-Z0-9]+(?:-[A-Z0-9]+)*|P11-(?:BASE|FILESYSTEM|SHELL|MEMORY|TASK|WEB|MCP|APPROVAL-GATEWAY|SELF|ENVIRONMENT|DEVICE|SLATE|SINGLE-TENANT)-[A-Z0-9]+(?:-[A-Z0-9]+)*)$"
+          },
+          "owner": { "type": "string", "pattern": "^W[0-9]+$" },
+          "specAnchor": {
+            "type": "string",
+            "pattern": "^(?:C13-[A-Z0-9]+(?:-[A-Z0-9]+)*|P11-(?:BASE|FILESYSTEM|SHELL|MEMORY|TASK|WEB|MCP|APPROVAL-GATEWAY|SELF|ENVIRONMENT|DEVICE|SLATE|SINGLE-TENANT)-[A-Z0-9]+(?:-[A-Z0-9]+)*)$"
+          },
+          "specTextSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "status": { "enum": ["planned", "implemented", "verified", "external-gated"] },
+          "prerequisites": { "$ref": "#/$defs/uniqueStrings" },
+          "sourceSymbols": { "$ref": "#/$defs/uniqueStrings" },
+          "testSelectors": { "$ref": "#/$defs/uniqueStrings" },
+          "checkerInvariants": { "$ref": "#/$defs/uniqueStrings" },
+          "remainingEvidence": { "$ref": "#/$defs/uniqueStrings" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "uniqueStrings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

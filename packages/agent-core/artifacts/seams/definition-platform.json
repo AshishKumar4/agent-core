@@ -1,0 +1,39 @@
+{
+  "edition": "1.0.0",
+  "owner": "W4",
+  "seams": [
+    {
+      "id": "materialization-control-store",
+      "disposition": "verified",
+      "contract": "src/definition/rollout.ts#MaterializationControlStore",
+      "implementations": [
+        "src/definition/memory.ts#MemoryMaterializationControlStore",
+        "src/substrates/sqlite/materialization.ts#SqliteMaterializationControlStore"
+      ],
+      "memoryReference": "src/definition/memory.ts#MemoryMaterializationControlStore",
+      "contractTest": "test/definition/rollout.test.ts#materialization rollout and outbox memory [materialization-control-store] persists union-target outbox and completes only after every acknowledgement"
+    },
+    {
+      "id": "materialization-store",
+      "disposition": "verified",
+      "contract": "src/definition/materialization-store.ts#MaterializationStore",
+      "implementations": [
+        "src/definition/memory.ts#MemoryMaterializationStore",
+        "src/substrates/sqlite/materialization.ts#SqliteMaterializationStore"
+      ],
+      "memoryReference": "src/definition/memory.ts#MemoryMaterializationStore",
+      "contractTest": "test/definition/materialization-memory.test.ts#[materialization-store] memory and SQLite satisfy one shared codec-storage contract"
+    },
+    {
+      "id": "package-store",
+      "disposition": "verified",
+      "contract": "src/definition/package-store.ts#PackageStore",
+      "implementations": [
+        "src/definition/memory.ts#MemoryPackageStore",
+        "src/substrates/sqlite/package.ts#SqlitePackageStore"
+      ],
+      "memoryReference": "src/definition/memory.ts#MemoryPackageStore",
+      "contractTest": "test/definition/package-memory.test.ts#[package-store] memory and SQLite satisfy one shared codec-storage contract"
+    }
+  ]
+}

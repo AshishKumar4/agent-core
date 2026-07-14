@@ -1,0 +1,190 @@
+{
+  "edition": "1.0.0",
+  "owner": "W1",
+  "records": [
+    {
+      "symbol": "ActorRecoveryState",
+      "kind": "actor.recovery-state",
+      "durability": "durable",
+      "ownerActor": "actor",
+      "source": "src/actors/fence.ts#ActorRecoveryState",
+      "codec": "src/actors/fence.ts#ActorRecoveryState.codec",
+      "store": "src/actors/store.ts#ActorLocalStore",
+      "tests": [
+        "test/actors/fence.test.ts#ActorRecoveryState codec [actor.recovery-state] round-trips recovery state through its versioned codec",
+        "test/actors/actor.test.ts#Memory ActorStore contract [actor.recovery-state] recovers durable fencing state before a restarted actor serves"
+      ]
+    },
+    {
+      "symbol": "ContentOwnerEdge",
+      "kind": "content.owner-edge",
+      "durability": "durable",
+      "ownerActor": "content-owning-actor",
+      "source": "src/content/retention.ts#ContentOwnerEdge",
+      "codec": "src/content/retention.ts#ContentOwnerEdge.codec",
+      "store": "src/content/retention.ts#ContentRetention",
+      "tests": [
+        "test/content/records.test.ts#content record codecs [content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds",
+        "test/content/memory.test.ts#MemoryContentStore records [content.owner-edge] [content.transient-lease] restores content, owner, tombstone, and lease state"
+      ]
+    },
+    {
+      "symbol": "ContentStat",
+      "kind": "content.stat",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/content/stat.ts#ContentStat",
+      "codec": "src/content/stat.ts#ContentStat.codec",
+      "store": null,
+      "tests": [
+        "test/content/records.test.ts#content record codecs [content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds"
+      ]
+    },
+    {
+      "symbol": "TransientContentLeaseState",
+      "kind": "content.transient-lease",
+      "durability": "durable",
+      "ownerActor": "content-owning-actor",
+      "source": "src/content/transient.ts#TransientContentLeaseState",
+      "codec": "src/content/transient.ts#TransientContentLeaseState.codec",
+      "store": "src/content/transient.ts#TransientContentAccess",
+      "tests": [
+        "test/content/records.test.ts#content record codecs [content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds",
+        "test/content/memory.test.ts#MemoryContentStore records [content.owner-edge] [content.transient-lease] restores content, owner, tombstone, and lease state"
+      ]
+    },
+    {
+      "symbol": "CompatRange",
+      "kind": "core.compat-range",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/core/compat-range.ts#CompatRange",
+      "codec": "src/core/compat-range.ts#CompatRange.encode",
+      "store": null,
+      "tests": [
+        "test/core/compat-range.test.ts#CompatRange [core.compat-range] models independent spec and host ranges through its codec"
+      ]
+    },
+    {
+      "symbol": "JsonSchema",
+      "kind": "core.json-schema",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/core/schema.ts#JsonSchema",
+      "codec": "src/core/schema.ts#JsonSchema.encode",
+      "store": null,
+      "tests": [
+        "test/core/schema.test.ts#JSON Schema values [core.json-schema] round-trips canonical bytes and rejects unknown fields"
+      ]
+    },
+    {
+      "symbol": "SemVer",
+      "kind": "core.semver",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/core/semver.ts#SemVer",
+      "codec": "src/core/semver.ts#SemVer.encode",
+      "store": null,
+      "tests": [
+        "test/core/semver.test.ts#SemVer [core.semver] round-trips deterministically through its strict codec"
+      ]
+    },
+    {
+      "symbol": "AuthorityCheckReply",
+      "kind": "protocol.authority-check-reply",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/protocol/authority-evidence.ts#AuthorityCheckReply",
+      "codec": "src/protocol/authority-evidence.ts#AuthorityCheckReply.codec",
+      "store": null,
+      "tests": [
+        "test/protocol/authority-evidence.test.ts#authority protocol evidence [authority.check-request] [authority.check-evidence] [protocol.authority-check-reply] round-trips complete check identity without accepting altered arguments"
+      ]
+    },
+    {
+      "symbol": "AuthorityPermitIssuanceReply",
+      "kind": "protocol.authority-permit-issuance-reply",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/protocol/authority-evidence.ts#AuthorityPermitIssuanceReply",
+      "codec": "src/protocol/authority-evidence.ts#AuthorityPermitIssuanceReply.codec",
+      "store": null,
+      "tests": [
+        "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path"
+      ]
+    },
+    {
+      "symbol": "AuthorityPermitIssuanceRequest",
+      "kind": "protocol.authority-permit-issuance-request",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/protocol/authority-evidence.ts#AuthorityPermitIssuanceRequest",
+      "codec": "src/protocol/authority-evidence.ts#AuthorityPermitIssuanceRequest.codec",
+      "store": null,
+      "tests": [
+        "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path"
+      ]
+    },
+    {
+      "symbol": "BindingValidationReply",
+      "kind": "protocol.binding-validation-reply",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/protocol/authority-evidence.ts#BindingValidationReply",
+      "codec": "src/protocol/authority-evidence.ts#BindingValidationReply.codec",
+      "store": null,
+      "tests": [
+        "test/protocol/authority-evidence.test.ts#authority protocol evidence [authority.binding-validation-request] [authority.binding-validation-evidence] [protocol.binding-validation-reply] round-trips Binding validation request and source-bound evidence"
+      ]
+    },
+    {
+      "symbol": "TenantBootstrapAnchorRecord",
+      "kind": "protocol.tenant-bootstrap-anchor",
+      "durability": "durable",
+      "ownerActor": "tenant",
+      "source": "src/protocol/bootstrap.ts#TenantBootstrapAnchorRecord",
+      "codec": "src/protocol/bootstrap.ts#TenantBootstrapAnchorRecord.codec",
+      "store": "src/protocol/bootstrap-memory.ts#MemoryTenantBootstrap",
+      "tests": [
+        "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure"
+      ]
+    },
+    {
+      "symbol": "CommandEnvelope",
+      "kind": "command-envelope",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/protocol/envelope.ts#CommandEnvelope",
+      "codec": "src/protocol/envelope.ts#CommandEnvelope.codec",
+      "store": null,
+      "tests": [
+        "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind"
+      ]
+    },
+    {
+      "symbol": "WriteRecord",
+      "kind": "write-record",
+      "durability": "durable",
+      "ownerActor": "command-target-actor",
+      "source": "src/protocol/write.ts#WriteRecord",
+      "codec": "src/protocol/write.ts#WriteRecord.codec",
+      "store": "src/protocol/dispatcher.ts#ProtocolPersistence",
+      "tests": [
+        "test/protocol/codec.test.ts#WriteRecord codec and invariants [write-record] round-trips every Actor kind",
+        "test/protocol/persistence-memory.test.ts#[write-record] memory protocol records survive adapter and snapshot restoration"
+      ]
+    },
+    {
+      "symbol": "TenantBootstrapMarker",
+      "kind": "protocol.tenant-bootstrap-marker",
+      "durability": "durable",
+      "ownerActor": "tenant",
+      "source": "src/substrates/sqlite/tenant.ts#TenantBootstrapMarker",
+      "codec": "src/substrates/sqlite/tenant.ts#TenantBootstrapMarker.codec",
+      "store": "src/substrates/sqlite/tenant.ts#SqliteTenantControlStore",
+      "tests": [
+        "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] [protocol.tenant-bootstrap-marker] file SQLite composition creates and restores the complete closure"
+      ]
+    }
+  ]
+}

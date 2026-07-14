@@ -1,126 +1,114 @@
-/-!
-# The Turn lease protocol (SPEC §5.3)
+import AgentCore.Policy
 
-A Turn holds a lease with a monotonically increasing epoch. Claiming, reclaiming an
-expired lease, suspending, and completing all advance the epoch; every Turn-owned commit
-carries the epoch it ran under, and a commit presenting a stale epoch is rejected at the
-owning Actor. This module models the lease as a small labeled transition system and
-proves the guarantees SPEC §5.3 relies on — culminating in the fencing property: once
-the epoch has moved past a value, a commit at that value can never be admitted again, so
-a zombie executor's writes cannot land.
+/-!
+# Exact Turn leases
+
+The immutable Turn id is present in both lease and token. Admission is one check over
+Turn, holder, epoch, and strict expiry. Reclaim requires expiry, resume retains the same
+Turn, and terminal fencing atomically clears the holder while advancing the epoch.
 -/
 
 namespace AgentCore
 
-/-- A lease: who currently holds it (if anyone) and the current fencing epoch. -/
-structure Lease where
-  holder : Option Nat
+structure TurnLease where
+  turn : TurnId
+  holder : Option PrincipalRef
   epoch : Nat
+  expiresAt : Time
   deriving DecidableEq, Repr
+
+def TurnLease.initial (turn : TurnId) : TurnLease := ⟨turn, none, 0, ⟨0⟩⟩
+
+def TurnLease.Admits (lease : TurnLease) (token : LeaseToken) (now : Time) : Prop :=
+  token.turn = lease.turn ∧ lease.holder = some token.holder ∧
+  token.epoch = lease.epoch ∧ now.tick < lease.expiresAt.tick
+
+def TurnLease.admitsBool (lease : TurnLease) (token : LeaseToken) (now : Time) : Bool :=
+  token.turn == lease.turn && lease.holder == some token.holder &&
+  token.epoch == lease.epoch && decide (now.tick < lease.expiresAt.tick)
+
+theorem TurnLease.admitsBool_eq_true {lease : TurnLease} {token : LeaseToken} {now : Time} :
+    lease.admitsBool token now = true ↔ lease.Admits token now := by
+  simp only [TurnLease.admitsBool, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq,
+    TurnLease.Admits]
+  constructor
+  · rintro ⟨⟨⟨turn, holder⟩, epoch⟩, live⟩
+    exact ⟨turn, holder, epoch, live⟩
+  · rintro ⟨turn, holder, epoch, live⟩
+    exact ⟨⟨⟨turn, holder⟩, epoch⟩, live⟩
 
 inductive LeaseLabel where
-  /-- Claim an unheld lease. -/
-  | claim (holder : Nat)
-  /-- Renew the current holder's lease at the current epoch. -/
-  | renew (holder : Nat) (epoch : Nat)
-  /-- Reclaim an expired lease under a new executor. -/
-  | reclaim (holder : Nat)
-  /-- Suspend: persist a checkpoint and fence. -/
-  | suspend
-  /-- Fence on completion / cancellation. -/
-  | fence
+  | claim (holder : PrincipalRef) (now expiresAt : Time)
+  | renew (token : LeaseToken) (now expiresAt : Time)
+  | reclaim (holder : PrincipalRef) (now expiresAt : Time)
+  | suspendFence
+  | resume (holder : PrincipalRef) (now expiresAt : Time)
+  | terminalFence
   deriving DecidableEq, Repr
 
-inductive LeaseStep : Lease → LeaseLabel → Lease → Prop
-  | claim {lease holder} :
-      lease.holder = none →
-      LeaseStep lease (.claim holder) { holder := some holder, epoch := lease.epoch + 1 }
-  | renew {lease holder} :
-      lease.holder = some holder →
-      LeaseStep lease (.renew holder lease.epoch) lease
-  | reclaim {lease holder} :
-      lease.holder.isSome →
-      LeaseStep lease (.reclaim holder) { holder := some holder, epoch := lease.epoch + 1 }
-  | suspend {lease} :
-      LeaseStep lease .suspend { holder := none, epoch := lease.epoch + 1 }
-  | fence {lease} :
-      LeaseStep lease .fence { holder := none, epoch := lease.epoch + 1 }
+inductive LeaseStep : TurnLease → LeaseLabel → TurnLease → Prop
+  | claim {lease holder now expiresAt} :
+      lease.holder = none → now.tick < expiresAt.tick →
+      LeaseStep lease (.claim holder now expiresAt)
+        ⟨lease.turn, some holder, lease.epoch + 1, expiresAt⟩
+  | renew {lease token now expiresAt} :
+      lease.Admits token now → lease.expiresAt.tick ≤ expiresAt.tick →
+      LeaseStep lease (.renew token now expiresAt) { lease with expiresAt := expiresAt }
+  | reclaim {lease holder now expiresAt} :
+      lease.holder.isSome → lease.expiresAt.tick ≤ now.tick → now.tick < expiresAt.tick →
+      LeaseStep lease (.reclaim holder now expiresAt)
+        ⟨lease.turn, some holder, lease.epoch + 1, expiresAt⟩
+  | suspendFence {lease} :
+      LeaseStep lease .suspendFence ⟨lease.turn, none, lease.epoch + 1, lease.expiresAt⟩
+  | resume {lease holder now expiresAt} :
+      lease.holder = none → now.tick < expiresAt.tick →
+      LeaseStep lease (.resume holder now expiresAt)
+        ⟨lease.turn, some holder, lease.epoch + 1, expiresAt⟩
+  | terminalFence {lease} :
+      LeaseStep lease .terminalFence ⟨lease.turn, none, lease.epoch + 1, lease.expiresAt⟩
 
-/-- **The epoch never decreases.** Every lease transition preserves or advances the
-    epoch. -/
-theorem lease_epoch_monotone {before after label}
-    (step : LeaseStep before label after) :
-    before.epoch ≤ after.epoch := by
-  cases step <;> simp <;> omega
+theorem lease_turn_immutable {before label after} (step : LeaseStep before label after) :
+    after.turn = before.turn := by cases step <;> rfl
 
-/-- **Claiming advances the epoch.** -/
-theorem claim_advances_epoch {before after holder}
-    (step : LeaseStep before (.claim holder) after) :
-    before.epoch < after.epoch := by
-  cases step; simp
+theorem lease_epoch_monotone {before label after} (step : LeaseStep before label after) :
+    before.epoch ≤ after.epoch := by cases step <;> simp
 
-/-- **Reclaiming an expired lease advances the epoch.** -/
-theorem reclaim_advances_epoch {before after holder}
-    (step : LeaseStep before (.reclaim holder) after) :
-    before.epoch < after.epoch := by
-  cases step; simp
+theorem reclaim_requires_expiry {before holder now expiresAt after}
+    (step : LeaseStep before (.reclaim holder now expiresAt) after) :
+    before.expiresAt.tick ≤ now.tick := by cases step; assumption
 
-/-- **A claim requires an unheld lease.** You cannot claim a lease someone still holds;
-    that path is reclaim, which fences the prior holder by advancing the epoch. -/
-theorem claim_requires_unheld {before after holder}
-    (step : LeaseStep before (.claim holder) after) :
-    before.holder = none := by
-  cases step with
-  | claim unheld => exact unheld
+theorem resume_is_same_turn {before holder now expiresAt after}
+    (step : LeaseStep before (.resume holder now expiresAt) after) :
+    after.turn = before.turn ∧ after.epoch = before.epoch + 1 := by cases step; exact ⟨rfl, rfl⟩
 
-/-- **Fencing rejects the prior holder.** After a fence the lease is unheld and its
-    epoch has advanced, so the prior holder cannot renew (renew requires being the
-    current holder at the current epoch). -/
-theorem fence_rejects_prior_holder {before after}
-    (step : LeaseStep before .fence after) :
-    after.holder = none ∧ before.epoch < after.epoch := by
+theorem terminal_fence_is_atomic {before after}
+    (step : LeaseStep before .terminalFence after) :
+    after.turn = before.turn ∧ after.holder = none ∧ after.epoch = before.epoch + 1 := by
   cases step
-  refine ⟨rfl, ?_⟩
-  simp
+  exact ⟨rfl, rfl, rfl⟩
 
-/-- A commit is admitted only when it presents the current epoch and the current holder.
-    This is the owning-Actor check every Turn-owned commit passes through (SPEC §5.3). -/
-def Admits (lease : Lease) (commitEpoch : Nat) (commitHolder : Nat) : Prop :=
-  lease.epoch = commitEpoch ∧ lease.holder = some commitHolder
+theorem wrong_turn_rejects {lease : TurnLease} {token : LeaseToken} {now : Time}
+    (wrong : token.turn ≠ lease.turn) :
+    ¬ lease.Admits token now := fun admitted => wrong admitted.1
 
-/-- **A stale epoch is never admitted.** A commit presenting an epoch below the current
-    one is rejected — the single-step fencing guarantee. -/
-theorem stale_epoch_never_admitted {lease commitEpoch commitHolder}
-    (stale : commitEpoch < lease.epoch) :
-    ¬ Admits lease commitEpoch commitHolder := by
-  intro admits
-  rw [admits.1] at stale
+theorem stale_token_rejects {lease : TurnLease} {token : LeaseToken} {now : Time}
+    (stale : token.epoch < lease.epoch) :
+    ¬ lease.Admits token now := by
+  intro admitted
+  rw [admitted.2.2.1] at stale
   exact Nat.lt_irrefl _ stale
 
-/-! ### Over a run of the protocol -/
+theorem expired_lease_rejects {lease : TurnLease} {token : LeaseToken} {now : Time}
+    (expired : lease.expiresAt.tick ≤ now.tick) : ¬ lease.Admits token now := by
+  intro admitted
+  exact Nat.not_lt_of_ge expired admitted.2.2.2
 
-inductive LeaseExec : Lease → List LeaseLabel → Lease → Prop
-  | nil (lease) : LeaseExec lease [] lease
-  | cons {start mid finish label labels} :
-      LeaseStep start label mid →
-      LeaseExec mid labels finish →
-      LeaseExec start (label :: labels) finish
-
-/-- **The epoch is monotone across a whole run.** -/
-theorem exec_epoch_monotone {before after labels}
-    (exec : LeaseExec before labels after) :
-    before.epoch ≤ after.epoch := by
-  induction exec with
-  | nil => exact Nat.le_refl _
-  | cons step _ ih => exact Nat.le_trans (lease_epoch_monotone step) ih
-
-/-- **Fencing is permanent across a run.** Once the epoch has advanced past a commit's
-    epoch, no later state in the run admits that commit — a zombie executor holding an
-    old epoch can never write, no matter how the protocol proceeds afterward. -/
-theorem exec_stale_epoch_never_admitted {before after labels commitEpoch commitHolder}
-    (passed : commitEpoch < before.epoch)
-    (exec : LeaseExec before labels after) :
-    ¬ Admits after commitEpoch commitHolder :=
-  stale_epoch_never_admitted (Nat.lt_of_lt_of_le passed (exec_epoch_monotone exec))
+theorem renewal_cannot_extend_resolution_deadline {before after : TurnLease}
+    {token : LeaseToken} {now expiresAt : Time} {resolution : Resolution}
+    (step : LeaseStep before (.renew token now expiresAt) after)
+    (bounded : resolution.deadline.tick ≤ before.expiresAt.tick) :
+    resolution.deadline.tick ≤ after.expiresAt.tick := by
+  cases step with
+  | renew admitted extended => exact Nat.le_trans bounded extended
 
 end AgentCore

@@ -1,0 +1,9 @@
+AGENTS.md
+packages/agent-core/SPEC.md
+packages/agent-core/formal/
+packages/*/dist/
+packages/*/coverage/
+packages/*/reports/
+node_modules/
+pnpm-lock.yaml
+reports/

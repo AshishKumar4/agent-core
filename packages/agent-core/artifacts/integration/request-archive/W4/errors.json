@@ -1,0 +1,42 @@
+{
+  "edition": "1.0.0",
+  "owner": "W4",
+  "kind": "errors",
+  "requests": [
+    {
+      "code": "definition.incompatible-package",
+      "owner": "W0",
+      "semantics": "No exact Package release closure satisfies dependency, Package, Facet, host, and spec compatibility constraints.",
+      "spec": "4.1,9.1-9.2",
+      "tests": ["test/definition/resolver.test.ts#filters Package and Facet compatibility before deterministic selection"]
+    },
+    {
+      "code": "definition.code-integrity",
+      "owner": "W0",
+      "semantics": "A loaded module byte digest or inspected import closure differs from the immutable PackageCodeManifest.",
+      "spec": "4.1,9.1-9.2",
+      "tests": ["test/definition/loader.test.ts#preflights every exact module byte before invoking the evaluator", "test/definition/loader.test.ts#rejects an inspected import outside the declared closure before evaluation"]
+    },
+    {
+      "code": "definition.managed-drift",
+      "owner": "W0",
+      "semantics": "An authoritative Blueprint-managed runtime record is missing, foreign, or differs from its active generation and automatic adoption is forbidden.",
+      "spec": "9.3",
+      "tests": ["test/definition/materializer.test.ts#rejects drift and rolls owner state back with journal state"]
+    },
+    {
+      "code": "definition.pinned",
+      "owner": "W0",
+      "semantics": "A reconciliation update or removal lacks complete current RunPins and Turn-placement release evidence; unknown, stale, partial, and referenced outcomes fail closed.",
+      "spec": "5.2,9.3",
+      "tests": ["test/definition/materializer.test.ts#fails closed on unknown RunPins evidence without advancing local state"]
+    },
+    {
+      "code": "definition.rollout-conflict",
+      "owner": "W0",
+      "semantics": "A deployment generation, outbox acknowledgement, predecessor pointer, or rollout completion loses its exact revision comparison.",
+      "spec": "8.5,9.3,10.3",
+      "tests": ["test/definition/rollout.test.ts#memory allocates generations with CAS and keeps acknowledgements idempotent", "test/definition/rollout.test.ts#SQLite allocates generations with CAS and keeps acknowledgements idempotent"]
+    }
+  ]
+}

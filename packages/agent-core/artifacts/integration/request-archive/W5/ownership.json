@@ -1,0 +1,109 @@
+{
+  "edition": "1.0.0",
+  "request": "W5-DURABLE-OWNERSHIP",
+  "status": "requested",
+  "records": [
+    {
+      "kind": "agent.revision",
+      "owner": "workspace",
+      "source": "src/agents/source.ts",
+      "store": "W0 Workspace source-revision store"
+    },
+    {
+      "kind": "agent.policy-revision",
+      "owner": "workspace",
+      "source": "src/agents/source.ts",
+      "store": "W0 Workspace source-revision store"
+    },
+    {
+      "kind": "agent.model-revision",
+      "owner": "workspace",
+      "source": "src/agents/source.ts",
+      "store": "W0 Workspace source-revision store"
+    },
+    {
+      "kind": "agent.environment-revision",
+      "owner": "environment",
+      "source": "src/agents/source.ts",
+      "store": "W8 Environment source-revision store"
+    },
+    {
+      "kind": "run.pins",
+      "owner": "run",
+      "source": "src/agents/runs/pins.ts",
+      "store": "embedded in Run configuration, commit, and Turn codec bytes"
+    },
+    {
+      "kind": "run.configuration-snapshot",
+      "owner": "run",
+      "source": "src/agents/runs/pins.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "run.record",
+      "owner": "run",
+      "source": "src/agents/runs/run.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "run.branch",
+      "owner": "run",
+      "source": "src/agents/runs/run.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "run.commit",
+      "owner": "run",
+      "source": "src/agents/runs/commit.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "turn.record",
+      "owner": "run",
+      "source": "src/agents/runs/turn.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "turn-lease",
+      "owner": "run",
+      "source": "src/agents/runs/lease.ts",
+      "store": "embedded exactly once in Turn codec bytes"
+    },
+    {
+      "kind": "turn.placement-snapshot",
+      "owner": "run",
+      "source": "src/agents/runs/placement.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "run.checkpoint",
+      "owner": "run",
+      "source": "src/agents/runs/turn.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "turn.inbox-entry",
+      "owner": "run",
+      "source": "src/agents/runs/turn.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "run.spawn-reservation",
+      "owner": "run",
+      "source": "src/agents/runs/spawn.ts",
+      "store": "src/agents/runs/store.ts via src/substrates/sqlite/run.ts"
+    },
+    {
+      "kind": "run.settlement-obligation",
+      "owner": "run",
+      "source": "src/agents/runs/settlement.ts",
+      "store": "embedded in the terminal Run record"
+    },
+    {
+      "kind": "run.terminal-snapshot",
+      "owner": "run",
+      "source": "src/agents/runs/settlement.ts",
+      "store": "embedded exactly once in the terminal Run record"
+    }
+  ]
+}

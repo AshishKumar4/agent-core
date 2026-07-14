@@ -1,0 +1,101 @@
+{
+  "edition": "1.0.0",
+  "signing": {
+    "id": "USER-AUTH-W1-W8-COMMIT-SIGNING",
+    "state": "awaiting-user-authorization",
+    "configuredCredentials": {
+      "gitSigningKey": null,
+      "gpgExecutable": false,
+      "sshAgent": false,
+      "available": false
+    },
+    "trustedFingerprintsByOwner": {
+      "W1": [],
+      "W2": [],
+      "W3": [],
+      "W4": [],
+      "W5": [],
+      "W6": [],
+      "W7": [],
+      "W8": []
+    },
+    "commits": [
+      {
+        "owner": "W1",
+        "commit": "aef9246e02cf3f5ca54ea9b1f84524743d789d26",
+        "tree": "6544042f9953a83121f3bb987a9cdab695ef3780",
+        "currentStatus": "unsigned"
+      },
+      {
+        "owner": "W2",
+        "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a",
+        "tree": "5695314d1fea86ba594d2c10a30676b47800202e",
+        "currentStatus": "unsigned"
+      },
+      {
+        "owner": "W3",
+        "commit": "1daf42bf5ca1a71ddc619be78f6f23da213717d3",
+        "tree": "a15d6218311c739fb52d232fb11986d4b387f7f8",
+        "currentStatus": "unsigned"
+      },
+      {
+        "owner": "W4",
+        "commit": "e89dff315b2e55d6d092c24fc1888978b72cbebd",
+        "tree": "0384d71d927dceb8e25725c0f0d828025622ab5b",
+        "currentStatus": "unsigned"
+      },
+      {
+        "owner": "W5",
+        "commit": "0fcd7141898615b2234d875ce1018f11c89e354d",
+        "tree": "a90ce6a9b197dbc214f2fb25c2b4cd1c954649ec",
+        "currentStatus": "unsigned"
+      },
+      {
+        "owner": "W6",
+        "commit": "01a457f9207039ba41aabf1a94f6ab3aaddbfdd2",
+        "tree": "b8f7a6abe47a7dd1d7ee5c40e09a8c44ac561bf6",
+        "currentStatus": "unsigned"
+      },
+      {
+        "owner": "W7",
+        "commit": "96fbfc9b32ac0ee3705ccfe108ce04f22c83d18c",
+        "tree": "9de0bb8835b4818a32e805f7fdea0b3a719321d5",
+        "currentStatus": "unsigned"
+      },
+      {
+        "owner": "W8",
+        "commit": "a6753495cf0bcacc0ada8b76f3fef6b3f54c80f0",
+        "tree": "28117468fda9ba87da57e883ab9e763e5de531cd",
+        "currentStatus": "unsigned"
+      }
+    ],
+    "requestedDecision": "provide owner-signed replacement commits with the same eight trees and approve a newly reviewed BOM containing those exact signed commits",
+    "constraints": [
+      "Do not rewrite source trees or substitute commit identities without a new reviewed BOM.",
+      "Do not trust a W0 self-signature as authorization for W1-W8 provenance.",
+      "Every signer fingerprint must be added explicitly to trusted-signers.json before final promotion."
+    ]
+  },
+  "remoteConsent": {
+    "id": "USER-CONSENT-W8-REMOTE-CONFORMANCE",
+    "state": "awaiting-user-consent",
+    "source": "artifacts/requests/W8/remote-gates.json",
+    "sourceSha256": "5b2a416e553143f76021e35372175eb010326b797bb288c8db6b6575d8444110",
+    "gates": ["W8-REMOTE-SANDBOX", "W8-REMOTE-WORKERS-FOR-PLATFORMS"],
+    "atoms": [
+      "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+      "P11-ENVIRONMENT-PREVIEW",
+      "P11-ENVIRONMENT-SNAPSHOT",
+      "P11-SLATE-DEPLOY",
+      "P11-SLATE-MEDIATED-DEPLOY"
+    ],
+    "requestedDecision": "authorize the two declared staging-only remote gates or decline them; production remains prohibited",
+    "executionPerformed": false,
+    "localSubstitute": false,
+    "executionEvidence": {
+      "consentEnvironmentVariablesPresent": false,
+      "cloudflareAccountIdPresent": false,
+      "gatedExecutionRecords": 0
+    }
+  }
+}

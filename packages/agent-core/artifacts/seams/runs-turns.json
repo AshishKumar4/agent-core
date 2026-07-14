@@ -1,0 +1,28 @@
+{
+  "edition": "1.0.0",
+  "owner": "W5",
+  "seams": [
+    {
+      "id": "run-storage-port",
+      "disposition": "verified",
+      "contract": "src/agents/runs/store.ts#RunStoragePort",
+      "implementations": [
+        "src/agents/runs/memory.ts#MemoryRunStorage",
+        "src/substrates/sqlite/run.ts#SqliteRunStorage"
+      ],
+      "memoryReference": "src/agents/runs/memory.ts#MemoryRunStorage",
+      "contractTest": "test/substrates/sqlite/run.test.ts#SQLite Run storage [run-storage-port] memory and SQLite satisfy one shared transaction and record contract"
+    },
+    {
+      "id": "turn-lease-verifier",
+      "disposition": "verified",
+      "contract": "src/agents/runs/lease.ts#TurnLeaseVerifier",
+      "implementations": [
+        "src/agents/runs/lease-verifier.ts#MemoryTurnLeaseVerifier",
+        "src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"
+      ],
+      "memoryReference": "src/agents/runs/lease-verifier.ts#MemoryTurnLeaseVerifier",
+      "contractTest": "test/agents/runs/lease.test.ts#TurnLease [turn-lease-verifier] memory and repository implementations enforce the exact durable lease"
+    }
+  ]
+}

@@ -1,236 +1,466 @@
-import { AuthoritySummary, FacetDescription } from "../description";
-import { Facet } from "../facet";
-import type { FacetContext } from "../context";
-import { FacetDataSchemas, type FacetData, type FacetDataMap } from "../data";
-import { FacetOperationName, FacetVersion } from "../id";
-import { FacetOperation, FacetOperationHandler, OperationDescriptor, OperationSet } from "../operation";
-import type { OperationContext } from "../../operations";
-import { Durability } from "./durability";
-import type { FileEntry } from "./entry";
-import type { FileSystem } from "./filesystem";
-import { ReplaceMode } from "./move";
-import { ListPosition } from "./page";
-import { FilePath } from "./path";
-import { ReadRange } from "./range";
-import type { MutationReceipt } from "./receipt";
-import { TreeMode } from "./tree";
-import { WriteMode } from "./write";
+import { Contributions, Contribution, OperationDescriptor } from "../contribution";
+import type { FacetData } from "../data";
+import { requireDataObject, requireSafeInteger, requireString } from "../data";
+import { OperationName, SlotName } from "../id";
+import type { FacetManifest } from "../manifest";
+import {
+    InternalProfileFacetRuntime,
+    ProfileOperationContract,
+    profileWireCodec,
+    type ProtectedProfileRuntimePort,
+    type ProfileWireCodec,
+    type PublicProfileInput,
+    schema,
+    strictObjectSchema,
+    voidProfileWireCodec
+} from "../profile-runtime";
 
-const version = new FacetVersion("1.0.0");
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
+export type FilesystemEntryKind = "file" | "directory";
+export type FilesystemWriteMode = "create" | "replace" | "upsert";
 
-export class FileSystemFacet extends Facet {
-    public constructor(
-        context: FacetContext,
-        private readonly files: FileSystem
-    ) {
-        super(context);
-    }
-
-    public describe(): FacetDescription {
-        return new FacetDescription(
-            "Filesystem",
-            "Exposes substrate-neutral filesystem operations.",
-            version,
-            AuthoritySummary.scoped("Reads and mutates files through the bound filesystem.")
-        );
-    }
-
-    public operations(): OperationSet {
-        return OperationSet.of([
-            operation("stat", "Stat a path.", "observe", new StatHandler(this.files)),
-            operation("readText", "Read UTF-8 text from a file.", "observe", new ReadTextHandler(this.files)),
-            operation("writeText", "Write UTF-8 text to a file.", "mutate", new WriteTextHandler(this.files)),
-            operation("list", "List directory entries.", "observe", new ListHandler(this.files)),
-            operation("makeDirectory", "Create a directory.", "mutate", new MakeDirectoryHandler(this.files)),
-            operation("remove", "Remove a file or directory.", "mutate", new RemoveHandler(this.files)),
-            operation("move", "Move a file or directory.", "mutate", new MoveHandler(this.files)),
-            operation("flush", "Flush pending filesystem mutations.", "mutate", new FlushHandler(this.files))
-        ]);
-    }
+export interface FilesystemStat {
+    readonly path: string;
+    readonly kind: FilesystemEntryKind;
+    readonly size: number;
+    readonly modifiedAt: number;
 }
 
-function operation(
-    name: string,
-    description: string,
+export interface FilesystemReadRange {
+    readonly offset?: number;
+    readonly length?: number;
+}
+
+export interface FilesystemPage {
+    readonly entries: readonly FilesystemStat[];
+    readonly cursor?: string;
+}
+
+export interface FilesystemReadInput extends PublicProfileInput {
+    readonly path: string;
+    readonly range?: FilesystemReadRange;
+}
+
+export interface FilesystemStatInput extends PublicProfileInput {
+    readonly path: string;
+}
+
+export interface FilesystemListInput extends PublicProfileInput {
+    readonly path: string;
+    readonly cursor?: string;
+    readonly limit?: number;
+}
+
+export interface FilesystemWriteInput extends PublicProfileInput {
+    readonly path: string;
+    readonly content: Uint8Array;
+    readonly mode?: FilesystemWriteMode;
+}
+
+export interface FilesystemRemoveInput extends PublicProfileInput {
+    readonly path: string;
+}
+
+export interface FilesystemMoveInput extends PublicProfileInput {
+    readonly source: string;
+    readonly destination: string;
+}
+
+export interface FilesystemMkdirInput extends PublicProfileInput {
+    readonly path: string;
+    readonly recursive?: boolean;
+}
+
+const pathProperty = { type: "string", minLength: 1 } as const;
+const nonNegativeInteger = { type: "integer", minimum: 0 } as const;
+const statSchema = {
+    type: "object",
+    properties: {
+        path: pathProperty,
+        kind: { enum: ["file", "directory"] },
+        size: nonNegativeInteger,
+        modifiedAt: nonNegativeInteger
+    },
+    required: ["path", "kind", "size", "modifiedAt"],
+    additionalProperties: false
+} as const;
+const voidSchema = schema({ type: "null" });
+
+function operation<
+    Name extends string,
+    Input extends PublicProfileInput,
+    Output,
+    Mode extends "output" | "receipt"
+>(
+    name: Name,
     impact: "observe" | "mutate",
-    handler: FacetOperationHandler<FacetDataMap, FacetDataMap>
-): FacetOperation<FacetDataMap, FacetDataMap> {
-    return new FacetOperation(
-        new OperationDescriptor(
-            new FacetOperationName(name),
-            description,
-            impact,
-            FacetDataSchemas.object(),
-            FacetDataSchemas.object()
-        ),
-        handler
+    input: ReturnType<typeof strictObjectSchema>,
+    output: ReturnType<typeof schema>,
+    inputCodec: ProfileWireCodec<Input>,
+    outputCodec: ProfileWireCodec<Output>,
+    resultMode: Mode
+): ProfileOperationContract<Name, Input, Output, Mode> {
+    return new ProfileOperationContract(
+        name,
+        new OperationDescriptor(new OperationName(name), impact, input, output),
+        inputCodec,
+        outputCodec,
+        resultMode
     );
 }
 
-abstract class FileSystemHandler extends FacetOperationHandler<FacetDataMap, FacetDataMap> {
-    public constructor(protected readonly files: FileSystem) {
-        super();
-    }
+export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
+    read: operation<"read", FilesystemReadInput, Uint8Array, "output">(
+        "read",
+        "observe",
+        strictObjectSchema(
+            {
+                path: pathProperty,
+                range: {
+                    type: "object",
+                    properties: { offset: nonNegativeInteger, length: nonNegativeInteger },
+                    additionalProperties: false
+                }
+            },
+            ["path"]
+        ),
+        schema({ type: "array", items: { type: "integer", minimum: 0, maximum: 255 } }),
+        profileWireCodec(
+            (input) => ({
+                path: input.path,
+                ...(input.range === undefined ? {} : { range: { ...input.range } })
+            }),
+            (data) => {
+                const object = requireDataObject(data, "Filesystem read input");
+                const range = object["range"];
+                return {
+                    path: requireString(object["path"], "Filesystem read path"),
+                    ...(range === undefined ? {} : { range: decodeRange(range) })
+                };
+            }
+        ),
+        byteCodec(),
+        "output"
+    ),
+    stat: operation<"stat", FilesystemStatInput, FilesystemStat, "output">(
+        "stat",
+        "observe",
+        strictObjectSchema({ path: pathProperty }, ["path"]),
+        schema(statSchema),
+        pathInputCodec(),
+        statCodec(),
+        "output"
+    ),
+    list: operation<"list", FilesystemListInput, FilesystemPage, "output">(
+        "list",
+        "observe",
+        strictObjectSchema(
+            { path: pathProperty, cursor: pathProperty, limit: { type: "integer", minimum: 1 } },
+            ["path"]
+        ),
+        schema({
+            type: "object",
+            properties: {
+                entries: { type: "array", items: statSchema },
+                cursor: pathProperty
+            },
+            required: ["entries"],
+            additionalProperties: false
+        }),
+        profileWireCodec(
+            (input) => ({
+                path: input.path,
+                ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+                ...(input.limit === undefined ? {} : { limit: input.limit })
+            }),
+            (data) => {
+                const object = requireDataObject(data, "Filesystem list input");
+                return {
+                    path: requireString(object["path"], "Filesystem list path"),
+                    ...(object["cursor"] === undefined
+                        ? {}
+                        : {
+                              cursor: requireString(object["cursor"], "Filesystem list cursor")
+                          }),
+                    ...(object["limit"] === undefined
+                        ? {}
+                        : {
+                              limit: requireSafeInteger(object["limit"], "Filesystem list limit")
+                          })
+                };
+            }
+        ),
+        pageCodec(),
+        "output"
+    ),
+    write: operation<"write", FilesystemWriteInput, void, "receipt">(
+        "write",
+        "mutate",
+        strictObjectSchema(
+            {
+                path: pathProperty,
+                content: { type: "array", items: { type: "integer", minimum: 0, maximum: 255 } },
+                mode: { enum: ["create", "replace", "upsert"] }
+            },
+            ["path", "content"]
+        ),
+        voidSchema,
+        profileWireCodec(
+            (input) => ({
+                path: input.path,
+                content: [...input.content],
+                ...(input.mode === undefined ? {} : { mode: input.mode })
+            }),
+            decodeWriteInput
+        ),
+        voidProfileWireCodec,
+        "receipt"
+    ),
+    remove: operation<"remove", FilesystemRemoveInput, void, "receipt">(
+        "remove",
+        "mutate",
+        strictObjectSchema({ path: pathProperty }, ["path"]),
+        voidSchema,
+        pathInputCodec(),
+        voidProfileWireCodec,
+        "receipt"
+    ),
+    move: operation<"move", FilesystemMoveInput, void, "receipt">(
+        "move",
+        "mutate",
+        strictObjectSchema({ source: pathProperty, destination: pathProperty }, [
+            "source",
+            "destination"
+        ]),
+        voidSchema,
+        profileWireCodec(
+            (input) => ({ source: input.source, destination: input.destination }),
+            (data) => {
+                const object = requireDataObject(data, "Filesystem move input");
+                return {
+                    source: requireString(object["source"], "Filesystem move source"),
+                    destination: requireString(object["destination"], "Filesystem move destination")
+                };
+            }
+        ),
+        voidProfileWireCodec,
+        "receipt"
+    ),
+    mkdir: operation<"mkdir", FilesystemMkdirInput, void, "receipt">(
+        "mkdir",
+        "mutate",
+        strictObjectSchema({ path: pathProperty, recursive: { type: "boolean" } }, ["path"]),
+        voidSchema,
+        profileWireCodec(
+            (input) => ({
+                path: input.path,
+                ...(input.recursive === undefined ? {} : { recursive: input.recursive })
+            }),
+            (data) => {
+                const object = requireDataObject(data, "Filesystem mkdir input");
+                const recursive = object["recursive"];
+                return {
+                    path: requireString(object["path"], "Filesystem mkdir path"),
+                    ...(recursive === undefined ? {} : { recursive: recursive === true })
+                };
+            }
+        ),
+        voidProfileWireCodec,
+        "receipt"
+    )
+});
+
+export const FILESYSTEM_OPERATIONS: readonly OperationDescriptor[] = Object.freeze(
+    Object.values(FILESYSTEM_OPERATION_CONTRACTS).map((contract) => contract.descriptor)
+);
+export const FILESYSTEM_CONTRIBUTIONS = new Contributions([
+    new Contribution(
+        new SlotName("operations"),
+        FILESYSTEM_OPERATIONS.map((operation) => operation.toData())
+    )
+]);
+
+export abstract class FilesystemBackend {
+    public abstract read(path: string, range?: FilesystemReadRange): Uint8Array;
+    public abstract stat(path: string): FilesystemStat;
+    public abstract list(path: string, cursor?: string, limit?: number): FilesystemPage;
+    public abstract write(path: string, content: Uint8Array, mode?: FilesystemWriteMode): void;
+    public abstract remove(path: string): void;
+    public abstract move(source: string, destination: string): void;
+    public abstract mkdir(path: string, recursive?: boolean): void;
 }
 
-class StatHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, input: FacetDataMap): Promise<FacetDataMap> {
-        return entryData(await this.files.stat(context, pathInput(input)));
-    }
+export abstract class FilesystemReaderBackend {
+    public abstract read(path: string, range?: FilesystemReadRange): Uint8Array;
+    public abstract stat(path: string): FilesystemStat;
+    public abstract list(path: string, cursor?: string, limit?: number): FilesystemPage;
 }
 
-class ReadTextHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, input: FacetDataMap): Promise<FacetDataMap> {
-        const content = await this.files.read(context, pathInput(input), rangeInput(input));
-        return { content: textDecoder.decode(content) };
-    }
-}
+export class FilesystemFacet<Receipt> {
+    public static readonly operations = FILESYSTEM_OPERATIONS;
 
-class WriteTextHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, input: FacetDataMap): Promise<FacetDataMap> {
-        return receiptData(await this.files.write(
-            context,
-            pathInput(input),
-            textEncoder.encode(stringField(input, "content")),
-            writeMode(input["mode"]),
-            durability(input["durability"])
-        ));
-    }
-}
+    public constructor(
+        private readonly runtime: ProtectedProfileRuntimePort<Receipt>,
+        private readonly backend: FilesystemBackend
+    ) {}
 
-class ListHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, input: FacetDataMap): Promise<FacetDataMap> {
-        const page = await this.files.list(
-            context,
-            pathInput(input, ""),
-            ListPosition.first(),
-            integerField(input, "limit", 256)
+    public asInternalRuntime(manifest: FacetManifest): InternalProfileFacetRuntime {
+        return new InternalProfileFacetRuntime({
+            manifest,
+            runtime: this.runtime,
+            operations: [
+                this.runtime.operation(FILESYSTEM_OPERATION_CONTRACTS.read, (input) =>
+                    this.backend.read(input.path, input.range)
+                ),
+                this.runtime.operation(FILESYSTEM_OPERATION_CONTRACTS.stat, (input) =>
+                    this.backend.stat(input.path)
+                ),
+                this.runtime.operation(FILESYSTEM_OPERATION_CONTRACTS.list, (input) =>
+                    this.backend.list(input.path, input.cursor, input.limit)
+                ),
+                this.runtime.operation(FILESYSTEM_OPERATION_CONTRACTS.write, (input) =>
+                    this.backend.write(input.path, input.content, input.mode)
+                ),
+                this.runtime.operation(FILESYSTEM_OPERATION_CONTRACTS.remove, (input) =>
+                    this.backend.remove(input.path)
+                ),
+                this.runtime.operation(FILESYSTEM_OPERATION_CONTRACTS.move, (input) =>
+                    this.backend.move(input.source, input.destination)
+                ),
+                this.runtime.operation(FILESYSTEM_OPERATION_CONTRACTS.mkdir, (input) =>
+                    this.backend.mkdir(input.path, input.recursive)
+                )
+            ]
+        });
+    }
+
+    public read(input: FilesystemReadInput): Promise<Uint8Array> {
+        return this.runtime.invoke(FILESYSTEM_OPERATION_CONTRACTS.read, input, (admitted) =>
+            this.backend.read(admitted.path, admitted.range)
         );
+    }
 
-        return {
-            entries: page.entries.map(entryData),
-            complete: page.continuation.complete
-        };
+    public stat(input: FilesystemStatInput): Promise<FilesystemStat> {
+        return this.runtime.invoke(FILESYSTEM_OPERATION_CONTRACTS.stat, input, (admitted) =>
+            this.backend.stat(admitted.path)
+        );
+    }
+
+    public list(input: FilesystemListInput): Promise<FilesystemPage> {
+        return this.runtime.invoke(FILESYSTEM_OPERATION_CONTRACTS.list, input, (admitted) =>
+            this.backend.list(admitted.path, admitted.cursor, admitted.limit)
+        );
+    }
+
+    public write(input: FilesystemWriteInput): Promise<Receipt> {
+        return this.runtime.invoke(FILESYSTEM_OPERATION_CONTRACTS.write, input, (admitted) =>
+            this.backend.write(admitted.path, admitted.content, admitted.mode)
+        );
+    }
+
+    public remove(input: FilesystemRemoveInput): Promise<Receipt> {
+        return this.runtime.invoke(FILESYSTEM_OPERATION_CONTRACTS.remove, input, (admitted) =>
+            this.backend.remove(admitted.path)
+        );
+    }
+
+    public move(input: FilesystemMoveInput): Promise<Receipt> {
+        return this.runtime.invoke(FILESYSTEM_OPERATION_CONTRACTS.move, input, (admitted) =>
+            this.backend.move(admitted.source, admitted.destination)
+        );
+    }
+
+    public mkdir(input: FilesystemMkdirInput): Promise<Receipt> {
+        return this.runtime.invoke(FILESYSTEM_OPERATION_CONTRACTS.mkdir, input, (admitted) =>
+            this.backend.mkdir(admitted.path, admitted.recursive)
+        );
     }
 }
 
-class MakeDirectoryHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, input: FacetDataMap): Promise<FacetDataMap> {
-        return receiptData(await this.files.makeDirectory(context, pathInput(input), treeMode(input["recursive"])));
-    }
+function pathInputCodec<
+    Input extends FilesystemStatInput | FilesystemRemoveInput
+>(): ProfileWireCodec<Input> {
+    return profileWireCodec(
+        (input) => ({ path: input.path }),
+        (data) =>
+            ({
+                path: requireString(
+                    requireDataObject(data, "Filesystem path input")["path"],
+                    "Filesystem path"
+                )
+            }) as Input
+    );
 }
 
-class RemoveHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, input: FacetDataMap): Promise<FacetDataMap> {
-        return receiptData(await this.files.remove(context, pathInput(input), treeMode(input["recursive"])));
-    }
+function byteCodec(): ProfileWireCodec<Uint8Array> {
+    return profileWireCodec((value) => [...value], decodeBytes);
 }
 
-class MoveHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, input: FacetDataMap): Promise<FacetDataMap> {
-        return receiptData(await this.files.move(
-            context,
-            pathInput(input, "source"),
-            pathInput(input, "destination"),
-            replaceMode(input["replace"])
-        ));
-    }
+function statCodec(): ProfileWireCodec<FilesystemStat> {
+    return profileWireCodec((value) => ({ ...value }), decodeStat);
 }
 
-class FlushHandler extends FileSystemHandler {
-    public async execute(context: OperationContext, _input: FacetDataMap): Promise<FacetDataMap> {
-        return receiptData(await this.files.flush(context));
-    }
+function pageCodec(): ProfileWireCodec<FilesystemPage> {
+    return profileWireCodec(
+        (value) => ({
+            entries: value.entries.map((entry) => statCodec().encode(entry)),
+            ...(value.cursor === undefined ? {} : { cursor: value.cursor })
+        }),
+        decodePage
+    );
 }
 
-function pathInput(input: FacetDataMap, field = "path"): FilePath {
-    return FilePath.parse(stringField(input, field));
-}
-
-function rangeInput(input: FacetDataMap): ReadRange {
-    const offset = input["offset"];
-    const length = input["length"];
-    if (offset === undefined) {
-        return ReadRange.all();
-    }
-
-    if (length === undefined) {
-        return ReadRange.from(integerValue(offset, "offset"));
-    }
-
-    return ReadRange.slice(integerValue(offset, "offset"), integerValue(length, "length"));
-}
-
-function writeMode(value: FacetData | undefined): WriteMode {
-    switch (value ?? "upsert") {
-        case "create":
-            return WriteMode.create;
-        case "replace":
-            return WriteMode.replace;
-        case "upsert":
-            return WriteMode.upsert;
-        default:
-            throw new TypeError("Filesystem write mode must be create, replace, or upsert");
-    }
-}
-
-function durability(value: FacetData | undefined): Durability {
-    switch (value ?? "accepted") {
-        case "accepted":
-            return Durability.accepted;
-        case "buffered":
-            return Durability.buffered;
-        case "durable":
-            return Durability.durable;
-        default:
-            throw new TypeError("Filesystem durability must be accepted, buffered, or durable");
-    }
-}
-
-function treeMode(value: FacetData | undefined): TreeMode {
-    return value === true ? TreeMode.tree : TreeMode.node;
-}
-
-function replaceMode(value: FacetData | undefined): ReplaceMode {
-    return value === true ? ReplaceMode.replace : ReplaceMode.preserve;
-}
-
-function stringField(input: FacetDataMap, field: string): string {
-    const value = input[field];
-    if (typeof value !== "string") {
-        throw new TypeError(`${field} must be a string`);
-    }
-
-    return value;
-}
-
-function integerField(input: FacetDataMap, field: string, fallback: number): number {
-    const value = input[field];
-    return value === undefined ? fallback : integerValue(value, field);
-}
-
-function integerValue(value: FacetData, field: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`${field} must be a nonnegative safe integer`);
-    }
-
-    return value;
-}
-
-function entryData(entry: FileEntry): FacetDataMap {
+function decodeRange(data: FacetData): FilesystemReadRange {
+    const object = requireDataObject(data, "Filesystem read range");
     return {
-        path: entry.path.toString(),
-        kind: entry.kind.name,
-        size: entry.size,
-        modifiedAt: entry.modifiedAt
+        ...(object["offset"] === undefined
+            ? {}
+            : { offset: requireSafeInteger(object["offset"], "Read offset") }),
+        ...(object["length"] === undefined
+            ? {}
+            : { length: requireSafeInteger(object["length"], "Read length") })
     };
 }
 
-function receiptData(receipt: MutationReceipt): FacetDataMap {
+function decodeWriteInput(data: FacetData): FilesystemWriteInput {
+    const object = requireDataObject(data, "Filesystem write input");
+    const mode = object["mode"];
     return {
-        operationId: receipt.operation.value,
-        completion: receipt.completion.name
+        path: requireString(object["path"], "Filesystem write path"),
+        content: decodeBytes(object["content"]!),
+        ...(mode === undefined
+            ? {}
+            : { mode: requireString(mode, "Filesystem write mode") as FilesystemWriteMode })
     };
+}
+
+function decodeBytes(data: FacetData): Uint8Array {
+    if (!Array.isArray(data) || data.some((byte) => typeof byte !== "number")) {
+        throw new TypeError("Filesystem bytes are invalid");
+    }
+    return new Uint8Array(data as number[]);
+}
+
+function decodePage(data: FacetData): FilesystemPage {
+    const object = requireDataObject(data, "Filesystem page");
+    const entries = object["entries"];
+    if (!Array.isArray(entries)) throw new TypeError("Filesystem page entries must be an array");
+    return Object.freeze({
+        entries: Object.freeze(entries.map(decodeStat)),
+        ...(object["cursor"] === undefined
+            ? {}
+            : { cursor: requireString(object["cursor"], "Filesystem page cursor") })
+    });
+}
+
+function decodeStat(data: FacetData): FilesystemStat {
+    const object = requireDataObject(data, "Filesystem stat");
+    const kind = requireString(object["kind"], "Filesystem entry kind");
+    if (kind !== "file" && kind !== "directory")
+        throw new TypeError("Filesystem entry kind is invalid");
+    return Object.freeze({
+        path: requireString(object["path"], "Filesystem stat path"),
+        kind,
+        size: requireSafeInteger(object["size"], "Filesystem stat size"),
+        modifiedAt: requireSafeInteger(object["modifiedAt"], "Filesystem modified time")
+    });
 }

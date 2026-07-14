@@ -1,0 +1,58 @@
+{
+  "edition": "1.0.0",
+  "owner": "W1",
+  "seams": [
+    {
+      "id": "actor-local-store",
+      "disposition": "verified",
+      "contract": "src/actors/store.ts#ActorLocalStore",
+      "implementations": [
+        "src/actors/store.ts#MemoryActorStore",
+        "src/substrates/sqlite/actor.ts#SqliteActorStore"
+      ],
+      "memoryReference": "src/actors/store.ts#MemoryActorStore",
+      "contractTest": "test/protocol/dispatcher.test.ts#[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes"
+    },
+    {
+      "id": "content-retention",
+      "disposition": "verified",
+      "contract": "src/content/retention.ts#ContentRetention",
+      "implementations": [
+        "src/content/memory.ts#MemoryContentRetention",
+        "src/substrates/sqlite/content-retention.ts#SqliteContentRetention"
+      ],
+      "memoryReference": "src/content/memory.ts#MemoryContentRetention",
+      "contractTest": "test/integration/registry-seams.test.ts#[content-retention] memory and SQLite satisfy one shared ownership contract"
+    },
+    {
+      "id": "content-store",
+      "disposition": "verified",
+      "contract": "src/content/store.ts#ContentStore",
+      "implementations": [
+        "src/content/memory.ts#MemoryContentStore",
+        "src/substrates/sqlite/content.ts#SqliteContentStore"
+      ],
+      "memoryReference": "src/content/memory.ts#MemoryContentStore",
+      "contractTest": "test/integration/registry-seams.test.ts#[content-store] memory and SQLite satisfy one shared content contract"
+    },
+    {
+      "id": "json-schema-validator",
+      "disposition": "verified",
+      "contract": "src/core/schema.ts#JsonSchemaValidator",
+      "implementations": ["src/core/schema.ts#StrictJsonSchemaValidator"],
+      "memoryReference": "src/core/schema.ts#StrictJsonSchemaValidator",
+      "contractTest": "test/core/schema.test.ts#JSON Schema values [json-schema-validator] strict memory reference enforces the shared validation contract"
+    },
+    {
+      "id": "protocol-persistence",
+      "disposition": "verified",
+      "contract": "src/protocol/dispatcher.ts#ProtocolPersistence",
+      "implementations": [
+        "src/protocol/memory.ts#MemoryProtocolPersistence",
+        "src/substrates/sqlite/protocol.ts#SqliteProtocolPersistence"
+      ],
+      "memoryReference": "src/protocol/memory.ts#MemoryProtocolPersistence",
+      "contractTest": "test/protocol/dispatcher.test.ts#[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes"
+    }
+  ]
+}

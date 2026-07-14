@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "agent-core.w2-typeerror-classification/v1",
+  "baseCommit": "a8d5808ac53f8140f99f1a2ff0359497d054e159",
+  "remainingTypeErrorSites": 118,
+  "rule": "TypeError is retained only for immediate constructor, record/request codec, identifier factory, or store-constructor programmer-shape misuse. Restore corruption, durable-state mismatch, transaction ownership, lifecycle, authority, CAS, exhaustion, and dispatch failures use AgentCoreError.",
+  "files": [
+    { "file": "src/identity/subject.ts", "classification": "constructor-value-shape", "lines": [25] },
+    { "file": "src/identity/member.ts", "classification": "record-constructor-or-codec-shape", "lines": [120, 125, 199] },
+    { "file": "src/identity/workspace.ts", "classification": "record-constructor-or-codec-shape", "lines": [34, 55] },
+    { "file": "src/identity/role.ts", "classification": "declarative-record-constructor-shape", "lines": [49, 150, 155, 165, 179, 187, 191] },
+    { "file": "src/identity/team.ts", "classification": "record-constructor-shape", "lines": [65, 97] },
+    { "file": "src/identity/scope.ts", "classification": "value-constructor-or-codec-shape", "lines": [64, 73, 136, 143] },
+    { "file": "src/identity/guest-verification.ts", "classification": "record-constructor-or-codec-shape", "lines": [47, 119, 124, 131] },
+    { "file": "src/identity/guest-trust.ts", "classification": "record-constructor-or-codec-shape", "lines": [84, 113, 236, 242, 254, 257, 264] },
+    { "file": "src/identity/tenant.ts", "classification": "record-constructor-or-codec-shape", "lines": [120, 127] },
+    { "file": "src/identity/project.ts", "classification": "record-constructor-shape", "lines": [48] },
+    { "file": "src/identity/principal.ts", "classification": "record-constructor-or-codec-shape", "lines": [98, 105] },
+    { "file": "src/identity/id.ts", "classification": "identifier-constructor-shape", "lines": [49] },
+
+    { "file": "src/authority/binding.ts", "classification": "record-constructor-or-codec-shape", "lines": [76, 79, 218, 221, 232] },
+    { "file": "src/authority/binding-store.ts", "classification": "store-constructor-programmer-shape", "lines": [80] },
+    { "file": "src/authority/data.ts", "classification": "record-codec-shape-helper", "lines": [12, 19, 26, 34, 42, 49] },
+    { "file": "src/authority/evidence.ts", "classification": "request-or-evidence-constructor-and-codec-shape", "lines": [79, 82, 91, 212, 218, 222, 225, 228, 231, 235, 334, 341, 349, 355, 360, 372, 376, 381] },
+    { "file": "src/authority/capability.ts", "classification": "declarative-constructor-or-codec-shape", "lines": [87, 94, 96, 153, 166, 174, 177, 185, 192, 234, 240] },
+    { "file": "src/authority/id.ts", "classification": "identifier-factory-shape", "lines": [13, 30] },
+    { "file": "src/authority/binding-evidence.ts", "classification": "request-or-evidence-constructor-and-codec-shape", "lines": [51, 54, 57, 165, 168, 171, 174, 236] },
+    { "file": "src/authority/grant.ts", "classification": "record-constructor-or-codec-shape", "lines": [108, 110, 213, 261, 269, 288, 294] },
+    { "file": "src/authority/epoch.ts", "classification": "record-constructor-or-codec-shape", "lines": [53, 139, 159, 162, 269, 274, 277, 281, 286, 292, 299] },
+    { "file": "src/authority/memory.ts", "classification": "store-constructor-programmer-shape", "lines": [720, 724] },
+
+    { "file": "src/protocol/authority-evidence.ts", "classification": "protocol-reply-codec-shape", "lines": [89] },
+    { "file": "src/protocol/bootstrap.ts", "classification": "bootstrap-record-or-payload-codec-shape", "lines": [48, 55, 65, 89, 204, 208] },
+
+    { "file": "src/substrates/sqlite/binding.ts", "classification": "store-constructor-programmer-shape", "lines": [35] },
+    { "file": "src/substrates/sqlite/bootstrap.ts", "classification": "bootstrap-payload-codec-shape", "lines": [198] },
+    { "file": "src/substrates/sqlite/tenant.ts", "classification": "bootstrap-marker-codec-shape", "lines": [69, 75] }
+  ]
+}

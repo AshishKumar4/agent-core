@@ -12,10 +12,12 @@ export class ProtectionDomain {
         public readonly secretPolicy: ProtectionDomainSecretPolicy
     ) {
         if (
-            label.length < MIN_PROTECTION_DOMAIN_LABEL_LENGTH
-            || label.length > MAX_PROTECTION_DOMAIN_LABEL_LENGTH
+            label.length < MIN_PROTECTION_DOMAIN_LABEL_LENGTH ||
+            label.length > MAX_PROTECTION_DOMAIN_LABEL_LENGTH
         ) {
-            throw new TypeError("Protection domain label must contain between 1 and 128 characters");
+            throw new TypeError(
+                "Protection domain label must contain between 1 and 128 characters"
+            );
         }
 
         if (kind === "frontend" && secretPolicy === "may-hold-secrets") {
@@ -28,8 +30,10 @@ export class ProtectionDomain {
     }
 
     public equals(other: ProtectionDomain): boolean {
-        return this.kind === other.kind
-            && this.label === other.label
-            && this.secretPolicy === other.secretPolicy;
+        return (
+            this.kind === other.kind &&
+            this.label === other.label &&
+            this.secretPolicy === other.secretPolicy
+        );
     }
 }

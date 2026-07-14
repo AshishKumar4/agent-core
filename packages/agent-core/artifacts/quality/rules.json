@@ -1,0 +1,65 @@
+{
+  "edition": "1.0.0",
+  "rules": [
+    {
+      "id": "ACQ-COVERAGE",
+      "node": "coverage",
+      "description": "Coverage suppressions and exclusions are forbidden"
+    },
+    {
+      "id": "ACQ-ERR",
+      "node": "architecture",
+      "description": "Runtime failures use the closed AgentCoreError taxonomy"
+    },
+    {
+      "id": "ACQ-CODEC",
+      "node": "architecture",
+      "description": "Codec-backed records expose static encode and decode"
+    },
+    {
+      "id": "ACQ-IMMUTABLE",
+      "node": "architecture",
+      "description": "Codec-backed records are runtime immutable"
+    },
+    {
+      "id": "ACQ-ID",
+      "node": "architecture",
+      "description": "Opaque identifiers have one context-owned declaration"
+    },
+    {
+      "id": "ACQ-VOCAB",
+      "node": "architecture",
+      "description": "Closed vocabularies have one canonical owner"
+    },
+    {
+      "id": "ACQ-TEST",
+      "node": "architecture",
+      "description": "Focused, skipped, and placeholder tests are forbidden"
+    },
+    {
+      "id": "ACQ-SEAM",
+      "node": "seams",
+      "description": "Every seam implementation runs one shared contract"
+    },
+    {
+      "id": "ACQ-OWNER",
+      "node": "records",
+      "description": "Every durable record has one Actor and authoritative store"
+    },
+    {
+      "id": "ACQ-IMPORT",
+      "node": "imports",
+      "description": "Cross-context references use barrels without runtime cycles"
+    },
+    {
+      "id": "ACQ-DAG",
+      "node": "dag",
+      "description": "Quality checks form one nonrecursive acyclic graph"
+    },
+    {
+      "id": "ACQ-SCOPE",
+      "node": "scope",
+      "description": "Every changed path has one exclusive worktree owner"
+    }
+  ]
+}

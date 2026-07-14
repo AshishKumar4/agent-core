@@ -1,0 +1,10 @@
+{
+  "edition": "1.0.0",
+  "manifests": [
+    "environment-pin-identity.json",
+    "facet-capability-identity.json",
+    "foundation-public-contract.json",
+    "interaction-identities.json",
+    "w9-integration-candidate.json"
+  ]
+}

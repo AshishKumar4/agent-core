@@ -1,0 +1,249 @@
+{
+  "schemaVersion": "agent-core.integration-request/v1",
+  "workstream": "W1",
+  "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+  "requests": [
+    {
+      "id": "W1-W0-CORE-EXPORTS",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "requested",
+      "specifier": "@agent-core/core/core",
+      "runtimeSymbols": [
+        "CompatRange",
+        "ContentRef",
+        "Digest",
+        "JsonSchema",
+        "RecordCodec",
+        "Revision",
+        "SecretRef",
+        "SemVer",
+        "StrictJsonSchemaValidator",
+        "TextId",
+        "decodeBase64",
+        "decodeCanonicalJson",
+        "encodeBase64",
+        "encodeCanonicalJson",
+        "hasExactJsonKeys",
+        "isJsonValue",
+        "strictJsonSchemaValidator"
+      ],
+      "typeSymbols": [
+        "DigestAlgorithm",
+        "JsonPrimitive",
+        "JsonSchemaDocument",
+        "JsonSchemaValidator",
+        "JsonValue",
+        "RecordEnvelope",
+        "RecordVersion"
+      ]
+    },
+    {
+      "id": "W1-W0-ACTOR-EXPORTS",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "requested",
+      "specifier": "@agent-core/core/actors",
+      "runtimeSymbols": [
+        "ACTOR_STATE_SNAPSHOT",
+        "Actor",
+        "ActorActivation",
+        "ActorCommitUnknownError",
+        "ActorFence",
+        "ActorId",
+        "ActorRecoveryState",
+        "ActorRef",
+        "MemoryActorStore",
+        "createActorContext",
+        "isActorActivationStore",
+        "requireSynchronousResult"
+      ],
+      "typeSymbols": [
+        "ActorActivationStore",
+        "ActorCloneOwnedState",
+        "ActorCommand",
+        "ActorContext",
+        "ActorKind",
+        "ActorLocalStore",
+        "ActorStartOperation",
+        "ActorStore",
+        "MemoryActorStoreSnapshot",
+        "SynchronousResultGuard",
+        "TransactionOperation",
+        "TransactionalStore"
+      ]
+    },
+    {
+      "id": "W1-W0-CONTENT-EXPORTS",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "requested",
+      "specifier": "@agent-core/core/content",
+      "runtimeSymbols": [
+        "ByteRange",
+        "ContentOwnerEdge",
+        "ContentRetention",
+        "ContentStat",
+        "ContentStore",
+        "MediaHint",
+        "MemoryContentRetention",
+        "MemoryContentRetentionState",
+        "MemoryContentStore",
+        "MemoryTransientContentAccess",
+        "TransientContentAccess",
+        "TransientContentLease",
+        "TransientContentLeaseState",
+        "requireCollectionTime",
+        "requireOperationTime"
+      ],
+      "typeSymbols": [
+        "ContentCollectionCandidate",
+        "ContentPutResult",
+        "MemoryContentRetentionSnapshot",
+        "MemoryContentSnapshot",
+        "TenantContentPolicyReader",
+        "TransientContentBinding"
+      ]
+    },
+    {
+      "id": "W1-W0-GENERIC-PROTOCOL-EXPORTS",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "integration-dependent",
+      "specifier": "@agent-core/core/protocol",
+      "runtimeSymbols": [
+        "CommandAuthenticator",
+        "CommandCallerPolicy",
+        "CommandCommitUnknownError",
+        "CommandDispatcher",
+        "CommandEnvelope",
+        "CommandEnvelopeCodec",
+        "CommandIngress",
+        "CommandPreparationUnavailableError",
+        "MemoryProtocolPersistence",
+        "MemoryProtocolRecords",
+        "PayloadLeaseBinding",
+        "ProtocolPersistenceAdapter",
+        "ProtocolRecordStorage",
+        "WriteRecord",
+        "WriteRecordCodec",
+        "protocolIdentityProjection",
+        "protocolIdentityProjectionsEqual"
+      ],
+      "typeSymbols": [
+        "CommandCaller",
+        "CommandDispatchResult",
+        "CommandDispatcherInit",
+        "CommandEnvelopeInit",
+        "CommandIdentity",
+        "CommandIngressInit",
+        "CommandIngressResult",
+        "CommandOutcome",
+        "CommandPayloadCodec",
+        "CommitCertainty",
+        "CurrentLease",
+        "ExpectedRevisionPolicy",
+        "LeaseTokenPolicy",
+        "MemoryProtocolSnapshot",
+        "PayloadMalformedReason",
+        "PreDispatchFailure",
+        "PreDispatchPhase",
+        "ProtocolCallerProjection",
+        "ProtocolCommand",
+        "ProtocolCommandExecution",
+        "ProtocolCommandRegistration",
+        "ProtocolIdFactory",
+        "ProtocolIdentityProjection",
+        "ProtocolPersistence",
+        "ProtocolValueCodec",
+        "ProtocolWriteIdentityProjection",
+        "RetryInstruction",
+        "StoredProtocolAudit",
+        "StoredProtocolWrite",
+        "WriteRecordInit"
+      ],
+      "internalOnly": [
+        "CommandAuthentication",
+        "PreparedCommandPayload",
+        "inspectPreparedCommandPayload",
+        "issueLeasedCommandPayload",
+        "issueMalformedCommandPayload",
+        "ProtocolIdFactory implementations",
+        "ProtocolRecordStorage implementations",
+        "closed dispatcher composition constructors"
+      ],
+      "removedStaleExports": [
+        "HeldContentStore",
+        "HeldContentVerifier"
+      ]
+    },
+    {
+      "id": "W1-W0-CROSS-OWNER-PROTOCOL-EXPORTS",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "blocked",
+      "specifier": "@agent-core/core/protocol",
+      "W2Symbols": [
+        "MemoryTenantBootstrap",
+        "MemoryTenantBootstrapInit",
+        "MemoryTenantBootstrapSnapshot",
+        "TenantBootstrapAnchor",
+        "TenantBootstrapAnchorRecord",
+        "TenantBootstrapTarget",
+        "createMemoryTenantBootstrap",
+        "tenantBootstrapPayload"
+      ],
+      "W4Symbols": [
+        "MATERIALIZATION_COMMANDS",
+        "MaterializationApplyLocalCommand",
+        "MaterializationApplyLocalPayload",
+        "MaterializationCommandBackend",
+        "MaterializationCommandPayload"
+      ],
+      "releaseConditions": [
+        "W2 supplies closed authentication and transient-content composition.",
+        "W4 supplies Actor activation and the current generic command registration contract.",
+        "Packed consumer tests pass after each owner completes its cutover."
+      ]
+    },
+    {
+      "id": "W1-W0-SQLITE-EXPORTS",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "requested",
+      "specifier": "@agent-core/core/substrates/sqlite",
+      "currentRuntimeSymbols": [
+        "ReadableSqlite",
+        "SqliteActorStore",
+        "SqliteContentStore",
+        "SqliteProtocolPersistence",
+        "TransactionalSqlite"
+      ],
+      "requestedRuntimeSymbols": [
+        "SqliteContentRetention",
+        "SqliteTransientContentAccess"
+      ],
+      "currentTypeSymbols": [
+        "SqliteRow",
+        "SqliteValue"
+      ],
+      "requirements": [
+        "Add the new retention adapters to the W0-owned SQLite barrel and packed declaration/runtime checks.",
+        "Do not export internal content table helpers or retention schema functions.",
+        "Keep W2 SqliteTenantBootstrap separate from W1 generic SQLite ownership."
+      ]
+    },
+    {
+      "id": "W1-W0-ROOT-AGGREGATE",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "integration-dependent",
+      "specifier": "@agent-core/core",
+      "requirements": [
+        "Preserve runtime and declaration identity with the approved ./core, ./actors, ./content, and ./protocol exports above.",
+        "Do not root-export SQLite adapters or host-only authentication, prepared-payload issuance, persistence, or composition implementations.",
+        "Update package.json, src/index.ts, context barrels, build entrypoints, check-exports.mjs, and packed positive/negative tests atomically."
+      ]
+    }
+  ]
+}

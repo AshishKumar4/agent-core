@@ -1,6 +1,8 @@
 # Important instructions:
 
-**We have never made the codebase public and thus there is absolutely no need for any kind of 'migrations' or 'keeping things backward compatible'. If something is dead/stale, just remove and build things better. **
+**This codebase has not been public. Remove stale compatibility code and artifacts
+instead of preserving them. This does not waive SPEC §5.2 Run migration: RunPins
+migration is a domain operation with durable evidence, not legacy compatibility.**
 
 ## 1. Coding Standards & Conventions
 ​
@@ -72,37 +74,46 @@ IMPORTANT: RPC stubs must be disposed to prevent resource leaks on the server si
 # Implementing the Agent Core spec (`packages/agent-core`)
 
 This section is the implementation architecture for anyone (human or agent) turning
-`packages/agent-core/SPEC.md` into code. The existing `src/` already follows these
-patterns — read `src/agents/runs/`, `src/invocations/`, and `src/facets/filesystem/`
-first; they are the reference for the style expected everywhere. Every rule below is
-derived from either the SPEC (cited by §) or from patterns already established in the
-code. When a rule and the SPEC conflict, the SPEC wins; fix the rule.
+`packages/agent-core/SPEC.md` into code. Read the retained `src/core/`, `src/actors/`,
+and `src/protocol/` foundations first. A source directory is not a public API: only
+subpaths listed in `packages/agent-core/package.json` are supported consumer surfaces.
+When a rule and the SPEC conflict, the SPEC wins; fix the rule.
 
 ## Bounded contexts
 
 One directory per bounded context, owning its own `id.ts` and `index.ts`. No context
-reaches into another's internals — only through its `index.ts` exports.
+reaches into another's internals — only through its `index.ts` exports. A context
+barrel is still internal unless `package.json` explicitly exports it.
 
 | Directory | Owns (SPEC layer) | Must not own |
 |---|---|---|
 | `src/core` | cross-cutting value types: `TextId`, `Digest`, `ContentRef`, `SecretRef`, `Revision` (§1.4) | domain records |
-| `src/identity` | Principal, Team, Membership, the Scope chain records (§3.1–§3.3) | grant storage |
-| `src/authority` | Grant/Binding records, role→grant materialization, resolution, revocation epochs (§3.3–§3.4) | facet implementations |
-| `src/facets` | Facet contract, manifests, contributions, slots, interceptors, and profile facets in subdirectories (§4) | substrate persistence |
-| `src/invocations` | the tiered invocation pipeline, approvals, receipts, audit (§7) | workspace event storage |
-| `src/workspaces` | Workspace records, Events, Subscriptions, ingress, trust-tier derivation (§6) | tenant policy |
-| `src/agents` | Agent, Run/RunBranch/RunCommit, Turn, leases, executor seam (§5) | model-provider SDKs |
-| `src/environments` | Environment/Session records and providers (§4.5) | concrete containers |
-| `src/slates` | Slate records, versions, deployments (§4.6) | frontend frameworks |
+| `src/identity` | Principal, Team, Membership, Role, and the Scope chain records (§3.1–§3.3) | grant storage |
+| `src/authority` | Grants, Bindings, resolution, epochs, watermarks, and authority policy (§3.4) | identity records or invocation mediation |
+| `src/facets` | manifests, contributions, Operations, Interceptors, Slots, Surfaces, and profile contracts (§4, §11) | substrate persistence |
+| `src/invocations` | preparation, approval, effects, Receipts, reconciliation, and audit evidence (§7) | event routing or Run graphs |
+| `src/agents` | Agent, Run, Turn, graph, lease, migration, and settlement behavior (§5) | invocation or environment runtime |
+| `src/workspaces` | Workspace-owned Events, Subscriptions, routing, delivery, and View replay (§6) | invocation effects |
+| `src/environments` | Environment and Session contracts and lifecycle (§4.5) | profile-specific substrate adapters |
+| `src/slates` | Slate source, version, deployment, and authority contracts (§4.6) | environment implementation |
+| `src/definition` | Packages, Blueprints, policy, placement, and materialization (§9) | runtime activation shortcuts |
 | `src/actors` | the Actor primitive and fencing (§8.1) | Durable Object specifics |
-| `src/operations` | OperationContext and observability helpers | the Operation primitive |
-| `src/definition` *(planned)* | Package, Blueprint, the materializer (§9) | runtime execution |
-| `src/protocol` *(planned)* | command envelopes and the dispatcher (§8.5) | domain logic |
+| `src/protocol` | command envelopes and the dispatcher (§8.5) | domain logic |
+| `src/composition` | internal cross-context adapter wiring owned by W9 | domain records or public API |
 | `src/substrates/*` | concrete adapters (sqlite today; `cloudflare` as its own package later) | core policy |
 
-Contexts marked *(planned)* do not exist yet; create them when you implement that
-layer. The rest exist and are the reference. Cross-context imports use `import type`
-for types wherever possible and go through the target's `index.ts`, never a deep path.
+The complete normative runtime is built in dependency-ordered layers. A layer under
+construction remains absent from the package surface until it is implemented and
+conformance-tested as a complete layer; the final conformance stage admits no planned,
+implemented-only, or deferred requirement. Do not restore `BindingSet`, `FacetSet`, the
+old `OperationCatalog`, the old invocation/workspace runtime, or compatibility wrappers
+around them. Cross-context imports use `import type` for types
+wherever possible and go through the target's retained `index.ts`, never a deep path.
+The import-boundary gate's dependency-cycle model is intentionally limited to
+top-level bounded contexts. Nested substrate adapters are implementation modules, not
+independent cycle nodes, but every import originating there still goes through the
+target context barrel. The baseline is permanently empty; no deep-import exception is
+admitted for production, dormant, or test code.
 
 ## Object design
 
@@ -116,49 +127,89 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
   dominant idiom in this codebase, and the one to reach for first: an abstract base
   class, `static` factory getters/methods for each case, and small private subclasses
   that carry the behavior — `WriteMode.create/replace/upsert` each with its own
-  `validate`, `ReadRange.all/from/slice` each with its own `read`, `RunStatus`/
+  `validate`, `ReadRange.all/from/slice` each with its own `read`, `RunLifecycle`/
   `TurnStatus` each with their own transition methods. This keeps the illegal cases
   unrepresentable and the behavior next to the data, instead of scattering `switch`
   statements across the codebase. A concept modeled as a string union that callers
   branch on is usually asking to be one of these.
 - **Durable records are immutable classes**: `readonly` fields, constructors that
   validate shape (`TypeError` on violation), and private `transition`/`revise` helpers
-  that return new instances (see `Run`, `Turn`, `Invocation`). Records never own live
-  resources (§8.3).
+  that return new instances. Records never own live resources (§8.3).
 - **State machines are behavior-carrying classes**, not string unions: the
-  `RunStatus`/`TurnStatus` pattern — an abstract base with singleton subclasses whose
+  `RunLifecycle`/`TurnStatus` pattern — an abstract base with singleton subclasses whose
   methods either return the next state or throw `AgentCoreError` with a stable code.
   Illegal transitions must be unrepresentable as method calls that succeed.
 - **Every record type gets a codec** (§8.3): a static `encode()`/`decode()` pair with a
   version tag, used identically for storage, the command protocol, and export/import.
   Tolerant-read and upcast within a major; typed rejection of unknown majors. The codec
-  lives next to the record; a record without a codec is unfinished.
+  lives next to the record; a record without a codec is unfinished. Any future
+  machine-readable schema is generated from these codecs, never a second source of truth.
 - **Behavioral contracts are abstract classes; pure data shapes are interfaces** —
   the same convention the SPEC uses for its own contracts.
-- **Seams are interfaces with in-memory reference implementations** used by tests
-  (`MemoryWorkspaceEventStore` pattern). Substrate implementations live under
-  `src/substrates/`, never inside a domain context.
+- **Seams are interfaces with in-memory reference implementations** used by tests.
+  Substrate implementations live under `src/substrates/`, never inside a domain
+  context. Do not invent a store merely to turn deferred ownership evidence green.
 
 ## Concurrency and substrate rules
 
-- The storage seam is **synchronous** (`TransactionalSqlite`), matching Durable Object
-  SQLite. The dispatcher's envelope check plus guarded mutation must be one synchronous
-  span with no intervening `await` (§8.5, §10.3) — an `await` between the read and the
-  write is a correctness bug, not a style issue.
-- Every Turn-owned mutation carries and checks the lease epoch (§5.3). Every cross-actor
+- The Actor-owned storage seam is **synchronous** (`ActorLocalStore`, implemented by
+  `TransactionalSqlite` and the memory reference store). Isolated gate reads and the
+  dispatcher's guarded mutation remain one synchronous span with no intervening `await`
+  (§8.5, §10.3) — an `await` between the read and write is a correctness bug, not style.
+- Every executor mutation carries the exact Turn id and current lease epoch (§5.3).
+  Never reuse a lease across Turns. Run commits obey the exact §5.2 root/Turn/system
+  CommitWriter matrix; every merge is system-authored by successful control evidence,
+  while synthesis also names its exact token. System evidence does not impersonate a Turn. Every cross-actor
   interaction is at-least-once and idempotency-keyed (§6.1, §10.1). There is no
   cross-actor transaction anywhere; do not write code that assumes one.
 - Respect the ownership map (§8.4): each record type has exactly one owning Actor;
   everything else holds ids and rebuildable indexes. Adding a second durable copy of
   any state is a conformance violation — build a derived, disposable cache instead.
+- Authority has one durable plane: allow and deny are Grant effects, Role rules
+  materialize those Grants, and Binding resolution evaluates complete path-epoch
+  evidence. Mediated stale checks atomically advance the delivered watermark before a
+  pre-effect denial. Direct checks require the exact current Turn lease, unstaled
+  watermark, and immutable deadline; renewal never extends it.
+- Placement is exactly `manifest ∩ policy ∩ substrate ∩ trust`, followed by the
+  one fixed order `dynamic`, `provider`, `bundled`. Do not encode a second ordering or
+  fallback for an empty intersection.
+- Enforcement and approval policies only tighten floors. Never lower mediated
+  `execute`/`mutate`/`externalSend`/`delegate`/`administer` or remove required approval;
+  recheck current epochs before every mediated effect.
+- Preparation has one shared header with an optional exact Turn and exactly a single or
+  nonempty ordered homogeneous payload. Derive each item key from the complete shared
+  header identity, payload shape, item index, argument digest, and seed; digest the
+  complete canonical structure. Pre-effect denied/cancelled Receipts have no attempt;
+  attempted Receipts do, and only indeterminate may be superseded once. Atomically
+  claim each item with a future expiry; claim ownership is separate from attempt
+  ordinal. Only an expired claim with no attempt may be recovered, with the same
+  ordinal, a new owner, and a new future expiry. Only a final failed attempt advances
+  the ordinal.
+- Event routing uses explicit accepted trust sets and initiator/delegated authority. The
+  source Actor owns the authenticated RouteReservation; its projection admits a
+  cause-free target-local `routeProjected` bridge root. No source AuditRecord causes
+  that root. Cross-tenant routes require separate explicit authority.
+- Security audit is append-only: typed causes preexist, and cross-Actor causality is
+  permitted only through the source-owned RouteReservation projection bridge.
+- The Run graph is canonical: one zero-parent root, unary non-root/non-merge commits, and ordered
+  binary merges. Tree merge is binary. RunPins contain Blueprint and complete Package
+  closure; Turn placement is separate. Terminalization closes admission only after
+  every sibling Turn is both terminal and unheld, and captures a finite obligation set.
+  BatchOutcome is derived once every item has a current Receipt
+  and may be indeterminate; its terminal form and Run Settled require non-indeterminate
+  obligations.
+- Protocol commands use exact callers, optional LeaseTokens, deterministic rejection
+  outcomes, and linked WriteRecord/AuditRecord evidence. Missing caller causes on
+  rejection get host-created attributable roots.
 
 ## Errors and observability
 
 - Runtime/domain failures: `AgentCoreError` with a stable code from the closed
-  `AgentCoreErrorCode` union. Constructor shape violations: `TypeError`. Filesystem
-  keeps its own `FileErrorCode` taxonomy. Never throw bare `Error`.
-- Telemetry spans (`src/observability`) are diagnostics. Receipts, audit records, and
-  Events are the durable truth (§7.4); a span is never a substitute for one.
+  `AgentCoreErrorCode` union. Constructor shape violations: `TypeError`. Never throw
+  bare `Error`; each implemented profile uses its SPEC-defined stable taxonomy.
+- Telemetry spans are diagnostics, not durable domain evidence. RouteReservations,
+  PreparedInvocations, EffectAttempts, Receipts, AuditRecords, and Events are durable
+  evidence where required (§7.4); a span is never a substitute for one.
 
 ## Naming
 
@@ -176,26 +227,33 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
 |---|---|
 | primitive / constituent record | immutable class + codec + owning-context `id.ts` entry |
 | behavioral contract (abstract class in SPEC) | abstract class with the same name and members |
-| profile (§11) | `src/facets/<profile>/` module + parameterized conformance suite |
+| profile (§11) | declaration first; runtime module and export only with §13 conformance evidence |
 | substrate contract (§8) | interface + memory implementation + substrate implementation |
 | contribution kind (§4.2) | manifest data type + materializer handler — no bespoke runtime machinery |
 | command family (§8.5) | request/reply types with envelopes, registered on the dispatcher |
-| policy (tiers, placement, trust) | pure functions mirroring the Lean derivations in `formal/AgentCore/Policy.lean` |
+| policy (tiers, placement, trust) | pure functions implementing SPEC rules; formal coverage never substitutes for conformance tests |
 
 ## Tests
 
-- Behavior-first through public interfaces; mock only at real seams. The filesystem
-  conformance suite (`test/filesystem/conformance.ts`) is the template: one
-  parameterized suite run against every implementation of a seam.
-- Every MUST in SPEC §13 needs a test that would fail if the MUST were violated,
-  including the adversarial list (stale lease, revoked grant mid-turn, digest mismatch
-  at approval resume, duplicate event delivery, hostile tier assertion, unauthorized
-  slot contribution, interceptor overreach).
-- Where a behavior is proven in `formal/`, the test should exercise the same scenario
-  the theorem states — the proof covers the abstract model, the test covers this
-  implementation of it, and they should visibly correspond.
-- `pnpm check:traceability` must pass before any commit that touches `formal/` or
-  `artifacts/traceability.yaml`.
+- Test behavior through public interfaces and mock only at real seams. Run each
+  parameterized contract against every implementation of that seam.
+- Test package boundaries from a packed NodeNext consumer. Removed subpaths and symbols
+  need negative declaration and runtime assertions; source-only imports are not evidence
+  of a public contract.
+- Every MUST in SPEC §13 needs a test that would fail if the MUST were violated. Use
+  the complete adversarial list there, including wrong-Turn leases, allow/deny epoch
+  changes, all direct revocation cutoffs, placement intersection failure, malformed
+  batches, structural digest changes, Receipt lineage, duplicate reservations,
+  non-binary and unequal-pin merges, writer-matrix violations, and audit-chain breaks.
+- Formal trace IDs identify abstract coverage categories only. Do not name or infer a
+  theorem claim in code or tests unless
+  `packages/agent-core/artifacts/traceability.yaml` states it. SPEC
+  §14 expressly makes no implementation-refinement claim.
+- `pnpm check:traceability` must pass before any commit that touches
+  `packages/agent-core/formal/` or
+  `packages/agent-core/artifacts/traceability.yaml`.
+- `pnpm check:final` is the release gate. It requires every atomic SPEC conformance
+  requirement to be verified and all four aggregate coverage metrics to be at least 95%.
 
 ## Working style
 

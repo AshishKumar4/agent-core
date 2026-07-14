@@ -1,0 +1,13 @@
+{
+  "requester": "W3",
+  "owner": "W7",
+  "status": "required-before-command-or-surface-public-export",
+  "requirements": [
+    "Use CommandRuntime only for strict argument mapping and Binding/package target validation",
+    "Emit command.invoked after argument and mapped Operation schema validation",
+    "Route through the exact derived Subscription defaults and protected Operation gateway",
+    "Emit correlated command.completed with durable success or failure evidence",
+    "Define revisioned View, actions, cursor, and ViewDelta replay before stabilizing Surface.render",
+    "Supply authenticated viewer construction for SlotCatalog; never export caller-composable catalog authority injection"
+  ]
+}

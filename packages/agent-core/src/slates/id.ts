@@ -12,9 +12,9 @@ export class SlateVersionId extends TextId {
     }
 }
 
-export class SlateDocumentId extends TextId {
+export class SlatePublicationId extends TextId {
     public constructor(value: string) {
-        super(value, "Slate document ID");
+        super(value, "Slate publication ID");
     }
 }
 
@@ -24,8 +24,14 @@ export class SlateDeploymentId extends TextId {
     }
 }
 
-export class SlateBlueprintId extends TextId {
+export class SlateResourceId extends TextId {
     public constructor(value: string) {
-        super(value, "Slate blueprint ID");
+        super(value, "Slate resource ID");
+    }
+}
+
+export class SlatePreviewId extends TextId {
+    public constructor(value: string) {
+        super(value, "Slate preview ID");
     }
 }

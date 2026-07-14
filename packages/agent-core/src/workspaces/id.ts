@@ -1,25 +1,39 @@
 import { TextId } from "../core";
 
-export class WorkspaceId extends TextId {
+export class ActionId extends TextId {
     public constructor(value: string) {
-        super(value, "Workspace ID");
+        if (typeof value !== "string" || value.length === 0 || value.trim() !== value) {
+            throw new TypeError("Action ID must be a nonblank canonical string");
+        }
+        super(value, "Action ID");
+        Object.freeze(this);
     }
 }
 
-export class TaskId extends TextId {
+export class ContentRetentionId extends TextId {
     public constructor(value: string) {
-        super(value, "Task ID");
+        super(value, "Content retention ID");
+        Object.freeze(this);
     }
 }
 
-export class EventId extends TextId {
+export class EventCursor extends TextId {
     public constructor(value: string) {
-        super(value, "Event ID");
+        super(value, "Event cursor");
+        Object.freeze(this);
     }
 }
 
-export class SubscriptionId extends TextId {
+export class InboxReferenceId extends TextId {
     public constructor(value: string) {
-        super(value, "Subscription ID");
+        super(value, "Inbox reference ID");
+        Object.freeze(this);
+    }
+}
+
+export class RetainedRecordRef extends TextId {
+    public constructor(value: string) {
+        super(value, "Retained record reference");
+        Object.freeze(this);
     }
 }

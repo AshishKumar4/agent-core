@@ -1,26 +1,24 @@
-export { MemoryFacet } from "./facet";
-export { MemoryStore } from "./store";
-export type {
-	MemoryConfig,
-	RebuildErrorContext,
-	RebuildIndexOptions,
-	RebuildIndexResult,
-	SearchConfig
-} from "./store";
-export { MemoryIndex } from "./memory-index";
-export type { MemoryIndexChunk, MemoryIndexMatch } from "./memory-index";
 export {
-	DEFAULT_MEMORY_EXCLUDED_PREFIXES,
-	DEFAULT_MEMORY_INDEXED_PREFIXES,
-	isExcludedMemoryPath,
-	isIndexableMemoryFile,
-	memoryPathDateKey,
-	normalizeMemoryPath,
-	shouldIndexMemoryPath,
-	sortMemoryIndexPaths,
-} from "./policy";
-export type { MemoryPathPolicy } from "./policy";
-export { chunkMarkdown, DEFAULT_CHUNK_TARGET_CHARS, DEFAULT_CHUNK_OVERLAP_CHARS } from "./chunker";
-export type { Chunk } from "./chunker";
-export { sanitizeFtsQuery, STOP_WORDS } from "./query";
-export type { MemorySearchResult, SanitizeOptions } from "./query";
+    InMemoryMemoryIndexBackend,
+    MEMORY_CONTRIBUTIONS,
+    MEMORY_OPERATION_CONTRACTS,
+    MEMORY_OPERATIONS,
+    MEMORY_PROMPT_CONTRIBUTION_DESCRIPTOR,
+    MEMORY_PROMPT_CONTROL,
+    MemoryBackend,
+    MemoryEntry,
+    MemoryError,
+    MemoryFacet
+} from "./facet";
+export { MEMORY_ISOLATION, createMemoryManifest } from "./manifest";
+export type {
+    ForgetInput,
+    MemoryAccessBackend,
+    MemoryContentBackend,
+    MemoryErrorCode,
+    MemoryIndexBackend,
+    MemoryPromptBounds,
+    MemoryPromptInput,
+    RecallInput,
+    RememberInput
+} from "./facet";

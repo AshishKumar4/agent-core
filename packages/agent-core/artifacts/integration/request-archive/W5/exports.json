@@ -1,0 +1,33 @@
+{
+  "edition": "1.0.0",
+  "request": "W5-AGGREGATE-EXPORTS",
+  "status": "requested",
+  "entries": [
+    {
+      "barrel": "src/agents/index.ts",
+      "modules": [
+        "src/agents/source.ts",
+        "src/agents/runs/commit.ts",
+        "src/agents/runs/evidence.ts",
+        "src/agents/runs/executor.ts",
+        "src/agents/runs/memory.ts",
+        "src/agents/runs/pins.ts",
+        "src/agents/runs/placement.ts",
+        "src/agents/runs/run.ts",
+        "src/agents/runs/runtime.ts",
+        "src/agents/runs/settlement.ts",
+        "src/agents/runs/spawn.ts",
+        "src/agents/runs/store.ts",
+        "src/agents/runs/turn.ts"
+      ]
+    },
+    { "barrel": "src/protocol/index.ts", "modules": ["src/protocol/run-commands.ts"] },
+    { "barrel": "src/substrates/sqlite/index.ts", "modules": ["src/substrates/sqlite/run.ts"] }
+  ],
+  "preconditions": [
+    "All requested ownership rows are registered",
+    "W3, W6, and W8 typed port adapters pass shared contracts",
+    "Packed NodeNext runtime and declaration tests pass",
+    "The complete Agent runtime conformance claim replaces the deferred claim"
+  ]
+}
