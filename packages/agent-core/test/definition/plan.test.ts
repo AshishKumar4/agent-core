@@ -266,6 +266,46 @@ describe("materialization planning", () => {
         ).toThrow(/Unsupported materialization record kind/);
     });
 
+    test.each([
+        {
+            label: "facet-install with unknown fields",
+            recordKind: "facet-install",
+            desired: {
+                facetId: "acme.deploy",
+                facetVersion: "1.0.0",
+                packageId: "acme.tools",
+                extra: "field"
+            } as JsonValue,
+            message: /Facet install contains missing or unknown fields/
+        },
+        {
+            label: "scope-scaffold with an empty declaration",
+            recordKind: "scope-scaffold",
+            desired: {} as JsonValue,
+            message: /declaration must not be empty/
+        },
+        {
+            label: "slot-entry with a negative index",
+            recordKind: "slot-entry",
+            desired: {
+                contributor: "acme.deploy",
+                slot: "chat.composer",
+                index: -1,
+                value: { command: "deploy" }
+            } as JsonValue,
+            message: /Slot entry index must be a non-negative safe integer/
+        }
+    ])("rejects malformed desired state: $label", ({ recordKind, desired, message }) => {
+        expect(
+            () =>
+                new DesiredProjection({
+                    logicalKey: "malformed:projection",
+                    recordKind,
+                    desired
+                })
+        ).toThrow(message);
+    });
+
     test("admits every normative materialization kind", () => {
         expect(ManagedStateRecord.supportedRecordKinds()).toEqual([
             "agent-profile",

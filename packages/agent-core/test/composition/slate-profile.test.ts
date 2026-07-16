@@ -1,4 +1,5 @@
 import { SlateRuntimeBackend, type SlateRuntimePort } from "../../src/composition";
+import { EffectDispatch } from "../../src/facets";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import { WorkspaceId } from "../../src/identity";
 import { InvocationId } from "../../src/interaction-references";
@@ -14,6 +15,12 @@ import {
     SlateVersionId
 } from "../../src/slates";
 import { describe, expect, test } from "vitest";
+
+let dispatchCounter = 0;
+function dispatchFixture(): EffectDispatch {
+    dispatchCounter += 1;
+    return new EffectDispatch(`slate-dispatch-${dispatchCounter}`);
+}
 
 describe("Slate profile composition", () => {
     test("maps profile wire DTOs to typed SlateRuntime arguments", async () => {
@@ -46,7 +53,10 @@ describe("Slate profile composition", () => {
             stopped
         );
         await expect(
-            backend.deploy({ publication: "publication", target: "production" })
+            backend.deploy(
+                { publication: "publication", target: "production" },
+                new EffectDispatch("dispatch-mapping-key")
+            )
         ).rejects.toBe(stopped);
         await expect(backend.rollback({ slate: "slate", deployment: "deployment" })).rejects.toBe(
             stopped
@@ -64,7 +74,7 @@ describe("Slate profile composition", () => {
             ["commit", "slate", 2],
             ["fork", "version", "workspace"],
             ["publish", "version", source],
-            ["deploy", "publication", "production"],
+            ["deploy", "publication", "production", "dispatch-mapping-key"],
             ["rollback", "slate", "deployment", undefined]
         ]);
     });
@@ -134,7 +144,7 @@ describe("Slate profile composition", () => {
             backend.publish({ version: versionId.value, materialization: source.value })
         ).resolves.toMatchObject({ publicationId: publicationId.value });
         await expect(
-            backend.deploy({ publication: publicationId.value, target: "production" })
+            backend.deploy({ publication: publicationId.value, target: "production" }, dispatchFixture())
         ).resolves.toEqual({
             outcome: "succeeded",
             deploymentId: deploymentId.value,
@@ -142,7 +152,7 @@ describe("Slate profile composition", () => {
             activated: true
         });
         await expect(
-            backend.deploy({ publication: publicationId.value, target: "production" })
+            backend.deploy({ publication: publicationId.value, target: "production" }, dispatchFixture())
         ).resolves.toEqual({
             outcome: "failed",
             deploymentId: deploymentId.value,

@@ -1,3 +1,4 @@
+let externalKeyCounter = 0;
 import { describe, expect, test } from "vitest";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import {
@@ -369,6 +370,7 @@ describe("MemorySlateStore", () => {
                         publicationId: new SlatePublicationId("publication-missing"),
                         publicationMaterialization: ref("publication"),
                         target: "production",
+            externalKey: `external-${externalKeyCounter++}`,
                         invocationId: invocation
                     })
                 ),
@@ -502,6 +504,7 @@ describe("MemorySlateStore", () => {
                     publicationId: graph.publication.id,
                     publicationMaterialization: graph.publication.materialization,
                     target: graph.deployment.target,
+                    externalKey: "external-invalid-invocation",
                     invocationId: "invalid" as unknown as InvocationId
                 })
         ).toThrow(TypeError);
@@ -536,6 +539,7 @@ describe("MemorySlateStore", () => {
                     publicationId: deploymentReservation.publicationId,
                     publicationMaterialization: deploymentReservation.publicationMaterialization,
                     target: "different",
+            externalKey: `external-${externalKeyCounter++}`,
                     invocationId: deploymentReservation.invocationId
                 })
             )
@@ -826,6 +830,7 @@ function completeGraph(label: string) {
             publicationId: publication.id,
             publicationMaterialization: publication.materialization,
             target: deployment.target,
+            externalKey: `external-${externalKeyCounter++}`,
             invocationId: invocation
         })
     );

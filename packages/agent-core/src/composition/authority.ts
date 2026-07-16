@@ -33,7 +33,20 @@ export interface OperationResolutionState {
     readonly resolvedAt: Date;
     readonly deadline: Date;
     readonly owner: ActorRef;
-    readonly policies?: readonly PolicySet[];
+    /**
+     * The policy sets governing this resolution's scope chain. Required so a resolver
+     * that has no applicable policies states that explicitly with an empty array — an
+     * omitted field would be indistinguishable from policies silently not threaded, and
+     * policy tightening plus approval requirements would be lost (SPEC §7.2).
+     */
+    readonly policies: readonly PolicySet[];
+    /**
+     * True only when the resolver attests that the operation targets an Environment
+     * session owned by the current Turn. Lease possession alone does not establish
+     * this — a leased Turn can resolve operations against sessions it does not own,
+     * and only session-scoped execute is eligible for the direct tier (SPEC §7.2).
+     */
+    readonly turnOwnedSession: boolean;
 }
 
 export interface OperationAuthorityStatePort<Caller> {
@@ -56,7 +69,14 @@ export interface OperationAuthorityStatePort<Caller> {
         descriptor: OperationDescriptor
     ): boolean;
     release(resolution: OperationResolutionState): void;
-    observeStale?(
+    /**
+     * Record a stale-authority observation atomically (SPEC §3.4 rule 7): join the
+     * current path Scope epochs into the holder watermark map, invalidate the cached
+     * resolution, and persist the deniedPreEffect Receipt and AuditRecord with no
+     * EffectAttempt. Required — an optional hook would let an implementation silently
+     * skip the durable denial evidence, which is the defect class this exists to close.
+     */
+    observeStale(
         resolution: OperationResolutionState,
         descriptor: OperationDescriptor,
         inputs: readonly FacetData[]
@@ -131,9 +151,9 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
         }
         return evaluatePolicy({
             impact: descriptor.impact,
-            turnOwnedSession: resolution.lease !== undefined,
+            turnOwnedSession: resolution.turnOwnedSession,
             placement: resolution.placement.selected,
-            policies: resolution.policies ?? []
+            policies: resolution.policies
         }).tier;
     }
 
@@ -187,7 +207,7 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
                 this.state.currentLease(resolution.lease)?.admits(resolution.lease, at) !== true) ||
             !this.state.admits(resolution, descriptor, inputs, at)
         ) {
-            this.state.observeStale?.(resolution, descriptor, inputs);
+            this.state.observeStale(resolution, descriptor, inputs);
             throw denied("Mediated authority intent is stale");
         }
         return new MediatedAuthorityIntent(

@@ -77,7 +77,7 @@ describe("SQLite materialization schema", () => {
         expect(schemaSql).toContain("owner_id TEXT NOT NULL CHECK (length(owner_id) > 0)");
         const stateSql = normalizedSql(tables, "definition_managed_state");
         expect(stateSql).toContain(
-            "record_kind TEXT NOT NULL CHECK (record_kind IN ('facet-placement', 'policy-set'))"
+            "record_kind TEXT NOT NULL CHECK (record_kind IN ('agent-profile', 'environment', 'facet-install', 'facet-placement', 'policy-set', 'scope-scaffold', 'slot-entry', 'subscription', 'surface-layout'))"
         );
         expect(stateSql).not.toContain("CHECK (length(record_kind) > 0)");
         expect(stateSql).toContain("UNIQUE (generation_id, logical_key)");
@@ -91,13 +91,13 @@ describe("SQLite materialization schema", () => {
 
         expect(() =>
             database.run(
-                "UPDATE definition_managed_state SET record_kind = 'slot-entry' WHERE id = ?",
+                "UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?",
                 [closure.record.id.value]
             )
         ).toThrow();
         database.run("PRAGMA ignore_check_constraints = ON", []);
         database.run(
-            "UPDATE definition_managed_state SET record_kind = 'slot-entry' WHERE id = ?",
+            "UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?",
             [closure.record.id.value]
         );
         database.run("PRAGMA ignore_check_constraints = OFF", []);
@@ -110,7 +110,7 @@ describe("SQLite materialization schema", () => {
             database.all("SELECT record_kind FROM definition_managed_state WHERE id = ?", [
                 closure.record.id.value
             ])
-        ).toEqual([{ record_kind: "slot-entry" }]);
+        ).toEqual([{ record_kind: "binding" }]);
     });
 
     test("requires reset through decoded managed-state, generation, and pointer closure", () => {
@@ -315,7 +315,7 @@ describe("SQLite materialization schema", () => {
         );
         database.run(
             `INSERT INTO definition_managed_state (id, record_kind, record)
-             VALUES (?, 'slot-entry', ?)`,
+             VALUES (?, 'binding', ?)`,
             [record.id.value, legacyBytes]
         );
 
@@ -325,7 +325,7 @@ describe("SQLite materialization schema", () => {
         ).toEqual([
             {
                 id: record.id.value,
-                record_kind: "slot-entry",
+                record_kind: "binding",
                 record: legacyBytes
             }
         ]);
@@ -460,13 +460,13 @@ function managedOrigin(seed: string): ManagedOrigin {
 
 function withLegacyPlanKind(bytes: Uint8Array): Uint8Array {
     const envelope = decodeCanonicalJson(bytes) as unknown as MutablePlanEnvelope;
-    envelope.payload.actors[0]!.projections[0]!.recordKind = "slot-entry";
+    envelope.payload.actors[0]!.projections[0]!.recordKind = "binding";
     return encodeCanonicalJson(envelope as unknown as JsonValue);
 }
 
 function withLegacyManagedStateKind(bytes: Uint8Array): Uint8Array {
     const envelope = decodeCanonicalJson(bytes) as unknown as MutableManagedStateEnvelope;
-    envelope.payload.recordKind = "slot-entry";
+    envelope.payload.recordKind = "binding";
     return encodeCanonicalJson(envelope as unknown as JsonValue);
 }
 

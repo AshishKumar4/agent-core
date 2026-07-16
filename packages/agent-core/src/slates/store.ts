@@ -32,12 +32,18 @@ export interface SlateDeploymentReservationInit {
     readonly publicationMaterialization: ContentRef;
     readonly target: string;
     readonly invocationId: InvocationId;
+    /**
+     * The canonical effect identity of the facet-level invocation that requested this
+     * deployment. Deploy consults it before reserving, so a crash-after-send retry
+     * reconciles the existing reservation instead of minting a second deployment.
+     */
+    readonly externalKey: string;
     readonly expectedActiveDeploymentId?: SlateDeploymentId;
 }
 
 class SlateDeploymentReservationCodec extends RecordCodec<SlateDeploymentReservation> {
     public constructor() {
-        super("slate.deployment-reservation", { major: 1, minor: 0 });
+        super("slate.deployment-reservation", { major: 1, minor: 1 });
     }
 
     protected encodePayload(reservation: SlateDeploymentReservation): JsonValue {
@@ -81,6 +87,7 @@ export class SlateDeploymentReservation {
         this.publicationId = init.publicationId;
         this.publicationMaterialization = init.publicationMaterialization;
         this.target = requireText(init.target, "Slate deployment target");
+        this.externalKey = requireText(init.externalKey, "Slate deployment external key");
         this.invocationId = init.invocationId;
         this.expectedActiveDeploymentId = init.expectedActiveDeploymentId;
         Object.freeze(this);
@@ -92,11 +99,13 @@ export class SlateDeploymentReservation {
     public readonly publicationId: SlatePublicationId;
     public readonly publicationMaterialization: ContentRef;
     public readonly invocationId: InvocationId;
+    public readonly externalKey: string;
     public readonly expectedActiveDeploymentId: SlateDeploymentId | undefined;
 
     public toData(): JsonValue {
         return {
             expectedActiveDeploymentId: this.expectedActiveDeploymentId?.value ?? null,
+            externalKey: this.externalKey,
             id: this.id.value,
             invocationId: this.invocationId.value,
             publicationId: this.publicationId.value,
@@ -112,6 +121,7 @@ export class SlateDeploymentReservation {
             payload,
             [
                 "expectedActiveDeploymentId",
+                "externalKey",
                 "id",
                 "invocationId",
                 "publicationId",
@@ -136,6 +146,10 @@ export class SlateDeploymentReservation {
                 "Slate publication materialization"
             ),
             target: requireStringValue(object["target"], "Slate deployment target"),
+            externalKey: requireStringValue(
+                object["externalKey"],
+                "Slate deployment external key"
+            ),
             invocationId: invocationId(object["invocationId"]),
             ...(expected === undefined
                 ? {}
@@ -322,6 +336,9 @@ export abstract class SlateStore {
     public abstract reserveDeployment(reservation: SlateDeploymentReservation): void;
     public abstract getDeploymentReservation(
         id: SlateDeploymentId
+    ): SlateDeploymentReservation | undefined;
+    public abstract findDeploymentReservationByExternalKey(
+        externalKey: string
     ): SlateDeploymentReservation | undefined;
     public abstract reserveResource(reservation: SlateResourceReservation): void;
     public abstract getResourceReservation(
@@ -579,6 +596,20 @@ export class MemorySlateStore extends SlateStore {
 
     public getDeploymentReservation(id: SlateDeploymentId): SlateDeploymentReservation | undefined {
         return getRecord(this.#deploymentReservations, id.value, SlateDeploymentReservation.codec);
+    }
+
+    public findDeploymentReservationByExternalKey(
+        externalKey: string
+    ): SlateDeploymentReservation | undefined {
+        for (const key of this.#deploymentReservations.keys()) {
+            const reservation = getRecord(
+                this.#deploymentReservations,
+                key,
+                SlateDeploymentReservation.codec
+            );
+            if (reservation?.externalKey === externalKey) return reservation;
+        }
+        return undefined;
     }
 
     public reserveResource(reservation: SlateResourceReservation): void {

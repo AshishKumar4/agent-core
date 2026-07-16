@@ -86,6 +86,7 @@ function placementPin(selected: IsolationMode): InvocationPlacementPin {
 
 function resolution(init: {
     readonly turnOwned: boolean;
+    readonly sessionOwned?: boolean;
     readonly placement: IsolationMode;
     readonly policies: readonly PolicySet[];
 }): OperationResolutionState {
@@ -102,7 +103,8 @@ function resolution(init: {
         resolvedAt: new Date(0),
         deadline: new Date(50),
         owner,
-        policies: init.policies
+        policies: init.policies,
+        turnOwnedSession: init.sessionOwned ?? init.turnOwned
     };
 }
 
@@ -153,6 +155,16 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
         expect(authority.tier(resolved, descriptorFor("execute"), false)).toBe("direct");
     });
 
+    test("a live lease alone does not make execute session-scoped", () => {
+        const resolved = resolution({
+            turnOwned: true,
+            sessionOwned: false,
+            placement: "bundled",
+            policies: []
+        });
+        expect(authority.tier(resolved, descriptorFor("execute"), false)).toBe("mediated");
+    });
+
     test("interceptors force mediated regardless of policy", () => {
         const resolved = resolution({ turnOwned: true, placement: "bundled", policies: [] });
         expect(authority.tier(resolved, descriptorFor("observe"), true)).toBe("mediated");
@@ -172,11 +184,17 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
         for (const impact of IMPACTS) {
             for (const placement of PLACEMENTS) {
                 for (const turnOwned of [true, false]) {
+                    for (const sessionOwned of [true, false]) {
                     for (const policies of policySets) {
-                        const resolved = resolution({ turnOwned, placement, policies });
+                        const resolved = resolution({
+                            turnOwned,
+                            sessionOwned,
+                            placement,
+                            policies
+                        });
                         const decision = evaluatePolicy({
                             impact,
-                            turnOwnedSession: turnOwned,
+                            turnOwnedSession: sessionOwned,
                             placement,
                             policies
                         });
@@ -189,6 +207,7 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
                         if (decision.approvalRequired) {
                             expect(gatewayTier).toBe("mediated");
                         }
+                    }
                     }
                 }
             }

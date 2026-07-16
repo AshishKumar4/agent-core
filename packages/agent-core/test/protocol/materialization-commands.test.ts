@@ -211,7 +211,7 @@ describe("materialization.applyLocal protocol command", () => {
         const harness = new MaterializationHarness();
         const plan = harness.plan();
         const raw = harness.envelope(plan, { key: "unsupported-execute" });
-        harness.persistApplyPlan(plan.id, forgePlanKind(plan, "slot-entry"));
+        harness.persistApplyPlan(plan.id, forgePlanKind(plan, "binding"));
 
         await expect(harness.dispatch(raw)).rejects.toThrow(
             /Unsupported materialization record kind/

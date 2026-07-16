@@ -751,20 +751,25 @@ class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
         selected: "bundled"
     });
 
+    public watermark = InvalidationWatermark.empty(tenant, owner, principal);
+    public staleObservations = 0;
+
     public resolve(caller: PrincipalRef): OperationResolutionState | undefined {
         if (!caller.equals(principal)) return undefined;
         return {
             principal,
             binding: this.binding,
             pathEpochs: this.path,
-            watermark: InvalidationWatermark.empty(tenant, owner, principal),
+            watermark: this.watermark,
             lease: this.#token,
             originalLease: this.#lease,
             package: this.#pin,
             placement: this.#placement,
             resolvedAt: new Date(0),
             deadline: new Date(50),
-            owner
+            owner,
+            policies: [],
+            turnOwnedSession: true
         };
     }
     public currentBinding(): Binding | undefined {
@@ -774,7 +779,11 @@ class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
         return this.path;
     }
     public currentWatermark(): InvalidationWatermark {
-        return InvalidationWatermark.empty(tenant, owner, principal);
+        return this.watermark;
+    }
+    public observeStale(): void {
+        this.watermark = this.watermark.join(this.path.path);
+        this.staleObservations += 1;
     }
     public currentLease() {
         return this.#lease;
@@ -806,7 +815,8 @@ function operationAuthority(
             contributorDomain: overrides.contributorDomain ?? state.contributorDomain.bind(state),
             admitsInterception:
                 overrides.admitsInterception ?? state.admitsInterception.bind(state),
-            release: overrides.release ?? state.release.bind(state)
+            release: overrides.release ?? state.release.bind(state),
+            observeStale: overrides.observeStale ?? state.observeStale.bind(state)
         },
         () => new Date(10)
     );

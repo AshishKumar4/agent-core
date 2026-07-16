@@ -315,8 +315,23 @@ export class SlateRuntime {
 
     public async deploy(
         publicationId: SlatePublicationId,
-        target: string
+        target: string,
+        externalKey: string
     ): Promise<SlateDeploymentOutcome> {
+        if (typeof externalKey !== "string" || externalKey.trim() !== externalKey ||
+            externalKey.length === 0) {
+            throw new TypeError("Slate deployment external key must be canonical");
+        }
+        const existing = this.store.findDeploymentReservationByExternalKey(externalKey);
+        if (existing !== undefined) {
+            if (!existing.publicationId.equals(publicationId) || existing.target !== target) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Slate deployment effect identity was reused for a different request"
+                );
+            }
+            return this.reconcileDeployment(existing.id);
+        }
         const publication = this.requirePublication(this.store, publicationId);
         const slate = this.requireSlate(this.store, publication.slateId);
         const request = freezeSlateInvocationRequest({
@@ -338,7 +353,7 @@ export class SlateRuntime {
             invocationId
         });
         await this.mutate(reserve, (store) =>
-            store.reserveDeployment(deploymentReservation(reserve))
+            store.reserveDeployment(deploymentReservation(reserve, externalKey))
         );
         const result = await this.invocations.invoke(request, invocationId, async (context) =>
             this.provider.deploy(deploymentProviderRequest(request, invocationId, context))
@@ -655,9 +670,11 @@ export class SlateRuntime {
 }
 
 function deploymentReservation(
-    request: Extract<SlateMutationRequest, { readonly operation: "deploy.reserve" }>
+    request: Extract<SlateMutationRequest, { readonly operation: "deploy.reserve" }>,
+    externalKey: string
 ): SlateDeploymentReservation {
     return new SlateDeploymentReservation({
+        externalKey,
         id: request.deploymentId,
         workspaceId: request.workspaceId,
         slateId: request.slateId,

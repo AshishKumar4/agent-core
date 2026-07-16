@@ -331,6 +331,15 @@ export class MaterializationPlan {
 }
 
 export abstract class MaterializationTopologyPort {
+    /**
+     * Route a projection to its single owning Actor (SPEC §8.4). Implementations must
+     * follow the normative ownership map: policy-set and scope-scaffold records belong
+     * to the tenant Actor; facet-install, facet-placement, slot-entry, subscription,
+     * agent-profile, and surface-layout records belong to the owning workspace Actor;
+     * environment records belong to their environment Actor. Grants and Bindings are
+     * authority-plane records materialized outside the definition plane (role
+     * assignment and composition policies), never through this port.
+     */
     public abstract actorFor(
         validated: ValidatedBlueprint,
         projection: DesiredProjection

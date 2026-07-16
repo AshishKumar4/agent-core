@@ -199,7 +199,9 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
             }),
             resolvedAt: new Date(0),
             deadline: new Date(50),
-            owner
+            owner,
+            policies: [],
+            turnOwnedSession: true
         };
     }
 }

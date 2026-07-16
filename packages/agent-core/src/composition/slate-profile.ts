@@ -1,6 +1,7 @@
 import { ContentRef, Revision, type JsonValue } from "../core";
 import {
     SlateBackend,
+    type EffectDispatch,
     type SlateCommitInput,
     type SlateDeployInput,
     type SlateForkInput,
@@ -71,10 +72,11 @@ export class SlateRuntimeBackend extends SlateBackend {
         };
     }
 
-    public async deploy(input: SlateDeployInput): Promise<JsonValue> {
+    public async deploy(input: SlateDeployInput, dispatch: EffectDispatch): Promise<JsonValue> {
         const outcome = await this.runtime.deploy(
             new SlatePublicationId(input.publication),
-            input.target
+            input.target,
+            dispatch.idempotencyKey
         );
         return outcome.outcome === "succeeded"
             ? {

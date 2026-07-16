@@ -88,9 +88,6 @@ function validateSlotEntry(desired: JsonValue): JsonValue {
     requireCanonicalName(object["contributor"], "Slot entry contributor");
     requireCanonicalName(object["slot"], "Slot entry slot");
     requireNonnegativeInteger(object["index"], "Slot entry index");
-    if (object["value"] === undefined) {
-        throw new TypeError("Slot entry value is required");
-    }
     return desired;
 }
 
