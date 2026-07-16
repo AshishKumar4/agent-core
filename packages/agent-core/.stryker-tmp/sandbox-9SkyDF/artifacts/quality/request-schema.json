@@ -1,9 +1,0 @@
-{
-  "edition": "1.0.0",
-  "kinds": {
-    "dependencies": ["context", "symbol", "typeOnly", "reason", "spec"],
-    "errors": ["code", "owner", "semantics", "spec", "tests"],
-    "exports": ["specifier", "symbol", "kind", "spec", "tests"],
-    "source-removals": ["path", "owner", "reason", "replacement", "tests"]
-  }
-}

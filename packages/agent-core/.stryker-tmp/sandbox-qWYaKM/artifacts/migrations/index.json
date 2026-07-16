@@ -1,6 +1,0 @@
-{
-  "edition": "1.0.0",
-  "seed": "seed.json",
-  "required": ["MIGRATE-RUN-PINS"],
-  "fragments": ["runs-turns.json"]
-}

@@ -1,5 +1,0 @@
-{
-  "edition": "1.0.0",
-  "sourceExtensions": ["src/actors/id.ts"],
-  "reason": "Canonical ActorId ownership moved to the required actors/id.ts dependency leaf during W9 integration."
-}
