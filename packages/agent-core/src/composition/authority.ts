@@ -1,7 +1,8 @@
 import type { ActorRef } from "../actors";
 import { Binding, InvalidationWatermark, PathEpochEvidence } from "../authority";
 import { Digest, encodeCanonicalJson } from "../core";
-import type { PackagePin } from "../definition";
+import { evaluatePolicy } from "../definition";
+import type { PackagePin, PolicySet } from "../definition";
 import { AgentCoreError } from "../errors";
 import {
     canonicalFacetData,
@@ -32,6 +33,7 @@ export interface OperationResolutionState {
     readonly resolvedAt: Date;
     readonly deadline: Date;
     readonly owner: ActorRef;
+    readonly policies?: readonly PolicySet[];
 }
 
 export interface OperationAuthorityStatePort<Caller> {
@@ -54,6 +56,11 @@ export interface OperationAuthorityStatePort<Caller> {
         descriptor: OperationDescriptor
     ): boolean;
     release(resolution: OperationResolutionState): void;
+    observeStale?(
+        resolution: OperationResolutionState,
+        descriptor: OperationDescriptor,
+        inputs: readonly FacetData[]
+    ): void;
 }
 
 export class ResolutionStamp {
@@ -119,10 +126,15 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
         descriptor: OperationDescriptor,
         hasInterceptors: boolean
     ): "direct" | "mediated" {
-        const directFloor = descriptor.impact === "observe" || descriptor.impact === "execute";
-        return directFloor && resolution.placement.selected === "bundled" && !hasInterceptors
-            ? "direct"
-            : "mediated";
+        if (hasInterceptors) {
+            return "mediated";
+        }
+        return evaluatePolicy({
+            impact: descriptor.impact,
+            turnOwnedSession: resolution.lease !== undefined,
+            placement: resolution.placement.selected,
+            policies: resolution.policies ?? []
+        }).tier;
     }
 
     public authorizeDirect(
@@ -175,6 +187,7 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
                 this.state.currentLease(resolution.lease)?.admits(resolution.lease, at) !== true) ||
             !this.state.admits(resolution, descriptor, inputs, at)
         ) {
+            this.state.observeStale?.(resolution, descriptor, inputs);
             throw denied("Mediated authority intent is stale");
         }
         return new MediatedAuthorityIntent(
