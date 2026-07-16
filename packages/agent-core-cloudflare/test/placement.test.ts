@@ -32,6 +32,25 @@ function fixture(): {
     return { namespace, registry, resolver, actor };
 }
 
+describe("Actor placement jurisdiction encoding", () => {
+    const name = actorObjectName({ kind: "run", id: new ActorId("unicode-probe") });
+
+    test("accepts a jurisdiction containing well-formed surrogate pairs", () => {
+        const placement = new ActorPlacement(name, "region-\u{1F1EA}\u{1F1FA}", 0, 0);
+        expect(placement.jurisdiction).toBe("region-🇪🇺");
+    });
+
+    test.each([
+        ["a lone high surrogate at the end", "eu\ud800"],
+        ["a high surrogate followed by a non-low unit", "eu\ud800a"],
+        ["a lone low surrogate", "eu\udc00"]
+    ])("rejects %s: ill-formed Unicode never names a jurisdiction", (_case, jurisdiction) => {
+        expect(() => new ActorPlacement(name, jurisdiction, 0, 0)).toThrow(
+            "Actor placement jurisdiction must be non-empty well-formed Unicode"
+        );
+    });
+});
+
 describe("Actor placement pinning", () => {
     test("first resolution pins the jurisdiction and later resolutions read that pin", async () => {
         const { namespace, registry, resolver, actor } = fixture();

@@ -27,8 +27,13 @@ export class ActorPlacement {
         public readonly epoch: number
     ) {
         parseActorObjectName(actorName);
-        if (jurisdiction !== undefined && (jurisdiction.length === 0 || !isWellFormedUnicode(jurisdiction))) {
-            throw new TypeError("Actor placement jurisdiction must be non-empty well-formed Unicode");
+        if (
+            jurisdiction !== undefined &&
+            (jurisdiction.length === 0 || !isWellFormedUnicode(jurisdiction))
+        ) {
+            throw new TypeError(
+                "Actor placement jurisdiction must be non-empty well-formed Unicode"
+            );
         }
         if (!Number.isSafeInteger(pinnedAt) || pinnedAt < 0) {
             throw new TypeError("Actor placement pinnedAt must be a non-negative safe integer");

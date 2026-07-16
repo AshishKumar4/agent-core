@@ -75,7 +75,8 @@
     "check:coverage": "node ./scripts/quality/run.mjs --stage building --target coverage",
     "check:traceability": "node ./scripts/check-traceability.mjs",
     "check:implementation": "node ./scripts/quality/run.mjs --stage building --target ledger",
-    "check:final": "node ./scripts/quality/run.mjs --stage final"
+    "check:final": "node ./scripts/quality/run.mjs --stage final",
+    "check:hermetic": "node ./scripts/quality/run.mjs --stage hermetic"
   },
   "devDependencies": {
     "@types/node": "^26.0.1",

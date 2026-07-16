@@ -9,13 +9,15 @@
     "check:coverage": "pnpm --filter @agent-core/core quality --stage building --target coverage",
     "check:exports": "pnpm --filter @agent-core/core quality --stage building --target exports",
     "check:final": "pnpm --filter @agent-core/core quality --stage final",
+    "check:hermetic": "pnpm --filter @agent-core/core check:hermetic",
     "check:implementation": "pnpm --filter @agent-core/core quality --stage building --target ledger",
     "check:traceability": "pnpm --filter @agent-core/core check:traceability",
     "check:types": "pnpm --recursive check:types",
     "format": "prettier --write .",
-    "format:check": "node packages/agent-core/scripts/quality/format.mjs --base f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+    "format:check": "prettier --check .",
     "lint": "pnpm --recursive lint",
-    "test": "pnpm --recursive test"
+    "test": "pnpm --recursive test",
+    "verify": "pnpm --filter @agent-core/core check:hermetic"
   },
   "devDependencies": {
     "oxlint": "^1.30.0",

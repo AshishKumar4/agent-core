@@ -1,0 +1,50 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      # Full history: the coverage ratchet validates its seed against the commit it was
+      # measured at (git ls-tree of the seed's baseCommit).
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable the pinned package manager
+        run: corepack enable
+
+      - name: Install the pinned Lean toolchain
+        run: |
+          curl -sSfL https://elan.lean-lang.org/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Lean toolchain and build products
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan/toolchains
+            packages/agent-core/formal/.lake
+          key: lean-${{ hashFiles('packages/agent-core/formal/lean-toolchain') }}-${{ hashFiles('packages/agent-core/formal/**/*.lean') }}
+          restore-keys: |
+            lean-${{ hashFiles('packages/agent-core/formal/lean-toolchain') }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The hermetic quality stage: the product-correctness closure of the quality DAG
+      # at final strictness — types, lint, full test suites (node + workers runtime),
+      # coverage ratchet, architecture, import/export boundaries, spec-conformance
+      # ledger, and the complete Lean build with the two-directional traceability check
+      # (zero sorry, zero extra axioms).
+      - name: Verify
+        run: pnpm verify

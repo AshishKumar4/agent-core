@@ -26,6 +26,12 @@ const index = await readCanonicalJson(resolve(ledgerArtifactRoot, "conformance/i
 const stageArtifact = await readCanonicalJson(
     resolve(ledgerArtifactRoot, "conformance/stage.json")
 );
+if (options.hermetic) {
+    // Hermetic runs verify the ledger at the maturity it declares: conformance/stage.json
+    // is the single place the project claims building vs final, and flipping it to final
+    // automatically tightens this gate everywhere the hermetic closure runs.
+    options.stage = stageArtifact.stage;
+}
 if (options.stage === "final" && stageArtifact.stage !== "final") {
     throw new TypeError("Final conformance requires conformance/stage.json to be final");
 }
@@ -381,8 +387,10 @@ function parseArguments(args) {
     let spec = resolve(packageRoot, "SPEC.md");
     const testReports = [];
     let invariantsReport = resolve(reportRoot, "invariants.json");
+    let hermetic = false;
     for (let index = 0; index < args.length; index += 1) {
         if (args[index] === "--stage") stage = args[++index];
+        else if (args[index] === "--hermetic") hermetic = true;
         else if (args[index] === "--artifact-root") selectedArtifactRoot = resolve(args[++index]);
         else if (args[index] === "--spec") spec = resolve(args[++index]);
         else if (args[index] === "--test-report") testReports.push(resolve(args[++index]));
@@ -392,6 +400,7 @@ function parseArguments(args) {
     if (stage !== "building" && stage !== "final") throw new TypeError(`Unknown stage ${stage}`);
     return {
         stage,
+        hermetic,
         artifactRoot: selectedArtifactRoot,
         spec,
         testReports: testReports.length === 0 ? undefined : testReports,

@@ -1,20 +1,12 @@
 {
   "edition": "1.0.0",
-  "owners": [
-    "W0",
-    "W9"
-  ],
+  "owners": ["W0", "W9"],
   "wave": "W4",
   "inventory": "artifacts/quality/w4-source-inventory.json",
   "config": "artifacts/quality/w4-vitest.config.mjs",
   "checker": "artifacts/quality/check-w4-coverage.mjs",
   "threshold": 95,
-  "metrics": [
-    "statements",
-    "branches",
-    "functions",
-    "lines"
-  ],
+  "metrics": ["statements", "branches", "functions", "lines"],
   "reports": {
     "final": "coverage/w4-integrated/coverage-final.json",
     "summary": "coverage/w4-integrated/coverage-summary.json"

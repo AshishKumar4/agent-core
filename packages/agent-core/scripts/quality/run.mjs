@@ -58,6 +58,9 @@ const selected = dependencyClosure(targets, edges);
 const order = topologicalOrder(selected, edges);
 const status = new Map();
 const results = [];
+// Node reports record the strictness the checks ran at; hermetic runs execute every
+// product node with final semantics, so downstream evidence readers see "final".
+const effectiveStage = options.stage === "hermetic" ? "final" : options.stage;
 await rm(reportRoot, { recursive: true, force: true });
 await rm(resolve(cloudflareRoot, "reports/quality"), { recursive: true, force: true });
 await mkdir(resolve(reportRoot, "tests"), { recursive: true });
@@ -92,7 +95,7 @@ for (const node of order) {
         results.push({ node, status: "passed", detail: "" });
         await writeCanonicalJson(resolve(reportRoot, "nodes", `${node}.json`), {
             edition: "1.0.0",
-            stage: options.stage,
+            stage: effectiveStage,
             commit: runCommit,
             tree: runTree,
             status: "passed"
@@ -106,7 +109,7 @@ for (const node of order) {
         });
         await writeCanonicalJson(resolve(reportRoot, "nodes", `${node}.json`), {
             edition: "1.0.0",
-            stage: options.stage,
+            stage: effectiveStage,
             commit: runCommit,
             tree: runTree,
             status: "failed"
@@ -235,7 +238,8 @@ async function execute(node, context) {
         seams: () => runNode("seams", context),
         migrations: () => runNode("migrations", context),
         architecture: () => runNode("architecture", context),
-        ledger: () => runNode("ledger", context),
+        ledger: () =>
+            runNode("ledger", context, false, options.stage === "hermetic" ? ["--hermetic"] : []),
         tests: async () => {
             const coreReport = resolve(reportRoot, "tests/vitest.json");
             run(
@@ -287,7 +291,13 @@ async function execute(node, context) {
         },
         coverage: () => runNode("coverage", context),
         agents: () => runNode("agents", context),
-        invariants: () => runNode("invariants", context),
+        invariants: () =>
+            runNode(
+                "invariants",
+                context,
+                false,
+                options.stage === "hermetic" ? ["--hermetic"] : []
+            ),
         build: async () => {
             if (await hasCloudflareSource()) {
                 run(process.execPath, [resolve(cloudflareRoot, "scripts/build.mjs")], {
@@ -319,11 +329,16 @@ async function execute(node, context) {
     await command();
 }
 
-function runNode(name, context, orchestrated = false) {
+function runNode(name, context, orchestrated = false, extraArgs = []) {
     // Node scripts know only building/final. Hermetic runs product checks at their
     // strictest (final) setting without the governance the final orchestration stage adds.
     const scriptStage = context.stage === "hermetic" ? "final" : context.stage;
-    const args = [resolve(packageRoot, `scripts/quality/${name}.mjs`), "--stage", scriptStage];
+    const args = [
+        resolve(packageRoot, `scripts/quality/${name}.mjs`),
+        "--stage",
+        scriptStage,
+        ...extraArgs
+    ];
     if (context.owner !== undefined && name === "coverage")
         args.push("--owner", context.owner, "--base", context.base);
     run(process.execPath, args, {

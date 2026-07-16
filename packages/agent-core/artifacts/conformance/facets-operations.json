@@ -39,7 +39,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
-        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before executable dispatch"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -81,7 +81,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
-        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] publishes success and failure completion Events correlated to the invocation"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

@@ -1,6 +1,6 @@
 # Agent Core
 
-*AI tools have been used to shape parts of this document and the project. The ideas and concepts presented here are of my own, and they may change as I ideate further.*
+_AI tools have been used to shape parts of this document and the project. The ideas and concepts presented here are of my own, and they may change as I ideate further._
 
 ## A specification and reference implementation for building agentic platforms
 
@@ -23,7 +23,7 @@ the platform layer itself.
 Agent Core is my attempt at building that box. It defines a small set of primitives —
 sixteen of them — that compose into complete agent platforms, and a definition plane
 above them so that an entire platform can be described by a configuration document
-(a *Blueprint*) and deployed onto a backend. The primary backend is Cloudflare Durable
+(a _Blueprint_) and deployed onto a backend. The primary backend is Cloudflare Durable
 Objects, but the model itself is backend-agnostic.
 
 The full specification lives in
@@ -35,8 +35,8 @@ version.
 ## The core ideas
 
 **Authority works like a capability.** The idea is that nothing in the system acts
-because of *who it is* — things act because of *what they hold*. Durable allow and deny
-*Grants* share one enforcement plane; a *Binding* names an allowed Facet inside one
+because of _who it is_ — things act because of _what they hold_. Durable allow and deny
+_Grants_ share one enforcement plane; a _Binding_ names an allowed Facet inside one
 isolation domain, and resolution evaluates every matching Grant on the exact Scope
 path. Roles materialize ordered allow/deny rules into those Grants rather than creating
 a second access path. Direct use requires path-epoch evidence, an unstaled delivered
@@ -51,14 +51,14 @@ radius of any single compromise small and revocable.
 conversation is stored as an append-only commit graph with named branches and exact
 root/Turn/system writers, so branching
 a conversation, undoing a step, and running parallel attempts are just graph
-operations. An execution attempt is a *Turn* that holds an exact-Turn lease with a
+operations. An execution attempt is a _Turn_ that holds an exact-Turn lease with a
 fencing epoch,
 which means a crashed executor that comes back later simply cannot write anything — all
 of its writes carry a stale epoch and get rejected. And a webhook, a cron tick, a slash
-command, and a button press are all the same thing: an *Event*, routed by a
-*Subscription*. Automation becomes configuration instead of plumbing.
+command, and a button press are all the same thing: an _Event_, routed by a
+_Subscription_. Automation becomes configuration instead of plumbing.
 
-**Enforcement is tiered by impact.** Every protected action is an *Invocation*, but an
+**Enforcement is tiered by impact.** Every protected action is an _Invocation_, but an
 agent loop makes thousands of small read calls per session, and writing five durable
 records for every file read would make the whole thing unusable. So enforcement
 depends on the operation's declared impact: reading a file in the agent's own sandbox
@@ -70,40 +70,40 @@ are just honest about what each kind of call costs.
 
 ## The primitives
 
-| Layer | Primitives |
-| --- | --- |
+| Layer                | Primitives                                                         |
+| -------------------- | ------------------------------------------------------------------ |
 | Identity & authority | Principal · Scope (Tenant ⊇ Project ⊇ Workspace) · Grant · Binding |
-| Composition | Facet · Operation · Interceptor · Environment · Slate |
-| Execution | Agent · Run · Turn |
-| Interaction | Event · Subscription · Surface |
-| Mediation | Invocation |
-| Definition plane | Package · Blueprint |
+| Composition          | Facet · Operation · Interceptor · Environment · Slate              |
+| Execution            | Agent · Run · Turn                                                 |
+| Interaction          | Event · Subscription · Surface                                     |
+| Mediation            | Invocation                                                         |
+| Definition plane     | Package · Blueprint                                                |
 
-A *Facet* bundles operations, UI surfaces, events, and prompt text into one
+A _Facet_ bundles operations, UI surfaces, events, and prompt text into one
 installable capability, split into a declarative manifest and a runtime class. The
-manifest's *contributions* compile down to the existing primitives — a slash command,
+manifest's _contributions_ compile down to the existing primitives — a slash command,
 for example, is just a manifest entry that becomes a catalog entry plus a derived
 Subscription, and the authority, approval, and audit machinery applies to it
-automatically. A *Slate* is an application the agent builds for you; its backend runs
+automatically. A _Slate_ is an application the agent builds for you; its backend runs
 in a fresh isolate with no ambient authority at all.
 
 And this is what the whole thing is for — a platform ends up being a document:
 
 ```jsonc
 {
-  "meta": { "name": "support-desk", "version": "1.2.0" },
-  "packages": [
-    { "ref": "core.chat@^2", "config": {} },
-    { "ref": "acme.deploy@^1", "config": { "apiKey": { "$secret": "acme/deploy-key" } } }
-  ],
-  "agents": [{ "name": "helper", "instructions": "…", "model": { "policy": "balanced" } }],
-  "policies": {
-    "placement": {
-      "trusted": ["core.*"],
-      "defaultAllowed": ["provider", "dynamic"]
-    },
-    "tiers": { "acme.deploy:deploy.run": "mediated" }
-  }
+    "meta": { "name": "support-desk", "version": "1.2.0" },
+    "packages": [
+        { "ref": "core.chat@^2", "config": {} },
+        { "ref": "acme.deploy@^1", "config": { "apiKey": { "$secret": "acme/deploy-key" } } }
+    ],
+    "agents": [{ "name": "helper", "instructions": "…", "model": { "policy": "balanced" } }],
+    "policies": {
+        "placement": {
+            "trusted": ["core.*"],
+            "defaultAllowed": ["provider", "dynamic"]
+        },
+        "tiers": { "acme.deploy:deploy.run": "mediated" }
+    }
 }
 ```
 

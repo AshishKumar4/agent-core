@@ -67,14 +67,26 @@ export function validateSourceRemovalApprovals(document, context) {
             throw new TypeError(`Source-removal approval digest is stale: ${approval.path}`);
         }
 
+        // An approval is scoped to the seed generation it was reviewed against. Once the
+        // ratchet is re-seeded the approved removal is already reflected in the newer
+        // baseline: the approval is consumed and stays in the ledger as history, but it
+        // no longer gates (and must not resurrect the removed path's requirements).
+        if (approval.original.baseCommit !== context.seed.baseCommit) {
+            if (context.currentCoverage.has(approval.path)) {
+                throw new TypeError(
+                    `Source-removal approval is stale because the source exists: ${approval.path}`
+                );
+            }
+            removals.add(approval.path);
+            digests.add(approval.digest);
+            continue;
+        }
+
         const baseline = context.seed.files[approval.path];
         if (baseline === undefined) {
             throw new TypeError(`Source-removal approval is not a baseline file: ${approval.path}`);
         }
-        if (
-            approval.original.baseCommit !== context.seed.baseCommit ||
-            approval.original.sha256 !== baseline.sha256
-        ) {
+        if (approval.original.sha256 !== baseline.sha256) {
             throw new TypeError(`Source-removal baseline identity is stale: ${approval.path}`);
         }
         if (context.currentCoverage.has(approval.path)) {

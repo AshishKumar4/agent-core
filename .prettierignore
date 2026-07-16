@@ -7,3 +7,5 @@ packages/*/reports/
 node_modules/
 pnpm-lock.yaml
 reports/
+packages/agent-core/artifacts/integration/request-archive/
+packages/agent-core/artifacts/traceability.yaml

@@ -67,7 +67,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
       "testSelectors": [
-        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure and rejects audit extras"
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -284,7 +284,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/admission.ts#RunAdmissionRegistry"],
       "testSelectors": [
-        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each typed audit independently"
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each derived audit independently"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -452,7 +452,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/admission.ts#RunAdmissionRegistry"],
       "testSelectors": [
-        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and typed audit identities"
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
