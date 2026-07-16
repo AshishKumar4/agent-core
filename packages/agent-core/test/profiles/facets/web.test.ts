@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
+import { Digest } from "../../../src/core";
 import {
+    EffectDispatch,
+    EffectDispatchAttempt,
     FixedWindowRatePolicy,
     WEB_OPERATION_CONTRACTS,
     WEB_OPERATIONS,
@@ -13,6 +16,7 @@ import {
     type WebTransportRequest,
     type WebTransportResponse
 } from "../../../src/facets";
+import { EffectAttemptId } from "../../../src/invocations";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
 operationDeclarationEvidence("Web", WEB_OPERATIONS, {
@@ -20,6 +24,15 @@ operationDeclarationEvidence("Web", WEB_OPERATIONS, {
     search: "externalSend",
     readCached: "observe"
 });
+
+const DISPATCH = new EffectDispatch(
+    "web-test-key",
+    new EffectDispatchAttempt(
+        new EffectAttemptId("web-test-attempt"),
+        0,
+        Digest.sha256(new TextEncoder().encode("web-test"))
+    )
+);
 
 describe("Web protected facade", () => {
     test("[P11-WEB-FETCH] routes fetch and search through invoke", async () => {
@@ -85,6 +98,53 @@ describe("Web protected facade", () => {
         ]);
         expect(sends).toBe(0);
     });
+
+    test("[P11-WEB-DISPATCH] delivers the canonical effect identity derived from the mediated context to transport", async () => {
+        const dispatched: EffectDispatch[] = [];
+        const backend = createWebBackend({
+            send: async (_request, _limits, dispatch) => {
+                dispatched.push(dispatch);
+                return response();
+            }
+        });
+        const { runtime, admission } = recordingRuntime("web-dispatch");
+        const web = new WebFacet(runtime, backend);
+
+        await web.fetch({ url: "https://allowed.test/page" });
+
+        const expected = admission.calls[0]!.context!.dispatch();
+        expect(dispatched).toHaveLength(1);
+        const delivered = dispatched[0]!;
+        expect(Object.isFrozen(delivered)).toBe(true);
+        expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
+        expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
+        expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
+        expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
+    });
+
+    test("[P11-WEB-CRASH-RETRY] a crash-after-send retry reuses the idempotency key so the provider dedups instead of re-sending", async () => {
+        const transport = new DedupWebTransport();
+        const backend = createWebBackend({
+            send: (request, limits, dispatch) => transport.send(request, limits, dispatch)
+        });
+
+        await expect(backend.fetch({ url: "https://allowed.test/" }, DISPATCH)).rejects.toThrow(
+            "crash after send"
+        );
+        const retry = await backend.fetch({ url: "https://allowed.test/" }, DISPATCH);
+
+        expect(transport.attempts.map((dispatch) => dispatch.idempotencyKey)).toEqual([
+            DISPATCH.idempotencyKey,
+            DISPATCH.idempotencyKey
+        ]);
+        expect(
+            transport.attempts.every((dispatch) =>
+                dispatch.attempt!.id.equals(DISPATCH.attempt!.id)
+            )
+        ).toBe(true);
+        expect(transport.deliveries).toBe(1);
+        expect(retry.status).toBe(200);
+    });
 });
 
 describe("Web policy backend", () => {
@@ -126,7 +186,9 @@ describe("Web policy backend", () => {
             "https://blocked.test/",
             "https://user:pass@allowed.test/"
         ]) {
-            await expect(web.fetch({ url })).rejects.toMatchObject({ detailCode: "url.denied" });
+            await expect(web.fetch({ url }, DISPATCH)).rejects.toMatchObject({
+                detailCode: "url.denied"
+            });
         }
         expect(sends).toBe(0);
     });
@@ -140,7 +202,10 @@ describe("Web policy backend", () => {
             }
         });
         await expect(
-            web.fetch({ url: "https://allowed.test/", headers: { Authorization: "secret" } })
+            web.fetch(
+                { url: "https://allowed.test/", headers: { Authorization: "secret" } },
+                DISPATCH
+            )
         ).rejects.toMatchObject({ detailCode: "credential.denied" });
         expect(sends).toBe(0);
     });
@@ -154,7 +219,7 @@ describe("Web policy backend", () => {
                 return response();
             }
         });
-        await web.fetch({ url: "https://allowed.test/", headers: { "x-caller": "safe" } });
+        await web.fetch({ url: "https://allowed.test/", headers: { "x-caller": "safe" } }, DISPATCH);
         expect(requests[0]?.headers).toEqual({
             authorization: "policy-allowed.test",
             "x-caller": "safe"
@@ -171,7 +236,7 @@ describe("Web policy backend", () => {
             }
         });
         await expect(
-            oversized.fetch({ url: "https://allowed.test/", body: new Uint8Array([1, 2]) })
+            oversized.fetch({ url: "https://allowed.test/", body: new Uint8Array([1, 2]) }, DISPATCH)
         ).rejects.toMatchObject({ detailCode: "size.exceeded" });
         const rateLimited = createWebBackend({
             rate: () => false,
@@ -180,7 +245,9 @@ describe("Web policy backend", () => {
                 return response();
             }
         });
-        await expect(rateLimited.fetch({ url: "https://allowed.test/" })).rejects.toMatchObject({
+        await expect(
+            rateLimited.fetch({ url: "https://allowed.test/" }, DISPATCH)
+        ).rejects.toMatchObject({
             detailCode: "rate.exceeded"
         });
         expect(sends).toBe(0);
@@ -191,7 +258,7 @@ describe("Web policy backend", () => {
             maxResponseBytes: 1,
             send: async () => response({ body: new Uint8Array([1, 2]) })
         });
-        await expect(web.fetch({ url: "https://allowed.test/" })).rejects.toMatchObject({
+        await expect(web.fetch({ url: "https://allowed.test/" }, DISPATCH)).rejects.toMatchObject({
             detailCode: "size.exceeded"
         });
     });
@@ -234,11 +301,14 @@ describe("Web policy backend", () => {
                 return response();
             }
         });
-        await expect(web.fetch({ url: "https://blocked.test/" })).rejects.toMatchObject({
+        await expect(web.fetch({ url: "https://blocked.test/" }, DISPATCH)).rejects.toMatchObject({
             detailCode: "url.denied"
         });
         await expect(
-            web.fetch({ url: "https://allowed.test/", headers: { Authorization: "secret" } })
+            web.fetch(
+                { url: "https://allowed.test/", headers: { Authorization: "secret" } },
+                DISPATCH
+            )
         ).rejects.toMatchObject({ detailCode: "credential.denied" });
         expect(sends).toBe(0);
     });
@@ -258,16 +328,34 @@ describe("Web policy backend", () => {
                     : response({ body: new Uint8Array([1]) });
             }
         });
-        await expect(web.fetch({ url: "https://first.test/start" })).resolves.toMatchObject({
-            status: 200
-        });
+        await expect(
+            web.fetch({ url: "https://first.test/start" }, DISPATCH)
+        ).resolves.toMatchObject({ status: 200 });
         expect(requests.map((request) => request.headers["authorization"])).toEqual([
             "for-first.test",
             "for-second.test"
         ]);
-        await expect(web.fetch({ url: "https://first.test/again" })).rejects.toMatchObject({
+        await expect(
+            web.fetch({ url: "https://first.test/again" }, DISPATCH)
+        ).rejects.toMatchObject({
             detailCode: "rate.exceeded"
         });
+    });
+
+    test("[P11-WEB-BOUNDS] delivers one canonical effect identity across every redirect hop", async () => {
+        const dispatched: EffectDispatch[] = [];
+        let permits = 2;
+        const web = createWebBackend({
+            rate: () => permits-- > 0,
+            send: async (_request, _limits, dispatch) => {
+                dispatched.push(dispatch);
+                return dispatched.length === 1
+                    ? response({ redirect: "https://second.test/final" })
+                    : response();
+            }
+        });
+        await web.fetch({ url: "https://first.test/start" }, DISPATCH);
+        expect(dispatched).toEqual([DISPATCH, DISPATCH]);
     });
 
     test("enforces fixed per-origin windows", () => {
@@ -295,9 +383,9 @@ describe("Web policy backend", () => {
             maxResponseBytes: 1
         });
         await expect(
-            web.fetch({ url: "https://allowed.test/", body: new Uint8Array([1, 2]) })
+            web.fetch({ url: "https://allowed.test/", body: new Uint8Array([1, 2]) }, DISPATCH)
         ).rejects.toMatchObject({ detailCode: "size.exceeded" });
-        await expect(web.fetch({ url: "https://allowed.test/" })).rejects.toMatchObject({
+        await expect(web.fetch({ url: "https://allowed.test/" }, DISPATCH)).rejects.toMatchObject({
             detailCode: "size.exceeded"
         });
         const bodyTransport = createWebBackend({
@@ -307,15 +395,18 @@ describe("Web policy backend", () => {
             }
         });
         await expect(
-            bodyTransport.fetch({
-                url: "https://allowed.test/",
-                body: new Uint8Array([1])
-            })
+            bodyTransport.fetch(
+                {
+                    url: "https://allowed.test/",
+                    body: new Uint8Array([1])
+                },
+                DISPATCH
+            )
         ).resolves.toMatchObject({ status: 200 });
-        expect(() => web.search(" ")).toThrow(
+        expect(() => web.search(" ", 10, DISPATCH)).toThrow(
             expect.objectContaining({ detailCode: "search.invalid" })
         );
-        expect(() => web.search("query", 0)).toThrow(
+        expect(() => web.search("query", 0, DISPATCH)).toThrow(
             expect.objectContaining({ detailCode: "search.invalid" })
         );
 
@@ -323,11 +414,13 @@ describe("Web policy backend", () => {
             send: async () => response({ redirect: "/next" }),
             maxRedirects: 0
         });
-        await expect(noRedirects.fetch({ url: "https://allowed.test/" })).rejects.toMatchObject({
+        await expect(
+            noRedirects.fetch({ url: "https://allowed.test/" }, DISPATCH)
+        ).rejects.toMatchObject({
             detailCode: "redirect.denied"
         });
         for (const url of ["relative", "ftp://allowed.test/", "https://user:pass@allowed.test/"]) {
-            await expect(noRedirects.fetch({ url })).rejects.toMatchObject({
+            await expect(noRedirects.fetch({ url }, DISPATCH)).rejects.toMatchObject({
                 detailCode: "url.denied"
             });
         }
@@ -345,7 +438,7 @@ describe("Web policy backend", () => {
                 authorize: () => invalid as WebTransportAuthorization,
                 send: async () => response()
             });
-            await expect(web.fetch({ url: requested })).rejects.toMatchObject({
+            await expect(web.fetch({ url: requested }, DISPATCH)).rejects.toMatchObject({
                 detailCode: "url.denied"
             });
         }
@@ -359,7 +452,8 @@ interface WebOptions {
     readonly rate?: (origin: string) => boolean;
     readonly send: (
         request: WebTransportRequest,
-        limits: WebTransportLimits
+        limits: WebTransportLimits,
+        dispatch: EffectDispatch
     ) => Promise<WebTransportResponse>;
     readonly maxResponseBytes?: number;
     readonly maxRequestBytes?: number;
@@ -382,6 +476,30 @@ function createWebBackend(options: WebOptions): WebBackend {
         { send: options.send },
         { read: options.cache ?? (() => undefined) }
     );
+}
+
+/**
+ * A provider transport that dedups on the canonical idempotency key: the first send
+ * delivers then crashes before the outcome is recorded; a retry carrying the same key
+ * returns the prior result without re-delivering (SPEC §7.4).
+ */
+class DedupWebTransport {
+    public readonly attempts: EffectDispatch[] = [];
+    public deliveries = 0;
+    readonly #results = new Map<string, WebTransportResponse>();
+
+    public async send(
+        _request: WebTransportRequest,
+        _limits: WebTransportLimits,
+        dispatch: EffectDispatch
+    ): Promise<WebTransportResponse> {
+        this.attempts.push(dispatch);
+        const prior = this.#results.get(dispatch.idempotencyKey);
+        if (prior !== undefined) return prior;
+        this.deliveries += 1;
+        this.#results.set(dispatch.idempotencyKey, response());
+        throw new WebPolicyError("url.denied", "crash after send");
+    }
 }
 
 function authorization(url: URL): WebTransportAuthorization {

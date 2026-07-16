@@ -8,6 +8,7 @@ import {
     InternalProfileFacetRuntime,
     ProfileOperationContract,
     profileWireCodec,
+    type EffectDispatch,
     type ProtectedProfileRuntimePort,
     type PublicProfileInput,
     schema,
@@ -57,7 +58,18 @@ export interface WebTransportResponse {
 }
 
 export interface WebTransport {
-    send(request: WebTransportRequest, limits: WebTransportLimits): Promise<WebTransportResponse>;
+    /**
+     * Issues the authorized outbound request carrying its canonical effect identity. The
+     * provider MUST treat `dispatch.idempotencyKey` as the dedup key for the request and
+     * MUST be able to answer a reconciliation query addressed by `dispatch.attempt`
+     * identity, so a crash-after-send retry neither re-sends nor stays indeterminate
+     * (SPEC §7.4).
+     */
+    send(
+        request: WebTransportRequest,
+        limits: WebTransportLimits,
+        dispatch: EffectDispatch
+    ): Promise<WebTransportResponse>;
 }
 
 export interface WebRequest extends PublicProfileInput {
@@ -231,7 +243,7 @@ export class WebBackend {
         this.safeUrl(config.searchEndpoint);
     }
 
-    public async fetch(request: WebRequest): Promise<WebResponse> {
+    public async fetch(request: WebRequest, dispatch: EffectDispatch): Promise<WebResponse> {
         const body = request.body?.slice();
         if ((body?.byteLength ?? 0) > this.config.maxRequestBytes) {
             throw new WebPolicyError("size.exceeded", "Request body exceeds the configured limit");
@@ -260,7 +272,8 @@ export class WebBackend {
                     headers: Object.freeze({ ...callerHeaders, ...policyHeaders }),
                     ...(body === undefined ? {} : { body: body.slice() })
                 },
-                Object.freeze({ maxResponseBytes: this.config.maxResponseBytes })
+                Object.freeze({ maxResponseBytes: this.config.maxResponseBytes }),
+                dispatch
             );
             if (response.body.byteLength > this.config.maxResponseBytes) {
                 throw new WebPolicyError("size.exceeded", "Response exceeds the configured limit");
@@ -280,7 +293,7 @@ export class WebBackend {
         }
     }
 
-    public search(query: string, limit = 10): Promise<WebResponse> {
+    public search(query: string, limit = 10, dispatch: EffectDispatch): Promise<WebResponse> {
         if (query.trim().length === 0)
             throw new WebPolicyError("search.invalid", "Search query must be nonblank");
         if (!Number.isSafeInteger(limit) || limit <= 0) {
@@ -289,7 +302,7 @@ export class WebBackend {
         const endpoint = this.safeUrl(this.config.searchEndpoint);
         endpoint.searchParams.set("q", query);
         endpoint.searchParams.set("limit", String(limit));
-        return this.fetch({ url: endpoint.href });
+        return this.fetch({ url: endpoint.href }, dispatch);
     }
 
     public readCached(key: string): WebResponse | undefined {
@@ -354,11 +367,11 @@ export class WebFacet<Receipt> {
             manifest,
             runtime: this.runtime,
             operations: [
-                this.runtime.operation(WEB_OPERATION_CONTRACTS.fetch, (input) =>
-                    this.backend.fetch(input)
+                this.runtime.operation(WEB_OPERATION_CONTRACTS.fetch, (input, context) =>
+                    this.backend.fetch(input, context.dispatch())
                 ),
-                this.runtime.operation(WEB_OPERATION_CONTRACTS.search, (input) =>
-                    this.backend.search(input.query, input.limit)
+                this.runtime.operation(WEB_OPERATION_CONTRACTS.search, (input, context) =>
+                    this.backend.search(input.query, input.limit, context.dispatch())
                 ),
                 this.runtime.operation(WEB_OPERATION_CONTRACTS.readCached, (input) =>
                     this.backend.readCached(input.key)
@@ -368,14 +381,14 @@ export class WebFacet<Receipt> {
     }
 
     public fetch(input: WebRequest): Promise<WebResponse> {
-        return this.runtime.invoke(WEB_OPERATION_CONTRACTS.fetch, input, (admitted) =>
-            this.backend.fetch(admitted)
+        return this.runtime.invoke(WEB_OPERATION_CONTRACTS.fetch, input, (admitted, context) =>
+            this.backend.fetch(admitted, context.dispatch())
         );
     }
 
     public search(input: WebSearchInput): Promise<WebResponse> {
-        return this.runtime.invoke(WEB_OPERATION_CONTRACTS.search, input, (admitted) =>
-            this.backend.search(admitted.query, admitted.limit)
+        return this.runtime.invoke(WEB_OPERATION_CONTRACTS.search, input, (admitted, context) =>
+            this.backend.search(admitted.query, admitted.limit, context.dispatch())
         );
     }
 

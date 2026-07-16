@@ -14,6 +14,7 @@ import {
     InternalProfileFacetRuntime,
     facetDataWireCodec,
     profileWireCodec,
+    type EffectDispatch,
     type ProtectedProfileRuntimePort,
     type PublicProfileInput,
     schema,
@@ -52,7 +53,14 @@ export abstract class SlateBackend {
     public abstract commit(input: SlateCommitInput): Promise<JsonValue>;
     public abstract fork(input: SlateForkInput): Promise<JsonValue>;
     public abstract publish(input: SlatePublishInput): Promise<JsonValue>;
-    public abstract deploy(input: SlateDeployInput): Promise<JsonValue>;
+    /**
+     * Deploys a publication to its target — the profile's one `externalSend` Operation —
+     * carrying its canonical effect identity. The provider MUST treat
+     * `dispatch.idempotencyKey` as the dedup key for the deployment and MUST be able to
+     * answer a reconciliation query addressed by `dispatch.attempt` identity, so a
+     * crash-after-send retry neither redeploys nor stays indeterminate (SPEC §7.4).
+     */
+    public abstract deploy(input: SlateDeployInput, dispatch: EffectDispatch): Promise<JsonValue>;
     public abstract rollback(input: SlateRollbackInput): Promise<JsonValue>;
 }
 
@@ -302,8 +310,8 @@ export class SlateFacet<Receipt> {
                 this.runtime.operation(SLATE_OPERATION_CONTRACTS.publish, (input) =>
                     this.backend.publish(input)
                 ),
-                this.runtime.operation(SLATE_OPERATION_CONTRACTS.deploy, (input) =>
-                    this.backend.deploy(input)
+                this.runtime.operation(SLATE_OPERATION_CONTRACTS.deploy, (input, context) =>
+                    this.backend.deploy(input, context.dispatch())
                 ),
                 this.runtime.operation(SLATE_OPERATION_CONTRACTS.rollback, (input) =>
                     this.backend.rollback(input)
@@ -338,8 +346,8 @@ export class SlateFacet<Receipt> {
     }
 
     public deploy(input: SlateDeployInput): Promise<JsonValue> {
-        return this.runtime.invoke(SLATE_OPERATION_CONTRACTS.deploy, input, (admitted) =>
-            this.backend.deploy(admitted)
+        return this.runtime.invoke(SLATE_OPERATION_CONTRACTS.deploy, input, (admitted, context) =>
+            this.backend.deploy(admitted, context.dispatch())
         );
     }
 

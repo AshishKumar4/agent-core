@@ -1,5 +1,7 @@
-import { ContentRef, Digest } from "../../../src/core";
+import { ContentRef, Digest, type JsonValue } from "../../../src/core";
 import {
+    EffectDispatch,
+    EffectDispatchAttempt,
     EnvironmentBackend,
     EnvironmentFacet,
     EnvironmentSessionBinding,
@@ -8,8 +10,10 @@ import {
     SLATE_OPERATIONS,
     SLATE_SURFACES,
     SlateBackend,
-    SlateFacet
+    SlateFacet,
+    type SlateDeployInput
 } from "../../../src/facets";
+import { EffectAttemptId } from "../../../src/invocations";
 import { describe, expect, test } from "vitest";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
@@ -101,8 +105,60 @@ describe("Slate protected profile", () => {
     });
 });
 
+describe("Slate effect identity to deployment backend", () => {
+    test("[P11-SLATE-DISPATCH] delivers the canonical effect identity derived from the context to deploy", async () => {
+        const { runtime, admission } = recordingRuntime("slate-dispatch");
+        const backend = new TestSlateBackend();
+        const environment = new EnvironmentFacet(
+            recordingRuntime("environment").runtime,
+            new PreviewEnvironmentBackend()
+        );
+        const slate = new SlateFacet(runtime, backend, environment);
+
+        await slate.deploy({ publication: "publication", target: "production" });
+
+        const invoke = admission.calls.find((call) => call.kind === "invoke")!;
+        const expected = invoke.context!.dispatch();
+        const delivered = backend.dispatched[0]!;
+        expect(Object.isFrozen(delivered)).toBe(true);
+        expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
+        expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
+        expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
+        expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
+    });
+
+    test("[P11-SLATE-CRASH-RETRY] a crash-after-send deploy retry reuses the key so the provider dedups instead of redeploying", async () => {
+        const backend = new DedupSlateBackend();
+        const dispatch = new EffectDispatch(
+            "slate-test-key",
+            new EffectDispatchAttempt(
+                new EffectAttemptId("slate-test-attempt"),
+                0,
+                Digest.sha256(new TextEncoder().encode("slate-test"))
+            )
+        );
+        const input = { publication: "publication", target: "production" };
+
+        await expect(backend.deploy(input, dispatch)).rejects.toThrow("crash after send");
+        const retry = await backend.deploy(input, dispatch);
+
+        expect(backend.attempts.map((attempt) => attempt.idempotencyKey)).toEqual([
+            "slate-test-key",
+            "slate-test-key"
+        ]);
+        expect(
+            backend.attempts.every((attempt) =>
+                attempt.attempt!.id.equals(new EffectAttemptId("slate-test-attempt"))
+            )
+        ).toBe(true);
+        expect(backend.deliveries).toBe(1);
+        expect(retry).toEqual({ outcome: "succeeded" });
+    });
+});
+
 class TestSlateBackend extends SlateBackend {
     public readonly calls: string[] = [];
+    public readonly dispatched: EffectDispatch[] = [];
     public async update() {
         return this.record("update");
     }
@@ -115,7 +171,8 @@ class TestSlateBackend extends SlateBackend {
     public async publish() {
         return this.record("publish");
     }
-    public async deploy() {
+    public async deploy(_input: SlateDeployInput, dispatch: EffectDispatch) {
+        this.dispatched.push(dispatch);
         return this.record("deploy");
     }
     public async rollback() {
@@ -124,6 +181,40 @@ class TestSlateBackend extends SlateBackend {
     private record(name: string) {
         this.calls.push(name);
         return { name };
+    }
+}
+
+/**
+ * A Slate backend that dedups its one external deployment on the canonical idempotency
+ * key: the first deploy delivers then crashes before the outcome is recorded; a retry
+ * carrying the same key returns the prior result without redeploying (SPEC §7.4).
+ */
+class DedupSlateBackend extends SlateBackend {
+    public readonly attempts: EffectDispatch[] = [];
+    public deliveries = 0;
+    readonly #results = new Map<string, JsonValue>();
+    public async update(): Promise<JsonValue> {
+        return {};
+    }
+    public async commit(): Promise<JsonValue> {
+        return {};
+    }
+    public async fork(): Promise<JsonValue> {
+        return {};
+    }
+    public async publish(): Promise<JsonValue> {
+        return {};
+    }
+    public async rollback(): Promise<JsonValue> {
+        return {};
+    }
+    public async deploy(_input: SlateDeployInput, dispatch: EffectDispatch): Promise<JsonValue> {
+        this.attempts.push(dispatch);
+        const prior = this.#results.get(dispatch.idempotencyKey);
+        if (prior !== undefined) return prior;
+        this.deliveries += 1;
+        this.#results.set(dispatch.idempotencyKey, { outcome: "succeeded" });
+        throw new TypeError("crash after send");
     }
 }
 

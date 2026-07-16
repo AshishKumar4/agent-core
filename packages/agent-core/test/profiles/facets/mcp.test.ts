@@ -1,5 +1,7 @@
 import { Digest, strictJsonSchemaValidator, type JsonValue } from "../../../src/core";
 import {
+    EffectDispatch,
+    EffectDispatchAttempt,
     MCP_IMPACT_ANNOTATION,
     MCP_MAXIMUM_PROMPT_BYTES,
     MCP_MAXIMUM_PROMPTS,
@@ -12,6 +14,7 @@ import {
     MemoryMcpDiscoveryRegistrationStore,
     type McpDiscoveryDocument
 } from "../../../src/facets";
+import { EffectAttemptId } from "../../../src/invocations";
 import { describe, expect, test } from "vitest";
 import { denyingRuntime, recordingRuntime } from "./harness";
 
@@ -296,10 +299,65 @@ describe("MCP normative discovery", () => {
     });
 });
 
+describe("MCP effect identity to server backend", () => {
+    test("[P11-MCP-DISPATCH] delivers the canonical effect identity derived from the context", async () => {
+        const server = new TestMcpServer();
+        const { runtime, admission } = recordingRuntime("mcp-dispatch");
+        const facet = new McpFacet(
+            runtime,
+            createDiscovery(),
+            server,
+            new MemoryMcpDiscoveryRegistrationStore()
+        );
+
+        await facet.discover();
+        await facet.call({ operation: "send", arguments: { text: "hello" } });
+
+        const invoke = admission.calls.find((call) => call.kind === "invoke")!;
+        const expected = invoke.context!.dispatch();
+        const delivered = server.dispatched[0]!;
+        expect(Object.isFrozen(delivered)).toBe(true);
+        expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
+        expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
+        expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
+        expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
+    });
+
+    test("[P11-MCP-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-invoking", async () => {
+        const server = new DedupMcpServer();
+        const dispatch = new EffectDispatch(
+            "mcp-test-key",
+            new EffectDispatchAttempt(
+                new EffectAttemptId("mcp-test-attempt"),
+                0,
+                Digest.sha256(new TextEncoder().encode("mcp-test"))
+            )
+        );
+
+        await expect(server.call("send", { text: "hi" }, dispatch)).rejects.toThrow(
+            "crash after send"
+        );
+        const retry = await server.call("send", { text: "hi" }, dispatch);
+
+        expect(server.attempts.map((attempt) => attempt.idempotencyKey)).toEqual([
+            "mcp-test-key",
+            "mcp-test-key"
+        ]);
+        expect(
+            server.attempts.every((attempt) =>
+                attempt.attempt!.id.equals(new EffectAttemptId("mcp-test-attempt"))
+            )
+        ).toBe(true);
+        expect(server.deliveries).toBe(1);
+        expect(retry).toEqual({ operation: "send", input: { text: "hi" } });
+    });
+});
+
 class TestMcpServer extends McpServerBackend {
     public started = false;
     public discoveryAllowed = true;
     public discoveryCalls = 0;
+    public readonly dispatched: EffectDispatch[] = [];
     public readonly document: McpDiscoveryDocument = {
         revision: MCP_PROTOCOL_REVISION,
         tools: [
@@ -332,8 +390,45 @@ class TestMcpServer extends McpServerBackend {
         if (!this.discoveryAllowed) throw new TypeError("rediscovery is forbidden");
         return this.document;
     }
-    public async call(operation: string, input: JsonValue): Promise<JsonValue> {
+    public async call(
+        operation: string,
+        input: JsonValue,
+        dispatch: EffectDispatch
+    ): Promise<JsonValue> {
+        this.dispatched.push(dispatch);
         return { operation, input };
+    }
+}
+
+/**
+ * A server backend that dedups on the canonical idempotency key: the first call
+ * delivers then crashes before the outcome is recorded; a retry carrying the same key
+ * returns the prior result without re-invoking the tool (SPEC §7.4).
+ */
+class DedupMcpServer extends McpServerBackend {
+    public readonly attempts: EffectDispatch[] = [];
+    public deliveries = 0;
+    readonly #results = new Map<string, JsonValue>();
+
+    public async start(): Promise<void> {}
+    public async health(): Promise<boolean> {
+        return true;
+    }
+    public async stop(): Promise<void> {}
+    public async discover(): Promise<McpDiscoveryDocument> {
+        throw new TypeError("discovery is not exercised");
+    }
+    public async call(
+        operation: string,
+        input: JsonValue,
+        dispatch: EffectDispatch
+    ): Promise<JsonValue> {
+        this.attempts.push(dispatch);
+        const prior = this.#results.get(dispatch.idempotencyKey);
+        if (prior !== undefined) return prior;
+        this.deliveries += 1;
+        this.#results.set(dispatch.idempotencyKey, { operation, input });
+        throw new TypeError("crash after send");
     }
 }
 

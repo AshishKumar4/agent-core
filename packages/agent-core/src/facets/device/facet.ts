@@ -24,6 +24,7 @@ import {
     facetDataWireCodec,
     profileWireCodec,
     versionedProfileWireCodec,
+    type EffectDispatch,
     type ProtectedProfileRuntimePort,
     type PublicProfileInput,
     schema,
@@ -158,7 +159,18 @@ export abstract class DeviceConsentBackend<Transaction = unknown> {
 }
 
 export interface ReverseDeviceTransportBackend {
-    send(request: DeviceTransportRequest, admission: DeviceAdmission): Promise<JsonValue>;
+    /**
+     * Delivers an admitted command to the paired device carrying its canonical effect
+     * identity. The provider MUST treat `dispatch.idempotencyKey` as the dedup key for
+     * the command and MUST be able to answer a reconciliation query addressed by
+     * `dispatch.attempt` identity, so a crash-after-send retry neither delivers twice
+     * nor stays indeterminate (SPEC §7.4).
+     */
+    send(
+        request: DeviceTransportRequest,
+        admission: DeviceAdmission,
+        dispatch: EffectDispatch
+    ): Promise<JsonValue>;
     pair(deviceId: DeviceId, publicKey: string, operatorApproval: string): Promise<void>;
 }
 
@@ -209,7 +221,7 @@ export class DeviceBackend {
             operation,
             arguments: canonicalFacetData(input.arguments)
         });
-        return this.transport.send(command, admission);
+        return this.transport.send(command, admission, context.dispatch());
     }
 
     public readCached(input: DeviceCachedInput): JsonValue | undefined {

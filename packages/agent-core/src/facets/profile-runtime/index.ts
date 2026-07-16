@@ -18,6 +18,8 @@ export { createStandardProfileManifest } from "./manifest";
 export type { StandardProfileManifestDefinition, StandardProfileManifestInit } from "./manifest";
 export { EMPTY_OBJECT_SCHEMA, JSON_VALUE_SCHEMA, schema, strictObjectSchema } from "./schema";
 export {
+    EffectDispatch,
+    EffectDispatchAttempt,
     ProfileEffectContext,
     ProfileRuntimeEffectsPort,
     ProfileRuntimeHostBinding,

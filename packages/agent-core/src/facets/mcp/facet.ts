@@ -25,6 +25,7 @@ import {
     ProfileOperationContract,
     facetDataWireCodec,
     profileWireCodec,
+    type EffectDispatch,
     type ProtectedProfileRuntimePort,
     type PublicProfileInput,
     schema,
@@ -203,7 +204,18 @@ export abstract class McpServerBackend {
     public abstract health(): Promise<boolean>;
     public abstract stop(): Promise<void>;
     public abstract discover(): Promise<McpDiscoveryDocument>;
-    public abstract call(operation: string, input: JsonValue): Promise<JsonValue>;
+    /**
+     * Invokes a discovered tool carrying its canonical effect identity. The provider
+     * MUST treat `dispatch.idempotencyKey` as the dedup key for the call and MUST be
+     * able to answer a reconciliation query addressed by `dispatch.attempt` identity,
+     * so a crash-after-send retry neither re-invokes the tool nor stays indeterminate
+     * (SPEC §7.4).
+     */
+    public abstract call(
+        operation: string,
+        input: JsonValue,
+        dispatch: EffectDispatch
+    ): Promise<JsonValue>;
 }
 
 export class McpDiscoveryBackend {
@@ -477,8 +489,8 @@ export class McpFacet<Receipt> {
                 "MCP operation was not registered by discovery"
             );
         }
-        return this.runtime.invoke(contract, input.arguments, (admitted) =>
-            this.server.call(input.operation, admitted)
+        return this.runtime.invoke(contract, input.arguments, (admitted, context) =>
+            this.server.call(input.operation, admitted, context.dispatch())
         );
     }
 

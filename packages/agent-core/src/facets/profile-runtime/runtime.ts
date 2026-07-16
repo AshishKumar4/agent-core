@@ -1,7 +1,7 @@
 import type { JsonSchema } from "../../core";
-import type { Digest } from "../../core";
+import { Digest } from "../../core";
 import type { InvocationId } from "../../interaction-references";
-import type { EffectAttemptId } from "../../invocation-references";
+import { EffectAttemptId } from "../../invocation-references";
 import { Operation, Surface, type OperationContext, type ProtectedOperationPort } from "../runtime";
 import type { OperationDescriptor, SurfaceDescriptor } from "../contribution";
 import type { FacetData } from "../data";
@@ -24,6 +24,54 @@ export class ProfileRuntimeHostBinding {
     ) {
         if (facet.constructor !== FacetRef || binding.constructor !== BindingName) {
             throw new TypeError("Profile runtime host identifiers must use exact Facet classes");
+        }
+        Object.freeze(this);
+    }
+}
+
+export class EffectDispatchAttempt {
+    public constructor(
+        public readonly id: EffectAttemptId,
+        public readonly ordinal: number,
+        public readonly intentDigest: Digest
+    ) {
+        if (id.constructor !== EffectAttemptId) {
+            throw new TypeError("Effect dispatch attempt must use the exact EffectAttemptId class");
+        }
+        if (!Number.isSafeInteger(ordinal) || ordinal < 0) {
+            throw new TypeError(
+                "Effect dispatch attempt ordinal must be a non-negative safe integer"
+            );
+        }
+        if (intentDigest.constructor !== Digest) {
+            throw new TypeError(
+                "Effect dispatch attempt intent digest must use the exact Digest class"
+            );
+        }
+        Object.freeze(this);
+    }
+}
+
+/**
+ * The canonical identity an external effect must carry to its provider transport.
+ * Derived once from {@link ProfileEffectContext.dispatch}; a facet never re-reads the
+ * individual identity fields. A provider MUST treat `idempotencyKey` as the dedup key
+ * for the effect and MUST be able to answer a reconciliation query addressed by
+ * `attempt` identity, so that a crash-after-send retry neither duplicates the effect
+ * nor leaves it permanently indeterminate (SPEC §7.4).
+ */
+export class EffectDispatch {
+    public constructor(
+        public readonly idempotencyKey: string,
+        public readonly attempt: EffectDispatchAttempt | undefined = undefined
+    ) {
+        if (idempotencyKey.trim().length === 0 || idempotencyKey !== idempotencyKey.trim()) {
+            throw new TypeError("Effect dispatch idempotency key must be canonical");
+        }
+        if (attempt !== undefined && attempt.constructor !== EffectDispatchAttempt) {
+            throw new TypeError(
+                "Effect dispatch attempt must use the exact EffectDispatchAttempt class"
+            );
         }
         Object.freeze(this);
     }
@@ -74,6 +122,16 @@ export class ProfileEffectContext {
             context.attempt?.intentDigest,
             context.targetAdmission
         );
+    }
+
+    public dispatch(): EffectDispatch {
+        const attempt =
+            this.attempt !== undefined &&
+            this.attemptOrdinal !== undefined &&
+            this.intentDigest !== undefined
+                ? new EffectDispatchAttempt(this.attempt, this.attemptOrdinal, this.intentDigest)
+                : undefined;
+        return new EffectDispatch(this.idempotencyKey, attempt);
     }
 }
 

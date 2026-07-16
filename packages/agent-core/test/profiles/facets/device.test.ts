@@ -10,6 +10,7 @@ import {
     DeviceCommandId,
     DeviceConsentBackend,
     DeviceEnvironmentSessionDependency,
+    DeviceError,
     DeviceFacet,
     DeviceId,
     MemoryDeviceConsentBackend,
@@ -17,6 +18,7 @@ import {
     VersionedProfileWireCodec,
     type DeviceAdmission,
     type DeviceTransportRequest,
+    type EffectDispatch,
     type ReverseDeviceTransportBackend
 } from "../../../src/facets";
 import { EffectAttemptId, InvocationId } from "../../../src/invocations";
@@ -333,6 +335,58 @@ describe("Device transport admission and declarations", () => {
     });
 });
 
+describe("Device effect identity to reverse transport", () => {
+    test("[P11-DEVICE-DISPATCH] delivers the canonical effect identity derived from the context", async () => {
+        const agent = principal("dispatch-agent");
+        const phone = deviceId("dispatch-phone");
+        const consent = new MemoryDeviceConsentBackend(() => 1);
+        const admission = grantAndAdmit(consent, phone, agent, 2);
+        const transport = new TestDeviceTransport();
+        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
+        const context = effectContext(admission);
+
+        await backend.execute(
+            "camera",
+            { deviceId: phone, arguments: { facing: "front" } },
+            context
+        );
+
+        const delivered = transport.dispatched[0]!;
+        const expected = context.dispatch();
+        expect(Object.isFrozen(delivered)).toBe(true);
+        expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
+        expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
+        expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
+        expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
+    });
+
+    test("[P11-DEVICE-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-delivering", async () => {
+        const agent = principal("crash-agent");
+        const phone = deviceId("crash-phone");
+        const consent = new MemoryDeviceConsentBackend(() => 1);
+        const admission = grantAndAdmit(consent, phone, agent, 2);
+        const transport = new DedupDeviceTransport();
+        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
+        const context = effectContext(admission);
+        const input = { deviceId: phone, arguments: { facing: "front" } } as const;
+
+        await expect(backend.execute("camera", input, context)).rejects.toThrow("crash after send");
+        const retry = await backend.execute("camera", input, context);
+
+        expect(transport.attempts.map((dispatch) => dispatch.idempotencyKey)).toEqual([
+            "device-test-key",
+            "device-test-key"
+        ]);
+        expect(
+            transport.attempts.every((dispatch) =>
+                dispatch.attempt!.id.equals(new EffectAttemptId("device-test-attempt"))
+            )
+        ).toBe(true);
+        expect(transport.deliveries).toBe(1);
+        expect(retry).toEqual({ operation: "camera" });
+    });
+});
+
 class LiveSession extends DeviceEnvironmentSessionDependency {
     public assertUsable(): void {}
 }
@@ -349,6 +403,7 @@ class RecordingSession extends DeviceEnvironmentSessionDependency {
 class TestDeviceTransport implements ReverseDeviceTransportBackend {
     public readonly sent: DeviceTransportRequest[] = [];
     public readonly admissions: DeviceAdmission[] = [];
+    public readonly dispatched: EffectDispatch[] = [];
     public readonly paired: Array<readonly string[]> = [];
 
     public async pair(
@@ -361,11 +416,39 @@ class TestDeviceTransport implements ReverseDeviceTransportBackend {
 
     public async send(
         request: DeviceTransportRequest,
-        admission: DeviceAdmission
+        admission: DeviceAdmission,
+        dispatch: EffectDispatch
     ): Promise<JsonValue> {
         this.sent.push(request);
         this.admissions.push(admission);
+        this.dispatched.push(dispatch);
         return { operation: request.operation };
+    }
+}
+
+/**
+ * A reverse transport that dedups on the canonical idempotency key: the first send
+ * delivers then crashes before the outcome is recorded; a retry carrying the same key
+ * returns the prior result without re-delivering (SPEC §7.4).
+ */
+class DedupDeviceTransport implements ReverseDeviceTransportBackend {
+    public readonly attempts: EffectDispatch[] = [];
+    public deliveries = 0;
+    readonly #results = new Map<string, JsonValue>();
+
+    public async pair(): Promise<void> {}
+
+    public async send(
+        request: DeviceTransportRequest,
+        _admission: DeviceAdmission,
+        dispatch: EffectDispatch
+    ): Promise<JsonValue> {
+        this.attempts.push(dispatch);
+        const prior = this.#results.get(dispatch.idempotencyKey);
+        if (prior !== undefined) return prior;
+        this.deliveries += 1;
+        this.#results.set(dispatch.idempotencyKey, { operation: request.operation });
+        throw new DeviceError("command.invalid", "crash after send");
     }
 }
 
