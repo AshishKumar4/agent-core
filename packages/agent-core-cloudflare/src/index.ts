@@ -17,6 +17,18 @@ export type {
 } from "./content-object.js";
 export { locateActorObject } from "./namespace.js";
 export type { ActorNamespaceLocation, DurableObjectNamespaceLike } from "./namespace.js";
+export {
+    ActorPlacement,
+    MemoryPlacementRegistry,
+    PlacementMigration,
+    PlacementResolver,
+    UnimplementedPlacementMigration
+} from "./placement.js";
+export type {
+    PlacementClock,
+    PlacementMigrationRequest,
+    PlacementRegistry
+} from "./placement.js";
 export { AlarmOutboxReconciler, SqliteReconciliationOutbox } from "./reconciliation.js";
 export type {
     AlarmReconciliationOptions,

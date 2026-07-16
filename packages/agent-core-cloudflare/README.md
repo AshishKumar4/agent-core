@@ -31,10 +31,28 @@ The R2 repository is a tenant-scoped content-object store. It verifies bytes and
 storage metadata but deliberately provides no content-hold or authority API. Those
 remain core domain concerns.
 
-Actor object names include `kind`, `id`, and `jurisdiction` as versioned identity data.
-The jurisdiction field in a name does not enforce placement. `locateActorObject()`
-selects a jurisdiction-restricted namespace only when its separate
-`namespaceJurisdiction` option is supplied.
+Actor object names are a pure function of the core Actor identity `(kind, id)`:
+`agent-core:actor:v1:<kind>:<id>`. One `ActorRef` therefore maps to exactly one object
+name and one authoritative store (fence epoch and permit-nonce ledger), which is the
+single-owner invariant the substrate must preserve.
+
+Jurisdiction is physical placement only. A jurisdiction-restricted namespace still yields
+a physically distinct object for the same name, so a given `ActorRef` must be bound to one
+jurisdiction for its lifetime. `PlacementResolver` enforces this over a `PlacementRegistry`
+seam (with `MemoryPlacementRegistry` as the deterministic reference and a Durable Object or
+config store in production): the first resolution pins an `ActorPlacement`
+`{ actorName, jurisdiction, pinnedAt, epoch }`, and every later resolution reads that pin.
+An explicit, conflicting per-call jurisdiction for a pinned Actor is rejected with a typed
+`protocol.invalid-state` error — it never resolves to a second object. `locateActorObject()`
+remains the low-level name lookup and selects a jurisdiction-restricted namespace only when
+its separate `namespaceJurisdiction` option is supplied.
+
+Changing an Actor's jurisdiction is a fenced migration only, expressed by the
+`PlacementMigration` contract (`PlacementMigrationRequest` carries the target jurisdiction and
+the source lease epoch under which the source object must be drained and fenced before the
+successor pin is installed at the next epoch). Full migration execution is out of the
+adapter's current scope; `UnimplementedPlacementMigration` fails closed with a typed
+not-implemented error rather than faking a move.
 
 The alarm driver exposes two sides of crash-safe scheduling: call `armAlarm()` after
 the Actor durably enqueues an outbox ID, and call `repairAlarm()` on Actor startup. A

@@ -8,8 +8,22 @@ import {
     runInDurableObject
 } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { decodeViewStreamFrame, type AuthoritativeQueueDelivery } from "../../src/index.js";
-import worker from "./worker.js";
+import { AgentCoreError } from "@agent-core/core";
+import { ActorId, ActorRef } from "@agent-core/core/actors";
+import {
+    MemoryPlacementRegistry,
+    PlacementResolver,
+    decodeViewStreamFrame,
+    type AuthoritativeQueueDelivery,
+    type CloudflareErrorPort
+} from "../../src/index.js";
+import worker, { type TestActorDurableObject } from "./worker.js";
+
+const probeErrors: CloudflareErrorPort = {
+    raise(code, message): never {
+        throw new AgentCoreError(code, message);
+    }
+};
 
 describe("Cloudflare runtime integration", () => {
     it("applies SQLite application migrations in the Durable Object", async () => {
@@ -142,6 +156,32 @@ describe("Cloudflare runtime integration", () => {
             ];
             expect(migrations).toEqual([{ version: 1 }]);
         });
+    });
+
+    it("resolves one ActorRef to a single authoritative store through the pin", async () => {
+        const registry = new MemoryPlacementRegistry();
+        const resolver = new PlacementResolver<
+            DurableObjectId,
+            DurableObjectStub<TestActorDurableObject>
+        >(registry, probeErrors);
+        const actor = new ActorRef("workspace", new ActorId("ledger-probe"));
+
+        const first = await resolver.resolve(env.ACTORS, actor);
+        expect(await (await first.fetch("https://test/probe-store?nonce=n1")).json()).toEqual({
+            count: 1
+        });
+
+        // A second resolution of the same ActorRef must reach the same private SQLite store,
+        // so its nonce ledger already holds the first nonce.
+        const second = await resolver.resolve(env.ACTORS, actor);
+        expect(await (await second.fetch("https://test/probe-store?nonce=n2")).json()).toEqual({
+            count: 2
+        });
+
+        // A conflicting jurisdiction for the pinned Actor is refused, never a second object.
+        await expect(
+            resolver.resolve(env.ACTORS, actor, { namespaceJurisdiction: "eu" })
+        ).rejects.toMatchObject({ code: "protocol.invalid-state" });
     });
 
     it("hibernates a WebSocket with replay attachment state", async () => {

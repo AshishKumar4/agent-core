@@ -604,7 +604,7 @@ describe("Cloudflare operational failure mapping", () => {
     });
 
     test("rejects invalid UTF-8 actor names", () => {
-        expect(() => parseActorObjectName("agent-core:actor:v1:%E0%A4%A:id:eu")).toThrow(
+        expect(() => parseActorObjectName("agent-core:actor:v1:run:%E0%A4%A")).toThrow(
             "invalid UTF-8"
         );
     });

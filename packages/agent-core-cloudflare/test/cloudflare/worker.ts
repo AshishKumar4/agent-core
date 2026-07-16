@@ -68,6 +68,25 @@ const TestActorDelegate = createCloudflareDurableObjectClass<TestEnvironment>({
                             bytes: [...(await content.get(stored.ref))]
                         });
                     }
+                    if (url.pathname === "/probe-store") {
+                        // Writes a nonce into this object's private SQLite and returns the
+                        // running ledger size. Two resolutions that reach the same store see a
+                        // growing count; a split into two stores would each report 1.
+                        runtime.sqlite.run(
+                            "CREATE TABLE IF NOT EXISTS probe_ledger (nonce TEXT PRIMARY KEY)",
+                            []
+                        );
+                        runtime.sqlite.run(
+                            "INSERT OR IGNORE INTO probe_ledger (nonce) VALUES (?)",
+                            [url.searchParams.get("nonce") ?? ""]
+                        );
+                        return Response.json({
+                            count: runtime.sqlite.all(
+                                "SELECT COUNT(*) AS count FROM probe_ledger",
+                                []
+                            )[0]?.count
+                        });
+                    }
                     if (url.pathname === "/rollback") {
                         runtime.sqlite.run(
                             "CREATE TABLE IF NOT EXISTS rollback_probe (value INTEGER NOT NULL)",
