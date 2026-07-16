@@ -6,7 +6,7 @@ export default {
     testRunner: "vitest",
     // pnpm isolates plugin packages; point Stryker at the installed runner explicitly.
     appendPlugins: ["@stryker-mutator/vitest-runner"],
-    vitest: { configFile: "vitest.config.mjs" },
+    vitest: { configFile: "vitest.mutation.config.mjs" },
     coverageAnalysis: "perTest",
     // Mutating a source file re-runs only the tests that cover it.
     ignoreStatic: true,

@@ -94,7 +94,7 @@ const entry = {
 };
 
 await writeCanonicalJson(
-    resolve(packageRoot, `reports/quality/mutation/${options.area}-survivors.json`),
+    resolve(packageRoot, `reports/mutation/${options.area}-survivors.json`),
     { edition: "1.0.0", area: options.area, ...entry, survivors: summary.survivors }
 );
 console.log(
