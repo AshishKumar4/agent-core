@@ -587,9 +587,7 @@ function routedEvidence(
                     : input.reservation.authority.binding.value,
             tenant: initiator.tenantId.value,
             principal:
-                substitution === "principal"
-                    ? "substituted-principal"
-                    : initiator.principalId.value
+                substitution === "principal" ? "substituted-principal" : initiator.principalId.value
         }
     );
     return {

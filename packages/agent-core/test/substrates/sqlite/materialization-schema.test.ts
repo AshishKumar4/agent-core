@@ -96,10 +96,9 @@ describe("SQLite materialization schema", () => {
             )
         ).toThrow();
         database.run("PRAGMA ignore_check_constraints = ON", []);
-        database.run(
-            "UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?",
-            [closure.record.id.value]
-        );
+        database.run("UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?", [
+            closure.record.id.value
+        ]);
         database.run("PRAGMA ignore_check_constraints = OFF", []);
 
         expect(() => store.getManagedState(closure.record.id)).toThrow(/reset.required/i);

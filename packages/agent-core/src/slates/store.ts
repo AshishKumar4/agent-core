@@ -146,10 +146,7 @@ export class SlateDeploymentReservation {
                 "Slate publication materialization"
             ),
             target: requireStringValue(object["target"], "Slate deployment target"),
-            externalKey: requireStringValue(
-                object["externalKey"],
-                "Slate deployment external key"
-            ),
+            externalKey: requireStringValue(object["externalKey"], "Slate deployment external key"),
             invocationId: invocationId(object["invocationId"]),
             ...(expected === undefined
                 ? {}

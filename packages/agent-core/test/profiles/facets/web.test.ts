@@ -219,7 +219,10 @@ describe("Web policy backend", () => {
                 return response();
             }
         });
-        await web.fetch({ url: "https://allowed.test/", headers: { "x-caller": "safe" } }, DISPATCH);
+        await web.fetch(
+            { url: "https://allowed.test/", headers: { "x-caller": "safe" } },
+            DISPATCH
+        );
         expect(requests[0]?.headers).toEqual({
             authorization: "policy-allowed.test",
             "x-caller": "safe"
@@ -236,7 +239,10 @@ describe("Web policy backend", () => {
             }
         });
         await expect(
-            oversized.fetch({ url: "https://allowed.test/", body: new Uint8Array([1, 2]) }, DISPATCH)
+            oversized.fetch(
+                { url: "https://allowed.test/", body: new Uint8Array([1, 2]) },
+                DISPATCH
+            )
         ).rejects.toMatchObject({ detailCode: "size.exceeded" });
         const rateLimited = createWebBackend({
             rate: () => false,

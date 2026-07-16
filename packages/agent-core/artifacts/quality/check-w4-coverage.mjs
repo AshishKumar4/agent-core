@@ -24,6 +24,10 @@ if (JSON.stringify(currentFiles) !== JSON.stringify(expectedFiles)) {
 }
 
 await rm(resolve(packageRoot, "coverage/w4-integrated"), { recursive: true, force: true });
+// Strip any inherited V8 coverage session so the focused sub-run measures its own
+// closure rather than colliding with a coverage-instrumented parent (e.g. the quality
+// `tests` node, which runs vitest with --coverage).
+const { NODE_V8_COVERAGE: _inheritedCoverage, ...childEnv } = process.env;
 const run = spawnSync(
     process.execPath,
     [
@@ -33,7 +37,7 @@ const run = spawnSync(
         resolve(packageRoot, evidence.config),
         "--coverage"
     ],
-    { cwd: packageRoot, encoding: "utf8", stdio: "inherit" }
+    { cwd: packageRoot, encoding: "utf8", stdio: "inherit", env: childEnv }
 );
 if (run.status !== 0) {
     throw new TypeError(`Integrated W4 focused coverage run failed with status ${run.status}`);

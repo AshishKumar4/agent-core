@@ -144,7 +144,10 @@ describe("Slate profile composition", () => {
             backend.publish({ version: versionId.value, materialization: source.value })
         ).resolves.toMatchObject({ publicationId: publicationId.value });
         await expect(
-            backend.deploy({ publication: publicationId.value, target: "production" }, dispatchFixture())
+            backend.deploy(
+                { publication: publicationId.value, target: "production" },
+                dispatchFixture()
+            )
         ).resolves.toEqual({
             outcome: "succeeded",
             deploymentId: deploymentId.value,
@@ -152,7 +155,10 @@ describe("Slate profile composition", () => {
             activated: true
         });
         await expect(
-            backend.deploy({ publication: publicationId.value, target: "production" }, dispatchFixture())
+            backend.deploy(
+                { publication: publicationId.value, target: "production" },
+                dispatchFixture()
+            )
         ).resolves.toEqual({
             outcome: "failed",
             deploymentId: deploymentId.value,

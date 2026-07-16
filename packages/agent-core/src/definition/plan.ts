@@ -7,7 +7,7 @@ import {
     hasExactJsonKeys,
     type JsonValue
 } from "../core";
-import { Command, SlotDeclaration, type IsolationMode } from "../facets";
+import { Command, SlotDeclaration, type FacetManifest, type IsolationMode } from "../facets";
 import { Blueprint } from "./blueprint";
 import {
     canonicalMaterializationDesired,
@@ -19,6 +19,7 @@ import type { PolicySet } from "./policy";
 import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from "./validator";
 import type { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
+import type { PackagePin } from "./package-lock";
 import { compareText } from "./order";
 import { invalidDefinition } from "./error";
 
@@ -124,9 +125,13 @@ export function policyProjection(logicalKey: string, policy: PolicySet): Desired
     });
 }
 
-export function facetInstallProjection(
+function facetInstallProjection(
     logicalKey: string,
-    install: { readonly packageId: string; readonly facetId: string; readonly facetVersion: string }
+    install: {
+        readonly packageId: PackagePin["id"]["value"];
+        readonly facetId: FacetManifest["id"]["value"];
+        readonly facetVersion: string;
+    }
 ): DesiredProjection {
     return new DesiredProjection({
         logicalKey,

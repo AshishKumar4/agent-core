@@ -370,7 +370,7 @@ describe("MemorySlateStore", () => {
                         publicationId: new SlatePublicationId("publication-missing"),
                         publicationMaterialization: ref("publication"),
                         target: "production",
-            externalKey: `external-${externalKeyCounter++}`,
+                        externalKey: `external-${externalKeyCounter++}`,
                         invocationId: invocation
                     })
                 ),
@@ -539,7 +539,7 @@ describe("MemorySlateStore", () => {
                     publicationId: deploymentReservation.publicationId,
                     publicationMaterialization: deploymentReservation.publicationMaterialization,
                     target: "different",
-            externalKey: `external-${externalKeyCounter++}`,
+                    externalKey: `external-${externalKeyCounter++}`,
                     invocationId: deploymentReservation.invocationId
                 })
             )

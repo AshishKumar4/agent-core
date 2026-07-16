@@ -35,13 +35,12 @@ try {
             dependencies: {
                 "@agent-core/cloudflare": `file:${cloudflareArchive}`,
                 "@agent-core/core": `file:${coreArchive}`
-            },
-            pnpm: {
-                overrides: {
-                    "@agent-core/core": `file:${coreArchive}`
-                }
             }
         })
+    );
+    await writeFile(
+        resolve(consumerRoot, "pnpm-workspace.yaml"),
+        `packages: []\noverrides:\n    "@agent-core/core": "file:${coreArchive}"\n`
     );
     run("pnpm", ["install", "--ignore-scripts"], "packed package install");
     verifyDeclarationExports(

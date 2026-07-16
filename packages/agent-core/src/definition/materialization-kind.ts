@@ -1,5 +1,6 @@
 import { hasExactJsonKeys, type JsonValue } from "../core";
 import { Automation, type IsolationMode } from "../facets";
+import { invalidDefinition } from "./error";
 import { PlacementInput, selectPlacement } from "./placement";
 import { PolicySet } from "./policy";
 
@@ -7,13 +8,13 @@ type MaterializationKindValidator = (desired: JsonValue) => JsonValue;
 
 const materializationKinds: Readonly<Record<string, MaterializationKindValidator>> = Object.freeze({
     "agent-profile": declarationMapValidator("Agent profile"),
-    "environment": declarationMapValidator("Environment"),
+    environment: declarationMapValidator("Environment"),
     "facet-install": validateFacetInstall,
     "facet-placement": validateFacetPlacement,
     "policy-set": (desired) => PolicySet.fromData(desired).toData(),
     "scope-scaffold": declarationMapValidator("Scope scaffold"),
     "slot-entry": validateSlotEntry,
-    "subscription": (desired) => Automation.fromData(desired).toData(),
+    subscription: (desired) => Automation.fromData(desired).toData(),
     "surface-layout": declarationMapValidator("Surface layout")
 });
 const materializationKindNames: readonly string[] = Object.freeze(
@@ -95,7 +96,7 @@ function declarationMapValidator(subject: string): MaterializationKindValidator 
     return (desired) => {
         const object = requireObject(desired, subject);
         if (Object.keys(object).length === 0) {
-            throw new TypeError(`${subject} declaration must not be empty`);
+            throw invalidDefinition(`${subject} declaration must not be empty`);
         }
         return desired;
     };

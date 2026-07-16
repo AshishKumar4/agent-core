@@ -72,12 +72,7 @@ export class SettlementObligation extends CodecRecord {
 
     public static fromData(value: JsonValue): SettlementObligation {
         const object = requireObject(value, "Settlement obligation");
-        requireExactFields(
-            object,
-            ["obligations", "registryEpoch"],
-            [],
-            "Settlement obligation"
-        );
+        requireExactFields(object, ["obligations", "registryEpoch"], [], "Settlement obligation");
         return new SettlementObligation({
             registryEpoch: requireInteger(object["registryEpoch"], "Settlement registry epoch"),
             obligations: requireArray(object["obligations"], "Settlement obligations").map(
@@ -275,7 +270,10 @@ function deriveRequiredAudits(
                 ];
             case "route":
                 return [
-                    Object.freeze({ kind: "delivery" as const, reservation: obligation.reservation })
+                    Object.freeze({
+                        kind: "delivery" as const,
+                        reservation: obligation.reservation
+                    })
                 ];
             case "systemCommit":
                 return [Object.freeze({ kind: "commit" as const, commit: obligation.commit })];

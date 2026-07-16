@@ -53,7 +53,12 @@ const sendDescriptor = new OperationDescriptor(
     schema,
     schema
 );
-const readDescriptor = new OperationDescriptor(new OperationName("read"), "observe", schema, schema);
+const readDescriptor = new OperationDescriptor(
+    new OperationName("read"),
+    "observe",
+    schema,
+    schema
+);
 const inputs: readonly FacetData[] = [{ id: 1 }];
 
 const NOW = new Date(10);
@@ -225,7 +230,10 @@ describe("stale mediated authority produces durable denial evidence (§3.4 rule 
         expect(state.receipts).toHaveLength(1);
         expect(state.receipts[0]!.outcome).toBe("deniedPreEffect");
         expect(state.audits).toHaveLength(1);
-        expect(state.audits[0]!.kind).toMatchObject({ kind: "receipt", outcome: "deniedPreEffect" });
+        expect(state.audits[0]!.kind).toMatchObject({
+            kind: "receipt",
+            outcome: "deniedPreEffect"
+        });
         expect(state.attempts).toHaveLength(0);
 
         // (1) holder watermark advanced by the epoch join, so direct calls now cease.

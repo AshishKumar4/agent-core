@@ -608,7 +608,6 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-
     test("rejects invalid command arguments and missing mapping sources", () => {
         const passthrough = new Command({
             name: "run",

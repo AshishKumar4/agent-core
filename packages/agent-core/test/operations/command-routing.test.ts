@@ -1,3 +1,16 @@
+import {
+    AuthenticatedEventIntent,
+    type EventAcceptanceResult,
+    type EventDraft,
+    EventIntentAuthenticator,
+    EventProvenance,
+    EventVerification,
+    MemoryWorkspaceRecords,
+    SourceEventProtocol,
+    Subscription,
+    WorkspacePersistence,
+    eventIntentBytes
+} from "../../src/workspaces";
 import { describe, expect, test } from "vitest";
 import { MemoryActorStore, type SynchronousResultGuard } from "../../src/actors";
 import { Digest, JsonSchema, Revision, type JsonValue } from "../../src/core";
@@ -20,13 +33,6 @@ import {
     RouteProjectionId,
     RouteReservationId
 } from "../../src/interaction-references";
-import {
-    AuthenticatedEventIntent,
-    EventIntentAuthenticator,
-    eventIntentBytes
-} from "../../src/workspaces/origin";
-import { MemoryWorkspaceRecords } from "../../src/workspaces/memory";
-import { WorkspacePersistence } from "../../src/workspaces/persistence";
 import type {
     EventPayloadPort,
     EventTrustPort,
@@ -36,17 +42,10 @@ import type {
     RouteMaterialPreparation,
     SourceRouteDecision,
     SourceRoutePort
-} from "../../src/workspaces/ports";
-import type { ContentRetentionPort } from "../../src/workspaces/retention";
-import {
-    SourceEventProtocol,
-    type EventAcceptanceResult,
-    type EventDraft
-} from "../../src/workspaces/source-protocol";
+} from "../../src/workspaces";
+import type { ContentRetentionPort } from "../../src/workspaces";
 import { EventId } from "../../src/workspaces";
-import { Subscription } from "../../src/workspaces/subscription";
 import { SubscriptionId } from "../../src/interaction-references";
-import { EventProvenance, EventVerification } from "../../src/workspaces/value";
 import {
     content,
     principal,
@@ -247,10 +246,7 @@ class SourceRoutes implements SourceRoutePort<ProtocolState> {
         };
     }
 
-    public authorize(
-        _transaction: ProtocolState,
-        subscription: Subscription
-    ): SourceRouteDecision {
+    public authorize(_transaction: ProtocolState, subscription: Subscription): SourceRouteDecision {
         return {
             kind: "accepted",
             targetActor,

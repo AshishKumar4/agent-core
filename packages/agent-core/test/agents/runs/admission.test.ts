@@ -451,7 +451,12 @@ describe("transactional terminal frontier", () => {
         ).toThrow(/Terminal time/);
 
         for (const malformed of [
-            { kind: "invocationItem" as const, invocation: ids.run as never, itemIndex: 0, itemKey: "k" },
+            {
+                kind: "invocationItem" as const,
+                invocation: ids.run as never,
+                itemIndex: 0,
+                itemKey: "k"
+            },
             { kind: "route" as const, reservation: ids.run as never },
             { kind: "systemCommit" as const, commit: ids.run as never }
         ]) {
@@ -463,7 +468,6 @@ describe("transactional terminal frontier", () => {
                     })
             ).toThrow(TypeError);
         }
-
     });
 });
 

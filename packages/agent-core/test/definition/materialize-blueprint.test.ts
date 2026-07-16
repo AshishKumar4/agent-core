@@ -46,10 +46,7 @@ import {
     validateBlueprint
 } from "../../src/definition";
 import { Blueprint } from "../../src/definition/blueprint";
-import {
-    LocalMaterializationStore,
-    LocalMaterializer
-} from "../../src/definition/materializer";
+import { LocalMaterializationStore, LocalMaterializer } from "../../src/definition/materializer";
 import {
     Automation,
     BindingName,

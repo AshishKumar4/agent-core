@@ -16,7 +16,7 @@ import {
     validateOwnershipDiff,
     validateStageTransition
 } from "./ownership.mjs";
-import { dependencyClosure, topologicalOrder, validateGraph } from "./dag.mjs";
+import { dependencyClosure, hermeticEdges, topologicalOrder, validateGraph } from "./dag.mjs";
 import { validateNonrecursiveQualityScripts } from "./recursion.mjs";
 import { cloudflareRoot, cloudflareTestLanes, hasCloudflareSource } from "./workspaces.mjs";
 import { requireSuccessfulTestReport } from "./evidence.mjs";
@@ -43,11 +43,19 @@ if (options.stage === "building" && options.owner === undefined) {
 const graph = await readCanonicalJson(resolve(artifactRoot, "quality/check-dag.json"));
 validateGraph(graph);
 await validateNonrecursiveQualityScripts();
-const targets = options.target === undefined ? graph.stages[options.stage] : [options.target];
+// The hermetic stage runs the product-correctness closure over the intersected edge set,
+// bypassing the multi-agent change-review governance (owner/base/transition, attestation).
+const edges = options.stage === "hermetic" ? hermeticEdges(graph) : graph.nodes;
+const targets =
+    options.stage === "hermetic"
+        ? Object.keys(edges)
+        : options.target === undefined
+          ? graph.stages[options.stage]
+          : [options.target];
 if (!Array.isArray(targets) || targets.length === 0)
     throw new TypeError("Quality target set is empty");
-const selected = dependencyClosure(targets, graph.nodes);
-const order = topologicalOrder(selected, graph.nodes);
+const selected = dependencyClosure(targets, edges);
+const order = topologicalOrder(selected, edges);
 const status = new Map();
 const results = [];
 await rm(reportRoot, { recursive: true, force: true });
@@ -55,7 +63,7 @@ await rm(resolve(cloudflareRoot, "reports/quality"), { recursive: true, force: t
 await mkdir(resolve(reportRoot, "tests"), { recursive: true });
 
 for (const node of order) {
-    const failedDependencies = graph.nodes[node].filter(
+    const failedDependencies = edges[node].filter(
         (dependency) => status.get(dependency) !== "passed"
     );
     if (failedDependencies.length > 0) {
@@ -312,7 +320,10 @@ async function execute(node, context) {
 }
 
 function runNode(name, context, orchestrated = false) {
-    const args = [resolve(packageRoot, `scripts/quality/${name}.mjs`), "--stage", context.stage];
+    // Node scripts know only building/final. Hermetic runs product checks at their
+    // strictest (final) setting without the governance the final orchestration stage adds.
+    const scriptStage = context.stage === "hermetic" ? "final" : context.stage;
+    const args = [resolve(packageRoot, `scripts/quality/${name}.mjs`), "--stage", scriptStage];
     if (context.owner !== undefined && name === "coverage")
         args.push("--owner", context.owner, "--base", context.base);
     run(process.execPath, args, {
@@ -336,8 +347,10 @@ function parseArguments(args) {
         else if (argument === "--transition") transition = required(args, ++index, argument);
         else throw new TypeError(`Unknown quality argument ${argument}`);
     }
-    if (stage !== "building" && stage !== "final")
+    if (stage !== "building" && stage !== "final" && stage !== "hermetic")
         throw new TypeError(`Unknown quality stage ${stage}`);
+    if (stage === "hermetic" && (owner !== undefined || target !== undefined))
+        throw new TypeError("The hermetic stage runs the full product closure with no owner");
     return { stage, owner, target, base, transition };
 }
 

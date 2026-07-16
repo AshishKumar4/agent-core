@@ -185,29 +185,29 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
             for (const placement of PLACEMENTS) {
                 for (const turnOwned of [true, false]) {
                     for (const sessionOwned of [true, false]) {
-                    for (const policies of policySets) {
-                        const resolved = resolution({
-                            turnOwned,
-                            sessionOwned,
-                            placement,
-                            policies
-                        });
-                        const decision = evaluatePolicy({
-                            impact,
-                            turnOwnedSession: sessionOwned,
-                            placement,
-                            policies
-                        });
-                        const gatewayTier: EnforcementTier = authority.tier(
-                            resolved,
-                            descriptorFor(impact),
-                            false
-                        );
-                        expect(gatewayTier).toBe(decision.tier);
-                        if (decision.approvalRequired) {
-                            expect(gatewayTier).toBe("mediated");
+                        for (const policies of policySets) {
+                            const resolved = resolution({
+                                turnOwned,
+                                sessionOwned,
+                                placement,
+                                policies
+                            });
+                            const decision = evaluatePolicy({
+                                impact,
+                                turnOwnedSession: sessionOwned,
+                                placement,
+                                policies
+                            });
+                            const gatewayTier: EnforcementTier = authority.tier(
+                                resolved,
+                                descriptorFor(impact),
+                                false
+                            );
+                            expect(gatewayTier).toBe(decision.tier);
+                            if (decision.approvalRequired) {
+                                expect(gatewayTier).toBe("mediated");
+                            }
                         }
-                    }
                     }
                 }
             }

@@ -13,6 +13,10 @@ export default defineConfig({
     test: {
         environment: "node",
         include: ["test/**/*.test.ts"],
+        // The multi-agent governance harness (request/scope/worktree machinery) is not
+        // hermetic: it requires the orchestration environment's git state. Product
+        // verification never depends on it; run it explicitly with test:governance.
+        exclude: ["test/quality/**", "**/node_modules/**"],
         coverage: {
             provider: "v8",
             all: true,

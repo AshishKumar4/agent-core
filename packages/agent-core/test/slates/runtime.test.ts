@@ -346,7 +346,9 @@ describe("SlateRuntime", () => {
         );
 
         fixture.invocations.resultOverride = null;
-        await expect(fixture.runtime.deploy(publication.id, "invalid-invocation", "external-9")).rejects.toEqual(
+        await expect(
+            fixture.runtime.deploy(publication.id, "invalid-invocation", "external-9")
+        ).rejects.toEqual(
             new AgentCoreError("invocation.invalid", "Slate invocation result is malformed")
         );
         fixture.invocations.resultOverride = {
@@ -364,7 +366,9 @@ describe("SlateRuntime", () => {
             materialization: ref("provider-result"),
             unexpected: true
         };
-        await expect(fixture.runtime.deploy(publication.id, "invalid-provider", "external-11")).rejects.toEqual(
+        await expect(
+            fixture.runtime.deploy(publication.id, "invalid-provider", "external-11")
+        ).rejects.toEqual(
             new AgentCoreError(
                 "operation.invalid-output",
                 "Slate provider deployment result is malformed"
@@ -383,7 +387,11 @@ describe("SlateRuntime", () => {
             new AgentCoreError("slate.invalid-version", "Slate version version-missing is unknown")
         );
         await expect(
-            fixture.runtime.deploy(new SlatePublicationId("publication-missing"), "production", "external-missing")
+            fixture.runtime.deploy(
+                new SlatePublicationId("publication-missing"),
+                "production",
+                "external-missing"
+            )
         ).rejects.toEqual(
             new AgentCoreError(
                 "slate.unpublished",
@@ -456,14 +464,22 @@ describe("SlateRuntime", () => {
         const fixture = runtimeFixture("failed-effects");
         const { publication } = await publishedSlate(fixture);
         fixture.invocations.invokeOutcomes.push("failed");
-        const failedDeployment = await fixture.runtime.deploy(publication.id, "failed-target", "external-13");
+        const failedDeployment = await fixture.runtime.deploy(
+            publication.id,
+            "failed-target",
+            "external-13"
+        );
         expect(failedDeployment.outcome).toBe("failed");
         if (failedDeployment.outcome === "succeeded")
             throw new TypeError("Expected failed deployment");
         expect(fixture.store.getDeploymentReservation(failedDeployment.deploymentId)).toBeDefined();
         expect(fixture.store.getDeployment(failedDeployment.deploymentId)).toBeUndefined();
 
-        const deployed = await fixture.runtime.deploy(publication.id, "resource-host", "external-14");
+        const deployed = await fixture.runtime.deploy(
+            publication.id,
+            "resource-host",
+            "external-14"
+        );
         if (deployed.outcome !== "succeeded") throw new TypeError("Expected successful deployment");
         fixture.invocations.invokeOutcomes.push("failed");
         const failedResource = await fixture.runtime.materializeResource(
@@ -514,7 +530,11 @@ describe("SlateRuntime", () => {
         const changed = runtimeFixture("changed-context");
         const { publication } = await publishedSlate(changed);
         changed.invocations.invokeOutcomes.push("indeterminate");
-        const uncertain = await changed.runtime.deploy(publication.id, "changed-key", "external-17");
+        const uncertain = await changed.runtime.deploy(
+            publication.id,
+            "changed-key",
+            "external-17"
+        );
         if (uncertain.outcome === "succeeded")
             throw new TypeError("Expected indeterminate deployment");
         const reservation = changed.store.getDeploymentReservation(uncertain.deploymentId)!;
@@ -575,8 +595,16 @@ describe("SlateRuntime", () => {
 
         const rollback = runtimeFixture("cas-rollback", new RejectingSlateStore());
         const { slate, publication } = await publishedSlate(rollback);
-        const firstDeployment = await rollback.runtime.deploy(publication.id, "first", "external-18");
-        const secondDeployment = await rollback.runtime.deploy(publication.id, "second", "external-19");
+        const firstDeployment = await rollback.runtime.deploy(
+            publication.id,
+            "first",
+            "external-18"
+        );
+        const secondDeployment = await rollback.runtime.deploy(
+            publication.id,
+            "second",
+            "external-19"
+        );
         if (firstDeployment.outcome !== "succeeded" || secondDeployment.outcome !== "succeeded") {
             throw new TypeError("Expected deployments");
         }
@@ -590,15 +618,19 @@ describe("SlateRuntime", () => {
         const deployment = runtimeFixture("provider-deployment-failure");
         const { publication } = await publishedSlate(deployment);
         deployment.provider.throwDeployment = true;
-        await expect(deployment.runtime.deploy(publication.id, "production", "external-20")).rejects.toThrow(
-            /deployment provider failed/
-        );
+        await expect(
+            deployment.runtime.deploy(publication.id, "production", "external-20")
+        ).rejects.toThrow(/deployment provider failed/);
         expect(deployment.store.snapshot().deploymentReservations).toHaveLength(1);
         expect(deployment.store.snapshot().deployments).toHaveLength(0);
 
         const resource = runtimeFixture("provider-resource-failure");
         const published = await publishedSlate(resource);
-        const deployed = await resource.runtime.deploy(published.publication.id, "production", "external-21");
+        const deployed = await resource.runtime.deploy(
+            published.publication.id,
+            "production",
+            "external-21"
+        );
         if (deployed.outcome !== "succeeded") throw new TypeError("Expected deployment");
         resource.provider.throwResource = true;
         await expect(
@@ -674,11 +706,9 @@ describe("SlateRuntime", () => {
                     "malformed",
                     `external-malformed-${malformedIndex}`
                 )
-            ).rejects.toMatchObject(
-                {
-                    code: "invocation.invalid"
-                }
-            );
+            ).rejects.toMatchObject({
+                code: "invocation.invalid"
+            });
         }
     });
 });

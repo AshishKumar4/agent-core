@@ -318,9 +318,15 @@ export class SlateRuntime {
         target: string,
         externalKey: string
     ): Promise<SlateDeploymentOutcome> {
-        if (typeof externalKey !== "string" || externalKey.trim() !== externalKey ||
-            externalKey.length === 0) {
-            throw new TypeError("Slate deployment external key must be canonical");
+        if (
+            typeof externalKey !== "string" ||
+            externalKey.trim() !== externalKey ||
+            externalKey.length === 0
+        ) {
+            throw new AgentCoreError(
+                "operation.invalid-input",
+                "Slate deployment external key must be canonical"
+            );
         }
         const existing = this.store.findDeploymentReservationByExternalKey(externalKey);
         if (existing !== undefined) {
