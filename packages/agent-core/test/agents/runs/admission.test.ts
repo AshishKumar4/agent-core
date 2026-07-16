@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { Revision } from "../../../src/core";
 import { RunCommitId } from "../../../src/execution-references";
-import { ApprovalId, EffectAttemptId, ReceiptId } from "../../../src/invocation-references";
-import {
-    AuditRecordId,
-    InvocationId,
-    RouteReservationId
-} from "../../../src/interaction-references";
+import { ApprovalId, EffectAttemptId } from "../../../src/invocation-references";
+import { InvocationId, RouteReservationId } from "../../../src/interaction-references";
 import {
     RunAdmissionRegistry,
     RunAdmissionRegistryCodec,
@@ -21,7 +17,15 @@ import {
     TerminalSnapshot,
     isSettled
 } from "../../../src/agents/runs/settlement";
-import { content, genesis, harness, ids, pins, seedRunningTurn } from "./fixture";
+import {
+    content,
+    genesis,
+    harness,
+    ids,
+    pins,
+    seedRunningTurn,
+    settlementAuditKey
+} from "./fixture";
 
 const invocation = new InvocationId("admission-invocation");
 const route = new RouteReservationId("admission-route");
@@ -298,18 +302,7 @@ describe("transactional terminal frontier", () => {
         const reservations = obligations.map((obligation) =>
             value.runtime.reserveRunObligation(ids.run, obligation)
         );
-        const audit = Object.freeze({
-            audit: new AuditRecordId("admission-audit"),
-            evidence: Object.freeze({
-                kind: "receipt" as const,
-                invocation,
-                receipt: new ReceiptId("admission-receipt")
-            })
-        });
-        const snapshot = value.runtime.terminalizeRun({
-            ...terminalRequest(value, "admission-terminal"),
-            requiredAudits: [audit]
-        });
+        const snapshot = value.runtime.terminalizeRun(terminalRequest(value, "admission-terminal"));
 
         expect(snapshot.obligation.registryEpoch).toBe(1);
         expect(snapshot.obligation.obligations.map(runObligationKey)).toEqual(
@@ -319,6 +312,11 @@ describe("transactional terminal frontier", () => {
                 )
                 .map(runObligationKey)
         );
+        expect(snapshot.obligation.requiredAudits.map((audit) => audit.kind).sort()).toEqual([
+            "commit",
+            "delivery",
+            "receipt"
+        ]);
         value.runtime.completeRunObligation(reservations[0]!);
         expect(snapshot.obligation.obligations).toHaveLength(obligations.length);
         expect(
@@ -333,7 +331,9 @@ describe("transactional terminal frontier", () => {
         value.settlement.terminalRoutes.add(route.value);
         value.settlement.reconciliations.add(attempt.value);
         value.settlement.commits.add(systemCommit.value);
-        value.settlement.audits.add(audit.audit.value);
+        for (const audit of snapshot.obligation.requiredAudits) {
+            value.settlement.audits.add(settlementAuditKey(audit));
+        }
         expect(value.runtime.settled(ids.run)).toBe(true);
     });
 
@@ -345,7 +345,7 @@ describe("transactional terminal frontier", () => {
         expect(value.runtime.settled(ids.run)).toBe(true);
     });
 
-    it("[C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure and rejects audit extras", () => {
+    it("[C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure", () => {
         const value = seedRunningTurn();
         const reservation = value.runtime.reserveRunObligation(ids.run, item);
         const invalid = terminalRequest(value, "invalid-terminal");
@@ -364,35 +364,24 @@ describe("transactional terminal frontier", () => {
             /current branch head/
         );
         expect(value.runtime.acceptsRunAdmission(reservation)).toBe(true);
-
-        expect(() =>
-            value.runtime.terminalizeRun({
-                ...terminalRequest(value, "extra-audit-terminal"),
-                requiredAudits: [
-                    {
-                        audit: new AuditRecordId("extra-audit"),
-                        evidence: { kind: "delivery", reservation: route }
-                    }
-                ]
-            })
-        ).toThrow(/captured obligation/);
-        expect(value.runtime.acceptsRunAdmission(reservation)).toBe(true);
     });
 
     it("[C13-ADV-POST-TERMINAL-PREPARATION] requires every canonical settlement identity without accepting broad Invocation evidence", () => {
         const obligation = new SettlementObligation({
             registryEpoch: 1,
-            obligations: [item],
-            requiredAudits: []
+            obligations: [item]
         });
         const value = harness();
+        for (const audit of obligation.requiredAudits) {
+            value.settlement.audits.add(settlementAuditKey(audit));
+        }
         value.settlement.terminalItems.add(`${invocation.value}:1:admission-item-key`);
         expect(isSettled({}, obligation, value.settlement)).toBe(false);
         value.settlement.terminalItems.add(`${invocation.value}:2:admission-item-key`);
         expect(isSettled({}, obligation, value.settlement)).toBe(true);
     });
 
-    it("[C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each typed audit independently", () => {
+    it("[C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each derived audit independently", () => {
         const obligations: readonly RunObligation[] = [
             { kind: "approval", approval },
             item,
@@ -400,36 +389,24 @@ describe("transactional terminal frontier", () => {
             { kind: "reconciliation", attempt },
             { kind: "systemCommit", commit: systemCommit }
         ];
-        const audits = [
-            {
-                audit: new AuditRecordId("settlement-receipt-audit"),
-                evidence: {
-                    kind: "receipt" as const,
-                    invocation,
-                    receipt: new ReceiptId("settlement-receipt")
-                }
-            },
-            {
-                audit: new AuditRecordId("settlement-delivery-audit"),
-                evidence: { kind: "delivery" as const, reservation: route }
-            },
-            {
-                audit: new AuditRecordId("settlement-commit-audit"),
-                evidence: { kind: "commit" as const, id: systemCommit }
-            }
-        ];
         const obligation = new SettlementObligation({
             registryEpoch: 1,
-            obligations,
-            requiredAudits: audits
+            obligations
         });
+        expect(obligation.requiredAudits.map((audit) => audit.kind).sort()).toEqual([
+            "commit",
+            "delivery",
+            "receipt"
+        ]);
         const value = harness();
         value.settlement.approvals.add(approval.value);
         value.settlement.terminalItems.add(`${invocation.value}:2:admission-item-key`);
         value.settlement.terminalRoutes.add(route.value);
         value.settlement.reconciliations.add(attempt.value);
         value.settlement.commits.add(systemCommit.value);
-        audits.forEach((audit) => value.settlement.audits.add(audit.audit.value));
+        for (const audit of obligation.requiredAudits) {
+            value.settlement.audits.add(settlementAuditKey(audit));
+        }
 
         const evidenceSets = [
             [value.settlement.approvals, approval.value],
@@ -437,7 +414,9 @@ describe("transactional terminal frontier", () => {
             [value.settlement.terminalRoutes, route.value],
             [value.settlement.reconciliations, attempt.value],
             [value.settlement.commits, systemCommit.value],
-            ...audits.map((audit) => [value.settlement.audits, audit.audit.value] as const)
+            ...obligation.requiredAudits.map(
+                (audit) => [value.settlement.audits, settlementAuditKey(audit)] as const
+            )
         ] as const;
         for (const [set, key] of evidenceSets) {
             set.delete(key);
@@ -447,13 +426,12 @@ describe("transactional terminal frontier", () => {
         expect(isSettled({}, obligation, value.settlement)).toBe(true);
     });
 
-    it("[C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and typed audit identities", () => {
+    it("[C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities", () => {
         expect(
             () =>
                 new SettlementObligation({
                     registryEpoch: -1,
-                    obligations: [],
-                    requiredAudits: []
+                    obligations: []
                 })
         ).toThrow(/registry epoch/);
         expect(
@@ -466,54 +444,26 @@ describe("transactional terminal frontier", () => {
                     "succeeded",
                     new SettlementObligation({
                         registryEpoch: 1,
-                        obligations: [],
-                        requiredAudits: []
+                        obligations: []
                     }),
                     new Date(Number.NaN)
                 )
         ).toThrow(/Terminal time/);
 
-        const obligations: readonly RunObligation[] = [
-            item,
-            { kind: "route", reservation: route },
-            { kind: "systemCommit", commit: systemCommit }
-        ];
-        const malformedAudits = [
-            {
-                audit: ids.run as never,
-                evidence: {
-                    kind: "receipt" as const,
-                    invocation,
-                    receipt: new ReceiptId("malformed-audit-receipt")
-                }
-            },
-            {
-                audit: new AuditRecordId("malformed-receipt-audit"),
-                evidence: {
-                    kind: "receipt" as const,
-                    invocation: ids.run as never,
-                    receipt: new ReceiptId("malformed-audit-receipt")
-                }
-            },
-            {
-                audit: new AuditRecordId("malformed-delivery-audit"),
-                evidence: { kind: "delivery" as const, reservation: ids.run as never }
-            },
-            {
-                audit: new AuditRecordId("malformed-commit-audit"),
-                evidence: { kind: "commit" as const, id: ids.run as never }
-            }
-        ];
-        for (const requiredAudit of malformedAudits) {
+        for (const malformed of [
+            { kind: "invocationItem" as const, invocation: ids.run as never, itemIndex: 0, itemKey: "k" },
+            { kind: "route" as const, reservation: ids.run as never },
+            { kind: "systemCommit" as const, commit: ids.run as never }
+        ]) {
             expect(
                 () =>
                     new SettlementObligation({
                         registryEpoch: 1,
-                        obligations,
-                        requiredAudits: [requiredAudit]
+                        obligations: [malformed]
                     })
             ).toThrow(TypeError);
         }
+
     });
 });
 

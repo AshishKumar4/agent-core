@@ -26,8 +26,7 @@ import {
     SettlementObligation,
     TerminalSnapshot,
     isSettled,
-    type RunOutcome,
-    type SettlementAuditObligation
+    type RunOutcome
 } from "./settlement";
 import { RunRepository } from "./store";
 import { RunCheckpoint, Turn, TurnInboxEntry, type TurnTerminalStatus } from "./turn";
@@ -75,7 +74,6 @@ export interface TerminalizeRunRequest {
     readonly commit: RunCommit;
     readonly forcedCancellationControl?: ForcedCancellationControl;
     readonly siblingCancellations: ReadonlyMap<string, SiblingCancellationEvidence>;
-    readonly requiredAudits?: readonly SettlementAuditObligation[];
     readonly now: Date;
 }
 
@@ -717,8 +715,7 @@ export class RunRuntime<Transaction> {
         this.repository.replaceAdmission(tx, registry, closedRegistry);
         const obligation = new SettlementObligation({
             registryEpoch: closedRegistry.epoch,
-            obligations: closedRegistry.frontier(),
-            requiredAudits: request.requiredAudits ?? []
+            obligations: closedRegistry.frontier()
         });
         this.appendInTransaction(tx, request.commit, request.expectedBranchRevision, request.now);
         const completed = turn.complete(

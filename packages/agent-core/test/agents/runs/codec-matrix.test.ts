@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RunCommitId } from "../../../src/execution-references";
 import { RunCommit, RunCommitCodec } from "../../../src/agents/runs/commit";
 import { ApprovalId, EffectAttemptId, ReceiptId } from "../../../src/invocations";
-import {
-    AuditRecordId,
-    InvocationId,
-    RouteReservationId
-} from "../../../src/interaction-references";
+import { InvocationId, RouteReservationId } from "../../../src/interaction-references";
 import {
     SettlementEvidencePort,
     SettlementObligation,
@@ -186,24 +182,23 @@ class MatrixSettlementPort extends SettlementEvidencePort<object> {
         return !this.missing.has(`commit:${value.value}`);
     }
     public auditSatisfied(_tx: object, value: SettlementAuditObligation): boolean {
-        return !this.missing.has(`audit:${value.audit.value}`);
+        return !this.missing.has(`audit:${auditKey(value)}`);
+    }
+}
+
+function auditKey(audit: SettlementAuditObligation): string {
+    switch (audit.kind) {
+        case "receipt":
+            return `receipt:${audit.invocation.value}:${audit.itemIndex}:${audit.itemKey}`;
+        case "delivery":
+            return `delivery:${audit.reservation.value}`;
+        case "commit":
+            return `commit:${audit.commit.value}`;
     }
 }
 
 describe("Settlement codec and lifecycle", () => {
-    it("round-trips every typed audit obligation and derives settlement", () => {
-        const receiptAudit: SettlementAuditObligation = {
-            audit: new AuditRecordId("audit-receipt"),
-            evidence: { kind: "receipt", invocation: refs.invocation, receipt: refs.receipt }
-        };
-        const deliveryAudit: SettlementAuditObligation = {
-            audit: new AuditRecordId("audit-delivery"),
-            evidence: { kind: "delivery", reservation: refs.route }
-        };
-        const commitAudit: SettlementAuditObligation = {
-            audit: new AuditRecordId("audit-commit"),
-            evidence: { kind: "commit", id: new RunCommitId("required") }
-        };
+    it("derives every typed audit obligation from the frontier and round-trips", () => {
         const obligation = new SettlementObligation({
             registryEpoch: 4,
             obligations: [
@@ -215,8 +210,7 @@ describe("Settlement codec and lifecycle", () => {
                 },
                 { kind: "route", reservation: refs.route },
                 { kind: "systemCommit", commit: new RunCommitId("required") }
-            ],
-            requiredAudits: [receiptAudit, deliveryAudit, commitAudit]
+            ]
         });
         const snapshot = new TerminalSnapshot(
             ids.run,
@@ -229,7 +223,7 @@ describe("Settlement codec and lifecycle", () => {
         );
         const decoded = TerminalSnapshotCodec.decode(TerminalSnapshotCodec.encode(snapshot));
         expect(decoded.recordedAt.getTime()).toBe(1000);
-        expect(decoded.obligation.requiredAudits.map((value) => value.evidence.kind)).toEqual([
+        expect(decoded.obligation.requiredAudits.map((value) => value.kind)).toEqual([
             "commit",
             "delivery",
             "receipt"
@@ -240,7 +234,9 @@ describe("Settlement codec and lifecycle", () => {
             `invocation:${refs.invocation.value}:0:matrix-item`,
             `route:${refs.route.value}`,
             "commit:required",
-            "audit:audit-commit"
+            `audit:receipt:${refs.invocation.value}:0:matrix-item`,
+            `audit:delivery:${refs.route.value}`,
+            "audit:commit:required"
         ]) {
             port.missing.clear();
             port.missing.add(missing);
@@ -253,46 +249,17 @@ describe("Settlement codec and lifecycle", () => {
                     obligations: [
                         { kind: "route", reservation: refs.route },
                         { kind: "route", reservation: refs.route }
-                    ],
-                    requiredAudits: []
+                    ]
                 })
         ).toThrow(/unique/);
         expect(SettlementObligation.decode(SettlementObligation.encode(obligation))).toEqual(
             obligation
         );
-        expect(
-            () =>
-                new SettlementObligation({
-                    registryEpoch: 1,
-                    obligations: [{ kind: "route", reservation: refs.route }],
-                    requiredAudits: [receiptAudit, { ...receiptAudit }]
-                })
-        ).toThrow(/audit obligations/);
-        expect(
-            () =>
-                new SettlementObligation({
-                    registryEpoch: 1,
-                    obligations: [
-                        {
-                            kind: "invocationItem",
-                            invocation: refs.invocation,
-                            itemIndex: 0,
-                            itemKey: "matrix-item"
-                        }
-                    ],
-                    requiredAudits: [
-                        {
-                            audit: receiptAudit.audit,
-                            evidence: { kind: "unknown" } as never
-                        }
-                    ]
-                })
-        ).toThrow(/kind/);
-        const invalidAudit = structuredClone(obligation.toData()) as {
-            requiredAudits: Array<{ evidence: { kind: string } }>;
+        const invalidObligation = structuredClone(obligation.toData()) as {
+            obligations: Array<{ kind: string }>;
         };
-        invalidAudit.requiredAudits[0]!.evidence.kind = "unknown";
-        expect(() => SettlementObligation.fromData(invalidAudit as never)).toThrow(/kind/);
+        invalidObligation.obligations[0]!.kind = "unknown";
+        expect(() => SettlementObligation.fromData(invalidObligation as never)).toThrow(/kind/);
         const invalidOutcome = structuredClone(snapshot.toData()) as Record<string, unknown>;
         invalidOutcome["outcome"] = "unknown";
         expect(() => TerminalSnapshot.fromData(invalidOutcome as never)).toThrow(/outcome/);
@@ -313,8 +280,7 @@ describe("Settlement codec and lifecycle", () => {
     it("keeps terminal state immutable and permits only captured evidence revision", () => {
         const obligation = new SettlementObligation({
             registryEpoch: 1,
-            obligations: [],
-            requiredAudits: []
+            obligations: []
         });
         const terminal = genesis().run.terminalize(
             new TerminalSnapshot(

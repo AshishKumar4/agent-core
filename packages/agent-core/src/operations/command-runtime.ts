@@ -13,13 +13,6 @@ import {
     type OperationDescriptor,
     type SurfaceId
 } from "../facets";
-import {
-    type OperationDispatchResult,
-    OperationRequestKey,
-    type ResolvedFacet,
-    type OperationGateway
-} from "./gateway";
-
 const DEFAULT_COMMAND_TRUST = ["owner", "authenticated", "self"] as const;
 
 export interface CommandInstallationTarget {
@@ -52,17 +45,12 @@ export interface CommandInvocationEvent {
     readonly id: string;
 }
 
-export type CommandCompletion =
-    | { readonly kind: "succeeded"; readonly result: OperationDispatchResult }
-    | { readonly kind: "failed"; readonly error: unknown };
-
 export interface CommandEventPort {
     invoked(
         installed: InstalledCommand,
         origin: CommandInvocationOrigin,
         input: FacetData
     ): Promise<CommandInvocationEvent>;
-    completed(invoking: CommandInvocationEvent, completion: CommandCompletion): Promise<void>;
 }
 
 export class CommandRuntime {
@@ -116,14 +104,20 @@ export class CommandRuntime {
         return installed;
     }
 
+    /**
+     * A Command invocation only emits `command.invoked` with the §4.3 step-4 correlation
+     * (its Surface, and the Run when invoked from a conversation). Execution happens solely
+     * through the derived Subscription and the workspace routing pipeline, which evaluates the
+     * subscription's accepted trust, event dedupe, and initiator authority; no direct gateway
+     * dispatch is permitted, as that would be an alternate authority source (§4.3). The returned
+     * Event identity lets the Surface correlate the eventual `command.completed` (step 5).
+     */
     public async invoke(
         installed: InstalledCommand,
         argumentsValue: FacetData,
-        requestKey: OperationRequestKey,
         origin: CommandInvocationOrigin,
-        gateway: OperationGateway,
         events: CommandEventPort
-    ): Promise<OperationDispatchResult> {
+    ): Promise<CommandInvocationEvent> {
         this.requireInstalled(installed);
         if (!installed.command.surfaces.some((surface) => surface.value === origin.surface.value)) {
             throw new AgentCoreError(
@@ -138,43 +132,7 @@ export class CommandRuntime {
                 "Mapped Command input does not match the installed Operation schema"
             );
         }
-        const invoked = await events.invoked(installed, origin, { input });
-        try {
-            const resolved = await this.resolve(installed.command, gateway);
-            try {
-                const result = await resolved.dispatch({
-                    requestKey,
-                    operation: installed.command.target.operation,
-                    payload: { kind: "single", input }
-                });
-                await events.completed(invoked, Object.freeze({ kind: "succeeded", result }));
-                return result;
-            } finally {
-                resolved[Symbol.dispose]();
-            }
-        } catch (error) {
-            await events.completed(invoked, Object.freeze({ kind: "failed", error }));
-            throw error;
-        }
-    }
-
-    public async resolve(command: Command, gateway: OperationGateway): Promise<ResolvedFacet> {
-        const resolved = await gateway.resolve(command.target.binding);
-        if (!resolved.package.equals(command.operation.facet)) {
-            resolved[Symbol.dispose]();
-            throw new AgentCoreError(
-                "authority.denied",
-                "Command Binding targets a different Facet package"
-            );
-        }
-        if (resolved.descriptor(command.target.operation) === undefined) {
-            resolved[Symbol.dispose]();
-            throw new AgentCoreError(
-                "operation.missing",
-                `Command target ${command.target.operation.value} is unavailable`
-            );
-        }
-        return resolved;
+        return events.invoked(installed, origin, { input });
     }
 
     public bind(command: Command, argumentsValue: FacetData): FacetData {

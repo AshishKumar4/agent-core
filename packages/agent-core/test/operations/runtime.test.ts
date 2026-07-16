@@ -42,7 +42,6 @@ import {
 } from "../../src/facets";
 import {
     CommandRuntime,
-    type CommandCompletion,
     type CommandEventPort,
     type CommandInvocationEvent,
     type CommandInvocationOrigin,
@@ -609,71 +608,6 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("uses a command's Binding and validates its pure mapping before dispatch", async () => {
-        const descriptor = operationDescriptor("run");
-        const runtime = new TestOperation(descriptor, async (input) => input);
-        const facetManifest = manifest("acme.runtime", [descriptor]);
-        const facet = new TestFacet(
-            "workspace:runtime",
-            facetManifest,
-            [],
-            new Map([["run", runtime]]),
-            new Map()
-        );
-        const host = new FacetRuntimeHost([facetManifest], [facet]);
-        await host.activate();
-        const authority = new TestAuthority([], "direct");
-        const gateway = new OperationGatewayHost(
-            { caller: "authenticated" },
-            host,
-            authority,
-            new TestInvocations([])
-        );
-        const command = new Command({
-            name: "run",
-            title: "Run",
-            arguments: objectSchema,
-            operation: new OperationRef("acme.runtime:run"),
-            binding: new BindingName("runtime"),
-            mapping: new FieldMapping([new FieldMove("/input", { from: "/value" })]),
-            surfaces: [new SlotName("palette")]
-        });
-
-        const commands = new CommandRuntime();
-        const input = commands.bind(command, { value: 7 });
-        using resolved = await commands.resolve(command, gateway);
-        await expect(
-            resolved.dispatch({
-                requestKey: new OperationRequestKey("command-1"),
-                operation: command.target.operation,
-                payload: { kind: "single", input }
-            })
-        ).resolves.toEqual({ kind: "direct", output: { input: 7 } });
-        const wrongPackage = new Command({
-            name: command.name,
-            title: command.title,
-            arguments: command.arguments,
-            operation: new OperationRef("other.package:run"),
-            binding: command.binding,
-            mapping: command.mapping!,
-            surfaces: command.surfaces
-        });
-        await expect(commands.resolve(wrongPackage, gateway)).rejects.toMatchObject({
-            code: "authority.denied"
-        });
-        const missingOperation = new Command({
-            name: "missing",
-            title: "Missing",
-            arguments: command.arguments,
-            operation: new OperationRef("acme.runtime:missing"),
-            binding: command.binding,
-            surfaces: command.surfaces
-        });
-        await expect(commands.resolve(missingOperation, gateway)).rejects.toMatchObject({
-            code: "operation.missing"
-        });
-        await host.dispose();
-    });
 
     test("rejects invalid command arguments and missing mapping sources", () => {
         const passthrough = new Command({
@@ -758,32 +692,8 @@ describe("Protected Operation gateway", () => {
         expect((Object.prototype as { readonly polluted?: unknown }).polluted).toBeUndefined();
     });
 
-    test("[C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before executable dispatch", async () => {
+    test("[C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked", async () => {
         const descriptor = mappedOperationDescriptor();
-        const received: FacetData[] = [];
-        const facetManifest = manifest("acme.runtime", [descriptor]);
-        const facet = new TestFacet(
-            "workspace:runtime",
-            facetManifest,
-            [],
-            new Map([
-                [
-                    "run",
-                    new TestOperation(descriptor, async (input) => {
-                        received.push(input);
-                        return { accepted: true };
-                    })
-                ]
-            ])
-        );
-        const host = new FacetRuntimeHost([facetManifest], [facet]);
-        await host.activate();
-        const gateway = new OperationGatewayHost(
-            { caller: "authenticated" },
-            host,
-            new TestAuthority([], "direct"),
-            new TestInvocations([])
-        );
         const runtime = new CommandRuntime();
         const command = mappedCommand();
         const installed = runtime.install({
@@ -793,33 +703,28 @@ describe("Protected Operation gateway", () => {
         });
         const events = new TestCommandEvents();
 
-        await expect(
-            runtime.invoke(
-                installed,
-                { amount: 7 },
-                new OperationRequestKey("command-binding"),
-                { surface: new SurfaceId("palette") },
-                gateway,
-                events
-            )
-        ).resolves.toEqual({ kind: "direct", output: { accepted: true } });
-        expect(received).toEqual([{ count: 7 }]);
+        const invoked = await runtime.invoke(
+            installed,
+            { amount: 7 },
+            { surface: new SurfaceId("palette") },
+            events
+        );
+        expect(invoked.id).toBe("command-event-1");
+        expect(events.records).toHaveLength(1);
         expect(events.records[0]).toMatchObject({
             kind: "command.invoked",
             payload: { input: { count: 7 } }
         });
+
         await expect(
             runtime.invoke(
                 installed,
                 { amount: "7" },
-                new OperationRequestKey("command-invalid-arguments"),
                 { surface: new SurfaceId("palette") },
-                gateway,
                 events
             )
         ).rejects.toMatchObject({ code: "operation.invalid-input" });
-        expect(events.records).toHaveLength(2);
-        await host.dispose();
+        expect(events.records).toHaveLength(1);
     });
 
     test("[C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command", () => {
@@ -906,32 +811,8 @@ describe("Protected Operation gateway", () => {
         expect(installed.subscription.binding.equals(command.binding)).toBe(true);
     });
 
-    test("[C13-COMMAND-RESULT] publishes success and failure completion Events correlated to the invocation", async () => {
-        let failure: unknown;
+    test("[C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion", async () => {
         const descriptor = mappedOperationDescriptor();
-        const facetManifest = manifest("acme.runtime", [descriptor]);
-        const facet = new TestFacet(
-            "workspace:runtime",
-            facetManifest,
-            [],
-            new Map([
-                [
-                    "run",
-                    new TestOperation(descriptor, async () => {
-                        if (failure !== undefined) throw failure;
-                        return { accepted: true };
-                    })
-                ]
-            ])
-        );
-        const host = new FacetRuntimeHost([facetManifest], [facet]);
-        await host.activate();
-        const gateway = new OperationGatewayHost(
-            { caller: "authenticated" },
-            host,
-            new TestAuthority([], "direct"),
-            new TestInvocations([])
-        );
         const runtime = new CommandRuntime();
         const command = mappedCommand();
         const installed = runtime.install({
@@ -945,42 +826,25 @@ describe("Protected Operation gateway", () => {
             run: Object.freeze({ run: "run-1", branch: "main" })
         });
 
-        await runtime.invoke(
-            installed,
-            { amount: 1 },
-            new OperationRequestKey("command-success"),
-            origin,
-            gateway,
-            events
-        );
-        failure = new AgentCoreError("authority.denied", "denied");
-        await expect(
-            runtime.invoke(
-                installed,
-                { amount: 2 },
-                new OperationRequestKey("command-failure"),
-                origin,
-                gateway,
-                events
-            )
-        ).rejects.toBe(failure);
+        const first = await runtime.invoke(installed, { amount: 1 }, origin, events);
+        const second = await runtime.invoke(installed, { amount: 2 }, origin, events);
+
+        expect(first.id).toBe("command-event-1");
+        expect(second.id).toBe("command-event-2");
         expect(events.records).toMatchObject([
-            { id: "command-event-1", kind: "command.invoked", origin },
+            {
+                id: "command-event-1",
+                kind: "command.invoked",
+                origin,
+                payload: { input: { count: 1 } }
+            },
             {
                 id: "command-event-2",
-                kind: "command.completed",
-                causation: "command-event-1",
-                completion: { kind: "succeeded" }
-            },
-            { id: "command-event-3", kind: "command.invoked", origin },
-            {
-                id: "command-event-4",
-                kind: "command.completed",
-                causation: "command-event-3",
-                completion: { kind: "failed", error: failure }
+                kind: "command.invoked",
+                origin,
+                payload: { input: { count: 2 } }
             }
         ]);
-        await host.dispose();
     });
 
     test("submits one homogeneous mediated batch and invalidates resolutions on host disposal", async () => {
@@ -2102,11 +1966,9 @@ describe("Protected Operation gateway", () => {
 
 interface CommandEventRecord {
     readonly id: string;
-    readonly kind: "command.invoked" | "command.completed";
+    readonly kind: "command.invoked";
     readonly origin?: CommandInvocationOrigin;
     readonly payload?: FacetData;
-    readonly causation?: string;
-    readonly completion?: CommandCompletion;
 }
 
 class TestCommandEvents implements CommandEventPort {
@@ -2125,20 +1987,6 @@ class TestCommandEvents implements CommandEventPort {
         });
         this.records.push(event);
         return Object.freeze({ id: event.id });
-    }
-
-    public async completed(
-        invoking: CommandInvocationEvent,
-        completion: CommandCompletion
-    ): Promise<void> {
-        this.records.push(
-            Object.freeze({
-                id: `command-event-${this.records.length + 1}`,
-                kind: "command.completed" as const,
-                causation: invoking.id,
-                completion
-            })
-        );
     }
 }
 

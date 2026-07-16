@@ -228,7 +228,18 @@ export class TestSettlementPort<Transaction = object> extends SettlementEvidence
         return this.commits.has(value.value);
     }
     public auditSatisfied(_tx: Transaction, value: SettlementAuditObligation): boolean {
-        return this.audits.has(value.audit.value);
+        return this.audits.has(settlementAuditKey(value));
+    }
+}
+
+export function settlementAuditKey(audit: SettlementAuditObligation): string {
+    switch (audit.kind) {
+        case "receipt":
+            return `receipt:${audit.invocation.value}:${audit.itemIndex}:${audit.itemKey}`;
+        case "delivery":
+            return `delivery:${audit.reservation.value}`;
+        case "commit":
+            return `commit:${audit.commit.value}`;
     }
 }
 

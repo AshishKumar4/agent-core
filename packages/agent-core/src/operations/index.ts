@@ -1,6 +1,5 @@
 export { CommandRuntime } from "./command-runtime";
 export type {
-    CommandCompletion,
     CommandEventPort,
     CommandInstallation,
     CommandInstallationTarget,

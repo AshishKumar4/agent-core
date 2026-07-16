@@ -42,6 +42,7 @@ import {
     ids,
     pins,
     refs,
+    settlementAuditKey,
     sourceRecords
 } from "./fixture";
 
@@ -920,10 +921,6 @@ describe("memory Run runtime", () => {
 
     it("[C13-RUN-TERMINAL-OBLIGATIONS] derives settlement from every captured obligation", () => {
         const value = harness();
-        const audit = {
-            audit: refs.audit,
-            evidence: { kind: "receipt", invocation: refs.invocation, receipt: refs.receipt }
-        } as const;
         const obligation = new SettlementObligation({
             registryEpoch: 1,
             obligations: [
@@ -935,14 +932,19 @@ describe("memory Run runtime", () => {
                 },
                 { kind: "route", reservation: refs.route },
                 { kind: "systemCommit", commit: new RunCommitId("required-commit") }
-            ],
-            requiredAudits: [audit]
+            ]
         });
-        expect(obligation.requiredAudits).toHaveLength(1);
+        expect(obligation.requiredAudits.map((audit) => audit.kind).sort()).toEqual([
+            "commit",
+            "delivery",
+            "receipt"
+        ]);
         value.settlement.terminalItems.add(`${refs.invocation.value}:0:item-key`);
         value.settlement.terminalRoutes.add(refs.route.value);
         value.settlement.commits.add("required-commit");
-        value.settlement.audits.add(refs.audit.value);
-        expect(value.settlement.auditSatisfied({}, audit)).toBe(true);
+        for (const audit of obligation.requiredAudits) {
+            value.settlement.audits.add(settlementAuditKey(audit));
+            expect(value.settlement.auditSatisfied({}, audit)).toBe(true);
+        }
     });
 });

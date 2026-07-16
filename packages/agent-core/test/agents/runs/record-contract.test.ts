@@ -104,8 +104,7 @@ describe("uniform durable record contract", () => {
                 },
                 { kind: "route", reservation: refs.route },
                 { kind: "systemCommit", commit: new RunCommitId("required") }
-            ],
-            requiredAudits: []
+            ]
         });
         const terminal = new TerminalSnapshot(
             ids.run,
@@ -166,8 +165,7 @@ describe("uniform durable record contract", () => {
         ];
         const obligation = new SettlementObligation({
             registryEpoch: 1,
-            obligations,
-            requiredAudits: []
+            obligations
         });
         obligations.pop();
         expect(obligation.obligations).toHaveLength(1);
@@ -362,8 +360,7 @@ describe("Run lifecycle record errors", () => {
             "failed",
             new SettlementObligation({
                 registryEpoch: 1,
-                obligations: [],
-                requiredAudits: []
+                obligations: []
             }),
             new Date(1000)
         );

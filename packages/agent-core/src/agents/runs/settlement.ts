@@ -1,8 +1,8 @@
 import { requireSynchronousResult } from "../../actors";
 import { RecordCodec, type JsonValue } from "../../core";
 import { RunCommitId, TurnId } from "../../execution-references";
-import { ApprovalId, EffectAttemptId, ReceiptId } from "../../invocation-references";
-import { AuditRecordId, InvocationId, RouteReservationId } from "../../interaction-references";
+import { ApprovalId, EffectAttemptId } from "../../invocation-references";
+import { InvocationId, RouteReservationId } from "../../interaction-references";
 import {
     CodecRecord,
     requireArray,
@@ -22,22 +22,19 @@ import {
 import { RunId } from "./id";
 import { requireTerminalOutcome, type TerminalOutcome } from "./outcome";
 
-export interface SettlementAuditObligation {
-    readonly audit: AuditRecordId;
-    readonly evidence:
-        | {
-              readonly kind: "receipt";
-              readonly invocation: InvocationId;
-              readonly receipt: ReceiptId;
-          }
-        | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
-        | { readonly kind: "commit"; readonly id: RunCommitId };
-}
+export type SettlementAuditObligation =
+    | {
+          readonly kind: "receipt";
+          readonly invocation: InvocationId;
+          readonly itemIndex: number;
+          readonly itemKey: string;
+      }
+    | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
+    | { readonly kind: "commit"; readonly commit: RunCommitId };
 
 export interface SettlementObligationInit {
     readonly registryEpoch: number;
     readonly obligations: readonly RunObligation[];
-    readonly requiredAudits: readonly SettlementAuditObligation[];
 }
 
 export class SettlementObligation extends CodecRecord {
@@ -60,24 +57,16 @@ export class SettlementObligation extends CodecRecord {
         if (new Set(obligations.map(runObligationKey)).size !== obligations.length) {
             throw new TypeError("Settlement obligations must have unique canonical identities");
         }
-        const audits = [...init.requiredAudits]
-            .map(copyAuditObligation)
-            .sort((left, right) => left.audit.value.localeCompare(right.audit.value));
-        if (new Set(audits.map((audit) => audit.audit.value)).size !== audits.length) {
-            throw new TypeError("Settlement audit obligations must be unique");
-        }
-        audits.forEach((audit) => requireCapturedAuditTarget(audit, obligations));
         this.registryEpoch = init.registryEpoch;
         this.obligations = Object.freeze(obligations);
-        this.requiredAudits = Object.freeze(audits);
+        this.requiredAudits = deriveRequiredAudits(obligations);
         Object.freeze(this);
     }
 
     public toData(): JsonValue {
         return {
             obligations: this.obligations.map(runObligationData),
-            registryEpoch: this.registryEpoch,
-            requiredAudits: this.requiredAudits.map(auditData)
+            registryEpoch: this.registryEpoch
         };
     }
 
@@ -85,7 +74,7 @@ export class SettlementObligation extends CodecRecord {
         const object = requireObject(value, "Settlement obligation");
         requireExactFields(
             object,
-            ["obligations", "registryEpoch", "requiredAudits"],
+            ["obligations", "registryEpoch"],
             [],
             "Settlement obligation"
         );
@@ -93,9 +82,6 @@ export class SettlementObligation extends CodecRecord {
             registryEpoch: requireInteger(object["registryEpoch"], "Settlement registry epoch"),
             obligations: requireArray(object["obligations"], "Settlement obligations").map(
                 decodeRunObligation
-            ),
-            requiredAudits: requireArray(object["requiredAudits"], "Required audits").map(
-                requireAuditObligation
             )
         });
     }
@@ -265,128 +251,57 @@ export function isSettled<Transaction>(
     );
 }
 
-function copyAuditObligation(value: SettlementAuditObligation): SettlementAuditObligation {
-    const evidence = value.evidence;
-    if (value.audit.constructor !== AuditRecordId) {
-        throw new TypeError("Settlement audit requires an exact Audit ID");
-    }
-    switch (evidence.kind) {
-        case "receipt":
-            if (
-                evidence.invocation.constructor !== InvocationId ||
-                evidence.receipt.constructor !== ReceiptId
-            ) {
-                throw new TypeError("Receipt audit evidence requires canonical IDs");
-            }
-            return Object.freeze({
-                audit: value.audit,
-                evidence: Object.freeze({ ...evidence })
-            });
-        case "delivery":
-            if (evidence.reservation.constructor !== RouteReservationId) {
-                throw new TypeError("Delivery audit evidence requires a canonical reservation ID");
-            }
-            return Object.freeze({
-                audit: value.audit,
-                evidence: Object.freeze({ ...evidence })
-            });
-        case "commit":
-            if (evidence.id.constructor !== RunCommitId) {
-                throw new TypeError("Commit audit evidence requires a canonical commit ID");
-            }
-            return Object.freeze({
-                audit: value.audit,
-                evidence: Object.freeze({ ...evidence })
-            });
-        default:
-            throw new TypeError("Settlement audit evidence kind is invalid");
-    }
-}
-
-function requireCapturedAuditTarget(
-    audit: SettlementAuditObligation,
+/**
+ * The required-audit set is a structural projection of the closed registry frontier: every
+ * captured obligation that terminates in a Receipt, route delivery, or system commit implies
+ * exactly one audit obligation. Deriving it here — rather than accepting it from the caller —
+ * makes an incomplete audit set unrepresentable, so a Run can never settle with an
+ * audit-bearing obligation left unaudited. Async evidence arriving later is fine: the derived
+ * obligation simply stays unsatisfied until `isSettled` re-evaluates it against the port.
+ */
+function deriveRequiredAudits(
     obligations: readonly RunObligation[]
-): void {
-    const evidence = audit.evidence;
-    const captured =
-        evidence.kind === "receipt"
-            ? obligations.some(
-                  (value) =>
-                      value.kind === "invocationItem" &&
-                      value.invocation.equals(evidence.invocation)
-              )
-            : evidence.kind === "delivery"
-              ? obligations.some(
-                    (value) =>
-                        value.kind === "route" && value.reservation.equals(evidence.reservation)
-                )
-              : obligations.some(
-                    (value) => value.kind === "systemCommit" && value.commit.equals(evidence.id)
-                );
-    if (!captured) {
-        throw new TypeError("Settlement audit evidence must target a captured obligation");
-    }
-}
-
-function auditData(value: SettlementAuditObligation): JsonValue {
-    const evidence = value.evidence;
-    return {
-        audit: value.audit.value,
-        evidence:
-            evidence.kind === "receipt"
-                ? {
-                      kind: evidence.kind,
-                      invocation: evidence.invocation.value,
-                      receipt: evidence.receipt.value
-                  }
-                : evidence.kind === "delivery"
-                  ? { kind: evidence.kind, reservation: evidence.reservation.value }
-                  : { kind: evidence.kind, id: evidence.id.value }
-    };
-}
-
-function requireAuditObligation(value: JsonValue): SettlementAuditObligation {
-    const object = requireObject(value, "Settlement audit obligation");
-    requireExactFields(object, ["audit", "evidence"], [], "Settlement audit obligation");
-    const evidence = requireObject(object["evidence"]!, "Settlement audit evidence");
-    const kind = requireString(evidence["kind"], "Settlement audit evidence kind");
-    if (kind === "receipt") {
-        requireExactFields(
-            evidence,
-            ["invocation", "kind", "receipt"],
-            [],
-            "Receipt audit evidence"
-        );
-        return copyAuditObligation({
-            audit: new AuditRecordId(requireString(object["audit"], "Settlement audit")),
-            evidence: {
-                kind,
-                invocation: new InvocationId(
-                    requireString(evidence["invocation"], "Audit Invocation")
-                ),
-                receipt: new ReceiptId(requireString(evidence["receipt"], "Audit Receipt"))
-            }
-        });
-    }
-    if (kind === "delivery") {
-        requireExactFields(evidence, ["kind", "reservation"], [], "Delivery audit evidence");
-        return copyAuditObligation({
-            audit: new AuditRecordId(requireString(object["audit"], "Settlement audit")),
-            evidence: {
-                kind,
-                reservation: new RouteReservationId(
-                    requireString(evidence["reservation"], "Audit reservation")
-                )
-            }
-        });
-    }
-    if (kind !== "commit") throw new TypeError("Settlement audit evidence kind is invalid");
-    requireExactFields(evidence, ["id", "kind"], [], "Commit audit evidence");
-    return copyAuditObligation({
-        audit: new AuditRecordId(requireString(object["audit"], "Settlement audit")),
-        evidence: {
-            kind,
-            id: new RunCommitId(requireString(evidence["id"], "Audit commit"))
+): readonly SettlementAuditObligation[] {
+    const audits = obligations.flatMap((obligation): SettlementAuditObligation[] => {
+        switch (obligation.kind) {
+            case "invocationItem":
+                return [
+                    Object.freeze({
+                        kind: "receipt" as const,
+                        invocation: obligation.invocation,
+                        itemIndex: obligation.itemIndex,
+                        itemKey: obligation.itemKey
+                    })
+                ];
+            case "route":
+                return [
+                    Object.freeze({ kind: "delivery" as const, reservation: obligation.reservation })
+                ];
+            case "systemCommit":
+                return [Object.freeze({ kind: "commit" as const, commit: obligation.commit })];
+            default:
+                return [];
         }
     });
+    return Object.freeze(
+        audits.sort((left, right) =>
+            auditObligationKey(left).localeCompare(auditObligationKey(right))
+        )
+    );
+}
+
+function auditObligationKey(audit: SettlementAuditObligation): string {
+    switch (audit.kind) {
+        case "receipt":
+            return JSON.stringify([
+                audit.kind,
+                audit.invocation.value,
+                audit.itemIndex,
+                audit.itemKey
+            ]);
+        case "delivery":
+            return JSON.stringify([audit.kind, audit.reservation.value]);
+        case "commit":
+            return JSON.stringify([audit.kind, audit.commit.value]);
+    }
 }
