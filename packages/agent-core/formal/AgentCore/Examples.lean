@@ -1,4 +1,5 @@
 import AgentCore.Proofs.Reachability
+import AgentCore.Subscriptions
 
 /-! Constructive witnesses for the final designated claim families. -/
 
@@ -2127,5 +2128,161 @@ theorem nonvacuous_unheld_nonterminal_sibling_rejected :
   have sibling := siblings siblingTurnId unheldSuspendedSibling
     (by simp [unheldNonterminalSiblingGraph, siblingTurnId]) rfl (by decide)
   simp [unheldSuspendedSibling] at sibling
+
+/-! ## Event → Subscription routing witnesses (SPEC §6.2)
+
+A concrete trace proving the routing LTS is livable: an owner-channel Event fires an
+enabled Subscription once, and the same key is inert on redelivery. -/
+
+private def routedTenant : TenantId := ⟨1⟩
+private def routedEventId : EventId := ⟨1⟩
+private def redeliveredEventId : EventId := ⟨2⟩
+private def routedSubscriptionId : SubscriptionId := ⟨1⟩
+private def routedTarget : InvocationId := ⟨41⟩
+private def routedKey : EventKey := ⟨7⟩
+private def ownerChannel : Provenance := ⟨true, true⟩
+private def routedEvent : RoutedEvent := ⟨routedTenant, routedKey, ownerChannel⟩
+private def routedSubscription : RoutedSubscription :=
+  ⟨routedTenant, routedTarget, fun tier => tier == TrustTier.owner, true⟩
+private def routedLedger : SubscriptionLedger :=
+  { subscriptions := tableSet (fun _ => none) routedSubscriptionId routedSubscription
+    events := tableSet (fun _ => none) routedEventId routedEvent
+    consumed := fun _ _ => False }
+
+theorem nonvacuous_subscription_fires :
+    RoutingStep routedLedger (.fire routedSubscriptionId routedEventId routedTarget)
+      (routedLedger.consume routedSubscriptionId routedKey) := by
+  have step := RoutingStep.fire (ledger := routedLedger)
+    (subscriptionId := routedSubscriptionId) (eventId := routedEventId)
+    (subscription := routedSubscription) (event := routedEvent)
+    (by simp [routedLedger, tableSet]) rfl (by simp [routedLedger, tableSet]) rfl
+    (by decide) (fun consumed => consumed)
+  exact step
+
+/-- The same happening redelivered under a fresh EventId (same key) cannot refire. -/
+private def redeliveredLedger : SubscriptionLedger :=
+  { routedLedger.consume routedSubscriptionId routedKey with
+    events := tableSet
+      (tableSet (fun _ => none) routedEventId routedEvent) redeliveredEventId routedEvent }
+
+theorem nonvacuous_redelivery_is_inert {after : SubscriptionLedger} :
+    ¬ RoutingStep redeliveredLedger
+      (.fire routedSubscriptionId redeliveredEventId routedTarget) after := by
+  apply consumed_key_never_refires (event := routedEvent)
+  · simp [redeliveredLedger, tableSet]
+  · exact Or.inl ⟨rfl, rfl⟩
+
+theorem nonvacuous_same_event_never_refires {after : SubscriptionLedger} :
+    ¬ RoutingStep (routedLedger.consume routedSubscriptionId routedKey)
+      (.fire routedSubscriptionId routedEventId routedTarget) after := by
+  apply consumed_key_never_refires (event := routedEvent)
+  · simp [routedLedger, SubscriptionLedger.consume, tableSet]
+  · exact Or.inl ⟨rfl, rfl⟩
+
+/-! ## Representation witnesses: broker gate and aggregation chain -/
+
+theorem nonvacuous_broker_available :
+    approvedApprovals.Available actionApproval actionPrepared ⟨5⟩ := by
+  refine ⟨approvedTicket,
+    by simp [approvedApprovals, ApprovalLedger.setTicket, actionApproval],
+    rfl, rfl, rfl, rfl, by decide,
+    by simp [approvedApprovals, ApprovalLedger.setTicket, requestedApprovals, actionTicket,
+      actionApproval, actionPrepared, approvedTicket, actionHeader, noTurnHeader,
+      actionInvocation, tableSet_self],
+    rfl, rfl⟩
+
+/-- The broker's guarded mutation is livable: a concrete approved, unconsumed,
+    unexpired ticket admits `applyAction` from the bootstrap state. -/
+theorem nonvacuous_broker_apply_action :
+    Representation.Broker.GateStep
+      (Representation.Broker.initial approvedApprovals)
+      { Representation.Broker.initial approvedApprovals with
+        ledger := approvedApprovals.consume actionApproval actionPrepared ⟨50⟩ } :=
+  Representation.Broker.GateStep.applyAction (now := ⟨5⟩) nonvacuous_broker_available
+
+private def chainRootId : CommitId := ⟨101⟩
+private def chainProposerHeadId : CommitId := ⟨102⟩
+private def chainMergeId : CommitId := ⟨103⟩
+private def chainDestinationBranch : BranchId := ⟨11⟩
+private def chainProposerBranch : BranchId := ⟨12⟩
+private def chainProposer : Representation.MixtureOfAgents.Proposer :=
+  ⟨chainProposerBranch, chainProposerHeadId⟩
+private def chainRootCommit : RunCommit :=
+  ⟨runId, chainDestinationBranch, pins, .root ⟨0⟩, [], none, .root⟩
+private def chainProposerCommit : RunCommit :=
+  ⟨runId, chainProposerBranch, pins, .root ⟨0⟩, [chainRootId], none, .checkpoint⟩
+private def chainMergeCommit : RunCommit :=
+  ⟨runId, chainDestinationBranch, pins, .root ⟨0⟩,
+    [chainRootId, chainProposerHeadId], none, .checkpoint⟩
+private def chainStore : GraphStore := {
+  (default : GraphStore) with
+  commits := tableSet (tableSet (tableSet (default : GraphStore).commits
+    chainRootId chainRootCommit) chainProposerHeadId chainProposerCommit)
+    chainMergeId chainMergeCommit
+}
+
+/-- A concrete two-commit aggregation: one proposer folded into the destination head
+    by a binary equal-pin merge. Proves the chain shape is livable in the core commit
+    graph, and that lineage completeness bites on it. -/
+theorem nonvacuous_aggregation_chain :
+    Representation.MixtureOfAgents.AggregationChain chainStore runId pins
+      chainRootId [chainProposer] chainMergeId ∧
+    Ancestor chainStore chainProposerHeadId chainMergeId := by
+  have chain : Representation.MixtureOfAgents.AggregationChain chainStore runId pins
+      chainRootId [chainProposer] chainMergeId := by
+    have base := Representation.MixtureOfAgents.AggregationChain.root
+      (store := chainStore) (run := runId) (pins := pins)
+      (id := chainRootId) (commit := chainRootCommit)
+      (by simp [chainStore, tableSet, chainRootId, chainProposerHeadId, chainMergeId]) rfl rfl
+    have step := Representation.MixtureOfAgents.AggregationChain.merge
+      (proposer := chainProposer) (mergeId := chainMergeId) (commit := chainMergeCommit)
+      (proposerCommit := chainProposerCommit) base
+      (by simp [chainStore, tableSet, chainMergeId]) rfl rfl rfl
+      (by simp [chainStore, tableSet, chainProposer, chainProposerHeadId, chainMergeId]) rfl rfl rfl
+    simpa using step
+  refine ⟨chain, ?_⟩
+  have := Representation.MixtureOfAgents.proposers_are_ancestors chain chainProposer
+    (List.mem_singleton.mpr rfl)
+  simpa using this
+
+/-- A disabled Subscription refuses to fire even with a fresh key. -/
+private def disabledLedger : SubscriptionLedger :=
+  { routedLedger with
+    subscriptions := tableSet routedLedger.subscriptions routedSubscriptionId
+      routedSubscription.disable }
+
+theorem nonvacuous_disabled_subscription_rejected {after : SubscriptionLedger} :
+    ¬ RoutingStep disabledLedger
+      (.fire routedSubscriptionId routedEventId routedTarget) after := by
+  apply disabled_never_fires (subscription := routedSubscription.disable)
+  · simp [disabledLedger, tableSet]
+  · rfl
+
+/-- A granted (agent, device) pair yields a live stamp: the consent gate is livable. -/
+private def consentPair : Representation.Consent.Pair := ⟨⟨1⟩, ⟨1⟩⟩
+private def ungrantedConsent : Representation.Consent.ConsentState :=
+  ⟨fun _ => False, fun _ => 0⟩
+
+theorem nonvacuous_consent_grant_is_live :
+    Representation.Consent.Live
+      (Representation.Consent.grant ungrantedConsent consentPair)
+      ⟨consentPair, 0⟩ :=
+  ⟨Or.inl rfl, rfl⟩
+
+theorem nonvacuous_consent_revocation_blocks :
+    ¬ Representation.Consent.Live
+      (Representation.Consent.revoke
+        (Representation.Consent.grant ungrantedConsent consentPair) consentPair)
+      ⟨consentPair, 0⟩ :=
+  Representation.Consent.revoke_blocks
+
+/-- A concrete stale executor: its token carries epoch 0 after the lease moved to
+    epoch 1, so mid-turn injection is refused. -/
+private def injectionLease : TurnLease := ⟨⟨9⟩, some principalRef, 1, ⟨10⟩⟩
+private def staleInjectionToken : LeaseToken := ⟨⟨9⟩, principalRef, 0⟩
+
+theorem nonvacuous_midturn_stale_injection_rejected :
+    ¬ injectionLease.Admits staleInjectionToken ⟨5⟩ :=
+  Representation.Reaction.stale_injection_rejected (by decide)
 
 end AgentCore.Examples

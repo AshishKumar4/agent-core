@@ -1,0 +1,17 @@
+{
+  "edition": "1.0.0",
+  "owner": "W0-seed",
+  "migrations": [
+    {
+      "id": "MIGRATE-RUN-PINS",
+      "owner": "W5",
+      "status": "planned",
+      "specRequirement": "C13-RUN-EXPLICIT-MIGRATION",
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "remainingEvidence": [
+        "Implement explicit RunPins migration with durable migration-commit evidence"
+      ]
+    }
+  ]
+}

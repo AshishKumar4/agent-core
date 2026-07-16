@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7A8494"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#B4667C"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="880" height="300" fill="#FBFBFC" stroke="#E3E6EB"/>
+
+  <!-- deny Grant -->
+  <rect x="200" y="30" width="250" height="44" rx="8" fill="#FDF5F7" stroke="#C88A9A" stroke-dasharray="4 3"/>
+  <text x="325" y="49" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">durable deny-Grant</text>
+  <text x="325" y="64" font-size="11px" fill="#5A6472" text-anchor="middle">same plane · any Scope on path</text>
+  <path d="M300,74 L286,116" stroke="#B4667C" stroke-width="1.2" fill="none" marker-end="url(#ar)" stroke-dasharray="5 4"/>
+  <text x="308" y="100" font-size="11px" fill="#B4667C">overrides every matching allow</text>
+
+  <!-- flow -->
+  <rect x="36" y="120" width="164" height="58" rx="8" fill="#EEF1FB" stroke="#7A8BD0"/>
+  <text x="118" y="143" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Membership</text>
+  <text x="118" y="159" font-size="11px" fill="#5A6472" text-anchor="middle">subject · Scope · Role</text>
+
+  <rect x="248" y="120" width="112" height="58" rx="8" fill="#EEF1FB" stroke="#7A8BD0"/>
+  <text x="304" y="143" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Grants</text>
+  <text x="304" y="159" font-size="11px" fill="#5A6472" text-anchor="middle">durable allow | deny</text>
+
+  <rect x="408" y="120" width="120" height="58" rx="8" fill="#EEF1FB" stroke="#7A8BD0"/>
+  <text x="468" y="143" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Binding</text>
+  <text x="468" y="159" font-size="11px" fill="#5A6472" text-anchor="middle">one resolution plane</text>
+
+  <rect x="576" y="120" width="132" height="58" rx="8" fill="#E9F5F2" stroke="#5FA99B"/>
+  <text x="642" y="143" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">ResolvedFacet</text>
+  <text x="642" y="159" font-size="11px" fill="#5A6472" text-anchor="middle">epochs · watermark · deadline</text>
+
+  <rect x="756" y="112" width="94" height="74" rx="8" fill="#F9ECEF" stroke="#C88A9A"/>
+  <text x="803" y="140" font-size="13px" fill="#1F2733" font-weight="600" text-anchor="middle">Operation</text>
+  <text x="803" y="156" font-size="11px" fill="#5A6472" text-anchor="middle">call is an</text>
+  <text x="803" y="170" font-size="11px" fill="#5A6472" text-anchor="middle">Invocation (§7)</text>
+
+  <line x1="200" y1="149" x2="246" y2="149" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="176" y="196" font-size="11px" fill="#5A6472">Role rules materialize by (membership, rule ordinal)</text>
+  <line x1="360" y1="149" x2="406" y2="149" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <line x1="528" y1="149" x2="574" y2="149" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+  <text x="500" y="196" font-size="11px" fill="#5A6472">resolve — ordered Tenant→target path; no omissions or extras</text>
+  <line x1="708" y1="149" x2="754" y2="149" stroke="#7A8494" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+
+  <!-- revocation note -->
+  <rect x="36" y="222" width="814" height="50" rx="8" fill="#FFFFFF" stroke="#E3E6EB"/>
+  <text x="52" y="243" font-size="11px" fill="#5A6472">holder Scope→epoch map joins by max; direct uses exact token + original-lease deadline and writes no durable records</text>
+  <text x="52" y="259" font-size="11px" fill="#5A6472">every mediated effect rechecks current epochs; stale observation joins the holder map → deniedPreEffect</text>
+</svg>

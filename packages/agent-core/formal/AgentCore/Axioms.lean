@@ -208,3 +208,56 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_post_issuance_watermark_cutoff
 #print axioms AgentCore.Examples.nonvacuous_exact_mediated_run_reservation
 #print axioms AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected
+
+-- Event → Subscription routing (SPEC §6.2): at-most-once, derived targeting, trust.
+#print axioms AgentCore.fire_consumes_key
+#print axioms AgentCore.consumed_key_never_refires
+#print axioms AgentCore.fire_targets_declared
+#print axioms AgentCore.fire_is_tenant_contained
+#print axioms AgentCore.fire_admits_channel_trust
+#print axioms AgentCore.disabled_never_fires
+#print axioms AgentCore.consumed_is_monotone
+#print axioms AgentCore.disable_retains_consumed
+
+-- Representation: connected-account broker reduced to the approval ledger.
+#print axioms AgentCore.Representation.Broker.initial_custody
+#print axioms AgentCore.Representation.Broker.step_preserves_custody
+#print axioms AgentCore.Representation.Broker.reachable_custody
+#print axioms AgentCore.Representation.Broker.apply_action_gate
+#print axioms AgentCore.Representation.Broker.tampered_action_never_fires
+#print axioms AgentCore.Representation.Broker.consumed_action_never_refires
+#print axioms AgentCore.Representation.Broker.expired_action_never_fires
+
+-- Representation: device-consent gate as per-pair epoch revocation.
+#print axioms AgentCore.Representation.Consent.no_grant_denies
+#print axioms AgentCore.Representation.Consent.revoke_blocks
+#print axioms AgentCore.Representation.Consent.grant_is_per_pair
+#print axioms AgentCore.Representation.Consent.execute_requires_live_consent
+
+-- Representation: reaction system reduced to routing dedup and lease fencing.
+#print axioms AgentCore.Representation.Reaction.reaction_at_most_once
+#print axioms AgentCore.Representation.Reaction.reaction_targets_declared
+#print axioms AgentCore.Representation.Reaction.reaction_consumes_key
+#print axioms AgentCore.Representation.Reaction.reaction_trust_is_channel_derived
+#print axioms AgentCore.Representation.Reaction.stale_injection_rejected
+#print axioms AgentCore.Representation.Reaction.wrong_turn_injection_rejected
+#print axioms AgentCore.Representation.Reaction.expired_injection_rejected
+
+-- Representation: mixture-of-agents aggregation chains over binary merges.
+#print axioms AgentCore.Representation.MixtureOfAgents.aggregate_recorded
+#print axioms AgentCore.Representation.MixtureOfAgents.proposers_are_ancestors
+#print axioms AgentCore.Representation.MixtureOfAgents.root_is_ancestor
+#print axioms AgentCore.Representation.MixtureOfAgents.proposers_are_single_run
+#print axioms AgentCore.Representation.MixtureOfAgents.chain_preserves_pins
+
+-- Routing and representation nonvacuity witnesses.
+#print axioms AgentCore.Examples.nonvacuous_subscription_fires
+#print axioms AgentCore.Examples.nonvacuous_redelivery_is_inert
+#print axioms AgentCore.Examples.nonvacuous_same_event_never_refires
+#print axioms AgentCore.Examples.nonvacuous_disabled_subscription_rejected
+#print axioms AgentCore.Examples.nonvacuous_broker_available
+#print axioms AgentCore.Examples.nonvacuous_broker_apply_action
+#print axioms AgentCore.Examples.nonvacuous_aggregation_chain
+#print axioms AgentCore.Examples.nonvacuous_consent_grant_is_live
+#print axioms AgentCore.Examples.nonvacuous_consent_revocation_blocks
+#print axioms AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected

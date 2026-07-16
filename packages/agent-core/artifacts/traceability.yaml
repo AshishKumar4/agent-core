@@ -51,6 +51,13 @@
         "AC-APPROVAL-001",
         "AC-COMPOSED-001"
       ]
+    },
+    {
+      "id": "WF-ROUTING-REACTION",
+      "requirementIds": [
+        "AC-ROUTING-001",
+        "AC-REP-REACTION-001"
+      ]
     }
   ],
   "requirements": [
@@ -1041,6 +1048,254 @@
         "general settlement safety theorem and complete obligation lifecycle",
         "concrete reservation validation, transaction atomicity, and single-owner storage refinement"
       ]
+    },
+    {
+      "id": "AC-ROUTING-001",
+      "summary": "Event → Subscription routing: at-most-once consumption per (Subscription, event key), declared-target firing, tenant containment, channel-derived trust admission, fail-closed disable, and monotone consumption",
+      "status": "proved-safety",
+      "boundary": "The routing LTS models dedup identity, targeting, tenant, trust filter, and enablement over abstract tables. Delivery transport, retry scheduling, payload semantics, and the runtime binding of a fired target to the composed invocation pipeline are not modeled.",
+      "definitions": [
+        "AgentCore.SubscriptionId",
+        "AgentCore.EventKey",
+        "AgentCore.RoutedEvent",
+        "AgentCore.RoutedSubscription",
+        "AgentCore.RoutedSubscription.disable",
+        "AgentCore.SubscriptionLedger",
+        "AgentCore.SubscriptionLedger.consume",
+        "AgentCore.RoutingLabel",
+        "AgentCore.RoutingStep"
+      ],
+      "theorems": [
+        "AgentCore.fire_consumes_key",
+        "AgentCore.consumed_key_never_refires",
+        "AgentCore.fire_targets_declared",
+        "AgentCore.fire_is_tenant_contained",
+        "AgentCore.fire_admits_channel_trust",
+        "AgentCore.disabled_never_fires",
+        "AgentCore.consumed_is_monotone",
+        "AgentCore.disable_retains_consumed"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_subscription_fires",
+        "AgentCore.Examples.nonvacuous_redelivery_is_inert",
+        "AgentCore.Examples.nonvacuous_same_event_never_refires",
+        "AgentCore.Examples.nonvacuous_disabled_subscription_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.fire_consumes_key": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.consumed_key_never_refires": [
+          "AgentCore.Examples.nonvacuous_redelivery_is_inert",
+          "AgentCore.Examples.nonvacuous_same_event_never_refires"
+        ],
+        "AgentCore.fire_targets_declared": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.fire_is_tenant_contained": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.fire_admits_channel_trust": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.disabled_never_fires": [
+          "AgentCore.Examples.nonvacuous_disabled_subscription_rejected"
+        ],
+        "AgentCore.consumed_is_monotone": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.disable_retains_consumed": [
+          "AgentCore.Examples.nonvacuous_disabled_subscription_rejected"
+        ]
+      },
+      "remainingEvidence": [
+        "runtime binding of fired targets to the composed mediated pipeline",
+        "delivery transport and retry semantics"
+      ]
+    },
+    {
+      "id": "AC-REP-BROKER-001",
+      "summary": "Connected-account broker representation: credential custody at every reachable state, and the action gate reduced to digest-bound approval availability with tamper, reuse, and expiry rejection",
+      "status": "proved-component",
+      "boundary": "A representation result about the mechanism over the core approval ledger. No concrete broker provider, credential transport, session runtime, or external API behavior is claimed; those are refinement obligations.",
+      "definitions": [
+        "AgentCore.Representation.Broker.Domain",
+        "AgentCore.Representation.Broker.Holding",
+        "AgentCore.Representation.Broker.GateState",
+        "AgentCore.Representation.Broker.Custody",
+        "AgentCore.Representation.Broker.initial",
+        "AgentCore.Representation.Broker.GateStep",
+        "AgentCore.Representation.Broker.Reachable"
+      ],
+      "theorems": [
+        "AgentCore.Representation.Broker.initial_custody",
+        "AgentCore.Representation.Broker.step_preserves_custody",
+        "AgentCore.Representation.Broker.reachable_custody",
+        "AgentCore.Representation.Broker.apply_action_gate",
+        "AgentCore.Representation.Broker.tampered_action_never_fires",
+        "AgentCore.Representation.Broker.consumed_action_never_refires",
+        "AgentCore.Representation.Broker.expired_action_never_fires"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_broker_available",
+        "AgentCore.Examples.nonvacuous_broker_apply_action"
+      ],
+      "witnessCoverage": {
+        "AgentCore.Representation.Broker.initial_custody": [
+          "AgentCore.Examples.nonvacuous_broker_apply_action"
+        ],
+        "AgentCore.Representation.Broker.step_preserves_custody": [
+          "AgentCore.Examples.nonvacuous_broker_apply_action"
+        ],
+        "AgentCore.Representation.Broker.reachable_custody": [
+          "AgentCore.Examples.nonvacuous_broker_apply_action"
+        ],
+        "AgentCore.Representation.Broker.apply_action_gate": [
+          "AgentCore.Examples.nonvacuous_broker_available"
+        ],
+        "AgentCore.Representation.Broker.tampered_action_never_fires": [
+          "AgentCore.Examples.nonvacuous_broker_available"
+        ],
+        "AgentCore.Representation.Broker.consumed_action_never_refires": [
+          "AgentCore.Examples.nonvacuous_broker_available"
+        ],
+        "AgentCore.Representation.Broker.expired_action_never_fires": [
+          "AgentCore.Examples.nonvacuous_broker_available"
+        ]
+      },
+      "remainingEvidence": [
+        "refinement from a concrete broker provider implementation"
+      ]
+    },
+    {
+      "id": "AC-REP-CONSENT-001",
+      "summary": "Device-consent gate representation: consent-before-effect for exact (agent, device) pairs, per-pair epoch revocation blocking stale stamps, and fail-closed absence",
+      "status": "proved-component",
+      "boundary": "A self-contained gate model applying the scope-epoch revocation idea to a transport-attached grant. Device pairing, revocation delivery, transport, and consent UX runtime are not claimed.",
+      "definitions": [
+        "AgentCore.Representation.Consent.Pair",
+        "AgentCore.Representation.Consent.ConsentState",
+        "AgentCore.Representation.Consent.ConsentStamp",
+        "AgentCore.Representation.Consent.Live",
+        "AgentCore.Representation.Consent.grant",
+        "AgentCore.Representation.Consent.revoke",
+        "AgentCore.Representation.Consent.DeviceCommand",
+        "AgentCore.Representation.Consent.Executes"
+      ],
+      "theorems": [
+        "AgentCore.Representation.Consent.no_grant_denies",
+        "AgentCore.Representation.Consent.revoke_blocks",
+        "AgentCore.Representation.Consent.grant_is_per_pair",
+        "AgentCore.Representation.Consent.execute_requires_live_consent"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_consent_grant_is_live",
+        "AgentCore.Examples.nonvacuous_consent_revocation_blocks"
+      ],
+      "witnessCoverage": {
+        "AgentCore.Representation.Consent.no_grant_denies": [
+          "AgentCore.Examples.nonvacuous_consent_revocation_blocks"
+        ],
+        "AgentCore.Representation.Consent.revoke_blocks": [
+          "AgentCore.Examples.nonvacuous_consent_revocation_blocks"
+        ],
+        "AgentCore.Representation.Consent.grant_is_per_pair": [
+          "AgentCore.Examples.nonvacuous_consent_grant_is_live"
+        ],
+        "AgentCore.Representation.Consent.execute_requires_live_consent": [
+          "AgentCore.Examples.nonvacuous_consent_grant_is_live"
+        ]
+      },
+      "remainingEvidence": [
+        "refinement from a concrete device-transport implementation"
+      ]
+    },
+    {
+      "id": "AC-REP-REACTION-001",
+      "summary": "Reaction-system representation: at-most-once reaction, declared-target firing, channel-derived trust, and lease-fenced mid-turn injection, each reduced to a core module",
+      "status": "proved-component",
+      "boundary": "Every theorem restates a routing or lease theorem at the reaction seam; the reaction system is claimed to be the core mechanism, not a new one. Channel adapters, payload mapping, and inbox runtime are not claimed.",
+      "definitions": [
+        "AgentCore.Representation.Reaction.Route"
+      ],
+      "theorems": [
+        "AgentCore.Representation.Reaction.reaction_at_most_once",
+        "AgentCore.Representation.Reaction.reaction_targets_declared",
+        "AgentCore.Representation.Reaction.reaction_consumes_key",
+        "AgentCore.Representation.Reaction.reaction_trust_is_channel_derived",
+        "AgentCore.Representation.Reaction.stale_injection_rejected",
+        "AgentCore.Representation.Reaction.wrong_turn_injection_rejected",
+        "AgentCore.Representation.Reaction.expired_injection_rejected"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.Representation.Reaction.reaction_at_most_once": [
+          "AgentCore.Examples.nonvacuous_same_event_never_refires"
+        ],
+        "AgentCore.Representation.Reaction.reaction_targets_declared": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.Representation.Reaction.reaction_consumes_key": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.Representation.Reaction.reaction_trust_is_channel_derived": [
+          "AgentCore.Examples.nonvacuous_subscription_fires"
+        ],
+        "AgentCore.Representation.Reaction.stale_injection_rejected": [
+          "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
+        ],
+        "AgentCore.Representation.Reaction.wrong_turn_injection_rejected": [
+          "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
+        ],
+        "AgentCore.Representation.Reaction.expired_injection_rejected": [
+          "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
+        ]
+      },
+      "remainingEvidence": [
+        "refinement from concrete channel adapters and inbox runtime"
+      ]
+    },
+    {
+      "id": "AC-REP-MOA-001",
+      "summary": "Mixture-of-agents representation: aggregation chains of equal-pin binary merges with complete proposer lineage, root descent, single-run containment, and pin discipline",
+      "status": "proved-component",
+      "boundary": "A structural representability result over the core commit graph. Orchestration scheduling, judging, and aggregation quality are not claimed.",
+      "definitions": [
+        "AgentCore.Representation.MixtureOfAgents.Proposer",
+        "AgentCore.Representation.MixtureOfAgents.AggregationChain"
+      ],
+      "theorems": [
+        "AgentCore.Representation.MixtureOfAgents.aggregate_recorded",
+        "AgentCore.Representation.MixtureOfAgents.proposers_are_ancestors",
+        "AgentCore.Representation.MixtureOfAgents.root_is_ancestor",
+        "AgentCore.Representation.MixtureOfAgents.proposers_are_single_run",
+        "AgentCore.Representation.MixtureOfAgents.chain_preserves_pins"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_aggregation_chain"
+      ],
+      "witnessCoverage": {
+        "AgentCore.Representation.MixtureOfAgents.aggregate_recorded": [
+          "AgentCore.Examples.nonvacuous_aggregation_chain"
+        ],
+        "AgentCore.Representation.MixtureOfAgents.proposers_are_ancestors": [
+          "AgentCore.Examples.nonvacuous_aggregation_chain"
+        ],
+        "AgentCore.Representation.MixtureOfAgents.root_is_ancestor": [
+          "AgentCore.Examples.nonvacuous_aggregation_chain"
+        ],
+        "AgentCore.Representation.MixtureOfAgents.proposers_are_single_run": [
+          "AgentCore.Examples.nonvacuous_aggregation_chain"
+        ],
+        "AgentCore.Representation.MixtureOfAgents.chain_preserves_pins": [
+          "AgentCore.Examples.nonvacuous_aggregation_chain"
+        ]
+      },
+      "remainingEvidence": [
+        "refinement from a concrete orchestration profile"
+      ]
     }
   ],
   "assumptions": [
@@ -1081,26 +1336,6 @@
     }
   ],
   "nonClaims": [
-    {
-      "id": "AC-REP-GATEKEEPER",
-      "summary": "Gatekeeper representation helpers are not designated; provider credential custody and approval-gateway runtime semantics are not formally claimed.",
-      "status": "component-shape-nonclaim"
-    },
-    {
-      "id": "AC-REP-CONSENT",
-      "summary": "Consent representation helpers are not designated; pairing, revocation delivery, device transport, and consent runtime semantics are not formally claimed.",
-      "status": "component-shape-nonclaim"
-    },
-    {
-      "id": "AC-REP-REACTION",
-      "summary": "Reaction representation helpers are not designated; channel routing, delivery, payload mapping, and reaction runtime semantics are not formally claimed.",
-      "status": "component-shape-nonclaim"
-    },
-    {
-      "id": "AC-REP-MOA",
-      "summary": "Mixture-of-agents representation helpers are not designated; orchestration, judging, aggregation quality, and profile runtime semantics are not formally claimed.",
-      "status": "component-shape-nonclaim"
-    },
     {
       "id": "NC-SURFACE-RUNTIME-ACTIONS",
       "summary": "Surface rendering, live-state isolation, action semantics, transport, and composition are specified but not modeled.",
@@ -1309,7 +1544,8 @@
           "AC-STRUCTURAL-001",
           "AC-TRUST-001",
           "AC-EVENT-ROUTING-001",
-          "AC-AUDIT-001"
+          "AC-AUDIT-001",
+          "AC-ROUTING-001"
         ],
         "nonClaimIds": [
           "NC-SURFACE-RUNTIME-ACTIONS",
@@ -1389,12 +1625,13 @@
       {
         "id": "PROFILES_REPRESENTATIONS",
         "spec": "SPEC §11 and §12",
-        "requirementIds": [],
+        "requirementIds": [
+          "AC-REP-BROKER-001",
+          "AC-REP-CONSENT-001",
+          "AC-REP-REACTION-001",
+          "AC-REP-MOA-001"
+        ],
         "nonClaimIds": [
-          "AC-REP-GATEKEEPER",
-          "AC-REP-CONSENT",
-          "AC-REP-REACTION",
-          "AC-REP-MOA",
           "NC-PROFILE-RUNTIME"
         ],
         "assumptionIds": []

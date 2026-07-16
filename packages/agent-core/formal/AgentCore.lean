@@ -1,6 +1,7 @@
 import AgentCore.Model
 import AgentCore.Scopes
 import AgentCore.Policy
+import AgentCore.Subscriptions
 import AgentCore.Lease
 import AgentCore.Approvals
 import AgentCore.View
@@ -9,7 +10,7 @@ import AgentCore.Events
 import AgentCore.Audit
 import AgentCore.RunGraph
 import AgentCore.Composed
-import AgentCore.Representation.Gatekeeper
+import AgentCore.Representation.Broker
 import AgentCore.Representation.Consent
 import AgentCore.Representation.Reaction
 import AgentCore.Representation.MixtureOfAgents

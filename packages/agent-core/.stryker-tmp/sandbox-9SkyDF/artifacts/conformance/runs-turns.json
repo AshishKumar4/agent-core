@@ -1,0 +1,778 @@
+{
+  "edition": "1.0.0",
+  "owner": "W5",
+  "requirements": [
+    {
+      "id": "C13-ADV-ADMITTED-SIBLING",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-ADMITTED-SIBLING",
+      "specTextSha256": "sha256:899f8ebce5cb35a52a0af22ef2b31d656bb104a78ce9297c54b677df858f2204",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix [C13-ADV-ADMITTED-SIBLING] rejects missing and malformed held sibling cancellation evidence"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-INCOMPLETE-PACKAGE-CLOSURE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-INCOMPLETE-PACKAGE-CLOSURE",
+      "specTextSha256": "sha256:efe03833e40129009db1adec245a548042e443c182c4a327e2c228dd6be066e4",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-INCOMPLETE-PACKAGE-CLOSURE] rejects genesis when the authoritative Package closure is incomplete"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-NONBINARY-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-NONBINARY-MERGE",
+      "specTextSha256": "sha256:3e3b6f2b958433fd31c9e31ada78092355954c73622132d5b2dcc302af14e369",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-POST-FENCE-SYSTEM-EVIDENCE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-FENCE-SYSTEM-EVIDENCE",
+      "specTextSha256": "sha256:062b598cb829bb6a6ede5f52abc1d8bf529558aa23d62e43aa539a3cf7b22fc8",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-FENCE-SYSTEM-EVIDENCE] captures exactly reserved minus completed and rejects every post-close race"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-POST-TERMINAL-CONTROL",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-TERMINAL-CONTROL",
+      "specTextSha256": "sha256:401ae01931a17c6f04653159c32af38f57862162e2be9479e858a8b269e31ee7",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-POST-TERMINAL-PREPARATION",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-TERMINAL-PREPARATION",
+      "specTextSha256": "sha256:f2920a970cda64f5dd91184ca0b069abca5f034ad6ed0952221816bfbebaf8d1",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-PREPARATION] requires every canonical settlement identity without accepting broad Invocation evidence"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-POST-TERMINAL-ROUTE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-POST-TERMINAL-ROUTE",
+      "specTextSha256": "sha256:93e54c54ae2a9b7fc2bb079a27e82a5b4508bcf371b11a4cb38e58f9b7a14560",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-STALE-LEASE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-STALE-LEASE",
+      "specTextSha256": "sha256:593ce99bdc2992136e5847ea433af3a7cdd2faf86ad2b04a6e50aa77e4d4818a",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-ADV-STALE-LEASE] creates one attenuated child through lease-bound atomic spawn genesis"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-TURN-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-TURN-MERGE",
+      "specTextSha256": "sha256:c96823bb27c75631503527aa4428bdbdd519ce71727d06c03b500c7ba8d87f40",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-UNAUTHORIZED-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-UNAUTHORIZED-WRITER",
+      "specTextSha256": "sha256:d1617fc328f6ba2d6a004f56a34e81a7aceab29310bfe12907284073dce6aff9",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-ADV-UNAUTHORIZED-WRITER] rejects substitution between SystemCause and returned evidence IDs"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-UNEQUAL-PIN-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-UNEQUAL-PIN-MERGE",
+      "specTextSha256": "sha256:eb23027c0e8bc53c7b96eb9fa6f03848b34955e0d06ef15514b7e98b3c44c274",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-UNEQUAL-PIN-MERGE] persists reservations and completion across a memory restart"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-ADV-WRONG-TURN-LEASE",
+      "owner": "W5",
+      "specAnchor": "C13-ADV-WRONG-TURN-LEASE",
+      "specTextSha256": "sha256:829bd1718ed1fa7751af8a189ef3509c2a959af36e93b0200b8f3922d161ed86",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-ADMISSION-REGISTRY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-ADMISSION-REGISTRY",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/admission.ts#RunAdmissionRegistry",
+        "src/agents/runs/runtime.ts#RunRuntime.reserveRunObligationInTransaction"
+      ],
+      "testSelectors": [
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-ADMISSION-REGISTRY] memory and SQLite durably reserve, complete, close, restart, and reject stale epoch and CAS"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-ANCESTRY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-ANCESTRY",
+      "specTextSha256": "sha256:ec2b5bf2a0bbdf90247803a63ddc27ceb8c8ffb2646052d716358047550d8e8c",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-BINARY-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-BINARY-MERGE",
+      "specTextSha256": "sha256:cda0b213ccb7a786138cf47e2b60049aa8247a60039db81524adcf30df3c8c36",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-RUN-BINARY-MERGE] rejects invalid root, merge, and unary arities"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-BINARY-TREE-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-BINARY-TREE-MERGE",
+      "specTextSha256": "sha256:10f659f52298d7635e6b6ea3f47e7078edf7460f977b54579a5a2a617538b7e6",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-BINARY-TREE-MERGE] rejects arbitrary merge picks and tree sides"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-EQUAL-PIN-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-EQUAL-PIN-MERGE",
+      "specTextSha256": "sha256:cf1dc2e1997149887f330625751806a17c2bef93c3aadb81d5093df118dd771f",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-EQUAL-PIN-MERGE] accepts only ordered equal-pin current heads for binary merge"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-EXPLICIT-MIGRATION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-EXPLICIT-MIGRATION",
+      "specTextSha256": "sha256:148edd0216002a6f75f0a80a698a00ae58bf153e818f49b347e4f55a426985c8",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-FORCED-CANCELLATION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FORCED-CANCELLATION",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/forced-cancellation.ts#ForcedTurnCancellation",
+        "src/agents/runs/runtime.ts#RunRuntime",
+        "src/agents/runs/store.ts#RunRepository"
+      ],
+      "testSelectors": [
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-FORCED-CANCELLATION] memory and SQLite require exact administer evidence and CAS before persisting a sibling fence across restart"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-FRONTIER-COMPLETE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FRONTIER-COMPLETE",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/admission.ts#RunAdmissionRegistry"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each derived audit independently"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-FRONTIER-EMPTY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FRONTIER-EMPTY",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/admission.ts#RunAdmissionRegistry"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-EMPTY] records an honestly empty frontier"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-GRAPH-ARITY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-GRAPH-ARITY",
+      "specTextSha256": "sha256:fdc7c7c782b16e960fc119cd5dcbed09525dd14d1196a52b5c9a3e146a39cbe9",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-GRAPH-ARITY] atomically creates and restores a canonical Run graph"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-MIGRATED-TURN-REJECTION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-MIGRATED-TURN-REJECTION",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PARENT-PIN-INHERITANCE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PARENT-PIN-INHERITANCE",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-PARENT-PIN-INHERITANCE] rejects migration evidence whose from pins do not match the durable parent"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PINS-BLUEPRINT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-BLUEPRINT",
+      "specTextSha256": "sha256:7c200d15ffde189f11d4a22cd36a38d7c79dbad4504876f42eae907f1eb2c7bf",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PINS-ENVIRONMENT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-ENVIRONMENT",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-ENVIRONMENT] round-trips exact source identities and does not alias Environment revisions"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PINS-IMMUTABLE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-IMMUTABLE",
+      "specTextSha256": "sha256:2c95dd931d72314cc9a0d86282cc7733bf079ecb66a054c9e4cd71f9abcc5f98",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-PINS-IMMUTABLE] memory and SQLite preserve immutable lifetime pins across caller mutation and restart"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PINS-PACKAGES",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-PACKAGES",
+      "specTextSha256": "sha256:5e4df25a885f788d84b4384aa5f3f203db78500b9f3b84803c4fa1dc8477f0bc",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PINS-SOURCES",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-SOURCES",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-PINS-SOURCES] rejects migration ahead of an admitted old-pin Turn"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PINS-VALIDITY",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PINS-VALIDITY",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PLACEMENT-SNAPSHOT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PLACEMENT-SNAPSHOT",
+      "specTextSha256": "sha256:a7b1bf97534c9509c8b74fe5b0b04ed82e82796520ca2b5bcde9987be0ce9865",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PLACEMENT-SNAPSHOT] binds placement snapshots to one Turn and one pin set"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-RESERVATION-EPOCH",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-RESERVATION-EPOCH",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/admission.ts#RunAdmissionRegistry"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-SETTLED-DERIVED",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-SETTLED-DERIVED",
+      "specTextSha256": "sha256:d4705ede70511c530e8cbbd53582ca10d0da3bbf3901ee814f4970a35b687e0d",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/settlement.ts#SettlementObligation"],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-SETTLED-DERIVED] captures a nonempty exact frontier and derives all settlement categories"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-TERMINAL-OBLIGATIONS",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-TERMINAL-OBLIGATIONS",
+      "specTextSha256": "sha256:3bcc2507107372f6a5b6b4a35e31c1b3fba1396405df85796f562daa2bc0c960",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/settlement.ts#SettlementObligation"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-TERMINAL-OBLIGATIONS] derives settlement from every captured obligation"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-TERMINAL-SIBLINGS",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-TERMINAL-SIBLINGS",
+      "specTextSha256": "sha256:7aa26ca4981af9fa67cefa711f57fa869e8f566dc6a743adf64f111920147a31",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/forced-cancellation.ts#ForcedTurnCancellation",
+        "src/agents/runs/runtime.ts#RunRuntime"
+      ],
+      "testSelectors": [
+        "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix [C13-RUN-TERMINAL-SIBLINGS] atomically fences queued, running, and suspended siblings with durable evidence"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-UNDO-REDO",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-UNDO-REDO",
+      "specTextSha256": "sha256:0c027866c87033f5ad4397cf538abdb2432fba59cdf6491deb9cb5596a513526",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-UNDO-REDO] appends undo selection without rewinding ancestry"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-CALLBACK-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-CALLBACK-WRITER",
+      "specTextSha256": "sha256:ad6e8e4a1a44c1310cbfe28cd7b2631a7363591eef36d064905c4a5f9d2ed552",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-CALLBACK-WRITER] anchors a Turn, rejects stale tokens, and terminalizes with derived settlement"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-CHECKPOINT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-CHECKPOINT-WRITER",
+      "specTextSha256": "sha256:63ecfe592284a76d79e40a5185bad1198fae3c8fc5b6ae8f70fe84bb3ced7d0b",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/runtime.ts#RunRuntime.suspendTurnInTransaction",
+        "src/agents/runs/turn.ts#Turn.suspend"
+      ],
+      "testSelectors": [
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-CHECKPOINT-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-CHILD-RUN-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-CHILD-RUN-WRITER",
+      "specTextSha256": "sha256:04987f9296d50978f2c351ec56b7371e4e26dd47588fefd27213b089395754bc",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/turn-exhaustive.test.ts#TurnStatus complete transition matrix [C13-TURN-CHILD-RUN-WRITER] rejects every illegal queued, running, suspended, and terminal transition"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-EFFECT-ATTEMPT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-EFFECT-ATTEMPT-WRITER",
+      "specTextSha256": "sha256:9560acd02d973935081e36539e43f89aa5f05d03f7004ed47e2e7c05e68bae8c",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-EFFECT-ATTEMPT-WRITER] rejects nonfresh ordinary Turn genesis"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-EXACT-LEASE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-EXACT-LEASE",
+      "specTextSha256": "sha256:80ea987e35963daa701fe349cc8915e69aa275cb2a1a48645cb474fac4db04b1",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"],
+      "testSelectors": [
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact durable Turn lease across restart, CAS, and terminal fencing"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-INVOCATION-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-INVOCATION-WRITER",
+      "specTextSha256": "sha256:a7d0ec5cbaa1a24457feda44c2e9ba5a4f56daa0247f8b9db0c49d5b358be75c",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-TURN-INVOCATION-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-LIFECYCLE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-LIFECYCLE",
+      "specTextSha256": "sha256:d956d969985d744a9fc8db829da25cf6844979ce6d4aa4145d6fbab371d8fd6c",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-LIFECYCLE] enforces claim, renewal, suspension, resume, completion, and terminal rejection"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-NO-RETRY",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "testSelectors": [
+        "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior [C13-TURN-NO-RETRY] rejects retry linkage in the Turn record codec"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-EXPORT",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-EXPORT",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-PROTOCOL",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-PROTOCOL",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "testSelectors": [
+        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-TURN-NO-RETRY-PROTOCOL] has no retry transition and rejects a wrong effective Run"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-RECORD",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-RECORD",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-NO-RETRY-RECORD] exposes no Turn retry runtime or record field"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-NO-RETRY-RUNTIME",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-NO-RETRY-RUNTIME",
+      "specTextSha256": "sha256:befd376082c4e7bc7ff9ec5a04e9a1559cb23b2ddd7cbf487561324fc587c1ac",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "testSelectors": [
+        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-NO-RETRY-RUNTIME] cancels an unheld queued Turn without creating a result commit"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-RUN-COMMIT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-RUN-COMMIT-WRITER",
+      "specTextSha256": "sha256:e3ebf1e1f7b2dfaa165ae8aa7f19f1afa06de5f807886c84568b12aaae5d014b",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-TURN-RUN-COMMIT-WRITER] accepts root and exact Turn writers and rejects forged writer pairs"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-TERMINAL-RESULT-WRITER",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-TERMINAL-RESULT-WRITER",
+      "specTextSha256": "sha256:05180a3d8a3233899b0fe72e794d9d5a96b9989fd3ae808620869b080af06941",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/runtime.ts#RunRuntime.completeTurnInTransaction",
+        "src/agents/runs/turn.ts#Turn.complete"
+      ],
+      "testSelectors": [
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-TERMINAL-RESULT-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-WRITER-MATRIX",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-MATRIX",
+      "specTextSha256": "sha256:61a4221336b2aa2cba0d0d97ad8d910bb3b59cedc82c5982278d2a35b68a8050",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-MATRIX] rejects every Receipt evidence mismatch"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-WRITER-POST-FENCE-EVIDENCE",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-POST-FENCE-EVIDENCE",
+      "specTextSha256": "sha256:70fe79e00295cd92ea76ffda978589bd0b0561f27f23d78cf37c576450c98f4c",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-POST-FENCE-EVIDENCE] rejects every delivery and control evidence mismatch"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-WRITER-SYNTHESIS",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-SYNTHESIS",
+      "specTextSha256": "sha256:735d22c968ed74b479863c0a3e66eed431badae137c758954fedb2deb7ae0d9a",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-SYNTHESIS] requires exact synthesis Run, token, and content evidence"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-WRITER-SYSTEM-MERGE",
+      "owner": "W5",
+      "specAnchor": "C13-WRITER-SYSTEM-MERGE",
+      "specTextSha256": "sha256:a29896a9f0689826dd7330b70ae705294e6c60bb1c0b344a749250e200624532",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    }
+  ]
+}

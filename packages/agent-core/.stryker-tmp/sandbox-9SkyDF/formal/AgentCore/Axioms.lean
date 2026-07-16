@@ -1,0 +1,210 @@
+import AgentCore
+
+/-! Final designated strengthened claims. Representation component-shape nonclaims are excluded. -/
+
+-- Complete structural Invocation identity.
+#print axioms AgentCore.InvocationPayload.arguments_nonempty
+#print axioms AgentCore.invocationDigest_exact
+#print axioms AgentCore.structuralDigest_exact
+#print axioms AgentCore.principal_ref_tenant_is_identity
+#print axioms AgentCore.prepared_item_key_is_derived
+#print axioms AgentCore.prepared_item_key_commits_complete_structure
+#print axioms AgentCore.replay_preserves_item_order_and_keys
+
+-- Canonical authority, containment, path ordering, and holder deadlines.
+#print axioms AgentCore.AuthorityLedger.deny_overrides
+#print axioms AgentCore.AuthorityLedger.authorized_binding_matches_operation_facet
+#print axioms AgentCore.AuthorityLedger.resolution_issue_records_authorized_evidence
+#print axioms AgentCore.AuthorityLedger.bump_scope_stales_path_evidence
+#print axioms AgentCore.AuthorityLedger.delegated_allow_is_contained_and_not_wider
+#print axioms AgentCore.AuthorityLedger.direct_deadline_cannot_exceed_original_lease
+#print axioms AgentCore.AuthorityLedger.holder_observation_joins_epoch
+#print axioms AgentCore.AuthorityLedger.direct_holder_watermark_is_not_ahead
+#print axioms AgentCore.guest_allow_is_attenuated
+#print axioms AgentCore.guest_deny_is_preserved
+#print axioms AgentCore.rematerialization_advances_epoch
+
+-- SPEC placement order, mediated execute boundary, and source assertion rejection.
+#print axioms AgentCore.placement_prefers_dynamic
+#print axioms AgentCore.placement_uses_provider_without_dynamic
+#print axioms AgentCore.placement_uses_bundled_last
+#print axioms AgentCore.empty_intersection_rejects
+#print axioms AgentCore.source_asserted_tier_rejected
+#print axioms AgentCore.execute_is_formally_mediated
+
+-- Exact Turn lease incarnation.
+#print axioms AgentCore.lease_turn_immutable
+#print axioms AgentCore.reclaim_requires_expiry
+#print axioms AgentCore.resume_is_same_turn
+#print axioms AgentCore.terminal_fence_is_atomic
+#print axioms AgentCore.wrong_turn_rejects
+#print axioms AgentCore.stale_token_rejects
+#print axioms AgentCore.expired_lease_rejects
+#print axioms AgentCore.renewal_cannot_extend_resolution_deadline
+
+-- Exact Approval identity and persisted start.
+#print axioms AgentCore.approval_available_is_exact
+#print axioms AgentCore.approval_available_binds_authority_principal
+#print axioms AgentCore.consumed_approval_unavailable
+#print axioms AgentCore.approval_start_consumes_persisted_exact_intent
+#print axioms AgentCore.approval_continuation_is_exact
+#print axioms AgentCore.approval_continuation_validates_persisted_exact_intent
+#print axioms AgentCore.approval_is_unique_per_invocation
+#print axioms AgentCore.approval_available_has_no_continuation
+#print axioms AgentCore.malformed_first_attempt_cannot_continue
+
+-- Item attempts, current receipts, retry, supersession, and derived batch outcomes.
+#print axioms AgentCore.retry_requires_prior_final_failure
+#print axioms AgentCore.retry_replaces_current_and_advances_ordinal
+#print axioms AgentCore.claim_records_future_expiry
+#print axioms AgentCore.abandoned_claim_recovery_preserves_ordinal_without_attempt
+#print axioms AgentCore.supersession_is_same_attempt_once
+#print axioms AgentCore.supersession_at_most_once
+#print axioms AgentCore.effect_step_preserves_receipt_id_disjointness
+#print axioms AgentCore.pre_receipt_id_cannot_be_reused_for_attempt
+#print axioms AgentCore.mixed_terminal_batch_is_partial
+#print axioms AgentCore.indeterminate_batch_is_current_not_terminal
+#print axioms AgentCore.terminal_batch_is_derived_not_stored
+
+-- Lease-backed trust and route projection boundary.
+#print axioms AgentCore.accepted_self_has_live_exact_lease
+#print axioms AgentCore.stale_or_fabricated_token_cannot_self
+#print axioms AgentCore.published_event_has_no_asserted_tier
+#print axioms AgentCore.asserted_tier_publish_rejected
+#print axioms AgentCore.target_projection_is_exact_authenticated_reservation_projection
+
+-- Actor-local, ordered, typed audit.
+#print axioms AgentCore.audit_sequence_is_unique
+#print axioms AgentCore.local_cause_same_actor_lower_sequence
+#print axioms AgentCore.local_cause_edge_is_typed
+#print axioms AgentCore.projection_uses_reservation_bridge_not_source_audit
+#print axioms AgentCore.audit_append_is_locally_acyclic
+#print axioms AgentCore.audit_step_establishes_causal_chain
+#print axioms AgentCore.causal_chain_preserved_by_step
+#print axioms AgentCore.nonroot_cannot_append_without_cause
+#print axioms AgentCore.every_audited_receipt_outcome_matches
+#print axioms AgentCore.delivery_audit_can_cause_commit_locally
+
+-- Pinned graph writers, equal current heads, delivery, synthesis, and terminal snapshot.
+#print axioms AgentCore.unary_commit_inherits_pins
+#print axioms AgentCore.merge_has_equal_pinned_current_heads
+#print axioms AgentCore.terminal_snapshot_is_coherent
+#print axioms AgentCore.terminal_snapshot_captures_complete_frontier
+#print axioms AgentCore.environment_pin_identity_prevents_revision_alias
+#print axioms AgentCore.forced_cancellation_is_system_fence
+#print axioms AgentCore.terminalization_requires_current_turn_pins
+#print axioms AgentCore.migrated_old_turn_cannot_terminalize
+#print axioms AgentCore.reserved_obligation_is_in_registry
+#print axioms AgentCore.reserved_obligation_yields_valid_reservation
+#print axioms AgentCore.terminalization_closes_exact_registry
+#print axioms AgentCore.completed_obligation_is_reserved
+#print axioms AgentCore.terminal_snapshot_has_no_omission_or_extra
+#print axioms AgentCore.migration_requires_valid_target_pins
+#print axioms AgentCore.spawn_child_requires_fresh_branch_and_root
+#print axioms AgentCore.migration_requires_fresh_commit_on_owned_branch
+#print axioms AgentCore.spawn_child_rejects_existing_root
+#print axioms AgentCore.migration_rejects_existing_commit
+#print axioms AgentCore.terminalization_requires_terminal_and_unheld_siblings
+#print axioms AgentCore.delivery_commit_matches_route
+#print axioms AgentCore.system_control_writer_uses_exact_typed_audit
+#print axioms AgentCore.synthesis_is_system_controlled_exact_turn
+
+-- Split direct and mediated composition plus derived settlement.
+#print axioms AgentCore.direct_admission_is_nondurable
+#print axioms AgentCore.direct_checks_exact_current_incarnation
+#print axioms AgentCore.exact_turn_lease_gate_binds_run_domain_and_placement
+#print axioms AgentCore.direct_resolution_uses_actual_lease_expiry
+#print axioms AgentCore.direct_ready_uses_exact_holder_watermark_inequality
+#print axioms AgentCore.mediated_without_turn_uses_owning_actor_path
+#print axioms AgentCore.mediated_without_turn_has_exact_owner_audit
+#print axioms AgentCore.mediated_ready_validates_exact_run_reservation
+#print axioms AgentCore.mediated_ready_reserves_exact_obligation
+#print axioms AgentCore.changed_registry_epoch_blocks_mediated_ready
+#print axioms AgentCore.approval_admission_requires_reserved_obligation
+#print axioms AgentCore.item_claim_requires_reserved_obligation
+#print axioms AgentCore.approved_effect_admission_requires_reserved_item
+#print axioms AgentCore.continued_effect_admission_requires_reserved_item
+#print axioms AgentCore.routed_mediated_validates_projection_digest
+#print axioms AgentCore.routed_reservation_binds_source_event_audit
+#print axioms AgentCore.stale_mediated_denial_matches_intent
+#print axioms AgentCore.settled_has_coherent_snapshot_and_exact_obligations
+#print axioms AgentCore.item_obligation_uses_exact_audit
+#print axioms AgentCore.reachable_attempts_have_guarded_admission
+#print axioms AgentCore.reachable_receipt_ids_are_disjoint
+#print axioms AgentCore.reachable_from_preserves_guarded_attempt_admissions
+#print axioms AgentCore.direct_has_no_durable_side_effect
+#print axioms AgentCore.mediated_rechecks_current_authority_path
+#print axioms AgentCore.post_issuance_watermark_cannot_cancel_permit
+#print axioms AgentCore.approved_execution_uses_persisted_identity
+#print axioms AgentCore.replay_deterministic
+#print axioms AgentCore.replay_revision
+
+-- Constructive witnesses, one per designated family.
+#print axioms AgentCore.Examples.nonvacuous_all_mode_preference
+#print axioms AgentCore.Examples.nonvacuous_complete_identity_and_keys
+#print axioms AgentCore.Examples.nonvacuous_batch_replay_item_association
+#print axioms AgentCore.Examples.nonvacuous_authorized_resolution_issue
+#print axioms AgentCore.Examples.nonvacuous_foreign_guest_deny
+#print axioms AgentCore.Examples.nonvacuous_direct_nondurable
+#print axioms AgentCore.Examples.nonvacuous_mixed_batch_partial
+#print axioms AgentCore.Examples.nonvacuous_failed_retry
+#print axioms AgentCore.Examples.nonvacuous_same_attempt_supersession
+#print axioms AgentCore.Examples.nonvacuous_indeterminate_batch_current_not_terminal
+#print axioms AgentCore.Examples.nonvacuous_optional_turn_owner_audit
+#print axioms AgentCore.Examples.nonvacuous_live_self_event
+#print axioms AgentCore.Examples.nonvacuous_actor_local_typed_audit
+#print axioms AgentCore.Examples.nonvacuous_projection_reservation_bridge
+#print axioms AgentCore.Examples.nonvacuous_route_delivery
+#print axioms AgentCore.Examples.nonvacuous_delivery_local_audit
+#print axioms AgentCore.Examples.nonvacuous_pinned_root_writer
+#print axioms AgentCore.Examples.nonvacuous_equal_pin_current_merge_heads
+#print axioms AgentCore.Examples.nonvacuous_delivery_writer
+#print axioms AgentCore.Examples.nonvacuous_system_synthesis_writer
+#print axioms AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot
+#print axioms AgentCore.Examples.nonvacuous_audit_complete_derived_settled
+#print axioms AgentCore.Examples.nonvacuous_request_approve_start_trace
+#print axioms AgentCore.Examples.nonvacuous_persisted_approval_continuation
+#print axioms AgentCore.Examples.nonvacuous_approval_start_then_continue
+#print axioms AgentCore.Examples.nonvacuous_malformed_approval_continuation_rejected
+#print axioms AgentCore.Examples.nonvacuous_claim_records_future_expiry
+#print axioms AgentCore.Examples.nonvacuous_delegation_containment
+#print axioms AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume
+#print axioms AgentCore.Examples.nonvacuous_resolution_deadline_bound
+#print axioms AgentCore.Examples.nonvacuous_stale_mediated_denial
+#print axioms AgentCore.Examples.nonvacuous_view_replay
+#print axioms AgentCore.Examples.nonvacuous_live_deny_override
+#print axioms AgentCore.Examples.nonvacuous_guest_elevated_allow_filtered
+#print axioms AgentCore.Examples.nonvacuous_role_rematerialization_epoch
+#print axioms AgentCore.Examples.nonvacuous_empty_placement_rejected
+#print axioms AgentCore.Examples.nonvacuous_source_tier_rejected
+#print axioms AgentCore.Examples.nonvacuous_receipt_audit_append
+#print axioms AgentCore.Examples.nonvacuous_wrong_turn_rejection
+#print axioms AgentCore.Examples.nonvacuous_stale_token_rejection
+#print axioms AgentCore.Examples.nonvacuous_stale_self_rejection
+#print axioms AgentCore.Examples.nonvacuous_unary_commit_pin_inheritance
+#print axioms AgentCore.Examples.nonvacuous_causal_chain_preserved
+#print axioms AgentCore.Examples.nonvacuous_nonroot_cause_free_append_impossible
+#print axioms AgentCore.Examples.nonvacuous_guarded_attempt_reachability
+#print axioms AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline
+#print axioms AgentCore.Examples.nonvacuous_exact_route_projection
+#print axioms AgentCore.Examples.nonvacuous_source_reservation_audit_binding
+#print axioms AgentCore.Examples.nonvacuous_graph_freshness_rejection
+#print axioms AgentCore.Examples.nonvacuous_typed_system_writer_audit
+#print axioms AgentCore.Examples.nonvacuous_holder_watermark_inequality
+#print axioms AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected
+#print axioms AgentCore.Examples.nonvacuous_receipt_id_disjointness_rejection
+#print axioms AgentCore.Examples.nonvacuous_abandoned_claim_same_ordinal_recovery
+#print axioms AgentCore.Examples.nonvacuous_empty_coherent_terminalization
+#print axioms AgentCore.Examples.nonvacuous_unheld_nonterminal_sibling_rejected
+#print axioms AgentCore.Examples.nonvacuous_exact_run_pin_sources
+#print axioms AgentCore.Examples.nonvacuous_forced_sibling_system_fence
+#print axioms AgentCore.Examples.nonvacuous_qualified_principal_identity
+#print axioms AgentCore.Examples.nonvacuous_migrated_old_turn_rejected
+#print axioms AgentCore.Examples.nonvacuous_run_admission_reservation
+#print axioms AgentCore.Examples.nonvacuous_exact_remote_reservation_epoch
+#print axioms AgentCore.Examples.nonvacuous_run_admission_completion
+#print axioms AgentCore.Examples.nonvacuous_registry_nonempty_and_completed_frontiers
+#print axioms AgentCore.Examples.nonvacuous_invalid_migration_target_rejected
+#print axioms AgentCore.Examples.nonvacuous_post_issuance_watermark_cutoff
+#print axioms AgentCore.Examples.nonvacuous_exact_mediated_run_reservation
+#print axioms AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected

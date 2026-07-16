@@ -1,0 +1,97 @@
+{
+  "name": "@agent-core/core",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./actors": {
+      "types": "./dist/actors/index.d.ts",
+      "import": "./dist/actors/index.js"
+    },
+    "./authority": {
+      "types": "./dist/authority-public.d.ts",
+      "import": "./dist/authority-public.js"
+    },
+    "./agents/runs": {
+      "types": "./dist/agents/runs/index.d.ts",
+      "import": "./dist/agents/runs/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./content": {
+      "types": "./dist/content/index.d.ts",
+      "import": "./dist/content/index.js"
+    },
+    "./definition": {
+      "types": "./dist/definition/index.d.ts",
+      "import": "./dist/definition/index.js"
+    },
+    "./facets": {
+      "types": "./dist/facets-public.d.ts",
+      "import": "./dist/facets-public.js"
+    },
+    "./identity": {
+      "types": "./dist/identity/index.d.ts",
+      "import": "./dist/identity/index.js"
+    },
+    "./invocations": {
+      "types": "./dist/invocations/index.d.ts",
+      "import": "./dist/invocations/index.js"
+    },
+    "./operations": {
+      "types": "./dist/operations/index.d.ts",
+      "import": "./dist/operations/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol/public.d.ts",
+      "import": "./dist/protocol/public.js"
+    },
+    "./substrates/sqlite": {
+      "types": "./dist/substrates/sqlite/index.d.ts",
+      "import": "./dist/substrates/sqlite/index.js"
+    }
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings src test scripts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build": "node ./scripts/build.mjs",
+    "quality": "node ./scripts/quality/run.mjs",
+    "check:architecture": "node ./scripts/quality/architecture.mjs --stage building",
+    "check:conformance": "node ./scripts/quality/run.mjs --stage building --target conformance",
+    "check:imports": "node ./scripts/check-import-boundaries.mjs",
+    "check:records": "node ./scripts/quality/records.mjs --stage building",
+    "check:exports": "node ./scripts/quality/run.mjs --stage building --target exports",
+    "check:coverage": "node ./scripts/quality/run.mjs --stage building --target coverage",
+    "check:traceability": "node ./scripts/check-traceability.mjs",
+    "check:implementation": "node ./scripts/quality/run.mjs --stage building --target ledger",
+    "check:final": "node ./scripts/quality/run.mjs --stage final",
+    "check:hermetic": "node ./scripts/quality/run.mjs --stage hermetic"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/node": "^26.0.1",
+    "@types/semver": "7.7.1",
+    "@vitest/coverage-v8": "4.1.9",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0",
+    "vitest": "4.1.9"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "fast-json-patch": "3.1.1",
+    "semver": "7.8.5"
+  }
+}

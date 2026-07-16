@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/user-authorization-requests.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edition", "signing", "remoteConsent"],
+  "properties": {
+    "edition": { "const": "1.0.0" },
+    "signing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "state",
+        "configuredCredentials",
+        "trustedFingerprintsByOwner",
+        "commits",
+        "requestedDecision",
+        "constraints"
+      ],
+      "properties": {
+        "id": { "const": "USER-AUTH-W1-W8-COMMIT-SIGNING" },
+        "state": {
+          "enum": ["awaiting-user-authorization", "authorized", "declined"]
+        },
+        "configuredCredentials": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gitSigningKey", "gpgExecutable", "sshAgent", "available"],
+          "properties": {
+            "gitSigningKey": { "type": ["string", "null"] },
+            "gpgExecutable": { "type": "boolean" },
+            "sshAgent": { "type": "boolean" },
+            "available": { "type": "boolean" }
+          }
+        },
+        "trustedFingerprintsByOwner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"],
+          "properties": {
+            "W1": { "$ref": "#/$defs/fingerprints" },
+            "W2": { "$ref": "#/$defs/fingerprints" },
+            "W3": { "$ref": "#/$defs/fingerprints" },
+            "W4": { "$ref": "#/$defs/fingerprints" },
+            "W5": { "$ref": "#/$defs/fingerprints" },
+            "W6": { "$ref": "#/$defs/fingerprints" },
+            "W7": { "$ref": "#/$defs/fingerprints" },
+            "W8": { "$ref": "#/$defs/fingerprints" }
+          }
+        },
+        "commits": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["owner", "commit", "tree", "currentStatus"],
+            "properties": {
+              "owner": { "type": "string", "pattern": "^W[1-8]$" },
+              "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+              "tree": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+              "currentStatus": { "const": "unsigned" }
+            }
+          }
+        },
+        "requestedDecision": {
+          "const": "provide owner-signed replacement commits with the same eight trees and approve a newly reviewed BOM containing those exact signed commits"
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "remoteConsent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "state",
+        "source",
+        "sourceSha256",
+        "gates",
+        "atoms",
+        "requestedDecision",
+        "executionPerformed",
+        "localSubstitute",
+        "executionEvidence"
+      ],
+      "properties": {
+        "id": { "const": "USER-CONSENT-W8-REMOTE-CONFORMANCE" },
+        "state": { "enum": ["awaiting-user-consent", "authorized", "declined"] },
+        "source": { "const": "artifacts/requests/W8/remote-gates.json" },
+        "sourceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "gates": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^W8-REMOTE-[A-Z-]+$" }
+        },
+        "atoms": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^P11-[A-Z0-9-]+$" }
+        },
+        "requestedDecision": {
+          "const": "authorize the two declared staging-only remote gates or decline them; production remains prohibited"
+        },
+        "executionPerformed": { "const": false },
+        "localSubstitute": { "const": false },
+        "executionEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consentEnvironmentVariablesPresent",
+            "cloudflareAccountIdPresent",
+            "gatedExecutionRecords"
+          ],
+          "properties": {
+            "consentEnvironmentVariablesPresent": { "const": false },
+            "cloudflareAccountIdPresent": { "const": false },
+            "gatedExecutionRecords": { "const": 0 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fingerprints": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-F0-9]{40,64}$" }
+    }
+  }
+}

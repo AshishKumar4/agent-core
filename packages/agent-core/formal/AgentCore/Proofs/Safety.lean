@@ -1,4 +1,5 @@
-import AgentCore.Representation.Gatekeeper
+import AgentCore.Composed
+import AgentCore.Representation.Broker
 import AgentCore.Representation.Consent
 import AgentCore.Representation.Reaction
 import AgentCore.Representation.MixtureOfAgents

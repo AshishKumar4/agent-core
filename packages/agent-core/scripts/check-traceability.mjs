@@ -39,13 +39,14 @@ const requiredRequirementIds = [
     "AC-AUDIT-001",
     "AC-RUN-001",
     "AC-GRAPH-WRITER-001",
-    "AC-COMPOSED-001"
+    "AC-COMPOSED-001",
+    "AC-ROUTING-001",
+    "AC-REP-BROKER-001",
+    "AC-REP-CONSENT-001",
+    "AC-REP-REACTION-001",
+    "AC-REP-MOA-001"
 ];
 const requiredNonClaimIds = [
-    "AC-REP-GATEKEEPER",
-    "AC-REP-CONSENT",
-    "AC-REP-REACTION",
-    "AC-REP-MOA",
     "NC-SURFACE-RUNTIME-ACTIONS",
     "NC-PROFILE-RUNTIME",
     "NC-RFC6902-PATCH",
@@ -96,7 +97,8 @@ const requiredWitnessFamilyIds = [
     "WF-LEASE-RUN-COMPOSED",
     "WF-TRUST-EVENT",
     "WF-EVENT-AUDIT-GRAPH",
-    "WF-APPROVAL-COMPOSED"
+    "WF-APPROVAL-COMPOSED",
+    "WF-ROUTING-REACTION"
 ];
 const requiredNonClaimBoundaryAreas = new Map([
     ["NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE", ["L1_ENVIRONMENT_SESSION", "L4_MEDIATION"]]

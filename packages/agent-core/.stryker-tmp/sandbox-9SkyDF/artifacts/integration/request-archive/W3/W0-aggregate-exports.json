@@ -1,0 +1,34 @@
+{
+  "requester": "W3",
+  "owner": "W0",
+  "status": "required-before-public-cutover",
+  "changes": {
+    "src/facets/index.ts": [
+      "FacetRef",
+      "SlotEntryId",
+      "BoundOperationRef",
+      "FacetOperationRef",
+      "SlotCatalog"
+    ],
+    "src/index.ts and package exports": [
+      "Do not expose ./operations until W2/W5/W6/W7 integration closes the typed dependencies"
+    ],
+    "src/protocol/index.ts": [
+      "FACET_SLOT_COMMANDS",
+      "FacetSlotInstallCommand"
+    ],
+    "src/substrates/sqlite/index.ts": [
+      "SqliteWorkspaceSlotStore"
+    ]
+  },
+  "constraints": [
+    "Do not export OperationGatewayHost or injected port implementations as caller-composable security backends",
+    "Do not export WorkspaceSlotCatalog, WorkspaceSlotStore, memory stores, or concrete authority composition constructors",
+    "Do not export facet.slot.contribute until W4 derives contributor identity from authenticated installation provenance",
+    "Wire test/w3/check-changed-source-coverage.mjs into aggregate CI with a 95% raw statements/branches/functions/lines floor for both aggregate W3 source and every changed W3 source file, with no exclusions",
+    "Add ./operations only after W2 authority and W6 invocation production composition exists",
+    "Keep partial Interceptor cut points, Surface rendering, and CommandRuntime internal until W5/W7 complete their normative contracts",
+    "Update ownership/conformance registries, migration inventory, implementation containment gates, packed export tests, and build entrypoints together with the barrels",
+    "Bump/reset definition.package-release because embedded FacetManifest and Contributions moved to codec major 2"
+  ]
+}

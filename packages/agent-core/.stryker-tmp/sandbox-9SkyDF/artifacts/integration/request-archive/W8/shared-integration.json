@@ -1,0 +1,225 @@
+{
+  "schemaVersion": "agent-core.integration-request/v1",
+  "workstream": "W8",
+  "baseCommit": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+  "requests": [
+    {
+      "id": "W8-W0-DEPENDENCIES",
+      "owner": "W0",
+      "kind": "dependency-lockfile",
+      "state": "requested",
+      "files": ["packages/agent-core-cloudflare/package.json", "pnpm-lock.yaml"],
+      "requiredImporter": "packages/agent-core-cloudflare",
+      "exactDependencies": {
+        "dependencies": { "@agent-core/core": "workspace:*" },
+        "devDependencies": {
+          "@cloudflare/vitest-pool-workers": "0.18.4",
+          "@types/node": "^26.0.1",
+          "@vitest/coverage-v8": "4.1.9",
+          "typescript": "^6.0.3",
+          "vite": "^8.1.0",
+          "vitest": "4.1.9",
+          "wrangler": "4.110.0"
+        }
+      },
+      "exactPackageManifest": {
+        "name": "@agent-core/cloudflare",
+        "version": "0.1.0",
+        "type": "module",
+        "private": true,
+        "files": ["dist"],
+        "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+        "scripts": {
+          "build": "pnpm --filter @agent-core/core build && tsc -p tsconfig.build.json",
+          "check:artifacts": "node ./scripts/check-w8-artifacts.mjs",
+          "check:cloudflare-types": "wrangler types test/cloudflare/worker-configuration.d.ts --config wrangler.test.jsonc --check",
+          "check:coverage": "node ./scripts/check-changed-coverage.mjs",
+          "check:consumer": "pnpm build && node ./scripts/check-consumer.mjs",
+          "check:exports": "pnpm check:consumer",
+          "check:ownership": "node ./scripts/check-w8-ownership.mjs",
+          "check:types": "pnpm --filter @agent-core/core build && tsc -p tsconfig.json && tsc -p test/cloudflare/tsconfig.json",
+          "lint": "pnpm --workspace-root exec oxlint --deny-warnings packages/agent-core-cloudflare/src packages/agent-core-cloudflare/test packages/agent-core-cloudflare/scripts",
+          "test": "pnpm check:artifacts && pnpm check:ownership && pnpm test:structural && pnpm test:cloudflare",
+          "test:structural": "pnpm --filter @agent-core/core build && vitest run --config test/vitest.config.mjs",
+          "test:cloudflare": "pnpm --filter @agent-core/core build && pnpm check:cloudflare-types && vitest run --config test/cloudflare/vitest.config.ts",
+          "types:cloudflare": "wrangler types test/cloudflare/worker-configuration.d.ts --config wrangler.test.jsonc"
+        }
+      },
+      "acceptanceCommands": [
+        "pnpm install --frozen-lockfile",
+        "pnpm --filter @agent-core/cloudflare check:cloudflare-types",
+        "pnpm --filter @agent-core/cloudflare test:cloudflare",
+        "pnpm --filter @agent-core/cloudflare check:consumer"
+      ]
+    },
+    {
+      "id": "W8-W0-QUALITY-REGISTRY",
+      "owner": "W0",
+      "kind": "quality-registry",
+      "state": "integration-dependent",
+      "requiredChanges": [
+        "Add @agent-core/cloudflare test, type, build, lint, coverage, generated-type, and packed-consumer commands to aggregate CI.",
+        "Classify environment.head, environment.revision, environment.session, environment.snapshot, environment.port-exposure as Environment-Actor records.",
+        "Classify slate, slate.version, slate.publication, slate.deployment, slate.resource, slate.preview, slate.deployment-reservation, slate.resource-reservation as Workspace-Actor records.",
+        "Preserve strict unknown-codec rejection and do not classify caches, R2 objects, provider handles, or profile declarations as domain records.",
+        "Replace W8 source-absence assertions only after the corresponding private conformance fragment is accepted."
+      ],
+      "acceptanceCommands": [
+        "pnpm --filter @agent-core/cloudflare check:types",
+        "pnpm --filter @agent-core/cloudflare lint",
+        "pnpm --filter @agent-core/cloudflare test",
+        "pnpm --filter @agent-core/cloudflare check:ownership",
+        "pnpm --filter @agent-core/cloudflare check:coverage",
+        "pnpm --filter @agent-core/cloudflare check:cloudflare-types",
+        "pnpm --filter @agent-core/cloudflare check:exports",
+        "pnpm check:implementation",
+        "pnpm check:conformance"
+      ]
+    },
+    {
+      "id": "W8-W0-EXPORTS",
+      "owner": "W0",
+      "kind": "exports",
+      "state": "requested",
+      "exportNow": ["@agent-core/cloudflare:."],
+      "doNotExportYet": [
+        "@agent-core/core:./environments",
+        "@agent-core/core:./slates",
+        "@agent-core/core:profile runtime implementations"
+      ],
+      "releaseConditions": [
+        "The Cloudflare root export and packed NodeNext positive and negative checks may integrate now.",
+        "Environment, Slate, and profile exports remain deferred until authoritative W2/W3/W5/W6/W7 integration closes every applicable profile atom."
+      ]
+    },
+    {
+      "id": "W8-W3-PROFILE-RUNTIME",
+      "owner": "W3",
+      "kind": "typed-seam",
+      "state": "requested",
+      "requiredFiles": [
+        "packages/agent-core/src/facets/profile-runtime/contract.ts",
+        "packages/agent-core/src/facets/profile-runtime/error.ts",
+        "packages/agent-core/src/facets/profile-runtime/facet.ts",
+        "packages/agent-core/src/facets/profile-runtime/index.ts",
+        "packages/agent-core/src/facets/profile-runtime/manifest.ts",
+        "packages/agent-core/src/facets/profile-runtime/runtime.ts",
+        "packages/agent-core/src/facets/profile-runtime/schema.ts",
+        "packages/agent-core/src/facets/profile-runtime/wire.ts"
+      ],
+      "requiredSymbols": [
+        "ProfileControlContract",
+        "ProfileEventContract",
+        "ProfileOperationContract",
+        "DetailedProfileError",
+        "InternalProfileFacetRuntime",
+        "ProfileFacetRuntime",
+        "createStandardProfileManifest",
+        "ExternalProtectedProfileAdmission",
+        "ProfileEffectContext",
+        "ProfileEffectContextSource",
+        "ProfileRuntimeHostBinding",
+        "ProtectedProfileRuntimePort",
+        "ProfileWireCodec",
+        "facetDataWireCodec",
+        "profileWireCodec",
+        "voidProfileWireCodec",
+        "schema",
+        "strictObjectSchema"
+      ],
+      "requirements": [
+        "W3 owns the shared profile contract, canonical wire validation, lifecycle, manifest composition, and protected-runtime dependency interfaces.",
+        "W8 profile-specific directories consume these contracts but do not define, copy, or export a shared substitute.",
+        "W3 and W6 must replace the provisional external admission interface with authoritative mediation before any profile is complete or public."
+      ],
+      "acceptanceCommand": "pnpm --filter @agent-core/core exec vitest run test/environments test/slates test/profiles test/core/context-values.test.ts"
+    },
+    {
+      "id": "W8-W2-WORKSPACE-ID",
+      "owner": "W2",
+      "kind": "identity-consolidation",
+      "state": "requested",
+      "requiredChanges": [
+        "Keep packages/agent-core/src/identity/id.ts WorkspaceId as the sole constructor.",
+        "Keep WorkspaceId exported from packages/agent-core/src/identity/index.ts.",
+        "Coordinate with W7 so packages/agent-core/src/workspaces/index.ts re-exports the identity-owned WorkspaceId and packages/agent-core/src/workspaces/id.ts no longer declares one."
+      ],
+      "acceptanceEvidence": [
+        "new WorkspaceId(\"x\") imported through identity and workspaces has constructor identity equality.",
+        "No second class WorkspaceId declaration exists under packages/agent-core/src."
+      ],
+      "spec": ["1.4", "3.2", "8.4"]
+    },
+    {
+      "id": "W8-W2-AUTHORITY",
+      "owner": "W2",
+      "kind": "typed-seam",
+      "state": "integration-dependent",
+      "requiredSymbols": ["PathEpochEvidence", "AuthorityCheckEvidence", "TenantAuthorityRuntime"],
+      "requirements": [
+        "W6 must consume W2 authority evidence and atomically recheck current path epochs before each W8 effect.",
+        "W8 must not own authority decisions, Grants, Bindings, path watermarks, or admission persistence."
+      ],
+      "spec": ["3.4", "7.2", "7.4", "10.3"]
+    },
+    {
+      "id": "W8-W5-RUN",
+      "owner": "W5",
+      "kind": "typed-seam",
+      "state": "integration-dependent",
+      "requiredSymbols": [
+        "LeaseToken",
+        "TurnLeaseVerifier",
+        "RunEvidencePort",
+        "RunSourceRevisionPort"
+      ],
+      "requirements": [
+        "Environment and Self effects require target-scoped exact-Turn verification, not merely a live token.",
+        "Environment pins must identify both EnvironmentId and Revision and must not duplicate W8 Environment records."
+      ],
+      "spec": ["5.2", "5.3", "8.4"]
+    },
+    {
+      "id": "W8-W6-INVOCATION",
+      "owner": "W6",
+      "kind": "typed-seam",
+      "state": "integration-dependent",
+      "requiredSymbols": [
+        "PreparedInvocation",
+        "AuthorityAdmissionPort",
+        "InvocationPreparationPort",
+        "InvocationClaimOwnerPort",
+        "InvocationEventPort",
+        "InvocationCommitPort",
+        "Receipt"
+      ],
+      "requirements": [
+        "Replace ExternalProtectedProfileAdmission with an adapter over W6 preparation, claim, attempt, approval, Receipt, commit, and reconciliation ownership.",
+        "Return the authoritative Receipt type; remove W8-owned synthetic Receipt outcomes and process-local approval consumption.",
+        "Pass the exact effect idempotency identity to W8 handlers only after admission succeeds."
+      ],
+      "spec": ["7.2", "7.3", "7.4"]
+    },
+    {
+      "id": "W8-W7-EVENT",
+      "owner": "W7",
+      "kind": "typed-seam",
+      "state": "integration-dependent",
+      "requiredSymbols": [
+        "EventTrustPort",
+        "EventPayloadPort",
+        "SourceEventProtocol",
+        "TargetProjectionProtocol",
+        "TargetRouteAuthorityPort",
+        "InvocationAdmissionPort"
+      ],
+      "requirements": [
+        "Provide host-authenticated profile Event publication with normative Receipt-to-Event causality.",
+        "Provide the authoritative Queue target adapter; W8 remains transport-only and owns no Event, reservation, projection, or delivery record.",
+        "After W2 publishes the canonical constructor, re-export identity.WorkspaceId from workspaces and remove the duplicate workspaces/id.ts constructor.",
+        "Until that sequence lands, W8 Slate code remains private and no cross-context WorkspaceId compatibility is claimed."
+      ],
+      "spec": ["6.1", "6.3", "7.4", "10.1"]
+    }
+  ]
+}
