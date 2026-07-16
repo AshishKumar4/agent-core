@@ -35,7 +35,7 @@ import { PlacementInput, type PlacementSelection, selectPlacement } from "./plac
 import { compareText } from "./order";
 import { invalidDefinition } from "./error";
 
-const CORE_SLOT_NAMES = new Set([
+export const CORE_SLOT_NAMES = new Set([
     "automations",
     "commands",
     "events",

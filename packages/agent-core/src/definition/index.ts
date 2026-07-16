@@ -98,6 +98,7 @@ export {
     DesiredProjection,
     MaterializationTopologyPort,
     MaterializationPlan,
+    facetInstallProjection,
     placementProjection,
     policyProjection,
     planMaterialization

@@ -7,7 +7,7 @@ import {
     hasExactJsonKeys,
     type JsonValue
 } from "../core";
-import type { IsolationMode } from "../facets";
+import { Command, SlotDeclaration, type IsolationMode } from "../facets";
 import { Blueprint } from "./blueprint";
 import {
     canonicalMaterializationDesired,
@@ -16,11 +16,13 @@ import {
 import { ManagedOrigin } from "./origin";
 import { PLACEMENT_PREFERENCE, type PlacementSelection } from "./placement";
 import type { PolicySet } from "./policy";
-import { ValidatedBlueprint } from "./validator";
+import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from "./validator";
 import type { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import { compareText } from "./order";
 import { invalidDefinition } from "./error";
+
+const DERIVED_COMMAND_TRUST: readonly string[] = Object.freeze(["owner", "authenticated", "self"]);
 
 const PLACEMENT_RECORD_KIND = "facet-placement";
 
@@ -120,6 +122,46 @@ export function policyProjection(logicalKey: string, policy: PolicySet): Desired
         recordKind: "policy-set",
         desired: policy.toData()
     });
+}
+
+export function facetInstallProjection(
+    logicalKey: string,
+    install: { readonly packageId: string; readonly facetId: string; readonly facetVersion: string }
+): DesiredProjection {
+    return new DesiredProjection({
+        logicalKey,
+        recordKind: "facet-install",
+        desired: {
+            facetId: install.facetId,
+            facetVersion: install.facetVersion,
+            packageId: install.packageId
+        }
+    });
+}
+
+function slotEntryProjection(logicalKey: string, entry: ValidatedContribution): DesiredProjection {
+    return new DesiredProjection({
+        logicalKey,
+        recordKind: "slot-entry",
+        desired: {
+            contributor: entry.contributor,
+            index: entry.index,
+            slot: entry.slot,
+            value: entry.value as JsonValue
+        }
+    });
+}
+
+function subscriptionProjection(logicalKey: string, template: JsonValue): DesiredProjection {
+    return new DesiredProjection({ logicalKey, recordKind: "subscription", desired: template });
+}
+
+function declarationProjection(
+    recordKind: string,
+    logicalKey: string,
+    declaration: JsonValue
+): DesiredProjection {
+    return new DesiredProjection({ logicalKey, recordKind, desired: declaration });
 }
 
 export interface ActorPlanInit {
@@ -348,18 +390,162 @@ export function planMaterialization(input: PlanMaterializationInput): Materializ
 }
 
 function attestedProjections(validated: ValidatedBlueprint): readonly DesiredProjection[] {
-    return Object.freeze(
-        [
-            policyProjection("policy:platform", validated.blueprint.policies),
-            ...validated.placements.map((placement) =>
-                placementProjection(
-                    `placement:${placement.packageId}:${placement.facetId}`,
-                    placement.facetId,
-                    placement.selection
-                )
+    const blueprint = validated.blueprint;
+    const projections: DesiredProjection[] = [
+        policyProjection("policy:platform", blueprint.policies)
+    ];
+
+    for (const placement of validated.placements) {
+        projections.push(
+            placementProjection(
+                `placement:${placement.packageId}:${placement.facetId}`,
+                placement.facetId,
+                placement.selection
             )
-        ].sort(compareProjections)
+        );
+        projections.push(
+            facetInstallProjection(`install:${placement.packageId}:${placement.facetId}`, {
+                facetId: placement.facetId,
+                facetVersion: placement.facetVersion,
+                packageId: placement.packageId
+            })
+        );
+    }
+
+    const contributeAuthority = slotContributeAuthority(validated);
+    const commandSurfaceNames = new Set<string>();
+    for (const declaration of validated.declarations) {
+        requireSlotContributeAuthority(declaration, contributeAuthority);
+        projections.push(
+            slotEntryProjection(
+                `contribution:${declaration.contributor}:${declaration.slot}:${declaration.index}`,
+                declaration
+            )
+        );
+        if (declaration.slot === "commands") {
+            projections.push(commandSubscriptionProjection(declaration, commandSurfaceNames));
+        } else if (declaration.slot === "automations") {
+            projections.push(
+                subscriptionProjection(
+                    `subscription:automation:${declaration.contributor}:${declaration.index}`,
+                    declaration.value as JsonValue
+                )
+            );
+        }
+    }
+
+    (blueprint.subscriptions ?? []).forEach((template, index) => {
+        projections.push(
+            subscriptionProjection(`subscription:blueprint:${index}`, template as JsonValue)
+        );
+    });
+
+    (blueprint.slots ?? []).forEach((slot, index) => {
+        projections.push(
+            slotEntryProjection(`contribution:blueprint:slots:${index}`, {
+                contributor: "blueprint",
+                index,
+                slot: "slots",
+                value: slot
+            })
+        );
+    });
+
+    if (blueprint.scopes !== undefined) {
+        projections.push(
+            declarationProjection("scope-scaffold", "scope:platform", blueprint.scopes as JsonValue)
+        );
+    }
+    blueprint.agents.forEach((agent, index) => {
+        projections.push(
+            declarationProjection("agent-profile", `agent:${index}`, agent as JsonValue)
+        );
+    });
+    (blueprint.environments ?? []).forEach((environment, index) => {
+        projections.push(
+            declarationProjection("environment", `environment:${index}`, environment as JsonValue)
+        );
+    });
+    if (blueprint.surfaces !== undefined) {
+        projections.push(
+            declarationProjection(
+                "surface-layout",
+                "surface:platform",
+                blueprint.surfaces as JsonValue
+            )
+        );
+    }
+
+    return Object.freeze(projections.sort(compareProjections));
+}
+
+function commandSubscriptionProjection(
+    declaration: ValidatedContribution,
+    surfaceNames: Set<string>
+): DesiredProjection {
+    const command = Command.fromData(declaration.value);
+    for (const surface of command.surfaces) {
+        const key = `${surface.value} ${command.name}`;
+        if (surfaceNames.has(key)) {
+            throw invalidDefinition(
+                `Command ${command.name} is not unique in surface slot ${surface.value}`
+            );
+        }
+        surfaceNames.add(key);
+    }
+    const template: JsonValue = {
+        authority: "initiator",
+        binding: command.binding.value,
+        dedupe: "event",
+        mapping: [{ from: "/input", to: "" }],
+        source: {
+            acceptedTrust: command.acceptedTrust ?? DERIVED_COMMAND_TRUST,
+            kind: "command.invoked",
+            source: `${declaration.contributor}:${command.name}`
+        },
+        target: command.operation.value
+    };
+    return subscriptionProjection(
+        `subscription:command:${declaration.contributor}:${command.name}`,
+        template
     );
+}
+
+function slotContributeAuthority(
+    validated: ValidatedBlueprint
+): ReadonlyMap<string, readonly string[]> {
+    const map = new Map<string, readonly string[]>();
+    const add = (data: JsonValue): void => {
+        const slot = SlotDeclaration.fromData(data);
+        map.set(slot.name.value, slot.authority.contribute);
+    };
+    for (const data of validated.blueprint.slots ?? []) add(data as JsonValue);
+    for (const declaration of validated.declarations) {
+        if (declaration.slot === "slots") add(declaration.value);
+    }
+    return map;
+}
+
+function requireSlotContributeAuthority(
+    declaration: ValidatedContribution,
+    authority: ReadonlyMap<string, readonly string[]>
+): void {
+    if (CORE_SLOT_NAMES.has(declaration.slot)) return;
+    const contribute = authority.get(declaration.slot);
+    if (contribute === undefined) return;
+    if (!contribute.some((selector) => selectorMatches(selector, declaration.contributor))) {
+        throw invalidDefinition(
+            `Contributor ${declaration.contributor} may not contribute to slot ${declaration.slot}`
+        );
+    }
+}
+
+function selectorMatches(selector: string, value: string): boolean {
+    const expression = selector
+        .split("*")
+        .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
+        .join(".*");
+    return new RegExp(`^${expression}$`, "u").test(value);
 }
 
 function compareProjections(left: DesiredProjection, right: DesiredProjection): number {

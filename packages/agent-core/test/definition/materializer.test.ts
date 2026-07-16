@@ -297,8 +297,7 @@ describe("same-Actor additive materialization", () => {
         "test-resource",
         "binding",
         "scope",
-        "agent-profile",
-        "slot-entry",
+        "nonsense-kind",
         "facet.slot-entry",
         "authority.grant",
         "identity.role"

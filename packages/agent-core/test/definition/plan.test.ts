@@ -92,6 +92,8 @@ describe("materialization planning", () => {
             "workspace:workspace-a"
         ]);
         expect(first.actors[1]?.projections.map((projection) => projection.logicalKey)).toEqual([
+            "install:alpha:alpha.facet",
+            "install:zeta:zeta.facet",
             "placement:alpha:alpha.facet",
             "placement:zeta:zeta.facet"
         ]);
@@ -241,12 +243,13 @@ describe("materialization planning", () => {
 
     test.each([
         "unknown",
+        "nonsense-kind",
         "facet_placement",
         "test-resource",
         "binding",
+        "authority.grant",
+        "identity.role",
         "scope",
-        "agent-profile",
-        "slot-entry",
         "facet.slot-entry",
         "placement",
         "policy",
@@ -263,10 +266,17 @@ describe("materialization planning", () => {
         ).toThrow(/Unsupported materialization record kind/);
     });
 
-    test("admits exactly the two protected materialization kinds", () => {
+    test("admits every normative materialization kind", () => {
         expect(ManagedStateRecord.supportedRecordKinds()).toEqual([
+            "agent-profile",
+            "environment",
+            "facet-install",
             "facet-placement",
-            "policy-set"
+            "policy-set",
+            "scope-scaffold",
+            "slot-entry",
+            "subscription",
+            "surface-layout"
         ]);
         expect(Object.isFrozen(ManagedStateRecord.supportedRecordKinds())).toBe(true);
     });
@@ -412,7 +422,7 @@ describe("materialization planning", () => {
         const origin = managedOrigin();
         const actor = new ActorRef("tenant", new ActorId("tenant-a"));
         const valid = policyProjection("policy:tenant", PolicySet.empty());
-        const unsupported = forgeProjectionKind(valid, "slot-entry");
+        const unsupported = forgeProjectionKind(valid, "identity.role");
 
         expect(() => new ActorPlan({ actor, origin, projections: [unsupported] })).toThrow(
             /Unsupported materialization record kind/
