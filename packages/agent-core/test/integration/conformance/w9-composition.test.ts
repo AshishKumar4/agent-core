@@ -510,7 +510,6 @@ describe("W9 internal typed composition", () => {
         const route = new RouteReservationId("w9-settlement-route");
         const attempt = new EffectAttemptId("w9-settlement-attempt");
         const commit = new ExecutionRunCommitId("w9-settlement-commit");
-        const audit = new AuditRecordId("w9-settlement-audit");
         const seen = new Set<string>();
         const evidence = new CanonicalSettlementEvidencePort({
             approvalResolved: (_transaction: object, id: ApprovalId) => {
@@ -539,8 +538,17 @@ describe("W9 internal typed composition", () => {
                 return id.equals(commit);
             },
             auditSatisfied: (_transaction: object, obligation) => {
-                seen.add(`audit:${obligation.audit.value}`);
-                return obligation.audit.equals(audit);
+                switch (obligation.kind) {
+                    case "receipt":
+                        seen.add(`audit:receipt:${obligation.invocation.value}`);
+                        return obligation.invocation.equals(invocation);
+                    case "delivery":
+                        seen.add(`audit:delivery:${obligation.reservation.value}`);
+                        return obligation.reservation.equals(route);
+                    case "commit":
+                        seen.add(`audit:commit:${obligation.commit.value}`);
+                        return obligation.commit.equals(commit);
+                }
             }
         });
         const obligation = new SettlementObligation({
@@ -556,12 +564,16 @@ describe("W9 internal typed composition", () => {
                 { kind: "route", reservation: route },
                 { kind: "reconciliation", attempt },
                 { kind: "systemCommit", commit }
-            ],
-            requiredAudits: [{ audit, evidence: { kind: "commit", id: commit } }]
+            ]
         });
 
+        expect(obligation.requiredAudits.map((value) => value.kind).sort()).toEqual([
+            "commit",
+            "delivery",
+            "receipt"
+        ]);
         expect(isSettled({}, obligation, evidence)).toBe(true);
-        expect(seen.size).toBe(6);
+        expect(seen.size).toBe(8);
     });
 
     test("replays per-item mediation and retries the durable outbox after crashes", async () => {
