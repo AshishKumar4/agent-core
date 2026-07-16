@@ -36,6 +36,8 @@ export {
 export type {
     InteractionAuditMetadataPort,
     RoutedInvocationFactory,
+    RoutedInvocationIdentity,
+    RoutedInvocationProjection,
     RunInboxMaterialPort
 } from "./routing";
 export {

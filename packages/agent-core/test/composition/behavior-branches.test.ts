@@ -10,17 +10,25 @@ import {
     PackageFacetRuntime,
     ProvenanceFacetSlotBackend,
     RoutedInvocationAdmissionPort,
-    RuntimeRunInboxPort
+    RuntimeRunInboxPort,
+    type RoutedInvocationProjection
 } from "../../src/composition";
 import { CompatRange, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
-import { type Blueprint, type BlueprintLoader, type LoadedBlueprint } from "../../src/definition";
+import {
+    PackageId,
+    type Blueprint,
+    type BlueprintLoader,
+    type LoadedBlueprint
+} from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import {
+    BindingName,
     Contributions,
     Facet,
     FacetManifest,
     FacetPackageId,
     FacetRef,
+    OperationRef,
     PackageInstallationRef,
     SlotAuthorityPolicy,
     SlotDeclaration,
@@ -35,11 +43,13 @@ import {
     type SurfaceId,
     type WorkspaceSlotStore
 } from "../../src/facets";
-import { PrincipalId, TenantId } from "../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
     AuditRecord,
     AuditRecordId,
     CorrelationId,
+    InvocationPlacementPin,
+    OperationPin,
     PreparedInvocation,
     type InvocationLedger,
     type InvocationPersistence
@@ -55,7 +65,7 @@ import {
     inboxFixture,
     tenant
 } from "../workspaces/fixtures";
-import { operationPin, preparedReferenceCodecs } from "../invocations/fixture";
+import { preparedReferenceCodecs } from "../invocations/fixture";
 
 describe("W9 composition behavior branches", () => {
     test("rejects every substituted routed identity and replays only byte-stable intent", () => {
@@ -73,7 +83,11 @@ describe("W9 composition behavior branches", () => {
             "auditProjection",
             "auditReservation",
             "bridgeIdentity",
-            "bridgeCause"
+            "bridgeCause",
+            "operation",
+            "targetActor",
+            "authority",
+            "principal"
         ] as const) {
             const harness = routedAdmissionHarness((payload) =>
                 routedEvidence(payload, substitution)
@@ -84,6 +98,13 @@ describe("W9 composition behavior branches", () => {
             });
             expect(harness.preparations).toBe(0);
         }
+
+        const bound = routedAdmissionHarness((payload) => routedEvidence(payload));
+        expect(bound.port.admit(bound.state, input)).toEqual({
+            kind: "accepted",
+            invocation: reservation.invocation
+        });
+        expect(bound.preparations).toBe(1);
 
         let changedPayload = false;
         const harness = routedAdmissionHarness((payload) =>
@@ -470,7 +491,12 @@ function routedAdmissionHarness(
             state.prepared.set(record.header.id.value, record);
         }
     } as unknown as InvocationLedger<typeof state, string, string, string, string, string>;
-    const port = new RoutedInvocationAdmissionPort(ledger, persistence, { prepare });
+    const port = new RoutedInvocationAdmissionPort(
+        ledger,
+        persistence,
+        { prepare },
+        routedProjection
+    );
     return {
         state,
         port,
@@ -479,6 +505,30 @@ function routedAdmissionHarness(
         }
     };
 }
+
+/**
+ * Honest projection: reads the authority-relevant identity from whatever header the factory
+ * produced. It is deliberately independent of the (adversarial) `prepare` above so that a
+ * substituted header surfaces its substitution rather than being masked.
+ */
+const routedProjection: RoutedInvocationProjection<string, string, string, string> = {
+    identify(header) {
+        const authority = JSON.parse(header.authority) as {
+            readonly binding: string;
+            readonly tenant: string;
+            readonly principal: string;
+        };
+        return {
+            operation: header.operation.operation,
+            targetActor: header.actor,
+            binding: new BindingName(authority.binding),
+            principal: new PrincipalRef(
+                new TenantId(authority.tenant),
+                new PrincipalId(authority.principal)
+            )
+        };
+    }
+};
 
 function routedEvidence(
     input: {
@@ -495,7 +545,11 @@ function routedEvidence(
         | "auditProjection"
         | "auditReservation"
         | "bridgeIdentity"
-        | "bridgeCause",
+        | "bridgeCause"
+        | "operation"
+        | "targetActor"
+        | "authority"
+        | "principal",
     payload: Record<string, boolean> = { changed: false }
 ) {
     const id =
@@ -506,6 +560,10 @@ function routedEvidence(
         substitution === "bridgeIdentity"
             ? new AuditRecordId("substituted-bridge-identity")
             : input.bridgeAudit;
+    const initiator = input.reservation.initiator;
+    if (initiator === undefined) {
+        throw new Error("Routed admission fixture requires an authenticated initiator");
+    }
     const invocation = routedPrepared(
         id,
         substitution === "route"
@@ -513,7 +571,26 @@ function routedEvidence(
             : input.reservation.id,
         substitution === "projection" ? new Digest("f".repeat(64)) : input.projection.digest,
         substitution === "auditCause" ? new AuditRecordId("substituted-audit") : input.bridgeAudit,
-        payload
+        payload,
+        {
+            operation:
+                substitution === "operation"
+                    ? "facet.test:substituted"
+                    : input.reservation.operation.value,
+            actor:
+                substitution === "targetActor"
+                    ? new ActorRef("workspace", new ActorId("substituted-target"))
+                    : input.reservation.targetActor,
+            binding:
+                substitution === "authority"
+                    ? "binding.substituted"
+                    : input.reservation.authority.binding.value,
+            tenant: initiator.tenantId.value,
+            principal:
+                substitution === "principal"
+                    ? "substituted-principal"
+                    : initiator.principalId.value
+        }
     );
     return {
         invocation,
@@ -542,15 +619,26 @@ function routedPrepared(
     route: RouteReservationId,
     projectionDigest: Digest,
     auditCause: AuditRecordId,
-    payload: Record<string, boolean>
+    payload: Record<string, boolean>,
+    identity: {
+        readonly operation: string;
+        readonly actor: ActorRef;
+        readonly binding: string;
+        readonly tenant: string;
+        readonly principal: string;
+    }
 ) {
     return PreparedInvocation.create(
         {
             id,
-            operation: operationPin(`routed-${id.value}`),
+            operation: routedOperationPin(identity.operation),
             domain: `domain:${id.value}`,
-            actor: new ActorRef("workspace", new ActorId("routed-target")),
-            authority: `authority:${id.value}`,
+            actor: identity.actor,
+            authority: JSON.stringify({
+                binding: identity.binding,
+                tenant: identity.tenant,
+                principal: identity.principal
+            }),
             pathEpochs: `epochs:${id.value}`,
             route,
             projectionDigest,
@@ -560,6 +648,34 @@ function routedPrepared(
         { kind: "single", item: payload },
         preparedReferenceCodecs
     );
+}
+
+function routedOperationPin(operation: string): OperationPin {
+    return OperationPin.create({
+        operation: new OperationRef(operation),
+        target: "target:routed",
+        package: new PackageId("package:routed"),
+        version: new SemVer("1.0.0"),
+        manifestDigest: routedDigest("manifest"),
+        descriptorDigest: routedDigest("descriptor"),
+        configurationDigest: routedDigest("configuration"),
+        runtimeDigest: routedDigest("runtime"),
+        activationGeneration: "generation:routed",
+        registration: "registration:routed",
+        impact: "observe",
+        approvalRequired: false,
+        placement: new InvocationPlacementPin({
+            manifest: ["bundled", "provider"],
+            policy: ["bundled", "provider"],
+            substrate: ["bundled", "provider"],
+            trust: ["bundled", "provider"],
+            selected: "provider"
+        })
+    });
+}
+
+function routedDigest(label: string): Digest {
+    return Digest.sha256(new TextEncoder().encode(`routed-${label}`));
 }
 
 function auditRecord(

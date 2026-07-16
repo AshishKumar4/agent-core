@@ -1,6 +1,7 @@
 import type { ActorRef } from "../actors";
 import { AgentCoreError } from "../errors";
-import type { TenantId } from "../identity";
+import type { BindingName, OperationRef } from "../facets";
+import type { PrincipalRef, TenantId } from "../identity";
 import {
     AuditRecord,
     type AuditEvidenceResolver,
@@ -8,7 +9,8 @@ import {
     type AuditRecordLookup,
     type InvocationLedger,
     type InvocationPersistence,
-    type PreparedInvocation
+    type PreparedInvocation,
+    type PreparedInvocationHeader
 } from "../invocations";
 import type { CorrelationId } from "../interaction-references";
 import {
@@ -145,6 +147,26 @@ export interface RoutedInvocationFactory<Lease, Authority, Domain, PathEpochs> {
     };
 }
 
+/**
+ * The authority-relevant identity a routed invocation claims, read faithfully from a
+ * PreparedInvocationHeader whose Authority and Domain are opaque at this layer. Admission
+ * binds each field to the authenticated RouteReservation; a projection that decoupled from
+ * the header would defeat that binding, so it is trusted composition wiring rather than the
+ * (potentially defective) factory that produced the header.
+ */
+export interface RoutedInvocationIdentity {
+    readonly operation: OperationRef;
+    readonly targetActor: ActorRef;
+    readonly binding: BindingName;
+    readonly principal: PrincipalRef;
+}
+
+export interface RoutedInvocationProjection<Lease, Authority, Domain, PathEpochs> {
+    identify(
+        header: PreparedInvocationHeader<Lease, Authority, Domain, PathEpochs>
+    ): RoutedInvocationIdentity;
+}
+
 export class RoutedInvocationAdmissionPort<
     Transaction,
     Lease,
@@ -170,7 +192,13 @@ export class RoutedInvocationAdmissionPort<
             PathEpochs,
             Admission
         >,
-        private readonly factory: RoutedInvocationFactory<Lease, Authority, Domain, PathEpochs>
+        private readonly factory: RoutedInvocationFactory<Lease, Authority, Domain, PathEpochs>,
+        private readonly projection: RoutedInvocationProjection<
+            Lease,
+            Authority,
+            Domain,
+            PathEpochs
+        >
     ) {}
 
     public admit(
@@ -187,7 +215,8 @@ export class RoutedInvocationAdmissionPort<
             prepared.audit.kind.kind !== "routeProjected" ||
             !prepared.audit.kind.projection.equals(input.projection.id) ||
             !prepared.audit.kind.reservation.equals(input.reservation.id) ||
-            prepared.audit.cause !== undefined
+            prepared.audit.cause !== undefined ||
+            !this.boundToReservation(prepared.invocation.header, input.reservation)
         ) {
             return { kind: "rejected", reason: "routed invocation evidence was substituted" };
         }
@@ -199,6 +228,30 @@ export class RoutedInvocationAdmissionPort<
         }
         this.ledger.prepare(transaction, prepared.invocation);
         return { kind: "accepted", invocation: prepared.invocation.header.id };
+    }
+
+    /**
+     * Bind the factory-produced header to the authenticated reservation on every
+     * authority-relevant field, mirroring the model's RouteGate. The stable identity checks
+     * above leave operation, target owner, authority binding, and principal free; without
+     * this a defective factory could keep the checked identifiers yet substitute the operation
+     * (a read reservation performing a mutation), retarget the invocation, swap the binding, or
+     * impersonate the principal, and still be admitted and persisted. The reservation carries
+     * its authenticated principal in `initiator` for both authority kinds; a delegated route
+     * may legitimately pin no principal, in which case there is nothing to bind.
+     */
+    private boundToReservation(
+        header: PreparedInvocationHeader<Lease, Authority, Domain, PathEpochs>,
+        reservation: RouteReservation
+    ): boolean {
+        const identity = this.projection.identify(header);
+        return (
+            identity.operation.equals(reservation.operation) &&
+            identity.targetActor.equals(reservation.targetActor) &&
+            identity.binding.equals(reservation.authority.binding) &&
+            (reservation.initiator === undefined ||
+                identity.principal.equals(reservation.initiator))
+        );
     }
 }
 
