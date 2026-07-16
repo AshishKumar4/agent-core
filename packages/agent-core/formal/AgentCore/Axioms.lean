@@ -261,3 +261,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_consent_grant_is_live
 #print axioms AgentCore.Examples.nonvacuous_consent_revocation_blocks
 #print axioms AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected
+
+-- Executable lease semantics: the differential oracle's answers carry the relation.
+#print axioms AgentCore.leaseStepExec_sound
+#print axioms AgentCore.leaseStepExec_complete

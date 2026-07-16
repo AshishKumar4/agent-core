@@ -378,7 +378,8 @@
         "AgentCore.TurnLease",
         "AgentCore.TurnLease.Admits",
         "AgentCore.LeaseLabel",
-        "AgentCore.LeaseStep"
+        "AgentCore.LeaseStep",
+        "AgentCore.leaseStepExec"
       ],
       "theorems": [
         "AgentCore.lease_turn_immutable",
@@ -388,7 +389,9 @@
         "AgentCore.wrong_turn_rejects",
         "AgentCore.stale_token_rejects",
         "AgentCore.expired_lease_rejects",
-        "AgentCore.renewal_cannot_extend_resolution_deadline"
+        "AgentCore.renewal_cannot_extend_resolution_deadline",
+        "AgentCore.leaseStepExec_sound",
+        "AgentCore.leaseStepExec_complete"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot",
@@ -421,6 +424,12 @@
         ],
         "AgentCore.renewal_cannot_extend_resolution_deadline": [
           "AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline"
+        ],
+        "AgentCore.leaseStepExec_sound": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot"
+        ],
+        "AgentCore.leaseStepExec_complete": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot"
         ]
       },
       "remainingEvidence": [

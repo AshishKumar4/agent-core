@@ -145,7 +145,6 @@ function survivorRecord(path, mutant, source, classification) {
     };
 }
 
-
 function gitHead() {
     const result = spawnSync("git", ["rev-parse", "HEAD"], {
         cwd: packageRoot,

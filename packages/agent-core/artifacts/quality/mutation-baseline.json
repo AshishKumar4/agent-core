@@ -1,0 +1,21 @@
+{
+  "edition": "1.0.0",
+  "areas": {
+    "authority": {
+      "measuredAt": "07d2e21f65669f0d7f6d811b688e88f7c8ad4942",
+      "mutants": 4245,
+      "killed": 3209,
+      "score": 75.6,
+      "actionable": 852,
+      "tolerated": 184
+    },
+    "composition": {
+      "measuredAt": "07d2e21f65669f0d7f6d811b688e88f7c8ad4942",
+      "mutants": 845,
+      "killed": 658,
+      "score": 77.9,
+      "actionable": 187,
+      "tolerated": 0
+    }
+  }
+}
