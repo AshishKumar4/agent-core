@@ -1,0 +1,80 @@
+{
+  "edition": "1.0.0",
+  "id": "TRANSITION-FOUNDATION-PUBLIC-CONTRACT",
+  "state": "completed",
+  "canonicalOwner": "W0",
+  "symbols": ["W1 foundation public exports", "W0 export registry"],
+  "inputs": [
+    {
+      "owner": "W0",
+      "commit": "15d5367f64e776408d68c53b8d3dcd4132ee65cd",
+      "state": "governance"
+    },
+    {
+      "owner": "W1",
+      "commit": "aef9246e02cf3f5ca54ea9b1f84524743d789d26",
+      "state": "accepted-input"
+    }
+  ],
+  "remove": [
+    "W1 retired held-content compatibility exports",
+    "W1 host-only authentication and prepared-payload capabilities from public subpaths"
+  ],
+  "replace": [
+    "W0 export registry entries with the exact approved W1 core, actors, content, generic protocol, SQLite, and root exports"
+  ],
+  "invariants": [
+    "W0 remains the canonical owner of package exports and quality infrastructure",
+    "W1 remains the owner of foundation source and coverage",
+    "Only exact listed W0 paths may accompany the W1 change set"
+  ],
+  "acceptance": [
+    "Built and packed runtime and declaration exports match the W0 registry",
+    "Packed consumers cannot import W1 host-only or retired symbols",
+    "Building quality passes with owner W1 and this ready transition"
+  ],
+  "allowedForeignPaths": [
+    "packages/agent-core/artifacts/integration/transition-schema.json",
+    "packages/agent-core/artifacts/integration/transitions/foundation-public-contract.json",
+    "packages/agent-core/artifacts/integration/transitions/index.json",
+    "packages/agent-core/artifacts/quality/exports.json",
+    "packages/agent-core/artifacts/quality/ownership.json",
+    "packages/agent-core/package.json",
+    "packages/agent-core/scripts/build.mjs",
+    "packages/agent-core/scripts/check-exports.mjs",
+    "packages/agent-core/scripts/quality/governance.mjs",
+    "packages/agent-core/scripts/quality/ownership.d.mts",
+    "packages/agent-core/scripts/quality/ownership.mjs",
+    "packages/agent-core/scripts/quality/run.mjs",
+    "packages/agent-core/src/index.ts",
+    "packages/agent-core/src/substrates/sqlite/index.ts",
+    "packages/agent-core/test/quality/governance.test.ts",
+    "packages/agent-core/test/quality/ownership.test.ts"
+  ],
+  "blockers": [],
+  "completion": {
+    "commit": "38872d38a5bc4077f048031680f6db90da49d0ee",
+    "tree": "d135133e223653b6f1112bc1623f86d57e10fdbf",
+    "artifacts": [
+      {
+        "path": "packages/agent-core/artifacts/quality/exports.json",
+        "blob": "3da8657fb95c9be65b3c4ebd4adadaf8acd75bc9",
+        "sha256": "c266953eb2b680293b876a101e9c68bceab3673b2e65fa703ade147c1368c1ba"
+      },
+      {
+        "path": "packages/agent-core/src/core/content-ref.ts",
+        "blob": "c2bf7114f95ffd243aae1a4bc4aea6eda82f907e",
+        "sha256": "2f841d190640ac55f1eb9043477a206c3b7a86c64e7933df6fb26367eafa043a"
+      },
+      {
+        "path": "packages/agent-core/test/content/records.test.ts",
+        "blob": "b9222bef2165f36a4f88cf9af534241378f6ac40",
+        "sha256": "0b0cc5d6ea60ea023385bf0d9aca8fe99509825b1f74d57f802f923982d4cf51"
+      }
+    ],
+    "tests": [
+      "test/content/records.test.ts#content record codecs [content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds"
+    ],
+    "checks": ["exports"]
+  }
+}

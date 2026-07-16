@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-core.dev/schemas/owned-path-verification.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edition", "owner", "baseline", "waves", "violations"],
+  "properties": {
+    "edition": { "const": "1.0.0" },
+    "owner": { "const": "W0" },
+    "baseline": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "waves": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "owner",
+          "commit",
+          "tree",
+          "checkedPathCount",
+          "bomImportedPathCount",
+          "splitPaths",
+          "violations"
+        ],
+        "properties": {
+          "owner": { "type": "string", "pattern": "^W[0-8]$" },
+          "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+          "tree": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+          "checkedPathCount": { "type": "integer", "minimum": 1 },
+          "bomImportedPathCount": { "type": "integer", "minimum": 0 },
+          "splitPaths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "owner"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "owner": { "const": "W0" }
+              }
+            }
+          },
+          "violations": { "$ref": "#/$defs/violations" }
+        }
+      }
+    },
+    "violations": { "$ref": "#/$defs/violations" }
+  },
+  "$defs": {
+    "violations": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    }
+  }
+}

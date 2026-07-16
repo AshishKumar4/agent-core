@@ -1,0 +1,17 @@
+{
+  "edition": "1.0.0",
+  "owner": "W3",
+  "seams": [
+    {
+      "id": "workspace-slot-store",
+      "disposition": "verified",
+      "contract": "src/facets/slot-store.ts#WorkspaceSlotStore",
+      "implementations": [
+        "src/facets/slot-memory.ts#MemoryWorkspaceSlotStore",
+        "src/substrates/sqlite/slot.ts#SqliteWorkspaceSlotStore"
+      ],
+      "memoryReference": "src/facets/slot-memory.ts#MemoryWorkspaceSlotStore",
+      "contractTest": "test/facets/slot-memory.test.ts#Memory [workspace-slot-store] Workspace Slot store persists codec records with deterministic ordering and idempotent replay"
+    }
+  ]
+}

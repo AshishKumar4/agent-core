@@ -1,0 +1,1730 @@
+{
+    "schemaVersion": "agent-core.error-taxonomy/v3",
+    "sources": [
+        "src/actors/actor.ts",
+        "src/actors/context.ts",
+        "src/actors/fence.ts",
+        "src/actors/index.ts",
+        "src/actors/store.ts",
+        "src/actors/types.ts",
+        "src/content/index.ts",
+        "src/content/media.ts",
+        "src/content/memory.ts",
+        "src/content/range.ts",
+        "src/content/retention.ts",
+        "src/content/stat.ts",
+        "src/content/store.ts",
+        "src/content/transient.ts",
+        "src/core/base64.ts",
+        "src/core/canonical.ts",
+        "src/core/codec.ts",
+        "src/core/compat-range.ts",
+        "src/core/content-ref.ts",
+        "src/core/digest.ts",
+        "src/core/id.ts",
+        "src/core/index.ts",
+        "src/core/json.ts",
+        "src/core/revision.ts",
+        "src/core/schema.ts",
+        "src/core/secret-ref.ts",
+        "src/core/semver.ts",
+        "src/core/unicode.ts",
+        "src/protocol/authentication.ts",
+        "src/protocol/dispatcher.ts",
+        "src/protocol/envelope.ts",
+        "src/protocol/index.ts",
+        "src/protocol/ingress.ts",
+        "src/protocol/memory.ts",
+        "src/protocol/payload.ts",
+        "src/protocol/persistence.ts",
+        "src/protocol/policy.ts",
+        "src/protocol/registration.ts",
+        "src/protocol/write.ts",
+        "src/substrates/sqlite/actor.ts",
+        "src/substrates/sqlite/content-retention.ts",
+        "src/substrates/sqlite/content.ts",
+        "src/substrates/sqlite/protocol.ts",
+        "src/substrates/sqlite/sqlite.ts"
+    ],
+    "testCases": {
+        "src/core/base64.ts": [
+            "test/core/codec.test.ts#rejects noncanonical and malformed base64 without coercion",
+            "test/core/codec.test.ts#still rejects invalid base64 digits if runtime validation is compromised"
+        ],
+        "src/core/canonical.ts": [
+            "test/core/codec.test.ts#rejects JSON bytes that are valid but not canonical"
+        ],
+        "src/core/codec.ts": [
+            "test/core/codec.test.ts#rejects invalid codec metadata at construction"
+        ],
+        "src/core/compat-range.ts": [
+            "test/core/compat-range.test.ts#rejects blank, padded, non-string, invalid Unicode, and unknown fields"
+        ],
+        "src/core/content-ref.ts": [
+            "test/core/content-ref.test.ts#rejects noncanonical addresses and counterfeit digests"
+        ],
+        "src/core/digest.ts": [
+            "test/core/digest.test.ts#rejects malformed values, unsupported algorithms, and non-byte input"
+        ],
+        "src/core/id.ts": [
+            "test/core/id.test.ts#rejects invalid runtime text without coercion"
+        ],
+        "src/core/revision.ts": [
+            "test/core/revision.test.ts#rejects unsafe revisions and overflow"
+        ],
+        "src/core/schema.ts": [
+            "test/core/schema.test.ts#does not let an injected validator loosen strict production validation",
+            "test/core/schema.test.ts#rejects non-JSON and cyclic schema documents",
+            "test/core/schema.test.ts#supports uri format without warnings and rejects unknown formats",
+            "test/core/schema.test.ts#rejects remote references and non-2020 dialects deterministically",
+            "test/core/schema.test.ts#checks unsupported behavior in every schema-bearing keyword shape",
+            "test/core/schema.test.ts#rejects asynchronous validation and inherited required properties"
+        ],
+        "src/core/secret-ref.ts": [
+            "test/core/secret-ref.test.ts#rejects blank, oversized, non-string, and invalid Unicode components"
+        ],
+        "src/core/semver.ts": [
+            "test/core/semver.test.ts#rejects noncanonical, unsafe, and malformed runtime versions",
+            "test/core/semver.test.ts#rejects a non-string parse input without coercion"
+        ],
+        "src/actors/context.ts": [
+            "test/actors/actor.test.ts#validates and narrows generic Actor stores without casts"
+        ],
+        "src/actors/fence.ts": [
+            "test/actors/fence.test.ts#enforces safe integer state invariants in constructors and decoding"
+        ],
+        "src/actors/store.ts": [
+            "test/actors/actor.test.ts#reports created and recovered activation without virtual construction",
+            "test/actors/actor.test.ts#rejects runtime thenables and rolls their transaction back",
+            "test/actors/actor.test.ts#rejects clone functions that do not return owned object state",
+            "test/actors/actor.test.ts#rejects clone functions that retain mutable state aliases",
+            "test/actors/actor.test.ts#rejects shared-memory state that cannot be detached",
+            "test/actors/actor.test.ts#rejects accessor and function state that cannot prove ownership",
+            "test/actors/actor.test.ts#rejects mutable custom class instances without an ownership contract"
+        ],
+        "src/actors/types.ts": [
+            "test/actors/fence.test.ts#ActorRef accepts only its closed kinds and exact ActorId instances",
+            "test/actors/fence.test.ts#fails before recovery counters or fences exceed safe integers"
+        ],
+        "src/content/media.ts": [
+            "test/content/records.test.ts#preserves programmer TypeError for invalid media, stat, owner, and time values"
+        ],
+        "src/content/range.ts": [
+            "test/content/memory.test.ts#exposes only frozen, non-subclassable ByteRange values"
+        ],
+        "src/content/retention.ts": [
+            "test/content/records.test.ts#preserves programmer TypeError for invalid media, stat, owner, and time values"
+        ],
+        "src/content/stat.ts": [
+            "test/content/records.test.ts#preserves programmer TypeError for invalid media, stat, owner, and time values"
+        ],
+        "src/content/transient.ts": [
+            "test/content/records.test.ts#transient lease rejects every malformed field and invalid value"
+        ],
+        "src/protocol/dispatcher.ts": [
+            "test/protocol/dispatcher.test.ts#rejects %s registered command names",
+            "test/protocol/dispatcher.test.ts#rejects invalid %s byte limits",
+            "test/protocol/dispatcher.test.ts#rejects a local store without Actor activation capability",
+            "test/protocol/dispatcher-contract.ts#rolls back a typed execution missing its %s codec"
+        ],
+        "src/protocol/envelope.ts": [
+            "test/protocol/codec.test.ts#rejects a %s",
+            "test/protocol/codec.test.ts#rejects %s at construction",
+            "test/protocol/codec.test.ts#requires exact plain runtime fields for callers and leases",
+            "test/protocol/codec.test.ts#rejects exact-shape callers with invalid identity values",
+            "test/protocol/codec.test.ts#rejects exact-shape leases with invalid values",
+            "test/protocol/codec.test.ts#rejects non-plain caller and lease values",
+            "test/protocol/codec.test.ts#rejects non-enumerable and accessor caller fields without invoking accessors"
+        ],
+        "src/protocol/ingress.ts": [
+            "test/protocol/ingress.test.ts#rejects invalid payload lease duration %s",
+            "test/protocol/ingress.test.ts#forged heldContentVerifier cannot replace transport authentication"
+        ],
+        "src/protocol/payload.ts": [
+            "test/protocol/codec.test.ts#defensively copies expiry and compares every binding field"
+        ],
+        "src/protocol/write.ts": [
+            "test/protocol/codec.test.ts#rejects a %s",
+            "test/protocol/codec.test.ts#rejects %s",
+            "test/protocol/codec.test.ts#rejects a malformed write identity without its command"
+        ],
+        "src/substrates/sqlite/sqlite.ts": [
+            "test/substrates/sqlite/sqlite.test.ts#rejects SQLite provenance transfer involving uninitialized capabilities"
+        ]
+    },
+    "entries": [
+        {
+            "id": "w1.actors.context.validateactorcontext.fb4c37c58d",
+            "file": "src/actors/context.ts",
+            "line": 28,
+            "source": "src/actors/context.ts",
+            "sourceAnchor": {
+                "container": "validateActorContext",
+                "guard": "!(actor instanceof ActorRef)",
+                "expression": "new TypeError(\"Actor context requires an ActorRef\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Actor context wiring must supply the exact host capabilities; a mis-wired host is a programming error, not runtime input.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.context.validateactorcontext.ac6c81bd66",
+            "file": "src/actors/context.ts",
+            "line": 31,
+            "source": "src/actors/context.ts",
+            "sourceAnchor": {
+                "container": "validateActorContext",
+                "guard": "!isActorActivationStore(store)",
+                "expression": "new TypeError(\"Actor context requires atomic activation storage\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Actor context wiring must supply the exact host capabilities; a mis-wired host is a programming error, not runtime input.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.fence.actorrecoverystate-constructor.bc205eb705",
+            "file": "src/actors/fence.ts",
+            "line": 51,
+            "source": "src/actors/fence.ts",
+            "sourceAnchor": {
+                "container": "ActorRecoveryState.constructor",
+                "guard": "!Number.isSafeInteger(epoch) || epoch < 0",
+                "expression": "new TypeError(\"Actor recovery epoch must be a non-negative safe integer\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/actors/fence.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.fence.actorrecoverystate-constructor.764aa06a35",
+            "file": "src/actors/fence.ts",
+            "line": 54,
+            "source": "src/actors/fence.ts",
+            "sourceAnchor": {
+                "container": "ActorRecoveryState.constructor",
+                "guard": "!Number.isSafeInteger(recoveries) || recoveries < 1",
+                "expression": "new TypeError(\"Actor recovery count must be a positive safe integer\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/actors/fence.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requiresynchronousresult.934291f199",
+            "file": "src/actors/store.ts",
+            "line": 319,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireSynchronousResult",
+                "guard": "hasUnstableOrThenableShape(result)",
+                "expression": "new TypeError(ASYNC_TRANSACTION_MESSAGE)"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requirecreatedrecovery.0cd9a83866",
+            "file": "src/actors/store.ts",
+            "line": 51,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireCreatedRecovery",
+                "guard": "recovery.epoch !== 0 || recovery.recoveries !== 1",
+                "expression": "new TypeError(\"Created Actor activation requires initial recovery state\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Actor activation recovery state transitions are an internal store invariant.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requirerecoveredrecovery.ea78e134cf",
+            "file": "src/actors/store.ts",
+            "line": 57,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireRecoveredRecovery",
+                "guard": "recovery.recoveries < 2",
+                "expression": "new TypeError(\"Recovered Actor activation requires recovered state\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Actor activation recovery state transitions are an internal store invariant.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.copydetached.ac2be32b42",
+            "file": "src/actors/store.ts",
+            "line": 663,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "copyDetached",
+                "guard": "copy === null || typeof copy !== \"object\"",
+                "expression": "new TypeError(\"Memory Actor clones must return an object\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Memory Actor clone hooks are host-supplied implementations bound by the detachment contract.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requiredetachedobjects.6956acc7cf",
+            "file": "src/actors/store.ts",
+            "line": 689,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireDetachedObjects",
+                "guard": "sourceObjects.has(value)",
+                "expression": "new TypeError(\"Memory Actor clones must detach all mutable state\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Memory Actor clone hooks are host-supplied implementations bound by the detachment contract.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requireownedgraph.f5ecb88cc5",
+            "file": "src/actors/store.ts",
+            "line": 723,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireOwnedGraph",
+                "guard": "typeof value === \"function\"",
+                "expression": "new TypeError(\"Memory Actor state cannot contain functions\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requireownedgraph.ae1a8dc653",
+            "file": "src/actors/store.ts",
+            "line": 730,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireOwnedGraph",
+                "guard": "typeof SharedArrayBuffer !== \"undefined\" && (value instanceof SharedArrayBuffer || (ArrayBuffer.isView(value) && value.buffer instanceof SharedArrayBuffer))",
+                "expression": "new TypeError(\"Memory Actor state cannot contain shared memory\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requireownedgraph.b5520c755e",
+            "file": "src/actors/store.ts",
+            "line": 737,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireOwnedGraph",
+                "guard": "descriptor !== undefined && !(\"value\" in descriptor)",
+                "expression": "new TypeError(\"Memory Actor state cannot contain accessor properties\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requireownedgraph.a0b91e0216",
+            "file": "src/actors/store.ts",
+            "line": 755,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "requireOwnedGraph",
+                "guard": "!Object.isFrozen(value) || typeof inspect !== \"function\"",
+                "expression": "new TypeError(\"Memory Actor custom state objects must be frozen and clone-owned\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.types.actorref-constructor.e31cedd4b7",
+            "file": "src/actors/types.ts",
+            "line": 11,
+            "source": "src/actors/types.ts",
+            "sourceAnchor": {
+                "container": "ActorRef.constructor",
+                "guard": "!isActorKind(kind) || !isExactActorId(id)",
+                "expression": "new TypeError(\"Actor reference requires a valid kind and exact Actor ID\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/actors/fence.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.types.actorfence-constructor.b969e008e4",
+            "file": "src/actors/types.ts",
+            "line": 39,
+            "source": "src/actors/types.ts",
+            "sourceAnchor": {
+                "container": "ActorFence.constructor",
+                "guard": "!Number.isSafeInteger(epoch) || epoch < 0",
+                "expression": "new TypeError(\"Actor fence epoch must be a non-negative safe integer\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/actors/fence.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.media.mediahint-constructor.2c4c650ca2",
+            "file": "src/content/media.ts",
+            "line": 6,
+            "source": "src/content/media.ts",
+            "sourceAnchor": {
+                "container": "MediaHint.constructor",
+                "guard": "mediaType.trim().length === 0 || mediaType.length > MAX_MEDIA_TYPE_LENGTH",
+                "expression": "new TypeError( `Media type must not be blank or exceed ${MAX_MEDIA_TYPE_LENGTH} characters` )"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.range.byterange-constructor.64278c3a46",
+            "file": "src/content/range.ts",
+            "line": 11,
+            "source": "src/content/range.ts",
+            "sourceAnchor": {
+                "container": "ByteRange.constructor",
+                "guard": "new.target !== ByteRange",
+                "expression": "new TypeError(\"ByteRange cannot be subclassed\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/content/memory.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.range.requirenonnegative.522eae5507",
+            "file": "src/content/range.ts",
+            "line": 42,
+            "source": "src/content/range.ts",
+            "sourceAnchor": {
+                "container": "requireNonnegative",
+                "guard": "!Number.isSafeInteger(value) || value < 0",
+                "expression": "new TypeError(`${name} must be a non-negative safe integer`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Byte range value objects validate their numeric components at construction.",
+            "testedBy": [
+                "test/content/memory.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.range.requiresaferangeend.976c4f66a8",
+            "file": "src/content/range.ts",
+            "line": 49,
+            "source": "src/content/range.ts",
+            "sourceAnchor": {
+                "container": "requireSafeRangeEnd",
+                "guard": "!Number.isSafeInteger(end)",
+                "expression": "new TypeError(\"Byte range end must be a safe integer\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Byte range value objects validate their numeric components at construction.",
+            "testedBy": [
+                "test/content/memory.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.retention.requireoperationtime.943465451a",
+            "file": "src/content/retention.ts",
+            "line": 156,
+            "source": "src/content/retention.ts",
+            "sourceAnchor": {
+                "container": "requireOperationTime",
+                "guard": "!Number.isSafeInteger(time) || time < 0",
+                "expression": "new TypeError(`${name} must be a valid non-negative Date`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.retention.contentowneredge-constructor.7bf0c9886c",
+            "file": "src/content/retention.ts",
+            "line": 69,
+            "source": "src/content/retention.ts",
+            "sourceAnchor": {
+                "container": "ContentOwnerEdge.constructor",
+                "guard": "ownerKey.trim().length === 0 || ownerKey.length > MAX_OWNER_KEY_LENGTH",
+                "expression": "new TypeError( `Content owner key must not be blank or exceed ${MAX_OWNER_KEY_LENGTH} characters` )"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.stat.contentstat-constructor.ebc67b9505",
+            "file": "src/content/stat.ts",
+            "line": 68,
+            "source": "src/content/stat.ts",
+            "sourceAnchor": {
+                "container": "ContentStat.constructor",
+                "guard": "!Number.isSafeInteger(size) || size < 0",
+                "expression": "new TypeError(\"Content size must be a non-negative safe integer\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.stat.contentstat-constructor.f424c7e560",
+            "file": "src/content/stat.ts",
+            "line": 71,
+            "source": "src/content/stat.ts",
+            "sourceAnchor": {
+                "container": "ContentStat.constructor",
+                "guard": "!ref.digest.equals(digest)",
+                "expression": "new TypeError(\"Content reference and digest must match\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.transient.transientcontentleasestate-constructor.a4749229b4",
+            "file": "src/content/transient.ts",
+            "line": 116,
+            "source": "src/content/transient.ts",
+            "sourceAnchor": {
+                "container": "TransientContentLeaseState.constructor",
+                "guard": "this.#expiresAt <= this.#acquiredAt",
+                "expression": "new TypeError(\"Transient content lease expiration must follow acquisition\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.transient.transientcontentleasestate-constructor.b3e298fad4",
+            "file": "src/content/transient.ts",
+            "line": 119,
+            "source": "src/content/transient.ts",
+            "sourceAnchor": {
+                "container": "TransientContentLeaseState.constructor",
+                "guard": "this.#closedAt !== undefined && this.#closedAt < this.#acquiredAt",
+                "expression": "new TypeError(\"Transient content lease cannot close before acquisition\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.content.transient.transientcontentleasestate-constructor.d32757e514",
+            "file": "src/content/transient.ts",
+            "line": 122,
+            "source": "src/content/transient.ts",
+            "sourceAnchor": {
+                "container": "TransientContentLeaseState.constructor",
+                "guard": "!ref.digest.equals(digest)",
+                "expression": "new TypeError(\"Transient content lease reference and digest must match\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/content/records.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.base64.decodebase64.35db5eeb2e",
+            "file": "src/core/base64.ts",
+            "line": 28,
+            "source": "src/core/base64.ts",
+            "sourceAnchor": {
+                "container": "decodeBase64",
+                "guard": "typeof value !== \"string\" || value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)",
+                "expression": "new TypeError(\"Base64 value must use canonical RFC 4648 encoding\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.base64.encodebase64.08aa9c7938",
+            "file": "src/core/base64.ts",
+            "line": 5,
+            "source": "src/core/base64.ts",
+            "sourceAnchor": {
+                "container": "encodeBase64",
+                "guard": "!(bytes instanceof Uint8Array)",
+                "expression": "new TypeError(\"Base64 input must be a Uint8Array\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.base64.decodebase64.0733f18c76",
+            "file": "src/core/base64.ts",
+            "line": 52,
+            "source": "src/core/base64.ts",
+            "sourceAnchor": {
+                "container": "decodeBase64",
+                "guard": "encodeBase64(decoded) !== value",
+                "expression": "new TypeError(\"Base64 value must use canonical RFC 4648 encoding\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.base64.decodedigit.2424fb6198",
+            "file": "src/core/base64.ts",
+            "line": 60,
+            "source": "src/core/base64.ts",
+            "sourceAnchor": {
+                "container": "decodeDigit",
+                "guard": "digit < 0",
+                "expression": "new TypeError(\"Base64 value contains an invalid digit\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.canonical.decodecanonicaljson.91d8d2f8f3",
+            "file": "src/core/canonical.ts",
+            "line": 27,
+            "source": "src/core/canonical.ts",
+            "sourceAnchor": {
+                "container": "decodeCanonicalJson",
+                "guard": "!(bytes instanceof Uint8Array)",
+                "expression": "new TypeError(\"Canonical JSON input must be a Uint8Array\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.codec.validateanddetachversion.f228b285d2",
+            "file": "src/core/codec.ts",
+            "line": 138,
+            "source": "src/core/codec.ts",
+            "sourceAnchor": {
+                "container": "validateAndDetachVersion",
+                "guard": "typeof version !== \"object\" || version === null || Object.getPrototypeOf(version) !== Object.prototype || !hasExactVersionKeys(version)",
+                "expression": "new TypeError(\"Record codec version must contain non-negative safe integers\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Record codec versions are decoded from persisted envelopes and must be shape-validated before use.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.codec.validateanddetachversion.18c9106de0",
+            "file": "src/core/codec.ts",
+            "line": 150,
+            "source": "src/core/codec.ts",
+            "sourceAnchor": {
+                "container": "validateAndDetachVersion",
+                "guard": "majorDescriptor === undefined || minorDescriptor === undefined || !(\"value\" in majorDescriptor) || !(\"value\" in minorDescriptor) || !majorDescriptor.enumerable || !minorDescriptor.enumerable",
+                "expression": "new TypeError(\"Record codec version must contain non-negative safe integers\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Record codec versions are decoded from persisted envelopes and must be shape-validated before use.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.codec.validateanddetachversion.b25bb6acb8",
+            "file": "src/core/codec.ts",
+            "line": 162,
+            "source": "src/core/codec.ts",
+            "sourceAnchor": {
+                "container": "validateAndDetachVersion",
+                "guard": "typeof major !== \"number\" || !Number.isSafeInteger(major) || major < 0 || typeof minor !== \"number\" || !Number.isSafeInteger(minor) || minor < 0",
+                "expression": "new TypeError(\"Record codec version must contain non-negative safe integers\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Record codec versions are decoded from persisted envelopes and must be shape-validated before use.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.codec.recordcodec-constructor.1f37e78208",
+            "file": "src/core/codec.ts",
+            "line": 28,
+            "source": "src/core/codec.ts",
+            "sourceAnchor": {
+                "container": "RecordCodec.constructor",
+                "guard": "typeof kind !== \"string\" || kind.trim().length === 0 || kind !== kind.trim() || !hasOnlyUnicodeScalarValues(kind)",
+                "expression": "new TypeError(\"Record codec kind must be a nonblank canonical string\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.compat-range.requirerange.4762dda6ff",
+            "file": "src/core/compat-range.ts",
+            "line": 66,
+            "source": "src/core/compat-range.ts",
+            "sourceAnchor": {
+                "container": "requireRange",
+                "guard": "typeof value !== \"string\" || value.trim().length === 0 || value !== value.trim() || !hasOnlyUnicodeScalarValues(value)",
+                "expression": "new TypeError(`${name} must be a nonblank canonical string`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/compat-range.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.content-ref.contentref-constructor.6b16e7adb5",
+            "file": "src/core/content-ref.ts",
+            "line": 13,
+            "source": "src/core/content-ref.ts",
+            "sourceAnchor": {
+                "container": "ContentRef.constructor",
+                "guard": "match === null",
+                "expression": "new TypeError(\"Content reference must be a SHA-256 content address\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/content-ref.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.contentref.requiredigest.b7501b311c",
+            "file": "src/core/content-ref.ts",
+            "line": 27,
+            "source": "src/core/content-ref.ts",
+            "sourceAnchor": {
+                "container": "requireDigest",
+                "guard": "!(digest instanceof Digest)",
+                "expression": "new TypeError(\"Content reference digest must be a Digest\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Content references validate their digest component at construction.",
+            "testedBy": [
+                "test/core/content-ref.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.digest.digest-constructor.d7806885fa",
+            "file": "src/core/digest.ts",
+            "line": 12,
+            "source": "src/core/digest.ts",
+            "sourceAnchor": {
+                "container": "Digest.constructor",
+                "guard": "algorithm !== \"sha256\"",
+                "expression": "new TypeError(\"Digest algorithm must be sha256\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/digest.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.digest.digest-constructor.8eaf23610b",
+            "file": "src/core/digest.ts",
+            "line": 15,
+            "source": "src/core/digest.ts",
+            "sourceAnchor": {
+                "container": "Digest.constructor",
+                "guard": "!/^[a-f0-9]{64}$/.test(value)",
+                "expression": "new TypeError(\"Digest must be a lowercase SHA-256 hexadecimal value\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/digest.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.digest.requiredigestbytes.5bf60fde72",
+            "file": "src/core/digest.ts",
+            "line": 29,
+            "source": "src/core/digest.ts",
+            "sourceAnchor": {
+                "container": "requireDigestBytes",
+                "guard": "!(bytes instanceof Uint8Array)",
+                "expression": "new TypeError(\"Digest input must be a Uint8Array\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Digest construction validates its byte input.",
+            "testedBy": [
+                "test/core/digest.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.id.textid-constructor.0c2db0e1bc",
+            "file": "src/core/id.ts",
+            "line": 14,
+            "source": "src/core/id.ts",
+            "sourceAnchor": {
+                "container": "TextId.constructor",
+                "guard": "typeof value !== \"string\" || value.length === 0 || value.length > 256 || !hasOnlyUnicodeScalarValues(value)",
+                "expression": "new TypeError(`${name} must contain between 1 and 256 characters`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/id.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.revision.revision-constructor.4ecec67154",
+            "file": "src/core/revision.ts",
+            "line": 10,
+            "source": "src/core/revision.ts",
+            "sourceAnchor": {
+                "container": "Revision.constructor",
+                "guard": "!Number.isSafeInteger(value) || value < 0",
+                "expression": "new TypeError(\"Revision must be a non-negative safe integer\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/revision.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.assertsupportedschema.b6dac1bd55",
+            "file": "src/core/schema.ts",
+            "line": 160,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "assertSupportedSchema",
+                "guard": "dialect !== undefined && dialect !== JSON_SCHEMA_2020_12",
+                "expression": "new TypeError(\"Only JSON Schema 2020-12 is supported\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.assertsupportedschema.5f1516d9e3",
+            "file": "src/core/schema.ts",
+            "line": 163,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "assertSupportedSchema",
+                "guard": "Object.hasOwn(value, \"$async\")",
+                "expression": "new TypeError(\"Asynchronous JSON Schema validation is not supported\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.assertsupportedschema.a80ba3d24d",
+            "file": "src/core/schema.ts",
+            "line": 166,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "assertSupportedSchema",
+                "guard": "Object.hasOwn(value, \"$recursiveRef\")",
+                "expression": "new TypeError(\"$recursiveRef is not supported by JSON Schema 2020-12\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.assertsupportedschema.23a5701d60",
+            "file": "src/core/schema.ts",
+            "line": 172,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "assertSupportedSchema",
+                "guard": "typeof format === \"string\" && !SUPPORTED_FORMATS.has(format)",
+                "expression": "new TypeError(`Unsupported JSON Schema format: ${format}`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.requirelocalreference.725b14e43c",
+            "file": "src/core/schema.ts",
+            "line": 229,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "requireLocalReference",
+                "guard": "resolved === undefined || !resources.has(withoutFragment(resolved))",
+                "expression": "new TypeError(`Remote JSON Schema reference is not supported: ${keyword} ${value}`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.requiredynamicreference.699d11bc4e",
+            "file": "src/core/schema.ts",
+            "line": 235,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "requireDynamicReference",
+                "guard": "typeof value === \"string\" && !value.startsWith(\"#\")",
+                "expression": "new TypeError(`Remote JSON Schema reference is not supported: $dynamicRef ${value}`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.requireunchanged.4a676921f0",
+            "file": "src/core/schema.ts",
+            "line": 261,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "requireUnchanged",
+                "guard": "!unchanged",
+                "expression": "new TypeError(\"Injected JSON Schema validators must not mutate input\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.requirebooleanvalidationresult.485e91946b",
+            "file": "src/core/schema.ts",
+            "line": 266,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "requireBooleanValidationResult",
+                "guard": "typeof value !== \"boolean\"",
+                "expression": "new TypeError(\"Injected JSON Schema validators must return a boolean synchronously\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Injected schema validators are host-supplied implementations bound to return booleans.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.strictjsonschemavalidatorvalidateandcompile.9317a1f7fe",
+            "file": "src/core/schema.ts",
+            "line": 34,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "StrictJsonSchemaValidator.validateAndCompile",
+                "guard": null,
+                "expression": "new TypeError(`Unsupported JSON Schema: ${message}`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "JSON Schema documents are validated for supported constructs when the schema value object compiles them.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.schema.jsonschemaconstructor.d55227387e",
+            "file": "src/core/schema.ts",
+            "line": 72,
+            "source": "src/core/schema.ts",
+            "sourceAnchor": {
+                "container": "JsonSchema.constructor",
+                "guard": "!isSchemaDocument(document)",
+                "expression": "new TypeError( \"JSON Schema document must be canonical JSON object or boolean data\" )"
+            },
+            "classification": "constructor-shape",
+            "rationale": "JSON Schema value objects validate their document at construction.",
+            "testedBy": [
+                "test/core/schema.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.secretref.requiresecretcomponent.416f445a2d",
+            "file": "src/core/secret-ref.ts",
+            "line": 34,
+            "source": "src/core/secret-ref.ts",
+            "sourceAnchor": {
+                "container": "requireSecretComponent",
+                "guard": "typeof value !== \"string\" || value.trim().length === 0 || value.length > MAX_SECRET_COMPONENT_LENGTH || !hasOnlyUnicodeScalarValues(value)",
+                "expression": "new TypeError( `Secret reference ${name} must not be blank or exceed ${MAX_SECRET_COMPONENT_LENGTH} characters` )"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Secret references validate their components at construction.",
+            "testedBy": [
+                "test/core/secret-ref.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.semver.parsesemver.4f45e4450b",
+            "file": "src/core/semver.ts",
+            "line": 109,
+            "source": "src/core/semver.ts",
+            "sourceAnchor": {
+                "container": "parseSemVer",
+                "guard": "match === null",
+                "expression": "new TypeError(\"Semantic version must follow SemVer 2.0.0\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/semver.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.semver.validateandformatsemver.6baf342d2c",
+            "file": "src/core/semver.ts",
+            "line": 128,
+            "source": "src/core/semver.ts",
+            "sourceAnchor": {
+                "container": "validateAndFormatSemVer",
+                "guard": "minor === undefined || patch === undefined",
+                "expression": "new TypeError(\"Semantic version requires major, minor, and patch components\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Semantic version value objects validate their components at construction.",
+            "testedBy": [
+                "test/core/semver.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.semver.validateandformatsemver.87c77e2c11",
+            "file": "src/core/semver.ts",
+            "line": 136,
+            "source": "src/core/semver.ts",
+            "sourceAnchor": {
+                "container": "validateAndFormatSemVer",
+                "guard": "!Number.isSafeInteger(component) || component < 0",
+                "expression": "new TypeError(`Semantic version ${name} must be a non-negative safe integer`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Semantic version value objects validate their components at construction.",
+            "testedBy": [
+                "test/core/semver.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.semver.copyidentifiers.1021a33ba7",
+            "file": "src/core/semver.ts",
+            "line": 149,
+            "source": "src/core/semver.ts",
+            "sourceAnchor": {
+                "container": "copyIdentifiers",
+                "guard": "!Array.isArray(value) || value.some((identifier) => typeof identifier !== \"string\")",
+                "expression": "new TypeError(\"Semantic version identifiers must be string arrays\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/semver.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.semver.requiresafecomponent.9749c133a5",
+            "file": "src/core/semver.ts",
+            "line": 157,
+            "source": "src/core/semver.ts",
+            "sourceAnchor": {
+                "container": "requireSafeComponent",
+                "guard": "!Number.isSafeInteger(component)",
+                "expression": "new TypeError(`Semantic version ${name} exceeds the maximum safe integer`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Semantic version value objects validate their components at construction.",
+            "testedBy": [
+                "test/core/semver.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.semver.semver-parse.42ff6e1cd0",
+            "file": "src/core/semver.ts",
+            "line": 66,
+            "source": "src/core/semver.ts",
+            "sourceAnchor": {
+                "container": "SemVer.parse",
+                "guard": "typeof value !== \"string\"",
+                "expression": "new TypeError(\"Semantic version must follow SemVer 2.0.0\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/semver.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.dispatcher.commanddispatcher-constructor.3fe84729f9",
+            "file": "src/protocol/dispatcher.ts",
+            "line": 176,
+            "source": "src/protocol/dispatcher.ts",
+            "sourceAnchor": {
+                "container": "CommandDispatcher.constructor",
+                "guard": "command.command.length === 0 || commands.has(command.command)",
+                "expression": "new TypeError(\"Protocol command names must be non-empty and unique\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/dispatcher.test.ts",
+                "test/protocol/dispatcher-contract.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.dispatcher.requiretypedcommandexecution.fe9769ac05",
+            "file": "src/protocol/dispatcher.ts",
+            "line": 777,
+            "source": "src/protocol/dispatcher.ts",
+            "sourceAnchor": {
+                "container": "requireTypedCommandExecution",
+                "guard": "execution === null || typeof execution !== \"object\" || !(\"reply\" in execution) || command.replyCodec === undefined",
+                "expression": "new TypeError(\"Typed command execution requires a reply codec\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Typed command registrations must supply their codecs; missing codecs are a wiring error.",
+            "testedBy": [
+                "test/protocol/dispatcher-contract.ts",
+                "test/protocol/dispatcher.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.dispatcher.requireobservationcodec.9847dd1ef8",
+            "file": "src/protocol/dispatcher.ts",
+            "line": 786,
+            "source": "src/protocol/dispatcher.ts",
+            "sourceAnchor": {
+                "container": "requireObservationCodec",
+                "guard": "command.observationCodec === undefined",
+                "expression": "new TypeError(\"Typed command observation requires an observation codec\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Typed command registrations must supply their codecs; missing codecs are a wiring error.",
+            "testedBy": [
+                "test/protocol/dispatcher-contract.ts",
+                "test/protocol/dispatcher.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.dispatcher.validatecommandactorcontext.ec8effee4d",
+            "file": "src/protocol/dispatcher.ts",
+            "line": 796,
+            "source": "src/protocol/dispatcher.ts",
+            "sourceAnchor": {
+                "container": "validateCommandActorContext",
+                "guard": "!isActorActivationStore(store)",
+                "expression": "new TypeError(\"Command dispatcher requires an Actor activation store\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Command dispatch requires the exact Actor activation store; a mis-wired host is a programming error.",
+            "testedBy": [
+                "test/protocol/dispatcher-contract.ts",
+                "test/protocol/dispatcher.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.dispatcher.validatelimit.96f93ee5cc",
+            "file": "src/protocol/dispatcher.ts",
+            "line": 835,
+            "source": "src/protocol/dispatcher.ts",
+            "sourceAnchor": {
+                "container": "validateLimit",
+                "guard": "!Number.isSafeInteger(value) || value <= 0",
+                "expression": "new TypeError(`Command ${name} byte limit must be a positive safe integer`)"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/dispatcher.test.ts",
+                "test/protocol/dispatcher-contract.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.commandenvelope-constructor.a945a07e4c",
+            "file": "src/protocol/envelope.ts",
+            "line": 118,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "CommandEnvelope.constructor",
+                "guard": "typeof init.command !== \"string\" || init.command.length === 0 || init.command.length > 256",
+                "expression": "new TypeError(\"Command name must contain between 1 and 256 characters\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.commandenvelopeconstructor.129eae476b",
+            "file": "src/protocol/envelope.ts",
+            "line": 125,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "CommandEnvelope.constructor",
+                "guard": "typeof init.idempotencyKey !== \"string\" || init.idempotencyKey.length === 0 || init.idempotencyKey.length > 512",
+                "expression": "new TypeError( \"Command idempotency key must contain between 1 and 512 characters\" )"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Command envelopes validate their identity components at construction.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.copycommandcaller.307b4cf626",
+            "file": "src/protocol/envelope.ts",
+            "line": 177,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "copyCommandCaller",
+                "guard": null,
+                "expression": "new TypeError(\"Command caller is invalid\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.decodecommandcaller.dd743a0fde",
+            "file": "src/protocol/envelope.ts",
+            "line": 219,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "decodeCommandCaller",
+                "guard": null,
+                "expression": "new TypeError(\"Command caller kind is invalid\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.copyleasetoken.731faf5e49",
+            "file": "src/protocol/envelope.ts",
+            "line": 245,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "copyLeaseToken",
+                "guard": "!(turn instanceof TurnId) || !(holder instanceof PrincipalRef) || typeof epoch !== \"number\" || !Number.isSafeInteger(epoch) || epoch < 0",
+                "expression": "new TypeError(\"Lease token is invalid\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireexactplaindata.51536f3b33",
+            "file": "src/protocol/envelope.ts",
+            "line": 273,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireExactPlainData",
+                "guard": "value === null || typeof value !== \"object\" || Object.getPrototypeOf(value) !== Object.prototype",
+                "expression": "new TypeError(`${name} must be a plain object with exact fields`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireexactplaindata.127017207d",
+            "file": "src/protocol/envelope.ts",
+            "line": 277,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireExactPlainData",
+                "guard": "keys.length !== fields.length || fields.some((field) => !keys.includes(field))",
+                "expression": "new TypeError(`${name} must be a plain object with exact fields`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireexactplaindata.82ab76367c",
+            "file": "src/protocol/envelope.ts",
+            "line": 282,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireExactPlainData",
+                "guard": "descriptor === undefined || !(\"value\" in descriptor) || !descriptor.enumerable",
+                "expression": "new TypeError(`${name} must contain enumerable data fields`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireplaindatavalue.285cc9c4e4",
+            "file": "src/protocol/envelope.ts",
+            "line": 294,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requirePlainDataValue",
+                "guard": "value === null || typeof value !== \"object\" || Object.getPrototypeOf(value) !== Object.prototype",
+                "expression": "new TypeError(`${name} must be a plain object with exact fields`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireplaindatavalue.013f5bbdaa",
+            "file": "src/protocol/envelope.ts",
+            "line": 298,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requirePlainDataValue",
+                "guard": "descriptor === undefined || !(\"value\" in descriptor) || !descriptor.enumerable",
+                "expression": "new TypeError(`${name} must contain enumerable data fields`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireobject.f8a46974d3",
+            "file": "src/protocol/envelope.ts",
+            "line": 313,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireObject",
+                "guard": "value === undefined || value === null || Array.isArray(value) || typeof value !== \"object\"",
+                "expression": "new TypeError(`${name} must be an object`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requirekeys.9c6939e8cc",
+            "file": "src/protocol/envelope.ts",
+            "line": 328,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireKeys",
+                "guard": "required.some((key) => !(key in object)) || Object.keys(object).some((key) => !admitted.has(key))",
+                "expression": "new TypeError(\"Command envelope contains missing or unknown fields\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requirestringvalue.ca8b49b164",
+            "file": "src/protocol/envelope.ts",
+            "line": 338,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireStringValue",
+                "guard": "typeof value !== \"string\"",
+                "expression": "new TypeError(`${name} must be a string`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requiresafeinteger.85e2522c00",
+            "file": "src/protocol/envelope.ts",
+            "line": 345,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireSafeInteger",
+                "guard": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+                "expression": "new TypeError(`${name} must be a non-negative safe integer`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireactorkind.b76ca1df18",
+            "file": "src/protocol/envelope.ts",
+            "line": 360,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireActorKind",
+                "guard": null,
+                "expression": "new TypeError(\"Command caller actor kind is invalid\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.ingress.commandingress-constructor.9281a78045",
+            "file": "src/protocol/ingress.ts",
+            "line": 63,
+            "source": "src/protocol/ingress.ts",
+            "sourceAnchor": {
+                "container": "CommandIngress.constructor",
+                "guard": "!Number.isSafeInteger(leaseForMilliseconds) || leaseForMilliseconds === undefined || leaseForMilliseconds <= 0",
+                "expression": "new TypeError(\"Command payload lease duration must be a positive safe integer\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/ingress.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.ingress.commandingress-constructor.8ff7746e3a",
+            "file": "src/protocol/ingress.ts",
+            "line": 68,
+            "source": "src/protocol/ingress.ts",
+            "sourceAnchor": {
+                "container": "CommandIngress.constructor",
+                "guard": "!(init.authenticator instanceof CommandAuthenticator)",
+                "expression": "new TypeError(\"Command ingress requires a transport authenticator\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
+            "testedBy": [
+                "test/protocol/ingress.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.payload.payloadleasebinding-constructor.4a9149c0d3",
+            "file": "src/protocol/payload.ts",
+            "line": 42,
+            "source": "src/protocol/payload.ts",
+            "sourceAnchor": {
+                "container": "PayloadLeaseBinding.constructor",
+                "guard": "!Number.isFinite(expiresAtTime)",
+                "expression": "new TypeError(\"Payload lease expiry must be valid\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.409d1be786",
+            "file": "src/protocol/write.ts",
+            "line": 136,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "!Number.isFinite(atTime)",
+                "expression": "new TypeError(\"Write record time must be valid\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.d51256dc2a",
+            "file": "src/protocol/write.ts",
+            "line": 139,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "init.outcome === \"duplicate\" && init.duplicateOf === undefined",
+                "expression": "new TypeError(\"Duplicate write records must identify the original write\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.924d503faa",
+            "file": "src/protocol/write.ts",
+            "line": 142,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "init.outcome !== \"duplicate\" && init.duplicateOf !== undefined",
+                "expression": "new TypeError(\"Only duplicate write records may identify an original write\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.69cef26884",
+            "file": "src/protocol/write.ts",
+            "line": 148,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "(init.caller === undefined || init.command === undefined) && init.outcome !== \"rejectedMalformed\"",
+                "expression": "new TypeError(\"Only malformed writes may omit decoded envelope fields\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.107d19af17",
+            "file": "src/protocol/write.ts",
+            "line": 154,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "init.idempotencyKey !== undefined && (init.idempotencyKey.length === 0 || init.idempotencyKey.length > 512)",
+                "expression": "new TypeError(\"Write idempotency key must contain between 1 and 512 characters\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.24d20a9ae4",
+            "file": "src/protocol/write.ts",
+            "line": 162,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "(requiresIdentity && init.idempotencyKey === undefined) || (init.outcome === \"rejectedAuthentication\" && init.idempotencyKey !== undefined)",
+                "expression": "new TypeError(\"Write idempotency key does not match its outcome\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.d7812a451c",
+            "file": "src/protocol/write.ts",
+            "line": 168,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "init.idempotencyKey !== undefined && (init.caller === undefined || init.command === undefined)",
+                "expression": "new TypeError(\"Write idempotency keys require decoded envelope fields\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecord-constructor.a91a2ea38b",
+            "file": "src/protocol/write.ts",
+            "line": 171,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecord.constructor",
+                "guard": "init.observation !== undefined && init.outcome !== \"committed\"",
+                "expression": "new TypeError(\"Only committed writes may contain an observation\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.requireobject.f8a46974d3",
+            "file": "src/protocol/write.ts",
+            "line": 229,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "requireObject",
+                "guard": "value === undefined || value === null || Array.isArray(value) || typeof value !== \"object\"",
+                "expression": "new TypeError(`${name} must be an object`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.requirestring.23e098c87f",
+            "file": "src/protocol/write.ts",
+            "line": 237,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "requireString",
+                "guard": "typeof value !== \"string\"",
+                "expression": "new TypeError(`${key} must be a string`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.requirenullablestring.f544b0533a",
+            "file": "src/protocol/write.ts",
+            "line": 247,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "requireNullableString",
+                "guard": "value !== null && typeof value !== \"string\"",
+                "expression": "new TypeError(`${name} must be a string or null`)"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.requireactorkind.54ae1512a3",
+            "file": "src/protocol/write.ts",
+            "line": 261,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "requireActorKind",
+                "guard": null,
+                "expression": "new TypeError(\"Write record actor kind is invalid\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.requireoutcome.ff5c77a6b0",
+            "file": "src/protocol/write.ts",
+            "line": 277,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "requireOutcome",
+                "guard": null,
+                "expression": "new TypeError(\"Write record outcome is invalid\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.write.writerecordcodecv2-decodepayload.369690d841",
+            "file": "src/protocol/write.ts",
+            "line": 71,
+            "source": "src/protocol/write.ts",
+            "sourceAnchor": {
+                "container": "WriteRecordCodecV2.decodePayload",
+                "guard": "!hasExactJsonKeys(object, [ \"actor\", \"at\", \"audit\", \"caller\", \"command\", \"duplicateOf\", \"envelopeDigest\", \"id\", \"idempotencyKey\", \"observation\", \"outcome\", \"reply\" ]) || !hasExactJsonKeys(actor, [\"id\", \"kind\"])",
+                "expression": "new TypeError(\"Write record payload contains missing or unknown fields\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.substrates.sqlite.requiresqliteprovenance.bfc9af6430",
+            "file": "src/substrates/sqlite/sqlite.ts",
+            "line": 39,
+            "source": "src/substrates/sqlite/sqlite.ts",
+            "sourceAnchor": {
+                "container": "requireSqliteProvenance",
+                "guard": "provenance === undefined || !sqliteProvenance.has(scope)",
+                "expression": "new TypeError(\"SQLite provenance requires initialized capabilities\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "SQLite capability provenance is established at substrate initialization; missing provenance is a wiring error.",
+            "testedBy": [
+                "test/substrates/sqlite/sqlite.test.ts"
+            ]
+        }
+    ]
+}

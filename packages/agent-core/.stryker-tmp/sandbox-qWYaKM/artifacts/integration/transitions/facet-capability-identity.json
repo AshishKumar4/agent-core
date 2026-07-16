@@ -1,0 +1,101 @@
+{
+  "edition": "1.0.0",
+  "id": "TRANSITION-FACET-CAPABILITY-IDENTITY",
+  "state": "completed",
+  "canonicalOwner": "W3",
+  "symbols": ["FacetRef", "CapabilitySpec", "RunFacetRef", "OperationPin.target"],
+  "inputs": [
+    {
+      "owner": "W2",
+      "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a",
+      "state": "accepted-input"
+    },
+    {
+      "owner": "W3",
+      "commit": "1daf42bf5ca1a71ddc619be78f6f23da213717d3",
+      "state": "accepted-input"
+    },
+    {
+      "owner": "W5",
+      "commit": "0fcd7141898615b2234d875ce1018f11c89e354d",
+      "state": "accepted-input"
+    },
+    {
+      "owner": "W6",
+      "commit": "01a457f9207039ba41aabf1a94f6ab3aaddbfdd2",
+      "state": "accepted-input"
+    }
+  ],
+  "remove": [
+    "packages/agent-core/src/authority/id.ts#FacetRef",
+    "packages/agent-core/src/authority/capability.ts#CapabilitySpec",
+    "packages/agent-core/src/agents/runs/placement.ts#RunFacetRef",
+    "packages/agent-core/src/invocations/operation-pin.ts string target",
+    "duplicate authority/identity CapabilitySpec declarations"
+  ],
+  "replace": [
+    "packages/agent-core/src/facets/id.ts#FacetRef",
+    "W3-owned canonical CapabilitySpec consumed by W2 authority and W5/W6 references"
+  ],
+  "invariants": [
+    "FacetRef has one frozen W3 constructor and exactly one separator with both segments matching ^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+    "RoleRule, Grant, Binding, and authority runtime retain and decode the exact W3 FacetRef and CapabilitySpec classes through the facets barrel",
+    "Capability narrowing and established codec bytes remain canonical without value reconstruction",
+    "Slot contribution identity is derived from authenticated Package installation and materialization provenance rather than command payload data",
+    "Profile runtime admission remains generic and port-based and owns no authority or invocation truth",
+    "No compatibility alias, duplicate declaration, deep cross-context import, or structural string substitute remains"
+  ],
+  "acceptance": [
+    "Packed consumer proves one FacetRef constructor",
+    "Run placement codecs decode the W3 FacetRef constructor directly",
+    "Authority, placement, and invocation contracts run against the same CapabilitySpec",
+    "Import-boundary graph remains acyclic"
+  ],
+  "allowedForeignPaths": [
+    "packages/agent-core/src/facets/capability.ts",
+    "packages/agent-core/src/facets/id.ts",
+    "packages/agent-core/src/facets/index.ts",
+    "packages/agent-core/src/facets/installation.ts",
+    "packages/agent-core/src/facets/profile-runtime/contract.ts",
+    "packages/agent-core/src/facets/profile-runtime/error.ts",
+    "packages/agent-core/src/facets/profile-runtime/facet.ts",
+    "packages/agent-core/src/facets/profile-runtime/index.ts",
+    "packages/agent-core/src/facets/profile-runtime/manifest.ts",
+    "packages/agent-core/src/facets/profile-runtime/runtime.ts",
+    "packages/agent-core/src/facets/profile-runtime/schema.ts",
+    "packages/agent-core/src/facets/profile-runtime/wire.ts",
+    "packages/agent-core/src/facets/runtime.ts",
+    "packages/agent-core/src/facets/slot-memory.ts",
+    "packages/agent-core/src/operations/gateway.ts",
+    "packages/agent-core/src/operations/interception.ts",
+    "packages/agent-core/src/operations/lifecycle.ts",
+    "packages/agent-core/src/operations/runtime.ts",
+    "packages/agent-core/src/protocol/facet-commands.ts",
+    "packages/agent-core/test/facets/declarations.test.ts",
+    "packages/agent-core/test/facets/profile-runtime.test.ts",
+    "packages/agent-core/test/facets/slot-memory.test.ts",
+    "packages/agent-core/test/protocol/facet-commands.test.ts"
+  ],
+  "blockers": [],
+  "completion": {
+    "commit": "38872d38a5bc4077f048031680f6db90da49d0ee",
+    "tree": "d135133e223653b6f1112bc1623f86d57e10fdbf",
+    "artifacts": [
+      {
+        "path": "packages/agent-core/src/facets/capability.ts",
+        "blob": "8e61562834308b7f36a4126d467f33ace2e88d36",
+        "sha256": "e6615dea04d8f1eb0150b4723547d8e65caf6cb32abcfa14c64bf9bed6850170"
+      },
+      {
+        "path": "packages/agent-core/test/authority/canonical-facet-transition.test.ts",
+        "blob": "31334b87d612b1bd76a06bbf875e2469c50ceeb3",
+        "sha256": "bd9bf901781b6002c5a1502919991eac36abcb1e16bc984dc021ebc7a68ddf73"
+      }
+    ],
+    "tests": [
+      "test/authority/canonical-facet-transition.test.ts#coordinated FacetRef and CapabilitySpec transition [C13-AUTH-ROLE-MATERIALIZATION] retains the exact W3 CapabilitySpec through Role and Grant runtime records",
+      "test/authority/canonical-facet-transition.test.ts#coordinated FacetRef and CapabilitySpec transition [C13-AUTH-BINDING-RESOLUTION] retains the exact W3 FacetRef through Binding runtime records"
+    ],
+    "checks": ["exports"]
+  }
+}

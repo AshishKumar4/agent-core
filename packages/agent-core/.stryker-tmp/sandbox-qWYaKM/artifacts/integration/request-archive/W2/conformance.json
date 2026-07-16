@@ -1,0 +1,69 @@
+{
+  "requester": "W2",
+  "owner": "W0",
+  "status": "requested",
+  "atoms": [
+    {
+      "id": "P5-CANONICAL-AUTHORITY-IDENTITY",
+      "claim": "Qualified principals, canonical Workspace topology, strict capability data, and collision-free authority keys are codec-complete.",
+      "tests": [
+        "test/identity/authority-foundation.test.ts",
+        "test/authority/runtime-foundation.test.ts"
+      ]
+    },
+    {
+      "id": "P5-VERIFIED-GUEST-MATERIALIZATION",
+      "claim": "Only trust-revision- and expiry-bound token/callback verification materializes guest Grants; elevated allows are removed, denies retained, and trust revocation closes materialized authority.",
+      "tests": [
+        "test/authority/materializer.test.ts",
+        "test/authority/runtime-foundation.test.ts",
+        "test/authority/sqlite-ledger.test.ts"
+      ]
+    },
+    {
+      "id": "P5-TENANT-AUTHORITY-CHECK",
+      "claim": "Tenant runtime derives topology, direct/team/foreign subject closure, Grant lineage, deny precedence, and current path epochs from owned stores and emits complete typed evidence.",
+      "tests": [
+        "test/authority/runtime-foundation.test.ts",
+        "test/protocol/authority-evidence.test.ts"
+      ]
+    },
+    {
+      "id": "P5-BINDING-WATERMARK-STORAGE",
+      "claim": "Workspace Bindings and invocation-owner watermarks have codec-identical memory and file-backed SQLite behavior, monotonic revisions, restart recovery, and projection validation.",
+      "tests": ["test/substrates/sqlite/store-parity.test.ts"]
+    },
+    {
+      "id": "P5-W2-HARD-GATES",
+      "claim": "W2 operational failures use the closed AgentCoreError taxonomy, constructor and codec shape failures remain typed shape failures, durable records use static codecs and immutable behavior-carrying states, and memory/SQLite recovery rejects malformed ownership closure.",
+      "tests": [
+        "test/identity/hard-gates.test.ts",
+        "test/authority/hard-gates.test.ts",
+        "test/authority/memory-service-hard-gates.test.ts",
+        "test/authority/runtime-hard-gates.test.ts",
+        "test/substrates/sqlite/authority-hard-gates.test.ts"
+      ],
+      "rawChangedSourceCoverage": {
+        "command": "bun run test -- --config artifacts/requests/W2/vitest.config.mjs --coverage && node artifacts/requests/W2/check-changed-coverage.mjs",
+        "config": "artifacts/requests/W2/vitest.config.mjs",
+        "manifest": "artifacts/requests/W2/coverage-manifest.json",
+        "files": 37,
+        "statements": { "covered": 2707, "total": 2807, "percentage": 96.44 },
+        "branches": { "covered": 1939, "total": 2041, "percentage": 95.00 },
+        "functions": { "covered": 817, "total": 831, "percentage": 98.32 },
+        "lines": { "covered": 2508, "total": 2588, "percentage": 96.91 }
+      }
+    }
+  ],
+  "releaseBlockers": [
+    "W2-SHARED-PRINCIPAL-REF",
+    "W2-SHARED-CAPABILITY-OWNER",
+    "W2-SHARED-CLOSED-AUTHENTICATION",
+    "W2-SHARED-GUEST-VERIFIER",
+    "W2-SHARED-ACTOR-TRANSACTION-COMPOSITION",
+    "W2-SHARED-RECORD-REGISTRY",
+    "W2-SHARED-SURFACE-RELEASE",
+    "W2-SHARED-RUN-ADMISSION",
+    "W2-SHARED-SQLITE-CAS"
+  ]
+}

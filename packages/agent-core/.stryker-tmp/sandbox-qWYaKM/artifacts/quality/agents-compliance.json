@@ -1,0 +1,116 @@
+{
+  "edition": "1.0.0",
+  "rules": [
+    {
+      "id": "ACQ-COVERAGE",
+      "instructions": [
+        "AGENTS.md:50-62",
+        "packages/agent-core/artifacts/quality/root-agents.md:10-12"
+      ],
+      "instructionContains": "Test Coverage",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-ERR",
+      "instructions": ["AGENTS.md:206-208"],
+      "instructionContains": "Runtime/domain failures",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-CODEC",
+      "instructions": ["AGENTS.md:141-145"],
+      "instructionContains": "Every record type gets a codec",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-IMMUTABLE",
+      "instructions": ["AGENTS.md:134-145"],
+      "instructionContains": "Durable records are immutable",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-ID",
+      "instructions": ["AGENTS.md:84-86", "AGENTS.md:121-124"],
+      "instructionContains": "Identifiers",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-VOCAB",
+      "instructions": ["AGENTS.md:23-25", "AGENTS.md:43"],
+      "instructionContains": "Avoid hard coding",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-TEST",
+      "instructions": ["AGENTS.md:50-62", "AGENTS.md:231-242"],
+      "instructionContains": "Unit Tests",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-SEAM",
+      "instructions": ["AGENTS.md:148-150", "AGENTS.md:237-238"],
+      "instructionContains": "Seams are interfaces",
+      "checker": "scripts/quality/seams.mjs",
+      "tests": [
+        "test/quality/protocols.test.ts#shared ownership protocols requires a memory reference and shared seam contract"
+      ]
+    },
+    {
+      "id": "ACQ-OWNER",
+      "instructions": ["AGENTS.md:164-166"],
+      "instructionContains": "Respect the ownership map",
+      "checker": "scripts/quality/records.mjs",
+      "tests": [
+        "test/quality/protocols.test.ts#shared ownership protocols rejects duplicate durable owners"
+      ]
+    },
+    {
+      "id": "ACQ-IMPORT",
+      "instructions": ["AGENTS.md:109-114"],
+      "instructionContains": "Cross-context imports",
+      "checker": "scripts/check-import-boundaries.mjs",
+      "tests": [
+        "test/quality/imports.test.ts#cross-context import enforcement rejects deep imports and runtime context cycles"
+      ]
+    },
+    {
+      "id": "ACQ-DAG",
+      "instructions": ["AGENTS.md:9", "AGENTS.md:259-261"],
+      "instructionContains": "Automated formatting tools are mandatory",
+      "checker": "scripts/quality/run.mjs",
+      "tests": [
+        "test/quality/dag.test.ts#quality DAG rejects leaf checkers that invoke another checker"
+      ]
+    },
+    {
+      "id": "ACQ-SCOPE",
+      "instructions": ["packages/agent-core/artifacts/quality/root-agents.md:8-9"],
+      "instructionContains": "isolated worktrees",
+      "checker": "scripts/quality/ownership.mjs",
+      "tests": [
+        "test/quality/ownership.test.ts#exclusive worktree ownership matches exact and recursive paths without cross-owner overlap"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1181 @@
+{
+  "edition": "1.0.0",
+  "issues": [
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/actors/fence.ts",
+      "symbol": "ActorRecoveryState",
+      "message": "ActorRecoveryState is missing static encode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/actors/fence.ts:ActorRecoveryState:9a3db50bd8b3"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/actors/fence.ts",
+      "symbol": "ActorRecoveryState",
+      "message": "ActorRecoveryState is missing static decode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/actors/fence.ts:ActorRecoveryState:adce7a5d2741"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/content/record.ts",
+      "symbol": "ContentStat",
+      "message": "ContentStat is missing static encode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/content/record.ts:ContentStat:ad71761b3521"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/content/record.ts",
+      "symbol": "ContentStat",
+      "message": "ContentStat is missing static decode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/content/record.ts:ContentStat:b685c9c02893"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/invocations/audit.ts",
+      "symbol": "AuditRecord",
+      "message": "AuditRecord is missing static encode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/invocations/audit.ts:AuditRecord:90ba69719e82"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/invocations/audit.ts",
+      "symbol": "AuditRecord",
+      "message": "AuditRecord is missing static decode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/invocations/audit.ts:AuditRecord:b41e97fbe162"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/protocol/envelope.ts",
+      "symbol": "CommandEnvelope",
+      "message": "CommandEnvelope is missing static decode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/protocol/envelope.ts:CommandEnvelope:753853c32d53"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/protocol/envelope.ts",
+      "symbol": "CommandEnvelope",
+      "message": "CommandEnvelope is missing static encode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/protocol/envelope.ts:CommandEnvelope:9e6b9f807750"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/protocol/write.ts",
+      "symbol": "WriteRecord",
+      "message": "WriteRecord is missing static decode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/protocol/write.ts:WriteRecord:98818fae2e0c"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/protocol/write.ts",
+      "symbol": "WriteRecord",
+      "message": "WriteRecord is missing static encode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/protocol/write.ts:WriteRecord:b4d2e1c5656e"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
+      "symbol": "TenantBootstrapMarker",
+      "message": "TenantBootstrapMarker is missing static encode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/substrates/sqlite/tenant.ts:TenantBootstrapMarker:6f3c7bdc5b1f"
+    },
+    {
+      "rule": "ACQ-CODEC",
+      "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
+      "symbol": "TenantBootstrapMarker",
+      "message": "TenantBootstrapMarker is missing static decode",
+      "fingerprint": "ACQ-CODEC:packages/agent-core/src/substrates/sqlite/tenant.ts:TenantBootstrapMarker:ddf556adb244"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/actors/fence.ts",
+      "symbol": "increment",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/actors/fence.ts:increment:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/actors/store.ts",
+      "symbol": "bindActor",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/actors/store.ts:bindActor:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/actors/store.ts",
+      "symbol": "detachedClone",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/actors/store.ts:detachedClone:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/actors/store.ts",
+      "symbol": "immutableRead",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/actors/store.ts:immutableRead:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/actors/store.ts",
+      "symbol": "rejectSharedObjects",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/actors/store.ts:rejectSharedObjects:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/actors/store.ts",
+      "symbol": "transaction",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/actors/store.ts:transaction:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/capability.ts",
+      "symbol": "fromRoleCapability",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/capability.ts:fromRoleCapability:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/capability.ts",
+      "symbol": "fromRoleCapability",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/capability.ts:fromRoleCapability:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/epoch.ts",
+      "symbol": "next",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/epoch.ts:next:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/id.ts",
+      "symbol": "forRole",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/id.ts:forRole:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/id.ts",
+      "symbol": "identityIdValue",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/id.ts:identityIdValue:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/materializer.ts",
+      "symbol": "materialize",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/materializer.ts:materialize:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/materializer.ts",
+      "symbol": "materialize",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/materializer.ts:materialize:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/materializer.ts",
+      "symbol": "materialize",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/materializer.ts:materialize:73dccfc86391:3"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "anchorSnapshot",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:anchorSnapshot:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "commit",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:commit:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "commit",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:commit:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "loadRecords",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:loadRecords:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "loadRecords",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:loadRecords:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "loadRecords",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:loadRecords:73dccfc86391:3"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "putCanonical",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:putCanonical:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "putEpoch",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/memory.ts:putEpoch:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/planner.ts",
+      "symbol": "plan",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/planner.ts:plan:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/planner.ts",
+      "symbol": "plan",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/planner.ts:plan:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/service.ts",
+      "symbol": "createTenantControlBootstrapPlan",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/service.ts:createTenantControlBootstrapPlan:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/authority/service.ts",
+      "symbol": "nonEmpty",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/authority/service.ts:nonEmpty:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/content/range.ts",
+      "symbol": "nonnegative",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/content/range.ts:nonnegative:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/content/range.ts",
+      "symbol": "slice",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/content/range.ts:slice:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/core/schema.ts",
+      "symbol": "accepts",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/core/schema.ts:accepts:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/core/schema.ts",
+      "symbol": "compile",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/core/schema.ts:compile:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/core/value.ts",
+      "symbol": "next",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/core/value.ts:next:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/core/value.ts",
+      "symbol": "secretComponent",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/core/value.ts:secretComponent:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/core/version.ts",
+      "symbol": "formatSemVer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/core/version.ts:formatSemVer:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/core/version.ts",
+      "symbol": "formatSemVer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/core/version.ts:formatSemVer:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/core/version.ts",
+      "symbol": "safeComponent",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/core/version.ts:safeComponent:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/blueprint.ts",
+      "symbol": "declarationMap",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/blueprint.ts:declarationMap:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/config.ts",
+      "symbol": "composeConfigSchema",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/config.ts:composeConfigSchema:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/config.ts",
+      "symbol": "normalizeConfig",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/config.ts:normalizeConfig:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/config.ts",
+      "symbol": "normalizeConfig",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/config.ts:normalizeConfig:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-kind.ts",
+      "symbol": "materializationKindValidator",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-kind.ts:materializationKindValidator:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "addManagedState",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:addManagedState:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:compareAndSetGenerationPointer:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:compareAndSetGenerationPointer:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:compareAndSetGenerationPointer:73dccfc86391:3"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:compareAndSetGenerationPointer:73dccfc86391:4"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "insertGeneration",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:insertGeneration:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "insertManagedState",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:insertManagedState:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "insertManagedState",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materialization-store.ts:insertManagedState:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materializer.ts",
+      "symbol": "applyTransaction",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materializer.ts:applyTransaction:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materializer.ts",
+      "symbol": "applyTransaction",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materializer.ts:applyTransaction:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materializer.ts",
+      "symbol": "applyTransaction",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materializer.ts:applyTransaction:73dccfc86391:3"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/materializer.ts",
+      "symbol": "materializeActorPlan",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/materializer.ts:materializeActorPlan:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "symbol": "installSnapshotRows",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/memory.ts:installSnapshotRows:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "symbol": "add",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/package-store.ts:add:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "symbol": "addLock",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/package-store.ts:addLock:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "symbol": "addSnapshot",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/package-store.ts:addSnapshot:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/placement.ts",
+      "symbol": "PlacementUnavailableError",
+      "message": "PlacementUnavailableError must extend AgentCoreError, not Error",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/placement.ts:PlacementUnavailableError:aaecbfde6fb7"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/plan.ts",
+      "symbol": "placementProjection",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/plan.ts:placementProjection:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/plan.ts",
+      "symbol": "planMaterialization",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/plan.ts:planMaterialization:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/resolver.ts",
+      "symbol": "resolve",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/resolver.ts:resolve:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/resolver.ts",
+      "symbol": "rootConstraints",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/resolver.ts:rootConstraints:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/validator.ts",
+      "symbol": "addSlot",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/validator.ts:addSlot:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/validator.ts",
+      "symbol": "exactLockedReleases",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/validator.ts:exactLockedReleases:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/validator.ts",
+      "symbol": "exactLockedReleases",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/validator.ts:exactLockedReleases:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/validator.ts",
+      "symbol": "protectBuiltInRoles",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/validator.ts:protectBuiltInRoles:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/validator.ts",
+      "symbol": "protectBuiltInRoles",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/validator.ts:protectBuiltInRoles:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/validator.ts",
+      "symbol": "rejectCoreSlotRedefinition",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/validator.ts:rejectCoreSlotRedefinition:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/identity/member.ts",
+      "symbol": "revise",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/identity/member.ts:revise:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/identity/repository.ts",
+      "symbol": "verifyRecord",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/identity/repository.ts:verifyRecord:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/identity/subject.ts",
+      "symbol": "from",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/identity/subject.ts:from:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/bootstrap-memory.ts",
+      "symbol": "snapshotValue",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/bootstrap-memory.ts:snapshotValue:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/bootstrap.ts",
+      "symbol": "execute",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/bootstrap.ts:execute:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/ingress.ts",
+      "symbol": "holdExpiry",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/ingress.ts:holdExpiry:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "symbol": "execute",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/materialization-commands.ts:execute:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/memory.ts",
+      "symbol": "insertAudit",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/memory.ts:insertAudit:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/memory.ts",
+      "symbol": "insertWrite",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/memory.ts:insertWrite:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/memory.ts",
+      "symbol": "reserveIdentity",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/memory.ts:reserveIdentity:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/persistence.ts",
+      "symbol": "appendWrite",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/persistence.ts:appendWrite:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/persistence.ts",
+      "symbol": "appendWrite",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/persistence.ts:appendWrite:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/protocol/persistence.ts",
+      "symbol": "appendWrite",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/protocol/persistence.ts:appendWrite:73dccfc86391:3"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/actor.ts",
+      "symbol": "all",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/actor.ts:all:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/actor.ts",
+      "symbol": "transaction",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/actor.ts:transaction:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/authority.ts",
+      "symbol": "saveSqliteEpoch",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/authority.ts:saveSqliteEpoch:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/bootstrap.ts",
+      "symbol": "execute",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/bootstrap.ts:execute:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/bootstrap.ts",
+      "symbol": "nextId",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/bootstrap.ts:nextId:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/content.ts",
+      "symbol": "actorKindValue",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/content.ts:actorKindValue:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/content.ts",
+      "symbol": "bytes",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/content.ts:bytes:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/content.ts",
+      "symbol": "integer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/content.ts:integer:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/content.ts",
+      "symbol": "nullableText",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/content.ts:nullableText:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/content.ts",
+      "symbol": "text",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/content.ts:text:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "addManagedState",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:addManagedState:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:compareAndSetGenerationPointer:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:compareAndSetGenerationPointer:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:compareAndSetGenerationPointer:73dccfc86391:3"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "compareAndSetGenerationPointer",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:compareAndSetGenerationPointer:73dccfc86391:4"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "insertGeneration",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:insertGeneration:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "insertManagedState",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:insertManagedState:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "insertManagedState",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:insertManagedState:73dccfc86391:2"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "materializationKindCheck",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/materialization.ts:materializationKindCheck:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "symbol": "add",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/package.ts:add:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "symbol": "addLock",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/package.ts:addLock:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "symbol": "addSnapshot",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/package.ts:addSnapshot:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
+      "symbol": "bootstrapTenant",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/tenant.ts:bootstrapTenant:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
+      "symbol": "transaction",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/tenant.ts:transaction:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
+      "symbol": "writeDatabase",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/substrates/sqlite/tenant.ts:writeDatabase:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/actors/types.ts",
+      "symbol": "ActorId",
+      "message": "ActorId must be declared in id.ts",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/actors/types.ts:ActorId:f674ff5eed5b"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/authority/grant.ts",
+      "symbol": "membershipId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/authority/grant.ts:membershipId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/authority/memory.ts:actorId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "ownerPrincipalId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/authority/memory.ts:ownerPrincipalId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "principalId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/authority/memory.ts:principalId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "tenantId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/authority/memory.ts:tenantId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "tenantId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/authority/memory.ts:tenantId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/authority/service.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/authority/service.ts:actorId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/content/record.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/content/record.ts:actorId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/materialization-store.ts:actorId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/materialization-store.ts:actorId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/materialization-store.ts:actorId:bd38bc7e7299:3"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "generationId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/materialization-store.ts:generationId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "generationId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/materialization-store.ts:generationId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/memory.ts:packageId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/memory.ts:packageId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/memory.ts:packageId:bd38bc7e7299:3"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/package-store.ts:packageId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/package-store.ts:packageId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/definition/package-store.ts:packageId:bd38bc7e7299:3"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/facets/slot-entry.ts",
+      "symbol": "originId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/facets/slot-entry.ts:originId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/identity/id.ts",
+      "symbol": "WorkspaceId",
+      "message": "Identifier WorkspaceId has multiple declarations",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/identity/id.ts:WorkspaceId:ab1e34986fd0"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/protocol/bootstrap.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/protocol/bootstrap.ts:actorId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/protocol/bootstrap.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/protocol/bootstrap.ts:actorId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/protocol/persistence.ts",
+      "symbol": "auditId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/protocol/persistence.ts:auditId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/protocol/persistence.ts",
+      "symbol": "writeId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/protocol/persistence.ts:writeId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/protocol/persistence.ts",
+      "symbol": "writeId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/protocol/persistence.ts:writeId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/authority.ts",
+      "symbol": "expectedId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/authority.ts:expectedId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/materialization.ts:actorId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/materialization.ts:actorId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "actorId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/materialization.ts:actorId:bd38bc7e7299:3"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "generationId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/materialization.ts:generationId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "generationId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/materialization.ts:generationId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/package.ts:packageId:bd38bc7e7299"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/package.ts:packageId:bd38bc7e7299:2"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "symbol": "packageId",
+      "message": "Public identifier fields must not use string",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/substrates/sqlite/package.ts:packageId:bd38bc7e7299:3"
+    },
+    {
+      "rule": "ACQ-ID",
+      "file": "packages/agent-core/src/workspaces/id.ts",
+      "symbol": "WorkspaceId",
+      "message": "Identifier WorkspaceId has multiple declarations",
+      "fingerprint": "ACQ-ID:packages/agent-core/src/workspaces/id.ts:WorkspaceId:ab1e34986fd0"
+    },
+    {
+      "rule": "ACQ-IMMUTABLE",
+      "file": "packages/agent-core/src/agents/runs/lease.ts",
+      "symbol": "TurnLease",
+      "message": "TurnLease must freeze constructed instances",
+      "fingerprint": "ACQ-IMMUTABLE:packages/agent-core/src/agents/runs/lease.ts:TurnLease:bc1ae94412df"
+    },
+    {
+      "rule": "ACQ-IMMUTABLE",
+      "file": "packages/agent-core/src/content/record.ts",
+      "symbol": "ContentStat",
+      "message": "ContentStat must freeze constructed instances",
+      "fingerprint": "ACQ-IMMUTABLE:packages/agent-core/src/content/record.ts:ContentStat:619d93881d77"
+    },
+    {
+      "rule": "ACQ-IMMUTABLE",
+      "file": "packages/agent-core/src/core/version.ts",
+      "symbol": "SemVer",
+      "message": "SemVer must freeze constructed instances",
+      "fingerprint": "ACQ-IMMUTABLE:packages/agent-core/src/core/version.ts:SemVer:e88f4d4ba5de"
+    },
+    {
+      "rule": "ACQ-IMMUTABLE",
+      "file": "packages/agent-core/src/facets/interceptor.ts",
+      "symbol": "InterceptorDeclaration",
+      "message": "InterceptorDeclaration must freeze constructed instances",
+      "fingerprint": "ACQ-IMMUTABLE:packages/agent-core/src/facets/interceptor.ts:InterceptorDeclaration:086e7787cf4c"
+    },
+    {
+      "rule": "ACQ-IMMUTABLE",
+      "file": "packages/agent-core/src/protocol/envelope.ts",
+      "symbol": "CommandEnvelope",
+      "message": "CommandEnvelope must freeze constructed instances",
+      "fingerprint": "ACQ-IMMUTABLE:packages/agent-core/src/protocol/envelope.ts:CommandEnvelope:206d0d773bc9"
+    },
+    {
+      "rule": "ACQ-IMMUTABLE",
+      "file": "packages/agent-core/src/protocol/write.ts",
+      "symbol": "WriteRecord",
+      "message": "WriteRecord must freeze constructed instances",
+      "fingerprint": "ACQ-IMMUTABLE:packages/agent-core/src/protocol/write.ts:WriteRecord:3b3fcdef787a"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/authority/grant.ts",
+      "symbol": "GrantEffect",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/authority/grant.ts:GrantEffect:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/facets/contribution.ts",
+      "symbol": "Impact",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/contribution.ts:Impact:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/identity/role.ts",
+      "symbol": "RoleImpact",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/identity/role.ts:RoleImpact:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/identity/role.ts",
+      "symbol": "RoleRuleEffect",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/identity/role.ts:RoleRuleEffect:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/invocations/audit.ts",
+      "symbol": "WriteAuditOutcome",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/invocations/audit.ts:WriteAuditOutcome:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/protocol/dispatcher.ts",
+      "symbol": "ExpectedRevisionPolicy",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/protocol/dispatcher.ts:ExpectedRevisionPolicy:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/protocol/dispatcher.ts",
+      "symbol": "LeaseTokenPolicy",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/protocol/dispatcher.ts:LeaseTokenPolicy:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/protocol/write.ts",
+      "symbol": "CommandOutcome",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/protocol/write.ts:CommandOutcome:2808b2f8832d"
+    }
+  ]
+}

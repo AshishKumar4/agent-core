@@ -1,0 +1,1430 @@
+{
+  "edition": "3.1.0",
+  "formalScope": "abstract-model-only",
+  "checkerBoundary": "AgentCore/Axioms.lean is the explicit reviewed theorem allowlist. This ledger states ownership and narrow claim boundaries; the checker proves syntactic consistency, complete witness-family mapping, allowed axiom dependencies, and definition existence, but is not a semantic oracle for theorem adequacy or implementation conformance.",
+  "statusVocabulary": {
+    "proved-safety": "A theorem in the reviewed Axioms allowlist proves the stated narrow safety property of the abstract relation under listed assumptions; this status does not imply full-SPEC or implementation conformance.",
+    "proved-component": "A theorem in the reviewed Axioms allowlist proves a local structural or component property only; the checker verifies consistency, not semantic sufficiency.",
+    "component-shape-nonclaim": "Lean may contain an unreviewed helper or representation shape, but no theorem for this category is designated in Axioms and this ledger makes no formal claim for it.",
+    "specified-not-modeled": "The SPEC category has no designated theorem, definition ownership, or nonvacuity ownership in this ledger.",
+    "operational-assumption": "The formal result relies on this environmental or input condition; Lean does not prove it.",
+    "refinement-non-goal": "Refinement from Lean to TypeScript, substrates, providers, deployments, profiles, or products is explicitly not claimed."
+  },
+  "crossRequirementWitnessFamilies": [
+    {
+      "id": "WF-AUTH-RESOLUTION",
+      "requirementIds": [
+        "AC-AUTH-001",
+        "AC-AUTH-RESOLUTION-001"
+      ]
+    },
+    {
+      "id": "WF-LEASE-RUN-COMPOSED",
+      "requirementIds": [
+        "AC-AUTH-RESOLUTION-001",
+        "AC-LEASE-001",
+        "AC-AUDIT-001",
+        "AC-RUN-001",
+        "AC-COMPOSED-001"
+      ]
+    },
+    {
+      "id": "WF-TRUST-EVENT",
+      "requirementIds": [
+        "AC-TRUST-001",
+        "AC-EVENT-ROUTING-001",
+        "AC-AUDIT-001"
+      ]
+    },
+    {
+      "id": "WF-EVENT-AUDIT-GRAPH",
+      "requirementIds": [
+        "AC-EVENT-ROUTING-001",
+        "AC-AUDIT-001",
+        "AC-GRAPH-WRITER-001",
+        "AC-COMPOSED-001"
+      ]
+    },
+    {
+      "id": "WF-APPROVAL-COMPOSED",
+      "requirementIds": [
+        "AC-APPROVAL-001",
+        "AC-COMPOSED-001"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "AC-STRUCTURAL-001",
+      "summary": "PreparedInvocation identity, complete ItemKeys, ordered per-item interceptor replay association, and structural View replay",
+      "status": "proved-component",
+      "boundary": "StructuralDigest and InvocationDigest are ideal identities. Modeled replay proves exact item order/key association and nested before/after transformation chains per item, not runtime interceptor execution or persistence. View replay covers only explicit ViewPatch syntax and revision arithmetic.",
+      "definitions": [
+        "AgentCore.PreparedInvocation",
+        "AgentCore.PreparedInvocation.identity",
+        "AgentCore.PreparedInvocation.items",
+        "AgentCore.InvocationHeader",
+        "AgentCore.InvocationPayload.arguments",
+        "AgentCore.InvocationPayload.shape",
+        "AgentCore.PayloadShape",
+        "AgentCore.StructuralValue",
+        "AgentCore.StructuralDigest",
+        "AgentCore.structuralDigest",
+        "AgentCore.ItemKey",
+        "AgentCore.PreparedItem",
+        "AgentCore.deriveItemKey",
+        "AgentCore.InvocationIdentity",
+        "AgentCore.PreparedInvocation.digest",
+        "AgentCore.InterceptorTransformation",
+        "AgentCore.TransformationChain",
+        "AgentCore.ReplayItem",
+        "AgentCore.ReplayItem.ValidFor",
+        "AgentCore.MediatedReplay",
+        "AgentCore.MediatedReplay.ValidFor",
+        "AgentCore.ViewState",
+        "AgentCore.ViewDelta",
+        "AgentCore.replay"
+      ],
+      "theorems": [
+        "AgentCore.InvocationPayload.arguments_nonempty",
+        "AgentCore.invocationDigest_exact",
+        "AgentCore.structuralDigest_exact",
+        "AgentCore.prepared_item_key_is_derived",
+        "AgentCore.prepared_item_key_commits_complete_structure",
+        "AgentCore.replay_preserves_item_order_and_keys",
+        "AgentCore.replay_deterministic",
+        "AgentCore.replay_revision"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_complete_identity_and_keys",
+        "AgentCore.Examples.nonvacuous_batch_replay_item_association",
+        "AgentCore.Examples.nonvacuous_view_replay"
+      ],
+      "witnessCoverage": {
+        "AgentCore.InvocationPayload.arguments_nonempty": [
+          "AgentCore.Examples.nonvacuous_complete_identity_and_keys"
+        ],
+        "AgentCore.invocationDigest_exact": [
+          "AgentCore.Examples.nonvacuous_complete_identity_and_keys"
+        ],
+        "AgentCore.structuralDigest_exact": [
+          "AgentCore.Examples.nonvacuous_complete_identity_and_keys"
+        ],
+        "AgentCore.prepared_item_key_is_derived": [
+          "AgentCore.Examples.nonvacuous_complete_identity_and_keys"
+        ],
+        "AgentCore.prepared_item_key_commits_complete_structure": [
+          "AgentCore.Examples.nonvacuous_complete_identity_and_keys"
+        ],
+        "AgentCore.replay_preserves_item_order_and_keys": [
+          "AgentCore.Examples.nonvacuous_batch_replay_item_association"
+        ],
+        "AgentCore.replay_deterministic": [
+          "AgentCore.Examples.nonvacuous_view_replay"
+        ],
+        "AgentCore.replay_revision": [
+          "AgentCore.Examples.nonvacuous_view_replay"
+        ]
+      },
+      "remainingEvidence": [
+        "canonical codec and cryptographic digest refinement",
+        "RFC 6902 and Surface runtime conformance"
+      ]
+    },
+    {
+      "id": "AC-AUTH-001",
+      "summary": "Tenant-qualified PrincipalRef identity, canonical deny override, Binding-to-operation-facet match, and contained non-widening allow delegation",
+      "status": "proved-safety",
+      "boundary": "Coverage includes structural tenant-qualified PrincipalRef inequality plus abstract Grant/Binding ledger relations and the designated delegation transition; it does not prove concrete authentication, serialization, storage, or resolver correctness.",
+      "definitions": [
+        "AgentCore.Grant",
+        "AgentCore.Binding",
+        "AgentCore.PrincipalRef",
+        "AgentCore.Scope.Contains",
+        "AgentCore.AuthorityLedger",
+        "AgentCore.AuthorityLedger.LiveGrant",
+        "AgentCore.AuthorityLedger.Denied",
+        "AgentCore.AuthorityLedger.Authorized",
+        "AgentCore.AuthorityLedger.AuthorityStep"
+      ],
+      "theorems": [
+        "AgentCore.AuthorityLedger.deny_overrides",
+        "AgentCore.AuthorityLedger.authorized_binding_matches_operation_facet",
+        "AgentCore.AuthorityLedger.delegated_allow_is_contained_and_not_wider",
+        "AgentCore.principal_ref_tenant_is_identity"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_authorized_resolution_issue",
+        "AgentCore.Examples.nonvacuous_delegation_containment",
+        "AgentCore.Examples.nonvacuous_live_deny_override",
+        "AgentCore.Examples.nonvacuous_qualified_principal_identity"
+      ],
+      "witnessCoverage": {
+        "AgentCore.AuthorityLedger.deny_overrides": [
+          "AgentCore.Examples.nonvacuous_live_deny_override"
+        ],
+        "AgentCore.AuthorityLedger.authorized_binding_matches_operation_facet": [
+          "AgentCore.Examples.nonvacuous_authorized_resolution_issue"
+        ],
+        "AgentCore.AuthorityLedger.delegated_allow_is_contained_and_not_wider": [
+          "AgentCore.Examples.nonvacuous_delegation_containment"
+        ],
+        "AgentCore.principal_ref_tenant_is_identity": [
+          "AgentCore.Examples.nonvacuous_qualified_principal_identity"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete canonical Grant/Binding storage and resolver refinement",
+        "authenticated Principal, Team, foreign-principal, and tenant inputs"
+      ]
+    },
+    {
+      "id": "AC-AUTH-RESOLUTION-001",
+      "summary": "Authorized resolution issuance with exact root-to-target path ordering, epoch staleness, lease-expiry bounds, per-holder epoch join, and direct watermark inequality",
+      "status": "proved-safety",
+      "boundary": "Path evidence and holder watermarks retain tenant-qualified PrincipalRef identity. The permit abstraction proves only that a separately established issued, unused, unexpired permit remains consumable despite a monotonic post-issuance watermark change; concrete issuance, signatures, target checks, and transactions remain external.",
+      "definitions": [
+        "AgentCore.Resolution",
+        "AgentCore.PathEpoch",
+        "AgentCore.Scope.orderedPath",
+        "AgentCore.AuthorityLedger.PathEvidenceComplete",
+        "AgentCore.AuthorityLedger.HolderCurrentFor",
+        "AgentCore.AuthorityLedger.deadlineBounded",
+        "AgentCore.AuthorityLedger.issueResolution",
+        "AgentCore.AuthorityLedger.bumpScope",
+        "AgentCore.AuthorityLedger.observeForHolder",
+        "AgentCore.AuthorityLedger.DirectResolutionUsable",
+        "AgentCore.AuthorityLedger.MediatedResolutionUsable",
+        "AgentCore.AuthorityPermit",
+        "AgentCore.PermitLedger",
+        "AgentCore.PermitLedger.Consumable"
+      ],
+      "theorems": [
+        "AgentCore.AuthorityLedger.resolution_issue_records_authorized_evidence",
+        "AgentCore.AuthorityLedger.bump_scope_stales_path_evidence",
+        "AgentCore.AuthorityLedger.direct_deadline_cannot_exceed_original_lease",
+        "AgentCore.AuthorityLedger.holder_observation_joins_epoch",
+        "AgentCore.AuthorityLedger.direct_holder_watermark_is_not_ahead",
+        "AgentCore.direct_ready_uses_exact_holder_watermark_inequality",
+        "AgentCore.post_issuance_watermark_cannot_cancel_permit"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_direct_nondurable",
+        "AgentCore.Examples.nonvacuous_resolution_deadline_bound",
+        "AgentCore.Examples.nonvacuous_holder_watermark_inequality",
+        "AgentCore.Examples.nonvacuous_post_issuance_watermark_cutoff"
+      ],
+      "witnessCoverage": {
+        "AgentCore.AuthorityLedger.resolution_issue_records_authorized_evidence": [
+          "AgentCore.Examples.nonvacuous_authorized_resolution_issue"
+        ],
+        "AgentCore.AuthorityLedger.bump_scope_stales_path_evidence": [
+          "AgentCore.Examples.nonvacuous_stale_mediated_denial"
+        ],
+        "AgentCore.AuthorityLedger.direct_deadline_cannot_exceed_original_lease": [
+          "AgentCore.Examples.nonvacuous_resolution_deadline_bound"
+        ],
+        "AgentCore.AuthorityLedger.holder_observation_joins_epoch": [
+          "AgentCore.Examples.nonvacuous_stale_mediated_denial"
+        ],
+        "AgentCore.AuthorityLedger.direct_holder_watermark_is_not_ahead": [
+          "AgentCore.Examples.nonvacuous_holder_watermark_inequality"
+        ],
+        "AgentCore.direct_ready_uses_exact_holder_watermark_inequality": [
+          "AgentCore.Examples.nonvacuous_holder_watermark_inequality"
+        ],
+        "AgentCore.post_issuance_watermark_cannot_cancel_permit": [
+          "AgentCore.Examples.nonvacuous_post_issuance_watermark_cutoff"
+        ]
+      },
+      "remainingEvidence": [
+        "trusted monotonic time and immutable deadline implementation",
+        "holder-scoped invalidation observation and delivery refinement"
+      ]
+    },
+    {
+      "id": "AC-MATERIALIZE-001",
+      "summary": "Foreign-subject guest allow attenuation, deny preservation, and epoch-advancing Role rematerialization",
+      "status": "proved-component",
+      "boundary": "Coverage is the pure Role-rule-to-Grant transformation and one abstract rematerialization transition, not Blueprint materialization or durable reconciliation.",
+      "definitions": [
+        "AgentCore.Membership",
+        "AgentCore.Role",
+        "AgentCore.RoleRule",
+        "AgentCore.Subject.isForeign",
+        "AgentCore.roleRuleEligible",
+        "AgentCore.grantOfRoleRule",
+        "AgentCore.materializeRole",
+        "AgentCore.MaterializationStep"
+      ],
+      "theorems": [
+        "AgentCore.guest_allow_is_attenuated",
+        "AgentCore.guest_deny_is_preserved",
+        "AgentCore.rematerialization_advances_epoch"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_foreign_guest_deny",
+        "AgentCore.Examples.nonvacuous_guest_elevated_allow_filtered",
+        "AgentCore.Examples.nonvacuous_role_rematerialization_epoch"
+      ],
+      "witnessCoverage": {
+        "AgentCore.guest_allow_is_attenuated": [
+          "AgentCore.Examples.nonvacuous_guest_elevated_allow_filtered"
+        ],
+        "AgentCore.guest_deny_is_preserved": [
+          "AgentCore.Examples.nonvacuous_foreign_guest_deny"
+        ],
+        "AgentCore.rematerialization_advances_epoch": [
+          "AgentCore.Examples.nonvacuous_role_rematerialization_epoch"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete Role catalog and source-owned Grant reconciliation",
+        "Blueprint validation and idempotent materializer conformance"
+      ]
+    },
+    {
+      "id": "AC-PLACEMENT-001",
+      "summary": "Four-set placement order plus the formal conservative mediated boundary for execute",
+      "status": "proved-component",
+      "boundary": "The selector covers its three ordered branches and empty result. Formal execute is always mediated because Turn-owned Environment Session direct eligibility is intentionally not modeled; input truth and actual isolation are external.",
+      "definitions": [
+        "AgentCore.Placement",
+        "AgentCore.PlacementSet",
+        "AgentCore.PlacementSnapshot",
+        "AgentCore.PlacementSet.intersect",
+        "AgentCore.placementIntersection",
+        "AgentCore.choosePlacement",
+        "AgentCore.PlacementSnapshot.Valid",
+        "AgentCore.defaultTier",
+        "AgentCore.effectiveTier"
+      ],
+      "theorems": [
+        "AgentCore.placement_prefers_dynamic",
+        "AgentCore.placement_uses_provider_without_dynamic",
+        "AgentCore.placement_uses_bundled_last",
+        "AgentCore.empty_intersection_rejects",
+        "AgentCore.execute_is_formally_mediated"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_all_mode_preference",
+        "AgentCore.Examples.nonvacuous_empty_placement_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.placement_prefers_dynamic": [
+          "AgentCore.Examples.nonvacuous_all_mode_preference"
+        ],
+        "AgentCore.placement_uses_provider_without_dynamic": [
+          "AgentCore.Examples.nonvacuous_all_mode_preference"
+        ],
+        "AgentCore.placement_uses_bundled_last": [
+          "AgentCore.Examples.nonvacuous_all_mode_preference"
+        ],
+        "AgentCore.empty_intersection_rejects": [
+          "AgentCore.Examples.nonvacuous_empty_placement_rejected"
+        ],
+        "AgentCore.execute_is_formally_mediated": [
+          "AgentCore.Examples.nonvacuous_all_mode_preference"
+        ]
+      },
+      "remainingEvidence": [
+        "truthful four-set input construction",
+        "runtime isolation-mode enforcement"
+      ]
+    },
+    {
+      "id": "AC-TRUST-001",
+      "summary": "Source-independent channel trust rejects a caller-asserted tier that differs from host derivation",
+      "status": "proved-safety",
+      "boundary": "The theorem is only rejection of a mismatched asserted tier under deriveChannelTrust. Lease-backed self trust is separately covered by Event acceptance.",
+      "definitions": [
+        "AgentCore.TrustTier",
+        "AgentCore.Provenance",
+        "AgentCore.deriveChannelTrust",
+        "AgentCore.acceptsSourceTier",
+        "AgentCore.acceptedTrustSet"
+      ],
+      "theorems": [
+        "AgentCore.source_asserted_tier_rejected"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_live_self_event",
+        "AgentCore.Examples.nonvacuous_source_tier_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.source_asserted_tier_rejected": [
+          "AgentCore.Examples.nonvacuous_source_tier_rejected"
+        ]
+      },
+      "remainingEvidence": [
+        "authenticated ingress and provenance mapping refinement",
+        "rejection of source assertions at every concrete channel boundary"
+      ]
+    },
+    {
+      "id": "AC-LEASE-001",
+      "summary": "Abstract exact-Turn lease identity, reclaim expiry, same-Turn resume, terminal fence, token cutoffs, and renewal/deadline relation",
+      "status": "proved-safety",
+      "boundary": "The claims are properties of LeaseStep and TurnLease.Admits over supplied Time values. They do not prove complete Run lifecycle coverage, scheduling, or concrete clock and transaction behavior.",
+      "definitions": [
+        "AgentCore.LeaseToken",
+        "AgentCore.TurnLease",
+        "AgentCore.TurnLease.Admits",
+        "AgentCore.LeaseLabel",
+        "AgentCore.LeaseStep"
+      ],
+      "theorems": [
+        "AgentCore.lease_turn_immutable",
+        "AgentCore.reclaim_requires_expiry",
+        "AgentCore.resume_is_same_turn",
+        "AgentCore.terminal_fence_is_atomic",
+        "AgentCore.wrong_turn_rejects",
+        "AgentCore.stale_token_rejects",
+        "AgentCore.expired_lease_rejects",
+        "AgentCore.renewal_cannot_extend_resolution_deadline"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot",
+        "AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume",
+        "AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline",
+        "AgentCore.Examples.nonvacuous_wrong_turn_rejection",
+        "AgentCore.Examples.nonvacuous_stale_token_rejection"
+      ],
+      "witnessCoverage": {
+        "AgentCore.lease_turn_immutable": [
+          "AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume"
+        ],
+        "AgentCore.reclaim_requires_expiry": [
+          "AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume"
+        ],
+        "AgentCore.resume_is_same_turn": [
+          "AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume"
+        ],
+        "AgentCore.terminal_fence_is_atomic": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot"
+        ],
+        "AgentCore.wrong_turn_rejects": [
+          "AgentCore.Examples.nonvacuous_wrong_turn_rejection"
+        ],
+        "AgentCore.stale_token_rejects": [
+          "AgentCore.Examples.nonvacuous_stale_token_rejection"
+        ],
+        "AgentCore.expired_lease_rejects": [
+          "AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume"
+        ],
+        "AgentCore.renewal_cannot_extend_resolution_deadline": [
+          "AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline"
+        ]
+      },
+      "remainingEvidence": [
+        "atomic durable lease operations and checks on every concrete writer path",
+        "trusted monotonic clock and full lifecycle conformance"
+      ]
+    },
+    {
+      "id": "AC-APPROVAL-001",
+      "summary": "Unique invocation-level Approval availability, continuation absence, atomic exact first-attempt consumption, and persisted later-item continuation",
+      "status": "proved-safety",
+      "boundary": "Coverage binds one abstract Approval per invocation, continuation absence before consumption, ticket identity/digest/expiry, the exact persisted first EffectAttempt, and a reachable later approved batch-item continuation. It does not prove approval UI, approver authentication, or concrete atomic persistence.",
+      "definitions": [
+        "AgentCore.ApprovalPhase",
+        "AgentCore.ApprovalTicket",
+        "AgentCore.ApprovalContinuation",
+        "AgentCore.ApprovalLedger",
+        "AgentCore.ApprovalLedger.Available",
+        "AgentCore.ApprovalLedger.Continues",
+        "AgentCore.ApprovalContinuation.ValidFirstAttempt",
+        "AgentCore.ApprovalStep",
+        "AgentCore.MediatedStep"
+      ],
+      "theorems": [
+        "AgentCore.approval_available_is_exact",
+        "AgentCore.approval_available_binds_authority_principal",
+        "AgentCore.consumed_approval_unavailable",
+        "AgentCore.approval_start_consumes_persisted_exact_intent",
+        "AgentCore.approval_continuation_is_exact",
+        "AgentCore.approval_continuation_validates_persisted_exact_intent",
+        "AgentCore.approval_is_unique_per_invocation",
+        "AgentCore.approval_available_has_no_continuation",
+        "AgentCore.malformed_first_attempt_cannot_continue"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_request_approve_start_trace",
+        "AgentCore.Examples.nonvacuous_persisted_approval_continuation",
+        "AgentCore.Examples.nonvacuous_approval_start_then_continue",
+        "AgentCore.Examples.nonvacuous_malformed_approval_continuation_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.approval_available_is_exact": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.approval_available_binds_authority_principal": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.consumed_approval_unavailable": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.approval_start_consumes_persisted_exact_intent": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.approval_continuation_is_exact": [
+          "AgentCore.Examples.nonvacuous_persisted_approval_continuation"
+        ],
+        "AgentCore.approval_continuation_validates_persisted_exact_intent": [
+          "AgentCore.Examples.nonvacuous_approval_start_then_continue"
+        ],
+        "AgentCore.approval_is_unique_per_invocation": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.approval_available_has_no_continuation": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.malformed_first_attempt_cannot_continue": [
+          "AgentCore.Examples.nonvacuous_malformed_approval_continuation_rejected"
+        ]
+      },
+      "remainingEvidence": [
+        "authenticated approval interaction and durable consume/start/continuation atomicity",
+        "concrete canonical intent digest implementation"
+      ]
+    },
+    {
+      "id": "AC-EFFECT-001",
+      "summary": "Guarded reachable attempts, future-expiring claims, expired same-ordinal claim recovery, disjoint pre-effect and attempt Receipt IDs, retry, supersession, and derived batch outcomes",
+      "status": "proved-safety",
+      "boundary": "Coverage proves abstract first and retry attempts retain matching persisted admission evidence across reachable mediated transitions, new claims expire after their claim time, and recovery requires an expired prior claim while changing owner without an attempt or ordinal advance and recording a future replacement expiry. Pre-effect and attempt Receipt ID namespaces remain disjoint. It does not prove concrete clock behavior, expiry scheduling fairness, provider effects, or reconciliation liveness.",
+      "definitions": [
+        "AgentCore.EffectAttempt",
+        "AgentCore.PreEffectReceipt",
+        "AgentCore.PreEffectOutcome",
+        "AgentCore.AttemptReceipt",
+        "AgentCore.AttemptOutcome",
+        "AgentCore.ItemOutcome",
+        "AgentCore.ItemReceiptRef",
+        "AgentCore.ItemClaim",
+        "AgentCore.AttemptAdmission",
+        "AgentCore.EffectLedger",
+        "AgentCore.EffectLedger.addRetryAttempt",
+        "AgentCore.NoEffectAttemptFor",
+        "AgentCore.AdmissionMatchesAttempt",
+        "AgentCore.AttemptsHaveGuardedAdmission",
+        "AgentCore.ReceiptIdsDisjoint",
+        "AgentCore.AttemptReceiptTerminalFor",
+        "AgentCore.EffectStep",
+        "AgentCore.ItemCurrentOutcome",
+        "AgentCore.BatchOutcome",
+        "AgentCore.deriveBatchOutcome",
+        "AgentCore.BatchTerminalOutcome",
+        "AgentCore.BatchCurrentOutcome",
+        "AgentCore.Reachable",
+        "AgentCore.ReachableFrom"
+      ],
+      "theorems": [
+        "AgentCore.retry_requires_prior_final_failure",
+        "AgentCore.retry_replaces_current_and_advances_ordinal",
+        "AgentCore.claim_records_future_expiry",
+        "AgentCore.abandoned_claim_recovery_preserves_ordinal_without_attempt",
+        "AgentCore.supersession_is_same_attempt_once",
+        "AgentCore.supersession_at_most_once",
+        "AgentCore.effect_step_preserves_receipt_id_disjointness",
+        "AgentCore.pre_receipt_id_cannot_be_reused_for_attempt",
+        "AgentCore.mixed_terminal_batch_is_partial",
+        "AgentCore.indeterminate_batch_is_current_not_terminal",
+        "AgentCore.terminal_batch_is_derived_not_stored",
+        "AgentCore.reachable_attempts_have_guarded_admission",
+        "AgentCore.reachable_receipt_ids_are_disjoint",
+        "AgentCore.reachable_from_preserves_guarded_attempt_admissions"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_mixed_batch_partial",
+        "AgentCore.Examples.nonvacuous_failed_retry",
+        "AgentCore.Examples.nonvacuous_claim_records_future_expiry",
+        "AgentCore.Examples.nonvacuous_same_attempt_supersession",
+        "AgentCore.Examples.nonvacuous_indeterminate_batch_current_not_terminal",
+        "AgentCore.Examples.nonvacuous_guarded_attempt_reachability",
+        "AgentCore.Examples.nonvacuous_receipt_id_disjointness_rejection",
+        "AgentCore.Examples.nonvacuous_abandoned_claim_same_ordinal_recovery"
+      ],
+      "witnessCoverage": {
+        "AgentCore.retry_requires_prior_final_failure": [
+          "AgentCore.Examples.nonvacuous_failed_retry"
+        ],
+        "AgentCore.retry_replaces_current_and_advances_ordinal": [
+          "AgentCore.Examples.nonvacuous_failed_retry"
+        ],
+        "AgentCore.claim_records_future_expiry": [
+          "AgentCore.Examples.nonvacuous_claim_records_future_expiry"
+        ],
+        "AgentCore.abandoned_claim_recovery_preserves_ordinal_without_attempt": [
+          "AgentCore.Examples.nonvacuous_abandoned_claim_same_ordinal_recovery"
+        ],
+        "AgentCore.supersession_is_same_attempt_once": [
+          "AgentCore.Examples.nonvacuous_same_attempt_supersession"
+        ],
+        "AgentCore.supersession_at_most_once": [
+          "AgentCore.Examples.nonvacuous_same_attempt_supersession"
+        ],
+        "AgentCore.effect_step_preserves_receipt_id_disjointness": [
+          "AgentCore.Examples.nonvacuous_receipt_id_disjointness_rejection"
+        ],
+        "AgentCore.pre_receipt_id_cannot_be_reused_for_attempt": [
+          "AgentCore.Examples.nonvacuous_receipt_id_disjointness_rejection"
+        ],
+        "AgentCore.mixed_terminal_batch_is_partial": [
+          "AgentCore.Examples.nonvacuous_mixed_batch_partial"
+        ],
+        "AgentCore.indeterminate_batch_is_current_not_terminal": [
+          "AgentCore.Examples.nonvacuous_indeterminate_batch_current_not_terminal"
+        ],
+        "AgentCore.terminal_batch_is_derived_not_stored": [
+          "AgentCore.Examples.nonvacuous_mixed_batch_partial"
+        ],
+        "AgentCore.reachable_attempts_have_guarded_admission": [
+          "AgentCore.Examples.nonvacuous_guarded_attempt_reachability"
+        ],
+        "AgentCore.reachable_receipt_ids_are_disjoint": [
+          "AgentCore.Examples.nonvacuous_receipt_id_disjointness_rejection"
+        ],
+        "AgentCore.reachable_from_preserves_guarded_attempt_admissions": [
+          "AgentCore.Examples.nonvacuous_guarded_attempt_reachability"
+        ]
+      },
+      "remainingEvidence": [
+        "trusted concrete time, expiry scheduling fairness, and provider idempotency",
+        "concrete attempt, Receipt, aggregate, and reconciliation persistence"
+      ]
+    },
+    {
+      "id": "AC-EVENT-ROUTING-001",
+      "summary": "Lease-backed self Event acceptance, hostile asserted-tier publication rejection, exact authenticated route projection, and source Event-audit-bound reservation",
+      "status": "proved-safety",
+      "boundary": "Published Events cannot carry caller-asserted trust tiers, self acceptance checks the supplied exact lease, projection copies the reserved projection ID, digest, and target under authenticated evidence, and mediated reservation binds its source Event and source-owner audit. Delivery liveness, Subscription semantics, and concrete transport authenticity are not proved here.",
+      "definitions": [
+        "AgentCore.Event",
+        "AgentCore.HostDerivedTrust",
+        "AgentCore.RouteReservation",
+        "AgentCore.RouteProjection",
+        "AgentCore.EventStore",
+        "AgentCore.EventStep",
+        "AgentCore.ReservationSourceAuditValid"
+      ],
+      "theorems": [
+        "AgentCore.accepted_self_has_live_exact_lease",
+        "AgentCore.stale_or_fabricated_token_cannot_self",
+        "AgentCore.published_event_has_no_asserted_tier",
+        "AgentCore.asserted_tier_publish_rejected",
+        "AgentCore.target_projection_is_exact_authenticated_reservation_projection",
+        "AgentCore.routed_reservation_binds_source_event_audit"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_route_delivery",
+        "AgentCore.Examples.nonvacuous_stale_self_rejection",
+        "AgentCore.Examples.nonvacuous_exact_route_projection",
+        "AgentCore.Examples.nonvacuous_source_reservation_audit_binding",
+        "AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.accepted_self_has_live_exact_lease": [
+          "AgentCore.Examples.nonvacuous_live_self_event"
+        ],
+        "AgentCore.stale_or_fabricated_token_cannot_self": [
+          "AgentCore.Examples.nonvacuous_stale_self_rejection"
+        ],
+        "AgentCore.published_event_has_no_asserted_tier": [
+          "AgentCore.Examples.nonvacuous_live_self_event"
+        ],
+        "AgentCore.asserted_tier_publish_rejected": [
+          "AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected"
+        ],
+        "AgentCore.target_projection_is_exact_authenticated_reservation_projection": [
+          "AgentCore.Examples.nonvacuous_exact_route_projection"
+        ],
+        "AgentCore.routed_reservation_binds_source_event_audit": [
+          "AgentCore.Examples.nonvacuous_source_reservation_audit_binding"
+        ]
+      },
+      "remainingEvidence": [
+        "source-owned reservation and authenticated projection transport refinement",
+        "Subscription matching, delivery, dedupe, and reconciliation conformance"
+      ]
+    },
+    {
+      "id": "AC-AUDIT-001",
+      "summary": "Typed Actor-local audit with invocation-only roots, preserved complete causal chains, reservation projection bridges, exact Receipt outcomes, and local delivery-to-commit causality",
+      "status": "proved-safety",
+      "boundary": "The claims cover invocation-only root admission, typed same-Actor lower-sequence causes, complete chain construction and preservation, exact Receipt audit matching, and local delivery-to-commit causality. Durable storage, complete instrumentation, and cross-Actor transport remain external.",
+      "definitions": [
+        "AgentCore.CommitAuditEvidence",
+        "AgentCore.AuditKind",
+        "AgentCore.MayCause",
+        "AgentCore.AuditEntry",
+        "AgentCore.AuditLog",
+        "AgentCore.RootKindAllowed",
+        "AgentCore.LocalCauseValid",
+        "AgentCore.CausalChain",
+        "AgentCore.CauseChainValid",
+        "AgentCore.AuditOutcomeMatches",
+        "AgentCore.AuditLabel.auditId",
+        "AgentCore.AuditStep"
+      ],
+      "theorems": [
+        "AgentCore.audit_sequence_is_unique",
+        "AgentCore.local_cause_same_actor_lower_sequence",
+        "AgentCore.local_cause_edge_is_typed",
+        "AgentCore.projection_uses_reservation_bridge_not_source_audit",
+        "AgentCore.audit_append_is_locally_acyclic",
+        "AgentCore.audit_step_establishes_causal_chain",
+        "AgentCore.causal_chain_preserved_by_step",
+        "AgentCore.nonroot_cannot_append_without_cause",
+        "AgentCore.every_audited_receipt_outcome_matches",
+        "AgentCore.delivery_audit_can_cause_commit_locally"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_actor_local_typed_audit",
+        "AgentCore.Examples.nonvacuous_projection_reservation_bridge",
+        "AgentCore.Examples.nonvacuous_delivery_local_audit",
+        "AgentCore.Examples.nonvacuous_receipt_audit_append",
+        "AgentCore.Examples.nonvacuous_causal_chain_preserved",
+        "AgentCore.Examples.nonvacuous_nonroot_cause_free_append_impossible"
+      ],
+      "witnessCoverage": {
+        "AgentCore.audit_sequence_is_unique": [
+          "AgentCore.Examples.nonvacuous_actor_local_typed_audit"
+        ],
+        "AgentCore.local_cause_same_actor_lower_sequence": [
+          "AgentCore.Examples.nonvacuous_actor_local_typed_audit"
+        ],
+        "AgentCore.local_cause_edge_is_typed": [
+          "AgentCore.Examples.nonvacuous_actor_local_typed_audit"
+        ],
+        "AgentCore.projection_uses_reservation_bridge_not_source_audit": [
+          "AgentCore.Examples.nonvacuous_projection_reservation_bridge"
+        ],
+        "AgentCore.audit_append_is_locally_acyclic": [
+          "AgentCore.Examples.nonvacuous_actor_local_typed_audit"
+        ],
+        "AgentCore.audit_step_establishes_causal_chain": [
+          "AgentCore.Examples.nonvacuous_projection_reservation_bridge"
+        ],
+        "AgentCore.causal_chain_preserved_by_step": [
+          "AgentCore.Examples.nonvacuous_causal_chain_preserved"
+        ],
+        "AgentCore.nonroot_cannot_append_without_cause": [
+          "AgentCore.Examples.nonvacuous_nonroot_cause_free_append_impossible"
+        ],
+        "AgentCore.every_audited_receipt_outcome_matches": [
+          "AgentCore.Examples.nonvacuous_receipt_audit_append"
+        ],
+        "AgentCore.delivery_audit_can_cause_commit_locally": [
+          "AgentCore.Examples.nonvacuous_delivery_local_audit"
+        ]
+      },
+      "remainingEvidence": [
+        "append-only durable Actor-local storage refinement",
+        "complete concrete causal instrumentation and reservation bridge validation"
+      ]
+    },
+    {
+      "id": "AC-RUN-001",
+      "summary": "Valid Run pins/migration, stable-identity admission reserve/complete/close, exact outstanding frontier, sibling cancellation, and settlement",
+      "status": "proved-component",
+      "boundary": "RunPins validate Agent identity and unique closure at creation and migration; source-record resolvability remains external. Registry obligations contain only pre-remote Approval, item-key, route, attempt, or planned-commit identities; completion is reserved-only, and terminalization snapshots exactly reserved minus completed with membership equivalence. Concrete remote reservation enforcement and durable transactions remain refinement obligations.",
+      "definitions": [
+        "AgentCore.RunPins",
+        "AgentCore.RunPins.Valid",
+        "AgentCore.BlueprintPin",
+        "AgentCore.AgentPin",
+        "AgentCore.EffectivePolicyPin",
+        "AgentCore.ModelPolicyPin",
+        "AgentCore.EnvironmentPin",
+        "AgentCore.PackagePin",
+        "AgentCore.TurnPins",
+        "AgentCore.Run",
+        "AgentCore.Turn",
+        "AgentCore.OpenObligation",
+        "AgentCore.ForcedCancellation",
+        "AgentCore.RunAdmissionRegistry",
+        "AgentCore.RunAdmissionRegistry.reserve",
+        "AgentCore.RunAdmissionRegistry.complete",
+        "AgentCore.RunAdmissionRegistry.outstanding",
+        "AgentCore.AdmissionReservation",
+        "AgentCore.AdmissionReservation.ValidIn",
+        "AgentCore.TerminalizationControl",
+        "AgentCore.TerminalizationControl.Valid",
+        "AgentCore.TerminalSnapshot",
+        "AgentCore.TerminalSnapshotCoherent",
+        "AgentCore.CompleteAdmittedFrontier",
+        "AgentCore.SiblingTurnsTerminalAndUnheld",
+        "AgentCore.GraphStore",
+        "AgentCore.GraphStep",
+        "AgentCore.CurrentReceiptAudited",
+        "AgentCore.RouteDeliveryAudited",
+        "AgentCore.ExactAuditObligationDischarged",
+        "AgentCore.ObligationDischarged",
+        "AgentCore.Settled"
+      ],
+      "theorems": [
+        "AgentCore.terminal_snapshot_is_coherent",
+        "AgentCore.terminal_snapshot_captures_complete_frontier",
+        "AgentCore.environment_pin_identity_prevents_revision_alias",
+        "AgentCore.forced_cancellation_is_system_fence",
+        "AgentCore.terminalization_requires_terminal_and_unheld_siblings",
+        "AgentCore.terminalization_requires_current_turn_pins",
+        "AgentCore.migrated_old_turn_cannot_terminalize",
+        "AgentCore.reserved_obligation_is_in_registry",
+        "AgentCore.reserved_obligation_yields_valid_reservation",
+        "AgentCore.terminalization_closes_exact_registry",
+        "AgentCore.completed_obligation_is_reserved",
+        "AgentCore.terminal_snapshot_has_no_omission_or_extra",
+        "AgentCore.migration_requires_valid_target_pins"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_audit_complete_derived_settled",
+        "AgentCore.Examples.nonvacuous_empty_coherent_terminalization",
+        "AgentCore.Examples.nonvacuous_unheld_nonterminal_sibling_rejected",
+        "AgentCore.Examples.nonvacuous_exact_run_pin_sources",
+        "AgentCore.Examples.nonvacuous_forced_sibling_system_fence",
+        "AgentCore.Examples.nonvacuous_migrated_old_turn_rejected",
+        "AgentCore.Examples.nonvacuous_run_admission_reservation",
+        "AgentCore.Examples.nonvacuous_exact_remote_reservation_epoch",
+        "AgentCore.Examples.nonvacuous_run_admission_completion",
+        "AgentCore.Examples.nonvacuous_registry_nonempty_and_completed_frontiers",
+        "AgentCore.Examples.nonvacuous_invalid_migration_target_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.terminal_snapshot_is_coherent": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot",
+          "AgentCore.Examples.nonvacuous_empty_coherent_terminalization"
+        ],
+        "AgentCore.terminal_snapshot_captures_complete_frontier": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot",
+          "AgentCore.Examples.nonvacuous_empty_coherent_terminalization"
+        ],
+        "AgentCore.environment_pin_identity_prevents_revision_alias": [
+          "AgentCore.Examples.nonvacuous_exact_run_pin_sources"
+        ],
+        "AgentCore.forced_cancellation_is_system_fence": [
+          "AgentCore.Examples.nonvacuous_forced_sibling_system_fence"
+        ],
+        "AgentCore.terminalization_requires_terminal_and_unheld_siblings": [
+          "AgentCore.Examples.nonvacuous_unheld_nonterminal_sibling_rejected"
+        ],
+        "AgentCore.terminalization_requires_current_turn_pins": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot"
+        ],
+        "AgentCore.migrated_old_turn_cannot_terminalize": [
+          "AgentCore.Examples.nonvacuous_migrated_old_turn_rejected"
+        ],
+        "AgentCore.reserved_obligation_is_in_registry": [
+          "AgentCore.Examples.nonvacuous_run_admission_reservation"
+        ],
+        "AgentCore.reserved_obligation_yields_valid_reservation": [
+          "AgentCore.Examples.nonvacuous_exact_remote_reservation_epoch"
+        ],
+        "AgentCore.terminalization_closes_exact_registry": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot",
+          "AgentCore.Examples.nonvacuous_empty_coherent_terminalization"
+        ],
+        "AgentCore.completed_obligation_is_reserved": [
+          "AgentCore.Examples.nonvacuous_run_admission_completion"
+        ],
+        "AgentCore.terminal_snapshot_has_no_omission_or_extra": [
+          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot",
+          "AgentCore.Examples.nonvacuous_empty_coherent_terminalization",
+          "AgentCore.Examples.nonvacuous_registry_nonempty_and_completed_frontiers"
+        ],
+        "AgentCore.migration_requires_valid_target_pins": [
+          "AgentCore.Examples.nonvacuous_invalid_migration_target_rejected"
+        ]
+      },
+      "remainingEvidence": [
+        "complete lifecycle, canonical obligation-key, and remote reservation validation conformance",
+        "source-record resolvability and concrete RunPins, registry, migration, terminalization, cancellation inbox, and settlement refinement"
+      ]
+    },
+    {
+      "id": "AC-GRAPH-WRITER-001",
+      "summary": "Fresh graph creation and migration, unary pin inheritance, equal-pinned current merge heads, exact delivery and typed control-writer evidence, and exact-Turn synthesis",
+      "status": "proved-safety",
+      "boundary": "Coverage proves abstract child Run branch/root and migration commit freshness with rejection of existing IDs, migration branch ownership, selected CommitAllowed consequences, and exact typed control audit evidence. It does not prove concrete expected-head CAS, full ancestry, every writer/kind row, undo, or merge algorithm correctness.",
+      "definitions": [
+        "AgentCore.RunCommitKind",
+        "AgentCore.CommitWriter",
+        "AgentCore.RunCommit",
+        "AgentCore.RunBranch",
+        "AgentCore.UnaryPinsInherited",
+        "AgentCore.CurrentMergeHeads",
+        "AgentCore.ParentsClosed",
+        "AgentCore.DeliveryEvidence",
+        "AgentCore.ControlCommitAudit",
+        "AgentCore.SuccessfulControl",
+        "AgentCore.SuccessfulSynthesis",
+        "AgentCore.CommitAllowed"
+      ],
+      "theorems": [
+        "AgentCore.unary_commit_inherits_pins",
+        "AgentCore.merge_has_equal_pinned_current_heads",
+        "AgentCore.spawn_child_requires_fresh_branch_and_root",
+        "AgentCore.migration_requires_fresh_commit_on_owned_branch",
+        "AgentCore.spawn_child_rejects_existing_root",
+        "AgentCore.migration_rejects_existing_commit",
+        "AgentCore.delivery_commit_matches_route",
+        "AgentCore.system_control_writer_uses_exact_typed_audit",
+        "AgentCore.synthesis_is_system_controlled_exact_turn"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_pinned_root_writer",
+        "AgentCore.Examples.nonvacuous_unary_commit_pin_inheritance",
+        "AgentCore.Examples.nonvacuous_equal_pin_current_merge_heads",
+        "AgentCore.Examples.nonvacuous_delivery_writer",
+        "AgentCore.Examples.nonvacuous_system_synthesis_writer",
+        "AgentCore.Examples.nonvacuous_graph_freshness_rejection",
+        "AgentCore.Examples.nonvacuous_typed_system_writer_audit"
+      ],
+      "witnessCoverage": {
+        "AgentCore.unary_commit_inherits_pins": [
+          "AgentCore.Examples.nonvacuous_unary_commit_pin_inheritance",
+          "AgentCore.Examples.nonvacuous_pinned_root_writer"
+        ],
+        "AgentCore.merge_has_equal_pinned_current_heads": [
+          "AgentCore.Examples.nonvacuous_equal_pin_current_merge_heads"
+        ],
+        "AgentCore.spawn_child_requires_fresh_branch_and_root": [
+          "AgentCore.Examples.nonvacuous_graph_freshness_rejection"
+        ],
+        "AgentCore.migration_requires_fresh_commit_on_owned_branch": [
+          "AgentCore.Examples.nonvacuous_graph_freshness_rejection"
+        ],
+        "AgentCore.spawn_child_rejects_existing_root": [
+          "AgentCore.Examples.nonvacuous_graph_freshness_rejection"
+        ],
+        "AgentCore.migration_rejects_existing_commit": [
+          "AgentCore.Examples.nonvacuous_graph_freshness_rejection"
+        ],
+        "AgentCore.delivery_commit_matches_route": [
+          "AgentCore.Examples.nonvacuous_delivery_writer",
+          "AgentCore.Examples.nonvacuous_route_delivery"
+        ],
+        "AgentCore.system_control_writer_uses_exact_typed_audit": [
+          "AgentCore.Examples.nonvacuous_typed_system_writer_audit"
+        ],
+        "AgentCore.synthesis_is_system_controlled_exact_turn": [
+          "AgentCore.Examples.nonvacuous_system_synthesis_writer"
+        ]
+      },
+      "remainingEvidence": [
+        "complete writer matrix, expected-head CAS, ancestry, migration execution, and undo coverage",
+        "concrete graph and merge implementation conformance"
+      ]
+    },
+    {
+      "id": "AC-COMPOSED-001",
+      "summary": "Direct admission with exact Turn/run/domain/placement and lease expiry; mediated exact Run-owner reservation/epoch, optional-Turn owner audit, routed projection digest, stale denial, persisted approval identity, and coherent settlement",
+      "status": "proved-safety",
+      "boundary": "The exact lease gate binds the token to a running Turn, owning Run domain, and Turn placement, while direct checks bind actual lease expiry and the separate holder-watermark inequality. Every Run-domain MediatedReady resolves the exact owning Run and validates its carried AdmissionReservation against the current open registry epoch and outstanding canonical obligation; Approval, item-claim, approved-effect, and continuation constructors bind that reservation to their exact obligation, and a changed epoch blocks readiness. Optional-Turn mediation still requires an authenticated owning-Actor audit entry. Settled is constructively inhabited, not a general preservation theorem.",
+      "definitions": [
+        "AgentCore.SystemState",
+        "AgentCore.AdmissionRequest",
+        "AgentCore.AdmissionRequest.ReservedFor",
+        "AgentCore.AdmissionRequest.ReservesItem",
+        "AgentCore.CallerEvidence",
+        "AgentCore.domainOwner",
+        "AgentCore.InvocationHeader.RouteEvidenceConsistent",
+        "AgentCore.ExactTurnContext",
+        "AgentCore.ExactLeaseGate",
+        "AgentCore.MediatedLeaseGate",
+        "AgentCore.RunReservationGate",
+        "AgentCore.CallerGate",
+        "AgentCore.RouteGate",
+        "AgentCore.DirectReady",
+        "AgentCore.MediatedReady",
+        "AgentCore.DirectStep",
+        "AgentCore.MediatedStep",
+        "AgentCore.CurrentReceiptAudited",
+        "AgentCore.RouteDeliveryAudited",
+        "AgentCore.ExactAuditObligationDischarged",
+        "AgentCore.ObligationDischarged",
+        "AgentCore.Settled"
+      ],
+      "theorems": [
+        "AgentCore.direct_admission_is_nondurable",
+        "AgentCore.direct_checks_exact_current_incarnation",
+        "AgentCore.exact_turn_lease_gate_binds_run_domain_and_placement",
+        "AgentCore.direct_resolution_uses_actual_lease_expiry",
+        "AgentCore.mediated_without_turn_uses_owning_actor_path",
+        "AgentCore.mediated_without_turn_has_exact_owner_audit",
+        "AgentCore.mediated_ready_validates_exact_run_reservation",
+        "AgentCore.mediated_ready_reserves_exact_obligation",
+        "AgentCore.changed_registry_epoch_blocks_mediated_ready",
+        "AgentCore.approval_admission_requires_reserved_obligation",
+        "AgentCore.item_claim_requires_reserved_obligation",
+        "AgentCore.approved_effect_admission_requires_reserved_item",
+        "AgentCore.continued_effect_admission_requires_reserved_item",
+        "AgentCore.routed_mediated_validates_projection_digest",
+        "AgentCore.stale_mediated_denial_matches_intent",
+        "AgentCore.settled_has_coherent_snapshot_and_exact_obligations",
+        "AgentCore.item_obligation_uses_exact_audit",
+        "AgentCore.direct_has_no_durable_side_effect",
+        "AgentCore.mediated_rechecks_current_authority_path",
+        "AgentCore.approved_execution_uses_persisted_identity"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_optional_turn_owner_audit",
+        "AgentCore.Examples.nonvacuous_stale_mediated_denial",
+        "AgentCore.Examples.nonvacuous_exact_mediated_run_reservation",
+        "AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected"
+      ],
+      "witnessCoverage": {
+        "AgentCore.direct_admission_is_nondurable": [
+          "AgentCore.Examples.nonvacuous_direct_nondurable"
+        ],
+        "AgentCore.direct_checks_exact_current_incarnation": [
+          "AgentCore.Examples.nonvacuous_direct_nondurable"
+        ],
+        "AgentCore.exact_turn_lease_gate_binds_run_domain_and_placement": [
+          "AgentCore.Examples.nonvacuous_direct_nondurable"
+        ],
+        "AgentCore.direct_resolution_uses_actual_lease_expiry": [
+          "AgentCore.Examples.nonvacuous_direct_nondurable"
+        ],
+        "AgentCore.mediated_without_turn_uses_owning_actor_path": [
+          "AgentCore.Examples.nonvacuous_optional_turn_owner_audit"
+        ],
+        "AgentCore.mediated_without_turn_has_exact_owner_audit": [
+          "AgentCore.Examples.nonvacuous_optional_turn_owner_audit"
+        ],
+        "AgentCore.mediated_ready_validates_exact_run_reservation": [
+          "AgentCore.Examples.nonvacuous_exact_mediated_run_reservation"
+        ],
+        "AgentCore.mediated_ready_reserves_exact_obligation": [
+          "AgentCore.Examples.nonvacuous_exact_mediated_run_reservation"
+        ],
+        "AgentCore.changed_registry_epoch_blocks_mediated_ready": [
+          "AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected"
+        ],
+        "AgentCore.approval_admission_requires_reserved_obligation": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.item_claim_requires_reserved_obligation": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace",
+          "AgentCore.Examples.nonvacuous_approval_start_then_continue"
+        ],
+        "AgentCore.approved_effect_admission_requires_reserved_item": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ],
+        "AgentCore.continued_effect_admission_requires_reserved_item": [
+          "AgentCore.Examples.nonvacuous_approval_start_then_continue"
+        ],
+        "AgentCore.routed_mediated_validates_projection_digest": [
+          "AgentCore.Examples.nonvacuous_projection_reservation_bridge"
+        ],
+        "AgentCore.stale_mediated_denial_matches_intent": [
+          "AgentCore.Examples.nonvacuous_stale_mediated_denial"
+        ],
+        "AgentCore.settled_has_coherent_snapshot_and_exact_obligations": [
+          "AgentCore.Examples.nonvacuous_audit_complete_derived_settled"
+        ],
+        "AgentCore.item_obligation_uses_exact_audit": [
+          "AgentCore.Examples.nonvacuous_audit_complete_derived_settled"
+        ],
+        "AgentCore.direct_has_no_durable_side_effect": [
+          "AgentCore.Examples.nonvacuous_direct_nondurable"
+        ],
+        "AgentCore.mediated_rechecks_current_authority_path": [
+          "AgentCore.Examples.nonvacuous_optional_turn_owner_audit"
+        ],
+        "AgentCore.approved_execution_uses_persisted_identity": [
+          "AgentCore.Examples.nonvacuous_request_approve_start_trace"
+        ]
+      },
+      "remainingEvidence": [
+        "general settlement safety theorem and complete obligation lifecycle",
+        "concrete reservation validation, transaction atomicity, and single-owner storage refinement"
+      ]
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "ASM-STRUCTURAL-DIGEST",
+      "summary": "InvocationDigest is idealized as complete structural identity; canonical serialization and collision resistance are separate obligations.",
+      "status": "operational-assumption"
+    },
+    {
+      "id": "ASM-TRUTHFUL-VERIFICATION-INPUTS",
+      "summary": "Verification, authentication, provenance, Principal, Actor, Tenant, and bridge-authority inputs supplied to the model are truthful.",
+      "status": "operational-assumption"
+    },
+    {
+      "id": "ASM-LIVENESS-TIME-INVALIDATION",
+      "summary": "Time is monotonic and external invalidation is eventually delivered only for liveness; safety assumes neither delivery, fairness, nor progress.",
+      "status": "operational-assumption"
+    },
+    {
+      "id": "ASM-TRANSITION-ATOMICITY",
+      "summary": "Each abstract transition is atomic and guarded writes linearize; concrete storage must establish this separately.",
+      "status": "operational-assumption"
+    },
+    {
+      "id": "ASM-SOURCE-PROJECTION-AUTHENTICITY",
+      "summary": "The source Actor owns RouteReservation and the target accepts only an authenticated projection of that reservation.",
+      "status": "operational-assumption"
+    },
+    {
+      "id": "ASM-CLOSED-WORLD-TRANSITIONS",
+      "summary": "The modeled transition and writer vocabularies are closed; no unmodeled mutation path changes modeled state.",
+      "status": "operational-assumption"
+    },
+    {
+      "id": "ASM-IMPLEMENTATION-REFINEMENT-SEPARATE",
+      "summary": "Implementation conformance is established separately by SPEC evidence and tests, never inferred from theorem names or checker success.",
+      "status": "refinement-non-goal"
+    }
+  ],
+  "nonClaims": [
+    {
+      "id": "AC-REP-GATEKEEPER",
+      "summary": "Gatekeeper representation helpers are not designated; provider credential custody and approval-gateway runtime semantics are not formally claimed.",
+      "status": "component-shape-nonclaim"
+    },
+    {
+      "id": "AC-REP-CONSENT",
+      "summary": "Consent representation helpers are not designated; pairing, revocation delivery, device transport, and consent runtime semantics are not formally claimed.",
+      "status": "component-shape-nonclaim"
+    },
+    {
+      "id": "AC-REP-REACTION",
+      "summary": "Reaction representation helpers are not designated; channel routing, delivery, payload mapping, and reaction runtime semantics are not formally claimed.",
+      "status": "component-shape-nonclaim"
+    },
+    {
+      "id": "AC-REP-MOA",
+      "summary": "Mixture-of-agents representation helpers are not designated; orchestration, judging, aggregation quality, and profile runtime semantics are not formally claimed.",
+      "status": "component-shape-nonclaim"
+    },
+    {
+      "id": "NC-SURFACE-RUNTIME-ACTIONS",
+      "summary": "Surface rendering, live-state isolation, action semantics, transport, and composition are specified but not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-PROFILE-RUNTIME",
+      "summary": "Full profile and representation runtime semantics, UX, product behavior, and profile conformance are not formally claimed.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-RFC6902-PATCH",
+      "summary": "RFC 6902 patch correctness and compatibility are not claimed by structural ViewPatch replay.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-FACET-MANIFEST-RUNTIME",
+      "summary": "Facet manifest/runtime correspondence, operation implementation, profile loading, and declared-impact truth are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-CONTRIBUTIONS-SLOTS",
+      "summary": "Contribution validation, slot ownership, ordering, conflict handling, and materialized slot semantics are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-COMMANDS",
+      "summary": "Command contribution parsing, dispatch, argument validation, authorization, and result semantics are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-INTERCEPTORS",
+      "summary": "Runtime interceptor ordering, execution, durable persistence, and replay lookup are not modeled; only structural ordered per-item transformation association is modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-ENVIRONMENT-LIFECYCLE",
+      "summary": "Environment and Session provisioning, rotation, checkpoint, provider, and runtime lifecycle semantics are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE",
+      "summary": "The normative direct execute exception for a Turn-owned Environment Session is not modeled; formal defaultTier conservatively classifies every execute Invocation as mediated.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-SLATE-RUNTIME",
+      "summary": "Slate version, deployment, preview, runtime authority, and generated-application behavior are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-CONTENTSTORE",
+      "summary": "Exact ContentStore resolution, persistence, retention, and ContentRef behavior are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-CODECS",
+      "summary": "Exact versioned record codecs, canonical encoding, tolerant reads, and upcasts are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-PROTOCOL-DISPATCHER",
+      "summary": "The exact command protocol dispatcher, envelopes, rejection ordering, concurrency checks, and dispatch behavior are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-BLUEPRINT-MATERIALIZATION",
+      "summary": "Exact Package and Blueprint validation, loading, contribution assembly, and Blueprint materialization are not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-CLOUDFLARE-BEHAVIOR",
+      "summary": "Concrete Cloudflare permit issuance, signatures, substitution checks, nonce consumption, Durable Object transactions, storage, network, topology, and deployment behavior are not modeled; only post-issuance watermark irreversibility is abstractly modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-TEMPORAL-LIVENESS",
+      "summary": "Temporal delivery, fairness, scheduling, reconciliation progress, and eventual invalidation are not proved.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE",
+      "summary": "Cryptographic digest collision resistance is not proved; InvocationDigest is ideal structural identity.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-TYPESCRIPT-SUBSTRATE-REFINEMENT",
+      "summary": "No TypeScript, adapter, substrate, provider, deployment, profile, or product is proved to refine the Lean model.",
+      "status": "refinement-non-goal"
+    }
+  ],
+  "formalBoundary": {
+    "requiredAreaIds": [
+      "L0_IDENTITY_AUTHORITY",
+      "L1_FACET_MANIFEST_RUNTIME",
+      "L1_CONTRIBUTIONS_SLOTS",
+      "L1_COMMANDS",
+      "L1_INTERCEPTORS",
+      "L1_ENVIRONMENT_SESSION",
+      "L1_SLATE",
+      "L2_EXECUTION",
+      "L3_INTERACTION",
+      "L4_MEDIATION",
+      "L5_SUBSTRATE",
+      "L6_DEFINITION_PLANE",
+      "CLOUDFLARE_PROFILE",
+      "PROFILES_REPRESENTATIONS",
+      "CONFORMANCE_REFINEMENT"
+    ],
+    "areas": [
+      {
+        "id": "L0_IDENTITY_AUTHORITY",
+        "spec": "SPEC §3",
+        "requirementIds": [
+          "AC-AUTH-001",
+          "AC-AUTH-RESOLUTION-001",
+          "AC-MATERIALIZE-001"
+        ],
+        "nonClaimIds": [],
+        "assumptionIds": [
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS",
+          "ASM-LIVENESS-TIME-INVALIDATION"
+        ]
+      },
+      {
+        "id": "L1_FACET_MANIFEST_RUNTIME",
+        "spec": "SPEC §4.1",
+        "requirementIds": [
+          "AC-PLACEMENT-001"
+        ],
+        "nonClaimIds": [
+          "NC-FACET-MANIFEST-RUNTIME"
+        ],
+        "assumptionIds": [
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS"
+        ]
+      },
+      {
+        "id": "L1_CONTRIBUTIONS_SLOTS",
+        "spec": "SPEC §4.2",
+        "requirementIds": [],
+        "nonClaimIds": [
+          "NC-CONTRIBUTIONS-SLOTS"
+        ],
+        "assumptionIds": []
+      },
+      {
+        "id": "L1_COMMANDS",
+        "spec": "SPEC §4.3",
+        "requirementIds": [],
+        "nonClaimIds": [
+          "NC-COMMANDS"
+        ],
+        "assumptionIds": []
+      },
+      {
+        "id": "L1_INTERCEPTORS",
+        "spec": "SPEC §4.4",
+        "requirementIds": [],
+        "nonClaimIds": [
+          "NC-INTERCEPTORS"
+        ],
+        "assumptionIds": []
+      },
+      {
+        "id": "L1_ENVIRONMENT_SESSION",
+        "spec": "SPEC §4.5",
+        "requirementIds": [],
+        "nonClaimIds": [
+          "NC-ENVIRONMENT-LIFECYCLE",
+          "NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE"
+        ],
+        "assumptionIds": []
+      },
+      {
+        "id": "L1_SLATE",
+        "spec": "SPEC §4.6",
+        "requirementIds": [],
+        "nonClaimIds": [
+          "NC-SLATE-RUNTIME"
+        ],
+        "assumptionIds": []
+      },
+      {
+        "id": "L2_EXECUTION",
+        "spec": "SPEC §5",
+        "requirementIds": [
+          "AC-LEASE-001",
+          "AC-RUN-001",
+          "AC-GRAPH-WRITER-001",
+          "AC-COMPOSED-001"
+        ],
+        "nonClaimIds": [
+          "NC-TEMPORAL-LIVENESS"
+        ],
+        "assumptionIds": [
+          "ASM-LIVENESS-TIME-INVALIDATION",
+          "ASM-TRANSITION-ATOMICITY",
+          "ASM-CLOSED-WORLD-TRANSITIONS"
+        ]
+      },
+      {
+        "id": "L3_INTERACTION",
+        "spec": "SPEC §6",
+        "requirementIds": [
+          "AC-STRUCTURAL-001",
+          "AC-TRUST-001",
+          "AC-EVENT-ROUTING-001",
+          "AC-AUDIT-001"
+        ],
+        "nonClaimIds": [
+          "NC-SURFACE-RUNTIME-ACTIONS",
+          "NC-RFC6902-PATCH",
+          "NC-TEMPORAL-LIVENESS"
+        ],
+        "assumptionIds": [
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS",
+          "ASM-LIVENESS-TIME-INVALIDATION",
+          "ASM-SOURCE-PROJECTION-AUTHENTICITY"
+        ]
+      },
+      {
+        "id": "L4_MEDIATION",
+        "spec": "SPEC §7",
+        "requirementIds": [
+          "AC-STRUCTURAL-001",
+          "AC-AUTH-RESOLUTION-001",
+          "AC-LEASE-001",
+          "AC-APPROVAL-001",
+          "AC-EFFECT-001",
+          "AC-AUDIT-001",
+          "AC-COMPOSED-001"
+        ],
+        "nonClaimIds": [
+          "NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE",
+          "NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE"
+        ],
+        "assumptionIds": [
+          "ASM-STRUCTURAL-DIGEST",
+          "ASM-TRANSITION-ATOMICITY"
+        ]
+      },
+      {
+        "id": "L5_SUBSTRATE",
+        "spec": "SPEC §8",
+        "requirementIds": [
+          "AC-AUDIT-001",
+          "AC-GRAPH-WRITER-001",
+          "AC-COMPOSED-001"
+        ],
+        "nonClaimIds": [
+          "NC-CONTENTSTORE",
+          "NC-CODECS",
+          "NC-PROTOCOL-DISPATCHER"
+        ],
+        "assumptionIds": [
+          "ASM-TRANSITION-ATOMICITY",
+          "ASM-SOURCE-PROJECTION-AUTHENTICITY",
+          "ASM-CLOSED-WORLD-TRANSITIONS"
+        ]
+      },
+      {
+        "id": "L6_DEFINITION_PLANE",
+        "spec": "SPEC §9",
+        "requirementIds": [
+          "AC-MATERIALIZE-001",
+          "AC-PLACEMENT-001",
+          "AC-RUN-001"
+        ],
+        "nonClaimIds": [
+          "NC-BLUEPRINT-MATERIALIZATION"
+        ],
+        "assumptionIds": [
+          "ASM-CLOSED-WORLD-TRANSITIONS"
+        ]
+      },
+      {
+        "id": "CLOUDFLARE_PROFILE",
+        "spec": "SPEC §10",
+        "requirementIds": [],
+        "nonClaimIds": [
+          "NC-CLOUDFLARE-BEHAVIOR"
+        ],
+        "assumptionIds": []
+      },
+      {
+        "id": "PROFILES_REPRESENTATIONS",
+        "spec": "SPEC §11 and §12",
+        "requirementIds": [],
+        "nonClaimIds": [
+          "AC-REP-GATEKEEPER",
+          "AC-REP-CONSENT",
+          "AC-REP-REACTION",
+          "AC-REP-MOA",
+          "NC-PROFILE-RUNTIME"
+        ],
+        "assumptionIds": []
+      },
+      {
+        "id": "CONFORMANCE_REFINEMENT",
+        "spec": "SPEC §13 and §14",
+        "requirementIds": [
+          "AC-STRUCTURAL-001",
+          "AC-AUTH-001",
+          "AC-AUTH-RESOLUTION-001",
+          "AC-MATERIALIZE-001",
+          "AC-PLACEMENT-001",
+          "AC-TRUST-001",
+          "AC-LEASE-001",
+          "AC-APPROVAL-001",
+          "AC-EFFECT-001",
+          "AC-EVENT-ROUTING-001",
+          "AC-AUDIT-001",
+          "AC-RUN-001",
+          "AC-GRAPH-WRITER-001",
+          "AC-COMPOSED-001"
+        ],
+        "nonClaimIds": [
+          "NC-TYPESCRIPT-SUBSTRATE-REFINEMENT"
+        ],
+        "assumptionIds": [
+          "ASM-IMPLEMENTATION-REFINEMENT-SEPARATE"
+        ]
+      }
+    ]
+  }
+}

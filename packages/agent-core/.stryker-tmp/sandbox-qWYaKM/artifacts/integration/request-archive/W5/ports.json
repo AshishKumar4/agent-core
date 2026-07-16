@@ -1,0 +1,73 @@
+{
+  "edition": "1.0.0",
+  "request": "W5-CROSS-DOMAIN-PORTS",
+  "status": "requested",
+  "ports": [
+    {
+      "consumer": "src/agents/runs/placement.ts",
+      "owner": "W3 facets",
+      "port": "RunFacetRef",
+      "requirement": "Replace with the canonical FacetRef constructor without changing placement identity"
+    },
+    {
+      "consumer": "src/agents/runs/evidence.ts",
+      "owner": "W6 invocations",
+      "port": "RunEvidencePort",
+      "requirement": "Validate exact Receipt, delivery, control, synthesis, and preexisting audit evidence"
+    },
+    {
+      "consumer": "src/agents/runs/evidence.ts",
+      "owner": "W3 facets and W8 environment",
+      "port": "RunMergePort",
+      "requirement": "Validate canonical parent-order concat content and exact same-Environment common-base tree merge with complete conflict resolution"
+    },
+    {
+      "consumer": "src/agents/runs/runtime.ts",
+      "owner": "W6 invocations",
+      "port": "RunObligationPort",
+      "requirement": "Capture the complete admitted unfinished settlement frontier inside the Run-owner transaction"
+    },
+    {
+      "consumer": "src/agents/runs/settlement.ts",
+      "owner": "W6 invocations",
+      "port": "SettlementEvidencePort",
+      "requirement": "Resolve terminal item Receipts, routes, commits, and exact typed audit chains"
+    },
+    {
+      "consumer": "src/agents/runs/spawn.ts",
+      "owner": "W2 authority and W6 invocations",
+      "port": "RunSpawnPort",
+      "requirement": "Verify successful delegate Receipt and durable authority attenuation before child genesis"
+    },
+    {
+      "consumer": "src/agents/source.ts",
+      "owner": "W0 composition and W8 environment",
+      "port": "RunSourceRevisionPort",
+      "requirement": "Authenticate exact authoritative Agent, effective-policy, ModelPolicy, and Environment revisions and the exact complete Blueprint/PackageLock closure without copying mutable source records"
+    },
+    {
+      "consumer": "src/substrates/sqlite/run.ts",
+      "owner": "W0 composition",
+      "port": "structural RunStoragePort",
+      "requirement": "Compose SqliteRunStorage with RunRepository and run the shared memory and SQLite domain contract"
+    },
+    {
+      "consumer": "src/protocol/run-commands.ts",
+      "owner": "W0 composition",
+      "port": "RunProtocolPort",
+      "requirement": "Bind the closed command family to RunRuntime in the same Actor transaction as protocol Write and Audit evidence"
+    },
+    {
+      "consumer": "src/protocol/run-commands.ts",
+      "owner": "W0 protocol",
+      "port": "dispatcher decision time",
+      "requirement": "Pass the dispatcher's exact guarded decision timestamp into RunProtocolPort execution so lease checks do not use a second clock sample"
+    },
+    {
+      "consumer": "src/agents/runs/executor.ts",
+      "owner": "W0 composition and W6 invocations",
+      "port": "TurnExecutor host composition",
+      "requirement": "Bind lease-scoped commit, checkpoint, invocation, durable inbox, effective prompt state, and cancellation handles to the concrete dispatcher/runtime"
+    }
+  ]
+}

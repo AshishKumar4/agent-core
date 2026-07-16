@@ -1,0 +1,92 @@
+{
+  "edition": "1.0.0",
+  "owner": "W0",
+  "baseline": "f558d0ff3f7e93308481ea09c3bf369abbdd19ba",
+  "waves": [
+    {
+      "owner": "W0",
+      "commit": "15d5367f64e776408d68c53b8d3dcd4132ee65cd",
+      "tree": "ebf4fc4b146acbbce58ad74d6eccaa4f721c9d6e",
+      "checkedPathCount": 129,
+      "bomImportedPathCount": 13,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W1",
+      "commit": "aef9246e02cf3f5ca54ea9b1f84524743d789d26",
+      "tree": "6544042f9953a83121f3bb987a9cdab695ef3780",
+      "checkedPathCount": 86,
+      "bomImportedPathCount": 0,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W2",
+      "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a",
+      "tree": "5695314d1fea86ba594d2c10a30676b47800202e",
+      "checkedPathCount": 65,
+      "bomImportedPathCount": 0,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W3",
+      "commit": "1daf42bf5ca1a71ddc619be78f6f23da213717d3",
+      "tree": "a15d6218311c739fb52d232fb11986d4b387f7f8",
+      "checkedPathCount": 35,
+      "bomImportedPathCount": 0,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W4",
+      "commit": "e89dff315b2e55d6d092c24fc1888978b72cbebd",
+      "tree": "0384d71d927dceb8e25725c0f0d828025622ab5b",
+      "checkedPathCount": 73,
+      "bomImportedPathCount": 0,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W5",
+      "commit": "0fcd7141898615b2234d875ce1018f11c89e354d",
+      "tree": "a90ce6a9b197dbc214f2fb25c2b4cd1c954649ec",
+      "checkedPathCount": 42,
+      "bomImportedPathCount": 0,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W6",
+      "commit": "01a457f9207039ba41aabf1a94f6ab3aaddbfdd2",
+      "tree": "b8f7a6abe47a7dd1d7ee5c40e09a8c44ac561bf6",
+      "checkedPathCount": 43,
+      "bomImportedPathCount": 0,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W7",
+      "commit": "96fbfc9b32ac0ee3705ccfe108ce04f22c83d18c",
+      "tree": "9de0bb8835b4818a32e805f7fdea0b3a719321d5",
+      "checkedPathCount": 39,
+      "bomImportedPathCount": 0,
+      "splitPaths": [],
+      "violations": []
+    },
+    {
+      "owner": "W8",
+      "commit": "a6753495cf0bcacc0ada8b76f3fef6b3f54c80f0",
+      "tree": "28117468fda9ba87da57e883ab9e763e5de531cd",
+      "checkedPathCount": 136,
+      "bomImportedPathCount": 0,
+      "splitPaths": [
+        { "path": "packages/agent-core-cloudflare/tsconfig.build.json", "owner": "W0" },
+        { "path": "packages/agent-core-cloudflare/tsconfig.json", "owner": "W0" }
+      ],
+      "violations": []
+    }
+  ],
+  "violations": []
+}

@@ -1,0 +1,126 @@
+{
+  "edition": "1.0.0",
+  "owner": "W4",
+  "kind": "dependencies",
+  "requests": [
+    {
+      "context": "content",
+      "symbol": "ContentStore.get",
+      "typeOnly": false,
+      "reason": "Resolve each PackageCodeModule ContentRef exactly once and verify its bytes before evaluation.",
+      "spec": "3.5,9.1-9.2,13"
+    },
+    {
+      "context": "facets",
+      "symbol": "Facet|FacetCorrespondenceValidator|FacetRef|PackageInstallationRef",
+      "typeOnly": true,
+      "reason": "Validate exact pinned manifest/runtime correspondence before start and derive SlotEntry contributors from authenticated installation provenance rather than payload data.",
+      "spec": "4.1-4.2,9.3"
+    },
+    {
+      "context": "authority",
+      "symbol": "ScopeRoleBindingMaterializationPort",
+      "typeOnly": true,
+      "reason": "Apply Scope, Role-to-Grant, and Binding projections through the owning Tenant transaction without copying authority records into definition storage.",
+      "spec": "3.3-3.4,8.4,9.3"
+    },
+    {
+      "context": "workspaces",
+      "symbol": "WorkspaceDefinitionMaterializationPort|MaterializationPlanAdmissionPort",
+      "typeOnly": true,
+      "reason": "Apply Facet installations, Subscriptions, slots, command-derived records, and surfaces through Workspace-owned codecs in the exact target Actor transaction, and authenticate the validated projection-to-Actor topology before rollout admission.",
+      "spec": "4.2-4.4,6,8.4,9.3"
+    },
+    {
+      "context": "agents",
+      "symbol": "RunPinsReservationPort|RunMigrationEvidenceReference|AgentSourceRevisionPort",
+      "typeOnly": true,
+      "reason": "Close new pin admission before Package retirement, preserve active Run and Turn pins, verify explicit migration evidence, and authenticate exact Agent source revisions without copying Run state.",
+      "spec": "5.1-5.2,9.3"
+    },
+    {
+      "context": "environments",
+      "symbol": "EnvironmentId|EnvironmentRevisionRecord|EnvironmentDefinitionMaterializationPort",
+      "typeOnly": true,
+      "reason": "Use one W8-owned Environment identity and revision codec for Blueprint materialization and Run source verification; W5's duplicate Environment source record must be removed.",
+      "spec": "4.5,5.2,8.4,9.2-9.3"
+    },
+    {
+      "context": "invocations",
+      "symbol": "EffectivePolicyRevisionPort",
+      "typeOnly": true,
+      "reason": "Authenticate the effective policy and ModelPolicy revisions referenced by RunPins and compose current-epoch enforcement outside W4.",
+      "spec": "5.2,7.2-7.3,13"
+    },
+    {
+      "context": "profiles",
+      "symbol": "PackageModuleInspector|DynamicPackageEvaluator|ProviderPackageEvaluator|BundledPackageRegistry",
+      "typeOnly": false,
+      "reason": "Inspect exact verified module bytes without execution, reject undeclared imports, enforce no ambient outbound authority, scope provider/dynamic handles to one execution context, and route only the selected placement without fallback.",
+      "spec": "4.1,9.1-9.2,10.2"
+    },
+    {
+      "context": "quality",
+      "symbol": "W4AllOwnedRawCoverage",
+      "typeOnly": false,
+      "reason": "Change the building owner denominator from changed W4 files to every production file exclusively owned by W4. The detached W4 manifest locks 31 source files and raw counters of statements 3109/3186, branches 1833/1928, functions 1016/1028, and lines 2940/3009; coverage-final and summary equality is verified with no exclusions or ignore directives.",
+      "spec": "13"
+    },
+    {
+      "context": "quality",
+      "symbol": "definition.package-code-manifest:non-durable:embedded-in-definition.package-release",
+      "typeOnly": false,
+      "reason": "Classify PackageCodeManifest as codec-stable value data embedded exclusively in the Tenant-owned PackageRelease record.",
+      "spec": "8.3-8.4,9.1,13"
+    },
+    {
+      "context": "quality",
+      "symbol": "definition.platform-compatibility:non-durable:value",
+      "typeOnly": false,
+      "reason": "Classify PlatformCompatibility as a codec-stable value embedded in PackageLock and validation attestations.",
+      "spec": "8.3,9.1-9.2,13"
+    },
+    {
+      "context": "quality",
+      "symbol": "definition.validation-attestation:durable:tenant:SqliteMaterializationControlStore",
+      "typeOnly": false,
+      "reason": "Register the immutable Tenant-owned validation evidence that binds Blueprint, PackageLock, schema, declarations, placement, compatibility, and validator version.",
+      "spec": "8.3-8.4,9.2-9.3,13"
+    },
+    {
+      "context": "quality",
+      "symbol": "definition.deployment:durable:tenant:SqliteMaterializationControlStore",
+      "typeOnly": false,
+      "reason": "Register the Tenant-owned deployment CAS head and generation allocator.",
+      "spec": "8.3-8.4,9.3,13"
+    },
+    {
+      "context": "quality",
+      "symbol": "definition.materialization-rollout:durable:tenant:SqliteMaterializationControlStore",
+      "typeOnly": false,
+      "reason": "Register immutable rollout intent, exact predecessor, target closure, and compensation lineage.",
+      "spec": "8.3-8.5,9.3,13"
+    },
+    {
+      "context": "quality",
+      "symbol": "definition.materialization-outbox:durable:tenant:SqliteMaterializationControlStore",
+      "typeOnly": false,
+      "reason": "Register Tenant-owned per-Actor at-least-once dispatch and acknowledged apply evidence.",
+      "spec": "8.3-8.5,9.3,10.1,13"
+    },
+    {
+      "context": "quality",
+      "symbol": "materialization-store|materialization-control-store|package-store",
+      "typeOnly": false,
+      "reason": "Aggregate W4 memory and SQLite shared seam contracts, record fragments, conformance selectors, and RunPins-preservation evidence without W4 editing W0-owned indexes.",
+      "spec": "8.3-8.4,13"
+    },
+    {
+      "context": "spec-owner",
+      "symbol": "PackageCodeManifest|PolicySet|AgentProfile|DeploymentId|RunPinReferenceSet|SecretRefWireShape",
+      "typeOnly": true,
+      "reason": "Ratify the conservative W4 semantics for code-digest preimages and entrypoints, complete PolicySet and Blueprint constituent schemas, deployment cardinality, credential-typed schema positions, and the exact current versus historical Run and Turn references that block active removal or artifact collection.",
+      "spec": "3.5,4.1,5.1-5.2,9.1-9.3"
+    }
+  ]
+}

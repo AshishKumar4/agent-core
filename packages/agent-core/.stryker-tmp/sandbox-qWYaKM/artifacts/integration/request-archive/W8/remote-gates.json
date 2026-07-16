@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "agent-core.consent-gate/v1",
+  "workstream": "W8",
+  "gates": [
+    {
+      "id": "W8-REMOTE-WORKERS-FOR-PLATFORMS",
+      "status": "consent-gated",
+      "product": "Workers for Platforms",
+      "requiredConsent": {
+        "environmentVariable": "AGENT_CORE_W8_REMOTE_DISPATCH_CONSENT",
+        "exactValue": "staging-only",
+        "prohibitedTargets": ["production"]
+      },
+      "requiredInputs": [
+        "CLOUDFLARE_ACCOUNT_ID",
+        "AGENT_CORE_W8_DISPATCH_NAMESPACE",
+        "AGENT_CORE_W8_DISPATCH_SCRIPT"
+      ],
+      "requiredEvidence": [
+        "Remote staging dispatch executes the named predeployed user Worker.",
+        "Only explicitly passed capabilities are visible.",
+        "A missing script fails without dynamic-mode fallback.",
+        "All temporary staging resources are cleaned up."
+      ],
+      "localSubstitute": false
+    },
+    {
+      "id": "W8-REMOTE-SANDBOX",
+      "status": "consent-gated",
+      "product": "Sandbox SDK",
+      "requiredConsent": {
+        "environmentVariable": "AGENT_CORE_W8_REMOTE_SANDBOX_CONSENT",
+        "exactValue": "staging-only",
+        "prohibitedTargets": ["production"]
+      },
+      "requiredInputs": ["CLOUDFLARE_ACCOUNT_ID", "AGENT_CORE_W8_SANDBOX_NAMESPACE"],
+      "requiredEvidence": [
+        "Snapshot or backup preserves exact filesystem bytes across provider restart.",
+        "Restore creates a new generation and never retargets an open Session.",
+        "Exposed-port preview requires authentication.",
+        "Credentials remain outside the agent-visible filesystem and process environment.",
+        "All temporary staging resources are cleaned up."
+      ],
+      "localSubstitute": false
+    }
+  ],
+  "claim": "No remote deployment or provider evidence is claimed by W8 without explicit staging consent."
+}

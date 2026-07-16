@@ -1,0 +1,202 @@
+{
+  "edition": "1.0.0",
+  "owner": "W4",
+  "requirements": [
+    {
+      "id": "C13-ADV-EMPTY-PLACEMENT",
+      "owner": "W4",
+      "specAnchor": "C13-ADV-EMPTY-PLACEMENT",
+      "specTextSha256": "sha256:fa91b059007276909c928df0d26bcb099254f951e467bf407465bdbb9440c5a5",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "testSelectors": [
+        "test/definition/placement.test.ts#placement policy declaration [C13-ADV-EMPTY-PLACEMENT] rejects empty, duplicate, unknown, and unknown codec fields"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-BLUEPRINT-REMATERIALIZE",
+      "owner": "W4",
+      "specAnchor": "C13-BLUEPRINT-REMATERIALIZE",
+      "specTextSha256": "sha256:24c2e693a4af5f20d29a29d1223479fef91705c6ac9953775a25d50a249ff189",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
+      "testSelectors": [
+        "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence [C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-BLUEPRINT-RUN-PINS",
+      "owner": "W4",
+      "specAnchor": "C13-BLUEPRINT-RUN-PINS",
+      "specTextSha256": "sha256:02a893734d7a62ff01191edec5a872ec2a68e7152d50d41a62798607500bd70c",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
+      "testSelectors": [
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+      "owner": "W4",
+      "specAnchor": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+      "specTextSha256": "sha256:c63014a32d2617e3a63590c3e26f7bc275f0bcf008cdeb0448593a9fe0381fc0",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/validator.ts#BlueprintValidator"],
+      "testSelectors": [
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CONFIG-SECRET-REF",
+      "owner": "W4",
+      "specAnchor": "C13-CONFIG-SECRET-REF",
+      "specTextSha256": "sha256:62bf9cf98ec65a399e38c14ab6d1bdeaace4c96105746d18023c2f51325d7b90",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/config.ts#Config"],
+      "testSelectors": [
+        "test/definition/config.test.ts#Blueprint config [C13-CONFIG-SECRET-REF] [definition.config] uses one tagged SecretRef representation and round-trips canonical nested refs"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLACEMENT-EMPTY",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-EMPTY",
+      "specTextSha256": "sha256:e8bba373c592b862247b43e3912803f0f317f7557b44f0cfbdb1fd884192a3d4",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "testSelectors": [
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-EMPTY] reports every empty source and a disjoint intersection as typed unavailability"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLACEMENT-INTERSECTION",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-INTERSECTION",
+      "specTextSha256": "sha256:7792aad0c34b456981f9934caf6c3a29f7120916dcdca1d6fd66f5f12ae89c1a",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "testSelectors": [
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLACEMENT-ORDER",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-ORDER",
+      "specTextSha256": "sha256:e55c0a160933455879b52935bb9f82e4d8b8ba095cc533549b23ee6ba3afb881",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "testSelectors": [
+        "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLACEMENT-UNTRUSTED-BUNDLED",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-UNTRUSTED-BUNDLED",
+      "specTextSha256": "sha256:71d0eb2975f6052ab5af869a9d303bb6b6799da8cd172e352ff6039f78f060de",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "testSelectors": [
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-POLICY-APPROVAL-FLOOR",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-APPROVAL-FLOOR",
+      "specTextSha256": "sha256:993a5ebac824b91f1732b3496583f7a752506e74d9561affb02545967ccb3d99",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "testSelectors": [
+        "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-POLICY-DIRECT-COLOCATION",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-DIRECT-COLOCATION",
+      "specTextSha256": "sha256:d2006c6ccd2e98dc60e0ab35d06f252691bf5fc35ac31d880cced5e8d8370fd1",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "testSelectors": [
+        "test/definition/materializer.test.ts#same-Actor additive materialization [C13-POLICY-DIRECT-COLOCATION] keeps direct local mutation machinery out of the definition barrel"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-POLICY-DIRECT-ESCALATION",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-DIRECT-ESCALATION",
+      "specTextSha256": "sha256:9187db4f59f64f4ceb11478a13347bb0f25ced1076b0bc0c6f584dde24d288de",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "testSelectors": [
+        "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-DIRECT-ESCALATION] intersects placement policies and cannot broaden an ancestor constraint"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-POLICY-EPOCH-RECHECK",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-EPOCH-RECHECK",
+      "specTextSha256": "sha256:5db97aedd6cc13d3a92d4352f2610582ce1ac78313e1345a2dd619cbdbfb3b4e",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "testSelectors": [
+        "test/definition/plan.test.ts#materialization planning [C13-POLICY-EPOCH-RECHECK] rechecks supported kinds while assembling Actor and materialization plans"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-POLICY-MEDIATION-FLOOR",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-MEDIATION-FLOOR",
+      "specTextSha256": "sha256:4764175261848895fe9dcbc11b9656f1aa7fb7ae9357420ebfd4f982f5dd6184",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "testSelectors": [
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    }
+  ]
+}

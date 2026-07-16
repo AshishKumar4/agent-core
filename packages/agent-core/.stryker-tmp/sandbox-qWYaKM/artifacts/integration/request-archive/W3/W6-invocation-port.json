@@ -1,0 +1,18 @@
+{
+  "requester": "W3",
+  "owner": "W6",
+  "status": "required-for-mediated-effects",
+  "port": "OperationInvocationPort",
+  "requirements": [
+    "directContext performs no durable writes and derives a stable invocation identity and per-item idempotency key from the exact OperationPayloadShape",
+    "preflightMediated atomically distinguishes new intent from replay using request key, Facet, pinned descriptor, exact single-or-batch shape, item count, order, and canonical raw inputs before W3 runs operation.before",
+    "invoke freezes the exact OperationPayloadShape, ordered rewritten inputs, and item-indexed W3 interceptor traces into one PreparedInvocation intent",
+    "invoke validates the opaque W2 authorization before approval, claim, EffectAttempt, and each effect boundary",
+    "invoke calls execute(itemIndex, context) only after write-ahead EffectAttempt evidence",
+    "invoke returns exactly one output per ordered input and durable evidence as FacetData",
+    "recordMediatedPresentation durably attributes request-, Facet-, descriptor-, shape-, and item-indexed operation.after interceptor traces to the returned invocation evidence",
+    "same OperationRequestKey and payload replay returns the original result without another effect",
+    "preflight replay returns the original final mediated result and rejects same-key changes without rerunning before or after interceptors",
+    "unknown effect outcome becomes indeterminate and never triggers an unrecorded retry"
+  ]
+}
