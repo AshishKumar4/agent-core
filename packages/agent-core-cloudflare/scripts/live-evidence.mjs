@@ -25,7 +25,8 @@ const fingerprintSources = [
     "packages/agent-core-cloudflare/src/environment-provider.ts",
     "packages/agent-core-cloudflare/src/slate-provider.ts",
     "packages/agent-core-cloudflare/live/worker.ts",
-    "packages/agent-core-cloudflare/test/live/live.test.ts"
+    "packages/agent-core-cloudflare/test/live/phase-1.test.ts",
+    "packages/agent-core-cloudflare/test/live/phase-2.test.ts"
 ];
 
 function run(command, args, options = {}) {
@@ -102,12 +103,21 @@ async function awaitReady(url) {
 function runPhase(url, phase, stateFile, reportPath) {
     const result = run(
         "corepack",
-        ["pnpm", "exec", "vitest", "run", "--config", "test/live/vitest.config.mjs", "--reporter=json", `--outputFile=${reportPath}`],
+        [
+            "pnpm",
+            "exec",
+            "vitest",
+            "run",
+            "--config",
+            "test/live/vitest.config.mjs",
+            `test/live/phase-${phase}.test.ts`,
+            "--reporter=json",
+            `--outputFile=${reportPath}`
+        ],
         {
             env: {
                 ...process.env,
                 LIVE_HARNESS_URL: url,
-                LIVE_PHASE: String(phase),
                 LIVE_RUN_ID: runId,
                 LIVE_STATE_FILE: stateFile
             },

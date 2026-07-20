@@ -7,8 +7,6 @@ if (url === undefined || url.length === 0) {
 }
 export const harnessUrl: string = url.replace(/\/$/u, "");
 
-export const phase: 1 | 2 = process.env["LIVE_PHASE"] === "2" ? 2 : 1;
-
 const runId = process.env["LIVE_RUN_ID"];
 if (runId === undefined || runId.length === 0) {
     throw new TypeError("LIVE_RUN_ID must identify this evidence run");

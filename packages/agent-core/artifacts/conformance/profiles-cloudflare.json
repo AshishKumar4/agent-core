@@ -1002,9 +1002,9 @@
             "testSelectors": [
                 "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] persists session state across Durable Object eviction",
                 "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] rejects stale-generation requests after rotation, across eviction",
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] persists session state across a real Durable Object instance kill",
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] rejects stale generations after rotation, across a real instance kill",
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence after redeployment [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] keeps session state across a full worker redeployment"
+                "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] persists session state across a real Durable Object instance kill",
+                "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] rejects stale generations after rotation, across a real instance kill",
+                "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] keeps session state across a full worker redeployment"
             ],
             "checkerInvariants": [
                 "ACQ-IMPORT",
@@ -1139,7 +1139,7 @@
             ],
             "testSelectors": [
                 "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-PREVIEW] derives a deterministic durable preview URL and revokes it fail-closed across eviction",
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-PREVIEW] derives the deterministic preview URL, keeps it across an instance kill, and revokes fail-closed"
+                "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-PREVIEW] derives the deterministic preview URL, keeps it across an instance kill, and revokes fail-closed"
             ],
             "checkerInvariants": [
                 "ACQ-IMPORT",
@@ -1187,7 +1187,7 @@
             "testSelectors": [
                 "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-SNAPSHOT] fails closed restoring missing or corrupt snapshot content",
                 "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-SNAPSHOT] snapshots to content-addressed R2 and restores exactly, across eviction",
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-SNAPSHOT] snapshots through real R2 and restores exactly on a different instance"
+                "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-SNAPSHOT] snapshots through real R2 and restores exactly on a different instance"
             ],
             "checkerInvariants": [
                 "ACQ-IMPORT",
@@ -3213,8 +3213,8 @@
                 "src/facets/slate/facet.ts#SlateFacet"
             ],
             "testSelectors": [
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence [P11-SLATE-DEPLOY] deploys once against the real substrate and rejects identity reuse across an instance kill",
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence after redeployment [P11-SLATE-DEPLOY] settles a deployment recorded before the redeployment to its exact materialization",
+                "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-SLATE-DEPLOY] deploys once against the real substrate and rejects identity reuse across an instance kill",
+                "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-SLATE-DEPLOY] settles a deployment recorded before the redeployment to its exact materialization",
                 "test/profiles/facets/conformance-ledger.test.ts#[P11-SLATE-DEPLOY] exact profile manifest or runtime contract"
             ],
             "checkerInvariants": [
@@ -3305,7 +3305,7 @@
                 "src/facets/slate/facet.ts#SlateFacet"
             ],
             "testSelectors": [
-                "cloudflare/test/live/live.test.ts#live Cloudflare substrate evidence [P11-SLATE-MEDIATED-DEPLOY] settles an indeterminate mediated attempt by reconciling the frozen intent across an instance kill",
+                "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-SLATE-MEDIATED-DEPLOY] settles an indeterminate mediated attempt by reconciling the frozen intent across an instance kill",
                 "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-MEDIATED-DEPLOY] passes the same frozen deployment intent through prepare, invoke, and reconcile"
             ],
             "checkerInvariants": [

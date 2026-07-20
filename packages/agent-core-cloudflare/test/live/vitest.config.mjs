@@ -4,7 +4,7 @@ export default defineConfig({
     test: {
         environment: "node",
         globals: true,
-        include: ["test/live/*.test.ts"],
+        include: ["test/live/phase-*.test.ts"],
         // Live requests traverse real Cloudflare infrastructure.
         testTimeout: 60_000,
         hookTimeout: 60_000,

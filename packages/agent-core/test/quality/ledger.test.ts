@@ -44,7 +44,9 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         };
         const declaredGateIds = remoteGates.gates.map((gate) => gate.id).sort();
         const expectedGateIds = Object.keys(externalRequirementsByConsentGate).sort();
-        const expectedRequirements = Object.values(externalRequirementsByConsentGate).flat().sort();
+        const expectedRequirements: string[] = Object.values(externalRequirementsByConsentGate)
+            .flat()
+            .sort();
 
         expect(declaredGateIds).toEqual(expectedGateIds);
         // The index and the fragment must agree exactly on what remains gated, and

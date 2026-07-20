@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { encodeCanonicalJson } from "@agent-core/core";
-import { abortInstance, call, loadState, phase, saveState } from "./harness";
+import { abortInstance, call, saveState } from "./harness";
 
 const PREVIEW_HOST = "preview.agent-core-live.test";
 const publicationMaterialization = `sha256:${"1".repeat(64)}`;
@@ -28,7 +28,7 @@ function deployment(
     };
 }
 
-describe.runIf(phase === 1)("live Cloudflare substrate evidence", () => {
+describe("live Cloudflare substrate evidence", () => {
     it("[P11-ENVIRONMENT-EPHEMERAL-DURABILITY] persists session state across a real Durable Object instance kill", async () => {
         const session = { ...pin("env-durable"), sessionId: "sess-durable" };
         expect(await call("env", "durability", "open", session)).toMatchObject({
@@ -250,37 +250,6 @@ describe.runIf(phase === 1)("live Cloudflare substrate evidence", () => {
         expect(materialized.ok).toBe(true);
         await abortInstance("slate", "mediated");
         expect(await call("slate", "mediated", "reconcile-resource", resource)).toMatchObject({
-            ok: true,
-            result: { materialization: materialized.result?.materialization }
-        });
-    });
-});
-
-describe.runIf(phase === 2)("live Cloudflare substrate evidence after redeployment", () => {
-    it("[P11-ENVIRONMENT-EPHEMERAL-DURABILITY] keeps session state across a full worker redeployment", async () => {
-        const session = { ...pin("env-durable"), sessionId: "sess-durable" };
-        expect(await call("env", "durability", "inspect", session)).toMatchObject({
-            ok: true,
-            result: { name: "ready" }
-        });
-        const read = await call("env", "durability", "read-file", {
-            ...session,
-            path: "state.txt"
-        });
-        expect(Buffer.from(String(read.result), "base64")).toEqual(Buffer.from([1, 2, 3]));
-    });
-
-    it("[P11-SLATE-DEPLOY] settles a deployment recorded before the redeployment to its exact materialization", async () => {
-        const state = loadState();
-        const request = state["deployment"] as Record<string, string | number>;
-        expect(await call("slate", "deploy", "reconcile-deploy", request)).toMatchObject({
-            ok: true,
-            result: { materialization: state["materialization"] }
-        });
-        const resource = state["resource"] as Record<string, string | number>;
-        const materialized = await call("slate", "deploy", "materialize-resource", resource);
-        expect(materialized.ok).toBe(true);
-        expect(await call("slate", "deploy", "reconcile-resource", resource)).toMatchObject({
             ok: true,
             result: { materialization: materialized.result?.materialization }
         });
