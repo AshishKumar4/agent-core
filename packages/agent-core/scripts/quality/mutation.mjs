@@ -219,8 +219,24 @@ function requireCleanWorktree() {
         cwd: packageRoot,
         encoding: "utf8"
     });
-    if (result.status !== 0 || result.stdout.trim().length > 0) {
+    if (result.status !== 0) {
         throw new TypeError("Mutation baselines may be updated only from a clean worktree");
+    }
+    // The baseline artifact is this runner's own output: a multi-area measurement
+    // sequence legitimately dirties it between areas. Everything else must be clean
+    // so the recorded fingerprints describe committed sources.
+    const dirty = result.stdout
+        .split("\n")
+        .map((line) => line.slice(3).trim())
+        .filter(
+            (path) =>
+                path.length > 0 &&
+                path !== "packages/agent-core/artifacts/quality/mutation-baseline.json"
+        );
+    if (dirty.length > 0) {
+        throw new TypeError(
+            `Mutation baselines may be updated only from a clean worktree; dirty: ${dirty.slice(0, 5).join(", ")}`
+        );
     }
 }
 

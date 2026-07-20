@@ -1,4 +1,14 @@
 {
-    "edition": "1.0.0",
-    "areas": {}
+  "edition": "1.0.0",
+  "areas": {
+    "authority": {
+      "measuredAt": "ac14cb5d154316c7d1e3b5ab4533b98678b279cf",
+      "fingerprint": "sha256:45dbc7b9c6c1228193bd8af2a3101036fbd81e33eec424ba4b054f29c1fe2323",
+      "mutants": 4301,
+      "killed": 3240,
+      "score": 75.3,
+      "actionable": 877,
+      "tolerated": 184
+    }
+  }
 }
