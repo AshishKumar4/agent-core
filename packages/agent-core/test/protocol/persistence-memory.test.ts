@@ -7,7 +7,8 @@ import {
     AuditRecordId,
     CorrelationId,
     InvocationId,
-    WriteRecordId
+    WriteRecordId,
+    auditEvidenceIdentity
 } from "../../src/invocations";
 import {
     MemoryProtocolPersistence,
@@ -244,6 +245,7 @@ test("memory reads every hand-seeded codec-representable non-write audit project
     const records = new MemoryProtocolRecords({
         audits: audits.map((audit) => ({
             id: audit.id.value,
+            evidenceIdentity: auditEvidenceIdentity(audit.actor, audit.kind).value,
             evidenceKind: audit.kind.kind,
             bytes: AuditRecordCodec.encode(audit)
         })),
@@ -258,6 +260,9 @@ test("memory reads every hand-seeded codec-representable non-write audit project
         if (actual === undefined) throw new TypeError("Expected stored audit record");
         expect(AuditRecordCodec.encode(actual)).toEqual(AuditRecordCodec.encode(expected));
     }
+    expect(() => persistence.repair(records)).toThrow(
+        expect.objectContaining({ code: "protocol.invalid-state" })
+    );
 });
 
 test.each(["audit", "write"] as const)("memory reads reject corrupt %s codec bytes", (record) => {
@@ -294,7 +299,7 @@ test.each(["audit", "write"] as const)("memory reads reject corrupt %s codec byt
     );
 });
 
-test.each(["evidenceKind", "writeId", "writeOutcome"] as const)(
+test.each(["evidenceIdentity", "evidenceKind", "writeId", "writeOutcome"] as const)(
     "memory reads reject a corrupt write-audit %s projection",
     (projection) => {
         const records = new MemoryProtocolRecords();
@@ -308,6 +313,9 @@ test.each(["evidenceKind", "writeId", "writeOutcome"] as const)(
                 audit.id === expected.audit.id.value
                     ? {
                           ...audit,
+                          ...(projection === "evidenceIdentity"
+                              ? { evidenceIdentity: "0".repeat(64) }
+                              : {}),
                           ...(projection === "evidenceKind"
                               ? { evidenceKind: "commit" as const }
                               : {}),
@@ -372,7 +380,7 @@ test.each(["missing", "actor", "tenant", "correlation"] as const)(
 
         expectAgentCoreError(
             () => persistence.findWriteById(restored, expected.write.id),
-            "protocol.invalid-state"
+            corruption === "actor" ? "codec.invalid" : "protocol.invalid-state"
         );
     }
 );
@@ -664,6 +672,7 @@ function replaceAudit(
         audit.id === record.id.value
             ? {
                   id: record.id.value,
+                  evidenceIdentity: auditEvidenceIdentity(record.actor, record.kind).value,
                   evidenceKind: record.kind.kind,
                   ...(record.kind.kind === "write"
                       ? { writeId: record.kind.id, writeOutcome: record.kind.outcome }

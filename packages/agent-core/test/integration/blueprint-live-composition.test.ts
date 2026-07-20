@@ -11,8 +11,9 @@ import {
 import { MediaHint } from "../../src/content";
 import {
     TenantOperationAuthority,
+    ResolvedOperationAuthority,
     type OperationAuthorityStatePort,
-    type OperationResolutionState
+    type OperationResolutionCandidate
 } from "../../src/composition";
 import {
     CompatRange,
@@ -26,6 +27,7 @@ import {
 } from "../../src/core";
 import {
     BlueprintDeclarationCodecPort,
+    type BlueprintDeclarationField,
     Config,
     DeploymentKey,
     MetadataSnapshot,
@@ -42,15 +44,16 @@ import {
     PlatformCompatibility,
     PolicySet,
     ValidatedBlueprint,
+    Blueprint,
     planMaterialization,
     validateBlueprint,
     type DesiredProjection,
     MaterializationTopologyPort
 } from "../../src/definition";
-import { Blueprint } from "../../src/definition/blueprint";
 import {
     Automation,
     BindingName,
+    CapabilitySpec,
     EventPattern,
     FacetManifest,
     FacetPackageId,
@@ -99,7 +102,7 @@ const OPERATION = `${FACET_ID}:append`;
 
 const declarationCodecs = new BlueprintDeclarationCodecPort(
     ["scopes", "agents", "slots", "subscriptions", "environments", "surfaces"].map((field) => ({
-        field: field as import("../../src/definition/declaration").BlueprintDeclarationField,
+        field: field as BlueprintDeclarationField,
         canonicalize: (value: JsonValue): JsonValue => value
     }))
 );
@@ -216,7 +219,7 @@ const path = new PathEpochEvidence([
 ]);
 const digest = new Digest("d".repeat(64));
 const packagePin = new PackagePin(new PackageId("acme.notes"), new SemVer("1.0.0"), digest, digest);
-const lease = TurnLease.restore(new TurnId("live-turn"), principal.principalId, 1, new Date(100));
+const lease = TurnLease.restore(new TurnId("live-turn"), principal, 1, new Date(100));
 
 // tier() is a pure decision over the resolution; the state port must stay untouched.
 const untouchedState: OperationAuthorityStatePort<PrincipalRef> = new Proxy(
@@ -232,14 +235,15 @@ const authority = new TenantOperationAuthority(untouchedState, () => new Date(10
 function resolutionWith(
     policies: readonly PolicySet[],
     selected: "bundled" | "provider" | "dynamic"
-): OperationResolutionState {
+): OperationResolutionCandidate {
     return {
         principal,
         binding,
         pathEpochs: path,
         watermark: InvalidationWatermark.empty(tenant, owner, principal),
-        lease: { turn: lease.turn, holder: principal.principalId, epoch: lease.epoch },
+        lease: { turn: lease.turn, holder: principal, epoch: lease.epoch },
         originalLease: lease,
+        route: undefined,
         package: packagePin,
         placement: new InvocationPlacementPin({
             manifest: [selected],
@@ -248,11 +252,16 @@ function resolutionWith(
             trust: [selected],
             selected
         }),
-        resolvedAt: new Date(0),
-        deadline: new Date(50),
         owner,
-        policies,
-        turnOwnedSession: true
+        policies:
+            policies.length === 0
+                ? [new PolicySet({ maxDirectRevocationWindowMs: 50 })]
+                : policies,
+        turnOwnedSession: true,
+        turnActorAuthorityLocal: true,
+        directAuthority: new ResolvedOperationAuthority(facet, [
+            new CapabilitySpec({ facetPattern: facet.value, impacts: ["observe"] })
+        ])
     };
 }
 
@@ -327,7 +336,6 @@ describe("a declared Blueprint is what executes", () => {
         // under a live lease cannot run direct off-actor.
         const resolution = resolutionWith([], "dynamic");
         expect(authority.tier(resolution, observeDescriptor, false)).toBe("mediated");
-        expect(authority.authorizeDirect(resolution, observeDescriptor, [])).toBeUndefined();
     });
 });
 

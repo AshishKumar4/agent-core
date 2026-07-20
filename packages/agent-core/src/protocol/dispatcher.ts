@@ -13,9 +13,8 @@ import type { TenantId } from "../identity";
 import {
     AuditRecord,
     CorrelationId,
-    validateAuditAppend,
+    type AuditAppendContext,
     type AuditRecordId,
-    type AuditRecordLookup,
     type AuditRootAdmission,
     type InvocationId,
     type WriteRecordId
@@ -51,11 +50,7 @@ export interface ProtocolPersistence<Transaction> {
     repair?(transaction: Transaction): void;
     findWrite(transaction: Transaction, identity: CommandIdentity): WriteRecord | undefined;
     findAudit(transaction: Transaction, id: AuditRecordId): AuditRecord | undefined;
-    appendAudit(
-        transaction: Transaction,
-        record: AuditRecord,
-        admission?: AuditRootAdmission
-    ): void;
+    appendAudit(transaction: Transaction, record: AuditRecord, context?: AuditAppendContext): void;
     appendWrite(transaction: Transaction, record: WriteRecord): void;
 }
 
@@ -610,11 +605,11 @@ export class CommandDispatcher<
         record: AuditRecord,
         admission?: AuditRootAdmission
     ): void {
-        const records: AuditRecordLookup = {
-            get: (id) => this.#persistence.findAudit(transaction, id)
-        };
-        validateAuditAppend(record, records, admission);
-        this.#persistence.appendAudit(transaction, record, admission);
+        this.#persistence.appendAudit(
+            transaction,
+            record,
+            admission === undefined ? undefined : { rootAdmission: admission }
+        );
     }
 
     private readForGate(transaction: Transaction): Read {

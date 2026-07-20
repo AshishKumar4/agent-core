@@ -1,5 +1,6 @@
+import type { ActorRef } from "../actors";
 import { Digest, type ContentRef } from "../core";
-import type { AuditRecord } from "./audit";
+import type { AuditAppendContext, AuditKind, AuditRecord } from "./audit";
 import type { AuditRecordId, InvocationId } from "../interaction-references";
 import type { ReceiptId } from "./id";
 import type { EffectAttempt } from "./attempt";
@@ -49,12 +50,14 @@ export interface AuthorityAdmissionPort<
     Authority,
     Domain,
     PathEpochs,
-    Admission
+    Admission,
+    Authentication = undefined
 > {
     admits(
         transaction: Transaction,
         admission: AuthorityAdmissionReference<Admission>,
-        context: AuthorityAdmissionContext<Lease, Authority, Domain, PathEpochs>
+        context: AuthorityAdmissionContext<Lease, Authority, Domain, PathEpochs>,
+        authentication?: Authentication
     ): boolean;
 }
 
@@ -83,7 +86,10 @@ export type ReconciliationResult =
     | { readonly kind: "failed"; readonly result?: ContentRef };
 
 export interface EffectReconciliationPort<Lease, Admission> {
-    query(attempt: EffectAttempt<Lease, Admission>): Promise<ReconciliationResult>;
+    query(
+        attempt: EffectAttempt<Lease, Admission>,
+        intentDigest: Digest
+    ): Promise<ReconciliationResult>;
 }
 
 export interface ReceiptObservation {
@@ -114,9 +120,19 @@ export interface InvocationReplayPersistence<Transaction> {
     appendReplay(transaction: Transaction, record: MediatedReplayRecord): void;
 }
 
-export interface InvocationEvidencePersistence<Transaction> {
+export interface InvocationAuditPersistence<Transaction> {
     audit(transaction: Transaction, id: AuditRecordId): AuditRecord | undefined;
-    appendAudit(transaction: Transaction, record: AuditRecord): void;
+    findAuditByEvidence(
+        transaction: Transaction,
+        actor: ActorRef,
+        kind: AuditKind
+    ): AuditRecord | undefined;
+    appendAudit(transaction: Transaction, record: AuditRecord, context?: AuditAppendContext): void;
+}
+
+export interface InvocationEvidencePersistence<
+    Transaction
+> extends InvocationAuditPersistence<Transaction> {
     publication(transaction: Transaction, id: Digest): InvocationPublicationOutbox | undefined;
     pendingPublications(transaction: Transaction): readonly InvocationPublicationOutbox[];
     appendPublication(transaction: Transaction, record: InvocationPublicationOutbox): void;

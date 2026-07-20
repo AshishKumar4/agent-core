@@ -27,7 +27,7 @@ import {
 } from "../../../src/agents";
 import { Revision } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
-import { PrincipalId } from "../../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { RunCommitId } from "../../../src/execution-references";
 import { ApprovalId, ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId, InvocationId } from "../../../src/interaction-references";
@@ -51,6 +51,10 @@ import {
 } from "../../agents/runs/fixture";
 
 const owner = new ActorRef("workspace", new ActorId("workspace-run-owner"));
+
+function holder(principal: string, tenant = ids.holder.tenantId.value): PrincipalRef {
+    return new PrincipalRef(new TenantId(tenant), new PrincipalId(principal));
+}
 
 class MutatingSqlite extends TransactionalSqlite {
     public mutate: (statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[] = (
@@ -491,9 +495,13 @@ describe("SQLite Run storage", () => {
         assertAcrossRunStorages(assertCheckpointWriterBehavior);
     });
 
-    it("[C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact durable Turn lease across restart, CAS, and terminal fencing", () => {
-        assertAcrossRunStorages(assertExactLeaseBehavior);
-    });
+    it(
+        "[C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact tenant-qualified durable Turn lease across restart, CAS, and terminal fencing",
+        { tags: "p0" },
+        () => {
+            assertAcrossRunStorages(assertExactLeaseBehavior);
+        }
+    );
 
     it("[C13-TURN-TERMINAL-RESULT-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse", () => {
         assertAcrossRunStorages(assertTerminalResultWriterBehavior);
@@ -854,7 +862,7 @@ function assertCheckpointWriterBehavior<Transaction>(
     const running = seedRunning(value);
     const invalidTokens: readonly LeaseToken[] = [
         { ...running.token, turn: new TurnId("checkpoint-wrong-turn") },
-        { ...running.token, holder: new PrincipalId("checkpoint-wrong-holder") },
+        { ...running.token, holder: holder("checkpoint-wrong-holder") },
         { ...running.token, epoch: running.token.epoch - 1 }
     ];
     invalidTokens.forEach((token, index) => {
@@ -1015,14 +1023,37 @@ function assertExactLeaseBehavior<Transaction>(
     );
     const restored = restart();
     const verifier = new RepositoryTurnLeaseVerifier(restored.repository, () => new Date(1500));
+    const wrongTenantToken: LeaseToken = {
+        ...running.token,
+        holder: holder(running.token.holder.principalId.value, "lease-wrong-tenant")
+    };
+    const invalidTokens: readonly LeaseToken[] = [
+        { ...running.token, turn: new TurnId("lease-wrong-turn") },
+        { ...running.token, holder: holder("lease-wrong-holder") },
+        wrongTenantToken,
+        { ...running.token, epoch: running.token.epoch - 1 }
+    ];
     expect(verifier.permits(running.token)).toBe(true);
-    expect(verifier.permits({ ...running.token, turn: new TurnId("lease-wrong-turn") })).toBe(
-        false
-    );
-    expect(
-        verifier.permits({ ...running.token, holder: new PrincipalId("lease-wrong-holder") })
-    ).toBe(false);
-    expect(verifier.permits({ ...running.token, epoch: running.token.epoch - 1 })).toBe(false);
+    for (const token of invalidTokens) {
+        expect(verifier.permits(token)).toBe(false);
+        expectCode(
+            () =>
+                restored.runtime.renewTurn(
+                    ids.turn,
+                    running.running.revision,
+                    token,
+                    new Date(1500),
+                    new Date(6000)
+                ),
+            "lease.invalid"
+        );
+        const unchanged = restored.repository.transaction((tx) =>
+            restored.repository.loadTurn(tx, ids.turn)
+        )!;
+        expect(unchanged.revision.equals(running.running.revision)).toBe(true);
+        expect(unchanged.lease.holder?.equals(running.token.holder)).toBe(true);
+        expect(unchanged.lease.epoch).toBe(running.token.epoch);
+    }
     expect(
         new RepositoryTurnLeaseVerifier(restored.repository, () => new Date(5000)).permits(
             running.token
@@ -1049,7 +1080,7 @@ function assertTerminalResultWriterBehavior<Transaction>(
     const running = seedRunning(value);
     const invalidTokens: readonly LeaseToken[] = [
         { ...running.token, turn: new TurnId("result-wrong-turn") },
-        { ...running.token, holder: new PrincipalId("result-wrong-holder") },
+        { ...running.token, holder: holder("result-wrong-holder") },
         { ...running.token, epoch: running.token.epoch - 1 }
     ];
     invalidTokens.forEach((token, index) => {

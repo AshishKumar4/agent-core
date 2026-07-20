@@ -12,6 +12,7 @@ export {
 export { createApprovalGatewayManifest } from "./manifest";
 export type {
     ApprovalGatewayErrorCode,
+    ApprovalGatewayReconciliationResult,
     GatewayActionInput,
     GatewayObservationInput
 } from "./facet";

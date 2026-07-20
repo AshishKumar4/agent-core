@@ -945,6 +945,43 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().value).toBe(0);
         });
 
+        test(
+            "preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
+            { tags: "p0" },
+            async () => {
+                const harness = create({ lease: "required" });
+                const token = harness.setLease();
+                const substituted: LeaseToken = {
+                    ...token,
+                    holder: new PrincipalRef(
+                        new TenantId("counter-other-tenant"),
+                        token.holder.principalId
+                    )
+                };
+                const restarted = harness.restart();
+
+                expect(
+                    (
+                        await restarted.dispatch(
+                            restarted.envelope({
+                                key: "lease-cross-tenant-holder",
+                                lease: substituted
+                            })
+                        )
+                    ).outcome
+                ).toBe("rejectedLease");
+                expect(restarted.snapshot().value).toBe(0);
+                expect(
+                    (
+                        await restarted.dispatch(
+                            restarted.envelope({ key: "lease-qualified-holder", lease: token })
+                        )
+                    ).outcome
+                ).toBe("committed");
+                expect(restarted.snapshot().value).toBe(1);
+            }
+        );
+
         test("rejects expired and forbidden lease tokens", async () => {
             const required = create({ lease: "required" });
             const expired = required.setLease({ expiresAt: new Date("2026-07-07T11:59:59.000Z") });

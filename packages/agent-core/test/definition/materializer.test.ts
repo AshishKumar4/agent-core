@@ -45,7 +45,7 @@ const tenantId = new TenantId("tenant");
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 describe("same-Actor additive materialization", () => {
-    test("[C13-POLICY-DIRECT-COLOCATION] keeps direct local mutation machinery out of the definition barrel", () => {
+    test("keeps direct local mutation machinery out of the definition barrel", () => {
         expect("LocalMaterializationStore" in Definition).toBe(false);
         expect("LocalMaterializer" in Definition).toBe(false);
         expect("materializeActorPlan" in Definition).toBe(false);

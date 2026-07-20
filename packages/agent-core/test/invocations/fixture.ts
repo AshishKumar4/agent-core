@@ -4,6 +4,7 @@ import { OperationRef } from "../../src/facets";
 import { PackageId } from "../../src/definition";
 import {
     ApprovalCodec,
+    AttemptReceipt,
     AuthorityAdmissionReference,
     AuditRecordId,
     EffectAttemptCodec,
@@ -32,14 +33,7 @@ export type TestPersistence<Transaction> = InvocationPersistence<
 
 export interface InvocationHarness<Transaction> {
     readonly persistence: TestPersistence<Transaction>;
-    readonly ledger: InvocationLedger<
-        Transaction,
-        TestReference,
-        TestReference,
-        TestReference,
-        TestReference,
-        TestReference
-    >;
+    readonly ledger: TestInvocationLedger<Transaction>;
     transaction<Result>(operation: (transaction: Transaction) => Result): Result;
     restart(): void;
     dispose(): void;
@@ -78,10 +72,30 @@ export const invocationCodecs = Object.freeze({
     receipt: ReceiptCodec
 });
 
+export class TestInvocationLedger<Transaction> extends InvocationLedger<
+    Transaction,
+    string,
+    string,
+    string,
+    string,
+    string
+> {
+    public prepare(
+        transaction: Transaction,
+        record: PreparedInvocation<string, string, string, string>
+    ): void {
+        this.prepareUnchecked(transaction, record);
+    }
+
+    public supersedeReceipt(transaction: Transaction, receipt: AttemptReceipt): void {
+        this.supersedeReceiptUnchecked(transaction, receipt);
+    }
+}
+
 export function createLedger<Transaction>(
     persistence: TestPersistence<Transaction>
-): InvocationLedger<Transaction, string, string, string, string, string> {
-    return new InvocationLedger(
+): TestInvocationLedger<Transaction> {
+    return new TestInvocationLedger(
         persistence,
         referenceCodec,
         {

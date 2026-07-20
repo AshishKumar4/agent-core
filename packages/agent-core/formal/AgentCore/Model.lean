@@ -37,6 +37,8 @@ structure CommitId where value : Nat deriving DecidableEq, Repr
 structure InvocationId where value : Nat deriving DecidableEq, Repr
 structure ApprovalId where value : Nat deriving DecidableEq, Repr
 structure AttemptId where value : Nat deriving DecidableEq, Repr
+structure ItemClaimId where value : Nat deriving DecidableEq, Repr
+structure ClaimWorkerId where value : Nat deriving DecidableEq, Repr
 structure ReceiptId where value : Nat deriving DecidableEq, Repr
 structure EventId where value : Nat deriving DecidableEq, Repr
 structure ReservationId where value : Nat deriving DecidableEq, Repr

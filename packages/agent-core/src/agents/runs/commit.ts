@@ -1,7 +1,7 @@
 import { ContentRef, Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../../core";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
-import { PrincipalId } from "../../identity";
+import { PrincipalRef } from "../../identity";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { ReceiptId } from "../../invocation-references";
 import { AuditRecordId, InvocationId, RouteReservationId } from "../../interaction-references";
@@ -14,7 +14,7 @@ import {
     requireString
 } from "../record-data";
 import { RunBranchId, RunId } from "./id";
-import type { LeaseToken } from "./lease";
+import { leaseTokenFromData, leaseTokenToData, type LeaseToken } from "./lease";
 import { RunPins } from "./pins";
 import type { RunEvidencePort } from "./evidence";
 
@@ -269,7 +269,7 @@ export class RunCommit extends CodecRecord {
 
 class CommitCodec extends RecordCodec<RunCommit> {
     public constructor() {
-        super("run.commit", { major: 1, minor: 0 });
+        super("run.commit", { major: 2, minor: 0 });
     }
 
     protected encodePayload(value: RunCommit): JsonValue {
@@ -723,26 +723,22 @@ function migrationFromData(value: JsonValue): { readonly from: RunPins; readonly
 }
 
 function tokenData(token: LeaseToken): JsonValue {
-    return { epoch: token.epoch, holder: token.holder.value, turn: token.turn.value };
+    return leaseTokenToData(token);
 }
 
 function requireLeaseToken(value: JsonValue): LeaseToken {
-    const object = requireObject(value, "Lease token");
-    requireExactFields(object, ["epoch", "holder", "turn"], [], "Lease token");
-    const epoch = object["epoch"];
-    if (typeof epoch !== "number" || !Number.isSafeInteger(epoch) || epoch < 0) {
-        throw new TypeError("Lease token epoch is invalid");
-    }
-    return Object.freeze({
-        turn: new TurnId(requireString(object["turn"], "Lease token Turn")),
-        holder: new PrincipalId(requireString(object["holder"], "Lease token holder")),
-        epoch
-    });
+    return leaseTokenFromData(value);
 }
 
 function copyToken(token: LeaseToken): LeaseToken {
+    if (!(token.turn instanceof TurnId)) {
+        throw new TypeError("Lease token turn must be a TurnId");
+    }
+    if (!(token.holder instanceof PrincipalRef)) {
+        throw new TypeError("Lease token holder must be a PrincipalRef");
+    }
     if (!Number.isSafeInteger(token.epoch) || token.epoch < 0) {
-        throw new TypeError("Lease token epoch is invalid");
+        throw new TypeError("Lease token epoch must be a non-negative safe integer");
     }
     return Object.freeze({ turn: token.turn, holder: token.holder, epoch: token.epoch });
 }

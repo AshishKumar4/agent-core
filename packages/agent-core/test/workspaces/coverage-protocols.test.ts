@@ -27,6 +27,7 @@ import {
     RouteReservationId
 } from "../../src/interaction-references";
 import { InboxProtocol } from "../../src/workspaces/inbox-protocol";
+import { Event } from "../../src/workspaces/event";
 import { MemoryWorkspaceRecords } from "../../src/workspaces/memory";
 import {
     AuthenticatedEventIntent,
@@ -94,7 +95,6 @@ import {
     eventFixture,
     inboxFixture,
     principal,
-    principalId,
     projectionFixture,
     projectionRetention,
     reservationRetention,
@@ -160,10 +160,22 @@ class MutableRetention implements ContentRetentionPort<State> {
 }
 
 class RecordingAudit implements InteractionAuditPort<State> {
-    public appendEvent(state: State): void {
+    public readonly events: { readonly event: Event; readonly audit: AuditRecordId }[] = [];
+    public readonly reservations: {
+        readonly reservation: RouteReservation;
+        readonly audit: AuditRecordId;
+    }[] = [];
+
+    public appendEvent(state: State, event: Event, audit: AuditRecordId): void {
+        this.events.push({ event, audit });
         state.audit.push("event");
     }
-    public appendReservation(state: State): void {
+    public appendReservation(
+        state: State,
+        reservation: RouteReservation,
+        audit: AuditRecordId
+    ): void {
+        this.reservations.push({ reservation, audit });
         state.audit.push("reservation");
     }
     public appendProjectionRoot(state: State): void {
@@ -1055,6 +1067,31 @@ describe("source protocol adversarial coverage", () => {
         expect(result.reservations[0]?.event.equals(intent.intent.id)).toBe(true);
     });
 
+    test("[C13-ROUTE-AUDIT-CAUSE] committed reservation cites its preexisting source Event audit", async () => {
+        const setup = sourceSetup("source-audit-cause-proof");
+        const prepared = await setup.protocol.prepare(
+            setup.protocol.snapshot(
+                setup.state,
+                authenticateIntent(draft("source-audit-cause-proof"))
+            )
+        );
+        const reservation = setup.protocol.commit(setup.state, prepared).reservations[0];
+        const eventAudit = setup.audit.events[0];
+        const reservationAudit = setup.audit.reservations[0];
+        if (
+            reservation === undefined ||
+            eventAudit === undefined ||
+            reservationAudit === undefined
+        ) {
+            throw new TypeError("Source commit did not append complete route audit evidence");
+        }
+
+        expect(setup.state.audit).toEqual(["event", "reservation"]);
+        expect(eventAudit.event.id.equals(reservation.event)).toBe(true);
+        expect(reservation.sourceAuditCause.equals(eventAudit.audit)).toBe(true);
+        expect(reservationAudit.reservation).toBe(reservation);
+    });
+
     test("[C13-ROUTE-STABLE-INVOCATION] duplicate commit preserves InvocationId", async () => {
         const setup = sourceSetup("stable-invocation-proof");
         const prepared = await setup.protocol.prepare(
@@ -1526,7 +1563,7 @@ describe("target protocol and port outcomes", () => {
 describe("inbox protocol outcomes", () => {
     test("returns appended and duplicate and maps all rejection reasons", () => {
         const turn = new TurnId("turn-inbox-coverage");
-        const lease: LeaseToken = { turn, holder: principalId, epoch: 7 };
+        const lease: LeaseToken = { turn, holder: principal, epoch: 7 };
         const reference = inboxFixture("coverage", 0, 7, turn);
         for (const outcome of [{ kind: "appended" }, { kind: "duplicate" }] as const) {
             const protocol = new InboxProtocol(new FixedInbox(outcome));
@@ -1544,7 +1581,7 @@ describe("inbox protocol outcomes", () => {
 
     test("rejects reference turn and epoch mismatches before calling the run port", () => {
         const turn = new TurnId("turn-inbox-exact");
-        const lease: LeaseToken = { turn, holder: principalId, epoch: 3 };
+        const lease: LeaseToken = { turn, holder: principal, epoch: 3 };
         const runs = new FixedInbox({ kind: "appended" });
         const protocol = new InboxProtocol(runs);
         expect(() => protocol.append({}, inboxFixture("wrong-turn", 0, 3), lease)).toThrow(
@@ -1618,6 +1655,7 @@ function sourceSetup(
     readonly retention: MutableRetention;
     readonly trust: MutableTrust;
     readonly routes: ConfigurableSourceRoutes;
+    readonly audit: RecordingAudit;
     readonly subscription: typeof subscription;
     readonly protocol: SourceEventProtocol<State>;
 } {
@@ -1627,6 +1665,7 @@ function sourceSetup(
     records.saveSubscription(state, subscription, undefined);
     const trust = new MutableTrust();
     const routes = new ConfigurableSourceRoutes();
+    const audit = new RecordingAudit();
     const payloads: EventPayloadPort = { load: async () => ({ value: 7 }) };
     return {
         state,
@@ -1634,6 +1673,7 @@ function sourceSetup(
         retention,
         trust,
         routes,
+        audit,
         subscription,
         protocol: new SourceEventProtocol(
             sourceActor,
@@ -1642,7 +1682,7 @@ function sourceSetup(
             payloads,
             routes,
             retention,
-            new RecordingAudit(),
+            audit,
             new SequenceIds()
         )
     };
@@ -1738,7 +1778,7 @@ function retentionCopy(
 function leaseToken(suffix: string): LeaseToken {
     return {
         turn: new TurnId(`turn-${suffix}`),
-        holder: new PrincipalId(`holder-${suffix}`),
+        holder: new PrincipalRef(tenant, new PrincipalId(`holder-${suffix}`)),
         epoch: 1
     };
 }

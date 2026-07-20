@@ -145,11 +145,13 @@ export interface OpenSessionRequest extends GenerationPinnedRequest {
 
 export interface SnapshotEnvironmentRequest extends GenerationPinnedRequest {
     readonly sessionId: EnvironmentSessionId;
+    readonly sessionEpoch: number;
     readonly snapshotId: EnvironmentSnapshotId;
 }
 
 export interface ExposePortRequest extends GenerationPinnedRequest {
     readonly sessionId: EnvironmentSessionId;
+    readonly sessionEpoch: number;
     readonly exposureId: PortExposureId;
     readonly port: number;
 }

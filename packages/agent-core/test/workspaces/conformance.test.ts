@@ -61,7 +61,7 @@ class ConformanceIntentAuthenticator extends EventIntentAuthenticator {
     }
 }
 
-test("[C13-ROUTE-AUDIT-CAUSE] duplicate route storage identity is rejected", () => {
+test("duplicate route storage identity is rejected", () => {
     const records = new MemoryWorkspaceRecords();
     records.insertUnique({ namespace: "route", key: "same", recordKey: "first" });
     expect(() =>

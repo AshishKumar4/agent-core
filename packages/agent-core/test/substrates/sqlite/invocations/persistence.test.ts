@@ -19,20 +19,17 @@ import {
     type PreparedInvocation
 } from "../../../../src/invocations";
 import { PrincipalId } from "../../../../src/identity";
-import { SqliteInvocationPersistence } from "../../../../src/substrates/sqlite/invocations/persistence";
 import { TransactionalSqlite } from "../../../../src/substrates/sqlite/sqlite";
 import { TestSqlite } from "../../../helpers/sqlite";
 import {
-    attemptCodec,
     admissionFor,
-    claimCodec,
     createLedger,
     invocationCodecs,
     prepared,
-    preparedCodec,
     type InvocationHarness
 } from "../../../invocations/fixture";
 import { invocationLedgerContract } from "../../../invocations/ledger-contract";
+import { createSqliteInvocationPersistence } from "./fixture";
 import { describe, expect, test } from "vitest";
 
 test("[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract", () => {
@@ -41,7 +38,7 @@ test("[invocation-persistence] memory and SQLite satisfy one shared codec-storag
     verifyPreparedContract(memory, (operation) => operation(memoryState), "memory");
 
     const database = new TestSqlite();
-    const sqlite = createPersistence(database);
+    const sqlite = createSqliteInvocationPersistence(database);
     verifyPreparedContract(
         sqlite,
         (operation) => database.transaction(() => operation(database)),
@@ -51,7 +48,7 @@ test("[invocation-persistence] memory and SQLite satisfy one shared codec-storag
 
 class SqliteHarness implements InvocationHarness<TransactionalSqlite> {
     public readonly database = new TestSqlite();
-    public persistence = createPersistence(this.database);
+    public persistence = createSqliteInvocationPersistence(this.database);
     public ledger = createLedger(this.persistence);
 
     public transaction<Result>(operation: (transaction: TransactionalSqlite) => Result): Result {
@@ -62,62 +59,11 @@ class SqliteHarness implements InvocationHarness<TransactionalSqlite> {
     }
 
     public restart(): void {
-        this.persistence = createPersistence(this.database);
+        this.persistence = createSqliteInvocationPersistence(this.database);
         this.ledger = createLedger(this.persistence);
     }
 
     public dispose(): void {}
-}
-
-function createPersistence(database: TransactionalSqlite) {
-    return new SqliteInvocationPersistence(database, {
-        prepared: preparedCodec,
-        approval: invocationCodecs.approval,
-        claim: claimCodec,
-        attempt: attemptCodec,
-        receipt: invocationCodecs.receipt,
-        continuation: invocationCodecs.continuation,
-        projectPrepared: (record) => ({ id: record.header.id.value }),
-        projectApproval: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            revision: record.revision.value,
-            phase: record.state.kind
-        }),
-        projectClaim: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            itemIndex: record.itemIndex,
-            ordinal: record.attemptOrdinal
-        }),
-        projectAttempt: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            itemIndex: record.itemIndex,
-            ordinal: record.ordinal,
-            claim: record.claim.value
-        }),
-        projectReceipt: (record) => {
-            if (record instanceof PreEffectReceipt)
-                return {
-                    id: record.id.value,
-                    variant: record.variant,
-                    invocation: record.invocation.value,
-                    itemIndex: record.itemIndex,
-                    outcome: record.outcome
-                };
-            if (record instanceof AttemptReceipt)
-                return {
-                    id: record.id.value,
-                    variant: record.variant,
-                    attempt: record.attempt.value,
-                    ...(record.previous === undefined ? {} : { previous: record.previous.value }),
-                    outcome: record.outcome
-                };
-            throw new TypeError("Unknown Receipt test record");
-        },
-        projectContinuation: (record) => ({ invocation: record.invocation.value })
-    });
 }
 
 interface PreparedContract<Transaction> {
@@ -191,7 +137,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         });
     });
 
-    test("[C13-ADV-RECEIPT-SUCCEEDED] rejects orphan revisions, Receipts, and duplicate SQLite appends with typed errors", () => {
+    test("rejects orphan revisions, Receipts, and duplicate SQLite appends with typed errors", () => {
         const harness = new SqliteHarness();
         const invocation = prepared("sqlite-orphan");
         const pending = Approval.pending(

@@ -12,6 +12,7 @@ import type { FacetManifest } from "../manifest";
 import {
     DetailedProfileError,
     InternalProfileFacetRuntime,
+    EffectDispatch,
     ProfileEffectContext,
     ProfileOperationContract,
     facetDataWireCodec,
@@ -65,11 +66,19 @@ export class ApprovalGatewayAction {
 export abstract class ApprovalGatewayBackend {
     public abstract observe(resource: string): Promise<JsonValue>;
     public abstract apply(
-        context: ProfileEffectContext,
+        dispatch: EffectDispatch,
         resource: string,
         action: JsonValue
     ): Promise<JsonValue>;
+    public abstract reconcile(
+        dispatch: EffectDispatch
+    ): Promise<ApprovalGatewayReconciliationResult>;
 }
+
+export type ApprovalGatewayReconciliationResult =
+    | { readonly kind: "unknown" }
+    | { readonly kind: "succeeded"; readonly result?: JsonValue }
+    | { readonly kind: "failed"; readonly result?: JsonValue };
 
 const resourceProperty = { type: "string", minLength: 1 } as const;
 const inputSchema = strictObjectSchema({ resource: resourceProperty }, ["resource"]);
@@ -148,7 +157,7 @@ export class ApprovalGatewayFacet<Receipt> {
                     APPROVAL_GATEWAY_OPERATION_CONTRACTS.applyAction,
                     (input, context) => {
                         const action = this.approval.actionFor(context, input.resource);
-                        return this.backend.apply(context, input.resource, action);
+                        return this.backend.apply(context.dispatch(), input.resource, action);
                     }
                 )
             ],
@@ -170,7 +179,7 @@ export class ApprovalGatewayFacet<Receipt> {
             input,
             (admitted, context) => {
                 const action = this.approval.actionFor(context, admitted.resource);
-                return this.backend.apply(context, admitted.resource, action);
+                return this.backend.apply(context.dispatch(), admitted.resource, action);
             }
         );
     }

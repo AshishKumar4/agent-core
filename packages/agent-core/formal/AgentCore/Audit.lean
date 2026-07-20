@@ -122,7 +122,11 @@ def CauseChainValid (events : EventStore) (log : AuditLog) (entry : AuditEntry) 
   | none => True
   | some cause => CausalChain events log cause
 
-def AuditOutcomeMatches (effects : EffectLedger) : AuditKind → Prop
+def AuditEvidenceMatches (effects : EffectLedger) (entry : AuditEntry) : Prop :=
+  match entry.kind with
+  | .attempt id invocation => ∃ attempt,
+      effects.attempts id = some attempt ∧ attempt.invocation = invocation ∧
+      entry.cause = some attempt.auditCause
   | .preReceipt id invocation itemIndex outcome => ∃ receipt,
       effects.preReceipts id = some receipt ∧ receipt.invocation = invocation ∧
       receipt.itemIndex = itemIndex ∧ receipt.outcome = outcome
@@ -145,7 +149,7 @@ inductive AuditStep (effects : EffectLedger) (events : EventStore) :
   | append {log id entry} :
       log.entries id = none → log.atSequence entry.actor entry.sequence = none →
       LocalCauseValid log entry → CauseChainValid events log entry →
-      AuditOutcomeMatches effects entry.kind →
+      AuditEvidenceMatches effects entry →
       AuditStep effects events log (.append id) (log.append id entry)
   | projectionBridge {log id entry projectionId projection reservation} :
       log.entries id = none → log.atSequence entry.actor entry.sequence = none →
@@ -158,7 +162,7 @@ inductive AuditStep (effects : EffectLedger) (events : EventStore) :
       entry.actor = reservation.targetOwner →
       entry.kind = .routeProjected projectionId projection.reservation reservation.invocation →
       projection.targetLocalCause = none → entry.cause = none →
-      AuditOutcomeMatches effects entry.kind →
+      AuditEvidenceMatches effects entry →
       AuditStep effects events log (.projectBridge id projectionId) (log.append id entry)
 
 theorem audit_sequence_is_unique {effects events before label after}
@@ -220,12 +224,35 @@ theorem audit_append_is_locally_acyclic {effects events before label after}
   cases Option.some.inj lookupBefore
   exact lower
 
-theorem every_audited_receipt_outcome_matches {effects events before after id}
+theorem every_audited_effect_evidence_matches {effects events before after id}
     (step : AuditStep effects events before (.append id) after) :
-    ∃ entry, after.entries id = some entry ∧ AuditOutcomeMatches effects entry.kind := by
+    ∃ entry, after.entries id = some entry ∧ AuditEvidenceMatches effects entry := by
   cases step with
   | append fresh sequenceFresh localEvidence chain typed =>
       exact ⟨_, tableSet_self .., typed⟩
+
+theorem audit_step_preserves_existing_entry {effects events before label after id entry}
+    (step : AuditStep effects events before label after)
+    (lookup : before.entries id = some entry) : after.entries id = some entry := by
+  cases step with
+  | append fresh sequenceFresh localEvidence chain typed =>
+      change tableSet before.entries _ _ id = some entry
+      rw [tableSet_other]
+      · exact lookup
+      · intro same
+        subst id
+        rw [lookup] at fresh
+        contradiction
+  | projectionBridge fresh sequenceFresh projectionLookup authenticated reservationLookup
+      exactProjection exactDigest unique projectionTarget target kind projectionNoCause
+      entryNoCause typed =>
+      change tableSet before.entries _ _ id = some entry
+      rw [tableSet_other]
+      · exact lookup
+      · intro same
+        subst id
+        rw [lookup] at fresh
+        contradiction
 
 theorem delivery_audit_can_cause_commit_locally {log : AuditLog} {deliveryId : AuditId}
     {deliveryEntry commitEntry : AuditEntry} {reservation : ReservationId}

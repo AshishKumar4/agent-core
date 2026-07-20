@@ -1,9 +1,30 @@
-import AgentCore.Proofs.Reachability
+import AgentCore.Proofs.CanonicalMediatedTrace
 import AgentCore.Subscriptions
 
 /-! Constructive witnesses for the final designated claim families. -/
 
 namespace AgentCore.Examples
+
+theorem nonvacuous_canonical_mediated_attempt :
+    ∃ state attemptId storedAttempt admission,
+      Reachable state ∧
+      state.effects.attempts attemptId = some storedAttempt ∧
+      state.effects.admissions attemptId = some admission := by
+  rcases CanonicalMediatedTrace.canonical_single_item_mediated_attempt_reachable with
+    ⟨reachable, storedAttempt, admission, attemptLookup, admissionLookup, _, _⟩
+  exact ⟨_, _, storedAttempt, admission, reachable, attemptLookup, admissionLookup⟩
+
+theorem nonvacuous_canonical_mediated_attempt_audit_atomic :
+    ∃ state attemptId auditId attempt entry,
+      Reachable state ∧ state.effects.attempts attemptId = some attempt ∧
+      state.audit.entries auditId = some entry ∧
+      entry.kind = .attempt attemptId attempt.invocation ∧
+      entry.cause = some attempt.auditCause := by
+  obtain ⟨attempt, entry, attemptLookup, auditLookup, kind, cause⟩ :=
+    CanonicalMediatedTrace.canonical_witness_attempt_and_audit_are_atomic
+  exact ⟨_, _, _, attempt, entry,
+    CanonicalMediatedTrace.canonical_single_item_mediated_attempt_reachable.1,
+    attemptLookup, auditLookup, kind, cause⟩
 
 private def tenant : TenantId := ⟨1⟩
 private def workspace : WorkspaceId := ⟨1⟩
@@ -213,12 +234,14 @@ private theorem directReady : DirectReady directState directRequest := by
 theorem nonvacuous_direct_nondurable : DirectStep directState directRequest directState :=
   .admit directReady
 
+private def attempt0ClaimId : ItemClaimId := ⟨1⟩
+private def attempt1ClaimId : ItemClaimId := ⟨2⟩
 private def attempt0 : EffectAttempt :=
-  ⟨invocationId, 0, 0, .run tenant runId, ⟨2⟩, firstKey, some token, ⟨1⟩⟩
+  ⟨invocationId, 0, 0, attempt0ClaimId, ⟨1⟩, firstKey, some token, ⟨1⟩⟩
 private def attempt1 : EffectAttempt :=
-  ⟨invocationId, 1, 0, .run tenant runId, ⟨3⟩, secondKey, some token, ⟨1⟩⟩
-private def successReceipt : AttemptReceipt := ⟨⟨1⟩, .succeeded, none, ⟨4⟩⟩
-private def failedReceipt : AttemptReceipt := ⟨⟨2⟩, .failed, none, ⟨5⟩⟩
+  ⟨invocationId, 1, 0, attempt1ClaimId, ⟨1⟩, secondKey, some token, ⟨1⟩⟩
+private def successReceipt : AttemptReceipt := ⟨⟨1⟩, .succeeded, none⟩
+private def failedReceipt : AttemptReceipt := ⟨⟨2⟩, .failed, none⟩
 private def mixedEffects : EffectLedger := {
   (default : EffectLedger) with
   invocations := tableSet (default : EffectLedger).invocations invocationId prepared
@@ -261,7 +284,12 @@ theorem nonvacuous_mixed_batch_partial :
   apply mixed_terminal_batch_is_partial rfl item0Current item1Current
 
 private def retryPrior : EffectAttempt := attempt1
-private def retryNext : EffectAttempt := { attempt1 with ordinal := 1, auditCause := ⟨6⟩ }
+private def retryClaimId : ItemClaimId := ⟨3⟩
+private def retryWorker : ClaimWorkerId := ⟨1⟩
+private def retryClaim : ItemClaim :=
+  ⟨retryClaimId, invocationId, 1, 1, .executor token retryWorker, ⟨10⟩⟩
+private def retryNext : EffectAttempt :=
+  { attempt1 with ordinal := 1, claim := retryClaimId, auditCause := ⟨6⟩ }
 private def retryClaimExpiry : Time := ⟨10⟩
 private def retryAdmission : AttemptAdmission :=
   ⟨prepared.identity, principalRef, scope, resolution.id⟩
@@ -270,17 +298,20 @@ private def retryBefore : EffectLedger := {
   invocations := tableSet (default : EffectLedger).invocations invocationId prepared
   attempts := tableSet (default : EffectLedger).attempts ⟨2⟩ retryPrior
   admissions := tableSet (default : EffectLedger).admissions ⟨3⟩ retryAdmission
+  claims := tableSet (default : EffectLedger).claims retryClaimId retryClaim
   attemptReceipts := tableSet (default : EffectLedger).attemptReceipts ⟨11⟩ failedReceipt
   latestAttempt := fun invocation index =>
     if invocation = invocationId ∧ index = 1 then some ⟨2⟩ else none
   currentReceipt := fun invocation index =>
     if invocation = invocationId ∧ index = 1 then some (.attempt ⟨11⟩) else none
+  currentClaim := fun invocation index =>
+    if invocation = invocationId ∧ index = 1 then some retryClaimId else none
 }
 
 theorem nonvacuous_failed_retry :
     EffectStep retryBefore (.retryAttempt ⟨2⟩ ⟨3⟩)
-      (retryBefore.addRetryAttempt ⟨3⟩ retryNext retryClaimExpiry) := by
-  apply EffectStep.retryAttempt (prior := retryPrior) (prepared := prepared)
+      (retryBefore.addRetryAttempt ⟨3⟩ retryNext) := by
+  apply EffectStep.retryAttempt (prior := retryPrior) (prepared := prepared) (claim := retryClaim)
     (priorReceipt := ⟨11⟩)
   · rfl
   · simp [retryBefore, retryPrior, attempt1]
@@ -294,10 +325,13 @@ theorem nonvacuous_failed_retry :
   · rfl
   · rfl
   · rfl
+  · simp [retryBefore, retryNext, retryClaim, retryClaimId]
+  · simp [retryBefore, retryNext, retryClaimId, attempt1, invocationId]
+  · exact ⟨rfl, rfl, rfl, rfl, rfl⟩
   · decide
 
-private def indeterminateReceipt : AttemptReceipt := ⟨⟨1⟩, .indeterminate, none, ⟨7⟩⟩
-private def supersedingReceipt : AttemptReceipt := ⟨⟨1⟩, .succeeded, some ⟨12⟩, ⟨8⟩⟩
+private def indeterminateReceipt : AttemptReceipt := ⟨⟨1⟩, .indeterminate, none⟩
+private def supersedingReceipt : AttemptReceipt := ⟨⟨1⟩, .succeeded, some ⟨12⟩⟩
 private def supersedeBefore : EffectLedger := {
   (default : EffectLedger) with
   attempts := tableSet (default : EffectLedger).attempts ⟨1⟩ attempt0
@@ -345,7 +379,11 @@ private theorem childAuditStep :
   · rfl
   · exact ⟨rootAudit, by simp [auditOne], rfl, by decide, rfl, rfl⟩
   · exact rootChain
-  · trivial
+  · refine ⟨attempt0, ?_, rfl, rfl⟩
+    change tableSet (tableSet (default : EffectLedger).attempts ⟨1⟩ attempt0)
+      ⟨2⟩ attempt1 ⟨1⟩ = some attempt0
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
 
 theorem nonvacuous_actor_local_typed_audit :
     ∃ after, AuditStep mixedEffects (default : EventStore) auditOne (.append ⟨2⟩) after := by
@@ -448,22 +486,6 @@ private def noTurnHeader : InvocationHeader := {
 theorem nonvacuous_optional_turn_owner_audit :
     MediatedLeaseGate { (default : SystemState) with audit := auditOne } noTurnHeader ⟨1⟩ := by
   exact ⟨rootAudit, by simp [auditOne, noTurnHeader, header], rfl, rfl, rfl⟩
-
-private def issuedPermit : AuthorityPermit :=
-  ⟨principalRef, invocationId, ⟨1⟩, 0, header.pathEvidence, 7, ⟨1⟩, ⟨10⟩⟩
-private def permitLedger : PermitLedger :=
-  ⟨fun nonce => if nonce = 7 then some issuedPermit else none, fun _ => False⟩
-
-theorem nonvacuous_post_issuance_watermark_cutoff :
-    permitLedger.Consumable issuedPermit ⟨2⟩ := by
-  apply post_issuance_watermark_cannot_cancel_permit
-    (before := authorityBase) (after := authorityBase.observeForHolder principalRef scope)
-  · intro target
-    by_cases member : target ∈ scope.path
-    · simp [AuthorityLedger.observeForHolder, issuedPermit, member]
-      exact Nat.le_max_left _ _
-    · simp [AuthorityLedger.observeForHolder, issuedPermit, member]
-  exact ⟨by simp [permitLedger, issuedPermit], by simp [permitLedger], by decide, by decide⟩
 
 private def selfEvent : Event :=
   ⟨tenant, .run tenant runId, .input, "self", ⟨false, false⟩, none, some token, .self⟩
@@ -667,14 +689,16 @@ private def synthesisHeader : InvocationHeader := {
 }
 private def controlPrepared : PreparedInvocation := ⟨controlHeader, .single firstArgs⟩
 private def synthesisPrepared : PreparedInvocation := ⟨synthesisHeader, .single secondArgs⟩
+private def controlClaimId : ItemClaimId := ⟨30⟩
+private def synthesisClaimId : ItemClaimId := ⟨31⟩
 private def controlAttempt : EffectAttempt :=
-  ⟨controlInvocation, 0, 0, .run tenant runId, ⟨30⟩,
+  ⟨controlInvocation, 0, 0, controlClaimId, ⟨30⟩,
     deriveItemKey controlHeader controlPrepared.payload 0 firstArgs, none, ⟨1⟩⟩
 private def synthesisAttempt : EffectAttempt :=
-  ⟨synthesisInvocation, 0, 0, .run tenant runId, ⟨31⟩,
+  ⟨synthesisInvocation, 0, 0, synthesisClaimId, ⟨31⟩,
     deriveItemKey synthesisHeader synthesisPrepared.payload 0 secondArgs, some token, ⟨1⟩⟩
-private def controlReceipt : AttemptReceipt := ⟨⟨30⟩, .succeeded, none, ⟨32⟩⟩
-private def synthesisReceipt : AttemptReceipt := ⟨⟨31⟩, .succeeded, none, ⟨33⟩⟩
+private def controlReceipt : AttemptReceipt := ⟨⟨30⟩, .succeeded, none⟩
+private def synthesisReceipt : AttemptReceipt := ⟨⟨31⟩, .succeeded, none⟩
 private def synthesisEffects : EffectLedger := {
   (default : EffectLedger) with
   invocations := tableSet
@@ -1006,6 +1030,83 @@ private def item0Audit : AuditEntry :=
 private def item1Audit : AuditEntry :=
   ⟨.run tenant runId, 5, 7, some ⟨5⟩,
     .attemptReceipt ⟨11⟩ ⟨2⟩ invocationId .failed⟩
+private def attemptedReceiptBeforeEffects : EffectLedger := {
+  (default : EffectLedger) with
+  invocations := tableSet (default : EffectLedger).invocations invocationId prepared
+  attempts := tableSet (default : EffectLedger).attempts ⟨1⟩ attempt0
+  latestAttempt := fun invocation index =>
+    if invocation = invocationId ∧ index = 0 then some ⟨1⟩ else none
+}
+private def attemptedReceiptAfterEffects : EffectLedger :=
+  attemptedReceiptBeforeEffects.addAttemptReceipt ⟨10⟩ successReceipt attempt0
+private def attemptedReceiptAuditLog : AuditLog := auditTwo.append ⟨3⟩ item0Audit
+private def attemptedReceiptBeforeState : SystemState := {
+  (default : SystemState) with effects := attemptedReceiptBeforeEffects, audit := auditTwo
+}
+private def attemptedReceiptAfterState : SystemState := {
+  attemptedReceiptBeforeState with
+  effects := attemptedReceiptAfterEffects
+  audit := attemptedReceiptAuditLog
+}
+
+private theorem attemptedReceiptAuditAppend :
+    AttemptReceiptAuditAppend attemptedReceiptAfterEffects (default : EventStore) auditTwo
+      ⟨10⟩ successReceipt invocationId ⟨3⟩ attemptedReceiptAuditLog := by
+  refine ⟨⟨2⟩, item0Audit, ?_, ?_, ?_, rfl, rfl⟩
+  · refine ⟨attempt0, childAudit, ?_, rfl, ?_, rfl, rfl⟩
+    · simp [attemptedReceiptAfterEffects, attemptedReceiptBeforeEffects,
+        EffectLedger.addAttemptReceipt, successReceipt]
+    · change tableSet auditOne.entries ⟨2⟩ childAudit ⟨2⟩ = some childAudit
+      exact tableSet_self ..
+  · apply AuditStep.append
+    · rfl
+    · rfl
+    · exact ⟨childAudit, by
+        change tableSet auditOne.entries ⟨2⟩ childAudit ⟨2⟩ = some childAudit
+        exact tableSet_self .., rfl, by decide, rfl, ⟨rfl, rfl⟩⟩
+    · exact audit_step_establishes_causal_chain childAuditStep
+    · refine ⟨successReceipt, attempt0, ?_, rfl, ?_, rfl, rfl⟩
+      · simp [attemptedReceiptAfterEffects, EffectLedger.addAttemptReceipt]
+      · simp [attemptedReceiptAfterEffects, attemptedReceiptBeforeEffects,
+          EffectLedger.addAttemptReceipt, successReceipt]
+  · change tableSet auditTwo.entries ⟨3⟩ item0Audit ⟨3⟩ = some item0Audit
+    exact tableSet_self ..
+
+private theorem attemptedReceiptStep :
+    MediatedStep attemptedReceiptBeforeState
+      (.attemptReceipt invocationId ⟨10⟩ ⟨3⟩) attemptedReceiptAfterState := by
+  apply MediatedStep.attemptReceipt (receipt := successReceipt) (attempt := attempt0)
+  · simp [attemptedReceiptBeforeState, attemptedReceiptBeforeEffects, successReceipt, attempt0]
+  · rfl
+  · apply EffectStep.firstAttemptReceipt
+    · rfl
+    · rfl
+    · simp [attemptedReceiptBeforeState, attemptedReceiptBeforeEffects, successReceipt]
+    · simp [attemptedReceiptBeforeState, attemptedReceiptBeforeEffects, successReceipt, attempt0]
+    · rfl
+    · rfl
+  · simp [attemptedReceiptAfterState, attemptedReceiptAfterEffects,
+      EffectLedger.addAttemptReceipt]
+  · exact attemptedReceiptAuditAppend
+
+theorem nonvacuous_attempt_receipt_audit_atomic :
+    ∃ receipt attempt attemptAudit entry,
+      attemptedReceiptAfterState.effects.attemptReceipts ⟨10⟩ = some receipt ∧
+      attemptedReceiptAfterState.effects.attempts receipt.attempt = some attempt ∧
+      ∃ attemptAuditEntry,
+        attemptedReceiptBeforeState.audit.entries attemptAudit = some attemptAuditEntry ∧
+        attemptAuditEntry.kind = .attempt receipt.attempt invocationId ∧
+        attemptAuditEntry.cause = some attempt.auditCause ∧
+      attemptedReceiptAfterState.audit.entries ⟨3⟩ = some entry ∧
+      entry.kind = .attemptReceipt ⟨10⟩ receipt.attempt invocationId receipt.outcome ∧
+      entry.cause = some attemptAudit := by
+  obtain ⟨receipt, attempt, attemptAudit, attemptAuditEntry, entry, receiptLookup,
+    attemptLookup, invocation, attemptAuditLookup, attemptKind, attemptCause, auditLookup,
+    kind, cause⟩ :=
+      attempt_receipt_and_exact_audit_are_one_transition attemptedReceiptStep
+  exact ⟨receipt, attempt, attemptAudit, entry, receiptLookup, attemptLookup,
+    attemptAuditEntry, attemptAuditLookup, attemptKind, attemptCause, auditLookup, kind, cause⟩
+
 private def auditFour : AuditLog := auditThree.append ⟨3⟩ item0Audit
 private def settlementAuditLog : AuditLog := auditFour.append ⟨4⟩ item1Audit
 
@@ -1052,7 +1153,7 @@ private theorem secondAttemptStep :
       rw [tableSet_other _ _ _ (by decide)]
       simp [auditOne], rfl, by decide, rfl, rfl⟩
   · exact rootChainAuditTwo
-  · trivial
+  · simp [AuditEvidenceMatches, secondAttemptAudit, mixedEffects, attempt1]
 
 private theorem item0Step :
     AuditStep mixedEffects (default : EventStore) auditThree (.append ⟨3⟩) auditFour := by
@@ -1209,10 +1310,11 @@ theorem nonvacuous_audit_complete_derived_settled : Settled settledState runId :
   · intro conflict; contradiction
 
 private def oneItemPrepared : PreparedInvocation := ⟨header, .single firstArgs⟩
+private def indeterminateClaimId : ItemClaimId := ⟨40⟩
 private def indeterminateAttempt : EffectAttempt :=
-  ⟨invocationId, 0, 0, .run tenant runId, ⟨40⟩,
+  ⟨invocationId, 0, 0, indeterminateClaimId, ⟨40⟩,
     deriveItemKey header oneItemPrepared.payload 0 firstArgs, some token, ⟨1⟩⟩
-private def batchIndeterminateReceipt : AttemptReceipt := ⟨⟨40⟩, .indeterminate, none, ⟨41⟩⟩
+private def batchIndeterminateReceipt : AttemptReceipt := ⟨⟨40⟩, .indeterminate, none⟩
 private def indeterminateEffects : EffectLedger := {
   (default : EffectLedger) with
   invocations := tableSet (default : EffectLedger).invocations invocationId oneItemPrepared
@@ -1238,9 +1340,11 @@ private def actionBindingId : BindingId := ⟨2⟩
 private def actionGrantId : GrantId := .manual 2
 private def actionInvocation : InvocationId := ⟨2⟩
 private def actionApproval : ApprovalId := ⟨2⟩
+private def actionRootAuditId : AuditId := ⟨40⟩
 private def actionHeader : InvocationHeader := {
   noTurnHeader with
   authority := .initiator principalRef actionBindingId
+  auditCause := actionRootAuditId
 }
 private def actionPrepared : PreparedInvocation := ⟨actionHeader, .batch firstArgs [secondArgs]⟩
 private def actionGrant : Grant :=
@@ -1316,10 +1420,14 @@ private def actionRegistry : RunAdmissionRegistry :=
 private def actionGraph : GraphStore := {
   rootGraph with admissionRegistry := tableSet rootGraph.admissionRegistry runId actionRegistry
 }
+private def actionRootAudit : AuditEntry :=
+  ⟨.run tenant runId, 1, 8, none, .invocation actionInvocation⟩
+private def actionAuditOne : AuditLog :=
+  (default : AuditLog).append actionRootAuditId actionRootAudit
 private def actionState : SystemState := {
   (default : SystemState) with
   authority := actionAuthority
-  audit := auditOne
+  audit := actionAuditOne
   graph := actionGraph
 }
 private def actionRequest (obligation : OpenObligation) : AdmissionRequest :=
@@ -1335,8 +1443,10 @@ private theorem actionReady (obligation : OpenObligation)
       simp [RouteGate, InvocationHeader.RouteEvidenceConsistent, actionRequest,
         actionPrepared, actionHeader, noTurnHeader, header],
     rfl, ?_, ?_, actionResolution, ?_, ?_⟩
-  · exact ⟨rootAudit, by simp [actionState, auditOne, actionRequest, actionPrepared,
-      actionHeader, noTurnHeader, header], rfl, rfl, rfl⟩
+  · exact ⟨actionRootAudit, by
+      change tableSet (default : AuditLog).entries actionRootAuditId actionRootAudit
+        actionRootAuditId = some actionRootAudit
+      exact tableSet_self .., rfl, rfl, rfl⟩
   · refine ⟨run, ⟨runId, 0, obligation⟩, ?_, rfl, rfl, rfl, actionRegistry, ?_, rfl,
       rfl, reserved, by simp [actionRegistry]⟩
     · simp [actionState, actionGraph, rootGraph, runId]
@@ -1410,20 +1520,27 @@ private def requestedState : SystemState := {
 private def approvedTicket : ApprovalTicket := { actionTicket with phase := .approved }
 private def approvedApprovals : ApprovalLedger := requestedApprovals.setTicket actionApproval approvedTicket
 private def approvedState : SystemState := { requestedState with approvals := approvedApprovals }
+private def actionClaimId : ItemClaimId := ⟨50⟩
+private def actionSecondClaimId : ItemClaimId := ⟨51⟩
+private def actionWorker : ClaimWorkerId := ⟨1⟩
 private def actionAttempt : EffectAttempt :=
-  ⟨actionInvocation, 0, 0, .run tenant runId, ⟨50⟩,
+  ⟨actionInvocation, 0, 0, actionClaimId, actionRootAuditId,
     deriveItemKey actionHeader actionPrepared.payload 0 firstArgs, none, ⟨2⟩⟩
 private def actionClaim : ItemClaim :=
-  ⟨actionInvocation, 0, 0, .run tenant runId, ⟨10⟩⟩
+  ⟨actionClaimId, actionInvocation, 0, 0, .system (.run tenant runId) actionWorker, ⟨10⟩⟩
 private def claimedEffects : EffectLedger := requestedEffects.setClaim actionClaim
 private def claimedState : SystemState := { approvedState with effects := claimedEffects }
 private def startedEffects : EffectLedger :=
   (claimedEffects.recordAdmission ⟨50⟩ (admissionFor actionFirstRequest)).addAttempt
     ⟨50⟩ actionAttempt
+private def actionAttemptAudit : AuditEntry :=
+  ⟨.run tenant runId, 2, 8, some actionRootAuditId, .attempt ⟨50⟩ actionInvocation⟩
+private def actionAuditTwo : AuditLog := actionAuditOne.append ⟨50⟩ actionAttemptAudit
 private def startedState : SystemState := {
   claimedState with
   approvals := approvedApprovals.consume actionApproval actionPrepared ⟨50⟩
   effects := startedEffects
+  audit := actionAuditTwo
 }
 
 theorem nonvacuous_persisted_approval_continuation :
@@ -1436,20 +1553,88 @@ theorem nonvacuous_persisted_approval_continuation :
       actionInvocation]
 
 private def actionSecondClaim : ItemClaim :=
-  ⟨actionInvocation, 1, 0, .run tenant runId, ⟨10⟩⟩
+  ⟨actionSecondClaimId, actionInvocation, 1, 0,
+    .system (.run tenant runId) actionWorker, ⟨10⟩⟩
 private def actionSecondAttempt : EffectAttempt :=
-  ⟨actionInvocation, 1, 0, .run tenant runId, ⟨51⟩,
+  ⟨actionInvocation, 1, 0, actionSecondClaimId, actionRootAuditId,
     deriveItemKey actionHeader actionPrepared.payload 1 secondArgs, none, ⟨3⟩⟩
 private def secondClaimedEffects : EffectLedger := startedEffects.setClaim actionSecondClaim
 private def secondClaimedState : SystemState := { startedState with effects := secondClaimedEffects }
 private def continuedEffects : EffectLedger :=
   (secondClaimedEffects.recordAdmission ⟨51⟩ (admissionFor actionSecondRequest)).addAttempt
     ⟨51⟩ actionSecondAttempt
-private def continuedState : SystemState := { secondClaimedState with effects := continuedEffects }
+private def actionSecondAttemptAudit : AuditEntry :=
+  ⟨.run tenant runId, 3, 8, some actionRootAuditId, .attempt ⟨51⟩ actionInvocation⟩
+private def actionAuditThree : AuditLog :=
+  actionAuditTwo.append ⟨51⟩ actionSecondAttemptAudit
+private def continuedState : SystemState := {
+  secondClaimedState with effects := continuedEffects, audit := actionAuditThree
+}
+
+private theorem actionRootChain :
+    CausalChain (default : EventStore) actionAuditOne actionRootAuditId := by
+  apply CausalChain.root (entry := actionRootAudit)
+  · change tableSet (default : AuditLog).entries actionRootAuditId actionRootAudit
+      actionRootAuditId = some actionRootAudit
+    exact tableSet_self ..
+  · rfl
+  · trivial
+
+private theorem firstActionAttemptAuditAppend :
+    AttemptAuditAppend startedEffects (default : EventStore) actionAuditOne ⟨50⟩
+      actionInvocation ⟨50⟩ actionAuditTwo := by
+  refine ⟨actionAttemptAudit, ?_, ?_, rfl⟩
+  · apply AuditStep.append
+    · decide
+    · decide
+    · exact ⟨actionRootAudit, by
+        change tableSet (default : AuditLog).entries actionRootAuditId actionRootAudit
+          actionRootAuditId = some actionRootAudit
+        exact tableSet_self .., rfl, by decide, rfl, rfl⟩
+    · exact actionRootChain
+    · refine ⟨actionAttempt, ?_, rfl, rfl⟩
+      simp [startedEffects, EffectLedger.addAttempt]
+  · change tableSet actionAuditOne.entries ⟨50⟩ actionAttemptAudit ⟨50⟩ =
+      some actionAttemptAudit
+    exact tableSet_self ..
+
+private theorem actionRootChainAfterFirstAttempt :
+    CausalChain (default : EventStore) actionAuditTwo actionRootAuditId := by
+  apply CausalChain.root (entry := actionRootAudit)
+  · change tableSet actionAuditOne.entries ⟨50⟩ actionAttemptAudit actionRootAuditId =
+      some actionRootAudit
+    rw [tableSet_other _ _ _ (by decide)]
+    change tableSet (default : AuditLog).entries actionRootAuditId actionRootAudit
+      actionRootAuditId = some actionRootAudit
+    exact tableSet_self ..
+  · rfl
+  · trivial
+
+private theorem secondActionAttemptAuditAppend :
+    AttemptAuditAppend continuedEffects (default : EventStore) actionAuditTwo ⟨51⟩
+      actionInvocation ⟨51⟩ actionAuditThree := by
+  refine ⟨actionSecondAttemptAudit, ?_, ?_, rfl⟩
+  · apply AuditStep.append
+    · decide
+    · decide
+    · exact ⟨actionRootAudit, by
+        change tableSet actionAuditOne.entries ⟨50⟩ actionAttemptAudit actionRootAuditId =
+          some actionRootAudit
+        rw [tableSet_other _ _ _ (by decide)]
+        change tableSet (default : AuditLog).entries actionRootAuditId actionRootAudit
+          actionRootAuditId = some actionRootAudit
+        exact tableSet_self .., rfl, by decide, rfl, rfl⟩
+    · exact actionRootChainAfterFirstAttempt
+    · refine ⟨actionSecondAttempt, ?_, rfl, rfl⟩
+      simp [continuedEffects, EffectLedger.addAttempt]
+  · change tableSet actionAuditTwo.entries ⟨51⟩ actionSecondAttemptAudit ⟨51⟩ =
+      some actionSecondAttemptAudit
+    exact tableSet_self ..
 
 theorem nonvacuous_claim_records_future_expiry :
     EffectStep requestedEffects (.claimItem actionInvocation 0 ⟨1⟩) claimedEffects ∧
-    ∃ claim, claimedEffects.claims actionInvocation 0 = some claim ∧ 1 < claim.expiresAt.tick := by
+    ∃ claim, claimedEffects.currentClaim actionInvocation 0 = some claim.id ∧
+      claimedEffects.claims claim.id = some claim ∧ 1 < claim.expiresAt.tick := by
   have claimStep :
       EffectStep requestedEffects (.claimItem actionInvocation 0 ⟨1⟩) claimedEffects := by
     apply EffectStep.claimItem (prepared := actionPrepared) (claim := actionClaim)
@@ -1458,8 +1643,8 @@ theorem nonvacuous_claim_records_future_expiry :
     · simp [requestedEffects, actionClaim]
     · rfl
     · rfl
+    · exact Or.inl ⟨rfl, rfl, rfl⟩
     · decide
-    · rfl
     · rfl
     · rfl
   exact ⟨claimStep, claim_records_future_expiry claimStep⟩
@@ -1468,7 +1653,8 @@ theorem nonvacuous_request_approve_start_trace :
     MediatedStep actionState (.requestApproval actionApproval actionInvocation) requestedState ∧
     ApprovalStep requestedApprovals (.approve actionApproval principal ⟨1⟩) approvedApprovals ∧
     MediatedStep approvedState (.claimItem actionInvocation 0 ⟨1⟩) claimedState ∧
-    MediatedStep claimedState (.approvalStart actionApproval actionInvocation ⟨50⟩) startedState := by
+    MediatedStep claimedState (.approvalStart actionApproval actionInvocation ⟨50⟩ ⟨50⟩)
+      startedState := by
   constructor
   · change MediatedStep actionState
       (.requestApproval actionApproval actionPrepared.header.invocation) requestedState
@@ -1512,14 +1698,15 @@ theorem nonvacuous_request_approve_start_trace :
         · simp [approvedState, requestedState, requestedEffects, actionClaim]
         · rfl
         · rfl
+        · exact Or.inl ⟨rfl, rfl, rfl⟩
         · decide
-        · rfl
         · rfl
         · rfl
     · have claimedReady : MediatedReady claimedState actionFirstRequest := by
         simpa [claimedState] using approvedReady
       change MediatedStep claimedState
-        (.approvalStart actionApproval actionPrepared.header.invocation ⟨50⟩) startedState
+        (.approvalStart actionApproval actionPrepared.header.invocation ⟨50⟩ ⟨50⟩)
+        startedState
       apply MediatedStep.approvalStart (state := claimedState) (request := actionFirstRequest)
         (attempt := actionAttempt) (effects' := startedEffects) claimedReady
       · simp [AdmissionRequest.ReservedFor, actionFirstRequest, actionRequest,
@@ -1555,16 +1742,20 @@ theorem nonvacuous_request_approve_start_trace :
         · exact ⟨actionClaim,
             by simp [EffectLedger.recordAdmission, claimedState, claimedEffects,
               EffectLedger.setClaim, actionClaim, actionAttempt],
-            rfl, rfl, rfl, rfl, by decide⟩
+            by simp [EffectLedger.recordAdmission, claimedState, claimedEffects,
+              EffectLedger.setClaim, actionClaim, actionAttempt],
+            ⟨rfl, rfl, rfl, rfl, rfl⟩, by decide⟩
         · rfl
         · rfl
       · simp [startedEffects, EffectLedger.addAttempt, tableSet_self]
+      · exact firstActionAttemptAuditAppend
 
 theorem nonvacuous_approval_start_then_continue :
-    MediatedStep claimedState (.approvalStart actionApproval actionInvocation ⟨50⟩) startedState ∧
+    MediatedStep claimedState (.approvalStart actionApproval actionInvocation ⟨50⟩ ⟨50⟩)
+      startedState ∧
     MediatedStep startedState (.claimItem actionInvocation 1 ⟨1⟩) secondClaimedState ∧
     MediatedStep secondClaimedState
-      (.approvalContinue actionApproval actionInvocation ⟨51⟩) continuedState := by
+      (.approvalContinue actionApproval actionInvocation ⟨51⟩ ⟨51⟩) continuedState := by
   refine ⟨nonvacuous_request_approve_start_trace.2.2.2, ?_, ?_⟩
   · have ready : MediatedReady startedState actionSecondRequest := by
       simpa [startedState, claimedState, approvedState, requestedState] using actionSecondReady
@@ -1591,8 +1782,10 @@ theorem nonvacuous_approval_start_then_continue :
           EffectLedger.setClaim, tableSet_self]
       · rfl
       · rfl
+      · refine Or.inl ⟨rfl, ?_, rfl⟩
+        change (default : EffectLedger).latestAttempt actionInvocation 1 = none
+        rfl
       · decide
-      · rfl
       · rfl
       · rfl
   · have ready : MediatedReady secondClaimedState actionSecondRequest := by
@@ -1643,10 +1836,36 @@ theorem nonvacuous_approval_start_then_continue :
           by simp [EffectLedger.recordAdmission, secondClaimedState, secondClaimedEffects,
             startedEffects, claimedEffects, requestedEffects, actionSecondClaim,
             actionSecondAttempt, EffectLedger.setClaim, tableSet_self],
-          rfl, rfl, rfl, rfl, by decide⟩
+          by simp [EffectLedger.recordAdmission, secondClaimedState, secondClaimedEffects,
+            startedEffects, claimedEffects, requestedEffects, actionSecondClaim,
+            actionSecondAttempt, EffectLedger.setClaim, tableSet_self],
+          ⟨rfl, rfl, rfl, rfl, rfl⟩, by decide⟩
       · rfl
       · rfl
     · simp [continuedEffects, EffectLedger.addAttempt, tableSet_self]
+    · exact secondActionAttemptAuditAppend
+
+theorem nonvacuous_approved_attempt_audit_atomic :
+    ∃ attempt entry,
+      startedState.effects.attempts ⟨50⟩ = some attempt ∧
+      startedState.audit.entries ⟨50⟩ = some entry ∧
+      entry.kind = .attempt ⟨50⟩ actionInvocation ∧
+      entry.cause = some attempt.auditCause := by
+  obtain ⟨attempt, entry, attemptLookup, auditLookup, kind, invocation, cause⟩ :=
+    approved_attempt_and_exact_audit_are_one_transition
+      nonvacuous_request_approve_start_trace.2.2.2
+  exact ⟨attempt, entry, attemptLookup, auditLookup, kind, cause⟩
+
+theorem nonvacuous_continued_attempt_audit_atomic :
+    ∃ attempt entry,
+      continuedState.effects.attempts ⟨51⟩ = some attempt ∧
+      continuedState.audit.entries ⟨51⟩ = some entry ∧
+      entry.kind = .attempt ⟨51⟩ actionInvocation ∧
+      entry.cause = some attempt.auditCause := by
+  obtain ⟨attempt, entry, attemptLookup, auditLookup, kind, invocation, cause⟩ :=
+    continued_attempt_and_exact_audit_are_one_transition
+      nonvacuous_approval_start_then_continue.2.2
+  exact ⟨attempt, entry, attemptLookup, auditLookup, kind, cause⟩
 
 private def malformedContinuation : ApprovalContinuation :=
   ⟨actionApproval, actionInvocation, actionPrepared.identity, actionPrepared.digest, ⟨999⟩⟩
@@ -1659,7 +1878,7 @@ private def malformedContinuationState : SystemState := {
 
 theorem nonvacuous_malformed_approval_continuation_rejected :
     ¬ MediatedStep malformedContinuationState
-      (.approvalContinue actionApproval actionInvocation ⟨51⟩) continuedState := by
+      (.approvalContinue actionApproval actionInvocation ⟨51⟩ ⟨51⟩) continuedState := by
   apply malformed_first_attempt_cannot_continue
     (prepared := actionPrepared) (continuation := malformedContinuation)
   · simp [malformedContinuationState, startedState, startedEffects, claimedEffects,
@@ -1722,8 +1941,33 @@ private def staleState : SystemState := {
   actionState with authority := staleAuthority, effects := requestedEffects
 }
 private def staleReceipt : PreEffectReceipt :=
-  ⟨actionInvocation, 0, .denied, ⟨60⟩⟩
+  ⟨actionInvocation, 0, .denied⟩
 private def staleEffects : EffectLedger := requestedEffects.addPreReceipt ⟨60⟩ staleReceipt
+private def staleReceiptAudit : AuditEntry :=
+  ⟨.run tenant runId, 2, 8, some actionRootAuditId,
+    .preReceipt ⟨60⟩ actionInvocation 0 .denied⟩
+private def staleAuditLog : AuditLog := actionAuditOne.append ⟨60⟩ staleReceiptAudit
+private theorem staleReceiptAuditAppend :
+    PreReceiptAuditAppend staleEffects (default : EventStore) actionAuditOne ⟨60⟩
+      staleReceipt ⟨60⟩ staleAuditLog := by
+  refine ⟨actionRootAuditId, staleReceiptAudit, ?_, ?_, ?_, rfl, rfl⟩
+  · exact ⟨actionRootAudit, by
+      change tableSet (default : AuditLog).entries actionRootAuditId actionRootAudit
+        actionRootAuditId = some actionRootAudit
+      exact tableSet_self .., rfl⟩
+  · apply AuditStep.append
+    · decide
+    · decide
+    · exact ⟨actionRootAudit, by
+        change tableSet (default : AuditLog).entries actionRootAuditId actionRootAudit
+          actionRootAuditId = some actionRootAudit
+        exact tableSet_self .., rfl, by decide, rfl, rfl⟩
+    · exact actionRootChain
+    · refine ⟨staleReceipt, ?_, rfl, rfl, rfl⟩
+      simp [staleEffects, EffectLedger.addPreReceipt]
+  · change tableSet actionAuditOne.entries ⟨60⟩ staleReceiptAudit ⟨60⟩ =
+      some staleReceiptAudit
+    exact tableSet_self ..
 private theorem actionPathComplete : actionAuthority.PathEvidenceComplete actionHeader scope := by
   constructor
   · rfl
@@ -1733,10 +1977,11 @@ private theorem actionPathComplete : actionAuthority.PathEvidenceComplete action
     rcases member with rfl | rfl <;> rfl
 
 theorem nonvacuous_stale_mediated_denial :
-    MediatedStep staleState (.staleDenied actionInvocation ⟨60⟩) {
+    MediatedStep staleState (.staleDenied actionInvocation ⟨60⟩ ⟨60⟩) {
       staleState with
       authority := staleAuthority.observeForHolder principalRef scope
       effects := staleEffects
+      audit := staleAuditLog
     } := by
   apply MediatedStep.staleDenied (request := actionFirstRequest) (resolution := actionResolution)
     (holder := principalRef)
@@ -1771,7 +2016,24 @@ theorem nonvacuous_stale_mediated_denial :
     · exact ⟨⟨0, firstArgs, deriveItemKey actionHeader actionPrepared.payload 0 firstArgs⟩, rfl⟩
     · rfl
     · rfl
+    · rfl
   · rfl
+  · exact staleReceiptAuditAppend
+
+theorem nonvacuous_stale_denial_audit_atomic :
+    ∃ receipt parent parentEntry entry,
+      staleEffects.preReceipts ⟨60⟩ = some receipt ∧
+      actionAuditOne.entries parent = some parentEntry ∧
+      MayCause parentEntry.kind
+        (.preReceipt ⟨60⟩ receipt.invocation receipt.itemIndex receipt.outcome) ∧
+      staleAuditLog.entries ⟨60⟩ = some entry ∧
+      entry.kind = .preReceipt ⟨60⟩ receipt.invocation receipt.itemIndex receipt.outcome ∧
+      receipt.outcome = .denied ∧ entry.cause = some parent := by
+  obtain ⟨receipt, parent, parentEntry, entry, receiptLookup, parentLookup, permitted,
+    auditLookup, kind, invocation, denied, cause⟩ :=
+    stale_denial_and_exact_audit_are_one_transition nonvacuous_stale_mediated_denial
+  exact ⟨receipt, parent, parentEntry, entry, receiptLookup, parentLookup, permitted,
+    auditLookup, kind, denied, cause⟩
 
 private def viewStart : ViewState := ⟨0, ⟨["a"]⟩⟩
 private def viewDeltaOne : ViewDelta := ⟨0, .append ⟨["b"]⟩⟩
@@ -1904,7 +2166,8 @@ theorem nonvacuous_guarded_attempt_reachability :
       admission.identity = actionPrepared.identity ∧
       admission.principal = actionPrepared.header.authority.principal := by
   have transition := nonvacuous_request_approve_start_trace.2.2.2
-  have reachable : ReachableFrom claimedState startedState := .step .initial transition
+  have reachable : ReachableFrom claimedState startedState :=
+    .step .initial (.mediated transition)
   refine ⟨reachable, actionAttempt, admissionFor actionFirstRequest, ?_, ?_, rfl, rfl⟩
   · simp [startedState, startedEffects, EffectLedger.addAttempt]
   · simp [startedState, startedEffects, EffectLedger.addAttempt, EffectLedger.recordAdmission]
@@ -2023,8 +2286,13 @@ theorem nonvacuous_receipt_id_disjointness_rejection :
 
 private def abandonedClaim : ItemClaim :=
   { actionClaim with expiresAt := ⟨2⟩ }
+private def recoveredClaimId : ItemClaimId := ⟨52⟩
+private def recoveredWorker : ClaimWorkerId := ⟨2⟩
 private def recoveredClaim : ItemClaim :=
-  { actionClaim with owner := .workspace tenant workspace, expiresAt := ⟨10⟩ }
+  { actionClaim with
+    id := recoveredClaimId
+    owner := .system (.run tenant runId) recoveredWorker
+    expiresAt := ⟨10⟩ }
 private def abandonedClaimLedger : EffectLedger := requestedEffects.setClaim abandonedClaim
 private def recoveredClaimLedger : EffectLedger := abandonedClaimLedger.setClaim recoveredClaim
 
@@ -2038,12 +2306,24 @@ theorem nonvacuous_abandoned_claim_same_ordinal_recovery :
       EffectStep abandonedClaimLedger (.recoverItemClaim actionInvocation 0 ⟨3⟩)
         recoveredClaimLedger := by
     apply EffectStep.recoverItemClaim (previous := abandonedClaim) (replacement := recoveredClaim)
+      (prepared := actionPrepared)
     · simp [abandonedClaimLedger, abandonedClaim, actionClaim, EffectLedger.setClaim]
+    · simp [abandonedClaimLedger, abandonedClaim, actionClaim, EffectLedger.setClaim]
+    · simp [abandonedClaimLedger, requestedEffects, abandonedClaim, actionClaim,
+        EffectLedger.setClaim]
+    · rfl
+    · rfl
+    · change tableSet (default : EffectLedger).claims actionClaimId abandonedClaim
+        recoveredClaimId = none
+      rw [tableSet_other _ _ _ (by decide)]
+      rfl
+    · decide
     · decide
     · rfl
     · rfl
     · rfl
-    · decide
+    · change (⟨2⟩ : ClaimWorkerId) ≠ ⟨1⟩
+      decide
     · decide
     · intro id attempt lookup
       simp [abandonedClaimLedger, requestedEffects, EffectLedger.setClaim] at lookup

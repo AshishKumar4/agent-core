@@ -151,7 +151,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
       "testSelectors": [
-        "test/definition/materializer.test.ts#same-Actor additive materialization [C13-POLICY-DIRECT-COLOCATION] keeps direct local mutation machinery out of the definition barrel"
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

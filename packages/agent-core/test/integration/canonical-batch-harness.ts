@@ -31,6 +31,7 @@ import {
     createInvocationMediationMemoryState,
     createInvocationMemoryState,
     type CanonicalBatchAuthorityPermitPort,
+    type CanonicalBatchAuthorityAuthenticationPort,
     type CanonicalBatchFinalAdmissionPort,
     type CanonicalBatchInvocationRequest,
     type CanonicalBatchRecordPort,
@@ -58,6 +59,7 @@ export const canonicalBatchDescriptor = new OperationDescriptor(
 
 export class CanonicalBatchMemoryTransactions implements InvocationTransactionPort<CanonicalBatchHarnessState> {
     #state: CanonicalBatchHarnessState = createState();
+    #loseCommittedResponse = false;
     public active = false;
 
     public transact<Result>(
@@ -68,6 +70,10 @@ export class CanonicalBatchMemoryTransactions implements InvocationTransactionPo
         try {
             const result = operation(draft);
             this.#state = cloneState(draft);
+            if (this.#loseCommittedResponse) {
+                this.#loseCommittedResponse = false;
+                throw new TypeError("transaction response was lost after commit");
+            }
             return result;
         } finally {
             this.active = false;
@@ -76,6 +82,10 @@ export class CanonicalBatchMemoryTransactions implements InvocationTransactionPo
 
     public restart(): void {
         this.#state = cloneState(this.#state);
+    }
+
+    public loseNextCommittedResponse(): void {
+        this.#loseCommittedResponse = true;
     }
 }
 
@@ -157,6 +167,7 @@ class Permits implements CanonicalBatchAuthorityPermitPort<string, string, strin
     public issuedInsideTargetTransaction = false;
     public crashOnce = false;
     public onIssue: (() => Promise<void>) | undefined;
+    public readonly issuedAdmissions: AuthorityAdmissionReference<string>[] = [];
 
     public constructor(
         private readonly transactions: CanonicalBatchMemoryTransactions,
@@ -188,15 +199,62 @@ class Permits implements CanonicalBatchAuthorityPermitPort<string, string, strin
         if (this.deniedItems.has(claim.itemIndex)) {
             throw new AgentCoreError("authority.denied", "permit denied");
         }
-        return this.invalidItems.has(claim.itemIndex)
+        const admission = this.invalidItems.has(claim.itemIndex)
             ? new AuthorityAdmissionReference("invalid-permit", digest("invalid-permit"))
             : admissionFor(invocation.header.id.value, claim.itemIndex, claim.attemptOrdinal);
+        this.issuedAdmissions.push(admission);
+        return admission;
+    }
+}
+
+class PermitAuthentication implements CanonicalBatchAuthorityAuthenticationPort<
+    string,
+    string,
+    string,
+    string,
+    string,
+    undefined
+> {
+    public readonly deniedItems = new Set<number>();
+    public readonly authenticatedItems: number[] = [];
+    public authenticatedInsideTargetTransaction = false;
+    public crashOnce = false;
+    public onAuthenticate: (() => Promise<void>) | undefined;
+
+    public constructor(private readonly transactions: CanonicalBatchMemoryTransactions) {}
+
+    public async authenticate(
+        _invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
+        claim: ItemClaim<string>,
+        _admission: AuthorityAdmissionReference<string>
+    ): Promise<undefined> {
+        this.authenticatedInsideTargetTransaction ||= this.transactions.active;
+        this.authenticatedItems.push(claim.itemIndex);
+        await this.onAuthenticate?.();
+        if (this.crashOnce) {
+            this.crashOnce = false;
+            throw new TypeError("permit authentication transport crash");
+        }
+        if (this.deniedItems.has(claim.itemIndex)) {
+            throw new AgentCoreError("authority.denied", "permit authentication denied");
+        }
+        return undefined;
     }
 }
 
 class Records implements CanonicalBatchRecordPort<string, string, string, string, string> {
     public createdClaims = 0;
+    public substituteAttemptCause = false;
     public substituteReceiptCause = false;
+
+    public invocationAudit(
+        invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>
+    ): AuditRecord {
+        return audit(invocation, invocation.header.auditCause.value, undefined, {
+            kind: "invocation",
+            id: invocation.header.id
+        });
+    }
 
     public claim(
         invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
@@ -204,12 +262,7 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
         previous: ItemClaim<string> | undefined,
         now: Date
     ): ItemClaim<string> {
-        this.createdClaims += 1;
-        const worker = new ClaimWorkerId(`worker:${this.createdClaims}`);
-        const owner =
-            invocation.header.lease === undefined
-                ? { kind: "system" as const, actor: invocation.header.actor, worker }
-                : { kind: "executor" as const, token: invocation.header.lease, worker };
+        const owner = this.nextOwner(invocation);
         return previous === undefined
             ? new ItemClaim(
                   new ItemClaimId(`claim:${invocation.header.id.value}:${itemIndex}:0`),
@@ -225,6 +278,24 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
                   new Date(now.getTime() + 1_000),
                   now
               );
+    }
+
+    public retryClaim(
+        invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
+        previous: EffectAttempt<string, string>,
+        now: Date
+    ): ItemClaim<string> {
+        const attemptOrdinal = previous.ordinal + 1;
+        return new ItemClaim(
+            new ItemClaimId(
+                `claim:${invocation.header.id.value}:${previous.itemIndex}:retry:${attemptOrdinal}`
+            ),
+            invocation.header.id,
+            previous.itemIndex,
+            attemptOrdinal,
+            this.nextOwner(invocation),
+            new Date(now.getTime() + 1_000)
+        );
     }
 
     public attempt(
@@ -253,10 +324,17 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
         invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
         attempt: EffectAttempt<string, string>
     ) {
-        return audit(invocation, `audit:${attempt.id.value}`, attempt.auditCause, {
-            kind: "attempt",
-            id: attempt.id
-        });
+        return audit(
+            invocation,
+            `audit:${attempt.id.value}`,
+            this.substituteAttemptCause
+                ? new AuditRecordId("substituted-invocation-audit")
+                : attempt.auditCause,
+            {
+                kind: "attempt",
+                id: attempt.id
+            }
+        );
     }
 
     public preEffectReceipt(
@@ -291,6 +369,25 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
         );
     }
 
+    public reconciledReceipt(
+        attempt: EffectAttempt<string, string>,
+        previous: AttemptReceipt,
+        result: {
+            readonly kind: "succeeded" | "failed";
+            readonly result?: ContentRef;
+        },
+        recordedAt: Date
+    ): AttemptReceipt {
+        return new AttemptReceipt(
+            new ReceiptId(`receipt:${attempt.id.value}:${result.kind}`),
+            attempt.id,
+            result.kind,
+            previous.id,
+            recordedAt,
+            result.result
+        );
+    }
+
     public receiptAudit(
         invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
         cause: AuditRecord | undefined,
@@ -305,9 +402,36 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
             { kind: "receipt", id: receipt.id, outcome: receipt.outcome }
         );
     }
+
+    public receiptSupersessionAudit(
+        invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
+        previousAudit: AuditRecord,
+        previous: AttemptReceipt,
+        next: AttemptReceipt
+    ): AuditRecord {
+        return audit(
+            invocation,
+            `audit:supersession:${previous.id.value}:${next.id.value}`,
+            previousAudit.id,
+            {
+                kind: "receiptSuperseded",
+                previous: previous.id,
+                next: next.id
+            }
+        );
+    }
+
+    private nextOwner(invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>) {
+        this.createdClaims += 1;
+        const worker = new ClaimWorkerId(`worker:${this.createdClaims}`);
+        return invocation.header.lease === undefined
+            ? { kind: "system" as const, actor: invocation.header.actor, worker }
+            : { kind: "executor" as const, token: invocation.header.lease, worker };
+    }
 }
 
 class FinalAdmissions {
+    public calls = 0;
     public result:
         | { readonly kind: "admitted"; readonly evidence?: unknown }
         | { readonly kind: "denied"; readonly reason: string } = { kind: "admitted" };
@@ -325,6 +449,7 @@ class FinalAdmissions {
         request: CanonicalBatchInvocationRequest<unknown>,
         context: { readonly invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]> }
     ) {
+        this.calls += 1;
         return this.decide?.(request, context) ?? this.result;
     }
 }
@@ -343,14 +468,25 @@ export class CanonicalBatchHarness<Authorization = string> {
     > = createLedger(this.persistence);
     public readonly preparation: CanonicalBatchPreparation<Authorization>;
     public readonly permits = new Permits(this.transactions, this.persistence);
+    public authentication: PermitAuthentication;
     public readonly records = new Records();
     public readonly finalAdmissions = new FinalAdmissions();
     public readonly content = new MemoryContentStore();
     public readonly executions: number[] = [];
     public failResourcesOnce = false;
-    public readonly port: CanonicalBatchInvocationPort<
+    public readonly now = (): Date => new Date(this.#time++);
+    public port: CanonicalBatchInvocationPort<
         Authorization,
         CanonicalBatchHarnessState,
+        string,
+        string,
+        string,
+        string,
+        string
+    >;
+    readonly #finalAdmission: CanonicalBatchFinalAdmissionPort<
+        CanonicalBatchHarnessState,
+        Authorization,
         string,
         string,
         string,
@@ -374,7 +510,27 @@ export class CanonicalBatchHarness<Authorization = string> {
         >
     ) {
         this.preparation = new CanonicalBatchPreparation(approvalRequired, facet, descriptor);
-        this.port = new CanonicalBatchInvocationPort<
+        this.#finalAdmission = finalAdmission ?? this.finalAdmissions;
+        this.authentication = new PermitAuthentication(this.transactions);
+        this.port = this.createRuntime();
+    }
+
+    public restartRuntime(): void {
+        this.transactions.restart();
+        this.authentication = new PermitAuthentication(this.transactions);
+        this.port = this.createRuntime();
+    }
+
+    private createRuntime(): CanonicalBatchInvocationPort<
+        Authorization,
+        CanonicalBatchHarnessState,
+        string,
+        string,
+        string,
+        string,
+        string
+    > {
+        return new CanonicalBatchInvocationPort<
             Authorization,
             CanonicalBatchHarnessState,
             string,
@@ -388,8 +544,9 @@ export class CanonicalBatchHarness<Authorization = string> {
             this.ledger,
             this.preparation,
             this.permits,
+            this.authentication,
             this.records,
-            finalAdmission ?? this.finalAdmissions,
+            this.#finalAdmission,
             this.evidence,
             {
                 resources: () => {
@@ -400,7 +557,7 @@ export class CanonicalBatchHarness<Authorization = string> {
                     return { signal: new AbortController().signal, content: this.content };
                 }
             },
-            () => new Date(this.#time++)
+            this.now
         );
     }
 
@@ -423,7 +580,7 @@ function cloneState(state: CanonicalBatchHarnessState): CanonicalBatchHarnessSta
 function audit(
     invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
     id: string,
-    cause: AuditRecordId,
+    cause: AuditRecordId | undefined,
     kind: ConstructorParameters<typeof AuditRecord>[0]["kind"]
 ): AuditRecord {
     return new AuditRecord({
@@ -431,7 +588,7 @@ function audit(
         actor: invocation.header.actor,
         tenant: new TenantId("canonical-tenant"),
         correlation: new CorrelationId(`correlation:${invocation.header.id.value}`),
-        cause,
+        ...(cause === undefined ? {} : { cause }),
         kind
     });
 }

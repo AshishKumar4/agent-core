@@ -16,6 +16,7 @@ import {
     type InvocationTransactionPort
 } from "./ports";
 import type { PreparedInvocation } from "./prepared";
+import type { InvocationReconciliationRecordPort } from "./reconciliation";
 import { InvocationPublicationOutbox } from "./publication";
 import {
     AttemptReceipt,
@@ -78,11 +79,40 @@ export interface CanonicalBatchAuthorityPermitPort<
     ): Promise<AuthorityAdmissionReference<Admission>>;
 }
 
-export interface CanonicalBatchRecordPort<Lease, Authority, Domain, PathEpochs, Admission> {
+export interface CanonicalBatchAuthorityAuthenticationPort<
+    Lease,
+    Authority,
+    Domain,
+    PathEpochs,
+    Admission,
+    Authentication
+> {
+    authenticate(
+        invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
+        claim: ItemClaim<Lease>,
+        admission: AuthorityAdmissionReference<Admission>
+    ): Promise<Authentication>;
+}
+
+export interface CanonicalBatchRecordPort<
+    Lease,
+    Authority,
+    Domain,
+    PathEpochs,
+    Admission
+> extends InvocationReconciliationRecordPort<Lease, Authority, Domain, PathEpochs, Admission> {
+    invocationAudit(
+        invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>
+    ): AuditRecord;
     claim(
         invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
         itemIndex: number,
         previous: ItemClaim<Lease> | undefined,
+        now: Date
+    ): ItemClaim<Lease>;
+    retryClaim(
+        invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
+        previous: EffectAttempt<Lease, Admission>,
         now: Date
     ): ItemClaim<Lease>;
     attempt(
@@ -168,8 +198,6 @@ type ItemState<Lease, Admission> =
     | { readonly kind: "attempt"; readonly attempt: EffectAttempt<Lease, Admission> }
     | { readonly kind: "claim"; readonly claim: ItemClaim<Lease> };
 
-const activeItems = new Map<string, Promise<CanonicalBatchItemResult>>();
-
 export class CanonicalBatchInvocationPort<
     Authorization,
     Transaction,
@@ -177,8 +205,11 @@ export class CanonicalBatchInvocationPort<
     Authority,
     Domain,
     PathEpochs,
-    Admission
+    Admission,
+    Authentication = undefined
 > implements CanonicalBatchInvoker<Authorization> {
+    readonly #activeItems = new Map<string, Map<number, Promise<CanonicalBatchItemResult>>>();
+
     public constructor(
         private readonly transactions: InvocationTransactionPort<Transaction>,
         private readonly persistence: InvocationPersistence<
@@ -195,7 +226,8 @@ export class CanonicalBatchInvocationPort<
             Authority,
             Domain,
             PathEpochs,
-            Admission
+            Admission,
+            Authentication
         >,
         private readonly preparation: CanonicalBatchPreparationPort<
             Authorization,
@@ -210,6 +242,14 @@ export class CanonicalBatchInvocationPort<
             Domain,
             PathEpochs,
             Admission
+        >,
+        private readonly authentication: CanonicalBatchAuthorityAuthenticationPort<
+            Lease,
+            Authority,
+            Domain,
+            PathEpochs,
+            Admission,
+            Authentication
         >,
         private readonly records: CanonicalBatchRecordPort<
             Lease,
@@ -241,9 +281,21 @@ export class CanonicalBatchInvocationPort<
         this.transactions.transact((transaction) => {
             const existing = this.persistence.prepared(transaction, request.invocation);
             if (existing === undefined) {
-                this.ledger.prepare(transaction, prepared);
+                this.ledger.prepareWithAudit(
+                    transaction,
+                    prepared,
+                    this.records.invocationAudit(prepared),
+                    this.evidence
+                );
             } else if (!existing.intentDigest.equals(prepared.intentDigest)) {
                 throw invalid("Prepared Invocation changed under its canonical identity");
+            } else {
+                this.ledger.requirePreparedAudit(
+                    transaction,
+                    prepared,
+                    this.records.invocationAudit(prepared),
+                    this.evidence
+                );
             }
         });
 
@@ -259,15 +311,24 @@ export class CanonicalBatchInvocationPort<
         prepared: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
         itemIndex: number
     ): Promise<CanonicalBatchItemResult> {
-        const key = `${prepared.header.actor.kind}\u0000${prepared.header.actor.id.value}\u0000${prepared.header.id.value}\u0000${itemIndex}`;
-        const existing = activeItems.get(key);
+        let invocationItems = this.#activeItems.get(prepared.header.id.value);
+        if (invocationItems === undefined) {
+            invocationItems = new Map();
+            this.#activeItems.set(prepared.header.id.value, invocationItems);
+        }
+        const existing = invocationItems.get(itemIndex);
         if (existing !== undefined) return existing;
         const invocation = this.invokeItemOnce(request, prepared, itemIndex);
-        activeItems.set(key, invocation);
+        invocationItems.set(itemIndex, invocation);
         try {
             return await invocation;
         } finally {
-            if (activeItems.get(key) === invocation) activeItems.delete(key);
+            if (invocationItems.get(itemIndex) === invocation) {
+                invocationItems.delete(itemIndex);
+                if (invocationItems.size === 0) {
+                    this.#activeItems.delete(prepared.header.id.value);
+                }
+            }
         }
     }
 
@@ -296,19 +357,52 @@ export class CanonicalBatchInvocationPort<
             );
         }
 
+        let authentication: Authentication;
+        try {
+            authentication = await this.authentication.authenticate(
+                prepared,
+                state.claim,
+                admission
+            );
+        } catch (error) {
+            if (!(error instanceof AgentCoreError) || error.code !== "authority.denied")
+                throw error;
+            return terminal(
+                itemIndex,
+                this.denyClaim(
+                    prepared,
+                    state.claim,
+                    error.message || "Authority permit authentication denied"
+                )
+            );
+        }
+
         const admittedAt = this.now();
         const admissionResult = this.transactions.transact((transaction) => {
-            const receipt = this.ledger.currentReceipt(transaction, prepared.header.id, itemIndex);
-            if (receipt !== undefined) return { kind: "receipt" as const, receipt };
-            const winner = this.persistence
-                .attemptsForItem(transaction, prepared.header.id, itemIndex)
-                .at(-1);
-            if (winner !== undefined) return { kind: "attempt" as const, attempt: winner };
             const currentClaim = this.persistence
                 .claimsForItem(transaction, prepared.header.id, itemIndex)
                 .at(-1);
             if (currentClaim === undefined || !currentClaim.id.equals(state.claim.id)) {
                 return { kind: "retry" as const };
+            }
+            const receipt = this.ledger.currentReceipt(transaction, prepared.header.id, itemIndex);
+            if (receipt !== undefined) {
+                const failedAttempt =
+                    receipt instanceof AttemptReceipt && receipt.outcome === "failed"
+                        ? this.persistence.attempt(transaction, receipt.attempt)
+                        : undefined;
+                if (
+                    failedAttempt === undefined ||
+                    failedAttempt.ordinal + 1 !== state.claim.attemptOrdinal
+                ) {
+                    return { kind: "receipt" as const, receipt };
+                }
+            }
+            const winner = this.persistence
+                .attemptsForItem(transaction, prepared.header.id, itemIndex)
+                .at(-1);
+            if (winner !== undefined && winner.ordinal >= state.claim.attemptOrdinal) {
+                return { kind: "attempt" as const, attempt: winner };
             }
             const final = this.finalAdmission.admit(transaction, request, {
                 invocation: prepared,
@@ -354,7 +448,8 @@ export class CanonicalBatchInvocationPort<
                     audit: denialAudit,
                     publication: publication(prepared.header.id, denialReceipt, denialAudit)
                 },
-                this.evidence
+                this.evidence,
+                authentication
             );
             return admitted
                 ? { kind: "admitted" as const, attempt, evidence: final.evidence }
@@ -421,12 +516,9 @@ export class CanonicalBatchInvocationPort<
         const at = this.now();
         return this.transactions.transact((transaction) => {
             const receipt = this.ledger.currentReceipt(transaction, prepared.header.id, itemIndex);
-            if (receipt !== undefined) return { kind: "receipt", receipt };
             const attempt = this.persistence
                 .attemptsForItem(transaction, prepared.header.id, itemIndex)
                 .at(-1);
-            if (attempt !== undefined) return { kind: "attempt", attempt };
-
             const current = this.persistence
                 .claimsForItem(transaction, prepared.header.id, itemIndex)
                 .at(-1);
@@ -441,6 +533,20 @@ export class CanonicalBatchInvocationPort<
                 this.ledger.recoverClaim(transaction, current.id, replacement, at);
                 return { kind: "claim", claim: replacement };
             }
+            if (receipt !== undefined) {
+                if (
+                    !(receipt instanceof AttemptReceipt) ||
+                    receipt.outcome !== "failed" ||
+                    attempt === undefined ||
+                    !receipt.attempt.equals(attempt.id)
+                ) {
+                    return { kind: "receipt", receipt };
+                }
+                const retry = this.records.retryClaim(prepared, attempt, at);
+                this.ledger.claimItem(transaction, retry, at);
+                return { kind: "claim", claim: retry };
+            }
+            if (attempt !== undefined) return { kind: "attempt", attempt };
             const claim = this.records.claim(prepared, itemIndex, undefined, at);
             this.ledger.claimItem(transaction, claim, at);
             return { kind: "claim", claim };

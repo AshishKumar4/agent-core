@@ -24,7 +24,7 @@ import {
     CorrelationId,
     InvocationId,
     WriteRecordId,
-    type AuditRootAdmission
+    type AuditAppendContext
 } from "../../src/invocations";
 import {
     CommandCommitUnknownError,
@@ -153,6 +153,7 @@ interface CounterState {
 
 interface CounterStoredLease {
     readonly turn: CurrentLease["turn"];
+    readonly holderTenant: TenantId | undefined;
     readonly holder: PrincipalId | undefined;
     readonly epoch: number;
     readonly expiresAt: Date | undefined;
@@ -418,9 +419,9 @@ export class FaultingCounterPersistence<TTransaction> implements ProtocolPersist
     public appendAudit(
         transaction: TTransaction,
         record: AuditRecord,
-        admission?: AuditRootAdmission
+        context?: AuditAppendContext
     ): void {
-        this.persistence.appendAudit(transaction, record, admission);
+        this.persistence.appendAudit(transaction, record, context);
         failAt(
             this.fault(transaction),
             record.kind.kind === "invocation" ? "invocationAudit" : "writeAudit"
@@ -845,6 +846,7 @@ export class CounterHarness implements CounterFixture {
         this.store.transaction((transaction) => {
             transaction.lease = {
                 turn: token.turn,
+                holderTenant: token.holder.tenantId,
                 holder: token.holder.principalId,
                 epoch: token.epoch,
                 expiresAt: init.expiresAt ?? new Date("2026-07-07T12:05:00.000Z")
@@ -941,6 +943,12 @@ function memoryReadCapability(transaction: CounterState): CounterReadCapability 
         transaction.value += 100;
         transaction.revision = transaction.revision.next();
     }
+    if (
+        transaction.lease !== undefined &&
+        (transaction.lease.holderTenant === undefined) !== (transaction.lease.holder === undefined)
+    ) {
+        throw new TypeError("Memory counter lease holder is partially qualified");
+    }
     return Object.freeze({
         authorized: transaction.fault === "gateMutation" ? false : transaction.authorized,
         lifecycle: transaction.lifecycle,
@@ -951,9 +959,13 @@ function memoryReadCapability(transaction: CounterState): CounterReadCapability 
                 : Object.freeze({
                       turn: transaction.lease.turn,
                       holder:
+                          transaction.lease.holderTenant === undefined ||
                           transaction.lease.holder === undefined
                               ? undefined
-                              : new PrincipalRef(counterTenant, transaction.lease.holder),
+                              : new PrincipalRef(
+                                    transaction.lease.holderTenant,
+                                    transaction.lease.holder
+                                ),
                       epoch: transaction.lease.epoch,
                       expiresAt:
                           transaction.lease.expiresAt === undefined
@@ -972,6 +984,10 @@ function cloneState(state: CounterState): CounterState {
                 ? undefined
                 : {
                       turn: new TurnId(state.lease.turn.value),
+                      holderTenant:
+                          state.lease.holderTenant === undefined
+                              ? undefined
+                              : new TenantId(state.lease.holderTenant.value),
                       holder:
                           state.lease.holder === undefined
                               ? undefined

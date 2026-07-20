@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { TurnId, TurnLease, type LeaseToken } from "../../src/agents";
-import { PrincipalId } from "../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { LeanOracle } from "./oracle";
 
 /*
@@ -10,12 +10,16 @@ import { LeanOracle } from "./oracle";
  * `admitsBool` is proven equivalent to `Admits`, so any disagreement here is a real
  * semantic divergence between the implementation and the formal model.
  *
- * Domain note: the implementation's LeaseToken carries a PrincipalId only, so the
- * model's tenant component is held fixed. Cross-tenant token confusion is covered by
- * the model's own theorems (`principal_ref_tenant_is_identity`).
+ * This slice holds the tenant fixed while comparing the complete tenant-qualified
+ * holder with the same PrincipalRef in the Lean model.
  */
 
 const TENANT = 1;
+const tenant = new TenantId(`tenant-${TENANT}`);
+
+function principal(id: number): PrincipalRef {
+    return new PrincipalRef(tenant, new PrincipalId(`principal-${id}`));
+}
 
 interface ModelLease {
     readonly turn: number;
@@ -27,7 +31,7 @@ interface ModelLease {
 function liveLease(model: ModelLease): TurnLease {
     return TurnLease.restore(
         new TurnId(`turn-${model.turn}`),
-        model.holder === null ? undefined : new PrincipalId(`principal-${model.holder}`),
+        model.holder === null ? undefined : principal(model.holder),
         model.epoch,
         new Date(model.expiresAt)
     );
@@ -36,7 +40,7 @@ function liveLease(model: ModelLease): TurnLease {
 function liveToken(model: { turn: number; principal: number; epoch: number }): LeaseToken {
     return {
         turn: new TurnId(`turn-${model.turn}`),
-        holder: new PrincipalId(`principal-${model.principal}`),
+        holder: principal(model.principal),
         epoch: model.epoch
     };
 }
@@ -56,7 +60,7 @@ function observedLease(lease: TurnLease): ModelLease {
         holder:
             lease.holder === undefined
                 ? null
-                : Number(lease.holder.value.replace("principal-", "")),
+                : Number(lease.holder.principalId.value.replace("principal-", "")),
         epoch: lease.epoch,
         expiresAt: leaseExpiry(lease)
     };
@@ -129,7 +133,7 @@ describe("lease algebra agrees with the verified model", () => {
                         { kind: "claim", tenant: TENANT, principal: holder, now, expiresAt },
                         () =>
                             liveLease(lease).claim(
-                                new PrincipalId(`principal-${holder}`),
+                                principal(holder),
                                 new Date(now),
                                 new Date(expiresAt)
                             )
@@ -163,7 +167,7 @@ describe("lease algebra agrees with the verified model", () => {
                         },
                         () =>
                             liveLease(lease).renew(
-                                new PrincipalId(`principal-${token.principal}`),
+                                principal(token.principal),
                                 token.epoch,
                                 new Date(now),
                                 new Date(expiresAt)
@@ -191,7 +195,7 @@ describe("lease algebra agrees with the verified model", () => {
                         { kind: "reclaim", tenant: TENANT, principal: holder, now, expiresAt },
                         () =>
                             liveLease(lease).reclaim(
-                                new PrincipalId(`principal-${holder}`),
+                                principal(holder),
                                 new Date(now),
                                 new Date(expiresAt)
                             )

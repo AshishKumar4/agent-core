@@ -10,8 +10,9 @@ import {
 } from "../../src/authority";
 import {
     TenantOperationAuthority,
+    ResolvedOperationAuthority,
     type OperationAuthorityStatePort,
-    type OperationResolutionState
+    type OperationResolutionCandidate
 } from "../../src/composition";
 import { Digest, JsonSchema, SemVer } from "../../src/core";
 import {
@@ -23,6 +24,7 @@ import {
 } from "../../src/definition";
 import {
     BindingName,
+    CapabilitySpec,
     FacetRef,
     OperationDescriptor,
     OperationName,
@@ -60,8 +62,8 @@ const binding = Binding.active(
 const path = new PathEpochEvidence([ScopeEpoch.initial(tenantScope), ScopeEpoch.initial(scope)]);
 const digest = new Digest("b".repeat(64));
 const pin = new PackagePin(new PackageId("tier-package"), new SemVer("1.0.0"), digest, digest);
-const lease = TurnLease.restore(new TurnId("tier-turn"), principal.principalId, 1, new Date(100));
-const leaseToken = { turn: lease.turn, holder: principal.principalId, epoch: lease.epoch };
+const lease = TurnLease.restore(new TurnId("tier-turn"), principal, 1, new Date(100));
+const leaseToken = { turn: lease.turn, holder: principal, epoch: lease.epoch };
 
 const IMPACTS: readonly Impact[] = [
     "observe",
@@ -89,7 +91,7 @@ function resolution(init: {
     readonly sessionOwned?: boolean;
     readonly placement: IsolationMode;
     readonly policies: readonly PolicySet[];
-}): OperationResolutionState {
+}): OperationResolutionCandidate {
     return {
         principal,
         binding,
@@ -97,14 +99,24 @@ function resolution(init: {
         watermark: InvalidationWatermark.empty(tenant, owner, principal),
         lease: init.turnOwned ? leaseToken : undefined,
         originalLease: init.turnOwned ? lease : undefined,
-        ...(init.turnOwned ? {} : { route: new RouteReservationId("tier-route") }),
+        route: init.turnOwned ? undefined : new RouteReservationId("tier-route"),
         package: pin,
         placement: placementPin(init.placement),
-        resolvedAt: new Date(0),
-        deadline: new Date(50),
         owner,
-        policies: init.policies,
-        turnOwnedSession: init.sessionOwned ?? init.turnOwned
+        policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 }), ...init.policies],
+        turnOwnedSession: init.sessionOwned ?? init.turnOwned,
+        turnActorAuthorityLocal: init.turnOwned,
+        directAuthority: init.turnOwned
+            ? new ResolvedOperationAuthority(
+                  facet,
+                  [
+                      new CapabilitySpec({
+                          facetPattern: facet.value,
+                          impacts: [...IMPACTS] as [Impact, ...Impact[]]
+                      })
+                  ]
+              )
+            : undefined
     };
 }
 
@@ -203,7 +215,11 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
                                 descriptorFor(impact),
                                 false
                             );
-                            expect(gatewayTier).toBe(decision.tier);
+                            expect(gatewayTier).toBe(
+                                decision.tier === "direct" && !turnOwned
+                                    ? "mediated"
+                                    : decision.tier
+                            );
                             if (decision.approvalRequired) {
                                 expect(gatewayTier).toBe("mediated");
                             }

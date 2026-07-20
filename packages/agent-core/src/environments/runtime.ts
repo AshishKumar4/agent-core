@@ -223,6 +223,7 @@ export class EnvironmentController {
             session.id,
             session.environmentRevision,
             session.generation,
+            session.epoch,
             EnvironmentSnapshotState.creating,
             undefined,
             Revision.initial()
@@ -464,6 +465,16 @@ export class EnvironmentController {
         const current = this.requireSnapshot(attempted.id);
         if (current.state.name !== "creating") return current;
         if (outcome.name === "ready") {
+            const session = this.store.getSession(current.sessionId);
+            if (
+                session === undefined ||
+                session.state.name !== "open" ||
+                session.epoch !== current.sessionEpoch
+            ) {
+                const failed = current.fail();
+                this.persistSnapshot(current, failed);
+                return failed;
+            }
             const ready = current.ready(outcome.value);
             this.persistSnapshot(current, ready);
             return ready;
@@ -651,6 +662,7 @@ export class EnvironmentController {
             environmentId: snapshot.environmentId,
             environmentRevision: snapshot.environmentRevision,
             generation: snapshot.generation,
+            sessionEpoch: snapshot.sessionEpoch,
             sessionId: snapshot.sessionId,
             snapshotId: snapshot.id
         });
@@ -661,6 +673,7 @@ export class EnvironmentController {
             environmentId: exposure.environmentId,
             environmentRevision: exposure.environmentRevision,
             generation: exposure.generation,
+            sessionEpoch: exposure.sessionEpoch,
             sessionId: exposure.sessionId,
             exposureId: exposure.id,
             port: exposure.port
@@ -800,7 +813,8 @@ function sameSnapshotRequest(left: EnvironmentSnapshot, right: EnvironmentSnapsh
         left.environmentId.equals(right.environmentId) &&
         left.sessionId.equals(right.sessionId) &&
         left.environmentRevision.equals(right.environmentRevision) &&
-        left.generation === right.generation
+        left.generation === right.generation &&
+        left.sessionEpoch === right.sessionEpoch
     );
 }
 

@@ -435,7 +435,7 @@ describe("Binding and epoch hard gates", () => {
         }));
     });
 
-    test("[C13-AUTH-DIRECT-WATERMARK] enforces exact path and watermark invariants", () => {
+    test("enforces exact path and watermark invariants", () => {
         expect(() => new ScopeEpoch(tenantScope, -1)).toThrow(TypeError);
         expectAgentError(
             () => new ScopeEpoch(tenantScope, Number.MAX_SAFE_INTEGER).next(),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Revision } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
-import { PrincipalId } from "../../../src/identity";
+import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { RunCheckpointId, TurnInboxEntryId } from "../../../src/agents/runs/id";
 import { TurnLease } from "../../../src/agents/runs/lease";
@@ -111,7 +111,11 @@ describe("Turn aggregate exhaustive behavior", () => {
         const running = value.claim(ids.holder, new Date(1), new Date(10));
         for (const invalid of [
             { turn: new TurnId("other"), holder: ids.holder, epoch: 1 },
-            { turn: ids.turn, holder: new PrincipalId("other"), epoch: 1 },
+            {
+                turn: ids.turn,
+                holder: new PrincipalRef(ids.holder.tenantId, new PrincipalId("other")),
+                epoch: 1
+            },
             { turn: ids.turn, holder: ids.holder, epoch: 2 }
         ]) {
             expectCode(() => running.requireToken(invalid, new Date(2)), "lease.invalid");

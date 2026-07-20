@@ -37,7 +37,6 @@ import {
     type OperationDescriptor,
     type ProtectedOperationRequest,
     type ProfileControlAdmission,
-    type ProfileEffectContext,
     type ReverseDeviceTransportBackend,
     type SelfCheckpointInput,
     type SelfCommitMessageInput,
@@ -63,7 +62,6 @@ import {
     AuditRecordId,
     InvocationProtectedOperationPort,
     ReceiptId,
-    validateAuditAppend,
     type AuditEvidenceResolver,
     type Receipt
 } from "../../src/invocations";
@@ -225,7 +223,7 @@ describe("Exact profile runtime conformance", () => {
         expect(dependency.calls).toEqual(["checkpoint"]);
     });
 
-    test("[P11-SELF-AUDIT] records the canonical invocation, attempt, and Receipt audit chain", async () => {
+    test("[P11-SELF-AUDIT] persists exact Invocation-to-Attempt-to-Receipt audit edges", async () => {
         const fixture = selfFixture("self-audit", SELF_OPERATION_CONTRACTS.checkpoint.descriptor);
         await new SelfFacet(fixture.runtime, new MemorySelfDependency()).checkpoint({
             checkpoint: { value: 1 }
@@ -233,15 +231,43 @@ describe("Exact profile runtime conformance", () => {
         const audits = fixture.harness.transactions.transact((transaction) =>
             [...transaction.audits.values()].map((bytes) => AuditRecord.decode(bytes))
         );
-        expect(audits.map((audit) => audit.kind.kind)).toEqual(["attempt", "receipt"]);
-        expect(audits[1]?.cause?.equals(audits[0]!.id)).toBe(true);
+        expect(audits.map((audit) => audit.kind.kind)).toEqual([
+            "invocation",
+            "attempt",
+            "receipt"
+        ]);
+        const [invocation, attempt, receipt] = audits;
+        expect(invocation).toMatchObject({ cause: undefined });
+        expect(invocation?.kind).toMatchObject({
+            kind: "invocation",
+            id: expect.any(InvocationId)
+        });
+        expect(attempt).toMatchObject({
+            actor: invocation?.actor,
+            tenant: invocation?.tenant,
+            correlation: invocation?.correlation
+        });
+        expect(attempt?.cause?.equals(invocation!.id)).toBe(true);
+        expect(receipt).toMatchObject({
+            actor: invocation?.actor,
+            tenant: invocation?.tenant,
+            correlation: invocation?.correlation
+        });
+        expect(receipt?.cause?.equals(attempt!.id)).toBe(true);
     });
 
     test("[P11-SELF-LEASE] denies every Self Operation under a stale exact-Turn lease before EffectAttempt", async () => {
         const turn = new TurnId("self-lease-turn");
-        const holder = new PrincipalId("self-lease-holder");
+        const holder = new PrincipalRef(tenant, new PrincipalId("self-lease-holder"));
         const live = TurnLease.unclaimed(turn).claim(holder, new Date(1), new Date(100));
-        const stale = JSON.stringify({ turn: turn.value, holder: holder.value, epoch: 0 });
+        const stale = JSON.stringify({
+            turn: turn.value,
+            holder: {
+                principal: holder.principalId.value,
+                tenant: holder.tenantId.value
+            },
+            epoch: 0
+        });
         const operations = Object.values(SELF_OPERATION_CONTRACTS);
         for (const contract of operations) {
             const fixture = selfFixture(
@@ -354,12 +380,16 @@ class TestApprovalBackend extends ApprovalGatewayBackend {
     }
 
     public async apply(
-        _context: ProfileEffectContext,
+        _dispatch: import("../../src/facets").EffectDispatch,
         _resource: string,
         action: JsonValue
     ): Promise<JsonValue> {
         this.actions.push(action);
         return { applied: true };
+    }
+
+    public async reconcile(): Promise<{ readonly kind: "unknown" }> {
+        return { kind: "unknown" };
     }
 }
 
@@ -367,11 +397,8 @@ function approvalFixture(label: string, actionResource = "account") {
     const descriptor = APPROVAL_GATEWAY_OPERATION_CONTRACTS.applyAction.descriptor;
     const profile = profileFixture(label, descriptor, new ImmediateProfileEffects(), true);
     const input = { resource: "account" } as const;
-    const intent = profile.harness.preparation.create(
-        profile.invocation,
-        [input],
-        "single"
-    ).intentDigest;
+    const prepared = profile.harness.preparation.create(profile.invocation, [input], "single");
+    const intent = prepared.intentDigest;
     const pending = Approval.pending(
         new ApprovalId(`${label}-approval`),
         profile.invocation,
@@ -380,9 +407,11 @@ function approvalFixture(label: string, actionResource = "account") {
         new Date(10_000)
     );
     profile.harness.transactions.transact((transaction) => {
-        profile.harness.ledger.prepare(
+        profile.harness.ledger.prepareWithAudit(
             transaction,
-            profile.harness.preparation.create(profile.invocation, [input], "single")
+            prepared,
+            profile.harness.records.invocationAudit(prepared),
+            profile.harness.evidence
         );
         profile.harness.ledger.requestApproval(transaction, pending);
         profile.harness.ledger.appendApprovalRevision(
@@ -589,11 +618,9 @@ class SqliteCausalProfileEffects extends ProfileRuntimeEffectsPort<Receipt> {
                 cause: receiptAudit.id,
                 kind: { kind: "event", id: event.id }
             });
-            const records = {
-                get: (id: AuditRecordId) => this.harness.evidence.audit(transaction, id)
-            };
-            validateAuditAppend(audit, records, undefined, eventEvidence(event.id, receipt.id));
-            this.harness.evidence.appendAudit(transaction, audit);
+            this.harness.evidence.appendAudit(transaction, audit, {
+                evidence: eventEvidence(event.id, receipt.id)
+            });
             return { audit, receiptAudit };
         });
     }
@@ -696,11 +723,22 @@ function selfFixture(label: string, descriptor: OperationDescriptor) {
 
 function parseLease(value: string | undefined) {
     if (value === undefined)
-        return { turn: new TurnId("missing"), holder: new PrincipalId("missing"), epoch: 0 };
-    const parsed = JSON.parse(value) as { turn: string; holder: string; epoch: number };
+        return {
+            turn: new TurnId("missing"),
+            holder: new PrincipalRef(new TenantId("missing"), new PrincipalId("missing")),
+            epoch: 0
+        };
+    const parsed = JSON.parse(value) as {
+        turn: string;
+        holder: { readonly principal: string; readonly tenant: string };
+        epoch: number;
+    };
     return {
         turn: new TurnId(parsed.turn),
-        holder: new PrincipalId(parsed.holder),
+        holder: new PrincipalRef(
+            new TenantId(parsed.holder.tenant),
+            new PrincipalId(parsed.holder.principal)
+        ),
         epoch: parsed.epoch
     };
 }

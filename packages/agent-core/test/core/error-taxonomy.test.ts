@@ -11,10 +11,7 @@ import {
     type TypeErrorClassification
 } from "./w1-scanner";
 
-const taxonomyUrl = new URL(
-    "../../artifacts/integration/request-archive/W1/error-taxonomy.json",
-    import.meta.url
-);
+const taxonomyUrl = new URL("../../artifacts/quality/w1-error-taxonomy.json", import.meta.url);
 const packageUrl = new URL("../../", import.meta.url);
 const coverage = readFileSync(
     new URL("../../artifacts/integration/request-archive/W1/coverage.md", import.meta.url),

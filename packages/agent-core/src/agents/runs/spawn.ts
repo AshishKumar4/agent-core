@@ -1,19 +1,18 @@
 import { ContentRef, Digest, RecordCodec, type JsonValue } from "../../core";
-import { PrincipalId } from "../../identity";
 import { TurnId } from "../../execution-references";
 import { ReceiptId } from "../../invocation-references";
 import { InvocationId } from "../../interaction-references";
+import { PrincipalRef } from "../../identity";
 import {
     CodecRecord,
     digestFromData,
     requireExactFields,
-    requireInteger,
     requireObject,
     requireString,
     requireTimestamp
 } from "../record-data";
 import { RunId, SpawnReservationId } from "./id";
-import type { LeaseToken } from "./lease";
+import { leaseTokenFromData, leaseTokenToData, type LeaseToken } from "./lease";
 
 export class SpawnReservation extends CodecRecord {
     public static get codec(): RecordCodec<SpawnReservation> {
@@ -35,10 +34,14 @@ export class SpawnReservation extends CodecRecord {
         recordedAt: Date
     ) {
         super();
-        if (!token.turn.equals(parentTurn)) {
+        if (!(token.turn instanceof TurnId) || !token.turn.equals(parentTurn)) {
             throw new TypeError("Spawn reservation token must name the spawning Turn");
         }
-        if (!Number.isSafeInteger(token.epoch) || token.epoch < 0) {
+        if (
+            !(token.holder instanceof PrincipalRef) ||
+            !Number.isSafeInteger(token.epoch) ||
+            token.epoch < 0
+        ) {
             throw new TypeError("Spawn reservation token epoch is invalid");
         }
         if (parentRun.equals(childRun)) throw new TypeError("Spawn child Run must be distinct");
@@ -67,11 +70,7 @@ export class SpawnReservation extends CodecRecord {
             receipt: this.receipt.value,
             recordedAt: this.#recordedAt,
             rootContent: this.rootContent.value,
-            token: {
-                epoch: this.token.epoch,
-                holder: this.token.holder.value,
-                turn: this.token.turn.value
-            }
+            token: leaseTokenToData(this.token)
         };
     }
 
@@ -95,18 +94,12 @@ export class SpawnReservation extends CodecRecord {
             [],
             "Spawn reservation"
         );
-        const token = requireObject(object["token"]!, "Spawn token");
-        requireExactFields(token, ["epoch", "holder", "turn"], [], "Spawn token");
         return new SpawnReservation(
             new SpawnReservationId(requireString(object["id"], "Spawn reservation ID")),
             new RunId(requireString(object["parentRun"], "Spawn parent Run")),
             new TurnId(requireString(object["parentTurn"], "Spawn parent Turn")),
             new RunId(requireString(object["childRun"], "Spawn child Run")),
-            Object.freeze({
-                turn: new TurnId(requireString(token["turn"], "Spawn token Turn")),
-                holder: new PrincipalId(requireString(token["holder"], "Spawn token holder")),
-                epoch: requireInteger(token["epoch"], "Spawn token epoch")
-            }),
+            leaseTokenFromData(object["token"]!, "Spawn token"),
             digestFromData(object["configuration"], "Spawn configuration"),
             new ContentRef(requireString(object["rootContent"], "Spawn root content")),
             new InvocationId(requireString(object["invocation"], "Spawn Invocation")),
@@ -119,7 +112,7 @@ export class SpawnReservation extends CodecRecord {
 
 class SpawnCodec extends RecordCodec<SpawnReservation> {
     public constructor() {
-        super("run.spawn-reservation", { major: 1, minor: 0 });
+        super("run.spawn-reservation", { major: 2, minor: 0 });
     }
     protected encodePayload(value: SpawnReservation): JsonValue {
         return value.toData();

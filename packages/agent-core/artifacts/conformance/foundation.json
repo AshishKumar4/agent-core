@@ -81,7 +81,9 @@
       "prerequisites": [],
       "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
       "testSelectors": [
-        "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind"
+        "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind",
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Revision } from "../../../src/core";
-import { PrincipalId } from "../../../src/identity";
+import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { FacetRef } from "../../../src/facets";
 import { EnvironmentId } from "../../../src/environments";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
@@ -278,8 +278,9 @@ describe("Turn lifecycle", () => {
         turn = turn.suspend(token, new RunCheckpointId("checkpoint-1"), new Date(1200));
         expect(turn.status.kind).toBe("suspended");
         expect(turn.lease.epoch).toBe(2);
-        turn = turn.claim(new PrincipalId("principal-2"), new Date(1300), new Date(4000));
-        const resumed = { turn: ids.turn, holder: new PrincipalId("principal-2"), epoch: 3 };
+        const resumedHolder = new PrincipalRef(ids.holder.tenantId, new PrincipalId("principal-2"));
+        turn = turn.claim(resumedHolder, new Date(1300), new Date(4000));
+        const resumed = { turn: ids.turn, holder: resumedHolder, epoch: 3 };
         turn = turn.complete(resumed, "succeeded", content("6"), new Date(1400));
         expect(turn.status.kind).toBe("succeeded");
         expect(turn.lease.holder).toBeUndefined();
@@ -544,7 +545,7 @@ describe("memory Run runtime", () => {
         expect("retryOf" in Turn.decode(Turn.encode(turn))).toBe(false);
     });
 
-    it("[C13-ADV-STALE-LEASE] creates one attenuated child through lease-bound atomic spawn genesis", () => {
+    it("creates one attenuated child through lease-bound atomic spawn genesis", () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);

@@ -7,7 +7,7 @@ import {
     ApprovalGatewayAction,
     ApprovalGatewayBackend,
     ApprovalGatewayFacet,
-    type ProfileEffectContext
+    type EffectDispatch
 } from "../../../src/facets";
 import { InvocationId } from "../../../src/interaction-references";
 import { describe, expect, test } from "vitest";
@@ -168,13 +168,17 @@ class TestGatewayBackend extends ApprovalGatewayBackend {
     }
 
     public async apply(
-        context: ProfileEffectContext,
+        dispatch: EffectDispatch,
         _resource: string,
         action: JsonValue
     ): Promise<JsonValue> {
-        expect(context.idempotencyKey).toMatch(/^profile-idempotency-\d+$/u);
+        expect(dispatch.idempotencyKey).toMatch(/^profile-idempotency-\d+$/u);
         this.actions.push(action);
         return { applied: true };
+    }
+
+    public async reconcile(): Promise<{ readonly kind: "unknown" }> {
+        return { kind: "unknown" };
     }
 }
 

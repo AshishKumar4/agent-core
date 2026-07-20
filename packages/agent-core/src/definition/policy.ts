@@ -18,11 +18,12 @@ export interface PolicySetInit {
     readonly tiers?: EnforcementTierOverrides;
     readonly approvals?: readonly Impact[];
     readonly placement?: PlacementPolicy;
+    readonly maxDirectRevocationWindowMs?: number;
 }
 
 class PolicySetCodec extends RecordCodec<PolicySet> {
     public constructor() {
-        super("definition.policy-set", { major: 1, minor: 0 });
+        super("definition.policy-set", { major: 2, minor: 0 });
     }
 
     protected encodePayload(policy: PolicySet): JsonValue {
@@ -39,11 +40,15 @@ export class PolicySet {
     public readonly tiers: EnforcementTierOverrides;
     public readonly approvals: readonly Impact[];
     public readonly placement: PlacementPolicy;
+    public readonly maxDirectRevocationWindowMs: number | undefined;
 
     public constructor(init: PolicySetInit = {}) {
         this.tiers = canonicalTiers(init.tiers ?? {});
         this.approvals = canonicalApprovals(init.approvals ?? []);
         this.placement = init.placement ?? PlacementPolicy.all();
+        this.maxDirectRevocationWindowMs = validateDirectRevocationWindow(
+            init.maxDirectRevocationWindowMs
+        );
         Object.freeze(this);
     }
 
@@ -61,12 +66,20 @@ export class PolicySet {
 
     public static fromData(payload: JsonValue): PolicySet {
         const object = requireObject(payload, "Policy set");
-        if (!hasExactJsonKeys(object, ["approvals", "placement", "tiers"])) {
+        if (
+            !hasExactJsonKeys(object, [
+                "approvals",
+                "maxDirectRevocationWindowMs",
+                "placement",
+                "tiers"
+            ])
+        ) {
             throw new TypeError("Policy set contains missing or unknown fields");
         }
         return new PolicySet({
             tiers: requireTiers(object["tiers"]),
             approvals: requireImpactArray(object["approvals"], "Policy approvals"),
+            ...decodeOptionalDirectRevocationWindow(object["maxDirectRevocationWindowMs"]),
             placement: PlacementPolicy.fromData(object["placement"]!)
         });
     }
@@ -82,6 +95,7 @@ export class PolicySet {
     public toData(): JsonValue {
         return {
             approvals: this.approvals,
+            maxDirectRevocationWindowMs: this.maxDirectRevocationWindowMs ?? null,
             placement: this.placement.toData(),
             tiers: this.tiers
         };
@@ -131,6 +145,7 @@ export function mergePolicySets(policies: readonly PolicySet[]): PolicySet {
     const tiers: Partial<Record<Impact, EnforcementTier>> = {};
     const approvals = new Set<Impact>();
     let placement = [...PLACEMENT_PREFERENCE];
+    let maxDirectRevocationWindowMs: number | undefined;
     for (const policy of policies) {
         for (const impact of POLICY_IMPACTS) {
             const tier = policy.tierFor(impact);
@@ -142,12 +157,39 @@ export function mergePolicySets(policies: readonly PolicySet[]): PolicySet {
             approvals.add(impact);
         }
         placement = placement.filter((mode) => policy.placement.admits(mode));
+        if (policy.maxDirectRevocationWindowMs !== undefined) {
+            maxDirectRevocationWindowMs =
+                maxDirectRevocationWindowMs === undefined
+                    ? policy.maxDirectRevocationWindowMs
+                    : Math.min(maxDirectRevocationWindowMs, policy.maxDirectRevocationWindowMs);
+        }
     }
     return new PolicySet({
         tiers,
         approvals: POLICY_IMPACTS.filter((impact) => approvals.has(impact)),
+        ...(maxDirectRevocationWindowMs === undefined ? {} : { maxDirectRevocationWindowMs }),
         placement: new PlacementPolicy(placement)
     });
+}
+
+function validateDirectRevocationWindow(value: number | undefined): number | undefined {
+    if (value === undefined) return undefined;
+    if (!Number.isFinite(value) || value < 0 || !Number.isSafeInteger(value)) {
+        throw new TypeError(
+            "Maximum direct revocation window must be a finite non-negative safe integer"
+        );
+    }
+    return value;
+}
+
+function decodeOptionalDirectRevocationWindow(
+    value: JsonValue | undefined
+): Pick<PolicySetInit, "maxDirectRevocationWindowMs"> {
+    if (value === null) return {};
+    if (typeof value !== "number") {
+        throw new TypeError("Maximum direct revocation window is invalid");
+    }
+    return { maxDirectRevocationWindowMs: validateDirectRevocationWindow(value)! };
 }
 
 function canonicalTiers(tiers: EnforcementTierOverrides): EnforcementTierOverrides {

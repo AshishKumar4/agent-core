@@ -2,11 +2,18 @@ export { Approval, ApprovalCodec } from "./approval";
 export type { ApprovalState } from "./approval";
 export { InvocationContinuation, InvocationContinuationCodec } from "./continuation";
 export { EffectAttempt, EffectAttemptCodec } from "./attempt";
-export { AuditRecord, AuditRecordCodec, validateAuditAppend } from "./audit";
+export {
+    AuditRecord,
+    AuditRecordCodec,
+    auditEvidenceIdentity,
+    validateAuditAppend,
+    validateStoredAuditShape
+} from "./audit";
 export type {
     ApprovalAuditEvidence,
     ApprovalAuditPhase,
     AttemptAuditEvidence,
+    AuditAppendContext,
     AuditEvidenceResolver,
     AuditKind,
     AuditRecordInit,
@@ -71,6 +78,7 @@ export {
     RouteReservationId
 } from "../interaction-references";
 export { InvocationLedger } from "./ledger";
+export type { ReceiptSupersessionEvidence } from "./ledger";
 export {
     MemoryInvocationPersistence,
     cloneInvocationMemoryState,
@@ -84,6 +92,7 @@ export {
 export type { InvocationMediationMemoryState } from "./mediation-memory";
 export { CanonicalBatchInvocationPort } from "./canonical-batch";
 export type {
+    CanonicalBatchAuthorityAuthenticationPort,
     CanonicalBatchAuthorityPermitPort,
     CanonicalBatchFinalAdmissionContext,
     CanonicalBatchFinalAdmissionPort,
@@ -114,6 +123,7 @@ export type {
     EffectReconciliationPort,
     InvocationCommitPort,
     InvocationClaimOwnerPort,
+    InvocationAuditPersistence,
     InvocationEvidencePersistence,
     InvocationEventPort,
     InvocationPreparationPort,
@@ -151,4 +161,4 @@ export type {
 export { AttemptReceipt, PreEffectReceipt, Receipt, ReceiptCodec } from "./receipt";
 export type { AttemptReceiptOutcome, PreEffectReceiptOutcome } from "./receipt";
 export { InvocationReconciler } from "./reconciliation";
-export type { ReconciliationFinalizer } from "./reconciliation";
+export type { InvocationReconciliationRecordPort } from "./reconciliation";

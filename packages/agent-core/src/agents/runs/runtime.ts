@@ -1,7 +1,7 @@
 import { Revision } from "../../core";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
-import type { PrincipalId } from "../../identity";
+import type { PrincipalRef } from "../../identity";
 import type { RunCommitId, TurnId } from "../../execution-references";
 import type { ReceiptId } from "../../invocation-references";
 import type { AuditRecordId, EventId } from "../../interaction-references";
@@ -421,7 +421,7 @@ export class RunRuntime<Transaction> {
     public claimTurn(
         turnId: TurnId,
         expected: Revision,
-        holder: PrincipalId,
+        holder: PrincipalRef,
         now: Date,
         expiresAt: Date
     ): Turn {
@@ -434,7 +434,7 @@ export class RunRuntime<Transaction> {
         tx: Transaction,
         turnId: TurnId,
         expected: Revision,
-        holder: PrincipalId,
+        holder: PrincipalRef,
         now: Date,
         expiresAt: Date
     ): Turn {
@@ -471,7 +471,7 @@ export class RunRuntime<Transaction> {
     public reclaimTurn(
         turnId: TurnId,
         expected: Revision,
-        holder: PrincipalId,
+        holder: PrincipalRef,
         now: Date,
         expiresAt: Date,
         cancellation: TurnInboxEntry
@@ -493,7 +493,7 @@ export class RunRuntime<Transaction> {
         tx: Transaction,
         turnId: TurnId,
         expected: Revision,
-        holder: PrincipalId,
+        holder: PrincipalRef,
         now: Date,
         expiresAt: Date,
         cancellation: TurnInboxEntry

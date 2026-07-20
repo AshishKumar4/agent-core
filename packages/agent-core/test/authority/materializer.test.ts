@@ -196,7 +196,7 @@ describe("RoleGrantMaterializer", () => {
         ).toBe(true);
     });
 
-    test("[C13-ADV-MEDIATED-STALE] revokes every stale guest Grant without inventing verification", () => {
+    test("revokes every stale guest Grant without inventing verification", () => {
         const guest = SubjectRef.foreign(tenantId, otherPrincipalId, GuestVerificationScheme.token);
         const assignedRole = role("guest-reconciled", [
             new RoleRule(

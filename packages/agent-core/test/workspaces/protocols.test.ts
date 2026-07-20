@@ -9,7 +9,7 @@ import {
     OperationRef,
     PayloadMapping
 } from "../../src/facets";
-import { PrincipalId } from "../../src/identity";
+import { PrincipalId, PrincipalRef } from "../../src/identity";
 import {
     CommandCallerPolicy,
     type CommandEnvelope,
@@ -678,7 +678,7 @@ describe("InboxProtocol", () => {
     test("accepts only the exact live Turn lease and preserves sequence uniqueness", () => {
         const harness = createProtocolHarness();
         const now = new Date("2026-07-10T12:00:00.000Z");
-        const holder = new PrincipalId("lease-holder");
+        const holder = new PrincipalRef(tenant, new PrincipalId("lease-holder"));
         const turn = new TurnId("turn-test");
         const lease = TurnLease.restore(turn, holder, 4, new Date(now.getTime() + 60_000));
         const runs = new LeaseInboxPort(lease, now);
@@ -708,7 +708,7 @@ describe("InboxProtocol", () => {
             harness.transaction((state) =>
                 protocol.append(state, inboxFixture("wrong-holder", 1, 4, turn), {
                     turn,
-                    holder: new PrincipalId("other-holder"),
+                    holder: new PrincipalRef(tenant, new PrincipalId("other-holder")),
                     epoch: 4
                 })
             )

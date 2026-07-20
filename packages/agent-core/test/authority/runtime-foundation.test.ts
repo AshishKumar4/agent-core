@@ -76,7 +76,7 @@ describe("Tenant authority runtime", () => {
         expect(renamed.revision.value).toBe(1);
     });
 
-    test("[C13-ADV-NEW-DENY] derives canonical topology and deny closure from Tenant stores", () => {
+    test("[C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny", () => {
         const { store, service, runtime } = fixture();
         const allow = grant("allow", SubjectRef.principal(principalId), "allow");
         service.createGrant(allow);
@@ -156,7 +156,7 @@ describe("Tenant authority runtime", () => {
         expect(runtime.check(wrong, new Date(2_001)).reason).toBe("missingPrincipal");
     });
 
-    test("[C13-AUTH-MEDIATED-STALE] returns current path evidence and detects stale mediated evidence", () => {
+    test("returns current path evidence and detects stale evidence", () => {
         const { service, runtime } = fixture();
         const allow = grant("allow-stale", SubjectRef.principal(principalId), "allow");
         service.createGrant(allow);
@@ -244,7 +244,7 @@ describe("Tenant authority runtime", () => {
         ).toBe("inactivePrincipal");
     });
 
-    test("rejects revoked backing Grants and facet substitution", () => {
+    test("[C13-ADV-REVOKED-ALLOW] rejects a revoked backing allow Grant", () => {
         const { service, runtime } = fixture();
         const backing = grant("revoked-backing", SubjectRef.principal(principalId), "allow");
         const pathSource = grant("path-source", SubjectRef.principal(principalId), "allow");

@@ -3,7 +3,7 @@ import type { LeaseToken } from "../agents";
 import { ContentRef, Digest, encodeBase64, encodeCanonicalJson, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import { EventKind, FacetPackageId, type EventVisibility } from "../facets";
-import { PrincipalId, decodeScopeRef, encodeScopeRef, type ScopeRef } from "../identity";
+import { PrincipalRef, decodeScopeRef, encodeScopeRef, type ScopeRef } from "../identity";
 import { CorrelationId, EventId } from "../interaction-references";
 import { ContentRetentionReference } from "./retention";
 import { EventProvenance, type EventSource } from "./value";
@@ -96,7 +96,10 @@ function intentData(intent: EventIntentInput): JsonValue {
                 ? null
                 : {
                       turn: intent.lease.turn.value,
-                      holder: intent.lease.holder.value,
+                      holder: {
+                          principal: intent.lease.holder.principalId.value,
+                          tenant: intent.lease.holder.tenantId.value
+                      },
                       epoch: intent.lease.epoch
                   }
     };
@@ -138,7 +141,10 @@ function detachIntent(intent: EventIntentInput): EventIntentInput {
             : {
                   lease: Object.freeze({
                       turn: intent.lease.turn,
-                      holder: new PrincipalId(intent.lease.holder.value),
+                      holder: new PrincipalRef(
+                          intent.lease.holder.tenantId,
+                          intent.lease.holder.principalId
+                      ),
                       epoch: intent.lease.epoch
                   })
               })

@@ -217,7 +217,7 @@
       "codec": "src/agents/runs/lease.ts#TurnLease.codec",
       "store": null,
       "tests": [
-        "test/agents/runs/lease.test.ts#TurnLease [turn-lease] round-trips held and fenced leases through the canonical codec"
+        "test/agents/runs/lease.test.ts#TurnLease [turn-lease] preserves the tenant-qualified holder through the canonical codec"
       ]
     }
   ]

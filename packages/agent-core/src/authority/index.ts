@@ -32,6 +32,12 @@ export type {
     AuthorityPermitTarget
 } from "./permit";
 export {
+    AuthenticatedAuthorityPermit,
+    AuthorityPermitAuthenticator,
+    AuthorityPermitIssuedRecordSource,
+    requireAuthenticatedAuthorityPermit
+} from "./permit-authentication";
+export {
     AuthorityPermitAdmissionPort,
     AuthorityPermitAuthorityPort,
     AuthorityPermitIssuer,

@@ -557,10 +557,14 @@ describe("closed RunCommit shapes", () => {
     });
 
     it("rejects malformed serialized writer and resolution variants", () => {
-        const mutate = (base: RunCommit, update: (data: Record<string, unknown>) => void): void => {
+        const mutate = (
+            base: RunCommit,
+            update: (data: Record<string, unknown>) => void,
+            expected: ErrorConstructor | AgentCoreError = TypeError
+        ): void => {
             const data = structuredClone(base.toData()) as Record<string, unknown>;
             update(data);
-            expect(() => RunCommit.fromData(data as never)).toThrow(TypeError);
+            expect(() => RunCommit.fromData(data as never)).toThrow(expected);
         };
         mutate(message("serialized-writer"), (data) => {
             data["writer"] = { kind: "unknown" };
@@ -574,12 +578,23 @@ describe("closed RunCommit shapes", () => {
         mutate(synthesize("serialized-kind"), (data) => {
             data["kind"] = "unknown";
         });
-        mutate(message("serialized-token"), (data) => {
-            data["writer"] = {
-                kind: "turn",
-                token: { turn: ids.turn.value, holder: ids.holder.value, epoch: -1 }
-            };
-        });
+        mutate(
+            message("serialized-token"),
+            (data) => {
+                data["writer"] = {
+                    kind: "turn",
+                    token: {
+                        turn: ids.turn.value,
+                        holder: {
+                            principal: ids.holder.principalId.value,
+                            tenant: ids.holder.tenantId.value
+                        },
+                        epoch: -1
+                    }
+                };
+            },
+            new AgentCoreError("codec.invalid", "Lease token is malformed")
+        );
         expect(
             () =>
                 new RunCommit({

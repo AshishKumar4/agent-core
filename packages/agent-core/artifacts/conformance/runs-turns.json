@@ -107,9 +107,12 @@
       "specTextSha256": "sha256:593ce99bdc2992136e5847ea433af3a7cdd2faf86ad2b04a6e50aa77e4d4818a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"],
+      "sourceSymbols": [
+        "src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier",
+        "src/agents/runs/runtime.ts#RunRuntime.reclaimTurnInTransaction"
+      ],
       "testSelectors": [
-        "test/agents/runs/foundation.test.ts#memory Run runtime [C13-ADV-STALE-LEASE] creates one attenuated child through lease-bound atomic spawn genesis"
+        "test/agents/runs/lease.test.ts#TurnLease [C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -584,7 +587,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"],
       "testSelectors": [
-        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact durable Turn lease across restart, CAS, and terminal fencing"
+        "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact tenant-qualified durable Turn lease across restart, CAS, and terminal fencing"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

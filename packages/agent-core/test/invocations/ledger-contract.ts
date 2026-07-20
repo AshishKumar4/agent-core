@@ -324,6 +324,72 @@ export function invocationLedgerContract<Transaction>(
             ).toBe(1);
         });
 
+        test(
+            "admits the next ordinal only after the current attempt has a final failed Receipt",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("retry-attempt", { run: true }, { lease: "lease:1" });
+                const claim0 = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:retry-attempt:0",
+                    "worker:retry-attempt:0",
+                    time(10)
+                );
+                const attempt0 = effectAttempt(
+                    invocation,
+                    claim0,
+                    "attempt:retry-attempt:0",
+                    time(2)
+                );
+                const failed = new AttemptReceipt(
+                    new ReceiptId("receipt:retry-attempt:failed"),
+                    attempt0.id,
+                    "failed",
+                    undefined,
+                    time(3),
+                    undefined
+                );
+                const claim1 = executorClaim(
+                    invocation.header.id,
+                    0,
+                    1,
+                    "claim:retry-attempt:1",
+                    "worker:retry-attempt:1",
+                    time(20)
+                );
+                const attempt1 = effectAttempt(
+                    invocation,
+                    claim1,
+                    "attempt:retry-attempt:1",
+                    time(5)
+                );
+
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, claim0, time(1));
+                    harness.ledger.admitAttempt(transaction, attempt0, time(2));
+                    harness.ledger.recordAttemptReceipt(transaction, failed);
+                    harness.ledger.claimItem(transaction, claim1, time(4));
+                    harness.ledger.admitAttempt(transaction, attempt1, time(5));
+                });
+
+                expect(
+                    harness
+                        .transaction((transaction) =>
+                            harness.persistence.attemptsForItem(
+                                transaction,
+                                invocation.header.id,
+                                0
+                            )
+                        )
+                        .map((attempt) => attempt.ordinal)
+                ).toEqual([0, 1]);
+            }
+        );
+
         test("records pre-effect terminal evidence only before any attempt", () => {
             const harness = open();
             const invocation = prepared("denied");
@@ -346,7 +412,77 @@ export function invocationLedgerContract<Transaction>(
             ).toBe("denied");
         });
 
-        test("[invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes", () => {
+        test(
+            "[C13-ADV-RECEIPT-SUCCEEDED] [invocation.receipt] rejects succeeded attempted Receipts without the exact initial attempt lineage",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("succeeded-lineage", [{ index: 0 }], {
+                    lease: "lease:1"
+                });
+                const claim = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:succeeded-lineage",
+                    "worker:succeeded-lineage",
+                    time(20)
+                );
+                const attempt = effectAttempt(
+                    invocation,
+                    claim,
+                    "attempt:succeeded-lineage",
+                    time(2)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                    harness.ledger.admitAttempt(transaction, attempt, time(2));
+                });
+
+                const missingAttempt = new AttemptReceipt(
+                    new ReceiptId("receipt:succeeded-missing-attempt"),
+                    new EffectAttemptId("attempt:succeeded-missing"),
+                    "succeeded",
+                    undefined,
+                    time(3),
+                    content("succeeded-missing-attempt")
+                );
+                const substitutedPredecessor = new AttemptReceipt(
+                    new ReceiptId("receipt:succeeded-substituted-predecessor"),
+                    attempt.id,
+                    "succeeded",
+                    new ReceiptId("receipt:succeeded-unrelated-predecessor"),
+                    time(3),
+                    content("succeeded-substituted-predecessor")
+                );
+                for (const receipt of [missingAttempt, substitutedPredecessor]) {
+                    expect(() =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordAttemptReceipt(transaction, receipt)
+                        )
+                    ).toThrow();
+                }
+                harness.restart();
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.persistence.receiptsForAttempt(transaction, attempt.id)
+                    )
+                ).toHaveLength(0);
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.persistence.receipt(transaction, missingAttempt.id)
+                    )
+                ).toBeUndefined();
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.persistence.receipt(transaction, substitutedPredecessor.id)
+                    )
+                ).toBeUndefined();
+            }
+        );
+
+        test("[C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes", () => {
             const harness = open();
             const invocation = prepared("batch", [{ index: 0 }, { index: 1 }], {
                 lease: "lease:1"
@@ -400,16 +536,18 @@ export function invocationLedgerContract<Transaction>(
                 )
             ).toBe("indeterminate");
 
-            const final = harness.transaction((transaction) =>
-                harness.ledger.reconcile(
-                    transaction,
-                    unknown.id,
-                    new ReceiptId("receipt:final"),
-                    time(4),
-                    { kind: "failed" }
-                )
+            const final = new AttemptReceipt(
+                new ReceiptId("receipt:final"),
+                attempt0.id,
+                "failed",
+                unknown.id,
+                time(4),
+                undefined
             );
-            expect(final?.previous?.equals(unknown.id)).toBe(true);
+            harness.transaction((transaction) =>
+                harness.ledger.supersedeReceipt(transaction, final)
+            );
+            expect(final.previous?.equals(unknown.id)).toBe(true);
             expect(
                 harness.transaction((transaction) =>
                     harness.ledger.batchOutcome(transaction, invocation.header.id)
@@ -417,7 +555,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBe("partiallySucceeded");
             expect(() =>
                 harness.transaction((transaction) =>
-                    harness.ledger.supersedeReceipt(transaction, final!)
+                    harness.ledger.supersedeReceipt(transaction, final)
                 )
             ).toThrow();
         });
@@ -518,14 +656,8 @@ export function invocationLedgerContract<Transaction>(
                 ).toThrow();
                 harness.ledger.recordAttemptReceipt(transaction, unknown);
                 expect(
-                    harness.ledger.reconcile(
-                        transaction,
-                        unknown.id,
-                        new ReceiptId("unused"),
-                        time(4),
-                        { kind: "unknown" }
-                    )
-                ).toBeUndefined();
+                    harness.ledger.currentReceipt(transaction, invocation.header.id, 0)?.id
+                ).toEqual(unknown.id);
             });
             expect(() =>
                 harness.transaction((transaction) =>
@@ -1014,12 +1146,16 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/expired/);
             expect(() =>
                 harness.transaction((transaction) =>
-                    harness.ledger.reconcile(
+                    harness.ledger.supersedeReceipt(
                         transaction,
-                        new ReceiptId("missing-reconciliation"),
-                        new ReceiptId("unused"),
-                        time(4),
-                        { kind: "unknown" }
+                        new AttemptReceipt(
+                            new ReceiptId("unused"),
+                            attempt.id,
+                            "failed",
+                            new ReceiptId("missing-reconciliation"),
+                            time(4),
+                            undefined
+                        )
                     )
                 )
             ).toThrow(/current indeterminate/);
@@ -1300,6 +1436,43 @@ export function invocationLedgerContract<Transaction>(
                     harness.persistence.claim(transaction, replacement.id)
                 )
             ).toBeUndefined();
+        });
+
+        test("[C13-ADV-RECOVERY-ORDINAL] rejects recovery that advances an unattempted ordinal", () => {
+            const harness = open();
+            const invocation = prepared("recovery-ordinal", {}, { lease: "lease:1" });
+            const current = executorClaim(
+                invocation.header.id,
+                0,
+                0,
+                "claim:recovery-ordinal:current",
+                "worker:current",
+                time(3)
+            );
+            const advanced = executorClaim(
+                invocation.header.id,
+                0,
+                1,
+                "claim:recovery-ordinal:advanced",
+                "worker:replacement",
+                time(10)
+            );
+            harness.transaction((transaction) => {
+                harness.ledger.prepare(transaction, invocation);
+                harness.ledger.claimItem(transaction, current, time(1));
+            });
+
+            expect(() =>
+                harness.transaction((transaction) =>
+                    harness.ledger.recoverClaim(transaction, current.id, advanced, time(3))
+                )
+            ).toThrow(/immutable scheduling identity/);
+            expect(
+                harness.transaction((transaction) => ({
+                    advanced: harness.persistence.claim(transaction, advanced.id),
+                    current: harness.persistence.claim(transaction, current.id)
+                }))
+            ).toEqual({ advanced: undefined, current });
         });
 
         test("[C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage", () => {
@@ -1787,12 +1960,16 @@ export function invocationLedgerContract<Transaction>(
                 harness.ledger.claimItem(transaction, claim, time(1));
                 harness.ledger.admitAttempt(transaction, attempt, time(2));
                 harness.ledger.recordAttemptReceipt(transaction, indeterminate);
-                harness.ledger.reconcile(
+                harness.ledger.supersedeReceipt(
                     transaction,
-                    indeterminate.id,
-                    new ReceiptId("receipt:indeterminate-final"),
-                    time(4),
-                    { kind: "failed" }
+                    new AttemptReceipt(
+                        new ReceiptId("receipt:indeterminate-final"),
+                        attempt.id,
+                        "failed",
+                        indeterminate.id,
+                        time(4),
+                        undefined
+                    )
                 );
             });
             harness.restart();

@@ -189,7 +189,7 @@
       "id": "AC-AUTH-RESOLUTION-001",
       "summary": "Authorized resolution issuance with exact root-to-target path ordering, epoch staleness, lease-expiry bounds, per-holder epoch join, and direct watermark inequality",
       "status": "proved-safety",
-      "boundary": "Path evidence and holder watermarks retain tenant-qualified PrincipalRef identity. The permit abstraction proves only that a separately established issued, unused, unexpired permit remains consumable despite a monotonic post-issuance watermark change; concrete issuance, signatures, target checks, and transactions remain external.",
+      "boundary": "Path evidence and holder watermarks retain tenant-qualified PrincipalRef identity. Concrete permit issuance, signatures, target checks, nonce consumption, and transactions remain external and have no theorem claim.",
       "definitions": [
         "AgentCore.Resolution",
         "AgentCore.PathEpoch",
@@ -201,10 +201,7 @@
         "AgentCore.AuthorityLedger.bumpScope",
         "AgentCore.AuthorityLedger.observeForHolder",
         "AgentCore.AuthorityLedger.DirectResolutionUsable",
-        "AgentCore.AuthorityLedger.MediatedResolutionUsable",
-        "AgentCore.AuthorityPermit",
-        "AgentCore.PermitLedger",
-        "AgentCore.PermitLedger.Consumable"
+        "AgentCore.AuthorityLedger.MediatedResolutionUsable"
       ],
       "theorems": [
         "AgentCore.AuthorityLedger.resolution_issue_records_authorized_evidence",
@@ -212,14 +209,12 @@
         "AgentCore.AuthorityLedger.direct_deadline_cannot_exceed_original_lease",
         "AgentCore.AuthorityLedger.holder_observation_joins_epoch",
         "AgentCore.AuthorityLedger.direct_holder_watermark_is_not_ahead",
-        "AgentCore.direct_ready_uses_exact_holder_watermark_inequality",
-        "AgentCore.post_issuance_watermark_cannot_cancel_permit"
+        "AgentCore.direct_ready_uses_exact_holder_watermark_inequality"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_direct_nondurable",
         "AgentCore.Examples.nonvacuous_resolution_deadline_bound",
-        "AgentCore.Examples.nonvacuous_holder_watermark_inequality",
-        "AgentCore.Examples.nonvacuous_post_issuance_watermark_cutoff"
+        "AgentCore.Examples.nonvacuous_holder_watermark_inequality"
       ],
       "witnessCoverage": {
         "AgentCore.AuthorityLedger.resolution_issue_records_authorized_evidence": [
@@ -239,9 +234,6 @@
         ],
         "AgentCore.direct_ready_uses_exact_holder_watermark_inequality": [
           "AgentCore.Examples.nonvacuous_holder_watermark_inequality"
-        ],
-        "AgentCore.post_issuance_watermark_cannot_cancel_permit": [
-          "AgentCore.Examples.nonvacuous_post_issuance_watermark_cutoff"
         ]
       },
       "remainingEvidence": [
@@ -506,9 +498,9 @@
     },
     {
       "id": "AC-EFFECT-001",
-      "summary": "Guarded reachable attempts, future-expiring claims, expired same-ordinal claim recovery, disjoint pre-effect and attempt Receipt IDs, retry, supersession, and derived batch outcomes",
+      "summary": "Guarded reachable attempts, atomic exact attempt and Receipt audit evidence, future-expiring claims, expired same-ordinal claim recovery, disjoint Receipt IDs, retry, supersession, and derived batch outcomes",
       "status": "proved-safety",
-      "boundary": "Coverage proves abstract first and retry attempts retain matching persisted admission evidence across reachable mediated transitions, new claims expire after their claim time, and recovery requires an expired prior claim while changing owner without an attempt or ordinal advance and recording a future replacement expiry. Pre-effect and attempt Receipt ID namespaces remain disjoint. It does not prove concrete clock behavior, expiry scheduling fairness, provider effects, or reconciliation liveness.",
+      "boundary": "Coverage proves that abstract mediated first, approved, and continued attempt transitions commit the attempt and its exact typed causal audit in one state transition, attempted Receipt recording commits its exact audit in one transition, stale pre-effect denial does likewise, and every attempt in a runtime-reachable state has exact audit evidence. Item admission names the exact persisted current claim identity and owner token; final Receipt transitions clear that claim while indeterminate Receipt transitions retain it. Trusted bootstrap, not runtime SystemStep, establishes the initial authority endowment; runtime authority evolution is not modeled. This does not prove concrete transaction or storage refinement, clocks, provider effects, crash recovery, scheduling fairness, or reconciliation liveness.",
       "definitions": [
         "AgentCore.EffectAttempt",
         "AgentCore.PreEffectReceipt",
@@ -517,6 +509,9 @@
         "AgentCore.AttemptOutcome",
         "AgentCore.ItemOutcome",
         "AgentCore.ItemReceiptRef",
+        "AgentCore.ItemClaimId",
+        "AgentCore.ClaimWorkerId",
+        "AgentCore.ItemClaimOwner",
         "AgentCore.ItemClaim",
         "AgentCore.AttemptAdmission",
         "AgentCore.EffectLedger",
@@ -524,22 +519,38 @@
         "AgentCore.NoEffectAttemptFor",
         "AgentCore.AdmissionMatchesAttempt",
         "AgentCore.AttemptsHaveGuardedAdmission",
+        "AgentCore.AttemptsHaveExactAudit",
         "AgentCore.ReceiptIdsDisjoint",
         "AgentCore.AttemptReceiptTerminalFor",
+        "AgentCore.ClaimOwnsAttempt",
+        "AgentCore.ClaimOwnerMatchesPrepared",
+        "AgentCore.ClaimOrdinalAvailable",
         "AgentCore.EffectStep",
         "AgentCore.ItemCurrentOutcome",
         "AgentCore.BatchOutcome",
         "AgentCore.deriveBatchOutcome",
         "AgentCore.BatchTerminalOutcome",
         "AgentCore.BatchCurrentOutcome",
+        "AgentCore.AttemptAuditAppend",
+        "AgentCore.PreReceiptAuditAppend",
+        "AgentCore.AttemptReceiptAuditAppend",
+        "AgentCore.SupersededReceiptAuditAppend",
+        "AgentCore.BootstrapStep",
+        "AgentCore.BootstrapExec",
+        "AgentCore.TrustedGenesis",
+        "AgentCore.SystemStep",
         "AgentCore.Reachable",
         "AgentCore.ReachableFrom"
       ],
       "theorems": [
         "AgentCore.retry_requires_prior_final_failure",
-        "AgentCore.retry_replaces_current_and_advances_ordinal",
+        "AgentCore.first_attempt_uses_exact_current_claim",
+        "AgentCore.retry_uses_exact_current_claim_and_advances_ordinal",
         "AgentCore.claim_records_future_expiry",
+        "AgentCore.claim_uses_exact_prepared_owner",
         "AgentCore.abandoned_claim_recovery_preserves_ordinal_without_attempt",
+        "AgentCore.first_attempt_receipt_clears_only_final_claim",
+        "AgentCore.superseding_final_receipt_clears_claim",
         "AgentCore.supersession_is_same_attempt_once",
         "AgentCore.supersession_at_most_once",
         "AgentCore.effect_step_preserves_receipt_id_disjointness",
@@ -548,6 +559,12 @@
         "AgentCore.indeterminate_batch_is_current_not_terminal",
         "AgentCore.terminal_batch_is_derived_not_stored",
         "AgentCore.reachable_attempts_have_guarded_admission",
+        "AgentCore.first_attempt_and_exact_audit_are_one_transition",
+        "AgentCore.approved_attempt_and_exact_audit_are_one_transition",
+        "AgentCore.continued_attempt_and_exact_audit_are_one_transition",
+        "AgentCore.stale_denial_and_exact_audit_are_one_transition",
+        "AgentCore.attempt_receipt_and_exact_audit_are_one_transition",
+        "AgentCore.reachable_attempts_have_exact_audits",
         "AgentCore.reachable_receipt_ids_are_disjoint",
         "AgentCore.reachable_from_preserves_guarded_attempt_admissions"
       ],
@@ -558,6 +575,12 @@
         "AgentCore.Examples.nonvacuous_same_attempt_supersession",
         "AgentCore.Examples.nonvacuous_indeterminate_batch_current_not_terminal",
         "AgentCore.Examples.nonvacuous_guarded_attempt_reachability",
+        "AgentCore.Examples.nonvacuous_canonical_mediated_attempt",
+        "AgentCore.Examples.nonvacuous_canonical_mediated_attempt_audit_atomic",
+        "AgentCore.Examples.nonvacuous_approved_attempt_audit_atomic",
+        "AgentCore.Examples.nonvacuous_continued_attempt_audit_atomic",
+        "AgentCore.Examples.nonvacuous_attempt_receipt_audit_atomic",
+        "AgentCore.Examples.nonvacuous_stale_denial_audit_atomic",
         "AgentCore.Examples.nonvacuous_receipt_id_disjointness_rejection",
         "AgentCore.Examples.nonvacuous_abandoned_claim_same_ordinal_recovery"
       ],
@@ -565,14 +588,26 @@
         "AgentCore.retry_requires_prior_final_failure": [
           "AgentCore.Examples.nonvacuous_failed_retry"
         ],
-        "AgentCore.retry_replaces_current_and_advances_ordinal": [
+        "AgentCore.first_attempt_uses_exact_current_claim": [
+          "AgentCore.Examples.nonvacuous_canonical_mediated_attempt"
+        ],
+        "AgentCore.retry_uses_exact_current_claim_and_advances_ordinal": [
           "AgentCore.Examples.nonvacuous_failed_retry"
         ],
         "AgentCore.claim_records_future_expiry": [
           "AgentCore.Examples.nonvacuous_claim_records_future_expiry"
         ],
+        "AgentCore.claim_uses_exact_prepared_owner": [
+          "AgentCore.Examples.nonvacuous_claim_records_future_expiry"
+        ],
         "AgentCore.abandoned_claim_recovery_preserves_ordinal_without_attempt": [
           "AgentCore.Examples.nonvacuous_abandoned_claim_same_ordinal_recovery"
+        ],
+        "AgentCore.first_attempt_receipt_clears_only_final_claim": [
+          "AgentCore.Examples.nonvacuous_attempt_receipt_audit_atomic"
+        ],
+        "AgentCore.superseding_final_receipt_clears_claim": [
+          "AgentCore.Examples.nonvacuous_same_attempt_supersession"
         ],
         "AgentCore.supersession_is_same_attempt_once": [
           "AgentCore.Examples.nonvacuous_same_attempt_supersession"
@@ -596,7 +631,26 @@
           "AgentCore.Examples.nonvacuous_mixed_batch_partial"
         ],
         "AgentCore.reachable_attempts_have_guarded_admission": [
-          "AgentCore.Examples.nonvacuous_guarded_attempt_reachability"
+          "AgentCore.Examples.nonvacuous_guarded_attempt_reachability",
+          "AgentCore.Examples.nonvacuous_canonical_mediated_attempt"
+        ],
+        "AgentCore.first_attempt_and_exact_audit_are_one_transition": [
+          "AgentCore.Examples.nonvacuous_canonical_mediated_attempt_audit_atomic"
+        ],
+        "AgentCore.approved_attempt_and_exact_audit_are_one_transition": [
+          "AgentCore.Examples.nonvacuous_approved_attempt_audit_atomic"
+        ],
+        "AgentCore.continued_attempt_and_exact_audit_are_one_transition": [
+          "AgentCore.Examples.nonvacuous_continued_attempt_audit_atomic"
+        ],
+        "AgentCore.stale_denial_and_exact_audit_are_one_transition": [
+          "AgentCore.Examples.nonvacuous_stale_denial_audit_atomic"
+        ],
+        "AgentCore.attempt_receipt_and_exact_audit_are_one_transition": [
+          "AgentCore.Examples.nonvacuous_attempt_receipt_audit_atomic"
+        ],
+        "AgentCore.reachable_attempts_have_exact_audits": [
+          "AgentCore.Examples.nonvacuous_canonical_mediated_attempt_audit_atomic"
         ],
         "AgentCore.reachable_receipt_ids_are_disjoint": [
           "AgentCore.Examples.nonvacuous_receipt_id_disjointness_rejection"
@@ -606,8 +660,9 @@
         ]
       },
       "remainingEvidence": [
+        "runtime authority evolution beyond trusted bootstrap",
         "trusted concrete time, expiry scheduling fairness, and provider idempotency",
-        "concrete attempt, Receipt, aggregate, and reconciliation persistence"
+        "concrete atomic attempt, Receipt, audit, aggregate, crash-recovery, and reconciliation persistence refinement"
       ]
     },
     {
@@ -666,9 +721,9 @@
     },
     {
       "id": "AC-AUDIT-001",
-      "summary": "Typed Actor-local audit with invocation-only roots, preserved complete causal chains, reservation projection bridges, exact Receipt outcomes, and local delivery-to-commit causality",
+      "summary": "Typed Actor-local audit with invocation-only roots, preserved complete causal chains, reservation projection bridges, exact effect evidence and causal bindings, and local delivery-to-commit causality",
       "status": "proved-safety",
-      "boundary": "The claims cover invocation-only root admission, typed same-Actor lower-sequence causes, complete chain construction and preservation, exact Receipt audit matching, and local delivery-to-commit causality. Durable storage, complete instrumentation, and cross-Actor transport remain external.",
+      "boundary": "The claims cover invocation-only root admission, typed same-Actor lower-sequence causes, complete chain construction and preservation, exact attempt evidence, pre-effect Receipt parents derived from invocation or approval evidence, attempted Receipt parents derived from the persisted exact attempt AuditRecord, and local delivery-to-commit causality. Receipt records carry no synthetic causal field. Durable storage, complete instrumentation, and cross-Actor transport remain external.",
       "definitions": [
         "AgentCore.CommitAuditEvidence",
         "AgentCore.AuditKind",
@@ -679,7 +734,7 @@
         "AgentCore.LocalCauseValid",
         "AgentCore.CausalChain",
         "AgentCore.CauseChainValid",
-        "AgentCore.AuditOutcomeMatches",
+        "AgentCore.AuditEvidenceMatches",
         "AgentCore.AuditLabel.auditId",
         "AgentCore.AuditStep"
       ],
@@ -692,7 +747,7 @@
         "AgentCore.audit_step_establishes_causal_chain",
         "AgentCore.causal_chain_preserved_by_step",
         "AgentCore.nonroot_cannot_append_without_cause",
-        "AgentCore.every_audited_receipt_outcome_matches",
+        "AgentCore.every_audited_effect_evidence_matches",
         "AgentCore.delivery_audit_can_cause_commit_locally"
       ],
       "nonVacuity": [
@@ -728,7 +783,7 @@
         "AgentCore.nonroot_cannot_append_without_cause": [
           "AgentCore.Examples.nonvacuous_nonroot_cause_free_append_impossible"
         ],
-        "AgentCore.every_audited_receipt_outcome_matches": [
+        "AgentCore.every_audited_effect_evidence_matches": [
           "AgentCore.Examples.nonvacuous_receipt_audit_append"
         ],
         "AgentCore.delivery_audit_can_cause_commit_locally": [
@@ -1417,7 +1472,7 @@
     },
     {
       "id": "NC-CLOUDFLARE-BEHAVIOR",
-      "summary": "Concrete Cloudflare permit issuance, signatures, substitution checks, nonce consumption, Durable Object transactions, storage, network, topology, and deployment behavior are not modeled; only post-issuance watermark irreversibility is abstractly modeled.",
+      "summary": "Concrete Cloudflare permit issuance, signatures, substitution checks, nonce consumption, Durable Object transactions, storage, network, topology, and deployment behavior are not modeled.",
       "status": "specified-not-modeled"
     },
     {

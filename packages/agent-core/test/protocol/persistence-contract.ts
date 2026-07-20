@@ -103,6 +103,65 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
+        test(
+            "resolves one durable actor-owned audit evidence relation across restart",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = new InvocationId("evidence-relation-invocation");
+                const kind = { kind: "invocation" as const, id: invocation };
+                const first = new AuditRecord({
+                    id: new AuditRecordId("evidence-relation-first"),
+                    actor: defaultActor,
+                    tenant,
+                    correlation: new CorrelationId("evidence-relation-first"),
+                    kind
+                });
+                const otherActor = new ActorRef("run", new ActorId("evidence-relation-other"));
+                const second = new AuditRecord({
+                    id: new AuditRecordId("evidence-relation-second"),
+                    actor: otherActor,
+                    tenant,
+                    correlation: new CorrelationId("evidence-relation-second"),
+                    kind
+                });
+                harness.transaction((transaction) => {
+                    harness.persistence.appendAudit(transaction, first);
+                    harness.persistence.appendAudit(transaction, second);
+                });
+                harness.restart();
+                harness.transaction((transaction) => {
+                    expect(
+                        harness.persistence.findAuditByEvidence(transaction, defaultActor, kind)?.id
+                    ).toEqual(first.id);
+                    expect(
+                        harness.persistence.findAuditByEvidence(transaction, otherActor, kind)?.id
+                    ).toEqual(second.id);
+                    expect(
+                        harness.persistence.findAuditByEvidence(transaction, defaultActor, {
+                            kind: "invocation",
+                            id: new InvocationId("evidence-relation-wrong")
+                        })
+                    ).toBeUndefined();
+                });
+
+                expect(() =>
+                    harness.transaction((transaction) =>
+                        harness.persistence.appendAudit(
+                            transaction,
+                            new AuditRecord({
+                                id: new AuditRecordId("evidence-relation-duplicate"),
+                                actor: defaultActor,
+                                tenant,
+                                correlation: new CorrelationId("evidence-relation-duplicate"),
+                                kind
+                            })
+                        )
+                    )
+                ).toThrow(/evidence relation/u);
+            }
+        );
+
         test("[C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links", () => {
             const harness = open();
             const linked = protocolTestRecords("write-audit-link", defaultCaller);

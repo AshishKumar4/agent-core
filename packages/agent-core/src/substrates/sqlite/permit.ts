@@ -1,8 +1,10 @@
 import type { ActorRef, SynchronousResultGuard } from "../../actors";
 import {
     AuthorityPermit,
+    type AuthenticatedAuthorityPermit,
     type AuthorityPermitExpectation,
-    type AuthorityPermitOwnerStore
+    type AuthorityPermitOwnerStore,
+    requireAuthenticatedAuthorityPermit
 } from "../../authority";
 import { Digest } from "../../core";
 import { AgentCoreError } from "../../errors";
@@ -82,11 +84,13 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
 
     public consume(
         transaction: TransactionalSqlite,
+        authentication: AuthenticatedAuthorityPermit,
         permit: AuthorityPermit,
         expected: AuthorityPermitExpectation,
         now: Date
     ): void {
         this.requireTransaction(transaction);
+        requireAuthenticatedAuthorityPermit(authentication, permit);
         if (!permit.target.actor.equals(this.owner)) {
             throw denied("Authority permit targets another Actor owner");
         }

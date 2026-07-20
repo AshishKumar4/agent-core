@@ -11,7 +11,7 @@ import {
 } from "../../protocol";
 import { TransactionalSqlite, type SqliteRow } from "./sqlite";
 
-const PROTOCOL_SCHEMA_VERSION = 3;
+const PROTOCOL_SCHEMA_VERSION = 4;
 const SCHEMA_OBJECTS = [
     "protocol_schema",
     "protocol_audit_records",
@@ -29,6 +29,7 @@ const CREATE_SCHEMA = `CREATE TABLE protocol_schema (
 const CREATE_AUDITS = `CREATE TABLE protocol_audit_records (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
     id TEXT NOT NULL UNIQUE,
+    evidence_identity TEXT NOT NULL UNIQUE,
     evidence_kind TEXT NOT NULL,
     write_id TEXT,
     write_outcome TEXT,
@@ -100,13 +101,23 @@ class SqliteProtocolRecords extends ProtocolRecordStorage {
 
     public findAudit(id: string): StoredProtocolAudit | undefined {
         const row = this.database.all(
-            `SELECT id, evidence_kind, write_id, write_outcome, record
+            `SELECT id, evidence_identity, evidence_kind, write_id, write_outcome, record
              FROM protocol_audit_records
              WHERE id = ?`,
             [id]
         )[0];
         if (row === undefined) return undefined;
         return storedAudit(row);
+    }
+
+    public findAuditByEvidence(identity: string): StoredProtocolAudit | undefined {
+        const row = this.database.all(
+            `SELECT id, evidence_identity, evidence_kind, write_id, write_outcome, record
+             FROM protocol_audit_records
+             WHERE evidence_identity = ?`,
+            [identity]
+        )[0];
+        return row === undefined ? undefined : storedAudit(row);
     }
 
     public findWrite(id: string): StoredProtocolWrite | undefined {
@@ -122,7 +133,7 @@ class SqliteProtocolRecords extends ProtocolRecordStorage {
     public scanAudits(): readonly StoredProtocolAudit[] {
         return this.database
             .all(
-                `SELECT id, evidence_kind, write_id, write_outcome, record
+                `SELECT id, evidence_identity, evidence_kind, write_id, write_outcome, record
              FROM protocol_audit_records
              ORDER BY sequence`,
                 []
@@ -144,10 +155,11 @@ class SqliteProtocolRecords extends ProtocolRecordStorage {
     public insertAudit(record: StoredProtocolAudit): void {
         this.database.run(
             `INSERT INTO protocol_audit_records (
-                id, evidence_kind, write_id, write_outcome, record
-             ) VALUES (?, ?, ?, ?, ?)`,
+                id, evidence_identity, evidence_kind, write_id, write_outcome, record
+             ) VALUES (?, ?, ?, ?, ?, ?)`,
             [
                 record.id,
+                record.evidenceIdentity,
                 record.evidenceKind,
                 record.writeId?.value ?? null,
                 record.writeOutcome ?? null,
@@ -251,6 +263,7 @@ function validateSchema(database: TransactionalSqlite): void {
     requireColumns(database, "protocol_audit_records", [
         "sequence",
         "id",
+        "evidence_identity",
         "evidence_kind",
         "write_id",
         "write_outcome",
@@ -402,6 +415,7 @@ function storedAudit(row: SqliteRow): StoredProtocolAudit {
     const writeOutcome = nullableText(row, "write_outcome");
     return {
         id: text(row, "id"),
+        evidenceIdentity: text(row, "evidence_identity"),
         evidenceKind: auditKind(text(row, "evidence_kind")),
         ...(writeId === undefined ? {} : { writeId: new WriteRecordId(writeId) }),
         ...(writeOutcome === undefined ? {} : { writeOutcome: commandOutcome(writeOutcome) }),

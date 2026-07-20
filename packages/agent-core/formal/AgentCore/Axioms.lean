@@ -55,9 +55,13 @@ import AgentCore
 
 -- Item attempts, current receipts, retry, supersession, and derived batch outcomes.
 #print axioms AgentCore.retry_requires_prior_final_failure
-#print axioms AgentCore.retry_replaces_current_and_advances_ordinal
+#print axioms AgentCore.first_attempt_uses_exact_current_claim
+#print axioms AgentCore.retry_uses_exact_current_claim_and_advances_ordinal
 #print axioms AgentCore.claim_records_future_expiry
+#print axioms AgentCore.claim_uses_exact_prepared_owner
 #print axioms AgentCore.abandoned_claim_recovery_preserves_ordinal_without_attempt
+#print axioms AgentCore.first_attempt_receipt_clears_only_final_claim
+#print axioms AgentCore.superseding_final_receipt_clears_claim
 #print axioms AgentCore.supersession_is_same_attempt_once
 #print axioms AgentCore.supersession_at_most_once
 #print axioms AgentCore.effect_step_preserves_receipt_id_disjointness
@@ -82,7 +86,7 @@ import AgentCore
 #print axioms AgentCore.audit_step_establishes_causal_chain
 #print axioms AgentCore.causal_chain_preserved_by_step
 #print axioms AgentCore.nonroot_cannot_append_without_cause
-#print axioms AgentCore.every_audited_receipt_outcome_matches
+#print axioms AgentCore.every_audited_effect_evidence_matches
 #print axioms AgentCore.delivery_audit_can_cause_commit_locally
 
 -- Pinned graph writers, equal current heads, delivery, synthesis, and terminal snapshot.
@@ -130,11 +134,16 @@ import AgentCore
 #print axioms AgentCore.settled_has_coherent_snapshot_and_exact_obligations
 #print axioms AgentCore.item_obligation_uses_exact_audit
 #print axioms AgentCore.reachable_attempts_have_guarded_admission
+#print axioms AgentCore.first_attempt_and_exact_audit_are_one_transition
+#print axioms AgentCore.approved_attempt_and_exact_audit_are_one_transition
+#print axioms AgentCore.continued_attempt_and_exact_audit_are_one_transition
+#print axioms AgentCore.stale_denial_and_exact_audit_are_one_transition
+#print axioms AgentCore.attempt_receipt_and_exact_audit_are_one_transition
+#print axioms AgentCore.reachable_attempts_have_exact_audits
 #print axioms AgentCore.reachable_receipt_ids_are_disjoint
 #print axioms AgentCore.reachable_from_preserves_guarded_attempt_admissions
 #print axioms AgentCore.direct_has_no_durable_side_effect
 #print axioms AgentCore.mediated_rechecks_current_authority_path
-#print axioms AgentCore.post_issuance_watermark_cannot_cancel_permit
 #print axioms AgentCore.approved_execution_uses_persisted_identity
 #print axioms AgentCore.replay_deterministic
 #print axioms AgentCore.replay_revision
@@ -185,6 +194,12 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_causal_chain_preserved
 #print axioms AgentCore.Examples.nonvacuous_nonroot_cause_free_append_impossible
 #print axioms AgentCore.Examples.nonvacuous_guarded_attempt_reachability
+#print axioms AgentCore.Examples.nonvacuous_canonical_mediated_attempt
+#print axioms AgentCore.Examples.nonvacuous_canonical_mediated_attempt_audit_atomic
+#print axioms AgentCore.Examples.nonvacuous_approved_attempt_audit_atomic
+#print axioms AgentCore.Examples.nonvacuous_continued_attempt_audit_atomic
+#print axioms AgentCore.Examples.nonvacuous_attempt_receipt_audit_atomic
+#print axioms AgentCore.Examples.nonvacuous_stale_denial_audit_atomic
 #print axioms AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline
 #print axioms AgentCore.Examples.nonvacuous_exact_route_projection
 #print axioms AgentCore.Examples.nonvacuous_source_reservation_audit_binding
@@ -205,7 +220,6 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_run_admission_completion
 #print axioms AgentCore.Examples.nonvacuous_registry_nonempty_and_completed_frontiers
 #print axioms AgentCore.Examples.nonvacuous_invalid_migration_target_rejected
-#print axioms AgentCore.Examples.nonvacuous_post_issuance_watermark_cutoff
 #print axioms AgentCore.Examples.nonvacuous_exact_mediated_run_reservation
 #print axioms AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected
 

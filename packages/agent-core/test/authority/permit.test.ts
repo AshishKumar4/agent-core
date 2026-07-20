@@ -3,8 +3,10 @@ import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors
 import { RunId, TurnId } from "../../src/agents";
 import {
     AuthorityPermit,
+    AuthorityPermitAuthenticator,
     AuthorityPermitAuthorityPort,
     AuthorityPermitExpectation,
+    AuthorityPermitIssuedRecordSource,
     AuthorityPermitIssuer,
     MemoryAuthorityPermitStore,
     PathEpochEvidence,
@@ -43,7 +45,7 @@ const invocation = new InvocationId("permit-invocation");
 const itemKey = "permit-item-key";
 const lease = Object.freeze({
     turn: new TurnId("permit-turn"),
-    holder: principalId,
+    holder: principal,
     epoch: 7
 });
 const issuedAt = new Date("2026-07-12T12:00:00.000Z");
@@ -81,49 +83,61 @@ function permitStoreContract<Transaction>(
     create: () => StoreHarness<Transaction>
 ): void {
     describe(`[authority-permit-owner-store] ${name}`, () => {
-        test("issues and consumes exactly once across owner-store restart", () => {
-            const harness = create();
-            const authority = new CurrentAuthority<Transaction>();
-            const expected = expectation();
-            const issuer = new AuthorityPermitIssuer(harness.tenantStore, authority);
-            const permit = harness.tenantStore.transaction((transaction) =>
-                issuer.issue(transaction, expected, `${name}-once`, issuedAt, expiresAt)
-            );
+        test(
+            "issues and consumes exactly once across owner-store restart",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const authority = new CurrentAuthority<Transaction>();
+                const expected = expectation();
+                const issuer = new AuthorityPermitIssuer(harness.tenantStore, authority);
+                const permit = harness.tenantStore.transaction((transaction) =>
+                    issuer.issue(transaction, expected, `${name}-once`, issuedAt, expiresAt)
+                );
 
-            expect(authority.lastClaim?.equals(expected.claim)).toBe(true);
-            const restartedTenant = harness.restartTenant();
-            expect(
-                restartedTenant.transaction(
-                    (transaction) =>
-                        restartedTenant.issued(transaction, permit.nonce)?.digest().value
-                )
-            ).toBe(permit.digest().value);
+                expect(authority.lastClaim?.equals(expected.claim)).toBe(true);
+                const restartedTenant = harness.restartTenant();
+                expect(
+                    restartedTenant.transaction(
+                        (transaction) =>
+                            restartedTenant.issued(transaction, permit.nonce)?.digest().value
+                    )
+                ).toBe(permit.digest().value);
+                const authentication = await authenticate(restartedTenant, permit, expected);
 
-            const restartedTarget = harness.restartTarget();
-            const admission = new StoredAuthorityPermitAdmissionPort(restartedTarget);
-            restartedTarget.transaction((transaction) =>
-                admission.consume(transaction, permit, expected, new Date(issuedAt.getTime() + 1))
-            );
-            const consumedTarget = harness.restartTarget();
-            expect(
-                consumedTarget.transaction(
-                    (transaction) => consumedTarget.consumed(transaction, permit.nonce)?.value
-                )
-            ).toBe(permit.digest().value);
-            const replayTarget = harness.restartTarget();
-            expect(() =>
-                replayTarget.transaction((transaction) =>
-                    new StoredAuthorityPermitAdmissionPort(replayTarget).consume(
+                const restartedTarget = harness.restartTarget();
+                const admission = new StoredAuthorityPermitAdmissionPort(restartedTarget);
+                restartedTarget.transaction((transaction) =>
+                    admission.consume(
                         transaction,
+                        authentication,
                         permit,
                         expected,
-                        new Date(expiresAt.getTime() + 1)
+                        new Date(issuedAt.getTime() + 1)
                     )
-                )
-            ).toThrow(/already used|not valid/);
-        });
+                );
+                const consumedTarget = harness.restartTarget();
+                expect(
+                    consumedTarget.transaction(
+                        (transaction) => consumedTarget.consumed(transaction, permit.nonce)?.value
+                    )
+                ).toBe(permit.digest().value);
+                const replayTarget = harness.restartTarget();
+                expect(() =>
+                    replayTarget.transaction((transaction) =>
+                        new StoredAuthorityPermitAdmissionPort(replayTarget).consume(
+                            transaction,
+                            authentication,
+                            permit,
+                            expected,
+                            new Date(expiresAt.getTime() + 1)
+                        )
+                    )
+                ).toThrow(/already used|not valid/);
+            }
+        );
 
-        test("rolls issue and consume back with their owner transactions", () => {
+        test("rolls issue and consume back with their owner transactions", async () => {
             const harness = create();
             const authority = new CurrentAuthority<Transaction>();
             const expected = expectation();
@@ -143,11 +157,13 @@ function permitStoreContract<Transaction>(
             const permit = harness.tenantStore.transaction((transaction) =>
                 issuer.issue(transaction, expected, `${name}-admission`, issuedAt, expiresAt)
             );
+            const authentication = await authenticate(harness.tenantStore, permit, expected);
             const admission = new StoredAuthorityPermitAdmissionPort(harness.targetStore);
             expect(() =>
                 harness.targetStore.transaction((transaction) => {
                     admission.consume(
                         transaction,
+                        authentication,
                         permit,
                         expected,
                         new Date(issuedAt.getTime() + 1)
@@ -161,7 +177,13 @@ function permitStoreContract<Transaction>(
                 )
             ).toBeUndefined();
             harness.targetStore.transaction((transaction) =>
-                admission.consume(transaction, permit, expected, new Date(issuedAt.getTime() + 2))
+                admission.consume(
+                    transaction,
+                    authentication,
+                    permit,
+                    expected,
+                    new Date(issuedAt.getTime() + 2)
+                )
             );
         });
 
@@ -316,6 +338,21 @@ permitStoreContract<TransactionalSqlite>("sqlite", () => {
 });
 
 describe("AuthorityPermit", () => {
+    test(
+        "rejects a lease holder with the same PrincipalId from another Tenant",
+        { tags: "p0" },
+        () => {
+            expect(() =>
+                expectation({
+                    lease: {
+                        ...lease,
+                        holder: new PrincipalRef(new TenantId("permit-other-tenant"), principalId)
+                    }
+                })
+            ).toThrow(/lease holder/);
+        }
+    );
+
     test("[authority.permit] codec preserves every normative field and immutable dates", () => {
         const permit = new AuthorityPermit({
             ...expectation(),
@@ -469,7 +506,7 @@ describe("AuthorityPermit", () => {
             expectation({
                 lease: Object.freeze({
                     turn: lease.turn,
-                    holder: new PrincipalId("wrong-holder"),
+                    holder: new PrincipalRef(tenant, new PrincipalId("wrong-holder")),
                     epoch: lease.epoch
                 })
             })
@@ -540,7 +577,7 @@ describe("AuthorityPermit", () => {
         }
     });
 
-    test("fails closed for substituted bindings and expiry without consuming", () => {
+    test("fails closed for substituted bindings and expiry without consuming", async () => {
         const tenantStore = new MemoryAuthorityPermitStore(issuerActor);
         const targetStore = new MemoryAuthorityPermitStore(targetActor);
         const authority = new CurrentAuthority<unknown>();
@@ -549,6 +586,7 @@ describe("AuthorityPermit", () => {
         const permit = tenantStore.transaction((transaction) =>
             issuer.issue(transaction, expected, "adversarial", issuedAt, expiresAt)
         );
+        const authentication = await authenticate(tenantStore, permit, expected);
         const admission = new StoredAuthorityPermitAdmissionPort(targetStore);
 
         for (const [name, substituted] of substitutions(expected)) {
@@ -557,6 +595,7 @@ describe("AuthorityPermit", () => {
                     targetStore.transaction((transaction) =>
                         admission.consume(
                             transaction,
+                            authentication,
                             permit,
                             substituted,
                             new Date(issuedAt.getTime() + 1)
@@ -573,12 +612,18 @@ describe("AuthorityPermit", () => {
 
         expect(() =>
             targetStore.transaction((transaction) =>
-                admission.consume(transaction, permit, expected, expiresAt)
+                admission.consume(transaction, authentication, permit, expected, expiresAt)
             )
         ).toThrow(/not valid/);
         expect(() =>
             targetStore.transaction((transaction) =>
-                admission.consume(transaction, permit, expected, new Date(issuedAt.getTime() - 1))
+                admission.consume(
+                    transaction,
+                    authentication,
+                    permit,
+                    expected,
+                    new Date(issuedAt.getTime() - 1)
+                )
             )
         ).toThrow(/not valid/);
         expect(
@@ -588,7 +633,7 @@ describe("AuthorityPermit", () => {
         ).toBeUndefined();
     });
 
-    test("post-issuance Grant or epoch revocation cannot cancel the admitted permit", () => {
+    test("post-issuance Grant or epoch revocation cannot cancel the admitted permit", async () => {
         const tenantStore = new MemoryAuthorityPermitStore(issuerActor);
         const targetStore = new MemoryAuthorityPermitStore(targetActor);
         const authority = new CurrentAuthority<unknown>();
@@ -597,6 +642,7 @@ describe("AuthorityPermit", () => {
         const admitted = tenantStore.transaction((transaction) =>
             issuer.issue(transaction, expected, "before-revocation", issuedAt, expiresAt)
         );
+        const authentication = await authenticate(tenantStore, admitted, expected);
 
         authority.live = false;
         authority.generation += 1;
@@ -613,6 +659,7 @@ describe("AuthorityPermit", () => {
         targetStore.transaction((transaction) =>
             new StoredAuthorityPermitAdmissionPort(targetStore).consume(
                 transaction,
+                authentication,
                 admitted,
                 expected,
                 new Date(issuedAt.getTime() + 1)
@@ -625,7 +672,7 @@ describe("AuthorityPermit", () => {
         ).toBe(admitted.digest().value);
     });
 
-    test("rejects malformed memory recovery and wrong Actor ownership", () => {
+    test("rejects malformed memory recovery and wrong Actor ownership", async () => {
         const issuerStore = new MemoryAuthorityPermitStore(issuerActor);
         const expected = expectation();
         const permit = issuerStore.transaction((transaction) =>
@@ -680,9 +727,16 @@ describe("AuthorityPermit", () => {
         const wrongTarget = new MemoryAuthorityPermitStore(
             new ActorRef("run", new ActorId("wrong-target"))
         );
+        const authentication = await authenticate(issuerStore, permit, expected);
         expect(() =>
             wrongTarget.transaction((transaction) =>
-                wrongTarget.consume(transaction, permit, expected, new Date(issuedAt.getTime() + 1))
+                wrongTarget.consume(
+                    transaction,
+                    authentication,
+                    permit,
+                    expected,
+                    new Date(issuedAt.getTime() + 1)
+                )
             )
         ).toThrow(/another Actor owner/);
     });
@@ -714,14 +768,19 @@ describe("AuthorityPermit", () => {
         expect(() => new SqliteAuthorityPermitStore(database, issuerActor)).toThrow();
     });
 
-    test("SQLite permit storage fails closed on read, write, and projection faults", () => {
+    test("SQLite permit storage fails closed on read, write, and projection faults", async () => {
         const expected = expectation();
-        const permit = new AuthorityPermit({
-            ...expected,
-            nonce: "sqlite-fault",
-            issuedAt,
-            expiresAt
-        });
+        const authenticationStore = new MemoryAuthorityPermitStore(issuerActor);
+        const permit = authenticationStore.transaction((transaction) =>
+            new AuthorityPermitIssuer(authenticationStore, new CurrentAuthority()).issue(
+                transaction,
+                expected,
+                "sqlite-fault",
+                issuedAt,
+                expiresAt
+            )
+        );
+        const authentication = await authenticate(authenticationStore, permit, expected);
 
         const schemaFailure = new ControlledSqlite();
         schemaFailure.failRun = new TypeError("schema failure");
@@ -770,6 +829,7 @@ describe("AuthorityPermit", () => {
             wrongTargetStore.transaction((transaction) =>
                 wrongTargetStore.consume(
                     transaction,
+                    authentication,
                     permit,
                     expected,
                     new Date(issuedAt.getTime() + 1)
@@ -781,6 +841,7 @@ describe("AuthorityPermit", () => {
             consumeStore.transaction((transaction) =>
                 consumeStore.consume(
                     transaction,
+                    authentication,
                     permit,
                     expected,
                     new Date(issuedAt.getTime() + 1)
@@ -792,6 +853,7 @@ describe("AuthorityPermit", () => {
             consumeStore.transaction((transaction) =>
                 consumeStore.consume(
                     transaction,
+                    authentication,
                     permit,
                     expected,
                     new Date(issuedAt.getTime() + 1)
@@ -806,6 +868,7 @@ describe("AuthorityPermit", () => {
             droppedConsumeStore.transaction((transaction) =>
                 droppedConsumeStore.consume(
                     transaction,
+                    authentication,
                     permit,
                     expected,
                     new Date(issuedAt.getTime() + 1)
@@ -850,13 +913,49 @@ describe("AuthorityPermit", () => {
         const consumedProjection = new ControlledSqlite();
         const consumedStore = new SqliteAuthorityPermitStore(consumedProjection, targetActor);
         consumedStore.transaction((transaction) =>
-            consumedStore.consume(transaction, permit, expected, new Date(issuedAt.getTime() + 1))
+            consumedStore.consume(
+                transaction,
+                authentication,
+                permit,
+                expected,
+                new Date(issuedAt.getTime() + 1)
+            )
         );
         consumedProjection.mapRows = (rows) =>
             rows.map((row) => ({ ...row, record: Uint8Array.of(1) }));
         expect(() => consumedStore.consumed(consumedProjection, permit.nonce)).toThrow(/malformed/);
     });
 });
+
+class StoreIssuedRecordSource<Transaction> extends AuthorityPermitIssuedRecordSource {
+    public constructor(private readonly store: AuthorityPermitOwnerStore<Transaction>) {
+        super();
+    }
+
+    public async issued(
+        issuer: ActorRef,
+        nonce: string,
+        digest: Digest
+    ): Promise<Uint8Array | undefined> {
+        const permit = this.store.transaction((transaction) =>
+            this.store.issued(transaction, nonce)
+        );
+        return permit?.issuer.equals(issuer) === true && permit.digest().equals(digest)
+            ? AuthorityPermit.encode(permit)
+            : undefined;
+    }
+}
+
+function authenticate<Transaction>(
+    store: AuthorityPermitOwnerStore<Transaction>,
+    permit: AuthorityPermit,
+    expected: AuthorityPermitExpectation
+) {
+    return new AuthorityPermitAuthenticator(new StoreIssuedRecordSource(store)).authenticate(
+        permit,
+        expected
+    );
+}
 
 class ControlledSqlite extends TransactionalSqlite {
     readonly #database = new TestSqlite();
@@ -977,7 +1076,7 @@ function substitutions(
                     principal: alternatePrincipal,
                     binding: base.binding.name
                 },
-                lease: Object.freeze({ ...lease, holder: alternatePrincipal.principalId })
+                lease: Object.freeze({ ...lease, holder: alternatePrincipal })
             })
         ],
         [

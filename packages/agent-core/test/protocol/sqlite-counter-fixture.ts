@@ -53,6 +53,7 @@ const CREATE_COUNTER = `CREATE TABLE IF NOT EXISTS protocol_counter (
     authorized INTEGER NOT NULL,
     lifecycle INTEGER NOT NULL,
     lease_turn TEXT,
+    lease_holder_tenant TEXT,
     lease_holder TEXT,
     lease_epoch INTEGER,
     lease_expires_at INTEGER,
@@ -280,9 +281,16 @@ export class SqliteCounterHarness implements CounterFixture {
         const expiresAt = init.expiresAt ?? new Date("2026-07-07T12:05:00.000Z");
         this.#database.run(
             `UPDATE protocol_counter SET
-                lease_turn = ?, lease_holder = ?, lease_epoch = ?, lease_expires_at = ?
+                lease_turn = ?, lease_holder_tenant = ?, lease_holder = ?,
+                lease_epoch = ?, lease_expires_at = ?
              WHERE singleton = 1`,
-            [token.turn.value, token.holder.principalId.value, token.epoch, expiresAt.getTime()]
+            [
+                token.turn.value,
+                token.holder.tenantId.value,
+                token.holder.principalId.value,
+                token.epoch,
+                expiresAt.getTime()
+            ]
         );
         return token;
     }
@@ -411,14 +419,22 @@ function sqliteReadCapability(transaction: ReadableSqlite): CounterReadCapabilit
 
 function sqliteLease(state: SqliteRow): CurrentLease | undefined {
     const turn = state["lease_turn"];
+    const holderTenant = state["lease_holder_tenant"];
     const holder = state["lease_holder"];
     const epoch = state["lease_epoch"];
     const expiresAt = state["lease_expires_at"];
-    if (turn === null && holder === null && epoch === null && expiresAt === null) {
+    if (
+        turn === null &&
+        holderTenant === null &&
+        holder === null &&
+        epoch === null &&
+        expiresAt === null
+    ) {
         return undefined;
     }
     if (
         typeof turn !== "string" ||
+        typeof holderTenant !== "string" ||
         typeof holder !== "string" ||
         typeof epoch !== "number" ||
         typeof expiresAt !== "number"
@@ -427,7 +443,7 @@ function sqliteLease(state: SqliteRow): CurrentLease | undefined {
     }
     return Object.freeze({
         turn: new TurnId(turn),
-        holder: new PrincipalRef(new TenantId("counter-tenant"), new PrincipalId(holder)),
+        holder: new PrincipalRef(new TenantId(holderTenant), new PrincipalId(holder)),
         epoch,
         expiresAt: new Date(expiresAt)
     });

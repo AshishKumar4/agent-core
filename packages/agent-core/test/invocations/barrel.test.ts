@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import * as invocations from "../../src/invocations";
 
 describe("invocation context barrel", () => {
-    test("[C13-ADV-RECOVERY-ORDINAL] exports the complete W6 runtime API", () => {
+    test("exports the complete W6 runtime API", () => {
         expect(Object.keys(invocations).sort()).toEqual([
             "Approval",
             "ApprovalCodec",
@@ -52,6 +52,7 @@ describe("invocation context barrel", () => {
             "RouteProjectionId",
             "RouteReservationId",
             "WriteRecordId",
+            "auditEvidenceIdentity",
             "cloneInvocationMediationMemoryState",
             "cloneInvocationMemoryState",
             "createInvocationMediationMemoryState",
@@ -74,7 +75,8 @@ describe("invocation context barrel", () => {
             "sameJson",
             "terminalBatchOutcome",
             "validDate",
-            "validateAuditAppend"
+            "validateAuditAppend",
+            "validateStoredAuditShape"
         ]);
         expect(invocations.INVOCATION_CONTEXT_EXPORTS.runtime).toEqual(
             Object.keys(invocations)

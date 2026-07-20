@@ -1,5 +1,15 @@
-export { MediatedAuthorityIntent, ResolutionStamp, TenantOperationAuthority } from "./authority";
-export type { OperationAuthorityStatePort, OperationResolutionState } from "./authority";
+export {
+    MediatedAuthorityIntent,
+    ResolvedOperationAuthority,
+    ResolutionStamp,
+    TenantOperationAuthority
+} from "./authority";
+export type {
+    OperationAuthorityStatePort,
+    OperationResolutionCandidate,
+    OperationResolutionEvidence,
+    OperationResolutionState
+} from "./authority";
 export {
     ClosedTenantAuthorityComposition,
     TENANT_AUTHORITY_COMMANDS,
@@ -21,13 +31,17 @@ export type {
     FacetSlotReadPort,
     PackageFacetRoots
 } from "./package-runtime";
-export { ConsumedAuthorityAdmissionPort, IssuedAuthorityPermitPort } from "./permit";
+export {
+    ConsumedAuthorityAdmissionPort,
+    IssuedAuthorityPermitPort,
+    TargetAuthorityPermitAuthenticationPort
+} from "./permit";
 export type {
     AuthorityPermitDenialPort,
     AuthorityPermitExpectationFactory,
     AuthorityPermitReference
 } from "./permit";
-export { createProtectedProfileRuntime } from "./profile";
+export { ApprovalGatewayReconciliationPort, createProtectedProfileRuntime } from "./profile";
 export {
     InvocationInteractionAuditPort,
     RoutedInvocationAdmissionPort,

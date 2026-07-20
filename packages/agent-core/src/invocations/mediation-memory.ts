@@ -1,6 +1,13 @@
 import { Digest } from "../core";
 import { AgentCoreError } from "../errors";
-import { AuditRecord } from "./audit";
+import type { ActorRef } from "../actors";
+import {
+    AuditRecord,
+    auditEvidenceIdentity,
+    validateAuditAppend,
+    type AuditAppendContext,
+    type AuditKind
+} from "./audit";
 import type { InvocationEvidencePersistence, InvocationReplayPersistence } from "./ports";
 import { InvocationPublicationOutbox } from "./publication";
 import { MediatedReplayRecord } from "./replay";
@@ -10,6 +17,7 @@ export interface InvocationMediationMemoryState {
     readonly replayRevision: Map<string, number>;
     readonly replayByRequest: Map<string, string>;
     readonly audits: Map<string, Uint8Array>;
+    readonly auditByEvidence: Map<string, string>;
     readonly publications: Map<string, Uint8Array>;
 }
 
@@ -19,6 +27,7 @@ export function createInvocationMediationMemoryState(): InvocationMediationMemor
         replayRevision: new Map(),
         replayByRequest: new Map(),
         audits: new Map(),
+        auditByEvidence: new Map(),
         publications: new Map()
     };
 }
@@ -31,6 +40,7 @@ export function cloneInvocationMediationMemoryState(
         replayRevision: new Map(state.replayRevision),
         replayByRequest: new Map(state.replayByRequest),
         audits: cloneBytes(state.audits),
+        auditByEvidence: new Map(state.auditByEvidence),
         publications: cloneBytes(state.publications)
     };
 }
@@ -84,9 +94,24 @@ export class MemoryInvocationMediationPersistence
         transaction.replayRevision.set(record.id.value, record.revision.value);
     }
 
-    public appendAudit(transaction: InvocationMediationMemoryState, record: AuditRecord): void {
+    public appendAudit(
+        transaction: InvocationMediationMemoryState,
+        record: AuditRecord,
+        context?: AuditAppendContext
+    ): void {
         if (transaction.audits.has(record.id.value)) duplicate("Audit record exists");
+        validateAuditAppend(
+            record,
+            { get: (id) => this.audit(transaction, id) },
+            context?.rootAdmission,
+            context?.evidence
+        );
+        const evidenceIdentity = auditEvidenceIdentity(record.actor, record.kind).value;
+        if (this.findAuditByEvidence(transaction, record.actor, record.kind) !== undefined) {
+            duplicate("Audit evidence relation exists");
+        }
         transaction.audits.set(record.id.value, AuditRecord.encode(record));
+        transaction.auditByEvidence.set(evidenceIdentity, record.id.value);
     }
 
     public audit(
@@ -97,6 +122,37 @@ export class MemoryInvocationMediationPersistence
         if (bytes === undefined) return undefined;
         const record = AuditRecord.decode(bytes.slice());
         if (!record.id.equals(id)) corrupt("Audit projection does not match codec bytes");
+        return record;
+    }
+
+    public findAuditByEvidence(
+        transaction: InvocationMediationMemoryState,
+        actor: ActorRef,
+        kind: AuditKind
+    ): AuditRecord | undefined {
+        const identity = auditEvidenceIdentity(actor, kind);
+        const id = transaction.auditByEvidence.get(identity.value);
+        if (id === undefined) {
+            for (const [storedId, bytes] of transaction.audits) {
+                const record = AuditRecord.decode(bytes.slice());
+                if (record.id.value !== storedId) {
+                    corrupt("Audit projection does not match codec bytes");
+                }
+                if (auditEvidenceIdentity(record.actor, record.kind).equals(identity)) {
+                    corrupt("Audit record has a missing evidence projection");
+                }
+            }
+            return undefined;
+        }
+        const bytes = transaction.audits.get(id);
+        if (bytes === undefined) corrupt("Audit evidence projection points to a missing record");
+        const record = AuditRecord.decode(bytes.slice());
+        if (
+            record.id.value !== id ||
+            !auditEvidenceIdentity(record.actor, record.kind).equals(identity)
+        ) {
+            corrupt("Audit evidence projection does not match codec bytes");
+        }
         return record;
     }
 

@@ -16,6 +16,7 @@ import AgentCore.Representation.Reaction
 import AgentCore.Representation.MixtureOfAgents
 import AgentCore.Proofs.Safety
 import AgentCore.Proofs.Reachability
+import AgentCore.Proofs.CanonicalMediatedTrace
 import AgentCore.Examples
 
 /-!

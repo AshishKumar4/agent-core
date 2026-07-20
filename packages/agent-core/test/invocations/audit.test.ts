@@ -17,6 +17,7 @@ import {
     RouteProjectionId,
     RouteReservationId,
     WriteRecordId,
+    auditEvidenceIdentity,
     validateAuditAppend,
     type AuditEvidenceResolver,
     type AuditKind,
@@ -377,6 +378,33 @@ describe("AuditRecord codec", () => {
 });
 
 describe("AuditRecord append validation", () => {
+    test("derives one canonical actor-owned identity for complete audit evidence", () => {
+        const kind = {
+            kind: "receipt" as const,
+            id: new ReceiptId("identity-receipt"),
+            outcome: "indeterminate" as const
+        };
+
+        expect(auditEvidenceIdentity(actor, kind).equals(auditEvidenceIdentity(actor, kind))).toBe(
+            true
+        );
+        expect(
+            auditEvidenceIdentity(actor, kind).equals(
+                auditEvidenceIdentity(new ActorRef("run", new ActorId("other-audit-actor")), kind)
+            )
+        ).toBe(false);
+        expect(
+            auditEvidenceIdentity(actor, kind).equals(
+                auditEvidenceIdentity(new ActorRef("workspace", new ActorId(actor.id.value)), kind)
+            )
+        ).toBe(false);
+        expect(
+            auditEvidenceIdentity(actor, kind).equals(
+                auditEvidenceIdentity(actor, { ...kind, outcome: "succeeded" })
+            )
+        ).toBe(false);
+    });
+
     test("[C13-AUDIT-APPEND-ONLY] admits ordinary invocation roots", () => {
         expect(() =>
             validateAuditAppend(
@@ -545,7 +573,7 @@ describe("AuditRecord append validation", () => {
         ).toThrow(/invalid for a caused record/);
     });
 
-    test("[C13-ADV-RECEIPT-SUPERSESSION] [audit-record] preserves append-only records", () => {
+    test("[audit-record] preserves append-only records", () => {
         const record = audit({ kind: "invocation", id: new InvocationId("existing-invocation") });
 
         expect(() => validateAuditAppend(record, lookup(record))).toThrow(/append-only/);

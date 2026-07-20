@@ -2,8 +2,11 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../../src/actors";
 import {
     AuthorityPermit,
+    AuthorityPermitAuthenticator,
     AuthorityPermitIssuer,
     AuthorityPermitExpectation,
+    AuthorityPermitIssuedRecordSource,
+    AuthenticatedAuthorityPermit,
     Binding,
     GrantId,
     InvalidationWatermark,
@@ -15,25 +18,34 @@ import {
 import {
     ConsumedAuthorityAdmissionPort,
     IssuedAuthorityPermitPort,
+    TargetAuthorityPermitAuthenticationPort,
     CanonicalSettlementEvidencePort,
     DurableRunAdmissionPort,
     InvocationComposition,
     ProvenanceFacetSlotBackend,
+    ResolvedOperationAuthority,
+    ResolutionStamp,
     TenantOperationAuthority,
     createProtectedProfileRuntime,
     type AuthorityPermitExpectationFactory,
     type OperationAuthorityStatePort,
-    type OperationResolutionState
+    type OperationResolutionCandidate
 } from "../../../src/composition";
 import { Digest, JsonSchema, Revision, SemVer } from "../../../src/core";
 import { MemoryContentStore } from "../../../src/content";
-import { PackageId, PackageInstallationProvenancePort, PackagePin } from "../../../src/definition";
+import {
+    PackageId,
+    PackageInstallationProvenancePort,
+    PackagePin,
+    PolicySet
+} from "../../../src/definition";
 import {
     RunCommitId as ExecutionRunCommitId,
     RunId as ExecutionRunId
 } from "../../../src/execution-references";
 import {
     BindingName,
+    CapabilitySpec,
     FacetRef,
     Operation,
     OperationDescriptor,
@@ -82,6 +94,7 @@ import {
     RouteReservationId
 } from "../../../src/interaction-references";
 import { OperationRequestKey } from "../../../src/operations";
+import { AuthorityPermitIssuanceReply } from "../../../src/protocol";
 import {
     MemoryRunStorage,
     RunAdmissionRegistry,
@@ -134,10 +147,13 @@ describe("W9 internal typed composition", () => {
         ]);
         expect(
             authority.authorizeDirect(resolved.resolution, directDescriptor, [{ id: 1 }])
-        ).toBeUndefined();
+        ).toBeInstanceOf(ResolutionStamp);
         await expect(
             authority.authorizeMediated(resolved.resolution, descriptor, [{ id: 1 }])
         ).rejects.toMatchObject({ code: "authority.denied" });
+        expect(
+            authority.authorizeDirect(resolved.resolution, directDescriptor, [{ id: 1 }])
+        ).toBeUndefined();
     });
 
     test("fails closed on substituted resolution evidence and only admits same-domain interception", async () => {
@@ -147,24 +163,10 @@ describe("W9 internal typed composition", () => {
             code: "authority.denied"
         });
 
-        const malformedDeadline = operationAuthority(state, {
-            resolve: (caller) => ({
-                ...state.resolve(caller)!,
-                deadline: new Date(-1)
-            })
-        });
-        await expect(malformedDeadline.resolve(principal, bindingName)).rejects.toThrow(
-            /substituted resolution evidence/
-        );
-        const extendedDeadline = operationAuthority(state, {
-            resolve: (caller) => ({
-                ...state.resolve(caller)!,
-                deadline: new Date(101)
-            })
-        });
-        await expect(extendedDeadline.resolve(principal, bindingName)).rejects.toThrow(
-            /exceeds the original Turn lease/
-        );
+        const derived = await operationAuthority(state).resolve(principal, bindingName);
+        expect(derived.resolution.resolvedAt).toEqual(new Date(10));
+        expect(derived.resolution.originalLeaseExpiresAt).toEqual(new Date(100));
+        expect(derived.resolution.resolutionDeadline).toEqual(new Date(60));
 
         const authority = operationAuthority(state);
         const resolved = await authority.resolve(principal, bindingName);
@@ -256,51 +258,175 @@ describe("W9 internal typed composition", () => {
         authority.release(resolved.resolution);
     });
 
-    test("consumes an exact issued permit once and denies substitution before admission", () => {
+    test(
+        "rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
+        { tags: "p0" },
+        async () => {
+            const state = new AuthorityState();
+            const authority = operationAuthority(state);
+            const valid = (await authority.resolve(principal, bindingName)).resolution;
+            if (valid.lease === undefined || valid.originalLease?.expiresAt === undefined) {
+                throw new TypeError("Expected a held W9 Turn resolution");
+            }
+            const foreignHolder = new PrincipalRef(
+                new TenantId("w9-foreign-holder-tenant"),
+                principal.principalId
+            );
+            const foreignLease = TurnLease.restore(
+                valid.lease.turn,
+                foreignHolder,
+                valid.lease.epoch,
+                valid.originalLease.expiresAt
+            );
+            const substituted: OperationResolutionCandidate = {
+                ...state.resolve(principal)!,
+                lease: {
+                    turn: valid.lease.turn,
+                    holder: foreignHolder,
+                    epoch: valid.lease.epoch
+                },
+                originalLease: foreignLease
+            };
+            const substitutedResolver = operationAuthority(state, {
+                resolve: () => substituted
+            });
+            const directDescriptor = new OperationDescriptor(
+                new OperationName("cross-tenant-read"),
+                "observe",
+                new JsonSchema({}),
+                new JsonSchema({})
+            );
+
+            await expect(substitutedResolver.resolve(principal, bindingName)).rejects.toMatchObject(
+                { code: "authority.denied" }
+            );
+            const currentLeaseSubstitution = operationAuthority(state, {
+                currentLease: () => foreignLease
+            });
+            const current = (
+                await currentLeaseSubstitution.resolve(principal, bindingName)
+            ).resolution;
+            expect(
+                currentLeaseSubstitution.authorizeDirect(current, directDescriptor, [{}])
+            ).toBeUndefined();
+            await expect(
+                currentLeaseSubstitution.authorizeMediated(current, descriptor, [{}])
+            ).rejects.toMatchObject({ code: "authority.denied" });
+        }
+    );
+
+    test(
+        "denies an exact locally constructed permit before target admission",
+        { tags: "p0" },
+        () => {
+            const expected = permitExpectation();
+            const permit = new AuthorityPermit({
+                ...expected,
+                nonce: "w9-permit-nonce",
+                issuedAt: new Date(10),
+                expiresAt: new Date(20)
+            });
+            const store = new MemoryAuthorityPermitStore(expected.target.actor);
+            let denials = 0;
+            const adapter = new ConsumedAuthorityAdmissionPort(
+                new StoredAuthorityPermitAdmissionPort(store),
+                new FixedExpectationFactory(expected),
+                { deny: () => (denials += 1) },
+                () => new Date(15)
+            );
+            const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
+            const context = admissionContext(expected);
+
+            expect(
+                store.transaction((transaction) => adapter.admits(transaction, admission, context))
+            ).toBe(false);
+            expect(denials).toBe(1);
+            expect(
+                store.transaction((transaction) => store.consumed(transaction, permit.nonce))
+            ).toBeUndefined();
+
+            const fabricatedAuthentication = Object.create(
+                AuthenticatedAuthorityPermit.prototype
+            ) as AuthenticatedAuthorityPermit;
+            expect(
+                store.transaction((transaction) =>
+                    adapter.admits(transaction, admission, context, fabricatedAuthentication)
+                )
+            ).toBe(false);
+            expect(denials).toBe(2);
+
+            const substituted = new AuthorityAdmissionReference(
+                permit.toData(),
+                new Digest("f".repeat(64))
+            );
+            expect(
+                store.transaction((transaction) =>
+                    adapter.admits(transaction, substituted, context)
+                )
+            ).toBe(false);
+            expect(denials).toBe(3);
+        }
+    );
+
+    test(
+        "admits a target-pulled canonical Tenant permit exactly once",
+        { tags: "p0" },
+        async () => {
+            const expected = permitExpectation();
+            const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
+            const permit = issuerStore.transaction((transaction) =>
+                new AuthorityPermitIssuer(issuerStore, { admits: () => true }).issue(
+                    transaction,
+                    expected,
+                    "w9-authenticated-permit",
+                    new Date(10),
+                    new Date(20)
+                )
+            );
+            const authentication = await authenticatePermit(issuerStore, permit, expected);
+            const targetStore = new MemoryAuthorityPermitStore(expected.target.actor);
+            let denials = 0;
+            const adapter = new ConsumedAuthorityAdmissionPort(
+                new StoredAuthorityPermitAdmissionPort(targetStore),
+                new FixedExpectationFactory(expected),
+                { deny: () => (denials += 1) },
+                () => new Date(15)
+            );
+            const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
+            const context = admissionContext(expected);
+
+            expect(
+                targetStore.transaction((transaction) =>
+                    adapter.admits(transaction, admission, context, authentication)
+                )
+            ).toBe(true);
+            expect(
+                targetStore.transaction((transaction) =>
+                    adapter.admits(transaction, admission, context, authentication)
+                )
+            ).toBe(false);
+            expect(denials).toBe(1);
+            expect(
+                targetStore.transaction(
+                    (transaction) => targetStore.consumed(transaction, permit.nonce)?.value
+                )
+            ).toBe(permit.digest().value);
+        }
+    );
+
+    test("denies an expired authenticated permit without consuming its nonce", async () => {
         const expected = permitExpectation();
-        const permit = new AuthorityPermit({
-            ...expected,
-            nonce: "w9-permit-nonce",
-            issuedAt: new Date(10),
-            expiresAt: new Date(20)
-        });
-        const store = new MemoryAuthorityPermitStore(expected.target.actor);
-        let denials = 0;
-        const adapter = new ConsumedAuthorityAdmissionPort(
-            new StoredAuthorityPermitAdmissionPort(store),
-            new FixedExpectationFactory(expected),
-            { deny: () => (denials += 1) },
-            () => new Date(15)
+        const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
+        const permit = issuerStore.transaction((transaction) =>
+            new AuthorityPermitIssuer(issuerStore, { admits: () => true }).issue(
+                transaction,
+                expected,
+                "w9-expired-permit",
+                new Date(10),
+                new Date(20)
+            )
         );
-        const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
-        const context = admissionContext(expected);
-
-        expect(
-            store.transaction((transaction) => adapter.admits(transaction, admission, context))
-        ).toBe(true);
-        expect(
-            store.transaction((transaction) => adapter.admits(transaction, admission, context))
-        ).toBe(false);
-        expect(denials).toBe(1);
-
-        const substituted = new AuthorityAdmissionReference(
-            permit.toData(),
-            new Digest("f".repeat(64))
-        );
-        expect(
-            store.transaction((transaction) => adapter.admits(transaction, substituted, context))
-        ).toBe(false);
-        expect(denials).toBe(2);
-    });
-
-    test("denies an expired issued permit without consuming its nonce", () => {
-        const expected = permitExpectation();
-        const permit = new AuthorityPermit({
-            ...expected,
-            nonce: "w9-expired-permit",
-            issuedAt: new Date(10),
-            expiresAt: new Date(20)
-        });
+        const authentication = await authenticatePermit(issuerStore, permit, expected);
         const store = new MemoryAuthorityPermitStore(expected.target.actor);
         let denials = 0;
         const adapter = new ConsumedAuthorityAdmissionPort(
@@ -313,7 +439,7 @@ describe("W9 internal typed composition", () => {
 
         expect(
             store.transaction((transaction) =>
-                adapter.admits(transaction, admission, admissionContext(expected))
+                adapter.admits(transaction, admission, admissionContext(expected), authentication)
             )
         ).toBe(false);
         expect(denials).toBe(1);
@@ -322,29 +448,88 @@ describe("W9 internal typed composition", () => {
         ).toBeUndefined();
     });
 
-    test("issues W2 permits through the asynchronous typed composition port", async () => {
-        const expected = permitExpectation();
-        const store = new MemoryAuthorityPermitStore(expected.issuer);
-        const issuerPort = new IssuedAuthorityPermitPort(
-            store,
-            new AuthorityPermitIssuer(store, { admits: () => true }),
-            new FixedExpectationFactory(expected),
-            () => "w9-issued-port-nonce",
-            () => new Date(10),
-            10
-        );
+    test(
+        "returns witness-free durable permit data and remints authentication after runtime reconstruction",
+        { tags: "p0" },
+        async () => {
+            const expected = permitExpectation();
+            const store = new MemoryAuthorityPermitStore(expected.issuer);
+            const issuerPort = new IssuedAuthorityPermitPort(
+                store,
+                new AuthorityPermitIssuer(store, { admits: () => true }),
+                new FixedExpectationFactory(expected),
+                () => "w9-issued-port-nonce",
+                () => new Date(10),
+                10
+            );
 
-        const admission = await issuerPort.issue({} as never, {} as never);
+            const admission = await issuerPort.issue({} as never, {} as never);
 
-        const permit = AuthorityPermit.fromData(admission.reference);
-        expect(permit.nonce).toBe("w9-issued-port-nonce");
-        expect(permit.digest().equals(admission.digest)).toBe(true);
-        expect(
-            store.transaction((transaction) => store.issued(transaction, permit.nonce)?.nonce)
-        ).toBe(permit.nonce);
-    });
+            expect(Reflect.ownKeys(admission).sort()).toEqual(["digest", "reference"]);
+            expect("authentication" in admission).toBe(false);
+            const permit = AuthorityPermit.fromData(structuredClone(admission.reference));
+            expect(permit.nonce).toBe("w9-issued-port-nonce");
+            expect(permit.digest().equals(admission.digest)).toBe(true);
+            const transportedPermit = AuthorityPermitIssuanceReply.decode(
+                AuthorityPermitIssuanceReply.encode(new AuthorityPermitIssuanceReply(permit))
+            ).permit;
+            const transportedAdmission = new AuthorityAdmissionReference(
+                transportedPermit.toData(),
+                transportedPermit.digest()
+            );
+            const firstSource = new MemoryIssuedRecordSource(store);
+            const firstTargetAuthentication = new TargetAuthorityPermitAuthenticationPort(
+                new AuthorityPermitAuthenticator(firstSource),
+                new FixedExpectationFactory(expected)
+            );
+            const firstAuthentication = await firstTargetAuthentication.authenticate(
+                {} as never,
+                {} as never,
+                transportedAdmission
+            );
+            const restartedSource = new MemoryIssuedRecordSource(store);
+            const restartedTargetAuthentication = new TargetAuthorityPermitAuthenticationPort(
+                new AuthorityPermitAuthenticator(restartedSource),
+                new FixedExpectationFactory(expected)
+            );
+            const restartedAuthentication = await restartedTargetAuthentication.authenticate(
+                {} as never,
+                {} as never,
+                transportedAdmission
+            );
+            expect(restartedAuthentication).not.toBe(firstAuthentication);
+            expect(firstSource.calls).toBe(1);
+            expect(restartedSource.calls).toBe(1);
 
-    test("fails closed for malformed permits while preserving infrastructure failures", () => {
+            const targetStore = new MemoryAuthorityPermitStore(expected.target.actor);
+            const targetAdmission = new ConsumedAuthorityAdmissionPort(
+                new StoredAuthorityPermitAdmissionPort(targetStore),
+                new FixedExpectationFactory(expected),
+                { deny: () => undefined },
+                () => new Date(15)
+            );
+            expect(
+                targetStore.transaction((transaction) =>
+                    targetAdmission.admits(
+                        transaction,
+                        transportedAdmission,
+                        admissionContext(expected),
+                        restartedAuthentication
+                    )
+                )
+            ).toBe(true);
+            expect(
+                store.transaction((transaction) => store.issued(transaction, permit.nonce)?.nonce)
+            ).toBe(permit.nonce);
+            expect(
+                targetStore.transaction(
+                    (transaction) => targetStore.consumed(transaction, permit.nonce)?.value
+                )
+            ).toBe(permit.digest().value);
+        }
+    );
+
+    test("fails closed for malformed permits while preserving infrastructure failures", async () => {
         const expected = permitExpectation();
         const store = new MemoryAuthorityPermitStore(expected.target.actor);
         let denials = 0;
@@ -372,6 +557,9 @@ describe("W9 internal typed composition", () => {
             issuedAt: new Date(10),
             expiresAt: new Date(20)
         });
+        const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
+        issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
+        const authentication = await authenticatePermit(issuerStore, permit, expected);
         const failingAdapter = new ConsumedAuthorityAdmissionPort(
             {
                 consume: () => {
@@ -387,7 +575,8 @@ describe("W9 internal typed composition", () => {
                 failingAdapter.admits(
                     transaction,
                     new AuthorityAdmissionReference(permit.toData(), permit.digest()),
-                    admissionContext(expected)
+                    admissionContext(expected),
+                    authentication
                 )
             )
         ).toThrow("permit store unavailable");
@@ -725,15 +914,10 @@ class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
         ScopeEpoch.initial(scope)
     ]);
     public writes = 0;
-    readonly #lease = TurnLease.restore(
-        new TurnId("w9-turn"),
-        principal.principalId,
-        1,
-        new Date(100)
-    );
+    readonly #lease = TurnLease.restore(new TurnId("w9-turn"), principal, 1, new Date(100));
     readonly #token = {
         turn: this.#lease.turn,
-        holder: principal.principalId,
+        holder: principal,
         epoch: this.#lease.epoch
     };
     readonly #digest = new Digest("a".repeat(64));
@@ -754,7 +938,7 @@ class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
     public watermark = InvalidationWatermark.empty(tenant, owner, principal);
     public staleObservations = 0;
 
-    public resolve(caller: PrincipalRef): OperationResolutionState | undefined {
+    public resolve(caller: PrincipalRef): OperationResolutionCandidate | undefined {
         if (!caller.equals(principal)) return undefined;
         return {
             principal,
@@ -763,13 +947,19 @@ class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
             watermark: this.watermark,
             lease: this.#token,
             originalLease: this.#lease,
+            route: undefined,
             package: this.#pin,
             placement: this.#placement,
-            resolvedAt: new Date(0),
-            deadline: new Date(50),
             owner,
-            policies: [],
-            turnOwnedSession: true
+            policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 })],
+            turnOwnedSession: true,
+            turnActorAuthorityLocal: true,
+            directAuthority: new ResolvedOperationAuthority(facet, [
+                new CapabilitySpec({
+                    facetPattern: facet.value,
+                    impacts: ["observe", "externalSend"]
+                })
+            ])
         };
     }
     public currentBinding(): Binding | undefined {
@@ -838,11 +1028,40 @@ class FixedExpectationFactory implements AuthorityPermitExpectationFactory<
     }
 }
 
+class MemoryIssuedRecordSource extends AuthorityPermitIssuedRecordSource {
+    public calls = 0;
+
+    public constructor(private readonly store: MemoryAuthorityPermitStore) {
+        super();
+    }
+
+    public async issued(issuer: ActorRef, nonce: string, digest: Digest) {
+        this.calls += 1;
+        const permit = this.store.transaction((transaction) =>
+            this.store.issued(transaction, nonce)
+        );
+        return permit?.issuer.equals(issuer) === true && permit.digest().equals(digest)
+            ? AuthorityPermit.encode(permit)
+            : undefined;
+    }
+}
+
+function authenticatePermit(
+    store: MemoryAuthorityPermitStore,
+    permit: AuthorityPermit,
+    expected: AuthorityPermitExpectation
+) {
+    return new AuthorityPermitAuthenticator(new MemoryIssuedRecordSource(store)).authenticate(
+        permit,
+        expected
+    );
+}
+
 function permitExpectation(): AuthorityPermitExpectation {
     const digest = new Digest("b".repeat(64));
     const invocation = new InvocationId("w9-permit-invocation");
     const turn = new TurnId("w9-permit-turn");
-    const token = { turn, holder: principal.principalId, epoch: 2 };
+    const token = { turn, holder: principal, epoch: 2 };
     return new AuthorityPermitExpectation({
         tenant,
         issuer,

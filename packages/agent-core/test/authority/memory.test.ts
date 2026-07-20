@@ -38,7 +38,7 @@ const anchor = Object.freeze({
 });
 
 describe("MemoryTenantControlStore", () => {
-    test("[C13-AUTH-WATERMARK-MONOTONE] [authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot", () => {
+    test("[authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot", () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const role = observeRole("memory-reader");
@@ -125,7 +125,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.grants()).toEqual([]);
     });
 
-    test("[C13-ADV-REVOKED-ALLOW] allows writes only after bootstrap and only inside an owned transaction", () => {
+    test("allows writes only after bootstrap and only inside an owned transaction", () => {
         const fresh = MemoryTenantControlStore.create(anchor);
         const service = new AuthorityMutationService(fresh);
         expect(() =>
@@ -522,7 +522,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.grant(roleGrant.id)?.isLive).toBe(false);
     });
 
-    test("[C13-AUTH-DENY-PRECEDENCE] restores deny authority through Team and verified guest identity closures", () => {
+    test("restores deny authority through Team and verified guest identity closures", () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const teammate = new PrincipalId("memory-team-principal");
@@ -684,7 +684,7 @@ describe("MemoryTenantControlStore", () => {
         ).toThrow(/invalid Membership evidence/);
     });
 
-    test("[C13-AUTH-DIRECT-LEASE] rejects direct stale Workspace and revoked Membership rewrites", () => {
+    test("rejects direct stale Workspace and revoked Membership rewrites", () => {
         const store = bootstrappedStore();
         expect(() =>
             store.transaction((candidate) =>

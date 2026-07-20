@@ -145,6 +145,7 @@ describe("definition value boundaries", () => {
         expect(() =>
             PolicySet.fromData({
                 approvals: [],
+                maxDirectRevocationWindowMs: null,
                 placement: { allowed: ["dynamic"] },
                 tiers: {
                     execute: "invalid"
@@ -154,6 +155,7 @@ describe("definition value boundaries", () => {
         expect(() =>
             PolicySet.fromData({
                 approvals: "execute",
+                maxDirectRevocationWindowMs: null,
                 placement: { allowed: ["dynamic"] },
                 tiers: {}
             })

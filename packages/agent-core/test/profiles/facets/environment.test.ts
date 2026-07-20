@@ -19,7 +19,7 @@ import {
     type OpenSessionRequest,
     type SnapshotEnvironmentRequest
 } from "../../../src/environments";
-import { PrincipalId } from "../../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import {
     ENVIRONMENT_EVENTS,
     ENVIRONMENT_CONTROL_CONTRACTS,
@@ -258,7 +258,10 @@ function content(character: string): ContentRef {
 const environmentId = new EnvironmentId("environment-profile");
 const environmentLease: LeaseToken = Object.freeze({
     turn: new TurnId("environment-profile-turn"),
-    holder: new PrincipalId("environment-profile-holder"),
+    holder: new PrincipalRef(
+        new TenantId("environment-profile-tenant"),
+        new PrincipalId("environment-profile-holder")
+    ),
     epoch: 1
 });
 

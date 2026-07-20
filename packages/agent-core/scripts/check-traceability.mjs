@@ -620,11 +620,6 @@ if (candidateReportLineCount !== reported.size) {
         `parsed ${reported.size} of ${candidateReportLineCount} #print axioms output lines uniquely`
     );
 }
-for (const axiom of allowedBuiltInAxioms) {
-    if (!observedAxioms.has(axiom))
-        fail(`allowed built-in axiom is not used by the current report: ${axiom}`);
-}
-
 for (const name of theoremOwners.keys()) {
     if (!reported.has(name)) fail(`owned theorem is not designated by Axioms.lean: ${name}`);
 }

@@ -147,6 +147,7 @@ describe("materialization planning", () => {
 
         expect(projection.desired).toEqual({
             approvals: ["execute"],
+            maxDirectRevocationWindowMs: null,
             placement: { allowed: ["dynamic", "provider", "bundled"] },
             tiers: {}
         });
@@ -356,6 +357,7 @@ describe("materialization planning", () => {
             recordKind: "policy-set",
             desired: {
                 approvals: ["mutate", "execute"],
+                maxDirectRevocationWindowMs: null,
                 placement: { allowed: ["bundled", "dynamic", "provider"] },
                 tiers: {}
             }
@@ -447,7 +449,12 @@ describe("materialization planning", () => {
                 new DesiredProjection({
                     logicalKey: "policy:malformed",
                     recordKind: "policy-set",
-                    desired: { approvals: [], placement: { allowed: [] }, tiers: {} }
+                    desired: {
+                        approvals: [],
+                        maxDirectRevocationWindowMs: null,
+                        placement: { allowed: [] },
+                        tiers: {}
+                    }
                 })
         ).toThrow(/must not be empty/);
         expect(() =>

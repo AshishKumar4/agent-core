@@ -210,9 +210,14 @@
       "specTextSha256": "sha256:7bc6ebc72f02f809972575f541cc67141db8fc54c5b24f6cbbc6477b3940815a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.prepareWithAudit",
+        "src/invocations/ledger.ts#InvocationLedger.admitAttemptWithAudit",
+        "src/invocations/ledger.ts#InvocationLedger.recordAttemptReceiptWithAudit",
+        "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptWithAudit"
+      ],
       "testSelectors": [
-        "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-ADV-RECEIPT-INDETERMINATE] atomically persists Receipt, Audit, and publication across crash and restart"
+        "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-ADV-RECEIPT-INDETERMINATE] atomically persists attempt, Receipt, and supersession audit edges through the invocation evidence port"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -224,9 +229,13 @@
       "specTextSha256": "sha256:e75ac5363240f9407557a8563b2977d29ee8bd6764c4c96c1b077b7460e621fb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptWithAudit",
+        "src/invocations/receipt.ts#Receipt"
+      ],
       "testSelectors": [
-        "test/substrates/sqlite/invocations/persistence.test.ts#SqliteInvocationPersistence transaction scope [C13-ADV-RECEIPT-SUCCEEDED] rejects orphan revisions, Receipts, and duplicate SQLite appends with typed errors"
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUCCEEDED] [invocation.receipt] rejects succeeded attempted Receipts without the exact initial attempt lineage",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-SUCCEEDED] [invocation.receipt] rejects succeeded attempted Receipts without the exact initial attempt lineage"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -238,9 +247,13 @@
       "specTextSha256": "sha256:450462879eebd80c1ffcb207c90f10262b76956f93b8807eaebb8bca5177bd67",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptWithAudit",
+        "src/invocations/receipt.ts#Receipt"
+      ],
       "testSelectors": [
-        "test/invocations/audit.test.ts#AuditRecord append validation [C13-ADV-RECEIPT-SUPERSESSION] [audit-record] preserves append-only records"
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -252,9 +265,10 @@
       "specTextSha256": "sha256:9253ee9f91bba3ae001088562ec90e3508d6ac2969306b35e439aa9ec2a0d731",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": ["src/invocations/ledger.ts#InvocationLedger.recoverClaim"],
       "testSelectors": [
-        "test/invocations/barrel.test.ts#invocation context barrel [C13-ADV-RECOVERY-ORDINAL] exports the complete W6 runtime API"
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECOVERY-ORDINAL] rejects recovery that advances an unattempted ordinal",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECOVERY-ORDINAL] rejects recovery that advances an unattempted ordinal"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -597,7 +611,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/attempt.ts#EffectAttempt"],
       "testSelectors": [
-        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-IDEMPOTENCY] reuses a durable claim after permit-call crash and never repeats the effect"
+        "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECONCILIATION] reconciles one indeterminate W6 attempt after restart without repeating the effect"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -611,7 +625,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/reconciliation.ts#InvocationReconciler"],
       "testSelectors": [
-        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-RECONCILIATION] terminalizes a crash-recovered admitted attempt without repeating the effect"
+        "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECONCILIATION] reconciles one indeterminate W6 attempt after restart without repeating the effect"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -621,14 +635,14 @@
       "owner": "W6",
       "specAnchor": "C13-EFFECT-RECONCILIATION-DRIVER",
       "specTextSha256": "sha256:c77d3a8dc758635d819b0ece6db52ee347d4a425dd1db890d9916e2efb7e25b7",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/reconciliation.ts#InvocationReconciler"],
-      "testSelectors": [
-        "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION-DRIVER] queries once, never resends unknown, and finalizes only authoritative results"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Wire InvocationReconciler to one named actor alarm or durable workflow driver and prove restart delivery; direct calls to the reconciler do not establish scheduling"
+      ]
     },
     {
       "id": "C13-EFFECT-SUPERSEDING-RECEIPT",
@@ -637,9 +651,13 @@
       "specTextSha256": "sha256:16e24d81f0d33a3e6aa08954628a1d94da4c4c8cd190ace25921496302021dc2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger",
+        "src/invocations/receipt.ts#Receipt"
+      ],
       "testSelectors": [
-        "test/invocations/ledger-memory.test.ts#[C13-EFFECT-SUPERSEDING-RECEIPT] [invocation-persistence] ledger rejects missing and cyclic Receipt predecessors"
+        "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] restart and redelivery never regenerate existing audit identifiers",
+        "test/invocations/reconciliation.test.ts#InvocationReconciler concurrent reconciliation records one authoritative final lineage"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -653,7 +671,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/attempt.ts#EffectAttempt"],
       "testSelectors": [
-        "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence"
+        "test/invocations/reconciliation.test.ts#InvocationReconciler persists the exact attempt before the provider and atomically finalizes complete reconciliation evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -953,9 +971,12 @@
       "specTextSha256": "sha256:cf6c5a707402ce63c93dbfc9134cfcdb3e2379a452b7e339c9ef9abefe5246fb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.prepareWithAudit",
+        "src/invocations/ledger.ts#InvocationLedger.recordClaimedAuthorityDenialWithAudit"
+      ],
       "testSelectors": [
-        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-RECEIPT-PRE-EFFECT] records permit denial before effect and replays its terminal Receipt"
+        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-RECEIPT-PRE-EFFECT] persists the exact Invocation-to-deniedPreEffect Receipt edge"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

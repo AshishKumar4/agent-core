@@ -7,6 +7,7 @@ import {
     type AuditEvidenceResolver,
     type AuditRecordId,
     type AuditRecordLookup,
+    type InvocationAuditPersistence,
     type InvocationLedger,
     type InvocationPersistence,
     type PreparedInvocation,
@@ -198,7 +199,8 @@ export class RoutedInvocationAdmissionPort<
             Authority,
             Domain,
             PathEpochs
-        >
+        >,
+        private readonly audits: InvocationAuditPersistence<Transaction>
     ) {}
 
     public admit(
@@ -222,11 +224,18 @@ export class RoutedInvocationAdmissionPort<
         }
         const existing = this.persistence.prepared(transaction, input.reservation.invocation);
         if (existing !== undefined) {
-            return existing.intentDigest.equals(prepared.invocation.intentDigest)
-                ? { kind: "accepted", invocation: existing.header.id }
-                : { kind: "rejected", reason: "stable routed invocation identity conflicts" };
+            if (!existing.intentDigest.equals(prepared.invocation.intentDigest)) {
+                return { kind: "rejected", reason: "stable routed invocation identity conflicts" };
+            }
+            this.ledger.requirePreparedAudit(
+                transaction,
+                prepared.invocation,
+                prepared.audit,
+                this.audits
+            );
+            return { kind: "accepted", invocation: existing.header.id };
         }
-        this.ledger.prepare(transaction, prepared.invocation);
+        this.ledger.prepareWithAudit(transaction, prepared.invocation, prepared.audit, this.audits);
         return { kind: "accepted", invocation: prepared.invocation.header.id };
     }
 

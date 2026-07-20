@@ -163,7 +163,7 @@ export class AuthorityPermitExpectation {
                 "Authority permit reservation must match its exact invocation item"
             );
         }
-        if (init.lease !== undefined && !init.lease.holder.equals(init.principal.principalId)) {
+        if (init.lease !== undefined && !init.lease.holder.equals(init.principal)) {
             throw new TypeError("Authority permit lease holder must match its qualified principal");
         }
         if (!POLICY_IMPACTS.includes(init.impact)) {
@@ -284,9 +284,9 @@ export interface AuthorityPermitInit extends AuthorityPermitExpectationInit {
     readonly expiresAt: Date;
 }
 
-class AuthorityPermitCodecV1 extends RecordCodec<AuthorityPermit> {
+class AuthorityPermitCodec extends RecordCodec<AuthorityPermit> {
     public constructor() {
-        super("authority.permit", { major: 1, minor: 0 });
+        super("authority.permit", { major: 2, minor: 0 });
     }
 
     protected encodePayload(permit: AuthorityPermit): JsonValue {
@@ -299,7 +299,7 @@ class AuthorityPermitCodecV1 extends RecordCodec<AuthorityPermit> {
 }
 
 export class AuthorityPermit {
-    public static readonly codec: RecordCodec<AuthorityPermit> = new AuthorityPermitCodecV1();
+    public static readonly codec: RecordCodec<AuthorityPermit> = new AuthorityPermitCodec();
     readonly #issuedAt: number;
     readonly #expiresAt: number;
     public readonly expectation: AuthorityPermitExpectation;
@@ -579,11 +579,14 @@ function decodePrincipal(value: JsonValue | undefined): PrincipalRef {
 
 function copyLease(lease: LeaseToken): LeaseToken {
     requireIndex(lease.epoch, "Authority permit lease epoch");
+    if (!(lease.turn instanceof TurnId) || !(lease.holder instanceof PrincipalRef)) {
+        throw new TypeError("Authority permit lease must carry an exact qualified holder");
+    }
     return Object.freeze({ turn: lease.turn, holder: lease.holder, epoch: lease.epoch });
 }
 
 function encodeLease(lease: LeaseToken): JsonObject {
-    return { epoch: lease.epoch, holder: lease.holder.value, turn: lease.turn.value };
+    return { epoch: lease.epoch, holder: encodePrincipal(lease.holder), turn: lease.turn.value };
 }
 
 function decodeLease(value: JsonValue | undefined): LeaseToken {
@@ -591,7 +594,7 @@ function decodeLease(value: JsonValue | undefined): LeaseToken {
     requireExact(object, ["epoch", "holder", "turn"], "Authority permit lease");
     return Object.freeze({
         turn: new TurnId(requireString(object, "turn")),
-        holder: new PrincipalId(requireString(object, "holder")),
+        holder: decodePrincipal(object["holder"]),
         epoch: requireSafeInteger(object, "epoch")
     });
 }

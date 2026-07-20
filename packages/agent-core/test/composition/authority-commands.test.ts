@@ -220,7 +220,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             const commandLease = { turn: authorityTurn, holder: principal, epoch: 2 };
             const authorityLease = {
                 turn: authorityTurn,
-                holder: principal.principalId,
+                holder: principal,
                 epoch: 2
             };
             const check = harness.checkRequest();

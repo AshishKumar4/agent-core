@@ -1,5 +1,5 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { TurnId } from "../agents";
+import { TurnId, type LeaseToken } from "../agents";
 import {
     ContentRef,
     Digest,
@@ -11,11 +11,7 @@ import {
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { AuditRecordId } from "../invocations";
 
-export interface LeaseToken {
-    readonly turn: TurnId;
-    readonly holder: PrincipalRef;
-    readonly epoch: number;
-}
+export type { LeaseToken } from "../agents";
 
 export type CommandCaller =
     | { readonly kind: "principal"; readonly principal: PrincipalRef }
@@ -242,7 +238,9 @@ function copyLeaseToken(lease: LeaseToken): LeaseToken {
         !Number.isSafeInteger(epoch) ||
         epoch < 0
     ) {
-        throw new TypeError("Lease token is invalid");
+        throw new TypeError(
+            "Lease token requires a TurnId turn, PrincipalRef holder, and non-negative epoch"
+        );
     }
     return Object.freeze({
         turn: new TurnId(turn.value),

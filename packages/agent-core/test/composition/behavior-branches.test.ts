@@ -106,6 +106,12 @@ describe("W9 composition behavior branches", () => {
         });
         expect(bound.preparations).toBe(1);
 
+        const missingBridge = routedAdmissionHarness((payload) => routedEvidence(payload), false);
+        expect(() => missingBridge.port.admit(missingBridge.state, input)).toThrow(
+            /exact route projection audit is unavailable/
+        );
+        expect(missingBridge.preparations).toBe(0);
+
         let changedPayload = false;
         const harness = routedAdmissionHarness((payload) =>
             routedEvidence(
@@ -189,7 +195,11 @@ describe("W9 composition behavior branches", () => {
     test("maps Run inbox conflicts, duplicates, lease rejection, and lifecycle rejection", () => {
         const turn = new TurnId("composed-inbox-turn");
         const reference = inboxFixture("composed-inbox", 2, 4, turn);
-        const token = { turn, holder: new PrincipalId("composed-inbox-holder"), epoch: 4 };
+        const token = {
+            turn,
+            holder: new PrincipalRef(tenant, new PrincipalId("composed-inbox-holder")),
+            epoch: 4
+        };
         const expected = inboxEntry(reference, "expected");
         let material = expected;
         let existing: TurnInboxEntry | undefined;
@@ -478,15 +488,40 @@ function routedAdmissionHarness(
         reservation: ReturnType<typeof reservationFixture>;
         projection: ReturnType<typeof projectionFixture>;
         bridgeAudit: AuditRecordId;
-    }) => ReturnType<typeof routedEvidence>
+    }) => ReturnType<typeof routedEvidence>,
+    persistBridge = true
 ) {
-    const state = { prepared: new Map<string, ReturnType<typeof routedPrepared>>() };
+    const state = {
+        prepared: new Map<string, ReturnType<typeof routedPrepared>>(),
+        audits: new Map<string, AuditRecord>()
+    };
     let preparations = 0;
     const persistence = {
         prepared: (_transaction: typeof state, id: InvocationId) => state.prepared.get(id.value)
     } as unknown as InvocationPersistence<typeof state, string, string, string, string, string>;
+    const requireAudit = (record: AuditRecord): void => {
+        const persisted = state.audits.get(record.id.value);
+        if (
+            persisted === undefined ||
+            !Buffer.from(AuditRecord.encode(persisted)).equals(
+                Buffer.from(AuditRecord.encode(record))
+            )
+        ) {
+            throw new TypeError("exact route projection audit is unavailable");
+        }
+    };
     const ledger = {
-        prepare: (_transaction: typeof state, record: ReturnType<typeof routedPrepared>) => {
+        requirePreparedAudit: (
+            _transaction: typeof state,
+            _record: ReturnType<typeof routedPrepared>,
+            audit: AuditRecord
+        ) => requireAudit(audit),
+        prepareWithAudit: (
+            _transaction: typeof state,
+            record: ReturnType<typeof routedPrepared>,
+            audit: AuditRecord
+        ) => {
+            requireAudit(audit);
             preparations += 1;
             state.prepared.set(record.header.id.value, record);
         }
@@ -494,8 +529,29 @@ function routedAdmissionHarness(
     const port = new RoutedInvocationAdmissionPort(
         ledger,
         persistence,
-        { prepare },
-        routedProjection
+        {
+            prepare(input) {
+                if (persistBridge) {
+                    state.audits.set(
+                        input.bridgeAudit.value,
+                        auditRecord(input.bridgeAudit, undefined, {
+                            kind: "routeProjected",
+                            projection: input.projection.id,
+                            reservation: input.reservation.id
+                        })
+                    );
+                }
+                return prepare(input);
+            }
+        },
+        routedProjection,
+        {
+            audit: (_transaction, id) => state.audits.get(id.value),
+            findAuditByEvidence: () => undefined,
+            appendAudit: () => {
+                throw new TypeError("routed admission must not append its bridge root");
+            }
+        }
     );
     return {
         state,

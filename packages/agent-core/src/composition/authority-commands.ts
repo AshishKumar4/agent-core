@@ -445,6 +445,6 @@ function leasesEqual(
         : right !== undefined &&
               left.turn.equals(right.turn) &&
               left.holder.tenantId.equals(tenant) &&
-              left.holder.principalId.equals(right.holder) &&
+              left.holder.equals(right.holder) &&
               left.epoch === right.epoch;
 }

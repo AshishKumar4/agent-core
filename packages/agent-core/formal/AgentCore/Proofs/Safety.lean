@@ -24,8 +24,8 @@ theorem mediated_rechecks_current_authority_path {state request}
   obtain ⟨resolution, lookup, usable⟩ := ready.2.2.2.2.2.2
   exact ⟨resolution, usable⟩
 
-theorem approved_execution_uses_persisted_identity {before after approval invocation attempt}
-    (step : MediatedStep before (.approvalStart approval invocation attempt) after) :
+theorem approved_execution_uses_persisted_identity {before after approval invocation attempt audit}
+    (step : MediatedStep before (.approvalStart approval invocation attempt audit) after) :
     ∃ (prepared : PreparedInvocation) (ticket : ApprovalTicket),
       before.effects.invocations invocation = some prepared ∧
       ticket.invocation = invocation ∧ ticket.identity = prepared.identity := by

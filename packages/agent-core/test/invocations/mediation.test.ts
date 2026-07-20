@@ -18,9 +18,11 @@ import {
 import {
     AttemptReceipt,
     ApprovalId,
+    AuditRecord,
     AuditRecordId,
     type CanonicalBatchInvoker,
     ClaimWorkerId,
+    CorrelationId,
     EffectAttemptId,
     InvocationId,
     InvocationContinuation,
@@ -51,6 +53,70 @@ const descriptor = new OperationDescriptor(
 );
 
 describe("W6 operation mediation integration", () => {
+    test("memory audit evidence relations survive restart and remain actor-owned", () => {
+        const persistence = new MemoryInvocationMediationPersistence();
+        let state = createInvocationMediationMemoryState();
+        const actor = new ActorRef("run", new ActorId("memory-evidence-actor"));
+        const kind = {
+            kind: "invocation" as const,
+            id: new InvocationId("memory-evidence-invocation")
+        };
+        const record = new AuditRecord({
+            id: new AuditRecordId("memory-evidence-audit"),
+            actor,
+            tenant: new TenantId("memory-evidence-tenant"),
+            correlation: new CorrelationId("memory-evidence-correlation"),
+            kind
+        });
+        persistence.appendAudit(state, record);
+        state = cloneInvocationMediationMemoryState(state);
+
+        expect(persistence.findAuditByEvidence(state, actor, kind)?.id.equals(record.id)).toBe(
+            true
+        );
+        expect(
+            persistence.findAuditByEvidence(
+                state,
+                new ActorRef("run", new ActorId("memory-evidence-other")),
+                kind
+            )
+        ).toBeUndefined();
+        expect(() =>
+            persistence.appendAudit(
+                state,
+                new AuditRecord({
+                    id: new AuditRecordId("memory-evidence-duplicate"),
+                    actor,
+                    tenant: record.tenant,
+                    correlation: new CorrelationId("memory-evidence-duplicate"),
+                    kind
+                })
+            )
+        ).toThrow(/evidence relation/u);
+        const corrupt = cloneInvocationMediationMemoryState(state);
+        corrupt.auditByEvidence.set(corrupt.auditByEvidence.keys().next().value!, "missing-audit");
+        expect(() => persistence.findAuditByEvidence(corrupt, actor, kind)).toThrow(
+            /missing record/u
+        );
+        const missingProjection = cloneInvocationMediationMemoryState(state);
+        missingProjection.auditByEvidence.clear();
+        expect(() => persistence.findAuditByEvidence(missingProjection, actor, kind)).toThrow(
+            /missing evidence projection/u
+        );
+        expect(() =>
+            persistence.appendAudit(
+                missingProjection,
+                new AuditRecord({
+                    id: new AuditRecordId("memory-evidence-hidden-duplicate"),
+                    actor,
+                    tenant: record.tenant,
+                    correlation: new CorrelationId("memory-evidence-hidden-duplicate"),
+                    kind
+                })
+            )
+        ).toThrow(/missing evidence projection/u);
+    });
+
     test("[invocation.continuation] [invocation.mediated-replay] [invocation.publication-outbox] round-trips continuation, replay, and publication durable records", () => {
         const continuation = new InvocationContinuation(
             new InvocationId("codec-invocation"),

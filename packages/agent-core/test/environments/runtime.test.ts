@@ -28,12 +28,15 @@ import {
     type ProviderResourceOutcome as ResourceOutcome,
     type SnapshotEnvironmentRequest
 } from "../../src/environments";
-import { PrincipalId } from "../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 
 const environmentId = new EnvironmentId("environment-runtime");
 const lease: LeaseToken = Object.freeze({
     turn: new TurnId("turn-environment-runtime"),
-    holder: new PrincipalId("lease-not-durable"),
+    holder: new PrincipalRef(
+        new TenantId("environment-runtime-tenant"),
+        new PrincipalId("lease-not-durable")
+    ),
     epoch: 7
 });
 
@@ -177,7 +180,7 @@ describe("EnvironmentController", () => {
             .rows.map((row) => new TextDecoder().decode(row.bytes))
             .join("\n");
         expect(durableText).not.toContain("live-handle-not-durable");
-        expect(durableText).not.toContain(lease.holder.value);
+        expect(durableText).not.toContain(lease.holder.principalId.value);
     });
 
     test("keeps the exact Turn lease as an injected verifier seam", () => {
@@ -214,30 +217,34 @@ describe("EnvironmentController", () => {
         expect(seen[1]).toBe(copied);
     });
 
-    test("[P11-ENVIRONMENT-OPEN] reconciles an indeterminate open after controller restart", async () => {
-        const provider = new TestProvider(descriptor("provider-restart", "e"));
-        provider.openResult = ProviderResourceOutcome.indeterminate;
-        provider.materializeIndeterminateOpen = true;
-        const fixture = setup([provider]);
-        const reserved = fixture.controller.reserveSession(
-            environmentId,
-            new EnvironmentSessionId("session-restart"),
-            lease
-        );
+    test(
+        "[P11-ENVIRONMENT-OPEN] reconciles an indeterminate open after controller restart",
+        { tags: "p1" },
+        async () => {
+            const provider = new TestProvider(descriptor("provider-restart", "e"));
+            provider.openResult = ProviderResourceOutcome.indeterminate;
+            provider.materializeIndeterminateOpen = true;
+            const fixture = setup([provider]);
+            const reserved = fixture.controller.reserveSession(
+                environmentId,
+                new EnvironmentSessionId("session-restart"),
+                lease
+            );
 
-        const opening = await fixture.controller.openSession(reserved.capability, lease);
-        const restarted = new EnvironmentController(
-            fixture.store,
-            fixture.registry,
-            fixture.verifier
-        );
-        const reconciled = await restarted.reconcileSession(reserved.id, lease);
+            const opening = await fixture.controller.openSession(reserved.capability, lease);
+            const restarted = new EnvironmentController(
+                fixture.store,
+                fixture.registry,
+                fixture.verifier
+            );
+            const reconciled = await restarted.reconcileSession(reserved.id, lease);
 
-        expect(opening.state.name).toBe("opening");
-        expect(reconciled.state.name).toBe("open");
-        expect(provider.openRequests).toHaveLength(1);
-        expect(provider.inspectSessionRequests).toHaveLength(1);
-    });
+            expect(opening.state.name).toBe("opening");
+            expect(reconciled.state.name).toBe("open");
+            expect(provider.openRequests).toHaveLength(1);
+            expect(provider.inspectSessionRequests).toHaveLength(1);
+        }
+    );
 
     test("coalesces concurrent open calls into one provider operation", async () => {
         const provider = new TestProvider(descriptor("provider-coalesced-open", "7"));
@@ -482,6 +489,9 @@ describe("EnvironmentController", () => {
         expect(revoking.state.name).toBe("revoking");
         expect(revoked.state.name).toBe("revoked");
         expect(provider.openRequests.at(-1)?.restore?.equals(provider.snapshotContent)).toBe(true);
+        expect(provider.snapshotRequests.every((request) => request.sessionEpoch === 0)).toBe(true);
+        expect(provider.exposureRequests.every((request) => request.sessionEpoch === 0)).toBe(true);
+        expect(provider.revokeRequests.every((request) => request.sessionEpoch === 0)).toBe(true);
     });
 
     test("revokes a late exposure callback instead of resurrecting it", async () => {
@@ -1214,6 +1224,32 @@ describe("EnvironmentController", () => {
         store.rejectExposure = true;
         exposureResult.resolve(ProviderResourceOutcome.ready(provider.exposureUrl));
         await expect(exposure).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+    });
+
+    test("fences a snapshot result that arrives after its source session begins closing", async () => {
+        const provider = new TestProvider(descriptor("provider-snapshot-fence", "3"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-snapshot-fence"),
+            lease
+        );
+        const opened = await fixture.controller.openSession(reserved.capability, lease);
+        const deferredSnapshot = new Deferred<ResourceOutcome<ContentRef>>();
+        provider.deferredSnapshot = deferredSnapshot;
+        const snapshot = fixture.controller.snapshot(
+            opened.capability,
+            new EnvironmentSnapshotId("snapshot-after-close"),
+            lease
+        );
+        await Promise.resolve();
+
+        expect((await fixture.controller.closeSession(opened.capability, lease)).state.name).toBe(
+            "closed"
+        );
+        deferredSnapshot.resolve(ProviderResourceOutcome.ready(provider.snapshotContent));
+
+        expect((await snapshot).state.name).toBe("failed");
     });
 
     test("pins restore reservations to one exact snapshot and fails closed on missing generations", async () => {

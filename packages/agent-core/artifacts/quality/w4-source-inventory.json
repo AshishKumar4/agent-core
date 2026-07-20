@@ -38,5 +38,5 @@
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "52762aa6ac4fe203b7afee69af88ef9413dcd6578ffd9a947b3f0a2c26e44993"
+  "sourceSha256": "6f019de5a23cd0a7f8422b1f5517557f2a4eecd5242eef69edeb5b0eeff9e708"
 }

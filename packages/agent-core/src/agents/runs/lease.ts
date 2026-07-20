@@ -1,11 +1,11 @@
 import { RecordCodec, hasExactJsonKeys, type JsonValue } from "../../core";
-import { PrincipalId } from "../../identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../identity";
 import { AgentCoreError } from "../../errors";
 import { TurnId } from "./id";
 
 export interface LeaseToken {
     readonly turn: TurnId;
-    readonly holder: PrincipalId;
+    readonly holder: PrincipalRef;
     readonly epoch: number;
 }
 
@@ -15,7 +15,7 @@ export interface TurnLeaseVerifier {
 
 class TurnLeaseCodec extends RecordCodec<TurnLease> {
     public constructor() {
-        super("turn-lease", { major: 1, minor: 0 });
+        super("turn-lease", { major: 2, minor: 0 });
     }
 
     protected encodePayload(lease: TurnLease): JsonValue {
@@ -33,7 +33,7 @@ export abstract class TurnLease {
 
     protected constructor(
         public readonly turn: TurnId,
-        public readonly holder: PrincipalId | undefined,
+        public readonly holder: PrincipalRef | undefined,
         public readonly epoch: number,
         expiresAt: Date | undefined
     ) {
@@ -45,6 +45,9 @@ export abstract class TurnLease {
         }
         if (holder !== undefined && expiresAt === undefined) {
             throw new TypeError("Held Turn leases require an expiration");
+        }
+        if (holder !== undefined && !(holder instanceof PrincipalRef)) {
+            throw new TypeError("Turn lease holder must be a tenant-qualified PrincipalRef");
         }
         this.#expiresAtTime = expiresAt?.getTime();
         Object.freeze(this);
@@ -59,14 +62,14 @@ export abstract class TurnLease {
     }
 
     public abstract admits(token: LeaseToken, now: Date): boolean;
-    public abstract claim(holder: PrincipalId, now: Date, expiresAt: Date): TurnLease;
+    public abstract claim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
     public abstract renew(
-        holder: PrincipalId,
+        holder: PrincipalRef,
         epoch: number,
         now: Date,
         expiresAt: Date
     ): TurnLease;
-    public abstract reclaim(holder: PrincipalId, now: Date, expiresAt: Date): TurnLease;
+    public abstract reclaim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
     public abstract fence(): TurnLease;
 
     public static encode(lease: TurnLease): Uint8Array {
@@ -79,7 +82,7 @@ export abstract class TurnLease {
 
     public static restore(
         turn: TurnId,
-        holder: PrincipalId | undefined,
+        holder: PrincipalRef | undefined,
         epoch: number,
         expiresAt: Date | undefined
     ): TurnLease {
@@ -93,7 +96,7 @@ export abstract class TurnLease {
     public static toData(lease: TurnLease): JsonValue {
         return {
             turn: lease.turn.value,
-            holder: lease.holder?.value ?? null,
+            holder: lease.holder === undefined ? null : principalRefToData(lease.holder),
             epoch: lease.epoch,
             expiresAt: lease.expiresAt?.getTime() ?? null
         };
@@ -105,7 +108,7 @@ export abstract class TurnLease {
         }
         return TurnLease.restore(
             new TurnId(payload.turn),
-            payload.holder === null ? undefined : new PrincipalId(payload.holder),
+            payload.holder === null ? undefined : principalRefFromData(payload.holder),
             payload.epoch,
             payload.expiresAt === null ? undefined : new Date(payload.expiresAt)
         );
@@ -115,7 +118,7 @@ export abstract class TurnLease {
 class ExactTurnLease extends TurnLease {
     public constructor(
         turn: TurnId,
-        holder: PrincipalId | undefined,
+        holder: PrincipalRef | undefined,
         epoch: number,
         expiresAt: Date | undefined
     ) {
@@ -126,6 +129,8 @@ class ExactTurnLease extends TurnLease {
         const expiresAtTime = this.expiresAtTime;
 
         return (
+            token.turn instanceof TurnId &&
+            token.holder instanceof PrincipalRef &&
             this.turn.equals(token.turn) &&
             this.holder !== undefined &&
             this.holder.equals(token.holder) &&
@@ -135,7 +140,7 @@ class ExactTurnLease extends TurnLease {
         );
     }
 
-    public claim(holder: PrincipalId, now: Date, expiresAt: Date): TurnLease {
+    public claim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease {
         ensureFutureExpiration(expiresAt, now);
 
         if (this.holder !== undefined) {
@@ -145,7 +150,7 @@ class ExactTurnLease extends TurnLease {
         return new ExactTurnLease(this.turn, holder, nextEpoch(this.epoch), expiresAt);
     }
 
-    public renew(holder: PrincipalId, epoch: number, now: Date, expiresAt: Date): TurnLease {
+    public renew(holder: PrincipalRef, epoch: number, now: Date, expiresAt: Date): TurnLease {
         ensureFutureExpiration(expiresAt, now);
         const currentExpiresAtTime = this.expiresAtTime;
 
@@ -166,7 +171,7 @@ class ExactTurnLease extends TurnLease {
         return new ExactTurnLease(this.turn, this.holder, this.epoch, expiresAt);
     }
 
-    public reclaim(holder: PrincipalId, now: Date, expiresAt: Date): TurnLease {
+    public reclaim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease {
         ensureFutureExpiration(expiresAt, now);
         const expiresAtTime = this.expiresAtTime;
 
@@ -191,7 +196,7 @@ class ExactTurnLease extends TurnLease {
 
 interface TurnLeasePayload {
     readonly turn: string;
-    readonly holder: string | null;
+    readonly holder: JsonValue;
     readonly epoch: number;
     readonly expiresAt: number | null;
 }
@@ -208,11 +213,81 @@ function isTurnLeasePayload(payload: JsonValue): payload is JsonValue & TurnLeas
     return (
         hasExactJsonKeys(object, ["epoch", "expiresAt", "holder", "turn"]) &&
         typeof object["turn"] === "string" &&
-        (holder === null || typeof holder === "string") &&
+        (holder === null || (holder !== undefined && isPrincipalRefData(holder))) &&
         typeof epoch === "number" &&
         Number.isSafeInteger(epoch) &&
         epoch >= 0 &&
         (expiresAt === null || typeof expiresAt === "number")
+    );
+}
+
+export function leaseTokenToData(token: LeaseToken): JsonValue {
+    if (
+        !(token.turn instanceof TurnId) ||
+        !(token.holder instanceof PrincipalRef) ||
+        !Number.isSafeInteger(token.epoch) ||
+        token.epoch < 0
+    ) {
+        throw new AgentCoreError("codec.invalid", "Lease token is malformed");
+    }
+    return {
+        epoch: token.epoch,
+        holder: principalRefToData(token.holder),
+        turn: token.turn.value
+    };
+}
+
+export function leaseTokenFromData(value: JsonValue, name = "Lease token"): LeaseToken {
+    if (value === null || Array.isArray(value) || typeof value !== "object") {
+        throw new AgentCoreError("codec.invalid", `${name} must be an object`);
+    }
+    const object = value as { readonly [key: string]: JsonValue };
+    if (!hasExactJsonKeys(object, ["epoch", "holder", "turn"])) {
+        throw new AgentCoreError("codec.invalid", `${name} fields are invalid`);
+    }
+    const turn = object["turn"];
+    const epoch = object["epoch"];
+    if (
+        typeof turn !== "string" ||
+        typeof epoch !== "number" ||
+        !Number.isSafeInteger(epoch) ||
+        epoch < 0
+    ) {
+        throw new AgentCoreError("codec.invalid", `${name} is malformed`);
+    }
+    return Object.freeze({
+        turn: new TurnId(turn),
+        holder: principalRefFromData(object["holder"]!),
+        epoch
+    });
+}
+
+function principalRefToData(holder: PrincipalRef): JsonValue {
+    return {
+        principal: holder.principalId.value,
+        tenant: holder.tenantId.value
+    };
+}
+
+function principalRefFromData(value: JsonValue): PrincipalRef {
+    if (!isPrincipalRefData(value)) {
+        throw new AgentCoreError("codec.invalid", "Lease holder is malformed");
+    }
+    return new PrincipalRef(new TenantId(value.tenant), new PrincipalId(value.principal));
+}
+
+interface PrincipalRefData {
+    readonly principal: string;
+    readonly tenant: string;
+}
+
+function isPrincipalRefData(value: JsonValue): value is JsonValue & PrincipalRefData {
+    if (value === null || Array.isArray(value) || typeof value !== "object") return false;
+    const object = value as { readonly [key: string]: JsonValue };
+    return (
+        hasExactJsonKeys(object, ["principal", "tenant"]) &&
+        typeof object["principal"] === "string" &&
+        typeof object["tenant"] === "string"
     );
 }
 

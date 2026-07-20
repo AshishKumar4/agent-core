@@ -4,7 +4,13 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors";
 import { TenantId } from "../../src/identity";
-import { AuditRecord, AuditRecordCodec, AuditRecordId, CorrelationId } from "../../src/invocations";
+import {
+    AuditRecord,
+    AuditRecordCodec,
+    AuditRecordId,
+    CorrelationId,
+    auditEvidenceIdentity
+} from "../../src/invocations";
 import { SqliteProtocolPersistence, TransactionalSqlite } from "../../src/substrates";
 import { WriteRecordCodec } from "../../src/protocol";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
@@ -62,9 +68,16 @@ test("SQLite reads every hand-seeded codec-representable non-write audit project
     for (const audit of audits) {
         database.run(
             `INSERT INTO protocol_audit_records (
-                id, evidence_kind, write_id, write_outcome, record
-             ) VALUES (?, ?, ?, ?, ?)`,
-            [audit.id.value, audit.kind.kind, null, null, AuditRecordCodec.encode(audit)]
+                id, evidence_identity, evidence_kind, write_id, write_outcome, record
+             ) VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+                audit.id.value,
+                auditEvidenceIdentity(audit.actor, audit.kind).value,
+                audit.kind.kind,
+                null,
+                null,
+                AuditRecordCodec.encode(audit)
+            ]
         );
     }
 
@@ -74,6 +87,9 @@ test("SQLite reads every hand-seeded codec-representable non-write audit project
         if (actual === undefined) throw new TypeError("Expected stored audit record");
         expect(AuditRecordCodec.encode(actual)).toEqual(AuditRecordCodec.encode(expected));
     }
+    expect(() => new SqliteProtocolPersistence(database)).toThrow(
+        expect.objectContaining({ code: "protocol.invalid-state" })
+    );
 });
 
 test.each(["audit", "write"] as const)("SQLite reads reject corrupt %s codec bytes", (record) => {
@@ -168,7 +184,7 @@ test.each(["missing", "actor", "tenant", "correlation"] as const)(
 
         expectAgentCoreError(
             () => persistence.findWriteById(database, expected.write.id),
-            "protocol.invalid-state"
+            corruption === "actor" ? "codec.invalid" : "protocol.invalid-state"
         );
     }
 );
@@ -210,6 +226,20 @@ test.each(["audit", "write"] as const)(
         }
     }
 );
+
+test("SQLite rejects an audit evidence identity that disagrees with codec bytes", () => {
+    const database = new TestSqlite();
+    const persistence = new SqliteProtocolPersistence(database);
+    const expected = protocolTestRecords("sqlite-corrupt-evidence-identity");
+    database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
+    database.run("UPDATE protocol_audit_records SET evidence_identity = ? WHERE id = ?", [
+        "0".repeat(64),
+        expected.root.id.value
+    ]);
+
+    expectAgentCoreError(() => new SqliteProtocolPersistence(database), "codec.invalid");
+    expectAgentCoreError(() => persistence.findAudit(database, expected.root.id), "codec.invalid");
+});
 
 test("SQLite repairs corrupt identity projections from canonical write bytes", () => {
     const database = new TestSqlite();
@@ -466,7 +496,7 @@ test("SQLite validates STRICT protocol schema version without accepting legacy t
     expect(strict.get("protocol_schema")).toBe(1);
     expect(strict.get("protocol_audit_records")).toBe(1);
     expect(strict.get("protocol_write_records")).toBe(1);
-    database.run("UPDATE protocol_schema SET version = 4", []);
+    database.run("UPDATE protocol_schema SET version = version + 1", []);
     expectAgentCoreError(() => new SqliteProtocolPersistence(database), "codec.invalid");
 
     const legacy = new TestSqlite();

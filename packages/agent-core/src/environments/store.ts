@@ -360,11 +360,12 @@ export class MemoryEnvironmentStore extends EnvironmentStore {
             session === undefined ||
             !session.environmentId.equals(snapshot.environmentId) ||
             !session.environmentRevision.equals(snapshot.environmentRevision) ||
-            session.generation !== snapshot.generation
+            session.generation !== snapshot.generation ||
+            snapshot.sessionEpoch > session.epoch
         ) {
             throw new AgentCoreError(
                 "environment.invalid-session",
-                "Environment snapshot must pin its source session generation"
+                "Environment snapshot must pin its source session generation and epoch"
             );
         }
     }
@@ -538,6 +539,7 @@ function projectSnapshot(record: EnvironmentSnapshot): readonly string[] {
         record.sessionId.value,
         String(record.environmentRevision.value),
         String(record.generation),
+        String(record.sessionEpoch),
         record.state.name,
         record.content?.value ?? "",
         String(record.recordRevision.value)

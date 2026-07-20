@@ -1,14 +1,16 @@
-import type { ActorKind } from "../actors";
+import type { ActorKind, ActorRef } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
 import {
     AuditRecord,
     AuditRecordCodec,
+    auditEvidenceIdentity,
+    type AuditAppendContext,
     type AuditKind,
     type AuditRecordId,
-    type AuditRootAdmission,
     type WriteRecordId,
-    validateAuditAppend
+    validateAuditAppend,
+    validateStoredAuditShape
 } from "../invocations";
 import type { CommandIdentity, ProtocolPersistence } from "./dispatcher";
 import { commandCallersEqual, type CommandCaller } from "./envelope";
@@ -30,6 +32,7 @@ export interface ProtocolWriteIdentityProjection {
 
 export interface StoredProtocolAudit {
     readonly id: string;
+    readonly evidenceIdentity: string;
     readonly evidenceKind: AuditKind["kind"];
     readonly writeId?: WriteRecordId;
     readonly writeOutcome?: CommandOutcome;
@@ -45,6 +48,7 @@ export interface StoredProtocolWrite {
 
 export abstract class ProtocolRecordStorage {
     public abstract findAudit(id: string): StoredProtocolAudit | undefined;
+    public abstract findAuditByEvidence(identity: string): StoredProtocolAudit | undefined;
     public abstract findWrite(id: string): StoredProtocolWrite | undefined;
     public abstract scanAudits(): readonly StoredProtocolAudit[];
     public abstract scanWrites(): readonly StoredProtocolWrite[];
@@ -109,10 +113,25 @@ export abstract class ProtocolPersistenceAdapter<
         return audit;
     }
 
+    public findAuditByEvidence(
+        transaction: Transaction,
+        actor: ActorRef,
+        kind: AuditKind
+    ): AuditRecord | undefined {
+        const storage = this.storage(transaction);
+        const identity = auditEvidenceIdentity(actor, kind).value;
+        const stored = storage.findAuditByEvidence(identity);
+        if (stored === undefined) return undefined;
+        if (stored.evidenceIdentity !== identity) {
+            throw corruptRecord("Stored audit evidence lookup returned a mismatched projection");
+        }
+        return this.decodeStoredAudit(stored, stored.id);
+    }
+
     public appendAudit(
         transaction: Transaction,
         record: AuditRecord,
-        admission?: AuditRootAdmission
+        context?: AuditAppendContext
     ): void {
         const storage = this.storage(transaction);
         const bytes = AuditRecordCodec.encode(record);
@@ -122,11 +141,14 @@ export abstract class ProtocolPersistenceAdapter<
         }
         validateAuditAppend(
             decoded,
-            {
-                get: (id) => this.findAudit(transaction, id)
-            },
-            admission
+            { get: (id) => this.findAudit(transaction, id) },
+            context?.rootAdmission,
+            context?.evidence
         );
+        const identity = auditEvidenceIdentity(decoded.actor, decoded.kind).value;
+        if (storage.findAuditByEvidence(identity) !== undefined) {
+            throw corruptProtocol("Audit evidence relation is already recorded");
+        }
         storage.insertAudit(projectAudit(decoded, bytes));
     }
 
@@ -222,11 +244,32 @@ export abstract class ProtocolPersistenceAdapter<
         storage: ProtocolRecordStorage
     ): readonly ProtocolWriteIdentityProjection[] {
         const audits = new Map<string, AuditRecord>();
+        const evidence = new Set<string>();
         for (const stored of storage.scanAudits()) {
             if (audits.has(stored.id)) {
                 throw corruptProtocol("Stored protocol contains duplicate audit identifiers");
             }
-            audits.set(stored.id, this.decodeStoredAudit(stored, stored.id));
+            const audit = this.decodeStoredAudit(stored, stored.id);
+            const identity = auditEvidenceIdentity(audit.actor, audit.kind).value;
+            if (evidence.has(identity)) {
+                throw corruptProtocol(
+                    "Stored protocol contains duplicate audit evidence relations"
+                );
+            }
+            evidence.add(identity);
+            audits.set(stored.id, audit);
+        }
+        for (const audit of audits.values()) {
+            try {
+                validateStoredAuditShape(audit, {
+                    get: (id) => audits.get(id.value)
+                });
+            } catch (error) {
+                if (error instanceof AgentCoreError) {
+                    throw corruptProtocol(`Stored audit graph is invalid: ${error.message}`);
+                }
+                throw error;
+            }
         }
 
         const writes = new Map<string, WriteRecord>();
@@ -270,6 +313,7 @@ export abstract class ProtocolPersistenceAdapter<
         if (
             stored.id !== id ||
             stored.id !== projection.id ||
+            stored.evidenceIdentity !== projection.evidenceIdentity ||
             stored.evidenceKind !== projection.evidenceKind ||
             !optionalWriteIdsEqual(stored.writeId, projection.writeId) ||
             stored.writeOutcome !== projection.writeOutcome
@@ -464,15 +508,22 @@ function projectCaller(caller: CommandCaller): ProtocolCallerProjection {
 }
 
 function projectAudit(record: AuditRecord, bytes: Uint8Array): StoredProtocolAudit {
+    const evidenceIdentity = auditEvidenceIdentity(record.actor, record.kind).value;
     return record.kind.kind === "write"
         ? {
               id: record.id.value,
+              evidenceIdentity,
               evidenceKind: record.kind.kind,
               writeId: record.kind.id,
               writeOutcome: record.kind.outcome,
               bytes: bytes.slice()
           }
-        : { id: record.id.value, evidenceKind: record.kind.kind, bytes: bytes.slice() };
+        : {
+              id: record.id.value,
+              evidenceIdentity,
+              evidenceKind: record.kind.kind,
+              bytes: bytes.slice()
+          };
 }
 
 function projectWrite(record: WriteRecord, bytes: Uint8Array): StoredProtocolWrite {

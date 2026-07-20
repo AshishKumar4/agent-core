@@ -208,49 +208,22 @@ def ReservationSourceAuditValid (events : EventStore) (audit : AuditLog) : Event
       entry.kind = .event reservation.sourceEvent reservation.invocation
   | _ => True
 
-structure AuthorityPermit where
-  principal : PrincipalRef
-  invocation : InvocationId
-  attempt : AttemptId
-  registryEpoch : Nat
-  pathEvidence : List PathEpoch
-  nonce : Nat
-  issuedAt : Time
-  expiresAt : Time
-  deriving DecidableEq, Repr
-
-structure PermitLedger where
-  issued : Nat → Option AuthorityPermit
-  consumed : Nat → Prop
-
-def PermitLedger.Consumable (ledger : PermitLedger) (permit : AuthorityPermit)
-    (now : Time) : Prop :=
-  ledger.issued permit.nonce = some permit ∧ ¬ ledger.consumed permit.nonce ∧
-    permit.issuedAt.tick ≤ now.tick ∧ now.tick < permit.expiresAt.tick
-
-theorem post_issuance_watermark_cannot_cancel_permit
-    {permits : PermitLedger} {permit : AuthorityPermit} {now : Time}
-    {before after : AuthorityLedger}
-    (_advanced : ∀ scope,
-      before.holderWatermark permit.principal scope ≤
-        after.holderWatermark permit.principal scope)
-    (consumable : permits.Consumable permit now) :
-    permits.Consumable permit now := by
-  exact consumable
-
 inductive MediatedLabel where
   | persistIntent (invocation : InvocationId)
   | requestApproval (approval : ApprovalId) (invocation : InvocationId)
-  | start (invocation : InvocationId) (attempt : AttemptId)
+  | start (invocation : InvocationId) (attempt : AttemptId) (audit : AuditId)
   | approvalStart (approval : ApprovalId) (invocation : InvocationId) (attempt : AttemptId)
+      (audit : AuditId)
   | approvalContinue (approval : ApprovalId) (invocation : InvocationId) (attempt : AttemptId)
-  | staleDenied (invocation : InvocationId) (receipt : ReceiptId)
+      (audit : AuditId)
+  | staleDenied (invocation : InvocationId) (receipt : ReceiptId) (audit : AuditId)
   | claimItem (invocation : InvocationId) (index : Nat) (now : Time)
   | recoverItemClaim (invocation : InvocationId) (index : Nat) (now : Time)
-  | retry (invocation : InvocationId) (previous next : AttemptId)
-  | preReceipt (invocation : InvocationId) (receipt : ReceiptId)
-  | attemptReceipt (invocation : InvocationId) (receipt : ReceiptId)
+  | retry (invocation : InvocationId) (previous next : AttemptId) (audit : AuditId)
+  | preReceipt (invocation : InvocationId) (receipt : ReceiptId) (audit : AuditId)
+  | attemptReceipt (invocation : InvocationId) (receipt : ReceiptId) (audit : AuditId)
   | supersedeReceipt (invocation : InvocationId) (previous next : ReceiptId)
+      (supersessionAudit receiptAudit : AuditId)
   | audit (label : AuditLabel)
   | event (label : EventLabel)
   | graph (label : GraphLabel)
@@ -262,6 +235,113 @@ def ApprovalContinuation.ValidFirstAttempt (effects : EffectLedger)
     effects.attempts continuation.firstAttempt = some attempt ∧
     attempt.invocation = continuation.invocation ∧
     PreparedItemAt prepared attempt.itemIndex item ∧ attempt.key = item.key
+
+def AttemptAuditAppend (effects : EffectLedger) (events : EventStore) (before : AuditLog)
+    (attempt : AttemptId) (invocation : InvocationId) (audit : AuditId)
+    (after : AuditLog) : Prop :=
+  ∃ entry,
+    AuditStep effects events before (.append audit) after ∧
+    after.entries audit = some entry ∧ entry.kind = .attempt attempt invocation
+
+def PreReceiptAuditParent (before : AuditLog) (receipt : ReceiptId) (record : PreEffectReceipt)
+    (parent : AuditId) : Prop :=
+  ∃ entry, before.entries parent = some entry ∧
+    MayCause entry.kind (.preReceipt receipt record.invocation record.itemIndex record.outcome)
+
+def PersistedAttemptAudit (effects : EffectLedger) (log : AuditLog) (attemptId : AttemptId)
+    (invocation : InvocationId) (audit : AuditId) : Prop :=
+  ∃ attempt entry,
+    effects.attempts attemptId = some attempt ∧ attempt.invocation = invocation ∧
+    log.entries audit = some entry ∧ entry.kind = .attempt attemptId invocation ∧
+    entry.cause = some attempt.auditCause
+
+def PreReceiptAuditAppend (effects : EffectLedger) (events : EventStore) (before : AuditLog)
+    (receipt : ReceiptId) (record : PreEffectReceipt) (audit : AuditId)
+    (after : AuditLog) : Prop :=
+  ∃ parent entry,
+    PreReceiptAuditParent before receipt record parent ∧
+    AuditStep effects events before (.append audit) after ∧
+    after.entries audit = some entry ∧
+    entry.kind = .preReceipt receipt record.invocation record.itemIndex record.outcome ∧
+    entry.cause = some parent
+
+def AttemptReceiptAuditAppend (effects : EffectLedger) (events : EventStore)
+    (before : AuditLog) (receipt : ReceiptId) (record : AttemptReceipt)
+    (invocation : InvocationId) (audit : AuditId) (after : AuditLog) : Prop :=
+  ∃ attemptAudit entry,
+    PersistedAttemptAudit effects before record.attempt invocation attemptAudit ∧
+    AuditStep effects events before (.append audit) after ∧
+    after.entries audit = some entry ∧
+    entry.kind = .attemptReceipt receipt record.attempt invocation record.outcome ∧
+    entry.cause = some attemptAudit
+
+def SupersededReceiptAuditAppend (effects : EffectLedger) (events : EventStore)
+    (before : AuditLog) (previous next : ReceiptId) (record : AttemptReceipt)
+    (invocation : InvocationId) (supersessionAudit receiptAudit : AuditId)
+    (after : AuditLog) : Prop :=
+  ∃ attemptAudit previousAudit middle previousEntry supersessionEntry receiptEntry,
+    PersistedAttemptAudit effects before record.attempt invocation attemptAudit ∧
+    before.entries previousAudit = some previousEntry ∧
+    previousEntry.kind = .attemptReceipt previous record.attempt invocation .indeterminate ∧
+    previousEntry.cause = some attemptAudit ∧
+    AuditStep effects events before (.append supersessionAudit) middle ∧
+    middle.entries supersessionAudit = some supersessionEntry ∧
+    supersessionEntry.kind = .receiptSuperseded previous next record.attempt invocation ∧
+    supersessionEntry.cause = some previousAudit ∧
+    AuditStep effects events middle (.append receiptAudit) after ∧
+    after.entries receiptAudit = some receiptEntry ∧
+    receiptEntry.kind = .attemptReceipt next record.attempt invocation record.outcome ∧
+    receiptEntry.cause = some attemptAudit
+
+theorem attempt_audit_append_is_exact {effects events before attempt invocation audit after}
+    (append : AttemptAuditAppend effects events before attempt invocation audit after) :
+    ∃ record entry,
+      effects.attempts attempt = some record ∧
+      after.entries audit = some entry ∧
+      entry.kind = .attempt attempt invocation ∧
+      record.invocation = invocation ∧ entry.cause = some record.auditCause := by
+  obtain ⟨entry, step, lookup, kind⟩ := append
+  obtain ⟨actual, actualLookup, evidence⟩ := every_audited_effect_evidence_matches step
+  rw [lookup] at actualLookup
+  cases Option.some.inj actualLookup
+  have exactEvidence := evidence
+  simp only [AuditEvidenceMatches, kind] at exactEvidence
+  obtain ⟨record, attemptLookup, invocationEq, cause⟩ := exactEvidence
+  exact ⟨record, entry, attemptLookup, lookup, kind, invocationEq, cause⟩
+
+theorem pre_receipt_audit_append_is_exact {effects events before receipt record audit after}
+    (recordLookup : effects.preReceipts receipt = some record)
+    (append : PreReceiptAuditAppend effects events before receipt record audit after) :
+    ∃ parent parentEntry entry,
+      effects.preReceipts receipt = some record ∧
+      before.entries parent = some parentEntry ∧
+      MayCause parentEntry.kind
+        (.preReceipt receipt record.invocation record.itemIndex record.outcome) ∧
+      after.entries audit = some entry ∧
+      entry.kind = .preReceipt receipt record.invocation record.itemIndex record.outcome ∧
+      entry.cause = some parent := by
+  obtain ⟨parent, entry, parentEvidence, step, lookup, kind, cause⟩ := append
+  obtain ⟨parentEntry, parentLookup, permitted⟩ := parentEvidence
+  exact ⟨parent, parentEntry, entry, recordLookup, parentLookup, permitted, lookup, kind, cause⟩
+
+theorem attempt_receipt_audit_append_is_exact
+    {effects events before receipt record invocation audit after}
+    (recordLookup : effects.attemptReceipts receipt = some record)
+    (append : AttemptReceiptAuditAppend effects events before receipt record invocation audit after) :
+    ∃ attempt attemptAudit attemptAuditEntry entry,
+      effects.attemptReceipts receipt = some record ∧
+      effects.attempts record.attempt = some attempt ∧ attempt.invocation = invocation ∧
+      before.entries attemptAudit = some attemptAuditEntry ∧
+      attemptAuditEntry.kind = .attempt record.attempt invocation ∧
+      attemptAuditEntry.cause = some attempt.auditCause ∧
+      after.entries audit = some entry ∧
+      entry.kind = .attemptReceipt receipt record.attempt invocation record.outcome ∧
+      entry.cause = some attemptAudit := by
+  obtain ⟨attemptAudit, entry, persisted, step, lookup, kind, cause⟩ := append
+  obtain ⟨attempt, attemptEntry, attemptLookup, invocationEq, auditLookup, attemptKind,
+    attemptCause⟩ := persisted
+  exact ⟨attempt, attemptAudit, attemptEntry, entry, recordLookup, attemptLookup, invocationEq,
+    auditLookup, attemptKind, attemptCause, lookup, kind, cause⟩
 
 inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
   | persistIntent {state request effects'} :
@@ -280,7 +360,7 @@ inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
       approvals'.tickets approvalId = some ticket →
       MediatedStep state (.requestApproval approvalId request.prepared.header.invocation) {
         state with approvals := approvals', effects := effects' }
-  | start {state request attemptId attempt effects'} :
+  | start {state request attemptId attempt auditId effects' audit'} :
       MediatedReady state request → requiresApproval request.prepared = false →
       request.ReservedFor (.item request.prepared.header.invocation
         attempt.itemIndex attempt.key) →
@@ -288,9 +368,12 @@ inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
       FirstAttemptSound request.prepared attempt →
       EffectStep (state.effects.recordAdmission attemptId (admissionFor request))
         (.firstAttempt attemptId) effects' →
-      MediatedStep state (.start request.prepared.header.invocation attemptId)
-        { state with effects := effects' }
-  | approvalStart {state request approvalId attemptId attempt effects'} :
+      effects'.attempts attemptId = some attempt →
+      AttemptAuditAppend effects' state.events state.audit attemptId
+        request.prepared.header.invocation auditId audit' →
+      MediatedStep state (.start request.prepared.header.invocation attemptId auditId)
+        { state with effects := effects', audit := audit' }
+  | approvalStart {state request approvalId attemptId attempt auditId effects' audit'} :
       MediatedReady state request →
       request.ReservedFor (.item request.prepared.header.invocation
         attempt.itemIndex attempt.key) →
@@ -300,12 +383,17 @@ inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
       EffectStep (state.effects.recordAdmission attemptId (admissionFor request))
         (.firstAttempt attemptId) effects' →
       effects'.attempts attemptId = some attempt →
-      MediatedStep state (.approvalStart approvalId request.prepared.header.invocation attemptId) {
+      AttemptAuditAppend effects' state.events state.audit attemptId
+        request.prepared.header.invocation auditId audit' →
+      MediatedStep state
+        (.approvalStart approvalId request.prepared.header.invocation attemptId auditId) {
         state with
         approvals := state.approvals.consume approvalId request.prepared attemptId
         effects := effects'
+        audit := audit'
       }
-  | approvalContinue {state request approvalId attemptId attempt effects' continuation} :
+  | approvalContinue {state request approvalId attemptId attempt auditId effects' audit'
+      continuation} :
       MediatedReady state request →
       request.ReservedFor (.item request.prepared.header.invocation
         attempt.itemIndex attempt.key) →
@@ -318,9 +406,11 @@ inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
       EffectStep (state.effects.recordAdmission attemptId (admissionFor request))
         (.firstAttempt attemptId) effects' →
       effects'.attempts attemptId = some attempt →
+      AttemptAuditAppend effects' state.events state.audit attemptId
+        request.prepared.header.invocation auditId audit' →
       MediatedStep state
-        (.approvalContinue approvalId request.prepared.header.invocation attemptId) {
-          state with effects := effects' }
+        (.approvalContinue approvalId request.prepared.header.invocation attemptId auditId) {
+          state with effects := effects', audit := audit' }
   | claimItem {state request} {claim : ItemClaim} {effects'} :
       MediatedReady state request →
       request.ReservesItem claim.itemIndex →
@@ -336,10 +426,11 @@ inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
       previous.invocation = request.prepared.header.invocation →
       EffectStep state.effects
         (.recoverItemClaim previous.invocation previous.itemIndex request.now) effects' →
-      effects'.claims previous.invocation previous.itemIndex = some replacement →
+      effects'.currentClaim previous.invocation previous.itemIndex = some replacement.id →
+      effects'.claims replacement.id = some replacement →
       MediatedStep state (.recoverItemClaim previous.invocation previous.itemIndex request.now)
         { state with effects := effects' }
-  | retry {state request previous next attempt effects'} :
+  | retry {state request previous next attempt auditId effects' audit'} :
       MediatedReady state request →
       request.ReservedFor (.item request.prepared.header.invocation
         attempt.itemIndex attempt.key) →
@@ -350,12 +441,14 @@ inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
       EffectStep (state.effects.recordAdmission next (admissionFor request))
         (.retryAttempt previous next) effects' →
       effects'.attempts next = some attempt →
-      MediatedStep state (.retry request.prepared.header.invocation previous next) {
-        state with effects := effects' }
+      AttemptAuditAppend effects' state.events state.audit next
+        request.prepared.header.invocation auditId audit' →
+      MediatedStep state (.retry request.prepared.header.invocation previous next auditId) {
+        state with effects := effects', audit := audit' }
   | staleDenied {state : SystemState} {request : AdmissionRequest} {resolution : Resolution}
       {holder : PrincipalRef} {item : PreparedItem} {receiptId : ReceiptId}
-      {receipt : PreEffectReceipt}
-      {effects' : EffectLedger} {authority' : AuthorityLedger} :
+      {receipt : PreEffectReceipt} {auditId : AuditId}
+      {effects' : EffectLedger} {audit' : AuditLog} {authority' : AuthorityLedger} :
       state.authority.resolutions request.resolution = some resolution →
       resolution.header = request.prepared.header →
       state.effects.invocations request.prepared.header.invocation = some request.prepared →
@@ -368,24 +461,35 @@ inductive MediatedStep : SystemState → MediatedLabel → SystemState → Prop
       receipt.outcome = .denied →
       EffectStep state.effects (.preReceipt receiptId) effects' →
       effects'.preReceipts receiptId = some receipt →
-      MediatedStep state (.staleDenied request.prepared.header.invocation receiptId) {
-        state with authority := authority', effects := effects' }
-  | preReceipt {state invocation receiptId prepared receipt effects'} :
+      PreReceiptAuditAppend effects' state.events state.audit receiptId receipt auditId audit' →
+      MediatedStep state (.staleDenied request.prepared.header.invocation receiptId auditId) {
+        state with authority := authority', effects := effects', audit := audit' }
+  | preReceipt {state invocation receiptId auditId prepared receipt effects' audit'} :
       state.effects.invocations invocation = some prepared →
       EffectStep state.effects (.preReceipt receiptId) effects' →
       effects'.preReceipts receiptId = some receipt → receipt.invocation = invocation →
-      MediatedStep state (.preReceipt invocation receiptId) { state with effects := effects' }
-  | attemptReceipt {state invocation receiptId receipt attempt effects'} :
+      PreReceiptAuditAppend effects' state.events state.audit receiptId receipt auditId audit' →
+      MediatedStep state (.preReceipt invocation receiptId auditId) {
+        state with effects := effects', audit := audit' }
+  | attemptReceipt {state invocation receiptId auditId receipt attempt effects' audit'} :
       state.effects.attempts receipt.attempt = some attempt → attempt.invocation = invocation →
       EffectStep state.effects (.attemptReceipt receiptId) effects' →
       effects'.attemptReceipts receiptId = some receipt →
-      MediatedStep state (.attemptReceipt invocation receiptId) { state with effects := effects' }
-  | supersedeReceipt {state invocation previous next beforeReceipt receipt attempt effects'} :
+      AttemptReceiptAuditAppend effects' state.events state.audit receiptId receipt invocation
+        auditId audit' →
+      MediatedStep state (.attemptReceipt invocation receiptId auditId) {
+        state with effects := effects', audit := audit' }
+  | supersedeReceipt {state invocation previous next supersessionAudit receiptAudit beforeReceipt
+      receipt attempt effects' audit'} :
       state.effects.attemptReceipts previous = some beforeReceipt →
       state.effects.attempts beforeReceipt.attempt = some attempt → attempt.invocation = invocation →
       EffectStep state.effects (.supersedeReceipt previous next) effects' →
       effects'.attemptReceipts next = some receipt → receipt.attempt = beforeReceipt.attempt →
-      MediatedStep state (.supersedeReceipt invocation previous next) { state with effects := effects' }
+      SupersededReceiptAuditAppend effects' state.events state.audit previous next receipt invocation
+        supersessionAudit receiptAudit audit' →
+      MediatedStep state
+        (.supersedeReceipt invocation previous next supersessionAudit receiptAudit) {
+          state with effects := effects', audit := audit' }
   | audit {state label audit'} :
       AuditStep state.effects state.events state.audit label audit' →
       MediatedStep state (.audit label) { state with audit := audit' }
@@ -515,46 +619,157 @@ theorem recovered_item_claim_requires_reserved_obligation
     ∃ request, MediatedReady before request ∧
       request.prepared.header.invocation = invocation ∧ request.ReservesItem index := by
   cases step with
-  | recoverItemClaim ready reserved persisted exactInvocation effectStep stored =>
+  | recoverItemClaim ready reserved persisted exactInvocation effectStep current stored =>
       exact ⟨_, ready, exactInvocation.symm, reserved⟩
 
-theorem first_effect_admission_requires_reserved_item {before after invocation attempt}
-    (step : MediatedStep before (.start invocation attempt) after) :
+theorem first_effect_admission_requires_reserved_item {before after invocation attempt audit}
+    (step : MediatedStep before (.start invocation attempt audit) after) :
     ∃ (request : AdmissionRequest) (record : EffectAttempt), MediatedReady before request ∧
       request.ReservedFor (.item invocation record.itemIndex record.key) := by
   cases step with
-  | start ready required reserved persisted sound effectStep => exact ⟨_, _, ready, reserved⟩
+  | start ready required reserved persisted sound effectStep stored audited =>
+      exact ⟨_, _, ready, reserved⟩
 
 theorem approved_effect_admission_requires_reserved_item
-    {before after approval invocation attempt}
-    (step : MediatedStep before (.approvalStart approval invocation attempt) after) :
+    {before after approval invocation attempt audit}
+    (step : MediatedStep before (.approvalStart approval invocation attempt audit) after) :
     ∃ (request : AdmissionRequest) (record : EffectAttempt), MediatedReady before request ∧
       request.ReservedFor (.item invocation record.itemIndex record.key) := by
   cases step with
-  | approvalStart ready reserved persisted available sound effectStep stored =>
+  | approvalStart ready reserved persisted available sound effectStep stored audited =>
       exact ⟨_, _, ready, reserved⟩
 
 theorem continued_effect_admission_requires_reserved_item
-    {before after approval invocation attempt}
-    (step : MediatedStep before (.approvalContinue approval invocation attempt) after) :
+    {before after approval invocation attempt audit}
+    (step : MediatedStep before (.approvalContinue approval invocation attempt audit) after) :
     ∃ (request : AdmissionRequest) (record : EffectAttempt), MediatedReady before request ∧
       request.ReservedFor (.item invocation record.itemIndex record.key) := by
   cases step with
   | approvalContinue ready reserved persisted continues continuation valid different sound
-      effectStep stored =>
+      effectStep stored audited =>
       exact ⟨_, _, ready, reserved⟩
 
 theorem retry_effect_admission_requires_reserved_item
-    {before after invocation previous next}
-    (step : MediatedStep before (.retry invocation previous next) after) :
+    {before after invocation previous next audit}
+    (step : MediatedStep before (.retry invocation previous next audit) after) :
     ∃ (request : AdmissionRequest) (record : EffectAttempt), MediatedReady before request ∧
       request.ReservedFor (.item invocation record.itemIndex record.key) := by
   cases step with
-  | retry ready reserved persisted approval sound effectStep stored =>
+  | retry ready reserved persisted approval sound effectStep stored audited =>
       exact ⟨_, _, ready, reserved⟩
 
-theorem approval_start_consumes_persisted_exact_intent {before after approval invocation attempt}
-    (step : MediatedStep before (.approvalStart approval invocation attempt) after) :
+theorem first_attempt_and_exact_audit_are_one_transition
+    {before after invocation attempt audit}
+    (step : MediatedStep before (.start invocation attempt audit) after) :
+    ∃ record entry,
+      after.effects.attempts attempt = some record ∧
+      after.audit.entries audit = some entry ∧
+      entry.kind = .attempt attempt invocation ∧ record.invocation = invocation ∧
+      entry.cause = some record.auditCause := by
+  cases step with
+  | start ready required reserved persisted sound effectStep stored audited =>
+      exact attempt_audit_append_is_exact audited
+
+theorem approved_attempt_and_exact_audit_are_one_transition
+    {before after approval invocation attempt audit}
+    (step : MediatedStep before (.approvalStart approval invocation attempt audit) after) :
+    ∃ record entry,
+      after.effects.attempts attempt = some record ∧
+      after.audit.entries audit = some entry ∧
+      entry.kind = .attempt attempt invocation ∧ record.invocation = invocation ∧
+      entry.cause = some record.auditCause := by
+  cases step with
+  | approvalStart ready reserved persisted available sound effectStep stored audited =>
+      exact attempt_audit_append_is_exact audited
+
+theorem continued_attempt_and_exact_audit_are_one_transition
+    {before after approval invocation attempt audit}
+    (step : MediatedStep before (.approvalContinue approval invocation attempt audit) after) :
+    ∃ record entry,
+      after.effects.attempts attempt = some record ∧
+      after.audit.entries audit = some entry ∧
+      entry.kind = .attempt attempt invocation ∧ record.invocation = invocation ∧
+      entry.cause = some record.auditCause := by
+  cases step with
+  | approvalContinue ready reserved persisted continues continuation valid different sound
+      effectStep stored audited =>
+      exact attempt_audit_append_is_exact audited
+
+theorem retry_attempt_and_exact_audit_are_one_transition
+    {before after invocation previous next audit}
+    (step : MediatedStep before (.retry invocation previous next audit) after) :
+    ∃ record entry,
+      after.effects.attempts next = some record ∧
+      after.audit.entries audit = some entry ∧
+      entry.kind = .attempt next invocation ∧ record.invocation = invocation ∧
+      entry.cause = some record.auditCause := by
+  cases step with
+  | retry ready reserved persisted approval sound effectStep stored audited =>
+      exact attempt_audit_append_is_exact audited
+
+theorem pre_receipt_and_exact_audit_are_one_transition
+    {before after invocation receipt audit}
+    (step : MediatedStep before (.preReceipt invocation receipt audit) after) :
+    ∃ record parent parentEntry entry,
+      after.effects.preReceipts receipt = some record ∧
+      before.audit.entries parent = some parentEntry ∧
+      MayCause parentEntry.kind
+        (.preReceipt receipt record.invocation record.itemIndex record.outcome) ∧
+      after.audit.entries audit = some entry ∧
+      entry.kind = .preReceipt receipt record.invocation record.itemIndex record.outcome ∧
+      record.invocation = invocation ∧ entry.cause = some parent := by
+  cases step with
+  | preReceipt intent effectStep stored exactInvocation audited =>
+      obtain ⟨parent, parentEntry, entry, receiptLookup, parentLookup, permitted,
+        auditLookup, kind, cause⟩ :=
+        pre_receipt_audit_append_is_exact stored audited
+      exact ⟨_, parent, parentEntry, entry, receiptLookup, parentLookup, permitted,
+        auditLookup, kind, exactInvocation, cause⟩
+
+theorem stale_denial_and_exact_audit_are_one_transition
+    {before after invocation receipt audit}
+    (step : MediatedStep before (.staleDenied invocation receipt audit) after) :
+    ∃ record parent parentEntry entry,
+      after.effects.preReceipts receipt = some record ∧
+      before.audit.entries parent = some parentEntry ∧
+      MayCause parentEntry.kind
+        (.preReceipt receipt record.invocation record.itemIndex record.outcome) ∧
+      after.audit.entries audit = some entry ∧
+      entry.kind = .preReceipt receipt record.invocation record.itemIndex record.outcome ∧
+      record.invocation = invocation ∧ record.outcome = .denied ∧
+      entry.cause = some parent := by
+  cases step with
+  | staleDenied resolution exactHeader intent stale holder observed exactInvocation item denied
+      effectStep stored audited =>
+      obtain ⟨parent, parentEntry, entry, receiptLookup, parentLookup, permitted,
+        auditLookup, kind, cause⟩ :=
+        pre_receipt_audit_append_is_exact stored audited
+      exact ⟨_, parent, parentEntry, entry, receiptLookup, parentLookup, permitted,
+        auditLookup, kind, exactInvocation, denied, cause⟩
+
+theorem attempt_receipt_and_exact_audit_are_one_transition
+    {before after invocation receipt audit}
+    (step : MediatedStep before (.attemptReceipt invocation receipt audit) after) :
+    ∃ record attempt attemptAudit attemptAuditEntry entry,
+      after.effects.attemptReceipts receipt = some record ∧
+      after.effects.attempts record.attempt = some attempt ∧ attempt.invocation = invocation ∧
+      before.audit.entries attemptAudit = some attemptAuditEntry ∧
+      attemptAuditEntry.kind = .attempt record.attempt invocation ∧
+      attemptAuditEntry.cause = some attempt.auditCause ∧
+      after.audit.entries audit = some entry ∧
+      entry.kind = .attemptReceipt receipt record.attempt invocation record.outcome ∧
+      entry.cause = some attemptAudit := by
+  cases step with
+  | attemptReceipt attemptLookup exactInvocation effectStep stored audited =>
+      obtain ⟨attempt, attemptAudit, attemptAuditEntry, entry, receiptLookup, exactAttempt,
+        invocationEq, attemptAuditLookup, attemptKind, attemptCause, auditLookup, kind, cause⟩ :=
+        attempt_receipt_audit_append_is_exact stored audited
+      exact ⟨_, attempt, attemptAudit, attemptAuditEntry, entry, receiptLookup, exactAttempt,
+        invocationEq, attemptAuditLookup, attemptKind, attemptCause, auditLookup, kind, cause⟩
+
+theorem approval_start_consumes_persisted_exact_intent
+    {before after approval invocation attempt audit}
+    (step : MediatedStep before (.approvalStart approval invocation attempt audit) after) :
     ∃ (prepared : PreparedInvocation) (ticket : ApprovalTicket)
         (continuation : ApprovalContinuation) (firstAttempt : EffectAttempt)
         (firstItem : PreparedItem),
@@ -567,7 +782,7 @@ theorem approval_start_consumes_persisted_exact_intent {before after approval in
       firstAttempt.invocation = continuation.invocation ∧
       PreparedItemAt prepared firstAttempt.itemIndex firstItem ∧ firstAttempt.key = firstItem.key := by
   cases step with
-  | approvalStart ready reserved persisted available first effectStep stored =>
+  | approvalStart ready reserved persisted available first effectStep stored audited =>
       obtain ⟨ticket, lookup, approved, exactInvocation, identity, digest, live, unique, unused,
         absent⟩ := available
       obtain ⟨firstItem, firstAt, firstKey, leaseMatch⟩ := first.2.2
@@ -575,8 +790,8 @@ theorem approval_start_consumes_persisted_exact_intent {before after approval in
         tableSet_self .., tableSet_self .., rfl, stored, first.1, firstAt, firstKey⟩
 
 theorem approval_continuation_validates_persisted_exact_intent
-    {before after approval invocation attempt}
-    (step : MediatedStep before (.approvalContinue approval invocation attempt) after) :
+    {before after approval invocation attempt audit}
+    (step : MediatedStep before (.approvalContinue approval invocation attempt audit) after) :
     ∃ prepared continuation firstAttempt firstItem continuedAttempt,
       before.effects.invocations invocation = some prepared ∧
       before.approvals.continuations invocation = some continuation ∧
@@ -587,7 +802,8 @@ theorem approval_continuation_validates_persisted_exact_intent
       PreparedItemAt prepared firstAttempt.itemIndex firstItem ∧ firstAttempt.key = firstItem.key ∧
       after.effects.attempts attempt = some continuedAttempt ∧ attempt ≠ continuation.firstAttempt := by
   cases step with
-  | approvalContinue ready reserved persisted continues continuationLookup validFirst different first effectStep stored =>
+  | approvalContinue ready reserved persisted continues continuationLookup validFirst different first
+      effectStep stored audited =>
       obtain ⟨continuation, lookup, exactApproval, exactInvocation, identity, digest⟩ :=
         approval_continuation_is_exact continues
       rw [lookup] at continuationLookup
@@ -598,14 +814,15 @@ theorem approval_continuation_validates_persisted_exact_intent
         stored, different⟩
 
 theorem malformed_first_attempt_cannot_continue
-    {before after approval invocation attempt continuation prepared}
+    {before after approval invocation attempt audit continuation prepared}
     (persisted : before.effects.invocations invocation = some prepared)
     (continuationLookup : before.approvals.continuations invocation = some continuation)
     (invalid : ¬ continuation.ValidFirstAttempt before.effects prepared) :
-    ¬ MediatedStep before (.approvalContinue approval invocation attempt) after := by
+    ¬ MediatedStep before (.approvalContinue approval invocation attempt audit) after := by
   intro step
   cases step with
-  | approvalContinue ready reserved exactPrepared continues exactContinuation validFirst different sound effectStep stored =>
+  | approvalContinue ready reserved exactPrepared continues exactContinuation validFirst different sound
+      effectStep stored audited =>
       rw [persisted] at exactPrepared
       cases Option.some.inj exactPrepared
       rw [continuationLookup] at exactContinuation
@@ -685,15 +902,15 @@ theorem direct_resolution_uses_actual_lease_expiry {state request}
     ready.2.2.2.2.2.2.2
   exact ⟨resolution, token, turn, turnLookup, expiry⟩
 
-theorem stale_mediated_denial_matches_intent {before after invocation receipt}
-    (step : MediatedStep before (.staleDenied invocation receipt) after) :
+theorem stale_mediated_denial_matches_intent {before after invocation receipt audit}
+    (step : MediatedStep before (.staleDenied invocation receipt audit) after) :
     ∃ (record : PreEffectReceipt) (item : PreparedItem) (prepared : PreparedInvocation),
       after.effects.preReceipts receipt = some record ∧ record.invocation = invocation ∧
       record.outcome = .denied ∧ before.effects.invocations invocation = some prepared ∧
       prepared.items[record.itemIndex]? = some item := by
   cases step with
   | staleDenied lookup exactHeader intent stale holderEq observed exactInvocation itemLookup denied
-      receiptStep stored =>
+      receiptStep stored audited =>
       exact ⟨_, _, _, stored, exactInvocation, denied, intent, itemLookup⟩
 
 theorem routed_reservation_binds_source_event_audit {before after reservation}

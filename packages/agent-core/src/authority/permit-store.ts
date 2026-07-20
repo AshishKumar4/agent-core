@@ -2,6 +2,10 @@ import { requireSynchronousResult, type ActorRef, type SynchronousResultGuard } 
 import { Digest } from "../core";
 import { AgentCoreError } from "../errors";
 import { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
+import {
+    type AuthenticatedAuthorityPermit,
+    requireAuthenticatedAuthorityPermit
+} from "./permit-authentication";
 
 export interface AuthorityPermitOwnerStore<Transaction> {
     transaction<Result>(
@@ -13,6 +17,7 @@ export interface AuthorityPermitOwnerStore<Transaction> {
     issue(transaction: Transaction, permit: AuthorityPermit): AuthorityPermit;
     consume(
         transaction: Transaction,
+        authentication: AuthenticatedAuthorityPermit,
         permit: AuthorityPermit,
         expected: AuthorityPermitExpectation,
         now: Date
@@ -58,6 +63,7 @@ export class AuthorityPermitIssuer<Transaction> {
 export abstract class AuthorityPermitAdmissionPort<Transaction> {
     public abstract consume(
         transaction: Transaction,
+        authentication: AuthenticatedAuthorityPermit,
         permit: AuthorityPermit,
         expected: AuthorityPermitExpectation,
         now: Date
@@ -73,11 +79,12 @@ export class StoredAuthorityPermitAdmissionPort<
 
     public consume(
         transaction: Transaction,
+        authentication: AuthenticatedAuthorityPermit,
         permit: AuthorityPermit,
         expected: AuthorityPermitExpectation,
         now: Date
     ): void {
-        this.store.consume(transaction, permit, expected, now);
+        this.store.consume(transaction, authentication, permit, expected, now);
     }
 }
 
@@ -166,11 +173,13 @@ export class MemoryAuthorityPermitStore implements AuthorityPermitOwnerStore<Mem
 
     public consume(
         transaction: MemoryAuthorityPermitTransaction,
+        authentication: AuthenticatedAuthorityPermit,
         permit: AuthorityPermit,
         expected: AuthorityPermitExpectation,
         now: Date
     ): void {
         this.requireTransaction(transaction);
+        requireAuthenticatedAuthorityPermit(authentication, permit);
         if (!permit.target.actor.equals(this.owner)) {
             throw denied("Authority permit targets another Actor owner");
         }

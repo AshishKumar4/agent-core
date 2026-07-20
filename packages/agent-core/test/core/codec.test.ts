@@ -300,7 +300,7 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("rejects an unknown major with its typed error", () => {
+    test("rejects an unknown major with its typed error", { tags: "p2" }, () => {
         const future = encodeCanonicalJson({
             kind: "test.fixture",
             payload: { enabled: true, label: "future" },

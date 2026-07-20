@@ -2,27 +2,41 @@ import { requireSynchronousResult } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { Approval } from "./approval";
 import type { EffectAttempt } from "./attempt";
-import { AuditRecord } from "./audit";
+import { AuditRecord, validateAuditRelation, type AuditEvidenceResolver } from "./audit";
 import type { ItemClaim, ItemClaimOwner } from "./claim";
 import { InvocationContinuation } from "./continuation";
-import type { ItemClaimId, ReceiptId } from "./id";
+import type { ItemClaimId } from "./id";
 import type { InvocationId } from "../interaction-references";
 import { deriveBatchOutcome, type BatchOutcome } from "./outcome";
 import type { InvocationPersistence } from "./persistence";
 import type {
     AuthorityAdmissionPort,
+    InvocationAuditPersistence,
     InvocationClaimOwnerPort,
     InvocationEvidencePersistence,
     InvocationPreparationPort,
-    InvocationTimePort,
-    ReconciliationResult
+    InvocationTimePort
 } from "./ports";
 import type { PreparedInvocation } from "./prepared";
 import type { InvocationPublicationOutbox } from "./publication";
 import { AttemptReceipt, PreEffectReceipt, type Receipt } from "./receipt";
+
+export interface ReceiptSupersessionEvidence {
+    readonly finalReceiptAudit: AuditRecord;
+    readonly supersessionAudit: AuditRecord;
+    readonly publication: InvocationPublicationOutbox;
+}
 import { sameJson, validDate, type StructuralCodec } from "./codec";
 
-export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs, Admission> {
+export class InvocationLedger<
+    Transaction,
+    Lease,
+    Authority,
+    Domain,
+    PathEpochs,
+    Admission,
+    Authentication = undefined
+> {
     public constructor(
         private readonly persistence: InvocationPersistence<
             Transaction,
@@ -48,11 +62,59 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             Authority,
             Domain,
             PathEpochs,
-            Admission
+            Admission,
+            Authentication
         >
     ) {}
 
-    public prepare(
+    protected prepareUnchecked(
+        transaction: Transaction,
+        record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>
+    ): void {
+        this.validatePreparation(transaction, record);
+        this.persistence.insertPrepared(transaction, record);
+    }
+
+    public prepareWithAudit(
+        transaction: Transaction,
+        record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
+        audit: AuditRecord,
+        evidence: InvocationAuditPersistence<Transaction>
+    ): void {
+        this.validatePreparation(transaction, record);
+        this.requirePreparationAuditBinding(record, audit);
+        if (audit.kind.kind === "invocation") {
+            evidence.appendAudit(transaction, audit);
+        } else {
+            this.requirePersistedAudit(transaction, audit, evidence);
+        }
+        this.persistence.insertPrepared(transaction, record);
+    }
+
+    public requirePreparedAudit(
+        transaction: Transaction,
+        record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
+        audit: AuditRecord,
+        evidence: InvocationAuditPersistence<Transaction>
+    ): void {
+        this.requirePreparationAuditBinding(record, audit);
+        this.requirePersistedAudit(transaction, audit, evidence);
+    }
+
+    public requirePersistedAuditRelation(
+        transaction: Transaction,
+        audit: AuditRecord,
+        evidence: InvocationAuditPersistence<Transaction>
+    ): void {
+        validateAuditRelation(
+            audit,
+            { get: (id) => evidence.audit(transaction, id) },
+            undefined,
+            this.auditEvidence(transaction, {})
+        );
+    }
+
+    private validatePreparation(
         transaction: Transaction,
         record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>
     ): void {
@@ -62,7 +124,42 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
         if (!requireSynchronousResult(this.preparation.admits(transaction, record))) {
             throw invalid("PreparedInvocation owner, audit, route, or schema evidence is invalid");
         }
-        this.persistence.insertPrepared(transaction, record);
+    }
+
+    private requirePreparationAuditBinding(
+        record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
+        audit: AuditRecord
+    ): void {
+        const route = record.header.route;
+        const local =
+            route === undefined &&
+            record.header.projectionDigest === undefined &&
+            audit.kind.kind === "invocation" &&
+            audit.kind.id.equals(record.header.id);
+        const routed =
+            route !== undefined &&
+            record.header.projectionDigest !== undefined &&
+            audit.kind.kind === "routeProjected" &&
+            audit.kind.reservation.equals(route);
+        if (
+            !audit.id.equals(record.header.auditCause) ||
+            !audit.actor.equals(record.header.actor) ||
+            audit.cause !== undefined ||
+            (!local && !routed)
+        ) {
+            throw invalid("Preparation AuditRecord does not bind the PreparedInvocation");
+        }
+    }
+
+    private requirePersistedAudit(
+        transaction: Transaction,
+        audit: AuditRecord,
+        evidence: InvocationAuditPersistence<Transaction>
+    ): void {
+        const persisted = evidence.audit(transaction, audit.id);
+        if (persisted === undefined || !sameAudit(persisted, audit)) {
+            throw invalid("PreparedInvocation does not have its exact preparation AuditRecord");
+        }
     }
 
     public requestApproval(transaction: Transaction, approval: Approval): void {
@@ -163,9 +260,16 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
     public admitAttempt(
         transaction: Transaction,
         attempt: EffectAttempt<Lease, Admission>,
-        now: Date
+        now: Date,
+        authentication?: Authentication
     ): Approval | undefined {
-        const admitted = this.admitAttemptInternal(transaction, attempt, now, false);
+        const admitted = this.admitAttemptInternal(
+            transaction,
+            attempt,
+            now,
+            false,
+            authentication
+        );
         if (admitted === false) {
             throw invalid("AuthorityAdmission does not authorize this exact EffectAttempt");
         }
@@ -176,12 +280,21 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
         transaction: Transaction,
         attempt: EffectAttempt<Lease, Admission>,
         now: Date,
-        returnAuthorityDenial: boolean
+        returnAuthorityDenial: boolean,
+        authentication: Authentication | undefined
     ): Approval | undefined | false {
         const nowTime = this.requireTime(transaction, now);
         const prepared = this.requireItem(transaction, attempt.invocation, attempt.itemIndex);
-        if (this.currentReceipt(transaction, attempt.invocation, attempt.itemIndex) !== undefined) {
-            throw invalid("Terminal item cannot admit an EffectAttempt");
+        const currentReceipt = this.currentReceipt(
+            transaction,
+            attempt.invocation,
+            attempt.itemIndex
+        );
+        if (
+            currentReceipt !== undefined &&
+            this.retryOrdinal(transaction, currentReceipt) !== attempt.ordinal
+        ) {
+            throw invalid("EffectAttempt does not follow the final failed attempt ordinal");
         }
         const claim = this.persistence.claim(transaction, attempt.claim);
         const currentClaim = this.currentUnattemptedClaim(
@@ -218,17 +331,22 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
         }
         if (
             !requireSynchronousResult(
-                this.authorityAdmission.admits(transaction, attempt.admission, {
-                    invocation: attempt.invocation,
-                    itemIndex: attempt.itemIndex,
-                    ordinal: attempt.ordinal,
-                    lease: attempt.token,
-                    authority: prepared.header.authority,
-                    domain: prepared.header.domain,
-                    pathEpochs: prepared.header.pathEpochs,
-                    intentDigest: prepared.intentDigest,
-                    itemKey: attempt.idempotencyKey
-                })
+                this.authorityAdmission.admits(
+                    transaction,
+                    attempt.admission,
+                    {
+                        invocation: attempt.invocation,
+                        itemIndex: attempt.itemIndex,
+                        ordinal: attempt.ordinal,
+                        lease: attempt.token,
+                        authority: prepared.header.authority,
+                        domain: prepared.header.domain,
+                        pathEpochs: prepared.header.pathEpochs,
+                        intentDigest: prepared.intentDigest,
+                        itemKey: attempt.idempotencyKey
+                    },
+                    authentication
+                )
             )
         ) {
             if (returnAuthorityDenial) return false;
@@ -292,18 +410,13 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
         attempt: EffectAttempt<Lease, Admission>,
         now: Date,
         audit: AuditRecord,
-        evidence: InvocationEvidencePersistence<Transaction>
+        evidence: InvocationEvidencePersistence<Transaction>,
+        authentication?: Authentication
     ): Approval | undefined {
-        if (
-            audit.kind.kind !== "attempt" ||
-            !audit.kind.id.equals(attempt.id) ||
-            audit.cause === undefined ||
-            !audit.cause.equals(attempt.auditCause)
-        ) {
-            throw invalid("EffectAttempt AuditRecord does not bind the admitted attempt");
-        }
-        const consumed = this.admitAttempt(transaction, attempt, now);
-        evidence.appendAudit(transaction, audit);
+        const consumed = this.admitAttempt(transaction, attempt, now, authentication);
+        evidence.appendAudit(transaction, audit, {
+            evidence: this.auditEvidence(transaction, { attempt })
+        });
         return consumed;
     }
 
@@ -318,17 +431,10 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             readonly audit: AuditRecord;
             readonly publication: InvocationPublicationOutbox;
         },
-        evidence: InvocationEvidencePersistence<Transaction>
+        evidence: InvocationEvidencePersistence<Transaction>,
+        authentication?: Authentication
     ): boolean {
-        if (
-            attemptAudit.kind.kind !== "attempt" ||
-            !attemptAudit.kind.id.equals(attempt.id) ||
-            attemptAudit.cause === undefined ||
-            !attemptAudit.cause.equals(attempt.auditCause)
-        ) {
-            throw invalid("EffectAttempt AuditRecord does not bind the admitted attempt");
-        }
-        const admitted = this.admitAttemptInternal(transaction, attempt, now, true);
+        const admitted = this.admitAttemptInternal(transaction, attempt, now, true, authentication);
         if (admitted === false) {
             this.recordClaimedAuthorityDenialWithAudit(
                 transaction,
@@ -340,7 +446,9 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             );
             return false;
         }
-        evidence.appendAudit(transaction, attemptAudit);
+        evidence.appendAudit(transaction, attemptAudit, {
+            evidence: this.auditEvidence(transaction, { attempt })
+        });
         return true;
     }
 
@@ -352,7 +460,7 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
         publication: InvocationPublicationOutbox,
         evidence: InvocationEvidencePersistence<Transaction>
     ): void {
-        const prepared = this.requireItem(transaction, claim.invocation, claim.itemIndex);
+        this.requireItem(transaction, claim.invocation, claim.itemIndex);
         const currentClaim = this.currentUnattemptedClaim(
             transaction,
             claim.invocation,
@@ -366,11 +474,6 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             receipt.outcome !== "deniedPreEffect" ||
             !receipt.invocation.equals(claim.invocation) ||
             receipt.itemIndex !== claim.itemIndex ||
-            audit.kind.kind !== "receipt" ||
-            !audit.kind.id.equals(receipt.id) ||
-            audit.kind.outcome !== receipt.outcome ||
-            audit.cause === undefined ||
-            !audit.cause.equals(prepared.header.auditCause) ||
             publication.state.kind !== "pending" ||
             !publication.observation.invocation.equals(claim.invocation) ||
             !publication.observation.receipt.equals(receipt.id) ||
@@ -379,7 +482,9 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             throw invalid("Authority denial evidence does not bind the current claimed item");
         }
         this.persistence.appendReceipt(transaction, receipt);
-        evidence.appendAudit(transaction, audit);
+        evidence.appendAudit(transaction, audit, {
+            evidence: this.auditEvidence(transaction, { receipt })
+        });
         evidence.appendPublication(transaction, publication);
     }
 
@@ -402,14 +507,6 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             !attemptAudit.cause.equals(attempt.auditCause) ||
             persistedAttemptAudit === undefined ||
             !sameAudit(persistedAttemptAudit, attemptAudit) ||
-            audit.kind.kind !== "receipt" ||
-            !audit.kind.id.equals(receipt.id) ||
-            audit.kind.outcome !== receipt.outcome ||
-            audit.cause === undefined ||
-            !audit.cause.equals(attemptAudit.id) ||
-            !audit.actor.equals(attemptAudit.actor) ||
-            !audit.tenant.equals(attemptAudit.tenant) ||
-            !audit.correlation.equals(attemptAudit.correlation) ||
             publication.state.kind !== "pending" ||
             !publication.observation.invocation.equals(attempt.invocation) ||
             !publication.observation.receipt.equals(receipt.id) ||
@@ -418,7 +515,9 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             throw invalid("Receipt AuditRecord or publication does not bind the attempted effect");
         }
         this.recordAttemptReceipt(transaction, receipt);
-        evidence.appendAudit(transaction, audit);
+        evidence.appendAudit(transaction, audit, {
+            evidence: this.auditEvidence(transaction, { receipt })
+        });
         evidence.appendPublication(transaction, publication);
     }
 
@@ -484,7 +583,7 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
         this.persistence.appendReceipt(transaction, receipt);
     }
 
-    public supersedeReceipt(transaction: Transaction, receipt: AttemptReceipt): void {
+    protected supersedeReceiptUnchecked(transaction: Transaction, receipt: AttemptReceipt): void {
         const previous =
             receipt.previous === undefined
                 ? undefined
@@ -501,33 +600,29 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
         this.persistence.appendReceipt(transaction, receipt);
     }
 
-    public reconcile(
+    public supersedeReceiptWithAudit(
         transaction: Transaction,
-        previous: ReceiptId,
-        next: ReceiptId,
-        recordedAt: Date,
-        result: ReconciliationResult
-    ): AttemptReceipt | undefined {
-        this.requireTime(transaction, recordedAt);
-        const current = this.persistence.receipt(transaction, previous);
+        receipt: AttemptReceipt,
+        supersession: ReceiptSupersessionEvidence,
+        evidence: InvocationEvidencePersistence<Transaction>
+    ): void {
+        const { finalReceiptAudit, supersessionAudit, publication } = supersession;
+        this.requireTime(transaction, receipt.recordedAt);
+        const attempt = this.persistence.attempt(transaction, receipt.attempt);
         if (
-            !(current instanceof AttemptReceipt) ||
-            current.outcome !== "indeterminate" ||
-            !this.currentReceiptForAttempt(transaction, current.attempt)?.id.equals(current.id)
+            attempt === undefined ||
+            publication.state.kind !== "pending" ||
+            !publication.observation.invocation.equals(attempt.invocation) ||
+            !publication.observation.receipt.equals(receipt.id) ||
+            !publication.observation.audit.equals(supersessionAudit.id)
         ) {
-            throw invalid("Reconciliation requires a current indeterminate Receipt");
+            throw invalid("Receipt supersession evidence does not bind the attempted effect");
         }
-        if (result.kind === "unknown") return undefined;
-        const receipt = new AttemptReceipt(
-            next,
-            current.attempt,
-            result.kind,
-            current.id,
-            recordedAt,
-            result.result
-        );
-        this.supersedeReceipt(transaction, receipt);
-        return receipt;
+        const context = { evidence: this.auditEvidence(transaction, { receipt }) };
+        evidence.appendAudit(transaction, supersessionAudit, context);
+        this.supersedeReceiptUnchecked(transaction, receipt);
+        evidence.appendAudit(transaction, finalReceiptAudit, context);
+        evidence.appendPublication(transaction, publication);
     }
 
     public currentReceipt(
@@ -669,6 +764,58 @@ export class InvocationLedger<Transaction, Lease, Authority, Domain, PathEpochs,
             throw invalid("Invocation transition time is not trusted");
         }
         return value;
+    }
+
+    private auditEvidence(
+        transaction: Transaction,
+        candidate: {
+            readonly attempt?: EffectAttempt<Lease, Admission>;
+            readonly receipt?: Receipt;
+        }
+    ): AuditEvidenceResolver {
+        return {
+            approval: (id, phase) => {
+                const approval = this.persistence.approval(transaction, id);
+                return approval?.state.kind === phase
+                    ? { invocation: approval.invocation, phase }
+                    : undefined;
+            },
+            attempt: (id) => {
+                const attempt =
+                    candidate.attempt !== undefined && id.equals(candidate.attempt.id)
+                        ? candidate.attempt
+                        : this.persistence.attempt(transaction, id);
+                return attempt === undefined
+                    ? undefined
+                    : { invocation: attempt.invocation, auditCause: attempt.auditCause };
+            },
+            receipt: (id) => {
+                const receipt =
+                    candidate.receipt !== undefined && id.equals(candidate.receipt.id)
+                        ? candidate.receipt
+                        : this.persistence.receipt(transaction, id);
+                if (receipt === undefined) return undefined;
+                if (receipt instanceof PreEffectReceipt) {
+                    return { invocation: receipt.invocation, outcome: receipt.outcome };
+                }
+                if (!(receipt instanceof AttemptReceipt)) return undefined;
+                const attempt = this.persistence.attempt(transaction, receipt.attempt);
+                return attempt === undefined
+                    ? undefined
+                    : {
+                          invocation: attempt.invocation,
+                          attempt: receipt.attempt,
+                          outcome: receipt.outcome,
+                          ...(receipt.previous === undefined ? {} : { previous: receipt.previous })
+                      };
+            },
+            event: () => undefined,
+            route: () => undefined,
+            projection: () => undefined,
+            delivery: () => undefined,
+            commit: () => undefined,
+            write: () => undefined
+        };
     }
 }
 

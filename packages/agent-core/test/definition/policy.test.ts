@@ -18,6 +18,18 @@ import {
 } from "../../src/definition/placement";
 
 describe("pure policy floors", () => {
+    test("[C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location", () => {
+        for (const placement of PLACEMENT_PREFERENCE) {
+            expect(
+                evaluatePolicy({
+                    impact: "observe",
+                    turnOwnedSession: true,
+                    placement
+                }).tier
+            ).toBe(placement === "bundled" ? "direct" : "mediated");
+        }
+    });
+
     test("implements the exact impact and Turn-owned session floor", () => {
         for (const turnOwnedSession of [false, true]) {
             for (const impact of POLICY_IMPACTS) {
@@ -77,6 +89,22 @@ describe("pure policy floors", () => {
 });
 
 describe("monotone policy composition", () => {
+    test("takes the minimum finite direct-revocation window across governing policies", () => {
+        const merged = mergePolicySets([
+            new PolicySet({ maxDirectRevocationWindowMs: 500 }),
+            new PolicySet({ maxDirectRevocationWindowMs: 20 }),
+            new PolicySet()
+        ]);
+
+        expect(merged.maxDirectRevocationWindowMs).toBe(20);
+        expect(mergePolicySets([new PolicySet()]).maxDirectRevocationWindowMs).toBeUndefined();
+        for (const value of [-1, 0.5, Number.POSITIVE_INFINITY, Number.NaN]) {
+            expect(() => new PolicySet({ maxDirectRevocationWindowMs: value })).toThrow(
+                /finite non-negative safe integer/
+            );
+        }
+    });
+
     test("[C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements", () => {
         const packagePolicy = new PolicySet({
             approvals: ["observe"],
@@ -133,6 +161,25 @@ describe("monotone policy composition", () => {
 });
 
 describe("policy declaration codec", () => {
+    test("[definition.policy-set] decodes the direct-revocation window as a bounded number and rejects other shapes", () => {
+        const bounded = PolicySet.decode(
+            PolicySet.encode(new PolicySet({ maxDirectRevocationWindowMs: 250 }))
+        );
+        expect(bounded.maxDirectRevocationWindowMs).toBe(250);
+
+        const unbounded = PolicySet.decode(PolicySet.encode(new PolicySet()));
+        expect(unbounded.maxDirectRevocationWindowMs).toBeUndefined();
+
+        expect(() =>
+            PolicySet.fromData({
+                approvals: [],
+                maxDirectRevocationWindowMs: "250",
+                placement: { allowed: ["bundled"] },
+                tiers: {}
+            })
+        ).toThrow(/revocation window is invalid/);
+    });
+
     test("[definition.policy-set] canonicalizes immutable declarative data and round-trips byte deterministically", () => {
         const approvals: Impact[] = ["administer", "observe"];
         const tiers: Partial<Record<Impact, EnforcementTier>> = {
@@ -192,7 +239,7 @@ describe("policy declaration codec", () => {
                 PolicySet.decode(
                     encodeCanonicalJson({
                         ...envelope,
-                        version: { major: 2, minor: 0 }
+                        version: { major: 3, minor: 0 }
                     })
                 ),
             "codec.unknown-major"

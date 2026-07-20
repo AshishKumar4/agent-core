@@ -1,5 +1,6 @@
 import type { ActorRef } from "../../../../src/actors";
 import { Digest, JsonSchema } from "../../../../src/core";
+import { AgentCoreError } from "../../../../src/errors";
 import { OperationDescriptor, OperationName } from "../../../../src/facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../../src/identity";
 import {
@@ -17,28 +18,20 @@ import {
     InvocationPublicationOutbox,
     InvocationPublicationDrainer,
     MediatedReplayRecord,
-    PreEffectReceipt,
     ReceiptId,
     createInvocationMediationMemoryState,
     type InvocationEvidencePersistence,
     type InvocationReplayPersistence
 } from "../../../../src/invocations";
+import { SqliteInvocationMediationPersistence } from "../../../../src/substrates/sqlite/invocations";
 import {
-    SqliteInvocationMediationPersistence,
-    SqliteInvocationPersistence
-} from "../../../../src/substrates/sqlite/invocations";
-import type { TransactionalSqlite } from "../../../../src/substrates/sqlite";
+    SqliteProtocolPersistence,
+    type TransactionalSqlite
+} from "../../../../src/substrates/sqlite";
 import { TestSqlite } from "../../../helpers/sqlite";
 import { describe, expect, test } from "vitest";
-import {
-    admissionFor,
-    attemptCodec,
-    claimCodec,
-    createLedger,
-    invocationCodecs,
-    prepared,
-    preparedCodec
-} from "../../../invocations/fixture";
+import { admissionFor, createLedger, prepared } from "../../../invocations/fixture";
+import { createSqliteInvocationPersistence } from "./fixture";
 
 describe("SqliteInvocationMediationPersistence", () => {
     test("[C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract", () => {
@@ -47,12 +40,10 @@ describe("SqliteInvocationMediationPersistence", () => {
         verifyMediationContract(memory, (operation) => operation(memoryState), "memory");
 
         const database = new TestSqlite();
-        const sqlite = new SqliteInvocationMediationPersistence(database, {
-            get: () => undefined,
-            append: () => {
-                throw new TypeError("audit append is not used by the shared contract");
-            }
-        });
+        const sqlite = new SqliteInvocationMediationPersistence(
+            database,
+            new SqliteProtocolPersistence(database)
+        );
         verifyMediationContract(
             sqlite,
             (operation) => database.transaction(() => operation(database)),
@@ -62,12 +53,10 @@ describe("SqliteInvocationMediationPersistence", () => {
 
     test("[invocation.mediated-replay] [invocation.publication-outbox] persists replay revisions and durable publication acknowledgement", () => {
         const database = new TestSqlite();
-        const persistence = new SqliteInvocationMediationPersistence(database, {
-            get: () => undefined,
-            append: () => {
-                throw new TypeError("audit append is not used by this storage test");
-            }
-        });
+        const persistence = new SqliteInvocationMediationPersistence(
+            database,
+            new SqliteProtocolPersistence(database)
+        );
         const descriptor = new OperationDescriptor(
             new OperationName("send"),
             "externalSend",
@@ -118,97 +107,154 @@ describe("SqliteInvocationMediationPersistence", () => {
         expect(persistence.publication(database, publication.id)?.state.kind).toBe("published");
     });
 
-    test("[C13-ADV-RECEIPT-INDETERMINATE] atomically persists Receipt, Audit, and publication across crash and restart", () => {
-        const database = new TestSqlite();
-        const audits = new SqliteAuditStore(database);
-        let evidence = new SqliteInvocationMediationPersistence(database, audits);
-        let persistence = invocationPersistence(database);
-        let ledger = createLedger(persistence);
-        const invocation = prepared("sqlite-atomic-evidence");
-        const claim = new ItemClaim<string>(
-            new ItemClaimId("sqlite-atomic-claim"),
-            invocation.header.id,
-            0,
-            0,
-            {
-                kind: "system",
-                actor: invocation.header.actor,
-                worker: new ClaimWorkerId("sqlite-atomic-worker")
-            },
-            new Date(10_000)
-        );
-        const attempt = new EffectAttempt<string, string>(
-            new EffectAttemptId("sqlite-atomic-attempt"),
-            invocation.header.id,
-            0,
-            0,
-            claim.id,
-            undefined,
-            admissionFor(invocation.header.id.value, 0, 0),
-            new Date(2_000),
-            invocation.item(0).idempotencyKey,
-            invocation.header.auditCause
-        );
-        const attemptAudit = audit(
-            invocation.header.actor,
-            new AuditRecordId("sqlite-atomic-attempt-audit"),
-            invocation.header.auditCause,
-            { kind: "attempt", id: attempt.id }
-        );
-        database.transaction(() => {
-            ledger.prepare(database, invocation);
-            ledger.claimItem(database, claim, new Date(1_000));
-            ledger.admitAttemptWithAudit(
-                database,
-                attempt,
-                new Date(2_000),
-                attemptAudit,
-                evidence
+    test(
+        "[C13-ADV-RECEIPT-INDETERMINATE] atomically persists attempt, Receipt, and supersession audit edges through the invocation evidence port",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const audits = new SqliteProtocolPersistence(database);
+            let evidence = new SqliteInvocationMediationPersistence(database, audits);
+            let persistence = createSqliteInvocationPersistence(database);
+            let ledger = createLedger(persistence);
+            const invocation = prepared("sqlite-atomic-evidence");
+            const claim = new ItemClaim<string>(
+                new ItemClaimId("sqlite-atomic-claim"),
+                invocation.header.id,
+                0,
+                0,
+                {
+                    kind: "system",
+                    actor: invocation.header.actor,
+                    worker: new ClaimWorkerId("sqlite-atomic-worker")
+                },
+                new Date(10_000)
             );
-        });
-
-        const receipt = new AttemptReceipt(
-            new ReceiptId("sqlite-atomic-receipt"),
-            attempt.id,
-            "succeeded",
-            undefined,
-            new Date(3_000),
-            undefined
-        );
-        const receiptAudit = audit(
-            invocation.header.actor,
-            new AuditRecordId("sqlite-atomic-receipt-audit"),
-            attemptAudit.id,
-            { kind: "receipt", id: receipt.id, outcome: receipt.outcome }
-        );
-        const publication = InvocationPublicationOutbox.pending({
-            invocation: invocation.header.id,
-            receipt: receipt.id,
-            audit: receiptAudit.id
-        });
-
-        const substitutedCause = audit(
-            invocation.header.actor,
-            new AuditRecordId("sqlite-substituted-cause-audit"),
-            new AuditRecordId("sqlite-wrong-attempt-audit"),
-            { kind: "receipt", id: receipt.id, outcome: receipt.outcome }
-        );
-        expect(() =>
-            database.transaction(() =>
-                ledger.recordAttemptReceiptWithAudit(
-                    database,
-                    receipt,
-                    attemptAudit,
-                    substitutedCause,
-                    publication,
-                    evidence
-                )
-            )
-        ).toThrow(/does not bind the attempted effect/);
-        expect(ledger.currentReceipt(database, invocation.header.id, 0)).toBeUndefined();
-
-        expect(() =>
+            const attempt = new EffectAttempt<string, string>(
+                new EffectAttemptId("sqlite-atomic-attempt"),
+                invocation.header.id,
+                0,
+                0,
+                claim.id,
+                undefined,
+                admissionFor(invocation.header.id.value, 0, 0),
+                new Date(2_000),
+                invocation.item(0).idempotencyKey,
+                invocation.header.auditCause
+            );
+            const attemptAudit = audit(
+                invocation.header.actor,
+                new AuditRecordId("sqlite-atomic-attempt-audit"),
+                invocation.header.auditCause,
+                { kind: "attempt", id: attempt.id }
+            );
+            const invocationAudit = audit(
+                invocation.header.actor,
+                invocation.header.auditCause,
+                undefined,
+                { kind: "invocation", id: invocation.header.id }
+            );
+            const unrelatedAudit = audit(
+                invocation.header.actor,
+                new AuditRecordId("sqlite-unrelated-invocation-audit"),
+                undefined,
+                { kind: "invocation", id: new InvocationId("sqlite-unrelated-invocation") }
+            );
             database.transaction(() => {
+                ledger.prepareWithAudit(database, invocation, invocationAudit, evidence);
+                audits.appendAudit(database, unrelatedAudit);
+                ledger.claimItem(database, claim, new Date(1_000));
+            });
+            const substitutedAttemptCause = audit(
+                invocation.header.actor,
+                attemptAudit.id,
+                unrelatedAudit.id,
+                { kind: "attempt", id: attempt.id }
+            );
+            expectAgentCoreError(
+                () =>
+                    database.transaction(() =>
+                        ledger.admitAttemptWithAudit(
+                            database,
+                            attempt,
+                            new Date(2_000),
+                            substitutedAttemptCause,
+                            evidence
+                        )
+                    ),
+                "invocation.invalid"
+            );
+            expect(persistence.attempt(database, attempt.id)).toBeUndefined();
+            expect(audits.findAudit(database, attemptAudit.id)).toBeUndefined();
+            database.transaction(() => {
+                ledger.admitAttemptWithAudit(
+                    database,
+                    attempt,
+                    new Date(2_000),
+                    attemptAudit,
+                    evidence
+                );
+            });
+
+            const receipt = new AttemptReceipt(
+                new ReceiptId("sqlite-atomic-receipt"),
+                attempt.id,
+                "indeterminate",
+                undefined,
+                new Date(3_000),
+                undefined
+            );
+            const receiptAudit = audit(
+                invocation.header.actor,
+                new AuditRecordId("sqlite-atomic-receipt-audit"),
+                attemptAudit.id,
+                { kind: "receipt", id: receipt.id, outcome: receipt.outcome }
+            );
+            const publication = InvocationPublicationOutbox.pending({
+                invocation: invocation.header.id,
+                receipt: receipt.id,
+                audit: receiptAudit.id
+            });
+
+            const substitutedCause = audit(
+                invocation.header.actor,
+                receiptAudit.id,
+                invocationAudit.id,
+                { kind: "receipt", id: receipt.id, outcome: receipt.outcome }
+            );
+            expectAgentCoreError(
+                () =>
+                    database.transaction(() =>
+                        ledger.recordAttemptReceiptWithAudit(
+                            database,
+                            receipt,
+                            attemptAudit,
+                            substitutedCause,
+                            publication,
+                            evidence
+                        )
+                    ),
+                "invocation.invalid"
+            );
+            expect(ledger.currentReceipt(database, invocation.header.id, 0)).toBeUndefined();
+
+            expect(() =>
+                database.transaction(() => {
+                    ledger.recordAttemptReceiptWithAudit(
+                        database,
+                        receipt,
+                        attemptAudit,
+                        receiptAudit,
+                        publication,
+                        evidence
+                    );
+                    throw new TypeError("forced crash");
+                })
+            ).toThrow("forced crash");
+            expect(ledger.currentReceipt(database, invocation.header.id, 0)).toBeUndefined();
+            expect(audits.findAudit(database, receiptAudit.id)).toBeUndefined();
+            expect(evidence.pendingPublications(database)).toEqual([]);
+
+            database.transaction(() =>
                 ledger.recordAttemptReceiptWithAudit(
                     database,
                     receipt,
@@ -216,41 +262,98 @@ describe("SqliteInvocationMediationPersistence", () => {
                     receiptAudit,
                     publication,
                     evidence
-                );
-                throw new TypeError("forced crash");
-            })
-        ).toThrow("forced crash");
-        expect(ledger.currentReceipt(database, invocation.header.id, 0)).toBeUndefined();
-        expect(audits.has(receiptAudit.id)).toBe(false);
-        expect(evidence.pendingPublications(database)).toEqual([]);
+                )
+            );
+            evidence = new SqliteInvocationMediationPersistence(database, audits);
+            persistence = createSqliteInvocationPersistence(database);
+            ledger = createLedger(persistence);
+            expect(
+                ledger.currentReceipt(database, invocation.header.id, 0)?.id.equals(receipt.id)
+            ).toBe(true);
+            expect(audits.findAudit(database, receiptAudit.id)).toBeDefined();
+            expect(evidence.pendingPublications(database).map((record) => record.id.value)).toEqual(
+                [publication.id.value]
+            );
 
-        database.transaction(() =>
-            ledger.recordAttemptReceiptWithAudit(
-                database,
-                receipt,
-                attemptAudit,
-                receiptAudit,
-                publication,
-                evidence
-            )
-        );
-        evidence = new SqliteInvocationMediationPersistence(database, audits);
-        persistence = invocationPersistence(database);
-        ledger = createLedger(persistence);
-        expect(
-            ledger.currentReceipt(database, invocation.header.id, 0)?.id.equals(receipt.id)
-        ).toBe(true);
-        expect(audits.has(receiptAudit.id)).toBe(true);
-        expect(evidence.pendingPublications(database).map((record) => record.id.value)).toEqual([
-            publication.id.value
-        ]);
-    });
+            const finalReceipt = new AttemptReceipt(
+                new ReceiptId("sqlite-atomic-final-receipt"),
+                attempt.id,
+                "succeeded",
+                receipt.id,
+                new Date(4_000),
+                undefined
+            );
+            const supersessionAudit = audit(
+                invocation.header.actor,
+                new AuditRecordId("sqlite-atomic-supersession-audit"),
+                receiptAudit.id,
+                {
+                    kind: "receiptSuperseded",
+                    previous: receipt.id,
+                    next: finalReceipt.id
+                }
+            );
+            const finalReceiptAudit = audit(
+                invocation.header.actor,
+                new AuditRecordId("sqlite-atomic-final-receipt-audit"),
+                attemptAudit.id,
+                {
+                    kind: "receipt",
+                    id: finalReceipt.id,
+                    outcome: finalReceipt.outcome
+                }
+            );
+            const finalPublication = InvocationPublicationOutbox.pending({
+                invocation: invocation.header.id,
+                receipt: finalReceipt.id,
+                audit: supersessionAudit.id
+            });
+            expect(() =>
+                database.transaction(() => {
+                    ledger.supersedeReceiptWithAudit(
+                        database,
+                        finalReceipt,
+                        {
+                            finalReceiptAudit,
+                            supersessionAudit,
+                            publication: finalPublication
+                        },
+                        evidence
+                    );
+                    throw new TypeError("forced supersession crash");
+                })
+            ).toThrow("forced supersession crash");
+            expect(
+                ledger.currentReceipt(database, invocation.header.id, 0)?.id.equals(receipt.id)
+            ).toBe(true);
+            expect(audits.findAudit(database, finalReceiptAudit.id)).toBeUndefined();
+            expect(audits.findAudit(database, supersessionAudit.id)).toBeUndefined();
+
+            database.transaction(() =>
+                ledger.supersedeReceiptWithAudit(
+                    database,
+                    finalReceipt,
+                    {
+                        finalReceiptAudit,
+                        supersessionAudit,
+                        publication: finalPublication
+                    },
+                    evidence
+                )
+            );
+            expect(
+                ledger.currentReceipt(database, invocation.header.id, 0)?.id.equals(finalReceipt.id)
+            ).toBe(true);
+            expect(audits.findAudit(database, finalReceiptAudit.id)).toBeDefined();
+            expect(audits.findAudit(database, supersessionAudit.id)).toBeDefined();
+        }
+    );
 
     test("does not resend an acknowledged Event after a Commit sink crash", async () => {
         const database = new TestSqlite();
         const persistence = new SqliteInvocationMediationPersistence(
             database,
-            new SqliteAuditStore(database)
+            new SqliteProtocolPersistence(database)
         );
         const publication = InvocationPublicationOutbox.pending({
             invocation: new InvocationId("sqlite-partial-outbox"),
@@ -292,7 +395,7 @@ describe("SqliteInvocationMediationPersistence", () => {
 
     test("rejects duplicate or skipped replay and publication revisions across restart", () => {
         const database = new TestSqlite();
-        const audits = new SqliteAuditStore(database);
+        const audits = new SqliteProtocolPersistence(database);
         let persistence = new SqliteInvocationMediationPersistence(database, audits);
         const reserved = replay("sqlite-conflict");
         const prepared = reserved.prepare(new InvocationId("sqlite-conflict"), [{}], [[]]);
@@ -349,7 +452,7 @@ describe("SqliteInvocationMediationPersistence", () => {
 
     test("detects substituted replay and outbox projection columns after restart", () => {
         const database = new TestSqlite();
-        const audits = new SqliteAuditStore(database);
+        const audits = new SqliteProtocolPersistence(database);
         let persistence = new SqliteInvocationMediationPersistence(database, audits);
         const reserved = replay("sqlite-corrupt");
         const publication = InvocationPublicationOutbox.pending({
@@ -448,96 +551,10 @@ function replayBinding() {
     };
 }
 
-class SqliteAuditStore {
-    public constructor(private readonly database: TestSqlite) {
-        database.transaction(() =>
-            database.run(
-                "CREATE TABLE IF NOT EXISTS invocation_test_audits (id TEXT PRIMARY KEY, record BLOB NOT NULL)",
-                []
-            )
-        );
-    }
-
-    public append(database: TransactionalSqlite, record: AuditRecord): void {
-        database.run("INSERT INTO invocation_test_audits (id, record) VALUES (?, ?)", [
-            record.id.value,
-            AuditRecord.encode(record)
-        ]);
-    }
-
-    public get(database: TransactionalSqlite, id: AuditRecordId): AuditRecord | undefined {
-        const row = database.all("SELECT record FROM invocation_test_audits WHERE id = ?", [
-            id.value
-        ])[0];
-        const bytes = row?.["record"];
-        return bytes instanceof Uint8Array ? AuditRecord.decode(bytes) : undefined;
-    }
-
-    public has(id: AuditRecordId): boolean {
-        return (
-            this.database.all("SELECT id FROM invocation_test_audits WHERE id = ?", [id.value])
-                .length === 1
-        );
-    }
-}
-
-function invocationPersistence(database: TestSqlite) {
-    return new SqliteInvocationPersistence(database, {
-        prepared: preparedCodec,
-        approval: invocationCodecs.approval,
-        claim: claimCodec,
-        attempt: attemptCodec,
-        receipt: invocationCodecs.receipt,
-        continuation: invocationCodecs.continuation,
-        projectPrepared: (record) => ({ id: record.header.id.value }),
-        projectApproval: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            revision: record.revision.value,
-            phase: record.state.kind
-        }),
-        projectClaim: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            itemIndex: record.itemIndex,
-            ordinal: record.attemptOrdinal
-        }),
-        projectAttempt: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            itemIndex: record.itemIndex,
-            ordinal: record.ordinal,
-            claim: record.claim.value
-        }),
-        projectReceipt: (record) => {
-            if (record instanceof PreEffectReceipt) {
-                return {
-                    id: record.id.value,
-                    variant: record.variant,
-                    invocation: record.invocation.value,
-                    itemIndex: record.itemIndex,
-                    outcome: record.outcome
-                };
-            }
-            if (record instanceof AttemptReceipt) {
-                return {
-                    id: record.id.value,
-                    variant: record.variant,
-                    attempt: record.attempt.value,
-                    ...(record.previous === undefined ? {} : { previous: record.previous.value }),
-                    outcome: record.outcome
-                };
-            }
-            throw new TypeError("Unknown SQLite invocation Receipt");
-        },
-        projectContinuation: (record) => ({ invocation: record.invocation.value })
-    });
-}
-
 function audit(
     actor: ActorRef,
     id: AuditRecordId,
-    cause: AuditRecordId,
+    cause: AuditRecordId | undefined,
     kind: ConstructorParameters<typeof AuditRecord>[0]["kind"]
 ): AuditRecord {
     return new AuditRecord({
@@ -545,7 +562,18 @@ function audit(
         actor,
         tenant: new TenantId("sqlite-atomic-tenant"),
         correlation: new CorrelationId("sqlite-atomic-correlation"),
-        cause,
+        ...(cause === undefined ? {} : { cause }),
         kind
     });
+}
+
+function expectAgentCoreError(operation: () => void, code: AgentCoreError["code"]): void {
+    try {
+        operation();
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        expect((error as AgentCoreError).code).toBe(code);
+        return;
+    }
+    throw new TypeError(`Expected AgentCoreError ${code}`);
 }

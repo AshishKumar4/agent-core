@@ -4,6 +4,7 @@ import { PrincipalId } from "../../src/identity";
 import {
     Approval,
     ApprovalId,
+    AuditRecord,
     EffectAttemptId,
     PreEffectReceipt,
     type CanonicalBatchInvocationRequest
@@ -17,6 +18,90 @@ import {
 } from "../integration/canonical-batch-harness";
 
 describe("CanonicalBatchInvocationPort", () => {
+    test(
+        "keeps the decoded issuer admission witness-free and authenticates in the target runtime",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("target-local-permit-authentication");
+
+            const result = await harness.port.invoke(
+                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+            );
+
+            expect(result.items[0]).toMatchObject({ kind: "succeeded" });
+            expect(harness.permits.issuedAdmissions).toHaveLength(1);
+            expect(Reflect.ownKeys(harness.permits.issuedAdmissions[0]!).sort()).toEqual([
+                "digest",
+                "reference"
+            ]);
+            expect("authentication" in harness.permits.issuedAdmissions[0]!).toBe(false);
+            expect(harness.authentication.authenticatedItems).toEqual([0]);
+            expect(harness.authentication.authenticatedInsideTargetTransaction).toBe(false);
+        }
+    );
+
+    test(
+        "records target-local authentication denial before any target admission or attempt",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("target-local-authentication-denied");
+            harness.authentication.deniedItems.add(0);
+
+            const result = await harness.port.invoke(
+                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+            );
+
+            expect(result.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "deniedPreEffect" }
+            });
+            expect(harness.authentication.authenticatedItems).toEqual([0]);
+            expect(harness.finalAdmissions.calls).toBe(0);
+            expect(harness.executions).toEqual([]);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toEqual([]);
+        }
+    );
+
+    test(
+        "reconstructs the target runtime and retries authentication without duplicating its claim",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("target-authentication-restart");
+            harness.authentication.crashOnce = true;
+            const interruptedAuthentication = harness.authentication;
+            const value = request(invocation, [{ value: 1 }], (index) =>
+                harness.executions.push(index)
+            );
+
+            await expect(harness.port.invoke(value)).rejects.toThrow(
+                "permit authentication transport crash"
+            );
+            expect(harness.records.createdClaims).toBe(1);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toEqual([]);
+
+            harness.restartRuntime();
+            expect(harness.authentication).not.toBe(interruptedAuthentication);
+            const retried = await harness.port.invoke(value);
+
+            expect(retried.items[0]).toMatchObject({ kind: "succeeded" });
+            expect(harness.records.createdClaims).toBe(1);
+            expect(interruptedAuthentication.authenticatedItems).toEqual([0]);
+            expect(harness.authentication.authenticatedItems).toEqual([0]);
+            expect(harness.executions).toEqual([0]);
+        }
+    );
+
     test("[C13-CLAIM-INITIAL-ATOMIC] claims before async permit issuance and returns one output only for success", async () => {
         const harness = new Harness(true);
         const invocation = new InvocationId("canonical-batch");
@@ -29,7 +114,12 @@ describe("CanonicalBatchInvocationPort", () => {
             time(20)
         );
         harness.transactions.transact((transaction) => {
-            harness.ledger.prepare(transaction, prepared);
+            harness.ledger.prepareWithAudit(
+                transaction,
+                prepared,
+                harness.records.invocationAudit(prepared),
+                harness.evidence
+            );
             harness.ledger.requestApproval(transaction, pending);
             harness.ledger.appendApprovalRevision(
                 transaction,
@@ -71,7 +161,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(evidence.continuation?.firstItemIndex).toBe(1);
         expect(evidence.attempts0).toEqual([]);
         expect(evidence.attempts1).toHaveLength(1);
-        expect(evidence.audits).toBe(3);
+        expect(evidence.audits).toBe(4);
         expect(evidence.publications).toHaveLength(2);
     });
 
@@ -133,6 +223,40 @@ describe("CanonicalBatchInvocationPort", () => {
         ).toHaveLength(1);
     });
 
+    test(
+        "independent invocation runtimes never share in-flight item results",
+        { tags: "p0" },
+        async () => {
+            const firstHarness = new Harness(false);
+            const secondHarness = new Harness(false);
+            const invocation = new InvocationId("same-id-in-independent-runtimes");
+            const issued = deferred<void>();
+            const release = deferred<void>();
+            firstHarness.permits.onIssue = async () => {
+                issued.resolve(undefined);
+                await release.promise;
+            };
+
+            const first = firstHarness.port.invoke(
+                request(invocation, [{ value: 1 }], (index) => firstHarness.executions.push(index))
+            );
+            await issued.promise;
+            const second = secondHarness.port.invoke(
+                request(invocation, [{ value: 2 }], (index) => secondHarness.executions.push(index))
+            );
+            release.resolve(undefined);
+
+            const [firstResult, secondResult] = await Promise.all([first, second]);
+            expect(firstResult.items[0]).toMatchObject({ kind: "succeeded", output: { value: 1 } });
+            expect(secondResult.items[0]).toMatchObject({
+                kind: "succeeded",
+                output: { value: 2 }
+            });
+            expect(firstHarness.executions).toEqual([0]);
+            expect(secondHarness.executions).toEqual([0]);
+        }
+    );
+
     test("[C13-CLAIM-RECOVERY-NEW-OWNER] rejects empty, inexact, and substituted canonical batch preparation before claiming", async () => {
         const empty = new Harness(false);
         await expect(
@@ -169,7 +293,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(substituted.records.createdClaims).toBe(0);
     });
 
-    test("[C13-RECEIPT-PRE-EFFECT] records permit denial before effect and replays its terminal Receipt", async () => {
+    test("[C13-RECEIPT-PRE-EFFECT] persists the exact Invocation-to-deniedPreEffect Receipt edge", async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("permit-denied");
         harness.permits.deniedItems.add(0);
@@ -184,7 +308,52 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(first.items[0]).toMatchObject({ kind: "terminal", itemIndex: 0 });
         expect(first.items[0]!.receipt).toBeInstanceOf(PreEffectReceipt);
         expect(replayed.items[0]!.receipt.id.equals(first.items[0]!.receipt.id)).toBe(true);
+        const audits = harness.transactions.transact((transaction) =>
+            [...transaction.audits.values()].map((bytes) => AuditRecord.decode(bytes))
+        );
+        expect(audits.map((audit) => audit.kind.kind)).toEqual(["invocation", "receipt"]);
+        expect(audits[1]?.cause?.equals(audits[0]!.id)).toBe(true);
+        expect(audits[1]).toMatchObject({
+            actor: audits[0]?.actor,
+            tenant: audits[0]?.tenant,
+            correlation: audits[0]?.correlation,
+            kind: { kind: "receipt", outcome: "deniedPreEffect" }
+        });
         expect(harness.executions).toEqual([]);
+    });
+
+    test("rejects an existing PreparedInvocation without its exact Invocation audit root", async () => {
+        const harness = new Harness(false);
+        const invocation = new InvocationId("prepared-without-root");
+        const prepared = harness.preparation.create(invocation, [{ value: 1 }]);
+        harness.transactions.transact((transaction) =>
+            harness.persistence.insertPrepared(transaction, prepared)
+        );
+
+        await expect(
+            harness.port.invoke(request(invocation, [{ value: 1 }], () => undefined))
+        ).rejects.toThrow(/does not have its exact preparation AuditRecord/);
+        expect(harness.records.createdClaims).toBe(0);
+    });
+
+    test("atomically rejects an EffectAttempt whose Invocation audit cause is substituted", async () => {
+        const harness = new Harness(false);
+        const invocation = new InvocationId("attempt-cause-substitution");
+        harness.records.substituteAttemptCause = true;
+
+        await expect(
+            harness.port.invoke(request(invocation, [{ value: 1 }], () => undefined))
+        ).rejects.toThrow(/Audit cause must exist before append/);
+        const evidence = harness.transactions.transact((transaction) => ({
+            attempts: harness.persistence.attemptsForItem(transaction, invocation, 0),
+            receipt: harness.ledger.currentReceipt(transaction, invocation, 0),
+            audits: [...transaction.audits.values()].map((bytes) => AuditRecord.decode(bytes)),
+            publications: harness.evidence.pendingPublications(transaction)
+        }));
+        expect(evidence.attempts).toEqual([]);
+        expect(evidence.receipt).toBeUndefined();
+        expect(evidence.audits.map((audit) => audit.kind.kind)).toEqual(["invocation"]);
+        expect(evidence.publications).toEqual([]);
     });
 
     test("[P11-DEVICE-CONSENT-ABSENT] records final target-admission denial with no EffectAttempt", async () => {
@@ -336,6 +505,45 @@ describe("CanonicalBatchInvocationPort", () => {
         });
     });
 
+    test(
+        "a final failed attempt advances the ordinal and permits one new execution",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("retry-after-final-failure");
+            let executions = 0;
+            const value = request(invocation, [{ value: 1 }], () => {
+                executions += 1;
+                if (executions === 1) {
+                    throw new ConfirmedOperationFailure(
+                        "first attempt failed",
+                        ContentRef.fromDigest(digest("first attempt failed"))
+                    );
+                }
+            });
+
+            const failed = await harness.port.invoke(value);
+            const retried = await harness.port.invoke(value);
+
+            expect(failed.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "failed" }
+            });
+            expect(retried.items[0]).toMatchObject({
+                kind: "succeeded",
+                output: { value: 1 }
+            });
+            expect(executions).toBe(2);
+            expect(
+                harness.transactions
+                    .transact((transaction) =>
+                        harness.persistence.attemptsForItem(transaction, invocation, 0)
+                    )
+                    .map((attempt) => attempt.ordinal)
+            ).toEqual([0, 1]);
+        }
+    );
+
     test("post-admission untyped throws are indeterminate", async () => {
         const harness = new Harness(false);
         const result = await harness.port.invoke(
@@ -355,7 +563,7 @@ describe("CanonicalBatchInvocationPort", () => {
         harness.records.substituteReceiptCause = true;
         await expect(
             harness.port.invoke(request(invocation, [{ value: 1 }], () => undefined))
-        ).rejects.toThrow(/does not bind the attempted effect/);
+        ).rejects.toThrow(/Audit cause must exist before append/);
         expect(
             harness.transactions.transact((transaction) =>
                 harness.ledger.currentReceipt(transaction, invocation, 0)

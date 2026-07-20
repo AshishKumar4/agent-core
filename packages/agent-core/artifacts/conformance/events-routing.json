@@ -107,9 +107,12 @@
       "specTextSha256": "sha256:4265aa878c31df334b5b6f3d0fe311ed0a64a6ab402e98860ffad22c033a99a3",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
+      "sourceSymbols": [
+        "src/workspaces/route.ts#RouteReservation",
+        "src/workspaces/source-protocol.ts#SourceEventProtocol.commit"
+      ],
       "testSelectors": [
-        "test/workspaces/conformance.test.ts#[C13-ROUTE-AUDIT-CAUSE] duplicate route storage identity is rejected"
+        "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ROUTE-AUDIT-CAUSE] committed reservation cites its preexisting source Event audit"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

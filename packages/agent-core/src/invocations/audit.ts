@@ -1,5 +1,12 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { RecordCodec, hasExactJsonKeys, type JsonValue, type RecordVersion } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    encodeCanonicalJson,
+    hasExactJsonKeys,
+    type JsonValue,
+    type RecordVersion
+} from "../core";
 import { TenantId } from "../identity";
 import { RunCommitId } from "../execution-references";
 import {
@@ -35,6 +42,16 @@ export type AuditKind =
       }
     | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
     | { readonly kind: "commit"; readonly id: RunCommitId };
+
+export function auditEvidenceIdentity(actor: ActorRef, kind: AuditKind): Digest {
+    return Digest.sha256(
+        encodeCanonicalJson({
+            domain: "agent-core.audit-evidence.v1",
+            actor: { kind: actor.kind, id: actor.id.value },
+            evidence: encodeKind(kind)
+        })
+    );
+}
 
 export interface AuditRecordInit {
     readonly id: AuditRecordId;
@@ -134,6 +151,11 @@ export type AuditRootAdmission =
           readonly reservation: RouteReservationId;
       };
 
+export interface AuditAppendContext {
+    readonly rootAdmission?: AuditRootAdmission;
+    readonly evidence?: AuditEvidenceResolver;
+}
+
 export interface AuditRecordLookup {
     get(id: AuditRecordId): AuditRecord | undefined;
 }
@@ -209,16 +231,48 @@ export function validateAuditAppend(
         throw invocationError("audit.append-conflict", "Audit records are append-only");
     }
 
+    validateAuditRelation(record, records, rootAdmission, evidence);
+}
+
+export function validateAuditRelation(
+    record: AuditRecord,
+    records: AuditRecordLookup,
+    rootAdmission?: AuditRootAdmission,
+    evidence?: AuditEvidenceResolver
+): void {
     if (record.cause === undefined) {
         validateRoot(record, rootAdmission, evidence);
         return;
     }
+
+    validateStoredAuditShape(record, records);
 
     if (rootAdmission !== undefined) {
         throw invocationError(
             "audit.invalid-root",
             "Audit root admission is invalid for a caused record"
         );
+    }
+
+    const cause = records.get(record.cause)!;
+    if (!isSubstantiatedEdge(cause.kind, record.kind, evidence, cause.id)) {
+        throw invocationError(
+            "audit.evidence-mismatch",
+            `Audit edge ${cause.kind.kind} -> ${record.kind.kind} is not permitted`
+        );
+    }
+}
+
+export function validateStoredAuditShape(record: AuditRecord, records: AuditRecordLookup): void {
+    if (record.cause === undefined) {
+        const permittedRoot =
+            record.kind.kind === "invocation" ||
+            record.kind.kind === "routeProjected" ||
+            (record.kind.kind === "write" && record.kind.outcome.startsWith("rejected"));
+        if (!permittedRoot) {
+            throw invocationError("audit.invalid-root", "Stored audit root kind is invalid");
+        }
+        return;
     }
 
     const cause = records.get(record.cause);
@@ -235,10 +289,7 @@ export function validateAuditAppend(
             "Audit cause must share actor, tenant, and correlation"
         );
     }
-    if (
-        !isPermittedEdge(cause.kind, record.kind) ||
-        !isSubstantiatedEdge(cause.kind, record.kind, evidence, cause.id)
-    ) {
+    if (!isPermittedEdge(cause.kind, record.kind)) {
         throw invocationError(
             "audit.evidence-mismatch",
             `Audit edge ${cause.kind.kind} -> ${record.kind.kind} is not permitted`

@@ -48,15 +48,31 @@ describe("Slate records", () => {
     const receipt = new ReceiptId("receipt-records");
 
     const records = [
-        [Slate.codec, Slate.initial(slateId, workspace, source)],
-        [SlateVersion.codec, new SlateVersion(versionId, workspace, slateId, source)],
-        [
-            SlatePublication.codec,
-            new SlatePublication(publicationId, workspace, slateId, versionId, materialization)
-        ],
-        [
-            SlateDeployment.codec,
-            new SlateDeployment(
+        {
+            name: "[slate]",
+            codec: Slate.codec,
+            record: Slate.initial(slateId, workspace, source)
+        },
+        {
+            name: "[slate.version]",
+            codec: SlateVersion.codec,
+            record: new SlateVersion(versionId, workspace, slateId, source)
+        },
+        {
+            name: "[slate.publication]",
+            codec: SlatePublication.codec,
+            record: new SlatePublication(
+                publicationId,
+                workspace,
+                slateId,
+                versionId,
+                materialization
+            )
+        },
+        {
+            name: "[slate.deployment]",
+            codec: SlateDeployment.codec,
+            record: new SlateDeployment(
                 deploymentId,
                 workspace,
                 slateId,
@@ -66,10 +82,11 @@ describe("Slate records", () => {
                 invocation,
                 receipt
             )
-        ],
-        [
-            SlateResource.codec,
-            new SlateResource(
+        },
+        {
+            name: "[slate.resource]",
+            codec: SlateResource.codec,
+            record: new SlateResource(
                 new SlateResourceId("resource-records"),
                 workspace,
                 slateId,
@@ -80,10 +97,11 @@ describe("Slate records", () => {
                 invocation,
                 receipt
             )
-        ],
-        [
-            SlatePreview.codec,
-            new SlatePreview(
+        },
+        {
+            name: "[slate.preview]",
+            codec: SlatePreview.codec,
+            record: new SlatePreview(
                 new SlatePreviewId("preview-records"),
                 workspace,
                 slateId,
@@ -97,22 +115,19 @@ describe("Slate records", () => {
                 source,
                 versionId
             )
-        ]
+        }
     ] as const;
 
-    test.each(records)(
-        "[slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
-        (codec, record) => {
-            const bytes = codec.encode(record as never);
-            const envelope = object(decodeCanonicalJson(bytes));
+    test.each(records)("$name round-trips a strict codec 1.0 record", ({ codec, record }) => {
+        const bytes = codec.encode(record as never);
+        const envelope = object(decodeCanonicalJson(bytes));
 
-            expect(envelope["version"]).toEqual({ major: 1, minor: 0 });
-            expect(codec.encode(codec.decode(bytes) as never)).toEqual(bytes);
-            expect(Object.isFrozen(codec.decode(bytes))).toBe(true);
-        }
-    );
+        expect(envelope["version"]).toEqual({ major: 1, minor: 0 });
+        expect(codec.encode(codec.decode(bytes) as never)).toEqual(bytes);
+        expect(Object.isFrozen(codec.decode(bytes))).toBe(true);
+    });
 
-    test.each(records)("rejects unknown codec majors", (codec, record) => {
+    test.each(records)("$name rejects unknown codec majors", ({ codec, record }) => {
         const envelope = object(decodeCanonicalJson(codec.encode(record as never)));
         const future = encodeCanonicalJson({ ...envelope, version: { major: 2, minor: 0 } });
 
@@ -275,7 +290,7 @@ describe("Slate records", () => {
     });
 
     test("rejects non-string deployment targets in codec data", () => {
-        const deployment = records[3][1] as SlateDeployment;
+        const deployment = records[3].record as SlateDeployment;
         const envelope = object(decodeCanonicalJson(SlateDeployment.encode(deployment)));
         const payload = object(envelope["payload"]);
         expect(() =>
@@ -305,11 +320,11 @@ describe("Slate records", () => {
     });
 
     test("uses ContentRef values for every source and materialization", () => {
-        const version = records[1][1] as SlateVersion;
-        const publication = records[2][1] as SlatePublication;
-        const deployment = records[3][1] as SlateDeployment;
-        const resource = records[4][1] as SlateResource;
-        const preview = records[5][1] as SlatePreview;
+        const version = records[1].record as SlateVersion;
+        const publication = records[2].record as SlatePublication;
+        const deployment = records[3].record as SlateDeployment;
+        const resource = records[4].record as SlateResource;
+        const preview = records[5].record as SlatePreview;
 
         expect(version.source).toBeInstanceOf(ContentRef);
         expect(publication.materialization).toBeInstanceOf(ContentRef);

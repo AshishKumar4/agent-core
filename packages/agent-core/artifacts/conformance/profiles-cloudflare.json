@@ -7,28 +7,30 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
       "specTextSha256": "sha256:53f5e9fc29614895da006f4b4532a4bff19a1dc8e02f12788f34583473cc31dd",
-      "status": "verified",
+      "status": "planned",
       "prerequisites": ["C13-AUTH-MEDIATED-ADMISSION"],
-      "sourceSymbols": ["cloudflare/src/authority-permit.ts#CloudflareAuthorityPermitAdmission"],
-      "testSelectors": [
-        "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Implement authenticated Tenant-to-target Durable Object transport that establishes the permit issuer and source independently of caller-supplied permit fields",
+        "Add adversarial Cloudflare runtime evidence that substitution of every bound field is rejected before any EffectAttempt"
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
       "specTextSha256": "sha256:53f5e9fc29614895da006f4b4532a4bff19a1dc8e02f12788f34583473cc31dd",
-      "status": "verified",
+      "status": "planned",
       "prerequisites": ["C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING"],
-      "sourceSymbols": ["cloudflare/src/authority-permit.ts#CloudflareAuthorityPermitAdmission"],
-      "testSelectors": [
-        "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Implement target-owned admission that exact-matches the persisted invocation, reservation epoch, local claim, package pin, target fence and domain, validity window, and authenticated issuer and source before nonce consumption",
+        "Add Cloudflare Durable Object SQLite restart, replay, rollback, expiry, stale-local-state, and post-issuance-watermark evidence for nonce consumption atomic with EffectAttempt admission"
+      ]
     },
     {
       "id": "C13-ENVIRONMENT-DISPOSE-CLOSE",
@@ -653,9 +655,15 @@
       "specTextSha256": "sha256:b7ab5a3236d620394183a2f7c4201ae795518ce13a41a8a20f5d930a5269b5d1",
       "status": "external-gated",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/environment/facet.ts#EnvironmentFacet",
+        "cloudflare/src/environment-provider.ts#DurableObjectEnvironmentProvider"
+      ],
+      "testSelectors": [
+        "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] persists session state across Durable Object eviction",
+        "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] rejects stale-generation requests after rotation, across eviction"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Requires consent-gated remote Sandbox session evidence, including restart and failure behavior"
       ]
@@ -737,9 +745,14 @@
       "specTextSha256": "sha256:8c22d8da15746482125fe29d68e55b0eb62bba52c84e2c3598da1907335bf3a9",
       "status": "external-gated",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/environment/facet.ts#EnvironmentFacet",
+        "cloudflare/src/environment-provider.ts#DurableObjectEnvironmentProvider"
+      ],
+      "testSelectors": [
+        "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-PREVIEW] derives a deterministic durable preview URL and revokes it fail-closed across eviction"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Requires consent-gated remote Sandbox session evidence, including restart and failure behavior"
       ]
@@ -765,9 +778,15 @@
       "specTextSha256": "sha256:d4032d243774cfedcf8a37104ce5069c0c662e9415f432203a202590bab9a849",
       "status": "external-gated",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/environment/facet.ts#EnvironmentFacet",
+        "cloudflare/src/environment-provider.ts#DurableObjectEnvironmentProvider"
+      ],
+      "testSelectors": [
+        "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-SNAPSHOT] snapshots to content-addressed R2 and restores exactly, across eviction",
+        "cloudflare/test/cloudflare/providers.test.ts#Cloudflare substrate providers [P11-ENVIRONMENT-SNAPSHOT] fails closed restoring missing or corrupt snapshot content"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Requires consent-gated remote Sandbox session evidence, including restart and failure behavior"
       ]
@@ -1523,7 +1542,7 @@
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/self/facet.ts#SelfFacet"],
       "testSelectors": [
-        "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-AUDIT] records the canonical invocation, attempt, and Receipt audit chain"
+        "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-AUDIT] persists exact Invocation-to-Attempt-to-Receipt audit edges"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

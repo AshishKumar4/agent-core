@@ -19,6 +19,7 @@ export interface MemoryProtocolSnapshot {
 
 export class MemoryProtocolRecords extends ProtocolRecordStorage implements ActorCloneOwnedState {
     readonly #audits = new Map<string, StoredProtocolAudit>();
+    readonly #auditsByEvidence = new Map<string, string>();
     readonly #writes = new Map<string, StoredProtocolWrite>();
 
     public constructor(snapshot?: MemoryProtocolSnapshot) {
@@ -37,7 +38,13 @@ export class MemoryProtocolRecords extends ProtocolRecordStorage implements Acto
             if (this.#audits.has(stored.id)) {
                 throw corruptSnapshot("Memory protocol snapshot contains duplicate audit records");
             }
+            if (this.#auditsByEvidence.has(stored.evidenceIdentity)) {
+                throw corruptSnapshot(
+                    "Memory protocol snapshot contains duplicate audit evidence relations"
+                );
+            }
             this.#audits.set(stored.id, stored);
+            this.#auditsByEvidence.set(stored.evidenceIdentity, stored.id);
         }
         for (const write of snapshot?.writes ?? []) {
             const stored = copyWrite(write);
@@ -52,6 +59,16 @@ export class MemoryProtocolRecords extends ProtocolRecordStorage implements Acto
     public findAudit(id: string): StoredProtocolAudit | undefined {
         const record = this.#audits.get(id);
         return record === undefined ? undefined : copyAudit(record);
+    }
+
+    public findAuditByEvidence(identity: string): StoredProtocolAudit | undefined {
+        const id = this.#auditsByEvidence.get(identity);
+        if (id === undefined) return undefined;
+        const record = this.#audits.get(id);
+        if (record === undefined) {
+            throw corruptSnapshot("Memory protocol audit evidence points to a missing record");
+        }
+        return copyAudit(record);
     }
 
     public findWrite(id: string): StoredProtocolWrite | undefined {
@@ -72,7 +89,11 @@ export class MemoryProtocolRecords extends ProtocolRecordStorage implements Acto
         if (this.#audits.has(stored.id)) {
             throw invalidProtocolState("Audit records are append-only");
         }
+        if (this.#auditsByEvidence.has(stored.evidenceIdentity)) {
+            throw invalidProtocolState("Audit evidence relation is append-only");
+        }
         this.#audits.set(stored.id, stored);
+        this.#auditsByEvidence.set(stored.evidenceIdentity, stored.id);
     }
 
     public insertWrite(
@@ -161,6 +182,7 @@ function copyAudit(record: StoredProtocolAudit): StoredProtocolAudit {
         record === null ||
         typeof record !== "object" ||
         typeof record.id !== "string" ||
+        typeof record.evidenceIdentity !== "string" ||
         typeof record.evidenceKind !== "string" ||
         (record.writeId !== undefined && !(record.writeId instanceof WriteRecordId)) ||
         (record.writeOutcome !== undefined && typeof record.writeOutcome !== "string") ||
@@ -170,6 +192,7 @@ function copyAudit(record: StoredProtocolAudit): StoredProtocolAudit {
     }
     return {
         id: record.id,
+        evidenceIdentity: record.evidenceIdentity,
         evidenceKind: record.evidenceKind,
         ...(record.writeId === undefined
             ? {}

@@ -59,6 +59,7 @@ const snapshot = new EnvironmentSnapshot(
     sessionId,
     Revision.initial(),
     0,
+    0,
     EnvironmentSnapshotState.ready,
     content("b"),
     Revision.initial()
@@ -313,6 +314,7 @@ describe("Environment records", () => {
                     sessionId,
                     Revision.initial(),
                     0,
+                    0,
                     EnvironmentSnapshotState.ready,
                     undefined,
                     Revision.initial()
@@ -416,6 +418,7 @@ describe("Environment records", () => {
                     sessionId,
                     Revision.initial(),
                     0,
+                    0,
                     EnvironmentSnapshotState.ready,
                     configuration,
                     Revision.initial()
@@ -426,6 +429,7 @@ describe("Environment records", () => {
                     invalid,
                     sessionId,
                     Revision.initial(),
+                    0,
                     0,
                     EnvironmentSnapshotState.ready,
                     configuration,
@@ -438,6 +442,7 @@ describe("Environment records", () => {
                     invalid,
                     Revision.initial(),
                     0,
+                    0,
                     EnvironmentSnapshotState.ready,
                     configuration,
                     Revision.initial()
@@ -448,6 +453,7 @@ describe("Environment records", () => {
                     environmentId,
                     sessionId,
                     invalid,
+                    0,
                     0,
                     EnvironmentSnapshotState.ready,
                     configuration,
@@ -460,6 +466,7 @@ describe("Environment records", () => {
                     sessionId,
                     Revision.initial(),
                     0,
+                    0,
                     invalid,
                     configuration,
                     Revision.initial()
@@ -471,6 +478,7 @@ describe("Environment records", () => {
                     sessionId,
                     Revision.initial(),
                     0,
+                    0,
                     EnvironmentSnapshotState.ready,
                     invalid,
                     Revision.initial()
@@ -481,6 +489,7 @@ describe("Environment records", () => {
                     environmentId,
                     sessionId,
                     Revision.initial(),
+                    0,
                     0,
                     EnvironmentSnapshotState.ready,
                     configuration,
@@ -624,6 +633,7 @@ describe("Environment records", () => {
                 sessionId,
                 Revision.initial(),
                 0,
+                0,
                 EnvironmentSnapshotState.creating,
                 undefined,
                 new Revision(Number.MAX_SAFE_INTEGER)
@@ -685,6 +695,7 @@ describe("Environment records", () => {
                     sessionId,
                     Revision.initial(),
                     -1,
+                    0,
                     EnvironmentSnapshotState.creating,
                     undefined,
                     Revision.initial()
@@ -901,6 +912,7 @@ describe("MemoryEnvironmentStore", () => {
             new EnvironmentSessionId("session-missing"),
             Revision.initial(),
             0,
+            0,
             EnvironmentSnapshotState.creating,
             undefined,
             Revision.initial()
@@ -908,7 +920,7 @@ describe("MemoryEnvironmentStore", () => {
         expect(() => store.compareAndSetSnapshot(undefined, invalidSnapshot)).toThrow(
             new AgentCoreError(
                 "environment.invalid-session",
-                "Environment snapshot must pin its source session generation"
+                "Environment snapshot must pin its source session generation and epoch"
             )
         );
 
@@ -930,6 +942,43 @@ describe("MemoryEnvironmentStore", () => {
                 "Port exposure must pin its source session generation and epoch"
             )
         );
+    });
+
+    test("rejects future snapshot epochs while retaining fenced snapshot history", () => {
+        const store = seededStore();
+        expect(store.compareAndSetSession(undefined, session)).toBe(true);
+        const future = new EnvironmentSnapshot(
+            new EnvironmentSnapshotId("snapshot-future-epoch"),
+            environmentId,
+            sessionId,
+            Revision.initial(),
+            0,
+            1,
+            EnvironmentSnapshotState.creating,
+            undefined,
+            Revision.initial()
+        );
+        expect(() => store.compareAndSetSnapshot(undefined, future)).toThrow(
+            new AgentCoreError(
+                "environment.invalid-session",
+                "Environment snapshot must pin its source session generation and epoch"
+            )
+        );
+
+        const creating = new EnvironmentSnapshot(
+            new EnvironmentSnapshotId("snapshot-fenced-history"),
+            environmentId,
+            sessionId,
+            Revision.initial(),
+            0,
+            0,
+            EnvironmentSnapshotState.creating,
+            undefined,
+            Revision.initial()
+        );
+        expect(store.compareAndSetSnapshot(undefined, creating)).toBe(true);
+        expect(store.compareAndSetSession(session.recordRevision, session.beginClose())).toBe(true);
+        expect(store.compareAndSetSnapshot(creating.recordRevision, creating.fail())).toBe(true);
     });
 
     test("codes CAS progression and immutable revision violations as invalid state", () => {
@@ -1284,6 +1333,7 @@ function snapshotIn(
         environmentId,
         sessionId,
         Revision.initial(),
+        0,
         0,
         state,
         snapshotContent,

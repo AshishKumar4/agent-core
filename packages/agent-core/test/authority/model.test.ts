@@ -136,7 +136,7 @@ describe("authority value records", () => {
         expect(path.staleScopes(changed).map((scope) => scope.kind)).toEqual(["project"]);
     });
 
-    test("[C13-ADV-DELAYED-WATERMARK] [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically", () => {
+    test("[authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically", () => {
         const ownerTenant = new TenantId("watermark-owner");
         const owner = new ActorRef("workspace", new ActorId("watermark-workspace"));
         const holder = new PrincipalRef(new TenantId("foreign-home"), new PrincipalId("guest"));
@@ -152,7 +152,7 @@ describe("authority value records", () => {
         ).toBe(true);
     });
 
-    test("[C13-ADV-IMMUTABLE-DEADLINE] [authority.binding] keeps Binding identity immutable while advancing local generations", () => {
+    test("[authority.binding] keeps Binding identity immutable while advancing local generations", () => {
         const domain = new ProtectionDomain("backend", "model", "no-secrets");
         const binding = Binding.active(
             workspaceScope,

@@ -598,7 +598,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
         );
     });
 
-    test("[C13-AUTH-DIRECT-DEADLINE] enforces every direct memory writer invariant", () => {
+    test("enforces every direct memory writer invariant", () => {
         const { store, service } = fixture();
         expectAgentError(
             () =>

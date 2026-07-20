@@ -71,7 +71,7 @@ import {
     viewDocument,
     viewFromDocument
 } from "../../src/workspaces/view";
-import { content, principal, principalId, scope, sourceActor, tenant } from "./fixtures";
+import { content, principal, scope, sourceActor, tenant } from "./fixtures";
 
 type JsonObject = { readonly [key: string]: JsonValue };
 
@@ -657,7 +657,7 @@ describe("authenticated event intents", () => {
         const cause = new EventId("event-intent-cause");
         const lease = {
             turn: new TurnId("turn-intent"),
-            holder: principalId,
+            holder: principal,
             epoch: 7
         } satisfies LeaseToken;
         const complete = eventIntent("complete", {

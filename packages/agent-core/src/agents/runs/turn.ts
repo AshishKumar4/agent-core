@@ -1,5 +1,5 @@
 import { ContentRef, Digest, RecordCodec, Revision, type JsonValue } from "../../core";
-import { PrincipalId } from "../../identity";
+import { PrincipalRef } from "../../identity";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import {
@@ -15,7 +15,7 @@ import {
     revisionFromData
 } from "../record-data";
 import { RunBranchId, RunCheckpointId, RunId, TurnInboxEntryId } from "./id";
-import { TurnLease, type LeaseToken } from "./lease";
+import { TurnLease, leaseTokenFromData, leaseTokenToData, type LeaseToken } from "./lease";
 import { requireTerminalOutcome, type TerminalOutcome } from "./outcome";
 import { RunPins } from "./pins";
 
@@ -202,7 +202,7 @@ export class Turn extends CodecRecord {
         Object.freeze(this);
     }
 
-    public claim(holder: PrincipalId, now: Date, expiresAt: Date): Turn {
+    public claim(holder: PrincipalRef, now: Date, expiresAt: Date): Turn {
         return this.transition({
             status: this.status.claim(),
             lease: this.lease.claim(holder, now, expiresAt)
@@ -217,7 +217,7 @@ export class Turn extends CodecRecord {
         });
     }
 
-    public reclaim(holder: PrincipalId, now: Date, expiresAt: Date): Turn {
+    public reclaim(holder: PrincipalRef, now: Date, expiresAt: Date): Turn {
         if (this.status.kind !== "running")
             throw invalidTurn("Only running Turns can be reclaimed");
         return this.transition({ lease: this.lease.reclaim(holder, now, expiresAt) });
@@ -370,7 +370,7 @@ export class Turn extends CodecRecord {
 
 class TurnRecordCodec extends RecordCodec<Turn> {
     public constructor() {
-        super("turn.record", { major: 1, minor: 0 });
+        super("turn.record", { major: 2, minor: 0 });
     }
     protected encodePayload(value: Turn): JsonValue {
         return value.toData();
@@ -473,7 +473,9 @@ export class TurnInboxEntry extends CodecRecord {
         }
         if (
             cancellationToken !== undefined &&
-            (!cancellationToken.turn.equals(turn) ||
+            (!(cancellationToken.turn instanceof TurnId) ||
+                !(cancellationToken.holder instanceof PrincipalRef) ||
+                !cancellationToken.turn.equals(turn) ||
                 !Number.isSafeInteger(cancellationToken.epoch) ||
                 cancellationToken.epoch < 0)
         ) {
@@ -554,7 +556,7 @@ export class TurnInboxEntry extends CodecRecord {
 
 class InboxCodec extends RecordCodec<TurnInboxEntry> {
     public constructor() {
-        super("turn.inbox-entry", { major: 1, minor: 0 });
+        super("turn.inbox-entry", { major: 2, minor: 0 });
     }
     protected encodePayload(value: TurnInboxEntry): JsonValue {
         return value.toData();
@@ -576,17 +578,11 @@ function cacheLineageFromData(value: JsonValue): TurnCacheLineage {
 }
 
 function tokenData(token: LeaseToken): JsonValue {
-    return { epoch: token.epoch, holder: token.holder.value, turn: token.turn.value };
+    return leaseTokenToData(token);
 }
 
 function tokenFromData(value: JsonValue): LeaseToken {
-    const object = requireObject(value, "Cancellation token");
-    requireExactFields(object, ["epoch", "holder", "turn"], [], "Cancellation token");
-    return Object.freeze({
-        turn: new TurnId(requireString(object["turn"], "Cancellation Turn")),
-        holder: new PrincipalId(requireString(object["holder"], "Cancellation holder")),
-        epoch: requireInteger(object["epoch"], "Cancellation epoch")
-    });
+    return leaseTokenFromData(value, "Cancellation token");
 }
 
 function requireTurnStatus(value: JsonValue | undefined): TurnStatus {

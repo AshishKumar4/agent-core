@@ -10,13 +10,16 @@ import {
 } from "../../src/authority";
 import {
     TenantOperationAuthority,
+    ResolvedOperationAuthority,
     type OperationAuthorityStatePort,
+    type OperationResolutionCandidate,
     type OperationResolutionState
 } from "../../src/composition";
 import { Digest, JsonSchema, SemVer } from "../../src/core";
-import { PackageId, PackagePin } from "../../src/definition";
+import { PackageId, PackagePin, PolicySet } from "../../src/definition";
 import {
     BindingName,
+    CapabilitySpec,
     FacetRef,
     OperationDescriptor,
     OperationName,
@@ -72,15 +75,10 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
         new GrantId("stale-grant"),
         facet
     );
-    readonly #lease = TurnLease.restore(
-        new TurnId("stale-turn"),
-        principal.principalId,
-        1,
-        new Date(100)
-    );
+    readonly #lease = TurnLease.restore(new TurnId("stale-turn"), principal, 1, new Date(100));
     readonly #token: LeaseToken = {
         turn: this.#lease.turn,
-        holder: principal.principalId,
+        holder: principal,
         epoch: this.#lease.epoch
     };
     #currentPath = new PathEpochEvidence([
@@ -88,12 +86,12 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
         ScopeEpoch.initial(scope)
     ]);
     #watermark = InvalidationWatermark.empty(tenant, owner, principal);
-    #cached: OperationResolutionState | undefined;
+    #cached: OperationResolutionCandidate | undefined;
     readonly #receipts: PreEffectReceipt[] = [];
     readonly #audits: AuditRecord[] = [];
     readonly #attempts: string[] = [];
 
-    public resolve(caller: PrincipalRef): OperationResolutionState | undefined {
+    public resolve(caller: PrincipalRef): OperationResolutionCandidate | undefined {
         if (!caller.equals(principal)) return undefined;
         if (this.#cached === undefined) this.#cached = this.buildResolution();
         return this.#cached;
@@ -156,7 +154,7 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
         return this.#attempts;
     }
 
-    public get cachedResolution(): OperationResolutionState | undefined {
+    public get cachedResolution(): OperationResolutionCandidate | undefined {
         return this.#cached;
     }
 
@@ -186,7 +184,7 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
         );
     }
 
-    private buildResolution(): OperationResolutionState {
+    private buildResolution(): OperationResolutionCandidate {
         return {
             principal,
             binding: this.binding,
@@ -194,6 +192,7 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
             watermark: this.#watermark,
             lease: this.#token,
             originalLease: this.#lease,
+            route: undefined,
             package: pin,
             placement: new InvocationPlacementPin({
                 manifest: ["bundled"],
@@ -202,11 +201,16 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
                 trust: ["bundled"],
                 selected: "bundled"
             }),
-            resolvedAt: new Date(0),
-            deadline: new Date(50),
             owner,
-            policies: [],
-            turnOwnedSession: true
+            policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 })],
+            turnOwnedSession: true,
+            turnActorAuthorityLocal: true,
+            directAuthority: new ResolvedOperationAuthority(facet, [
+                new CapabilitySpec({
+                    facetPattern: facet.value,
+                    impacts: ["observe", "externalSend"]
+                })
+            ])
         };
     }
 }
@@ -215,7 +219,7 @@ describe("stale mediated authority produces durable denial evidence (§3.4 rule 
     test("advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence", async () => {
         const state = new StaleAuthorityState();
         const authority = new TenantOperationAuthority(state, () => NOW);
-        const resolution = state.resolve(principal)!;
+        const resolution = (await authority.resolve(principal, bindingName)).resolution;
 
         // Before revocation the holder watermark is at epoch 0.
         expect(state.currentWatermark().epoch(scope)).toBe(0);
@@ -242,7 +246,7 @@ describe("stale mediated authority produces durable denial evidence (§3.4 rule 
 
         // (2) cached resolution invalidated; re-resolution yields fresh, admissible evidence.
         expect(state.cachedResolution).toBeUndefined();
-        const fresh = state.resolve(principal)!;
+        const fresh = (await authority.resolve(principal, bindingName)).resolution;
         expect(fresh.pathEpochs.equals(state.currentPath())).toBe(true);
         await expect(
             authority.authorizeMediated(fresh, sendDescriptor, inputs)
@@ -252,7 +256,7 @@ describe("stale mediated authority produces durable denial evidence (§3.4 rule 
     test("repeated stale invocations add no unbounded duplicate denial evidence", async () => {
         const state = new StaleAuthorityState();
         const authority = new TenantOperationAuthority(state, () => NOW);
-        const resolution = state.resolve(principal)!;
+        const resolution = (await authority.resolve(principal, bindingName)).resolution;
         state.revoke();
 
         for (let attempt = 0; attempt < 3; attempt += 1) {

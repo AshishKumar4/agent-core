@@ -1652,8 +1652,10 @@ creates one.
 
 ```ts
 type ItemClaimOwner =
-  | { readonly kind: "executor"; readonly token: LeaseToken }
-  | { readonly kind: "system"; readonly actor: ActorRef };
+  | { readonly kind: "executor"; readonly token: LeaseToken;
+      readonly worker: ClaimWorkerId }
+  | { readonly kind: "system"; readonly actor: ActorRef;
+      readonly worker: ClaimWorkerId };
 
 interface ItemClaim {
   readonly id: ItemClaimId;
@@ -1720,7 +1722,7 @@ compare-and-set over `(InvocationId, itemIndex)`; the first claim uses attempt o
 and requires `expiresAt > now`. Claim ownership and expiry are scheduling state,
 separate from attempt ordinal. An abandoned claim may be recovered only when
 `expiresAt <= now` and no EffectAttempt exists for that item. Its replacement retains
-the same invocation, item index, and ordinal, names a different owner, and requires a
+the same invocation, item index, and ordinal, names a different worker, and requires a
 new `expiresAt > now`. Recovery never advances the ordinal; a new ordinal is claimed
 only after the prior ordinal has a final `failed` Receipt. An executor claim embeds the
 exact LeaseToken; a system claim names its owning Actor. Only the current claim owner

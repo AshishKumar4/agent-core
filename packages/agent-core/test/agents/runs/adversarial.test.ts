@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Revision } from "../../../src/core";
-import { PrincipalId } from "../../../src/identity";
+import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { RunCommit, RunCommitCodec, validateCommitWriter } from "../../../src/agents/runs/commit";
 import { AgentId } from "../../../src/agents/id";
@@ -145,14 +145,15 @@ describe("W5 adversarial invariants", () => {
             },
             new Revision(0)
         );
+        const otherHolder = new PrincipalRef(ids.holder.tenantId, new PrincipalId("other-holder"));
         const other = value.runtime.claimTurn(
             otherId,
             new Revision(0),
-            new PrincipalId("other-holder"),
+            otherHolder,
             new Date(1000),
             new Date(5000)
         );
-        const otherToken = { turn: otherId, holder: new PrincipalId("other-holder"), epoch: 1 };
+        const otherToken = { turn: otherId, holder: otherHolder, epoch: 1 };
         const commit = new RunCommit({
             id: new RunCommitId("other-result"),
             run: ids.run,
@@ -187,13 +188,13 @@ describe("W5 adversarial invariants", () => {
         const reclaimed = value.runtime.reclaimTurn(
             ids.turn,
             value.running.revision,
-            new PrincipalId("replacement"),
+            new PrincipalRef(ids.holder.tenantId, new PrincipalId("replacement")),
             new Date(5000),
             new Date(9000),
             entry
         );
         expect(reclaimed.lease.epoch).toBe(2);
-        expect(reclaimed.lease.holder?.value).toBe("replacement");
+        expect(reclaimed.lease.holder?.principalId.value).toBe("replacement");
         expect(
             value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
         ).toEqual([entry]);

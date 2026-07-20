@@ -431,7 +431,7 @@ describe("protocol callers and authentication", () => {
                         ...envelopeInit(),
                         lease
                     })
-            ).toThrow(new TypeError("Lease token is invalid"));
+            ).toThrow(new TypeError("Lease token requires a TurnId turn, PrincipalRef holder, and non-negative epoch"));
         }
     });
 

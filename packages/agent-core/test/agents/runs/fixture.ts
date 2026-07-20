@@ -1,7 +1,7 @@
 import { ActorId, ActorRef } from "../../../src/actors";
 import { ContentRef, Digest, Revision, SemVer } from "../../../src/core";
 import { PackageId, PackagePin } from "../../../src/definition";
-import { PrincipalId } from "../../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { AgentId, AgentPolicyId, AgentProfileId, ModelPolicyId } from "../../../src/agents/id";
 import {
     AgentPolicyRevisionRecord,
@@ -54,7 +54,7 @@ export const ids = Object.freeze({
     branch: new RunBranchId("branch-main"),
     root: new RunCommitId("commit-root"),
     turn: new TurnId("turn-1"),
-    holder: new PrincipalId("principal-1")
+    holder: new PrincipalRef(new TenantId("tenant-1"), new PrincipalId("principal-1"))
 });
 
 export function digest(character: string): Digest {

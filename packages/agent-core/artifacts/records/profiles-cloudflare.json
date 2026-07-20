@@ -76,7 +76,7 @@
       "codec": "src/slates/deployment.ts#SlateDeployment.codec",
       "store": "src/slates/store.ts#SlateStore",
       "tests": [
-        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/records.test.ts#Slate records '[slate.deployment]' round-trips a strict codec 1.0 record",
         "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
       ]
     },
@@ -89,7 +89,7 @@
       "codec": "src/slates/preview.ts#SlatePreview.codec",
       "store": "src/slates/store.ts#SlateStore",
       "tests": [
-        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/records.test.ts#Slate records '[slate.preview]' round-trips a strict codec 1.0 record",
         "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
       ]
     },
@@ -102,7 +102,7 @@
       "codec": "src/slates/publication.ts#SlatePublication.codec",
       "store": "src/slates/store.ts#SlateStore",
       "tests": [
-        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/records.test.ts#Slate records '[slate.publication]' round-trips a strict codec 1.0 record",
         "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
       ]
     },
@@ -115,7 +115,7 @@
       "codec": "src/slates/resource.ts#SlateResource.codec",
       "store": "src/slates/store.ts#SlateStore",
       "tests": [
-        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/records.test.ts#Slate records '[slate.resource]' round-trips a strict codec 1.0 record",
         "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
       ]
     },
@@ -128,7 +128,7 @@
       "codec": "src/slates/slate.ts#Slate.codec",
       "store": "src/slates/store.ts#SlateStore",
       "tests": [
-        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/records.test.ts#Slate records '[slate]' round-trips a strict codec 1.0 record",
         "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
       ]
     },
@@ -165,7 +165,7 @@
       "codec": "src/slates/version.ts#SlateVersion.codec",
       "store": "src/slates/store.ts#SlateStore",
       "tests": [
-        "test/slates/records.test.ts#Slate records [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] round-trips strict codec 1.0 records",
+        "test/slates/records.test.ts#Slate records '[slate.version]' round-trips a strict codec 1.0 record",
         "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
       ]
     }

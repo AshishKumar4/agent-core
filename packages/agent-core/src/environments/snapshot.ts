@@ -78,6 +78,7 @@ class EnvironmentSnapshotCodecV1 extends RecordCodec<EnvironmentSnapshot> {
             sessionId: snapshot.sessionId.value,
             environmentRevision: snapshot.environmentRevision.value,
             generation: snapshot.generation,
+            sessionEpoch: snapshot.sessionEpoch,
             state: snapshot.state.name,
             content: snapshot.content?.value ?? null,
             recordRevision: snapshot.recordRevision.value
@@ -95,6 +96,7 @@ class EnvironmentSnapshotCodecV1 extends RecordCodec<EnvironmentSnapshot> {
                 "generation",
                 "id",
                 "recordRevision",
+                "sessionEpoch",
                 "sessionId",
                 "state"
             ],
@@ -107,6 +109,7 @@ class EnvironmentSnapshotCodecV1 extends RecordCodec<EnvironmentSnapshot> {
             new EnvironmentSessionId(requireString(object["sessionId"], "Environment session ID")),
             new Revision(requireSafeInteger(object["environmentRevision"], "Environment revision")),
             requireSafeInteger(object["generation"], "Environment generation"),
+            requireSafeInteger(object["sessionEpoch"], "Environment session epoch"),
             decodeSnapshotState(requireString(object["state"], "Environment snapshot state")),
             content === undefined ? undefined : new ContentRef(content),
             new Revision(
@@ -126,6 +129,7 @@ export class EnvironmentSnapshot {
         public readonly sessionId: EnvironmentSessionId,
         public readonly environmentRevision: Revision,
         public readonly generation: number,
+        public readonly sessionEpoch: number,
         public readonly state: EnvironmentSnapshotState,
         public readonly content: ContentRef | undefined,
         public readonly recordRevision: Revision
@@ -142,6 +146,11 @@ export class EnvironmentSnapshot {
         if (!Number.isSafeInteger(generation) || generation < 0) {
             throw new TypeError(
                 "Environment snapshot generation must be a non-negative safe integer"
+            );
+        }
+        if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) {
+            throw new TypeError(
+                "Environment snapshot session epoch must be a non-negative safe integer"
             );
         }
         if ((state.name === "ready") !== (content !== undefined)) {
@@ -177,6 +186,7 @@ export class EnvironmentSnapshot {
             this.sessionId,
             this.environmentRevision,
             this.generation,
+            this.sessionEpoch,
             state,
             content,
             advanceRevision(this.recordRevision, "Environment snapshot record revision")

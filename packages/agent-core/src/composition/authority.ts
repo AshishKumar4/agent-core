@@ -1,11 +1,13 @@
 import type { ActorRef } from "../actors";
 import { Binding, InvalidationWatermark, PathEpochEvidence } from "../authority";
-import { Digest, encodeCanonicalJson } from "../core";
-import { evaluatePolicy } from "../definition";
+import { Digest, encodeCanonicalJson, type JsonValue } from "../core";
+import { evaluatePolicy, mergePolicySets } from "../definition";
 import type { PackagePin, PolicySet } from "../definition";
 import { AgentCoreError } from "../errors";
 import {
     canonicalFacetData,
+    CapabilitySpec,
+    isFacetDataMap,
     type BindingName,
     type FacetData,
     type FacetRef,
@@ -20,18 +22,16 @@ import type { LeaseToken, TurnLease } from "../agents";
 import type { RouteReservationId } from "../interaction-references";
 import type { MediatedReplayBinding } from "../operations";
 
-export interface OperationResolutionState {
+export interface OperationResolutionEvidence {
     readonly principal: PrincipalRef;
     readonly binding: Binding;
     readonly pathEpochs: PathEpochEvidence;
     readonly watermark: InvalidationWatermark;
     readonly lease: LeaseToken | undefined;
     readonly originalLease: TurnLease | undefined;
-    readonly route?: RouteReservationId;
+    readonly route: RouteReservationId | undefined;
     readonly package: PackagePin;
     readonly placement: InvocationPlacementPin;
-    readonly resolvedAt: Date;
-    readonly deadline: Date;
     readonly owner: ActorRef;
     /**
      * The policy sets governing this resolution's scope chain. Required so a resolver
@@ -47,10 +47,131 @@ export interface OperationResolutionState {
      * and only session-scoped execute is eligible for the direct tier (SPEC §7.2).
      */
     readonly turnOwnedSession: boolean;
+    /**
+     * True only when the bundled Facet and a versioned Binding projection are local to
+     * the Actor that owns the exact Turn lease. Dedicated Run Actors without that
+     * projection must mediate even an otherwise direct-eligible operation.
+     */
+    readonly turnActorAuthorityLocal: boolean;
+    /** Effective operation authority captured from the one Grant plane at resolution. */
+    readonly directAuthority: ResolvedOperationAuthority | undefined;
 }
 
+export interface OperationResolutionCandidate extends OperationResolutionEvidence {}
+
+export class ResolvedOperationAuthority {
+    readonly #capabilities: readonly CapabilitySpec[];
+
+    public constructor(
+        public readonly facet: FacetRef,
+        capabilities: readonly CapabilitySpec[]
+    ) {
+        this.#capabilities = Object.freeze(
+            capabilities.map((capability) => CapabilitySpec.fromData(capability.toData()))
+        );
+        Object.freeze(this);
+    }
+
+    public admits(descriptor: OperationDescriptor, inputs: readonly FacetData[]): boolean {
+        return inputs.every((input) => {
+            const arguments_ = capabilityArguments(input);
+            return (
+                arguments_ !== undefined &&
+                this.#capabilities.some((capability) =>
+                    capability.matches({
+                        facet: this.facet.value,
+                        operation: descriptor.name.value,
+                        impact: descriptor.impact,
+                        arguments: arguments_
+                    })
+                )
+            );
+        });
+    }
+}
+
+export class OperationResolutionState implements OperationResolutionEvidence {
+    readonly #resolvedAt: number;
+    readonly #originalLeaseExpiresAt: number | undefined;
+    readonly #resolutionDeadline: number | undefined;
+
+    public constructor(
+        evidence: OperationResolutionEvidence,
+        resolvedAt: Date,
+        originalLeaseExpiresAt: Date | undefined,
+        resolutionDeadline: Date | undefined,
+        authority: symbol
+    ) {
+        if (authority !== operationResolutionAuthority) {
+            throw new TypeError("Operation resolution state is issued only by Tenant authority");
+        }
+        this.principal = evidence.principal;
+        this.binding = evidence.binding;
+        this.pathEpochs = evidence.pathEpochs;
+        this.watermark = evidence.watermark;
+        this.lease =
+            evidence.lease === undefined
+                ? undefined
+                : Object.freeze({
+                      turn: evidence.lease.turn,
+                      holder: evidence.lease.holder,
+                      epoch: evidence.lease.epoch
+                  });
+        this.originalLease = evidence.originalLease;
+        this.route = evidence.route;
+        this.package = evidence.package;
+        this.placement = evidence.placement;
+        this.owner = evidence.owner;
+        this.policies = Object.freeze([...evidence.policies]);
+        this.turnOwnedSession = evidence.turnOwnedSession;
+        this.turnActorAuthorityLocal = evidence.turnActorAuthorityLocal;
+        this.directAuthority = evidence.directAuthority;
+        this.#resolvedAt = resolvedAt.getTime();
+        this.#originalLeaseExpiresAt = originalLeaseExpiresAt?.getTime();
+        this.#resolutionDeadline = resolutionDeadline?.getTime();
+        Object.freeze(this);
+    }
+
+    public readonly principal: PrincipalRef;
+    public readonly binding: Binding;
+    public readonly pathEpochs: PathEpochEvidence;
+    public readonly watermark: InvalidationWatermark;
+    public readonly lease: LeaseToken | undefined;
+    public readonly originalLease: TurnLease | undefined;
+    public readonly route: RouteReservationId | undefined;
+    public readonly package: PackagePin;
+    public readonly placement: InvocationPlacementPin;
+    public readonly owner: ActorRef;
+    public readonly policies: readonly PolicySet[];
+    public readonly turnOwnedSession: boolean;
+    public readonly turnActorAuthorityLocal: boolean;
+    public readonly directAuthority: ResolvedOperationAuthority | undefined;
+
+    public get resolvedAt(): Date {
+        return new Date(this.#resolvedAt);
+    }
+
+    public get originalLeaseExpiresAt(): Date | undefined {
+        return this.#originalLeaseExpiresAt === undefined
+            ? undefined
+            : new Date(this.#originalLeaseExpiresAt);
+    }
+
+    public get resolutionDeadline(): Date | undefined {
+        return this.#resolutionDeadline === undefined
+            ? undefined
+            : new Date(this.#resolutionDeadline);
+    }
+
+    public admitsDirectAt(at: Date): boolean {
+        return this.#resolutionDeadline !== undefined && at.getTime() < this.#resolutionDeadline;
+    }
+}
+
+const operationResolutionAuthority = Symbol("operation-resolution-authority");
+
 export interface OperationAuthorityStatePort<Caller> {
-    resolve(caller: Caller, binding: BindingName): OperationResolutionState | undefined;
+    resolve(caller: Caller, binding: BindingName): OperationResolutionCandidate | undefined;
     currentBinding(key: string): Binding | undefined;
     currentPath(binding: Binding): PathEpochEvidence;
     currentWatermark(principal: PrincipalRef): InvalidationWatermark;
@@ -85,20 +206,51 @@ export interface OperationAuthorityStatePort<Caller> {
 
 export class ResolutionStamp {
     public readonly inputDigest: Digest;
+    public readonly operationDigest: Digest;
+    readonly #originalLeaseExpiresAt: number;
+    readonly #resolvedAt: number;
+    readonly #resolutionDeadline: number;
 
     public constructor(
         public readonly principal: PrincipalRef,
         public readonly binding: Binding,
         public readonly pathEpochs: PathEpochEvidence,
         public readonly lease: LeaseToken,
-        public readonly deadline: Date,
+        originalLeaseExpiresAt: Date,
+        resolvedAt: Date,
+        resolutionDeadline: Date,
+        descriptor: OperationDescriptor,
         inputs: readonly FacetData[]
     ) {
+        this.#originalLeaseExpiresAt = originalLeaseExpiresAt.getTime();
+        this.#resolvedAt = resolvedAt.getTime();
+        this.#resolutionDeadline = resolutionDeadline.getTime();
+        this.operationDigest = Digest.sha256(encodeCanonicalJson(descriptor.toData()));
         this.inputDigest = Digest.sha256(
             encodeCanonicalJson(inputs.map((input) => canonicalFacetData(input)))
         );
-        Object.freeze(this.deadline);
         Object.freeze(this);
+    }
+
+    public get originalLeaseExpiresAt(): Date {
+        return new Date(this.#originalLeaseExpiresAt);
+    }
+
+    public get resolvedAt(): Date {
+        return new Date(this.#resolvedAt);
+    }
+
+    public get resolutionDeadline(): Date {
+        return new Date(this.#resolutionDeadline);
+    }
+
+    public matches(descriptor: OperationDescriptor, inputs: readonly FacetData[]): boolean {
+        return (
+            this.operationDigest.equals(Digest.sha256(encodeCanonicalJson(descriptor.toData()))) &&
+            this.inputDigest.equals(
+                Digest.sha256(encodeCanonicalJson(inputs.map((input) => canonicalFacetData(input))))
+            )
+        );
     }
 }
 
@@ -137,16 +289,22 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
         if (resolution === undefined || !resolution.binding.resolves) {
             throw denied("Binding does not resolve for the authenticated Principal");
         }
-        requireResolution(resolution, binding);
-        return Object.freeze({ facet: resolution.binding.facet, resolution });
+        const derived = deriveResolution(resolution, binding, this.now());
+        return Object.freeze({ facet: derived.binding.facet, resolution: derived });
     }
 
     public tier(
-        resolution: OperationResolutionState,
+        resolution: OperationResolutionEvidence,
         descriptor: OperationDescriptor,
         hasInterceptors: boolean
     ): "direct" | "mediated" {
-        if (hasInterceptors) {
+        if (
+            hasInterceptors ||
+            resolution.lease === undefined ||
+            !resolution.turnActorAuthorityLocal ||
+            resolution.directAuthority === undefined ||
+            mergePolicySets(resolution.policies).maxDirectRevocationWindowMs === undefined
+        ) {
             return "mediated";
         }
         return evaluatePolicy({
@@ -164,18 +322,23 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
     ): ResolutionStamp | undefined {
         const at = this.now();
         const token = resolution.lease;
+        const deadline = resolution.resolutionDeadline;
+        const originalLeaseExpiresAt = resolution.originalLeaseExpiresAt;
+        const watermark = this.state.currentWatermark(resolution.principal);
         if (
             token === undefined ||
+            deadline === undefined ||
+            originalLeaseExpiresAt === undefined ||
+            !token.holder.equals(resolution.principal) ||
+            !resolution.turnActorAuthorityLocal ||
             resolution.placement.selected !== "bundled" ||
-            at.getTime() >= resolution.deadline.getTime() ||
-            !sameBinding(this.state.currentBinding(resolution.binding.key), resolution.binding) ||
-            !this.state.currentPath(resolution.binding).equals(resolution.pathEpochs) ||
-            watermarkStale(
-                this.state.currentWatermark(resolution.principal),
-                resolution.pathEpochs
-            ) ||
+            this.tier(resolution, descriptor, false) !== "direct" ||
+            !resolution.admitsDirectAt(at) ||
+            !watermark.holder.equals(resolution.principal) ||
+            !watermark.owner.equals(resolution.owner) ||
+            watermarkStale(watermark, resolution.pathEpochs) ||
             this.state.currentLease(token)?.admits(token, at) !== true ||
-            !this.state.admits(resolution, descriptor, inputs, at)
+            resolution.directAuthority?.admits(descriptor, inputs) !== true
         ) {
             return undefined;
         }
@@ -184,7 +347,10 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
             resolution.binding,
             resolution.pathEpochs,
             token,
-            resolution.deadline,
+            originalLeaseExpiresAt,
+            resolution.resolvedAt,
+            deadline,
+            descriptor,
             inputs
         );
     }
@@ -196,13 +362,14 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
     ): Promise<MediatedAuthorityIntent> {
         const at = this.now();
         if (
-            at.getTime() >= resolution.deadline.getTime() ||
             !sameBinding(this.state.currentBinding(resolution.binding.key), resolution.binding) ||
             !this.state.currentPath(resolution.binding).equals(resolution.pathEpochs) ||
             watermarkStale(
                 this.state.currentWatermark(resolution.principal),
                 resolution.pathEpochs
             ) ||
+            (resolution.lease !== undefined &&
+                !resolution.lease.holder.equals(resolution.principal)) ||
             (resolution.lease !== undefined &&
                 this.state.currentLease(resolution.lease)?.admits(resolution.lease, at) !== true) ||
             !this.state.admits(resolution, descriptor, inputs, at)
@@ -240,7 +407,10 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
                       digest: Digest.sha256(
                           encodeCanonicalJson({
                               epoch: authorization.lease.epoch,
-                              holder: authorization.lease.holder.value,
+                              holder: {
+                                  principal: authorization.lease.holder.principalId.value,
+                                  tenant: authorization.lease.holder.tenantId.value
+                              },
                               turn: authorization.lease.turn.value
                           })
                       )
@@ -300,25 +470,62 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
     }
 }
 
-function requireResolution(resolution: OperationResolutionState, name: BindingName): void {
+function deriveResolution(
+    candidate: OperationResolutionCandidate,
+    name: BindingName,
+    resolvedAt: Date
+): OperationResolutionState {
+    if (!Number.isFinite(resolvedAt.getTime())) {
+        throw denied("Authority resolver returned an invalid resolution time");
+    }
     if (
-        !resolution.binding.name.equals(name) ||
-        !resolution.watermark.holder.equals(resolution.principal) ||
-        !resolution.watermark.owner.equals(resolution.owner) ||
-        resolution.deadline.getTime() < resolution.resolvedAt.getTime() ||
-        (resolution.lease === undefined) !== (resolution.originalLease === undefined) ||
-        (resolution.lease === undefined) === (resolution.route === undefined)
+        !candidate.binding.name.equals(name) ||
+        !candidate.watermark.holder.equals(candidate.principal) ||
+        !candidate.watermark.owner.equals(candidate.owner) ||
+        (candidate.lease === undefined) !== (candidate.originalLease === undefined) ||
+        (candidate.lease === undefined) === (candidate.route === undefined) ||
+        (candidate.lease !== undefined && !candidate.lease.holder.equals(candidate.principal)) ||
+        (candidate.directAuthority !== undefined &&
+            !candidate.directAuthority.facet.equals(candidate.binding.facet))
     ) {
         throw denied("Authority resolver returned substituted resolution evidence");
     }
-    if (
-        resolution.lease !== undefined &&
-        (resolution.originalLease?.expiresAt === undefined ||
-            resolution.originalLease.admits(resolution.lease, resolution.resolvedAt) !== true ||
-            resolution.deadline.getTime() > resolution.originalLease.expiresAt.getTime())
-    ) {
-        throw denied("Resolution deadline exceeds the original Turn lease");
+
+    let originalLeaseExpiresAt: Date | undefined;
+    let resolutionDeadline: Date | undefined;
+    if (candidate.lease !== undefined) {
+        const originalLease = candidate.originalLease;
+        originalLeaseExpiresAt = originalLease?.expiresAt;
+        if (
+            originalLease === undefined ||
+            originalLeaseExpiresAt === undefined ||
+            originalLease.admits(candidate.lease, resolvedAt) !== true
+        ) {
+            throw denied("Authority resolution requires the exact current Turn lease");
+        }
+        const window = mergePolicySets(candidate.policies).maxDirectRevocationWindowMs;
+        if (window !== undefined) {
+            const windowDeadline = resolvedAt.getTime() + window;
+            if (!Number.isSafeInteger(windowDeadline)) {
+                throw denied("Direct revocation deadline exceeds the safe time range");
+            }
+            resolutionDeadline = new Date(
+                Math.min(originalLeaseExpiresAt.getTime(), windowDeadline)
+            );
+        }
     }
+    return new OperationResolutionState(
+        candidate,
+        resolvedAt,
+        originalLeaseExpiresAt,
+        resolutionDeadline,
+        operationResolutionAuthority
+    );
+}
+
+function capabilityArguments(input: FacetData): Readonly<Record<string, JsonValue>> | undefined {
+    const canonical = canonicalFacetData(input);
+    return isFacetDataMap(canonical) ? canonical : undefined;
 }
 
 function sameBinding(current: Binding | undefined, expected: Binding): boolean {

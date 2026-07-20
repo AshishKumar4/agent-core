@@ -1,9 +1,12 @@
 import { Digest } from "../../../core";
+import type { ActorRef } from "../../../actors";
 import { AgentCoreError } from "../../../errors";
 import {
     AuditRecord,
     InvocationPublicationOutbox,
     MediatedReplayRecord,
+    type AuditAppendContext,
+    type AuditKind,
     type InvocationEvidencePersistence,
     type InvocationReplayPersistence
 } from "../../../invocations";
@@ -11,8 +14,17 @@ import type { AuditRecordId } from "../../../interaction-references";
 import { TransactionalSqlite, type SqliteRow } from "../sqlite";
 
 export interface SqliteInvocationAuditAppendPort {
-    get(transaction: TransactionalSqlite, id: AuditRecordId): AuditRecord | undefined;
-    append(transaction: TransactionalSqlite, record: AuditRecord): void;
+    findAudit(transaction: TransactionalSqlite, id: AuditRecordId): AuditRecord | undefined;
+    findAuditByEvidence(
+        transaction: TransactionalSqlite,
+        actor: ActorRef,
+        kind: AuditKind
+    ): AuditRecord | undefined;
+    appendAudit(
+        transaction: TransactionalSqlite,
+        record: AuditRecord,
+        context?: AuditAppendContext
+    ): void;
 }
 
 const CREATE_REPLAY_IDENTITIES = `CREATE TABLE IF NOT EXISTS invocation_mediated_replay_identities (
@@ -118,12 +130,24 @@ export class SqliteInvocationMediationPersistence
         );
     }
 
-    public appendAudit(transaction: TransactionalSqlite, record: AuditRecord): void {
-        this.audits.append(transaction, record);
+    public appendAudit(
+        transaction: TransactionalSqlite,
+        record: AuditRecord,
+        context?: AuditAppendContext
+    ): void {
+        this.audits.appendAudit(transaction, record, context);
     }
 
     public audit(transaction: TransactionalSqlite, id: AuditRecordId): AuditRecord | undefined {
-        return this.audits.get(transaction, id);
+        return this.audits.findAudit(transaction, id);
+    }
+
+    public findAuditByEvidence(
+        transaction: TransactionalSqlite,
+        actor: ActorRef,
+        kind: AuditKind
+    ): AuditRecord | undefined {
+        return this.audits.findAuditByEvidence(transaction, actor, kind);
     }
 
     public publication(
