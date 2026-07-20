@@ -223,7 +223,8 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
 
     test("reports building incomplete and rejects final incomplete", async () => {
         const fixture = await ledgerFixture(true);
-        expect(runFixture(fixture).status).toBe(0);
+        const building = runFixture(fixture);
+        expect(building.status, building.stderr).toBe(0);
         await writeFile(
             resolve(fixture, "conformance/stage.json"),
             `${JSON.stringify({ edition: "1.0.0", stage: "building" }, null, 2)}\n`,
@@ -232,6 +233,19 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const final = runFixture(fixture, "final");
         expect(final.status).toBe(1);
         expect(final.stderr).toContain("stage.json to be final");
+    });
+
+    test("rejects malformed conformance maturity before interpreting it", async () => {
+        const fixture = await ledgerFixture(true);
+        await writeFile(
+            resolve(fixture, "conformance/stage.json"),
+            `${JSON.stringify({ edition: "1.0.0", stage: "almost-final" }, null, 2)}\n`,
+            "utf8"
+        );
+
+        const result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("must be building or final");
     });
 
     test("declares every SPEC/formal impact without extending formal claims", async () => {
@@ -265,16 +279,17 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
             "AgentCore.approval_continuation_validates_persisted_exact_intent"
         );
         expect(approval?.theorems).toContain("AgentCore.malformed_first_attempt_cannot_continue");
-        expect(authority?.theorems).toContain(
+        expect(authority?.theorems).not.toContain(
             "AgentCore.post_issuance_watermark_cannot_cancel_permit"
         );
+        expect(authority?.boundary).toContain("have no theorem claim");
         expect(structural?.theorems).toContain("AgentCore.replay_preserves_item_order_and_keys");
         expect(
             traceability.nonClaims.find((item) => item.id === "NC-INTERCEPTORS")?.summary
         ).toContain("structural ordered per-item");
         expect(
             traceability.nonClaims.find((item) => item.id === "NC-CLOUDFLARE-BEHAVIOR")?.summary
-        ).toContain("post-issuance watermark");
+        ).toContain("are not modeled");
 
         const runGraph = await readFile(
             resolve(packageRoot, "formal/AgentCore/RunGraph.lean"),
@@ -332,7 +347,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         markVerified(
             requirement,
             "src/core/id.ts#MissingSymbol",
-            `test/core/missing.test.ts#[${requirement.id}] missing`
+            "test/core/missing.test.ts#describes the missing behavior"
         );
         await addFragment(fixture, "foundation.json", "W1", requirement);
         let result = runFixture(fixture);
@@ -342,7 +357,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         markVerified(
             requirement,
             "src/core/id.ts#TextId",
-            `test/core/missing.test.ts#[${requirement.id}] missing`
+            "test/core/missing.test.ts#describes the missing behavior"
         );
         await addFragment(fixture, "foundation.json", "W1", requirement);
         result = runFixture(fixture);

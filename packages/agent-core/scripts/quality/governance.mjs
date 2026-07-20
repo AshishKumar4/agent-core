@@ -25,7 +25,7 @@ import {
     validateOwnershipPaths,
     validateRemediationManifest
 } from "./ownership.mjs";
-import { verifyCompletion } from "./completion.mjs";
+import { verifyCompletionArtifacts } from "./completion.mjs";
 import {
     loadValidatedRequestArchive,
     normalizeResolutions,
@@ -300,7 +300,7 @@ for (const resolution of normalizedResolutions) {
         throw new TypeError(`${resolution.source} has an invalid resolution state`);
     }
     if (resolution.completion !== null) {
-        verifyCompletion(`Resolution ${resolution.source}`, resolution.completion);
+        verifyCompletionArtifacts(`Resolution ${resolution.source}`, resolution.completion);
     }
 }
 let requestArchiveBySource = new Map();
@@ -439,7 +439,7 @@ for (const disposition of dispositions.waves) {
         ) {
             throw new TypeError(`${disposition.owner} completed disposition is malformed`);
         }
-        verifyCompletion(`${disposition.owner} disposition`, {
+        verifyCompletionArtifacts(`${disposition.owner} disposition`, {
             commit: disposition.commit,
             tree: disposition.tree,
             artifacts: disposition.artifacts
@@ -624,7 +624,7 @@ for (const transition of transitions) {
             ) {
                 throw new TypeError("W9 completion differs from its transition evidence");
             }
-            verifyCompletion("W9 closure", {
+            verifyCompletionArtifacts("W9 closure", {
                 commit: disposition.commit,
                 tree: disposition.tree,
                 artifacts: disposition.artifacts
@@ -721,7 +721,7 @@ async function validated(schemaName, documentName) {
 }
 
 function verifyTransitionCompletion(transition) {
-    verifyCompletion(transition.id, transition.completion);
+    verifyCompletionArtifacts(transition.id, transition.completion);
 }
 
 function verifyCommitTree(label, commit, tree) {

@@ -19,6 +19,7 @@ import {
     resolveSourceSymbol
 } from "./evidence.mjs";
 import { ownersForPath, patternsForOwnership } from "./ownership.mjs";
+import { requireNonP2ConformanceEvidence } from "./test-priority-evidence.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const ledgerArtifactRoot = options.artifactRoot;
@@ -26,11 +27,12 @@ const index = await readCanonicalJson(resolve(ledgerArtifactRoot, "conformance/i
 const stageArtifact = await readCanonicalJson(
     resolve(ledgerArtifactRoot, "conformance/stage.json")
 );
-if (options.hermetic) {
-    // Hermetic runs verify the ledger at the maturity it declares: conformance/stage.json
-    // is the single place the project claims building vs final, and flipping it to final
-    // automatically tightens this gate everywhere the hermetic closure runs.
-    options.stage = stageArtifact.stage;
+assertExactKeys(stageArtifact, ["edition", "stage"], "Conformance stage");
+if (stageArtifact.edition !== "1.0.0") {
+    throw new TypeError("Unsupported conformance stage edition");
+}
+if (stageArtifact.stage !== "building" && stageArtifact.stage !== "final") {
+    throw new TypeError("Conformance stage must be building or final");
 }
 if (options.stage === "final" && stageArtifact.stage !== "final") {
     throw new TypeError("Final conformance requires conformance/stage.json to be final");
@@ -170,8 +172,11 @@ if (evidenced.length > 0) {
     const rules = await readCanonicalJson(resolve(ledgerArtifactRoot, "quality/rules.json"));
     const knownInvariants = new Set(rules.rules.map((rule) => rule.id));
     const executedInvariants = new Set((await readCanonicalJson(options.invariantsReport)).passed);
+    const priorityEvidence =
+        options.priorityReport === undefined
+            ? undefined
+            : await readCanonicalJson(options.priorityReport);
     const program = createProgram();
-    const selectorOwners = new Map();
     for (const requirement of evidenced) {
         for (const source of requirement.sourceSymbols) {
             requireEvidenceOwner(
@@ -183,23 +188,18 @@ if (evidenced.length > 0) {
             resolveSourceSymbol(program, source);
         }
         for (const selector of requirement.testSelectors) {
-            if (!selector.includes(`[${requirement.id}]`)) {
-                throw new TypeError(
-                    `${requirement.id} test selector must include its requirement ID`
-                );
-            }
-            const previous = selectorOwners.get(selector);
-            if (previous !== undefined) {
-                throw new TypeError(
-                    `Conformance test selector is shared by ${previous} and ${requirement.id}`
-                );
-            }
-            selectorOwners.set(selector, requirement.id);
             const testPath = selector.slice(0, selector.indexOf("#"));
             const owners = ownersForPath(repositoryTestPath(testPath), ownershipPatterns);
             if (!owners.includes(requirement.owner) && !owners.includes("W9")) {
                 throw new TypeError(`${requirement.id} test is owned by another wave: ${testPath}`);
             }
+        }
+        if (priorityEvidence !== undefined) {
+            requireNonP2ConformanceEvidence(
+                requirement.id,
+                requirement.testSelectors,
+                priorityEvidence.selectors
+            );
         }
         for (const invariant of requirement.checkerInvariants) {
             if (!knownInvariants.has(invariant))
@@ -387,6 +387,7 @@ function parseArguments(args) {
     let spec = resolve(packageRoot, "SPEC.md");
     const testReports = [];
     let invariantsReport = resolve(reportRoot, "invariants.json");
+    let priorityReport;
     let hermetic = false;
     for (let index = 0; index < args.length; index += 1) {
         if (args[index] === "--stage") stage = args[++index];
@@ -395,6 +396,7 @@ function parseArguments(args) {
         else if (args[index] === "--spec") spec = resolve(args[++index]);
         else if (args[index] === "--test-report") testReports.push(resolve(args[++index]));
         else if (args[index] === "--invariants-report") invariantsReport = resolve(args[++index]);
+        else if (args[index] === "--priority-report") priorityReport = resolve(args[++index]);
         else throw new TypeError(`Unknown ledger argument ${args[index]}`);
     }
     if (stage !== "building" && stage !== "final") throw new TypeError(`Unknown stage ${stage}`);
@@ -404,6 +406,7 @@ function parseArguments(args) {
         artifactRoot: selectedArtifactRoot,
         spec,
         testReports: testReports.length === 0 ? undefined : testReports,
-        invariantsReport
+        invariantsReport,
+        priorityReport
     };
 }

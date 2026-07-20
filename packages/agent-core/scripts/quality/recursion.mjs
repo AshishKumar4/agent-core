@@ -22,7 +22,8 @@ const checkerEntrypoints = new Set([
         "migrations",
         "records",
         "requests",
-        "seams"
+        "seams",
+        "test-priorities"
     ].map((name) => `quality/${name}.mjs`)
 ]);
 

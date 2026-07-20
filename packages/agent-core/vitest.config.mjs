@@ -12,10 +12,30 @@ export default defineConfig({
     },
     test: {
         environment: "node",
+        // Priority measures regression impact, independently of whether a test is
+        // deterministic, model-based, differential, fault-driven, or long-running.
+        // Every priority remains release-blocking; final classification permits no
+        // untagged product assertion.
+        tags: [
+            {
+                name: "p0",
+                description:
+                    "Critical safety, authority, durability, and irreversible-integrity behavior"
+            },
+            {
+                name: "p1",
+                description: "Required runtime correctness, recovery, and integration behavior"
+            },
+            {
+                name: "p2",
+                description: "Compatibility, diagnostics, and exhaustive edge behavior"
+            }
+        ],
+        strictTags: true,
         include: ["test/**/*.test.ts"],
-        // The multi-agent governance harness (request/scope/worktree machinery) is not
-        // hermetic: it requires the orchestration environment's git state. Product
-        // verification never depends on it; run it explicitly with test:governance.
+        // The quality harness has its own configuration and quality-DAG node. Keeping
+        // it out of product coverage prevents checker implementation from affecting
+        // the runtime coverage denominator.
         exclude: ["test/quality/**", "**/node_modules/**"],
         coverage: {
             provider: "v8",

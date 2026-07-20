@@ -15,11 +15,13 @@
     "src/core/index.ts",
     "src/content/index.ts",
     "src/definition/index.ts",
+    "src/environments/public.ts",
     "src/facets-public.ts",
     "src/identity/index.ts",
     "src/invocations/index.ts",
     "src/operations/index.ts",
     "src/protocol/public.ts",
+    "src/slates/public.ts",
     "src/substrates/sqlite/index.ts"
   ],
   "include": [],

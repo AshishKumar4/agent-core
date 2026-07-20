@@ -22,6 +22,12 @@ let fixture: Awaited<ReturnType<typeof loadFixture>>;
 
 beforeEach(async () => {
     fixture = await loadFixture();
+    fixture.context.seed.baseCommit = fixture.document.approvals[0]!.original.baseCommit;
+    for (const approval of fixture.document.approvals) {
+        fixture.context.seed.files[approval.path] = {
+            sha256: approval.original.sha256
+        };
+    }
 });
 
 describe("source-removal coverage governance", () => {

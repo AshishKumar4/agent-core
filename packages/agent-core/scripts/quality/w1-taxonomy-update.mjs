@@ -1,4 +1,4 @@
-// Regenerates artifacts/integration/request-archive/W1/error-taxonomy.json (v3) from a
+// Regenerates artifacts/quality/w1-error-taxonomy.json (v3) from a
 // live scan of the audited sources. Existing entries are matched by anchor identity and
 // keep their id, classification, rationale, and testedBy; a scan site with no matching
 // entry fails the run and must be classified by a reviewer before the artifact updates.
@@ -9,10 +9,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const artifactPath = resolve(
-    packageRoot,
-    "artifacts/integration/request-archive/W1/error-taxonomy.json"
-);
+const artifactPath = resolve(packageRoot, "artifacts/quality/w1-error-taxonomy.json");
 const coverage = readFileSync(
     resolve(packageRoot, "artifacts/integration/request-archive/W1/coverage.md"),
     "utf8"

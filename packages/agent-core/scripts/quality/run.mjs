@@ -20,6 +20,7 @@ import { dependencyClosure, hermeticEdges, topologicalOrder, validateGraph } fro
 import { validateNonrecursiveQualityScripts } from "./recursion.mjs";
 import { cloudflareRoot, cloudflareTestLanes, hasCloudflareSource } from "./workspaces.mjs";
 import { requireSuccessfulTestReport } from "./evidence.mjs";
+import { discoverPriorityTestFiles, validatePriorityLanes } from "./test-priorities.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const runCommit = gitIdentity(["rev-parse", "HEAD"]);
@@ -221,6 +222,9 @@ async function execute(node, context) {
         },
         dag: () => undefined,
         governance: () => runNode("governance", context),
+        "governance-tests": () => runQualityTests("governance", "vitest.governance.config.mjs"),
+        "quality-tests": () => runQualityTests("quality", "vitest.quality.config.mjs"),
+        "priority-tests": () => runPriorityTests(),
         scope: async () => {
             if (context.stage === "final") {
                 await validateCompleteOwnership();
@@ -239,7 +243,11 @@ async function execute(node, context) {
         migrations: () => runNode("migrations", context),
         architecture: () => runNode("architecture", context),
         ledger: () =>
-            runNode("ledger", context, false, options.stage === "hermetic" ? ["--hermetic"] : []),
+            runNode("ledger", context, false, [
+                ...(options.stage === "hermetic" ? ["--hermetic"] : []),
+                "--priority-report",
+                resolve(reportRoot, "test-priorities.json")
+            ]),
         tests: async () => {
             const coreReport = resolve(reportRoot, "tests/vitest.json");
             run(
@@ -289,7 +297,16 @@ async function execute(node, context) {
                 }
             }
         },
+        "test-priorities": () => runNode("test-priorities", context),
         coverage: () => runNode("coverage", context),
+        mutation: () =>
+            run(
+                process.execPath,
+                [resolve(packageRoot, "scripts/quality/mutation.mjs"), "--gate"],
+                {
+                    cwd: packageRoot
+                }
+            ),
         agents: () => runNode("agents", context),
         invariants: () =>
             runNode(
@@ -327,6 +344,46 @@ async function execute(node, context) {
     const command = commands[node];
     if (command === undefined) throw new TypeError(`Quality node ${node} has no command`);
     await command();
+}
+
+async function runQualityTests(name, config) {
+    const report = resolve(reportRoot, "tests", `${name}.json`);
+    run(
+        process.execPath,
+        [
+            resolve(packageRoot, "node_modules/vitest/vitest.mjs"),
+            "run",
+            "--config",
+            config,
+            "--reporter=json",
+            `--outputFile=${report}`
+        ],
+        { cwd: packageRoot }
+    );
+    await requireSuccessfulTestReport(report);
+}
+
+async function runPriorityTests() {
+    const files = await discoverPriorityTestFiles();
+    const reports = {};
+    for (const priority of ["p0", "p1", "p2"]) {
+        const report = resolve(reportRoot, "tests", `priority-${priority}.json`);
+        run(
+            process.execPath,
+            [
+                resolve(packageRoot, "node_modules/vitest/vitest.mjs"),
+                "run",
+                ...files[priority],
+                "--tagsFilter",
+                priority,
+                "--reporter=json",
+                `--outputFile=${report}`
+            ],
+            { cwd: packageRoot }
+        );
+        reports[priority] = await readCanonicalJson(report);
+    }
+    validatePriorityLanes(reports);
 }
 
 function runNode(name, context, orchestrated = false, extraArgs = []) {

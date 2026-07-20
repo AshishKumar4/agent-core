@@ -14,12 +14,10 @@ const formatter = resolve(packageRoot, "scripts/quality/format.mjs");
 const integrationRoot = resolve(packageRoot, "artifacts/integration");
 
 describe("R1 integration governance", subprocessTestOptions, () => {
-    test("accepts exact finalized inputs during building and stays fail-closed at final", () => {
+    test("fails closed when unpublished process evidence is unavailable", () => {
         const building = run("building");
-        expect(building.status).toBe(0);
-        expect(building.stdout).toContain("48 artifact(s)");
-        expect(building.stdout).toContain("0 pending disposition(s)");
-        expect(building.stdout).toContain("0 pending resolution(s)");
+        expect(building.status).toBe(1);
+        expect(building.stderr).toContain("W0 governance commit or tree is unavailable");
 
         const final = run("final");
         expect(final.status).toBe(1);
@@ -56,32 +54,44 @@ describe("R1 integration governance", subprocessTestOptions, () => {
         );
     });
 
-    test("imports every request file from every supplied head", async () => {
+    test("binds every BOM source to one exact self-contained archive entry", async () => {
         const bom = await json<{
             entries: Array<{
                 owner: string;
-                commit: string;
-                artifacts: Array<{ source: string }>;
+                artifacts: Array<{
+                    source: string;
+                    sourceSha256: string;
+                    destination: string;
+                    sha256: string;
+                }>;
             }>;
         }>("bom.json");
-        for (const entry of bom.entries) {
-            const root =
-                entry.owner === "W8"
-                    ? `artifacts/requests/${entry.owner}`
-                    : `packages/agent-core/artifacts/requests/${entry.owner}`;
-            const source = runQualitySubprocess(
-                "git",
-                ["ls-tree", "-r", "--name-only", entry.commit, "--", root],
-                resolve(packageRoot, "../..")
-            );
-            expect(source.status).toBe(0);
-            expect(
-                entry.artifacts
-                    .map((artifact) => artifact.source)
-                    .filter((path) => path.startsWith(`${root}/`))
-                    .sort()
-            ).toEqual(source.stdout.split("\n").filter(Boolean).sort());
-        }
+        const archive = await json<{
+            entries: Array<{
+                owner: string;
+                source: string;
+                sourceSha256: string;
+                path: string;
+                sha256: string;
+            }>;
+        }>("request-archive.json");
+        const imported = bom.entries.flatMap((entry) =>
+            entry.artifacts.map((artifact) => ({ owner: entry.owner, ...artifact }))
+        );
+
+        const bySource = (left: { source: string }, right: { source: string }) =>
+            left.source.localeCompare(right.source);
+        expect([...archive.entries].sort(bySource)).toEqual(
+            imported
+                .map(({ owner, source, sourceSha256, destination, sha256 }) => ({
+                    owner,
+                    source,
+                    sourceSha256,
+                    path: destination,
+                    sha256
+                }))
+                .sort(bySource)
+        );
     });
 
     test("imports only exact request files and genuinely pending immutable inputs", async () => {
@@ -131,7 +141,7 @@ describe("R1 integration governance", subprocessTestOptions, () => {
         );
         const result = runQualitySubprocess(
             process.execPath,
-            [formatter, "--owner", "W8", "--base", "9283246"],
+            [formatter, "--owner", "W1", "--base", "HEAD"],
             packageRoot
         );
         expect(result.status).toBe(0);

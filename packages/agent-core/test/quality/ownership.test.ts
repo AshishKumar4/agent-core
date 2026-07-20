@@ -7,6 +7,7 @@ import {
     loadTransitionAuthorization,
     loadOwnership,
     ownersForPath,
+    validateClosureManifest,
     validateCompleteOwnership,
     validateCandidateChangeManifest,
     validateCandidateWorktreeManifest,
@@ -17,14 +18,9 @@ import { runQualitySubprocess } from "./subprocess";
 
 const transitionId = "TRANSITION-FOUNDATION-PUBLIC-CONTRACT";
 const candidateTransitionId = "TRANSITION-W9-INTEGRATION-CANDIDATE";
-const candidateBase = "aedf0d7f285483d986084883601481b697b723c7";
-const candidateCommit = "38872d38a5bc4077f048031680f6db90da49d0ee";
-const closureCommit = "03b1cba72da14c9fc4f93874ba35c7183ba53911";
-const generatedReportRoots = [
-    "reports/",
-    "packages/agent-core/reports/",
-    "packages/agent-core-cloudflare/reports/"
-];
+const candidateBase = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+const completionBase = "8d8ce1debed562c0d35d993fb47ccc7041cc0c70";
+const completionCommit = "e841e800f563774b03d638dd7b1a15f11813cfb5";
 type CandidateEntry = {
     path: string;
     owner: string;
@@ -170,45 +166,28 @@ describe("exclusive worktree ownership", () => {
         );
     });
 
-    test(
-        "authorizes W0 only for the exact participant-owned closure manifest",
-        { timeout: 30_000 },
-        async () => {
-            const { patterns } = await loadOwnership();
-            const paths = changedPathsBetween(candidateCommit, closureCommit);
-            const authorization = await loadTransitionAuthorization(
-                candidateTransitionId,
-                "W0",
-                patterns,
-                paths,
-                candidateCommit
-            );
-            expect(paths).toHaveLength(authorization.allowedForeignPaths.size);
-            expect(authorization.deletedPaths?.size).toBe(48);
-            expect(authorization.allowedForeignDeletions?.size).toBe(48);
-            expect(
-                paths.some((path) => generatedReportRoots.some((root) => path.startsWith(root)))
-            ).toBe(false);
-            expect(authorization.participants).toEqual(
-                new Set(Array.from({ length: 10 }, (_, i) => `W${i}`))
-            );
-            expect(validateOwnershipPaths("W0", paths, patterns, authorization)).toEqual([]);
-            expect(
-                validateOwnershipPaths(
-                    "W0",
-                    ["packages/agent-core/src/core/base64.ts"],
-                    patterns,
-                    authorization
-                )
-            ).toEqual([
-                {
-                    path: "packages/agent-core/src/core/base64.ts",
-                    owners: ["W1"],
-                    reason: "owned by W1, not W0"
-                }
-            ]);
-        }
-    );
+    test("binds a closure manifest to reachable commit objects and exact owners", async () => {
+        const { patterns } = await loadOwnership();
+        const entries = entriesBetween(completionBase, completionCommit, patterns);
+        const transition = {
+            id: candidateTransitionId,
+            inputs: [{ owner: "W0" }, { owner: "W9" }],
+            completion: { commit: completionBase },
+            closureManifest: {
+                base: completionBase,
+                commit: completionCommit,
+                tree: git(["show", "-s", "--format=%T", completionCommit]),
+                sha256: candidateManifestSha256(entries),
+                paths: entries
+            }
+        };
+
+        expect(validateClosureManifest(transition, patterns)).toEqual(entries);
+        transition.closureManifest.tree = "0".repeat(40);
+        expect(() => validateClosureManifest(transition, patterns)).toThrow(
+            "closure commit or tree is unavailable"
+        );
+    });
 
     test("rejects omitted and extra candidate paths", () => {
         const patterns = candidatePatterns();
@@ -252,27 +231,11 @@ describe("exclusive worktree ownership", () => {
         "binds completed candidates to every immutable commit blob",
         { timeout: 60_000 },
         async () => {
-            const base = candidateBase;
-            const candidate = candidateCommit;
+            const base = completionBase;
+            const candidate = completionCommit;
             const paths = changedPathsBetween(base, candidate);
             const { patterns } = await loadOwnership();
-            const entries = paths.map((path) => {
-                const sourceBlob = git(["rev-parse", `${base}:${path}`], false) ?? "absent";
-                const candidateBlob =
-                    git(["rev-parse", `${candidate}:${path}`], false) ?? "deleted";
-                return {
-                    path,
-                    owner: ownersForPath(path, patterns)[0]!,
-                    sourceBlob,
-                    candidateBlob,
-                    disposition:
-                        sourceBlob === "absent"
-                            ? ("added" as const)
-                            : candidateBlob === "deleted"
-                              ? ("deleted" as const)
-                              : ("modified" as const)
-                };
-            });
+            const entries = entriesBetween(base, candidate, patterns);
             const transition = {
                 id: candidateTransitionId,
                 inputs: Array.from({ length: 10 }, (_, index) => ({ owner: `W${index}` })),
@@ -387,6 +350,34 @@ function candidatePatterns() {
         ["owned/**", "W9"],
         ["shared/**", "W0"]
     ]);
+}
+
+function entriesBetween(
+    base: string,
+    candidate: string,
+    patterns: ReadonlyMap<string, string>
+): CandidateEntry[] {
+    return changedPathsBetween(base, candidate).map((path) => {
+        const sourceBlob = git(["rev-parse", `${base}:${path}`], false) ?? "absent";
+        const candidateBlob = git(["rev-parse", `${candidate}:${path}`], false) ?? "deleted";
+        const owners = ownersForPath(path, patterns);
+        const [owner, ...additionalOwners] = owners;
+        if (owner === undefined || additionalOwners.length > 0) {
+            throw new TypeError(`Fixture path has no exact owner: ${path}`);
+        }
+        return {
+            path,
+            owner,
+            sourceBlob,
+            candidateBlob,
+            disposition:
+                sourceBlob === "absent"
+                    ? "added"
+                    : candidateBlob === "deleted"
+                      ? "deleted"
+                      : "modified"
+        };
+    });
 }
 
 function candidateTransition(entries: CandidateEntry[]) {

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { artifactRoot, fileSha256, readCanonicalJson, repositoryRoot } from "./project.mjs";
-import { verifyCompletion } from "./completion.mjs";
+import { verifyCompletionArtifacts } from "./completion.mjs";
 import { extractRequestObligations } from "./request-obligations.mjs";
 
 export const requestArchivePrefix = "packages/agent-core/artifacts/integration/request-archive/";
@@ -48,7 +48,7 @@ export async function validateFinalRequestArchive({
     archiveFiles,
     resolvePath,
     completionRoot,
-    verifyCompletionEvidence = verifyCompletion,
+    verifyCompletionEvidence = verifyCompletionArtifacts,
     requireOutcome = false
 }) {
     const expected = bom.entries
@@ -200,7 +200,7 @@ async function validateOutcome(resolution, completionRoot, archiveBytes) {
             `Request resolution lacks state-specific outcome: ${resolution.source}`
         );
     }
-    verifyCompletion(
+    verifyCompletionArtifacts(
         `Outcome ${resolution.source}`,
         {
             commit: resolution.outcome.commit,
