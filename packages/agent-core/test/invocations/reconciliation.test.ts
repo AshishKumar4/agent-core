@@ -343,7 +343,9 @@ describe("InvocationReconciler", () => {
 
     test(
         "generated restart and response-loss schedules converge without duplicating the effect",
-        { tags: "p0" },
+        // Generated schedules run hundreds of reconciliations; instrumented runs
+        // (mutation sandboxes) need far more than the default budget.
+        { tags: "p0", timeout: 120_000 },
         async () => {
             await fc.assert(
                 fc.asyncProperty(
