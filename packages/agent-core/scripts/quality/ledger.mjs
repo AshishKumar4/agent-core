@@ -34,7 +34,11 @@ if (stageArtifact.edition !== "1.0.0") {
 if (stageArtifact.stage !== "building" && stageArtifact.stage !== "final") {
     throw new TypeError("Conformance stage must be building or final");
 }
-if (options.stage === "final" && stageArtifact.stage !== "final") {
+// Hermetic runs validate at final strictness while the conformance campaign may still
+// be building; campaign-completeness demands key to the declared conformance stage.
+const campaignFinal =
+    options.stage === "final" && (!options.hermetic || stageArtifact.stage === "final");
+if (campaignFinal && stageArtifact.stage !== "final") {
     throw new TypeError("Final conformance requires conformance/stage.json to be final");
 }
 const expected = await specRequirements(options.spec);
@@ -236,7 +240,7 @@ const report = {
 };
 await writeCanonicalJson(resolve(reportRoot, "conformance.json"), report);
 if (
-    options.stage === "final" &&
+    campaignFinal &&
     (incomplete.length > 0 || pendingFragmentNames.length > 0 || externallyGated.length > 0)
 ) {
     throw new TypeError(

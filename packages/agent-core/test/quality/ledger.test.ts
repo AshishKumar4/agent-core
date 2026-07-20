@@ -233,6 +233,21 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const final = runFixture(fixture, "final");
         expect(final.status).toBe(1);
         expect(final.stderr).toContain("stage.json to be final");
+
+        // Hermetic runs validate at final strictness while the campaign is still
+        // building: completeness stays a reported note, not a failure.
+        const hermetic = runFixture(fixture, "final", true);
+        expect(hermetic.status, hermetic.stderr).toBe(0);
+        expect(hermetic.stdout).toContain("conformance incomplete");
+
+        await writeFile(
+            resolve(fixture, "conformance/stage.json"),
+            `${JSON.stringify({ edition: "1.0.0", stage: "final" }, null, 2)}\n`,
+            "utf8"
+        );
+        const declaredFinal = runFixture(fixture, "final", true);
+        expect(declaredFinal.status).toBe(1);
+        expect(declaredFinal.stderr).toContain("incomplete requirement(s)");
     });
 
     test("rejects malformed conformance maturity before interpreting it", async () => {
@@ -469,9 +484,11 @@ function run(args: string[]): ReturnType<typeof runQualitySubprocess> {
 
 function runFixture(
     root: string,
-    stage: "building" | "final" = "building"
+    stage: "building" | "final" = "building",
+    hermetic = false
 ): ReturnType<typeof runQualitySubprocess> {
     return run([
+        ...(hermetic ? ["--hermetic"] : []),
         "--stage",
         stage,
         "--artifact-root",
