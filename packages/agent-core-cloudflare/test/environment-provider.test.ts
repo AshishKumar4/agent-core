@@ -4,7 +4,8 @@ import {
     Revision,
     TenantId,
     encodeBase64,
-    encodeCanonicalJson
+    encodeCanonicalJson,
+    type JsonValue
 } from "@agent-core/core";
 import {
     EnvironmentId,
@@ -464,4 +465,291 @@ describe("DurableObjectEnvironmentProvider", () => {
             "operation.invalid-input"
         );
     });
+
+    test("validates its descriptor, tenant, and preview host at construction", () => {
+        const sqlite = new NodeSqlite();
+        new SqliteApplicationMigrator(sqlite, fakeErrors, [environmentProviderMigration(1)]).migrate();
+        const content = new R2ContentObjectRepository(new FakeR2Bucket(), fakeErrors);
+        const construct = (
+            descriptor: unknown,
+            tenantValue: unknown,
+            previewHost: string
+        ): unknown =>
+            Reflect.construct(DurableObjectEnvironmentProvider, [
+                descriptor,
+                sqlite,
+                content,
+                tenantValue,
+                { previewHost },
+                fakeErrors
+            ]);
+        expectOperationalFailure(
+            () => construct({ id: "cloudflare-do" }, tenant, "preview.test"),
+            "operation.invalid-input"
+        );
+        expectOperationalFailure(
+            () => construct(providerDescriptor, "environment-tests", "preview.test"),
+            "operation.invalid-input"
+        );
+        expectOperationalFailure(
+            () => construct(providerDescriptor, tenant, "Not-A-Host!"),
+            "operation.invalid-input"
+        );
+    });
+
+    test("validates every request pin with its canonical branded classes", async () => {
+        const { provider } = createProvider();
+        const call = (request: unknown): Promise<unknown> =>
+            Reflect.apply(provider.openSession, provider, [request]);
+        await expect(
+            call({ ...sessionRequest("sess-1"), restore: "not-a-content-ref" })
+        ).rejects.toMatchObject({ code: "operation.invalid-input" });
+        await expect(
+            call({ ...sessionRequest("sess-1"), environmentRevision: 0 })
+        ).rejects.toMatchObject({ code: "operation.invalid-input" });
+        await expect(
+            call({ ...sessionRequest("sess-1"), generation: -1 })
+        ).rejects.toMatchObject({ code: "operation.invalid-input" });
+        await expect(
+            Reflect.apply(provider.createSnapshot, provider, [
+                { ...snapshotRequest("sess-1", "snap-1"), sessionEpoch: -1 }
+            ])
+        ).rejects.toMatchObject({ code: "operation.invalid-input" });
+    });
+
+    test("reports an unknown session as absent on inspection", async () => {
+        const { provider } = createProvider();
+        expect(await provider.inspectSession(sessionRequest("sess-unknown"))).toEqual({
+            name: "absent"
+        });
+    });
+
+    test("guards session file writes and reads", async () => {
+        const { provider } = createProvider();
+        const session = sessionRequest("sess-1");
+        await provider.openSession(session);
+        expectOperationalFailure(
+            () =>
+                Reflect.apply(provider.writeSessionFile, provider, [
+                    session,
+                    "state.txt",
+                    "not-bytes"
+                ]),
+            "operation.invalid-input"
+        );
+        expect(provider.readSessionFile(session, "missing.txt")).toBeUndefined();
+    });
+
+    test("fails closed when any substrate record decodes to a corrupt shape", async () => {
+        const arm = (
+            match: string,
+            rows: readonly Record<string, string | number | Uint8Array | null>[]
+        ): { readonly provider: DurableObjectEnvironmentProvider; trigger: () => void } => {
+            let armed = false;
+            const sqlite = new (class extends NodeSqlite {
+                public override all(
+                    statement: string,
+                    bindings: readonly (string | number | Uint8Array | null)[]
+                ): readonly Record<string, string | number | Uint8Array | null>[] {
+                    if (armed && statement.includes(match)) return rows;
+                    return super.all(statement, bindings);
+                }
+            })();
+            new SqliteApplicationMigrator(sqlite, fakeErrors, [
+                environmentProviderMigration(1)
+            ]).migrate();
+            const provider = new DurableObjectEnvironmentProvider(
+                providerDescriptor,
+                sqlite,
+                new R2ContentObjectRepository(new FakeR2Bucket(), fakeErrors),
+                tenant,
+                { previewHost: "preview.test" },
+                fakeErrors
+            );
+            return {
+                provider,
+                trigger: () => {
+                    armed = true;
+                }
+            };
+        };
+
+        const pin = arm("FROM agent_core_environment_pins", [{ revision: "x", generation: 0 }]);
+        await pin.provider.openSession(sessionRequest("sess-1"));
+        pin.trigger();
+        await expect(pin.provider.openSession(sessionRequest("sess-2"))).rejects.toMatchObject({
+            code: "codec.invalid"
+        });
+
+        const session = arm("FROM agent_core_environment_sessions WHERE session_id", [
+            { environment_id: "env-1", revision: 0, generation: 0, session_epoch: 0, restore_ref: null, state: "limbo" }
+        ]);
+        await session.provider.openSession(sessionRequest("sess-1"));
+        session.trigger();
+        await expect(
+            session.provider.inspectSession(sessionRequest("sess-1"))
+        ).rejects.toMatchObject({ code: "codec.invalid" });
+
+        const file = arm("AND path = ?", [{ content: "not-bytes" }]);
+        await file.provider.openSession(sessionRequest("sess-1"));
+        file.provider.writeSessionFile(sessionRequest("sess-1"), "a.txt", new Uint8Array([1]));
+        file.trigger();
+        expectOperationalFailure(
+            () => file.provider.readSessionFile(sessionRequest("sess-1"), "a.txt"),
+            "codec.invalid"
+        );
+
+        const files = arm("ORDER BY path", [{ path: 1, content: new Uint8Array([1]) }]);
+        await files.provider.openSession(sessionRequest("sess-1"));
+        files.trigger();
+        await expect(
+            files.provider.createSnapshot(snapshotRequest("sess-1", "snap-1"))
+        ).rejects.toMatchObject({ code: "codec.invalid" });
+
+        const snapshot = arm("FROM agent_core_environment_snapshots", [
+            { environment_id: "env-1", session_id: "sess-1", revision: 0, generation: 0, session_epoch: 0, content_ref: 7 }
+        ]);
+        snapshot.trigger();
+        await expect(
+            snapshot.provider.inspectSnapshot(snapshotRequest("sess-1", "snap-1"))
+        ).rejects.toMatchObject({ code: "codec.invalid" });
+
+        const exposure = arm("FROM agent_core_environment_exposures", [
+            { environment_id: "env-1", session_id: "sess-1", revision: 0, generation: 0, session_epoch: 0, port: 8080, url: null, state: "open" }
+        ]);
+        exposure.trigger();
+        await expect(
+            exposure.provider.inspectExposure(exposureRequest("sess-1", "exp-1"))
+        ).rejects.toMatchObject({ code: "codec.invalid" });
+    });
+
+    test("treats an exposed record without its preview URL as corrupt", async () => {
+        const { provider, sqlite } = createProvider();
+        await provider.openSession(sessionRequest("sess-1"));
+        sqlite.run(
+            `INSERT INTO agent_core_environment_exposures
+                (exposure_id, environment_id, session_id, revision, generation, session_epoch, port, url, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ["exp-1", "env-1", "sess-1", 0, 0, 0, 8080, null, "exposed"]
+        );
+        await expect(provider.inspectExposure(exposureRequest("sess-1", "exp-1"))).rejects.toMatchObject(
+            { code: "codec.invalid" }
+        );
+    });
+
+    test("fails closed when restoring a structurally invalid snapshot document", async () => {
+        const { provider, bucket } = createProvider();
+        const repository = new R2ContentObjectRepository(bucket, fakeErrors);
+        const restoreOf = async (document: JsonValue): Promise<ContentRef> => {
+            const stored = await repository.put(tenant, encodeCanonicalJson(document));
+            return ContentRef.fromDigest(new Digest(stored.digest));
+        };
+
+        const wrongFormat = await restoreOf({ files: {}, format: "other-format/1" });
+        expect(
+            await provider.openSession(sessionRequest("sess-a", { restore: wrongFormat }))
+        ).toEqual({ name: "failed" });
+
+        const extraKeys = await restoreOf({ files: {}, format: SNAPSHOT_FORMAT, extra: true });
+        expect(
+            await provider.openSession(sessionRequest("sess-b", { restore: extraKeys }))
+        ).toEqual({ name: "failed" });
+
+        const filesNotRecord = await restoreOf({ files: "nope", format: SNAPSHOT_FORMAT });
+        expect(
+            await provider.openSession(sessionRequest("sess-c", { restore: filesNotRecord }))
+        ).toEqual({ name: "failed" });
+
+        const encodedNotString = await restoreOf({ files: { "a.txt": 1 }, format: SNAPSHOT_FORMAT });
+        expect(
+            await provider.openSession(sessionRequest("sess-d", { restore: encodedNotString }))
+        ).toEqual({ name: "failed" });
+
+        const invalidBase64 = await restoreOf({ files: { "a.txt": "!!!" }, format: SNAPSHOT_FORMAT });
+        expect(
+            await provider.openSession(sessionRequest("sess-e", { restore: invalidBase64 }))
+        ).toEqual({ name: "failed" });
+    });
+
+    test("settles an open that raced a conflicting reservation or a newer pin while restoring", async () => {
+        const snapshotFor = async (bucket: FakeR2Bucket): Promise<ContentRef> => {
+            const stored = await new R2ContentObjectRepository(bucket, fakeErrors).put(
+                tenant,
+                encodeCanonicalJson({ files: {}, format: SNAPSHOT_FORMAT })
+            );
+            return ContentRef.fromDigest(new Digest(stored.digest));
+        };
+
+        {
+            const bucket = new GatedGetR2Bucket();
+            const { provider } = createProvider(bucket);
+            const restore = await snapshotFor(bucket);
+            bucket.arm();
+            const racing = provider.openSession(sessionRequest("sess-r", { restore }));
+            await bucket.started;
+            expect(await provider.openSession(sessionRequest("sess-r"))).toMatchObject({
+                name: "ready"
+            });
+            bucket.release();
+            expect(await racing).toEqual({ name: "failed" });
+        }
+
+        {
+            const bucket = new GatedGetR2Bucket();
+            const { provider } = createProvider(bucket);
+            const restore = await snapshotFor(bucket);
+            bucket.arm();
+            const racing = provider.openSession(sessionRequest("sess-r", { restore }));
+            await bucket.started;
+            expect(
+                await provider.openSession(sessionRequest("sess-newer", { revision: 1, generation: 1 }))
+            ).toMatchObject({ name: "ready" });
+            bucket.release();
+            expect(await racing).toEqual({ name: "failed" });
+        }
+    });
+
+    test("replays a snapshot that raced its own record during the R2 write", async () => {
+        const bucket = new GatedR2Bucket();
+        const { provider, sqlite } = createProvider(bucket);
+        await provider.openSession(sessionRequest("sess-1"));
+        const pending = provider.createSnapshot(snapshotRequest("sess-1", "snap-1"));
+        await bucket.started;
+        const recorded = ContentRef.fromDigest(Digest.sha256(new Uint8Array([42])));
+        sqlite.run(
+            `INSERT INTO agent_core_environment_snapshots
+                (snapshot_id, environment_id, session_id, revision, generation, session_epoch, content_ref)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            ["snap-1", "env-1", "sess-1", 0, 0, 0, recorded.value]
+        );
+        bucket.release();
+        expect(await pending).toEqual({ name: "ready", value: recorded });
+    });
 });
+
+class GatedGetR2Bucket extends FakeR2Bucket {
+    readonly #started = deferred();
+    readonly #release = deferred();
+    #gate = false;
+
+    public arm(): void {
+        this.#gate = true;
+    }
+
+    public get started(): Promise<void> {
+        return this.#started.promise;
+    }
+
+    public release(): void {
+        this.#release.resolve();
+    }
+
+    public override async get(key: string): Promise<R2ObjectBodyLike | null> {
+        if (this.#gate) {
+            this.#started.resolve();
+            await this.#release.promise;
+            this.#gate = false;
+        }
+        return super.get(key);
+    }
+}

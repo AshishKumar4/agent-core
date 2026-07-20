@@ -546,14 +546,15 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         const encodedFiles = decoded.files;
         if (!isJsonRecord(encodedFiles)) return undefined;
         const files = new Map<string, Uint8Array>();
-        try {
-            for (const [path, encoded] of Object.entries(encodedFiles)) {
-                if (typeof encoded !== "string") return undefined;
+        for (const [path, encoded] of Object.entries(encodedFiles)) {
+            if (typeof encoded !== "string") return undefined;
+            try {
                 files.set(path, decodeBase64(encoded));
+            } catch {
+                // decodeBase64 rejects non-canonical RFC 4648 input; stored snapshot
+                // content that fails to decode is corrupt, not an operational error.
+                return undefined;
             }
-        } catch (error) {
-            if (error instanceof AgentCoreError && error.code === "codec.invalid") return undefined;
-            throw error;
         }
         return files;
     }
