@@ -17,7 +17,7 @@
       "packages/agent-core/SPEC.md",
       "packages/agent-core/package.json",
       "packages/agent-core/tsconfig*.json",
-      "packages/agent-core/vitest.config.mjs",
+      "packages/agent-core/vitest*.config.mjs",
       "packages/agent-core/scripts/**",
       "packages/agent-core/artifacts/coverage-baseline.json",
       "packages/agent-core/artifacts/import-boundaries.json",
@@ -52,7 +52,10 @@
       "packages/agent-core-cloudflare/package.json",
       "packages/agent-core-cloudflare/quality/**",
       "packages/agent-core-cloudflare/tsconfig*.json",
-      "packages/agent-core-cloudflare/vitest.config.*"
+      "packages/agent-core-cloudflare/vitest.config.*",
+      "packages/agent-core/stryker.conf.mjs",
+      "packages/agent-core/stryker.local.conf.mjs",
+      "packages/agent-core/vitest.mutation.local.config.mjs"
     ],
     "W1": [
       "packages/agent-core/src/core/**",
@@ -202,7 +205,8 @@
       "packages/agent-core/test/conformance/**",
       "packages/agent-core/test/integration/**",
       "packages/agent-core/test/integration-consumer/**",
-      "packages/agent-core/test/substrates/sqlite/behavior-branches.test.ts"
+      "packages/agent-core/test/substrates/sqlite/behavior-branches.test.ts",
+      "packages/agent-core/test/differential/**"
     ]
   },
   "domainFragments": {

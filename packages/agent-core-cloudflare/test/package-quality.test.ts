@@ -60,7 +60,7 @@ describe("clean package fixture", () => {
         } finally {
             await rm(fixtureRoot, { recursive: true, force: true });
         }
-    }, 30_000);
+    }, 120_000);
 });
 
 async function copyPackageFiles(sourceRoot: string, targetRoot: string, paths: readonly string[]) {

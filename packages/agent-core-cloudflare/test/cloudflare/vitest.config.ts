@@ -8,6 +8,21 @@ export default defineConfig({
         })
     ],
     test: {
+        tags: [
+            {
+                name: "p0",
+                description: "Critical safety, durability, and irreversible-integrity behavior"
+            },
+            {
+                name: "p1",
+                description: "Required runtime correctness, recovery, and integration behavior"
+            },
+            {
+                name: "p2",
+                description: "Compatibility, diagnostics, and exhaustive edge behavior"
+            }
+        ],
+        strictTags: true,
         include: ["test/cloudflare/**/*.test.ts"]
     }
 });

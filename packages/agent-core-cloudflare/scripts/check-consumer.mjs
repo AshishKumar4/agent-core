@@ -64,11 +64,18 @@ try {
         resolve(consumerRoot, "consumer.ts"),
         `
 import {
+    DurableObjectEnvironmentProvider,
     DynamicWorkerLoaderAdapter,
     type CloudflareErrorPort,
     type DynamicWorkerLoadOptions
 } from "@agent-core/cloudflare";
 import { AgentCoreError } from "@agent-core/core";
+import { EnvironmentProvider } from "@agent-core/core/environment-provider";
+import { SlateProvider } from "@agent-core/core/slate-provider";
+
+declare const environmentProvider: DurableObjectEnvironmentProvider;
+const canonicalEnvironmentProvider: EnvironmentProvider = environmentProvider;
+declare const canonicalSlateProvider: SlateProvider;
 
 const errors: CloudflareErrorPort = {
     raise(code, message): never {
@@ -87,6 +94,8 @@ const adapter = new DynamicWorkerLoaderAdapter({
 }, ["CAPABILITY"], errors);
 void options;
 void adapter;
+void canonicalEnvironmentProvider;
+void canonicalSlateProvider;
 `
     );
     const forbiddenSubpaths = registry.forbiddenSubpaths ?? [];

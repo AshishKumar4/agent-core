@@ -5,9 +5,18 @@
   "compatibility_date": "2026-07-10",
   "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
-    "bindings": [{ "name": "ACTORS", "class_name": "TestActorDurableObject" }]
+    "bindings": [
+      { "name": "ACTORS", "class_name": "TestActorDurableObject" },
+      { "name": "ENVIRONMENTS", "class_name": "EnvironmentProviderDurableObject" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TestActorDurableObject"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["TestActorDurableObject"] },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["EnvironmentProviderDurableObject"]
+    }
+  ],
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],
   "queues": {
     "producers": [{ "binding": "DELIVERIES", "queue": "agent-core-cloudflare-test-deliveries" }],

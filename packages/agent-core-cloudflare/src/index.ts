@@ -1,9 +1,5 @@
 export { actorObjectName, parseActorObjectName } from "./actor-name.js";
 export type { ActorObjectIdentity } from "./actor-name.js";
-export {
-    CloudflareAuthorityPermitAdmission,
-    createCloudflareAuthorityPermitStore
-} from "./authority-permit.js";
 export { R2ContentObjectRepository, contentObjectAddress } from "./content-object.js";
 export type {
     ContentObject,
@@ -37,6 +33,11 @@ export type {
 export { operationalFailure } from "./error.js";
 export type { CloudflareErrorPort, CloudflareOperationalErrorCode } from "./error.js";
 export { ReconciliationOutboxId } from "./id.js";
+export {
+    DurableObjectEnvironmentProvider,
+    environmentProviderMigration
+} from "./environment-provider.js";
+export type { DurableObjectEnvironmentProviderOptions } from "./environment-provider.js";
 export { SqliteApplicationMigrator, cloudflareRuntimeMigrations } from "./migration.js";
 export type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
 export { DurableViewRevisionLog } from "./revision-log.js";

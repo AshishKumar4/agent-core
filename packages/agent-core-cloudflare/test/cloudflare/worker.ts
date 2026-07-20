@@ -1,15 +1,21 @@
-import { AgentCoreError, RouteReservationId, TenantId } from "@agent-core/core";
+import { AgentCoreError, ContentRef, Digest, RouteReservationId, TenantId } from "@agent-core/core";
 import { ActorId, ActorRef } from "@agent-core/core/actors";
+import { ProviderDescriptor, ProviderId } from "@agent-core/core/environment-provider";
 import { SqliteActorStore, SqliteContentStore } from "@agent-core/core/substrates/sqlite";
 import { DurableObject } from "cloudflare:workers";
 import {
     AlarmOutboxReconciler,
     AtLeastOnceQueueAdapter,
+    CloudflareSqlite,
+    DurableObjectEnvironmentProvider,
     DynamicWorkerLoaderAdapter,
+    SqliteApplicationMigrator,
     SqliteReconciliationOutbox,
     ReconciliationOutboxId,
+    contentRepositoryFromR2Binding,
     createCloudflareDurableObjectClass,
     createCloudflareWorker,
+    environmentProviderMigration,
     type CloudflareDurableObjectInstance,
     type CloudflareErrorPort,
     type FetchServiceLike,
@@ -185,6 +191,36 @@ export class TestActorDurableObject extends DurableObject<TestEnvironment> {
 
     public webSocketError(socket: WebSocket, error: unknown): void | Promise<void> {
         return this.#delegate.webSocketError(socket, error);
+    }
+}
+
+export const ENVIRONMENT_PROVIDER_TENANT = "environment-provider-tests";
+export const PREVIEW_HOST = "preview.agent-core.test";
+const environmentProviderDescriptor = new ProviderDescriptor(
+    new ProviderId("cloudflare-do"),
+    "1",
+    ContentRef.fromDigest(Digest.sha256(new Uint8Array([0])))
+);
+
+export class EnvironmentProviderDurableObject extends DurableObject<TestEnvironment> {
+    public readonly environments: DurableObjectEnvironmentProvider;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        const sqlite = new CloudflareSqlite(state.storage, errors);
+        new SqliteApplicationMigrator(sqlite, errors, [environmentProviderMigration(1)]).migrate();
+        this.environments = new DurableObjectEnvironmentProvider(
+            environmentProviderDescriptor,
+            sqlite,
+            contentRepositoryFromR2Binding(environment, (bindings) => bindings.CONTENT, errors),
+            new TenantId(ENVIRONMENT_PROVIDER_TENANT),
+            { previewHost: PREVIEW_HOST },
+            errors
+        );
+    }
+
+    public fetch(): Response {
+        return new Response("environment-provider");
     }
 }
 

@@ -393,12 +393,23 @@ export class FakeDispatchNamespace implements DispatchNamespaceLike<FetchService
         readonly parameters: Readonly<Record<string, string>> | undefined;
     }> = [];
 
+    #nextFailure: unknown;
+
     public get(
         scriptName: string,
         parameters?: Readonly<Record<string, string>>
     ): FetchServiceLike {
+        if (this.#nextFailure !== undefined) {
+            const failure = this.#nextFailure;
+            this.#nextFailure = undefined;
+            throw failure;
+        }
         this.calls.push({ scriptName, parameters });
         return { fetch: (request) => new Response(`${scriptName}:${request.url}`) };
+    }
+
+    public failNext(failure: unknown): void {
+        this.#nextFailure = failure;
     }
 }
 

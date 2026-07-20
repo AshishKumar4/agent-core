@@ -43,6 +43,10 @@
       "types": "./dist/identity/index.d.ts",
       "import": "./dist/identity/index.js"
     },
+    "./environment-provider": {
+      "types": "./dist/environments/public.d.ts",
+      "import": "./dist/environments/public.js"
+    },
     "./invocations": {
       "types": "./dist/invocations/index.d.ts",
       "import": "./dist/invocations/index.js"
@@ -55,6 +59,10 @@
       "types": "./dist/protocol/public.d.ts",
       "import": "./dist/protocol/public.js"
     },
+    "./slate-provider": {
+      "types": "./dist/slates/public.d.ts",
+      "import": "./dist/slates/public.js"
+    },
     "./substrates/sqlite": {
       "types": "./dist/substrates/sqlite/index.d.ts",
       "import": "./dist/substrates/sqlite/index.js"
@@ -64,6 +72,11 @@
     "check:types": "tsc --noEmit",
     "lint": "oxlint --deny-warnings src test scripts",
     "test": "vitest run",
+    "test:p0": "vitest run --tagsFilter p0",
+    "test:p1": "vitest run --tagsFilter p1",
+    "test:p2": "vitest run --tagsFilter p2",
+    "test:quality": "vitest run --config vitest.quality.config.mjs",
+    "test:governance": "vitest run --config vitest.governance.config.mjs",
     "test:coverage": "vitest run --coverage",
     "build": "node ./scripts/build.mjs",
     "quality": "node ./scripts/quality/run.mjs",
@@ -73,6 +86,8 @@
     "check:records": "node ./scripts/quality/records.mjs --stage building",
     "check:exports": "node ./scripts/quality/run.mjs --stage building --target exports",
     "check:coverage": "node ./scripts/quality/run.mjs --stage building --target coverage",
+    "check:mutation": "node ./scripts/quality/mutation.mjs --gate",
+    "check:test-priorities": "node ./scripts/quality/run.mjs --stage building --target test-priorities",
     "check:traceability": "node ./scripts/check-traceability.mjs",
     "check:implementation": "node ./scripts/quality/run.mjs --stage building --target ledger",
     "check:final": "node ./scripts/quality/run.mjs --stage final",
