@@ -7,7 +7,8 @@
   "durable_objects": {
     "bindings": [
       { "name": "ACTORS", "class_name": "TestActorDurableObject" },
-      { "name": "ENVIRONMENTS", "class_name": "EnvironmentProviderDurableObject" }
+      { "name": "ENVIRONMENTS", "class_name": "EnvironmentProviderDurableObject" },
+      { "name": "SLATES", "class_name": "SlateProviderDurableObject" }
     ]
   },
   "migrations": [
@@ -15,7 +16,8 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["EnvironmentProviderDurableObject"]
-    }
+    },
+    { "tag": "v3", "new_sqlite_classes": ["SlateProviderDurableObject"] }
   ],
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],
   "queues": {

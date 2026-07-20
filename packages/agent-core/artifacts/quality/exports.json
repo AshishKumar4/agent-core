@@ -781,7 +781,12 @@
             "tenantBootstrapPayload"
         ],
         "@agent-core/core/slate-provider": [
-            "SlateProvider"
+            "SlateDeploymentId",
+            "SlateEffectContext",
+            "SlateId",
+            "SlateProvider",
+            "SlatePublicationId",
+            "SlateResourceId"
         ],
         "@agent-core/core/substrates/sqlite": [
             "ReadableSqlite",
@@ -2082,11 +2087,16 @@
             "tenantBootstrapPayload"
         ],
         "@agent-core/core/slate-provider": [
+            "SlateDeploymentId",
+            "SlateEffectContext",
+            "SlateId",
             "SlateProvider",
             "SlateProviderDeployment",
             "SlateProviderDeploymentRequest",
             "SlateProviderResource",
-            "SlateProviderResourceRequest"
+            "SlateProviderResourceRequest",
+            "SlatePublicationId",
+            "SlateResourceId"
         ],
         "@agent-core/core/substrates/sqlite": [
             "ReadableSqlite",

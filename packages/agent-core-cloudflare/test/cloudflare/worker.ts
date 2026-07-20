@@ -8,6 +8,7 @@ import {
     AtLeastOnceQueueAdapter,
     CloudflareSqlite,
     DurableObjectEnvironmentProvider,
+    DurableObjectSlateProvider,
     DynamicWorkerLoaderAdapter,
     SqliteApplicationMigrator,
     SqliteReconciliationOutbox,
@@ -16,6 +17,7 @@ import {
     createCloudflareDurableObjectClass,
     createCloudflareWorker,
     environmentProviderMigration,
+    slateProviderMigration,
     type CloudflareDurableObjectInstance,
     type CloudflareErrorPort,
     type FetchServiceLike,
@@ -221,6 +223,28 @@ export class EnvironmentProviderDurableObject extends DurableObject<TestEnvironm
 
     public fetch(): Response {
         return new Response("environment-provider");
+    }
+}
+
+export const SLATE_PROVIDER_TENANT = "slate-provider-tests";
+
+export class SlateProviderDurableObject extends DurableObject<TestEnvironment> {
+    public readonly slates: DurableObjectSlateProvider;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        const sqlite = new CloudflareSqlite(state.storage, errors);
+        new SqliteApplicationMigrator(sqlite, errors, [slateProviderMigration(1)]).migrate();
+        this.slates = new DurableObjectSlateProvider(
+            sqlite,
+            contentRepositoryFromR2Binding(environment, (bindings) => bindings.CONTENT, errors),
+            new TenantId(SLATE_PROVIDER_TENANT),
+            errors
+        );
+    }
+
+    public fetch(): Response {
+        return new Response("slate-provider");
     }
 }
 

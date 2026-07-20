@@ -39,6 +39,7 @@ export {
 } from "./environment-provider.js";
 export type { DurableObjectEnvironmentProviderOptions } from "./environment-provider.js";
 export { SqliteApplicationMigrator, cloudflareRuntimeMigrations } from "./migration.js";
+export { DurableObjectSlateProvider, slateProviderMigration } from "./slate-provider.js";
 export type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
 export { DurableViewRevisionLog } from "./revision-log.js";
 export type { DurableViewEntry, DurableViewReplay } from "./revision-log.js";
