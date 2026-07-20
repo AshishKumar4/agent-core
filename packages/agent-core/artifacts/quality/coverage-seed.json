@@ -1,6 +1,6 @@
 {
   "edition": "1.0.0",
-  "baseCommit": "e8cb315eb2c88e1d0c317a59aeccc55e4ace0d63",
+  "baseCommit": "1e5c2a5e534efdc0c338efc5a1eff94596eaf234",
   "files": {
     "packages/agent-core-cloudflare/src/actor-name.ts": {
       "sha256": "1bbe76fed7351a63092d606821542f61f00ab2db2a100a424d6913dcba782b36",
@@ -20,27 +20,6 @@
         "lines": {
           "covered": 26,
           "total": 26
-        }
-      }
-    },
-    "packages/agent-core-cloudflare/src/authority-permit.ts": {
-      "sha256": "fe9abfe1b82e7ed82a5db0e454cfbd33bb3d3d676ef8b3750a898a89386f4701",
-      "metrics": {
-        "statements": {
-          "covered": 4,
-          "total": 4
-        },
-        "branches": {
-          "covered": 0,
-          "total": 0
-        },
-        "functions": {
-          "covered": 3,
-          "total": 3
-        },
-        "lines": {
-          "covered": 4,
-          "total": 4
         }
       }
     },
@@ -128,6 +107,27 @@
         }
       }
     },
+    "packages/agent-core-cloudflare/src/environment-provider.ts": {
+      "sha256": "a33dfa1a1c90ec75398f10ef8209f76e9f6f1f2507805ec1376eb54f27231189",
+      "metrics": {
+        "statements": {
+          "covered": 251,
+          "total": 278
+        },
+        "branches": {
+          "covered": 193,
+          "total": 220
+        },
+        "functions": {
+          "covered": 42,
+          "total": 43
+        },
+        "lines": {
+          "covered": 233,
+          "total": 251
+        }
+      }
+    },
     "packages/agent-core-cloudflare/src/error.ts": {
       "sha256": "06dcbb51704ce29916d2dbf9acc9a722e9383afa9510ad97e0dea05d44a8a8a2",
       "metrics": {
@@ -171,7 +171,7 @@
       }
     },
     "packages/agent-core-cloudflare/src/index.ts": {
-      "sha256": "05bab68a1f49fd1b9cf2ed03abf172b943613ae6c86e856c6116da563be19449",
+      "sha256": "592314f6c6954d056b9a2db17d1ba1ff74f0e12bf2db6e72ed4fe313a8eb015d",
       "metrics": {
         "statements": {
           "covered": 0,
@@ -255,7 +255,7 @@
       }
     },
     "packages/agent-core-cloudflare/src/placement.ts": {
-      "sha256": "ea610ae0ca407c73f14ad3784ba2b4fbbba0cfb9c88bcc497832a36983cdcd27",
+      "sha256": "da3bdaf3301e7dff62cb40b9ec14949993b20fd9a290dd507424f09f573c4073",
       "metrics": {
         "statements": {
           "covered": 35,
@@ -384,11 +384,11 @@
       "sha256": "ae489c5d269b537a1548ea5a74dd72183bd0798e6d195215d72497c6caa06d34",
       "metrics": {
         "statements": {
-          "covered": 6,
+          "covered": 13,
           "total": 13
         },
         "branches": {
-          "covered": 4,
+          "covered": 14,
           "total": 14
         },
         "functions": {
@@ -396,7 +396,7 @@
           "total": 1
         },
         "lines": {
-          "covered": 5,
+          "covered": 10,
           "total": 10
         }
       }
@@ -675,23 +675,23 @@
       }
     },
     "packages/agent-core/src/agents/runs/commit.ts": {
-      "sha256": "0920958e1966eed21e170b20ce2a398ff2125dc506f5a5722023b3d74fed9498",
+      "sha256": "0e91c1bfd52ee563ca16becdc4a27839fc490102e423ccf9e844522830464f46",
       "metrics": {
         "statements": {
-          "covered": 200,
-          "total": 204
+          "covered": 197,
+          "total": 203
         },
         "branches": {
-          "covered": 227,
-          "total": 234
+          "covered": 224,
+          "total": 233
         },
         "functions": {
           "covered": 46,
           "total": 46
         },
         "lines": {
-          "covered": 190,
-          "total": 194
+          "covered": 187,
+          "total": 193
         }
       }
     },
@@ -822,23 +822,23 @@
       }
     },
     "packages/agent-core/src/agents/runs/lease.ts": {
-      "sha256": "a8f38707cb2d54194713bc9ad113ef1851c4dbbca8f9fd94507a0e29bb10bed7",
+      "sha256": "fecd3a75fdd01130334c0e6e6905a59125e5a1a72d952c05a1744ab173915690",
       "metrics": {
         "statements": {
-          "covered": 59,
-          "total": 60
+          "covered": 77,
+          "total": 83
         },
         "branches": {
-          "covered": 64,
-          "total": 65
+          "covered": 96,
+          "total": 102
         },
         "functions": {
-          "covered": 21,
-          "total": 21
+          "covered": 26,
+          "total": 26
         },
         "lines": {
-          "covered": 59,
-          "total": 60
+          "covered": 77,
+          "total": 82
         }
       }
     },
@@ -948,7 +948,7 @@
       }
     },
     "packages/agent-core/src/agents/runs/runtime.ts": {
-      "sha256": "121e40e446e51737004f0ef426beff228f4187cc6bdaf60346f0ea013d24e3f6",
+      "sha256": "71de144faffdb80c9c71370905dfd8a9d0098f2efa4b15f64fc5c602c003b2d9",
       "metrics": {
         "statements": {
           "covered": 335,
@@ -990,23 +990,23 @@
       }
     },
     "packages/agent-core/src/agents/runs/spawn.ts": {
-      "sha256": "e46e634c84ae0c5ad9a288d0d7e479f8536b8d4df3bf961c93a548371764ab48",
+      "sha256": "9dc3a2ae5f93fa3a37c584181fc9347c89a80a728c77e79516412bcc669905a4",
       "metrics": {
         "statements": {
-          "covered": 33,
-          "total": 33
+          "covered": 31,
+          "total": 31
         },
         "branches": {
-          "covered": 10,
-          "total": 10
+          "covered": 13,
+          "total": 13
         },
         "functions": {
           "covered": 8,
           "total": 8
         },
         "lines": {
-          "covered": 32,
-          "total": 32
+          "covered": 30,
+          "total": 30
         }
       }
     },
@@ -1032,23 +1032,23 @@
       }
     },
     "packages/agent-core/src/agents/runs/turn.ts": {
-      "sha256": "fe2500ffd4f598f893c45987ed8b44e1c3308471b2e38e042e6a8e9d5d8cc674",
+      "sha256": "7f7b88270aa62cce0934eeb5c01efe499f67a4244ab107a7f738eb72f6f277f5",
       "metrics": {
         "statements": {
-          "covered": 165,
-          "total": 166
+          "covered": 163,
+          "total": 164
         },
         "branches": {
-          "covered": 120,
-          "total": 122
+          "covered": 122,
+          "total": 124
         },
         "functions": {
           "covered": 57,
           "total": 57
         },
         "lines": {
-          "covered": 163,
-          "total": 163
+          "covered": 161,
+          "total": 161
         }
       }
     },
@@ -1074,7 +1074,7 @@
       }
     },
     "packages/agent-core/src/authority-public.ts": {
-      "sha256": "3ed07dda8db89ec190f37484d8d40e88b9cebac0d313f474295ba323e4549b4c",
+      "sha256": "8c8726f32ec7dbe18312b64f75455861b95382d47166df36fe0e17491e7a245f",
       "metrics": {
         "statements": {
           "covered": 0,
@@ -1263,7 +1263,7 @@
       }
     },
     "packages/agent-core/src/authority/index.ts": {
-      "sha256": "36ab3b5d3f71e67e11c4fc4d882d8d51b21eed66cc17269d6c2d708e3d1bd4d5",
+      "sha256": "9c0796d6ceac8b70d19017ce0edccb6e8ee9c3a71cc9f441df651df99c63208a",
       "metrics": {
         "statements": {
           "covered": 0,
@@ -1346,12 +1346,33 @@
         }
       }
     },
-    "packages/agent-core/src/authority/permit-store.ts": {
-      "sha256": "a452b950c8d6081e17af3e2ff3e57b6ec4ac5554700610483d04a1c8c55d4ca4",
+    "packages/agent-core/src/authority/permit-authentication.ts": {
+      "sha256": "cf3b31d1a3711f36e04afbf1db74d4b512dd0301eca1bba1177d4d79f162a4ae",
       "metrics": {
         "statements": {
-          "covered": 85,
-          "total": 93
+          "covered": 20,
+          "total": 25
+        },
+        "branches": {
+          "covered": 12,
+          "total": 16
+        },
+        "functions": {
+          "covered": 8,
+          "total": 8
+        },
+        "lines": {
+          "covered": 20,
+          "total": 25
+        }
+      }
+    },
+    "packages/agent-core/src/authority/permit-store.ts": {
+      "sha256": "413d66feb4e4ffd96a8e10af17e99d38fb63837270e2d5e3d34c18d863f1b556",
+      "metrics": {
+        "statements": {
+          "covered": 86,
+          "total": 94
         },
         "branches": {
           "covered": 49,
@@ -1362,29 +1383,29 @@
           "total": 24
         },
         "lines": {
-          "covered": 80,
-          "total": 87
+          "covered": 81,
+          "total": 88
         }
       }
     },
     "packages/agent-core/src/authority/permit.ts": {
-      "sha256": "7a6b78f59bf82cfed02538178f04de12a87759a5a9b39062d1fd582d9e1f7d75",
+      "sha256": "d5c43ab9416f8675fa133ed2efaf58344f11c172fd511b1591d912885bf4160c",
       "metrics": {
         "statements": {
-          "covered": 165,
-          "total": 165
+          "covered": 166,
+          "total": 167
         },
         "branches": {
-          "covered": 73,
-          "total": 73
+          "covered": 76,
+          "total": 77
         },
         "functions": {
           "covered": 63,
           "total": 63
         },
         "lines": {
-          "covered": 165,
-          "total": 165
+          "covered": 166,
+          "total": 167
         }
       }
     },
@@ -1494,7 +1515,7 @@
       }
     },
     "packages/agent-core/src/composition/authority-commands.ts": {
-      "sha256": "1fa07a971be45564d029e414ffab8a507ed67f24ad64c7cf755727407d10dd66",
+      "sha256": "099346f9458d851d93763c7ead3a25b9361f2337f53842333a35f07124752c9a",
       "metrics": {
         "statements": {
           "covered": 71,
@@ -1515,23 +1536,23 @@
       }
     },
     "packages/agent-core/src/composition/authority.ts": {
-      "sha256": "df9c9f5c41fda940a1515b71e36017cf24ac0cce02065363f17c7c82aa3d7f9c",
+      "sha256": "ea3a60797e8cc826f985f46ac7a80459989a0815a7d9caf2d3d8a9da128457ca",
       "metrics": {
         "statements": {
-          "covered": 53,
-          "total": 53
+          "covered": 104,
+          "total": 110
         },
         "branches": {
-          "covered": 54,
-          "total": 54
+          "covered": 84,
+          "total": 91
         },
         "functions": {
-          "covered": 17,
-          "total": 17
+          "covered": 30,
+          "total": 33
         },
         "lines": {
-          "covered": 52,
-          "total": 52
+          "covered": 103,
+          "total": 109
         }
       }
     },
@@ -1578,7 +1599,7 @@
       }
     },
     "packages/agent-core/src/composition/index.ts": {
-      "sha256": "07bbb4cfce8df2509f5f7906c740dfc96cb628e0dca3726743b28df4faae490e",
+      "sha256": "42f4c6da08e9c5c2bdc995d4795c658dde82b3d26e8ef5238dbc1363aeb1adcd",
       "metrics": {
         "statements": {
           "covered": 0,
@@ -1662,53 +1683,53 @@
       }
     },
     "packages/agent-core/src/composition/permit.ts": {
-      "sha256": "ac15e09eb853a8653f5e52b5ebb912f69d489baf79620c4d95b75065bda57416",
+      "sha256": "dcc5d3273528426a9fa51ab570e7c71450cdcacd4c37d27bf9c5e3ca10911a53",
       "metrics": {
         "statements": {
-          "covered": 33,
-          "total": 33
+          "covered": 39,
+          "total": 42
         },
         "branches": {
-          "covered": 12,
-          "total": 12
+          "covered": 14,
+          "total": 15
         },
         "functions": {
-          "covered": 5,
-          "total": 5
+          "covered": 7,
+          "total": 8
         },
         "lines": {
-          "covered": 33,
-          "total": 33
+          "covered": 39,
+          "total": 42
         }
       }
     },
     "packages/agent-core/src/composition/profile.ts": {
-      "sha256": "e3fde4f73516acde5331def93157ba55b792d59de068620385dc2fb054779355",
+      "sha256": "b30ba6f788ff69e93c3ab80b97fe1d33a578261b9c88b648288abe9873839569",
       "metrics": {
         "statements": {
-          "covered": 1,
-          "total": 1
+          "covered": 11,
+          "total": 11
         },
         "branches": {
-          "covered": 0,
-          "total": 0
+          "covered": 4,
+          "total": 4
         },
         "functions": {
-          "covered": 1,
-          "total": 1
+          "covered": 3,
+          "total": 3
         },
         "lines": {
-          "covered": 1,
-          "total": 1
+          "covered": 9,
+          "total": 9
         }
       }
     },
     "packages/agent-core/src/composition/routing.ts": {
-      "sha256": "93a077ba0ad5d5c6444f659e032a5ed6aadd37bf641243291f6de224a141e211",
+      "sha256": "400d03434d06be5f13c2c850d5019694eb57e96aee00a0ac35e220352e2991fd",
       "metrics": {
         "statements": {
-          "covered": 43,
-          "total": 43
+          "covered": 47,
+          "total": 47
         },
         "branches": {
           "covered": 44,
@@ -1719,8 +1740,8 @@
           "total": 13
         },
         "lines": {
-          "covered": 43,
-          "total": 43
+          "covered": 47,
+          "total": 47
         }
       }
     },
@@ -2775,23 +2796,23 @@
       }
     },
     "packages/agent-core/src/definition/policy.ts": {
-      "sha256": "c07c36144dd8f83749e0bccbacf064179e9207285a9eedcda259de75b6896c40",
+      "sha256": "1937de97d199c6049917f30dbd09cf1b4449fd4817357636963c63f32e423c63",
       "metrics": {
         "statements": {
-          "covered": 85,
-          "total": 85
+          "covered": 98,
+          "total": 98
         },
         "branches": {
-          "covered": 57,
-          "total": 57
+          "covered": 76,
+          "total": 76
         },
         "functions": {
-          "covered": 27,
-          "total": 27
+          "covered": 29,
+          "total": 29
         },
         "lines": {
-          "covered": 81,
-          "total": 81
+          "covered": 92,
+          "total": 92
         }
       }
     },
@@ -2985,7 +3006,7 @@
       }
     },
     "packages/agent-core/src/environments/provider.ts": {
-      "sha256": "f4aa80360a213b585067f3f6323949ee8e0f80e95b6cce3013f9a4c1716d01e7",
+      "sha256": "b24b84476bcf9989b572acc09733284411766ccbd81b87da1d00a89d5b366930",
       "metrics": {
         "statements": {
           "covered": 53,
@@ -3005,24 +3026,45 @@
         }
       }
     },
-    "packages/agent-core/src/environments/runtime.ts": {
-      "sha256": "70c116f6cf575d3d977c65ae2f921c203accc8fdd6eb74543f8af6aedf50568f",
+    "packages/agent-core/src/environments/public.ts": {
+      "sha256": "540916c4017adcc00ad17b75bdef6bddeedc5053c50e8f6d06572478c848828f",
       "metrics": {
         "statements": {
-          "covered": 345,
-          "total": 363
+          "covered": 0,
+          "total": 0
         },
         "branches": {
-          "covered": 200,
-          "total": 220
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/environments/runtime.ts": {
+      "sha256": "d8b5fc093ca3863bfb53203fea0b70f3beb030d7dd37544547dde70bbfb7198c",
+      "metrics": {
+        "statements": {
+          "covered": 350,
+          "total": 368
+        },
+        "branches": {
+          "covered": 206,
+          "total": 226
         },
         "functions": {
           "covered": 75,
           "total": 75
         },
         "lines": {
-          "covered": 325,
-          "total": 331
+          "covered": 330,
+          "total": 336
         }
       }
     },
@@ -3048,36 +3090,36 @@
       }
     },
     "packages/agent-core/src/environments/snapshot.ts": {
-      "sha256": "699f7c9b980c1882704e0a26cc7d2d41548461f97b2da8963bf3f4ae6b95b71c",
+      "sha256": "a0da200ba2f1ae986138ee3aff79589b5992dfe25bb177e0abd9d5d3bf088de7",
       "metrics": {
         "statements": {
-          "covered": 57,
-          "total": 58
+          "covered": 59,
+          "total": 61
         },
         "branches": {
-          "covered": 17,
-          "total": 18
+          "covered": 20,
+          "total": 22
         },
         "functions": {
           "covered": 21,
           "total": 21
         },
         "lines": {
-          "covered": 56,
-          "total": 57
+          "covered": 58,
+          "total": 60
         }
       }
     },
     "packages/agent-core/src/environments/store.ts": {
-      "sha256": "4fcc1730d6b5953c59f3feb61b88e3f036a93363f65ac869cef970b301d00278",
+      "sha256": "3029c9066e49748e4288743633fa2132a94f99e7ecb158e01b1d08fab5192456",
       "metrics": {
         "statements": {
           "covered": 200,
           "total": 205
         },
         "branches": {
-          "covered": 137,
-          "total": 141
+          "covered": 138,
+          "total": 142
         },
         "functions": {
           "covered": 45,
@@ -3174,7 +3216,7 @@
       }
     },
     "packages/agent-core/src/facets/approval-gateway/facet.ts": {
-      "sha256": "70ffbe5f712ccc0b614b9305b6d0474b1cac20ab2f1c49a1fa516eed1431189b",
+      "sha256": "664c221c10208c5f7fecc1bb038bc604d7e0bb1415701a7abeef5fa161b9a80a",
       "metrics": {
         "statements": {
           "covered": 35,
@@ -3195,7 +3237,7 @@
       }
     },
     "packages/agent-core/src/facets/approval-gateway/index.ts": {
-      "sha256": "a7894f7d4bddaf9d2531adf8eb2ec97ebba27cdf8c9247e16bb9cb28d4f1c4c5",
+      "sha256": "85ea00bac134b94cf9a2febb6551d8e020ac9f950e2b596fa911e4196f9ff3b0",
       "metrics": {
         "statements": {
           "covered": 0,
@@ -5211,44 +5253,44 @@
       }
     },
     "packages/agent-core/src/invocations/audit.ts": {
-      "sha256": "3587c6fe209d2ce7f996ee0108943979f5e87a6b512ab3292f3a5abfcfdd554e",
+      "sha256": "5f17556ca0923922277f0292f63633b055ee93187ba3788982e482e6853160df",
       "metrics": {
         "statements": {
-          "covered": 176,
-          "total": 177
+          "covered": 187,
+          "total": 188
         },
         "branches": {
-          "covered": 256,
-          "total": 258
+          "covered": 264,
+          "total": 266
         },
         "functions": {
-          "covered": 22,
-          "total": 22
+          "covered": 25,
+          "total": 25
         },
         "lines": {
-          "covered": 170,
-          "total": 170
+          "covered": 181,
+          "total": 181
         }
       }
     },
     "packages/agent-core/src/invocations/canonical-batch.ts": {
-      "sha256": "56028e348b5428e4ca3bded45461b1e7fbce6a3e4b41516b5f29c974929ae153",
+      "sha256": "849c3475d6fb661e9dda861cd86e279f3de60d6c3ac8b0df93c5b9378a8a0911",
       "metrics": {
         "statements": {
-          "covered": 129,
-          "total": 141
+          "covered": 148,
+          "total": 159
         },
         "branches": {
-          "covered": 66,
-          "total": 79
+          "covered": 90,
+          "total": 105
         },
         "functions": {
           "covered": 20,
           "total": 20
         },
         "lines": {
-          "covered": 124,
-          "total": 133
+          "covered": 144,
+          "total": 155
         }
       }
     },
@@ -5358,7 +5400,7 @@
       }
     },
     "packages/agent-core/src/invocations/export-manifest.ts": {
-      "sha256": "c1de34210231f4c45e1fbe18e8f20afb135a9f0f45b34350f256c70b26e2e5d9",
+      "sha256": "c0eed01b7e25532bf873098267e0b54cf206f6a9cd74eca03ee60d0516f14049",
       "metrics": {
         "statements": {
           "covered": 1,
@@ -5400,7 +5442,7 @@
       }
     },
     "packages/agent-core/src/invocations/index.ts": {
-      "sha256": "033c0ecec09ec35acb0d05f88e62831e0649e415927cd2690659e7ac0778ea24",
+      "sha256": "864835fd8c7d0d3fa69c99621a61308a71e623e268bbe463f48d8a2326624e8d",
       "metrics": {
         "statements": {
           "covered": 0,
@@ -5421,44 +5463,44 @@
       }
     },
     "packages/agent-core/src/invocations/ledger.ts": {
-      "sha256": "b5599ff4e7207a812643f29fb204f80dd87fdf4110aec02614f32ba3d75dac2a",
+      "sha256": "409475532b4d8d7fa3c8359d1ebcc4a28b0be33410e473872f1efede82a2270d",
       "metrics": {
         "statements": {
-          "covered": 211,
-          "total": 226
+          "covered": 237,
+          "total": 263
         },
         "branches": {
-          "covered": 258,
-          "total": 281
+          "covered": 267,
+          "total": 301
         },
         "functions": {
-          "covered": 41,
-          "total": 41
+          "covered": 51,
+          "total": 58
         },
         "lines": {
-          "covered": 202,
-          "total": 216
+          "covered": 229,
+          "total": 252
         }
       }
     },
     "packages/agent-core/src/invocations/mediation-memory.ts": {
-      "sha256": "cb3072ae5b9d60fafc66c1cf2a708f3b2badcca2e16443414bac52c68cfe993c",
+      "sha256": "b4c77274e29bbf99d5f9a253536625170bac62158e5b6e5c94563e24aa34a264",
       "metrics": {
         "statements": {
-          "covered": 49,
-          "total": 59
+          "covered": 71,
+          "total": 82
         },
         "branches": {
-          "covered": 29,
-          "total": 38
+          "covered": 41,
+          "total": 52
         },
         "functions": {
-          "covered": 18,
-          "total": 19
+          "covered": 21,
+          "total": 21
         },
         "lines": {
-          "covered": 46,
-          "total": 50
+          "covered": 67,
+          "total": 72
         }
       }
     },
@@ -5466,7 +5508,7 @@
       "sha256": "adcbec6fddb102e5261ae5439306e0ab45b7b4b8ddd6640ddce0fb089f52a36c",
       "metrics": {
         "statements": {
-          "covered": 108,
+          "covered": 109,
           "total": 114
         },
         "branches": {
@@ -5474,11 +5516,11 @@
           "total": 82
         },
         "functions": {
-          "covered": 45,
+          "covered": 46,
           "total": 46
         },
         "lines": {
-          "covered": 98,
+          "covered": 99,
           "total": 101
         }
       }
@@ -5568,7 +5610,7 @@
       }
     },
     "packages/agent-core/src/invocations/ports.ts": {
-      "sha256": "95c178a1d3944db131f6ba278f8d31dd081957095dd2dc177d22b2f95a24a2c3",
+      "sha256": "e9abe27f8c67d39dcb89f9235b35f75e9d48806598720f3e17c582b984c1179a",
       "metrics": {
         "statements": {
           "covered": 4,
@@ -5694,23 +5736,23 @@
       }
     },
     "packages/agent-core/src/invocations/reconciliation.ts": {
-      "sha256": "3ba5b4ca2ae9cbd81c13c3364203a237a4975f9d731da7347618237bbc41a002",
+      "sha256": "db9884ef5eaa46ee27f9fd3c787336e3fbb95aef7592577c8520d8401b5c001d",
       "metrics": {
         "statements": {
-          "covered": 5,
-          "total": 5
+          "covered": 58,
+          "total": 66
         },
         "branches": {
-          "covered": 2,
-          "total": 2
+          "covered": 41,
+          "total": 50
         },
         "functions": {
-          "covered": 2,
-          "total": 2
+          "covered": 11,
+          "total": 11
         },
         "lines": {
-          "covered": 4,
-          "total": 4
+          "covered": 56,
+          "total": 63
         }
       }
     },
@@ -5988,28 +6030,28 @@
       }
     },
     "packages/agent-core/src/protocol/dispatcher.ts": {
-      "sha256": "eb79f58aaa2b8acf5324a329e28705997fb2c70d3fcafca0c171d1b3c6cca8e0",
+      "sha256": "e0a7cf50dc0df292de9d124640cf4fea5d01fb7993de4f10c0009a42f947a065",
       "metrics": {
         "statements": {
-          "covered": 191,
-          "total": 195
+          "covered": 188,
+          "total": 192
         },
         "branches": {
-          "covered": 155,
-          "total": 165
+          "covered": 157,
+          "total": 167
         },
         "functions": {
-          "covered": 46,
-          "total": 46
+          "covered": 45,
+          "total": 45
         },
         "lines": {
-          "covered": 181,
-          "total": 184
+          "covered": 178,
+          "total": 181
         }
       }
     },
     "packages/agent-core/src/protocol/envelope.ts": {
-      "sha256": "18a3cf5b6199c45ee9467ce01be6c7e732a962f6f09a934ecb0a37358d230b80",
+      "sha256": "c90256d3ec428354d3b63374de479d756cbd335a8fc4d6dff6dbbf46e278090b",
       "metrics": {
         "statements": {
           "covered": 94,
@@ -6114,23 +6156,23 @@
       }
     },
     "packages/agent-core/src/protocol/memory.ts": {
-      "sha256": "88604599b1112adc073f9dda49933377dc983eb7515711b4c70b0f5caf83bc00",
+      "sha256": "0494f215b6dfc3c2592ce261111a0cb66b5e125979c5ffe1e93a8b00c934593a",
       "metrics": {
         "statements": {
-          "covered": 49,
-          "total": 50
+          "covered": 60,
+          "total": 64
         },
         "branches": {
-          "covered": 52,
-          "total": 53
+          "covered": 58,
+          "total": 62
         },
         "functions": {
-          "covered": 19,
-          "total": 19
+          "covered": 20,
+          "total": 20
         },
         "lines": {
-          "covered": 49,
-          "total": 50
+          "covered": 59,
+          "total": 63
         }
       }
     },
@@ -6156,23 +6198,23 @@
       }
     },
     "packages/agent-core/src/protocol/persistence.ts": {
-      "sha256": "3d59bbdbb466b663d7dd99af04a18ecac31575b5eead46c53440bfd66f3bd775",
+      "sha256": "d828398684dd47bb9f98e02b764a62725f01843e5533639fc23621c60406a9b6",
       "metrics": {
         "statements": {
-          "covered": 171,
-          "total": 185
+          "covered": 191,
+          "total": 210
         },
         "branches": {
-          "covered": 141,
-          "total": 165
+          "covered": 147,
+          "total": 176
         },
         "functions": {
-          "covered": 37,
-          "total": 37
+          "covered": 39,
+          "total": 39
         },
         "lines": {
-          "covered": 165,
-          "total": 179
+          "covered": 184,
+          "total": 203
         }
       }
     },
@@ -6409,6 +6451,27 @@
     },
     "packages/agent-core/src/slates/provider.ts": {
       "sha256": "089560748bff78357a57b0ac55d7b45c67bc5c85ed5cf5e5c846a2ee5bfc158c",
+      "metrics": {
+        "statements": {
+          "covered": 0,
+          "total": 0
+        },
+        "branches": {
+          "covered": 0,
+          "total": 0
+        },
+        "functions": {
+          "covered": 0,
+          "total": 0
+        },
+        "lines": {
+          "covered": 0,
+          "total": 0
+        }
+      }
+    },
+    "packages/agent-core/src/slates/public.ts": {
+      "sha256": "026b359032ca876b479c389efdc6de622559e3e814c603e3ded79e91c21cd8fd",
       "metrics": {
         "statements": {
           "covered": 0,
@@ -6807,11 +6870,11 @@
       }
     },
     "packages/agent-core/src/substrates/sqlite/invocations/mediation.ts": {
-      "sha256": "c820a3bd228126eca792c11244d74cceefd772d721fa4676baded524ad46707a",
+      "sha256": "e01dfd4f1af621b9c7121c0c8136035f0f4138f3c336b5ca5b46d6ed4afa2807",
       "metrics": {
         "statements": {
           "covered": 54,
-          "total": 58
+          "total": 59
         },
         "branches": {
           "covered": 38,
@@ -6819,11 +6882,11 @@
         },
         "functions": {
           "covered": 19,
-          "total": 19
+          "total": 20
         },
         "lines": {
           "covered": 52,
-          "total": 52
+          "total": 53
         }
       }
     },
@@ -6891,11 +6954,11 @@
       }
     },
     "packages/agent-core/src/substrates/sqlite/permit.ts": {
-      "sha256": "0502409acbd4546183eaf93471f7e3e7982b3c5ff5dda7796bad79f398fa1706",
+      "sha256": "30e353e2e36ff59a269e94633bb3e15e4b24fe2ffe4d8e1c8064dce08ecd98ee",
       "metrics": {
         "statements": {
-          "covered": 92,
-          "total": 95
+          "covered": 93,
+          "total": 96
         },
         "branches": {
           "covered": 57,
@@ -6906,29 +6969,29 @@
           "total": 18
         },
         "lines": {
-          "covered": 79,
-          "total": 81
+          "covered": 80,
+          "total": 82
         }
       }
     },
     "packages/agent-core/src/substrates/sqlite/protocol.ts": {
-      "sha256": "557da0e0e491c5c3525f26e6bfc38a14e1ad37bd6d2c96115d4642f97c307eb4",
+      "sha256": "4e9be5b16ebf2d15a196f0bf5132f524cd246a750cab4066872f9498dae939cc",
       "metrics": {
         "statements": {
-          "covered": 117,
-          "total": 120
+          "covered": 119,
+          "total": 122
         },
         "branches": {
-          "covered": 75,
-          "total": 78
+          "covered": 77,
+          "total": 80
         },
         "functions": {
-          "covered": 34,
-          "total": 34
+          "covered": 35,
+          "total": 35
         },
         "lines": {
-          "covered": 110,
-          "total": 113
+          "covered": 112,
+          "total": 115
         }
       }
     },
@@ -7185,7 +7248,7 @@
       }
     },
     "packages/agent-core/src/workspaces/origin.ts": {
-      "sha256": "cf09dfb780129f3a412d7984ef1b6b417c2608ed1b441029b4ecb7a35ac17d0d",
+      "sha256": "5579601db774fbd9cfdee1576f3e90ca731255650abe41bd45e215e82790a262",
       "metrics": {
         "statements": {
           "covered": 25,

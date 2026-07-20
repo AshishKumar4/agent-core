@@ -1,21 +1,40 @@
 {
   "edition": "1.0.0",
-  "baseCommit": "e8cb315eb2c88e1d0c317a59aeccc55e4ace0d63",
+  "baseCommit": "1e5c2a5e534efdc0c338efc5a1eff94596eaf234",
   "coverage": {
-    "metrics": ["statements", "branches", "functions", "lines"],
+    "metrics": [
+      "statements",
+      "branches",
+      "functions",
+      "lines"
+    ],
     "threshold": 95,
     "sourceUniverses": [
       {
         "id": "node",
         "root": "packages/agent-core/src",
-        "extensions": [".ts", ".tsx", ".mts", ".cts"],
-        "reports": ["packages/agent-core/reports/quality/coverage"]
+        "extensions": [
+          ".ts",
+          ".tsx",
+          ".mts",
+          ".cts"
+        ],
+        "reports": [
+          "packages/agent-core/reports/quality/coverage"
+        ]
       },
       {
         "id": "cloudflare",
         "root": "packages/agent-core-cloudflare/src",
-        "extensions": [".ts", ".tsx", ".mts", ".cts"],
-        "reports": ["packages/agent-core-cloudflare/reports/quality/coverage/structural"]
+        "extensions": [
+          ".ts",
+          ".tsx",
+          ".mts",
+          ".cts"
+        ],
+        "reports": [
+          "packages/agent-core-cloudflare/reports/quality/coverage/structural"
+        ]
       }
     ]
   },
