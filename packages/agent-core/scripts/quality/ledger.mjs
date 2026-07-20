@@ -20,6 +20,7 @@ import {
 } from "./evidence.mjs";
 import { ownersForPath, patternsForOwnership } from "./ownership.mjs";
 import { requireNonP2ConformanceEvidence } from "./test-priority-evidence.mjs";
+import { liveEvidenceSelectors } from "./live-substrate-evidence.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const ledgerArtifactRoot = options.artifactRoot;
@@ -67,7 +68,13 @@ const fragmentNames = [index.seed, ...activeFragmentNames];
 const conformanceRoot = resolve(ledgerArtifactRoot, "conformance");
 const actualFragmentNames = (await collectFiles(conformanceRoot, (path) => path.endsWith(".json")))
     .map((path) => relative(conformanceRoot, path).replaceAll("\\", "/"))
-    .filter((name) => !["index.json", "schema.json", "stage.json"].includes(name))
+    // live-evidence/ holds the live substrate lane's archived reports, validated by
+    // their own checker; they are evidence, not conformance fragments.
+    .filter(
+        (name) =>
+            !name.startsWith("live-evidence/") &&
+            !["index.json", "schema.json", "stage.json"].includes(name)
+    )
     .sort();
 if (
     JSON.stringify(actualFragmentNames) !==
@@ -214,6 +221,11 @@ if (evidenced.length > 0) {
         }
     }
     const executedTests = await executedTestSelectors(options.testReports);
+    if (evidenced.some((requirement) => requirement.checkerInvariants.includes("ACQ-LIVE"))) {
+        for (const selector of liveEvidenceSelectors(ledgerArtifactRoot)) {
+            executedTests.add(selector);
+        }
+    }
     for (const requirement of evidenced) {
         requirePassingTests(requirement.testSelectors, executedTests, requirement.id);
     }

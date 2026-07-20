@@ -39,19 +39,36 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
                 resolve(packageRoot, "artifacts/conformance/profiles-cloudflare.json"),
                 "utf8"
             )
-        ) as { requirements: Array<{ id: string; status: string }> };
+        ) as {
+            requirements: Array<{ id: string; status: string; checkerInvariants: string[] }>;
+        };
         const declaredGateIds = remoteGates.gates.map((gate) => gate.id).sort();
         const expectedGateIds = Object.keys(externalRequirementsByConsentGate).sort();
         const expectedRequirements = Object.values(externalRequirementsByConsentGate).flat().sort();
 
         expect(declaredGateIds).toEqual(expectedGateIds);
-        expect([...index.externalGates].sort()).toEqual(expectedRequirements);
-        expect(
+        // The index and the fragment must agree exactly on what remains gated, and
+        // only explicitly consent-declared requirements may ever be external-gated.
+        expect([...index.externalGates].sort()).toEqual(
             profiles.requirements
                 .filter((requirement) => requirement.status === "external-gated")
                 .map((requirement) => requirement.id)
                 .sort()
-        ).toEqual(expectedRequirements);
+        );
+        for (const gated of index.externalGates) {
+            expect(expectedRequirements).toContain(gated);
+        }
+        // A consent-gated requirement resolves only through the consented live
+        // substrate lane: verified, with hash-bound live evidence demanded.
+        for (const requirement of profiles.requirements) {
+            if (
+                expectedRequirements.includes(requirement.id) &&
+                !index.externalGates.includes(requirement.id)
+            ) {
+                expect(requirement.status).toBe("verified");
+                expect(requirement.checkerInvariants).toContain("ACQ-LIVE");
+            }
+        }
     });
 
     test("extracts a unique owner and digest for every §13 atom and §11 profile", async () => {

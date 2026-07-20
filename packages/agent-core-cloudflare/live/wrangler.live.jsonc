@@ -1,0 +1,22 @@
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "agent-core-live-harness",
+  "account_id": "f44999d1ddda7012e9a87729eba250f1",
+  "main": "worker.ts",
+  "compatibility_date": "2026-07-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      { "name": "ENVIRONMENTS", "class_name": "LiveEnvironmentHarness" },
+      { "name": "SLATES", "class_name": "LiveSlateHarness" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["LiveEnvironmentHarness", "LiveSlateHarness"]
+    }
+  ],
+  "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-live-evidence" }]
+}

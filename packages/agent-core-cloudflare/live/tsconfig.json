@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "ESNext.Disposable"],
+    "types": []
+  },
+  "include": ["worker.ts", "worker-configuration.d.ts", "../src/**/*.ts"]
+}

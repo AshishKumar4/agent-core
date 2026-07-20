@@ -1,25 +1,19 @@
 {
-  "edition": "1.0.0",
-  "spec": "SPEC.md",
-  "section": "13",
-  "seed": "seed.json",
-  "fragments": [
-    "quality-infrastructure.json",
-    "foundation.json",
-    "identity-authority.json",
-    "facets-operations.json",
-    "definition-platform.json",
-    "runs-turns.json",
-    "invocations-audit.json",
-    "events-routing.json",
-    "profiles-cloudflare.json"
-  ],
-  "pendingFragments": [],
-  "externalGates": [
-    "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
-    "P11-ENVIRONMENT-PREVIEW",
-    "P11-ENVIRONMENT-SNAPSHOT",
-    "P11-SLATE-DEPLOY",
-    "P11-SLATE-MEDIATED-DEPLOY"
-  ]
+    "edition": "1.0.0",
+    "spec": "SPEC.md",
+    "section": "13",
+    "seed": "seed.json",
+    "fragments": [
+        "quality-infrastructure.json",
+        "foundation.json",
+        "identity-authority.json",
+        "facets-operations.json",
+        "definition-platform.json",
+        "runs-turns.json",
+        "invocations-audit.json",
+        "events-routing.json",
+        "profiles-cloudflare.json"
+    ],
+    "pendingFragments": [],
+    "externalGates": []
 }

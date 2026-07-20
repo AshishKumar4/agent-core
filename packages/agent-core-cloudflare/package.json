@@ -17,6 +17,7 @@
     "check:cloudflare-types": "wrangler types test/cloudflare/worker-configuration.d.ts --config wrangler.test.jsonc --check",
     "check:coverage": "pnpm --filter @agent-core/core quality --stage building --target coverage",
     "check:consumer": "pnpm build && node ./scripts/check-consumer.mjs",
+    "live:evidence": "pnpm --filter @agent-core/core build && node ./scripts/live-evidence.mjs",
     "check:exports": "pnpm check:consumer",
     "check:types": "pnpm --filter @agent-core/core build && tsc -p tsconfig.json && tsc -p test/tsconfig.json && tsc -p test/cloudflare/tsconfig.json",
     "lint": "pnpm --workspace-root exec oxlint --deny-warnings packages/agent-core-cloudflare/src packages/agent-core-cloudflare/test packages/agent-core-cloudflare/scripts",
