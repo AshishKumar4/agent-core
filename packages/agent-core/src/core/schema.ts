@@ -15,15 +15,17 @@ const JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema";
 const SUPPORTED_FORMATS = new Set(["uri"]);
 
 export class StrictJsonSchemaValidator implements JsonSchemaValidator {
-    // Compiled validators are memoized by canonical schema identity, and compilation
-    // is deferred to first use: schemas are routinely declared at module scope, and
-    // eager Ajv codegen there exceeds substrate startup CPU limits. The memo is
+    // Compiled validators are memoized by canonical schema identity. The memo is
     // bounded because schemas also arrive from decoded records, where an unbounded
     // cache would let untrusted definitions grow memory without limit.
     static readonly #compiledLimit = 512;
     readonly #compiled = new Map<string, (value: unknown) => boolean>();
 
     public assertSchema(schema: JsonSchemaDocument): void {
+        this.validateAndCompile(schema);
+    }
+
+    public assertSupportedSchema(schema: JsonSchemaDocument): void {
         assertSupportedSchema(canonicalCopy(schema) as JsonSchemaDocument);
     }
 
@@ -130,6 +132,16 @@ export class JsonSchema {
 
     public assertValid(): void {
         strictJsonSchemaValidator.assertSchema(this.document);
+    }
+
+    /**
+     * The structural subset of assertValid: rejects unsupported dialects, references,
+     * and formats without compiling. Declaration-time checks on first-party schemas
+     * use this so module initialization stays within substrate startup CPU limits;
+     * compilation still asserts the full schema on first validation.
+     */
+    public assertSupported(): void {
+        strictJsonSchemaValidator.assertSupportedSchema(this.document);
     }
 }
 

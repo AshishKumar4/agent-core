@@ -844,7 +844,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.b6dac1bd55",
             "file": "src/core/schema.ts",
-            "line": 160,
+            "line": 190,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -860,7 +860,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.5f1516d9e3",
             "file": "src/core/schema.ts",
-            "line": 163,
+            "line": 193,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -876,7 +876,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.a80ba3d24d",
             "file": "src/core/schema.ts",
-            "line": 166,
+            "line": 196,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -892,7 +892,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.23a5701d60",
             "file": "src/core/schema.ts",
-            "line": 172,
+            "line": 202,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -908,7 +908,7 @@
         {
             "id": "w1.core.schema.requirelocalreference.725b14e43c",
             "file": "src/core/schema.ts",
-            "line": 229,
+            "line": 259,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireLocalReference",
@@ -924,7 +924,7 @@
         {
             "id": "w1.core.schema.requiredynamicreference.699d11bc4e",
             "file": "src/core/schema.ts",
-            "line": 235,
+            "line": 265,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireDynamicReference",
@@ -940,7 +940,7 @@
         {
             "id": "w1.core.schema.requireunchanged.4a676921f0",
             "file": "src/core/schema.ts",
-            "line": 261,
+            "line": 291,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireUnchanged",
@@ -956,7 +956,7 @@
         {
             "id": "w1.core.schema.requirebooleanvalidationresult.485e91946b",
             "file": "src/core/schema.ts",
-            "line": 266,
+            "line": 296,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireBooleanValidationResult",
@@ -972,7 +972,7 @@
         {
             "id": "w1.core.schema.strictjsonschemavalidatorvalidateandcompile.9317a1f7fe",
             "file": "src/core/schema.ts",
-            "line": 34,
+            "line": 48,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "StrictJsonSchemaValidator.validateAndCompile",
@@ -988,7 +988,7 @@
         {
             "id": "w1.core.schema.jsonschemaconstructor.d55227387e",
             "file": "src/core/schema.ts",
-            "line": 72,
+            "line": 92,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "JsonSchema.constructor",

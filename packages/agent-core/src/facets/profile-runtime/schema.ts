@@ -9,7 +9,7 @@ export const JSON_VALUE_SCHEMA = JsonSchema.any();
 
 export function schema(document: JsonSchemaDocument): JsonSchema {
     const value = new JsonSchema(document);
-    value.assertValid();
+    value.assertSupported();
     return value;
 }
 

@@ -36,8 +36,8 @@ export class ProfileOperationContract<
         if (descriptor.name.value !== name) {
             throw new TypeError("Profile operation contract name must match its descriptor");
         }
-        descriptor.input.assertValid();
-        descriptor.output.assertValid();
+        descriptor.input.assertSupported();
+        descriptor.output.assertSupported();
         Object.freeze(this);
     }
 
@@ -85,7 +85,7 @@ export class ProfileEventContract<Kind extends string, Payload extends PublicPro
         if (declaration.kind.value !== kind) {
             throw new TypeError("Profile Event contract kind must match its declaration");
         }
-        declaration.payload.assertValid();
+        declaration.payload.assertSupported();
         Object.freeze(this);
     }
 
@@ -111,8 +111,8 @@ export class ProfileControlContract<Name extends string, Input extends PublicPro
         if (name.trim().length === 0 || name !== name.trim()) {
             throw new TypeError("Profile control contract name must be canonical");
         }
-        input.assertValid();
-        output.assertValid();
+        input.assertSupported();
+        output.assertSupported();
         Object.freeze(this);
     }
 
