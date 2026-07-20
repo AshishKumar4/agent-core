@@ -578,8 +578,19 @@ export async function deriveOwner(base) {
 
 export async function validateCompleteOwnership() {
     const { patterns } = await loadOwnership();
+    // Anchored to the git toplevel so the same validation holds from any nested
+    // copy of the package (a mutation sandbox resolves this module's parent to the
+    // package root, where ls-files would list package-relative paths that match no
+    // repository-relative ownership pattern).
+    const toplevel = git(["rev-parse", "--show-toplevel"])[0];
+    const list = (args) => {
+        const result = spawnSync("git", args, { cwd: toplevel, encoding: "utf8" });
+        if (result.error) throw result.error;
+        if (result.status !== 0) throw new Error(result.stderr);
+        return result.stdout.split("\n").filter(Boolean);
+    };
     const paths = [
-        ...new Set([...git(["ls-files"]), ...git(["ls-files", "--others", "--exclude-standard"])])
+        ...new Set([...list(["ls-files"]), ...list(["ls-files", "--others", "--exclude-standard"])])
     ].sort();
     const violations = paths.flatMap((path) => {
         const owners = ownersForPath(path, patterns);
