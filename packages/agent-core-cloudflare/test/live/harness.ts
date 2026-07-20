@@ -9,6 +9,11 @@ export const harnessUrl: string = url.replace(/\/$/u, "");
 
 export const phase: 1 | 2 = process.env["LIVE_PHASE"] === "2" ? 2 : 1;
 
+const runId = process.env["LIVE_RUN_ID"];
+if (runId === undefined || runId.length === 0) {
+    throw new TypeError("LIVE_RUN_ID must identify this evidence run");
+}
+
 const stateFile = process.env["LIVE_STATE_FILE"];
 
 export interface LiveOutcome {
@@ -18,13 +23,15 @@ export interface LiveOutcome {
     readonly message?: string;
 }
 
+// Durable Object instances persist across evidence runs; suffixing every instance
+// with the run ID keeps each run's scenarios on fresh substrate state.
 export async function call(
     lane: "env" | "slate",
     instance: string,
     operation: string,
     body: Record<string, JsonValue> = {}
 ): Promise<LiveOutcome> {
-    const response = await fetch(`${harnessUrl}/${lane}/${instance}/${operation}`, {
+    const response = await fetch(`${harnessUrl}/${lane}/${instance}-${runId}/${operation}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body)
@@ -38,7 +45,7 @@ export async function call(
 
 export async function abortInstance(lane: "env" | "slate", instance: string): Promise<void> {
     try {
-        const response = await fetch(`${harnessUrl}/${lane}/${instance}/abort`, {
+        const response = await fetch(`${harnessUrl}/${lane}/${instance}-${runId}/abort`, {
             method: "POST"
         });
         if (response.status !== 204 && response.status < 500) {

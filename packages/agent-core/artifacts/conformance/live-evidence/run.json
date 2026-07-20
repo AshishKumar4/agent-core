@@ -1,0 +1,31 @@
+{
+    "edition": "1.0.0",
+    "commit": "6d1c45612d19763f44cfd64db3056e6d208ac3f5",
+    "dirtySources": true,
+    "accountId": "f44999d1ddda7012e9a87729eba250f1",
+    "worker": "agent-core-live-harness",
+    "bucket": "agent-core-live-evidence",
+    "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
+    "deployments": [
+        {
+            "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
+            "versionId": "d981758c-033d-4202-96d3-37a9893d3943",
+            "at": "2026-07-20T15:20:46.250Z"
+        },
+        {
+            "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
+            "versionId": "66c499cb-0150-455e-a0b8-7c9584ac3071",
+            "at": "2026-07-20T15:20:58.949Z"
+        }
+    ],
+    "sourceFingerprints": {
+        "packages/agent-core-cloudflare/src/environment-provider.ts": "2121c12f7747e235bda9a7fae8c1a5cd066838acefa1a9d5851ff7215b268b98",
+        "packages/agent-core-cloudflare/src/slate-provider.ts": "dc3f08092ec27784d2272fd803799585cdfb54bcfb476b4c111ffb7ccf19b415",
+        "packages/agent-core-cloudflare/live/worker.ts": "e4c6d70930312eac76cc8ac4721df8989cea78dba9e816b4761637c6842adfd2",
+        "packages/agent-core-cloudflare/test/live/live.test.ts": "b24f223010ea565c1a62b51f27f464a81497035ed9fa9df6323631127980eec5"
+    },
+    "reports": {
+        "phase-1.vitest.json": "003effce633dcbcce7550d62ba43f231fb335c7f447f3debaa1922c8e18012a0",
+        "phase-2.vitest.json": "779d728e9767105be9e450457c72f765c58bd631d5565eb5708ba3e035bb09b8"
+    }
+}

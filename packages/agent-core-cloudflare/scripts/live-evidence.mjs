@@ -108,6 +108,7 @@ function runPhase(url, phase, stateFile, reportPath) {
                 ...process.env,
                 LIVE_HARNESS_URL: url,
                 LIVE_PHASE: String(phase),
+                LIVE_RUN_ID: runId,
                 LIVE_STATE_FILE: stateFile
             },
             allowFailure: true
@@ -124,6 +125,7 @@ function runPhase(url, phase, stateFile, reportPath) {
 
 mkdirSync(evidenceRoot, { recursive: true });
 const stateFile = join(mkdtempSync(join(tmpdir(), "live-evidence-")), "state.json");
+const runId = `${commit.slice(0, 12)}-${Date.now().toString(36)}`;
 
 console.log(`deploying live harness at ${commit}${dirty ? " (dirty sources)" : ""}`);
 const firstDeployment = deploy();
