@@ -15,8 +15,16 @@ const JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema";
 const SUPPORTED_FORMATS = new Set(["uri"]);
 
 export class StrictJsonSchemaValidator implements JsonSchemaValidator {
+    // Compiled validators are memoized by canonical schema identity, and compilation
+    // is deferred to first use: schemas are routinely declared at module scope, and
+    // eager Ajv codegen there exceeds substrate startup CPU limits. The memo is
+    // bounded because schemas also arrive from decoded records, where an unbounded
+    // cache would let untrusted definitions grow memory without limit.
+    static readonly #compiledLimit = 512;
+    readonly #compiled = new Map<string, (value: unknown) => boolean>();
+
     public assertSchema(schema: JsonSchemaDocument): void {
-        this.validateAndCompile(schema);
+        assertSupportedSchema(canonicalCopy(schema) as JsonSchemaDocument);
     }
 
     public validate(schema: JsonSchemaDocument, value: JsonValue): boolean {
@@ -26,13 +34,23 @@ export class StrictJsonSchemaValidator implements JsonSchemaValidator {
 
     private validateAndCompile(schema: JsonSchemaDocument): (value: unknown) => boolean {
         const canonical = canonicalCopy(schema) as JsonSchemaDocument;
+        const key = new TextDecoder().decode(encodeCanonicalJson(canonical));
+        const memoized = this.#compiled.get(key);
+        if (memoized !== undefined) return memoized;
         assertSupportedSchema(canonical);
+        let compiled: (value: unknown) => boolean;
         try {
-            return createAjv().compile(canonical) as (value: unknown) => boolean;
+            compiled = createAjv().compile(canonical) as (value: unknown) => boolean;
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new TypeError(`Unsupported JSON Schema: ${message}`);
         }
+        if (this.#compiled.size >= StrictJsonSchemaValidator.#compiledLimit) {
+            const oldest = this.#compiled.keys().next().value;
+            if (oldest !== undefined) this.#compiled.delete(oldest);
+        }
+        this.#compiled.set(key, compiled);
+        return compiled;
     }
 }
 
