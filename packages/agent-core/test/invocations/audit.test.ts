@@ -825,14 +825,16 @@ const failureCases: readonly (readonly [string, InvocationFailure, RegExp, () =>
 ];
 
 describe("AuditRecord failure codes", () => {
-    test.each(failureCases)("reports %s as %s", { tags: "p2" }, (_scenario, failure, message, run) => {
-        try {
-            run();
-            throw new Error("Expected the audit validation to fail");
-        } catch (error) {
-            expect(error).toBeInstanceOf(InvocationError);
-            expect((error as InvocationError).failure).toBe(failure);
-            expect((error as InvocationError).message).toMatch(message);
+    test("reports every validation failure with its exact code and message", { tags: "p2" }, () => {
+        for (const [scenario, failure, message, run] of failureCases) {
+            try {
+                run();
+                throw new Error(`Expected the audit validation to fail for ${scenario}`);
+            } catch (error) {
+                expect(error, scenario).toBeInstanceOf(InvocationError);
+                expect((error as InvocationError).failure, scenario).toBe(failure);
+                expect((error as InvocationError).message, scenario).toMatch(message);
+            }
         }
     });
 });
