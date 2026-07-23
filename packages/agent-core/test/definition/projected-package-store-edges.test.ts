@@ -60,9 +60,69 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         const malformed = new HostilePackageStore();
         malformed.releaseAlias = { ...rowForRelease(release), bytes: "bad" as never };
         expect(() => malformed.get(new PackageId("alias"), new SemVer("1.0.0"))).toThrow(
-            /bytes are malformed/
+            /Stored package release bytes are malformed/
         );
         expect(malformed.getLock(digestOf("missing"))).toBeUndefined();
+    });
+
+    test("validates stored release keys against their codec bytes", { tags: "p1" }, () => {
+        const release = packageRelease("package", "1.0.0");
+
+        const mangledId = new HostilePackageStore();
+        mangledId.releases.push({ ...rowForRelease(release), packageId: new PackageId("wrong") });
+        expect(() => mangledId.list()).toThrow(/key or projection/);
+
+        const mangledVersion = new HostilePackageStore();
+        mangledVersion.releases.push({ ...rowForRelease(release), version: "9.9.9" });
+        expect(() => mangledVersion.list()).toThrow(/key or projection/);
+
+        const versionBlind = new HostilePackageStore();
+        versionBlind.add(release);
+        versionBlind.versionBlind = true;
+        expect(() => versionBlind.get(release.id, new SemVer("9.9.9"))).toThrow(
+            /key or projection/
+        );
+    });
+
+    test("validates snapshot and lock projections against requested digests", { tags: "p1" }, () => {
+        const release = packageRelease("package", "1.0.0");
+        const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
+        const other = new MetadataSnapshot({ revision: new Revision(2), releases: [release] });
+
+        const mangledDigest = new HostilePackageStore();
+        mangledDigest.snapshots.push({
+            ...rowForSnapshot(snapshot),
+            digest: digestOf("mangled").value
+        });
+        expect(() => mangledDigest.listSnapshots()).toThrow(/key or projection/);
+
+        const mangledRevision = new HostilePackageStore();
+        mangledRevision.snapshots.push({ ...rowForSnapshot(snapshot), revision: 9 });
+        expect(() => mangledRevision.listSnapshots()).toThrow(/key or projection/);
+
+        const aliasedSnapshot = new HostilePackageStore();
+        aliasedSnapshot.snapshotAlias = rowForSnapshot(other);
+        expect(() => aliasedSnapshot.getSnapshot(snapshot.digest)).toThrow(/key or projection/);
+
+        const lock = packageLock(snapshot.digest, 1, [release]);
+        const aliasedLock = new HostilePackageStore();
+        aliasedLock.lockAlias = { ...rowForLock(lock), lockDigest: digestOf("mangled").value };
+        expect(() => aliasedLock.getLock(lock.digest)).toThrow(/key or projection/);
+    });
+
+    test("names malformed stored snapshot and lock bytes exactly", { tags: "p2" }, () => {
+        const release = packageRelease("package", "1.0.0");
+        const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
+        const snapshotStore = new HostilePackageStore();
+        snapshotStore.snapshotWrite = { ...rowForSnapshot(snapshot), bytes: "bad" as never };
+        expect(() => snapshotStore.addSnapshot(snapshot)).toThrow(
+            /Stored metadata snapshot bytes are malformed/
+        );
+
+        const lock = packageLock(snapshot.digest, 1, [release]);
+        const lockStore = new HostilePackageStore();
+        lockStore.lockWrite = { ...rowForLock(lock), bytes: "bad" as never };
+        expect(() => lockStore.addLock(lock)).toThrow(/Stored package lock bytes are malformed/);
     });
 });
 
@@ -76,9 +136,13 @@ class HostilePackageStore extends ProjectedPackageStore {
     public snapshotWrite: StoredMetadataSnapshot | undefined;
     public lockWrite: StoredPackageLock | undefined;
     public releaseAlias: StoredPackageRelease | undefined;
+    public snapshotAlias: StoredMetadataSnapshot | undefined;
+    public lockAlias: StoredPackageLock | undefined;
+    public versionBlind = false;
 
     protected findRelease(packageId: PackageId, version: string): StoredPackageRelease | undefined {
         if (packageId.value === "alias") return this.releaseAlias;
+        if (this.versionBlind) return this.releases[0];
         return this.releases.find(
             (row) => row.packageId.equals(packageId) && row.version === version
         );
@@ -97,6 +161,7 @@ class HostilePackageStore extends ProjectedPackageStore {
     }
 
     protected findSnapshot(digest: string): StoredMetadataSnapshot | undefined {
+        if (this.snapshotAlias !== undefined) return this.snapshotAlias;
         return this.snapshots.find((row) => row.digest === digest);
     }
 
@@ -113,6 +178,7 @@ class HostilePackageStore extends ProjectedPackageStore {
     }
 
     protected findLock(lockDigest: string): StoredPackageLock | undefined {
+        if (this.lockAlias !== undefined) return this.lockAlias;
         return this.locks.find((row) => row.lockDigest === lockDigest);
     }
 

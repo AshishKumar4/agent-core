@@ -51,6 +51,42 @@ describe("ValidationAttestation", () => {
             })
         ).toThrow(/must be a string/);
     });
+
+    test("names every attestation field subject when decoding malformed data", { tags: "p2" }, () => {
+        const data = createAttestation().toData() as object;
+        const subjects: readonly (readonly [string, string])[] = [
+            ["id", "Validation attestation ID"],
+            ["definitionDigest", "Definition digest"],
+            ["blueprintDigest", "Blueprint digest"],
+            ["packageLockDigest", "Package lock digest"],
+            ["snapshotDigest", "Snapshot digest"],
+            ["configSchemaDigest", "Config schema digest"],
+            ["declarationDigest", "Declaration digest"],
+            ["placementDigest", "Placement digest"],
+            ["validatorVersion", "Validator version"]
+        ];
+        for (const [field, subject] of subjects) {
+            expect(() => ValidationAttestation.fromData({ ...data, [field]: 7 })).toThrow(
+                new RegExp(`${subject} must be a string`)
+            );
+        }
+        expect(() => ValidationAttestation.fromData([])).toThrow(
+            /Validation attestation must be an object/
+        );
+        expect(() => ValidationAttestation.fromData("text")).toThrow(
+            /Validation attestation must be an object/
+        );
+    });
+
+    test("rejects blank and padded validator versions before deriving any identity", { tags: "p1" }, () => {
+        const { id: _id, ...input } = createAttestation();
+        expect(() => new ValidationAttestation({ ...input, validatorVersion: "" })).toThrow(
+            /Validator version must be a nonblank canonical string/
+        );
+        expect(() => new ValidationAttestation({ ...input, validatorVersion: "v1 " })).toThrow(
+            /Validator version must be a nonblank canonical string/
+        );
+    });
 });
 
 describe("PlatformCompatibility", () => {
@@ -65,6 +101,18 @@ describe("PlatformCompatibility", () => {
         expect(() => PlatformCompatibility.fromData(null)).toThrow(/must be an object/);
         expect(() => PlatformCompatibility.fromData({ spec: "1.0.0" })).toThrow(/missing/);
         expect(() => PlatformCompatibility.fromData({ spec: 1, host: "1.0.0" })).toThrow(/missing/);
+    });
+
+    test("rejects nonstring hosts and nonobject payloads with exact diagnostics", { tags: "p1" }, () => {
+        expect(() => PlatformCompatibility.fromData({ host: 7, spec: "1.0.0" })).toThrow(
+            /Platform compatibility contains missing or unknown fields/
+        );
+        expect(() => PlatformCompatibility.fromData([])).toThrow(
+            /Platform compatibility must be an object/
+        );
+        expect(() => PlatformCompatibility.fromData("te")).toThrow(
+            /Platform compatibility must be an object/
+        );
     });
 });
 

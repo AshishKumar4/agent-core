@@ -23,6 +23,8 @@ import {
 } from "../../src/definition";
 import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../src/facets";
 import { TenantId } from "../../src/identity";
+import { AgentCoreError } from "../../src/errors";
+import { definitionRevisionConflict, invalidDefinition } from "../../src/definition/error";
 import { compareText } from "../../src/definition/order";
 
 describe("definition value boundaries", () => {
@@ -127,6 +129,56 @@ describe("definition value boundaries", () => {
         expect(() =>
             Blueprint.fromData({ ...(blueprint.toData() as object), agents: null })
         ).toThrow(/array/);
+    });
+
+    test("names each identifier subject and anchors digest identifiers end to end", { tags: "p1" }, () => {
+        expect(() => new PackageId("")).toThrow(
+            /Package ID must contain between 1 and 256 characters/
+        );
+        expect(() => new MaterializationGenerationId("")).toThrow(
+            /Materialization generation ID must contain between 1 and 256 characters/
+        );
+        expect(() => new DeploymentKey("")).toThrow(
+            /Deployment key must contain between 1 and 256 characters/
+        );
+        expect(() => new DeploymentId("")).toThrow(
+            /Deployment ID must contain between 1 and 256 characters/
+        );
+        const hex = "0".repeat(64);
+        expect(() => new MaterializationGenerationId(`z${hex}`)).toThrow(/SHA-256/);
+        expect(() => new MaterializationGenerationId(`${hex}z`)).toThrow(/SHA-256/);
+        expect(() => new DeploymentId(`z${hex}`)).toThrow(/SHA-256/);
+        expect(() => new DeploymentId(`${hex}z`)).toThrow(/SHA-256/);
+    });
+
+    test("definition error helpers carry their exact taxonomy codes", { tags: "p1" }, () => {
+        const invalid = invalidDefinition("Definition input rejected");
+        expect(invalid).toBeInstanceOf(AgentCoreError);
+        expect(invalid.code).toBe("operation.invalid-input");
+        expect(invalid.message).toBe("Definition input rejected");
+        const conflict = definitionRevisionConflict("Definition revision conflicted");
+        expect(conflict).toBeInstanceOf(AgentCoreError);
+        expect(conflict.code).toBe("protocol.revision-conflict");
+        expect(conflict.message).toBe("Definition revision conflicted");
+    });
+
+    test("rejects empty and padded compatibility ranges with their exact subjects", { tags: "p1" }, () => {
+        expect(() => canonicalCompatibilityRange("", "Range")).toThrow(
+            /Range must be a nonblank canonical range/
+        );
+        expect(() => canonicalCompatibilityRange("1.0.0 ", "Range")).toThrow(
+            /Range must be a nonblank canonical range/
+        );
+        const target = new PlatformCompatibility({
+            spec: new SemVer("1.0.0"),
+            host: new SemVer("1.0.0")
+        });
+        expect(() => compatibilityAdmits({ spec: " ", host: "*" }, target)).toThrow(
+            /Spec compatibility range must be a nonblank canonical range/
+        );
+        expect(() => compatibilityAdmits({ spec: "*", host: " " }, target)).toThrow(
+            /Host compatibility range must be a nonblank canonical range/
+        );
     });
 
     test("rejects malformed placement and policy values at public constructors", () => {

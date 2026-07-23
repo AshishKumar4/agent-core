@@ -5,6 +5,7 @@ import {
     CompatRange,
     ContentRef,
     Digest,
+    JsonSchema,
     Revision,
     SemVer,
     decodeCanonicalJson,
@@ -14,6 +15,7 @@ import {
 import {
     ActorPlan,
     Blueprint,
+    BlueprintDeclarationCodecPort,
     DeploymentId,
     DeploymentKey,
     DesiredProjection,
@@ -43,7 +45,18 @@ import {
     planMaterialization
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
-import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
+import {
+    BindingName,
+    Command,
+    Contribution,
+    Contributions,
+    FacetManifest,
+    FacetPackageId,
+    OperationRef,
+    SlotAuthorityPolicy,
+    SlotDeclaration,
+    SlotName
+} from "../../src/facets";
 import { TenantId } from "../../src/identity";
 
 const encoder = new TextEncoder();
@@ -615,6 +628,346 @@ describe("materialization planning", () => {
     });
 });
 
+describe("materialization planning mutation boundaries", () => {
+    test("consults topology in canonical record kind then logical key order", { tags: "p1" }, () => {
+        const ownerSlot = new SlotDeclaration(
+            new SlotName("owner.slot"),
+            new JsonSchema({ type: "object" }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        );
+        const validatedBlueprint = validatedCustom({
+            slots: [ownerSlot.toData()],
+            agents: [{ name: "helper" }],
+            environments: [{ region: "eu" }]
+        });
+        const seen: (readonly [string, string])[] = [];
+        const recording = new (class extends MaterializationTopologyPort {
+            public actorFor(
+                _validated: ValidatedBlueprint,
+                projection: DesiredProjection
+            ): ActorRef {
+                seen.push([projection.recordKind, projection.logicalKey]);
+                return new ActorRef("tenant", new ActorId("tenant-a"));
+            }
+        })();
+
+        planMaterialization({
+            validatedBlueprint,
+            tenantId,
+            deploymentKey,
+            generation: 1,
+            topology: recording
+        });
+        expect(seen).toEqual([
+            ["agent-profile", "agent:0"],
+            ["environment", "environment:0"],
+            ["facet-install", "install:alpha:alpha.facet"],
+            ["facet-placement", "placement:alpha:alpha.facet"],
+            ["policy-set", "policy:platform"],
+            ["slot-entry", "contribution:blueprint:slots:0"]
+        ]);
+    });
+
+    test("derives one command subscription with the canonical input mapping", { tags: "p1" }, () => {
+        const command = new Command({
+            name: "deploy",
+            title: "Deploy",
+            arguments: new JsonSchema({ type: "object" }),
+            operation: new OperationRef("acme.deploy:run"),
+            binding: new BindingName("deploy"),
+            surfaces: [new SlotName("settings"), new SlotName("surfaces")]
+        });
+        const validatedBlueprint = validatedCustom({
+            packageId: "acme",
+            contributions: new Contributions([
+                new Contribution(new SlotName("commands"), [command.toData()])
+            ])
+        });
+
+        const plan = planMaterialization({
+            validatedBlueprint,
+            tenantId,
+            deploymentKey,
+            generation: 1,
+            topology
+        });
+        const subscription = plan.actors
+            .flatMap((actor) => actor.projections)
+            .find(
+                (projection) => projection.logicalKey === "subscription:command:acme.facet:deploy"
+            );
+        const expected = new DesiredProjection({
+            logicalKey: "subscription:command:acme.facet:deploy",
+            recordKind: "subscription",
+            desired: {
+                authority: "initiator",
+                binding: "deploy",
+                dedupe: "event",
+                mapping: [{ from: "/input", to: "" }],
+                source: {
+                    acceptedTrust: ["owner", "authenticated", "self"],
+                    kind: "command.invoked",
+                    source: "acme.facet:deploy"
+                },
+                target: "acme.deploy:run"
+            }
+        });
+        expect(subscription?.desired).toEqual(expected.desired);
+        expect(subscription?.desiredDigest.equals(expected.desiredDigest)).toBe(true);
+    });
+
+    test("honors slot contribute authority through wildcard selectors", { tags: "p1" }, () => {
+        const contributions = new Contributions([
+            new Contribution(new SlotName("dashboard.card"), [{ title: "Health" }])
+        ]);
+        const admitted = validatedCustom({
+            packageId: "cards",
+            contributions,
+            slots: [
+                new SlotDeclaration(
+                    new SlotName("dashboard.card"),
+                    new JsonSchema({ type: "object" }),
+                    new SlotAuthorityPolicy(["cards.*", "installed"], ["scope.read"])
+                ).toData()
+            ]
+        });
+        const plan = planMaterialization({
+            validatedBlueprint: admitted,
+            tenantId,
+            deploymentKey,
+            generation: 1,
+            topology
+        });
+        expect(
+            plan.actors
+                .flatMap((actor) => actor.projections)
+                .some(
+                    (projection) =>
+                        projection.logicalKey === "contribution:cards.facet:dashboard.card:0"
+                )
+        ).toBe(true);
+
+        const denied = validatedCustom({
+            packageId: "cards",
+            contributions,
+            slots: [
+                new SlotDeclaration(
+                    new SlotName("dashboard.card"),
+                    new JsonSchema({ type: "object" }),
+                    new SlotAuthorityPolicy(["other.*"], ["scope.read"])
+                ).toData()
+            ]
+        });
+        expect(() =>
+            planMaterialization({
+                validatedBlueprint: denied,
+                tenantId,
+                deploymentKey,
+                generation: 1,
+                topology
+            })
+        ).toThrow(/Contributor cards.facet may not contribute to slot dashboard.card/);
+    });
+
+    test("permits contributions to host-published slots without contribute authority", { tags: "p1" }, () => {
+        const validatedBlueprint = validatedCustom({
+            packageId: "hosted",
+            contributions: new Contributions([
+                new Contribution(new SlotName("host.slot"), [{ enabled: true }])
+            ]),
+            coreSlots: [
+                new SlotDeclaration(
+                    new SlotName("host.slot"),
+                    new JsonSchema({ type: "object" }),
+                    new SlotAuthorityPolicy(["host"], ["scope.read"])
+                )
+            ]
+        });
+        const plan = planMaterialization({
+            validatedBlueprint,
+            tenantId,
+            deploymentKey,
+            generation: 1,
+            topology
+        });
+        expect(
+            plan.actors
+                .flatMap((actor) => actor.projections)
+                .some(
+                    (projection) =>
+                        projection.logicalKey === "contribution:hosted.facet:host.slot:0"
+                )
+        ).toBe(true);
+    });
+
+    test("recomputes placement from the intersection of all four sources", { tags: "p1" }, () => {
+        const narrowManifest = placementProjection(
+            "placement:acme:acme.deploy",
+            "acme.deploy",
+            selectPlacement({
+                manifest: ["provider"],
+                policy: ["dynamic", "provider"],
+                substrate: ["dynamic", "provider"],
+                trust: ["dynamic", "provider"]
+            })
+        );
+        expect(requireObject(narrowManifest.desired)["selected"]).toBe("provider");
+
+        const narrowPolicy = placementProjection(
+            "placement:acme:acme.deploy",
+            "acme.deploy",
+            selectPlacement({
+                manifest: ["provider"],
+                policy: ["provider"],
+                substrate: ["dynamic", "provider"],
+                trust: ["dynamic", "provider"]
+            })
+        );
+        expect(requireObject(narrowPolicy.desired)["selected"]).toBe("provider");
+    });
+
+    test("derives distinct Actor plan identities and rejects conflicting duplicates", { tags: "p1" }, () => {
+        const origin = managedOrigin();
+        const first = new ActorPlan({
+            actor: new ActorRef("workspace", new ActorId("a")),
+            origin,
+            projections: []
+        });
+        const second = new ActorPlan({
+            actor: new ActorRef("workspace", new ActorId("b")),
+            origin,
+            projections: []
+        });
+        expect(first.id.equals(second.id)).toBe(false);
+
+        const left = new DesiredProjection({
+            logicalKey: "contribution:acme:cards:0",
+            recordKind: "slot-entry",
+            desired: { contributor: "acme", index: 0, slot: "cards", value: { a: 1 } }
+        });
+        const right = new DesiredProjection({
+            logicalKey: "contribution:acme:cards:0",
+            recordKind: "slot-entry",
+            desired: { contributor: "acme", index: 0, slot: "cards", value: { a: 2 } }
+        });
+        expect(encodeCanonicalJson(left.toData()).byteLength).toBe(
+            encodeCanonicalJson(right.toData()).byteLength
+        );
+        const actor = new ActorRef("workspace", new ActorId("conflict"));
+        expect(() => new ActorPlan({ actor, origin, projections: [left, right] })).toThrow(
+            /Conflicting desired projections for logical key contribution:acme:cards:0/
+        );
+
+        const withLeft = new ActorPlan({ actor, origin, projections: [left] });
+        const withRight = new ActorPlan({ actor, origin, projections: [right] });
+        expect(() => new MaterializationPlan({ origin, actors: [withLeft, withRight] })).toThrow(
+            /Conflicting Actor plans for workspace:conflict/
+        );
+    });
+
+    test("labels every planning payload subject in decode errors", { tags: "p2" }, () => {
+        const projection = policyProjection("policy:subject", PolicySet.empty());
+        const projectionData = requireObject(projection.toData());
+        expect(() => DesiredProjection.fromData({ ...projectionData, logicalKey: 7 })).toThrow(
+            /Desired projection logical key must be a string/
+        );
+        expect(() => DesiredProjection.fromData({ ...projectionData, recordKind: 7 })).toThrow(
+            /Desired projection record kind must be a string/
+        );
+        expect(() => DesiredProjection.fromData({ ...projectionData, desiredDigest: 7 })).toThrow(
+            /Desired projection digest must be a string/
+        );
+
+        const origin = managedOrigin();
+        const actorPlan = new ActorPlan({
+            actor: new ActorRef("workspace", new ActorId("workspace-a")),
+            origin,
+            projections: [projection]
+        });
+        const actorPlanData = requireObject(actorPlan.toData());
+        expect(() => ActorPlan.fromData({ ...actorPlanData, id: 7 })).toThrow(
+            /Actor plan ID must be a string/
+        );
+        expect(() =>
+            ActorPlan.fromData({ ...actorPlanData, origin: undefined } as never)
+        ).toThrow(/Actor plan origin is required/);
+        expect(() =>
+            ActorPlan.fromData({ ...actorPlanData, actor: { id: 7, kind: "workspace" } })
+        ).toThrow(/Actor ID must be a string/);
+
+        const materialization = new MaterializationPlan({ origin, actors: [actorPlan] });
+        const materializationData = requireObject(materialization.toData());
+        expect(() => MaterializationPlan.fromData({ ...materializationData, id: 7 })).toThrow(
+            /Materialization plan ID must be a string/
+        );
+    });
+
+    test("rejects malformed canonical names and non-object payloads", { tags: "p1" }, () => {
+        for (const logicalKey of ["", " ", "x "]) {
+            expect(
+                () =>
+                    new DesiredProjection({
+                        logicalKey,
+                        recordKind: "policy-set",
+                        desired: PolicySet.empty().toData()
+                    })
+            ).toThrow(/Desired projection logical key must be a nonblank canonical string/);
+        }
+        for (const payload of [null, ["entry"], "text"] as JsonValue[]) {
+            expect(() => DesiredProjection.fromData(payload)).toThrow(
+                /Desired projection must be an object/
+            );
+            expect(() => ActorPlan.fromData(payload)).toThrow(/Actor plan must be an object/);
+            expect(() => MaterializationPlan.fromData(payload)).toThrow(
+                /Materialization plan must be an object/
+            );
+        }
+    });
+});
+
+const identityDeclarationCodecs = new BlueprintDeclarationCodecPort(
+    (["agents", "environments", "slots"] as const).map((field) => ({
+        field,
+        canonicalize: (value: JsonValue): JsonValue => value
+    }))
+);
+
+interface CustomDefinitionInit {
+    readonly packageId?: string;
+    readonly contributions?: Contributions;
+    readonly slots?: readonly JsonValue[];
+    readonly agents?: readonly JsonValue[];
+    readonly environments?: readonly JsonValue[];
+    readonly coreSlots?: readonly SlotDeclaration[];
+}
+
+function validatedCustom(init: CustomDefinitionInit): ValidatedBlueprint {
+    const id = init.packageId ?? "alpha";
+    const release = packageRelease(id, "1.0.0", init.contributions);
+    const source = new Blueprint({
+        meta: { name: "platform", version: new SemVer("1.0.0") },
+        packages: [
+            new PackageInstall({
+                request: new PackageDependency(new PackageId(id), "1.0.0"),
+                config: { enabled: true }
+            })
+        ],
+        policies: PolicySet.empty(),
+        agents: init.agents ?? [],
+        ...(init.slots === undefined ? {} : { slots: init.slots }),
+        ...(init.environments === undefined ? {} : { environments: init.environments })
+    });
+    return ValidatedBlueprint.validate(source, {
+        lock: packageLock([release]),
+        releases: [release],
+        target,
+        placement: placementSource,
+        schemaValidator: { validate: () => true },
+        declarationCodecs: identityDeclarationCodecs,
+        ...(init.coreSlots === undefined ? {} : { coreSlots: init.coreSlots })
+    });
+}
+
 function managedOrigin(): ManagedOrigin {
     return new ManagedOrigin({
         tenantId,
@@ -672,7 +1025,11 @@ function validatedDefinition(order: readonly string[]): ValidatedBlueprint {
     });
 }
 
-function packageRelease(id: string, version: string): PackageRelease {
+function packageRelease(
+    id: string,
+    version: string,
+    contributions: Contributions = new Contributions([])
+): PackageRelease {
     const manifests = [
         new FacetManifest({
             id: new FacetPackageId(`${id}.facet`),
@@ -680,7 +1037,7 @@ function packageRelease(id: string, version: string): PackageRelease {
             compat: CompatRange.any(),
             isolation: ["dynamic"],
             bindings: [],
-            contributions: new Contributions([])
+            contributions
         })
     ] as [FacetManifest];
     const codeManifest = new PackageCodeManifest({

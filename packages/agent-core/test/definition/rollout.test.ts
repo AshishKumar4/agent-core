@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, SemVer } from "../../src/core";
+import { Digest, Revision, SemVer, encodeCanonicalJson } from "../../src/core";
 import {
     ActorPlan,
     DeploymentId,
@@ -21,6 +21,7 @@ import {
     isLegalOutboxTransition,
     policyProjection,
     requireExactOutboxClosure,
+    requirePlanAttestation,
     type MaterializationControlStore
 } from "../../src/definition";
 import {
@@ -538,6 +539,516 @@ describe("materialization rollout and outbox", () => {
                 validationAttestation(1)
             )
         ).toThrow(/unknown rollout/);
+    });
+});
+
+describe("materialization rollout mutation boundaries", () => {
+    test("binds plans to their attestation digests field by field", { tags: "p0" }, () => {
+        const materializationPlan = plan(1, ["a"]);
+        const attestation = validationAttestation(1);
+        expect(() => requirePlanAttestation(materializationPlan, attestation)).not.toThrow();
+
+        const idMismatch = new ValidationAttestation({
+            definitionDigest: digest("definition"),
+            blueprintDigest: digest("blueprint:1"),
+            packageLockDigest: digest("lock:1"),
+            snapshotDigest: digest("other-snapshot"),
+            configSchemaDigest: digest("schema"),
+            declarationDigest: digest("declarations"),
+            placementDigest: digest("placements"),
+            target: new PlatformCompatibility({
+                spec: new SemVer("1.0.0"),
+                host: new SemVer("1.0.0")
+            })
+        });
+        expect(idMismatch.blueprintDigest.equals(attestation.blueprintDigest)).toBe(true);
+        expect(idMismatch.packageLockDigest.equals(attestation.packageLockDigest)).toBe(true);
+        expect(() => requirePlanAttestation(materializationPlan, idMismatch)).toThrow(
+            /does not match its persisted validation attestation/
+        );
+
+        const blueprintMismatch = new MaterializationPlan({
+            origin: new ManagedOrigin({
+                ...origin(1),
+                blueprintDigest: digest("forged-blueprint")
+            }),
+            actors: []
+        });
+        expect(() => requirePlanAttestation(blueprintMismatch, attestation)).toThrow(
+            /does not match its persisted validation attestation/
+        );
+
+        const lockMismatch = new MaterializationPlan({
+            origin: new ManagedOrigin({
+                ...origin(1),
+                packageLockDigest: digest("forged-lock")
+            }),
+            actors: []
+        });
+        expect(() => requirePlanAttestation(lockMismatch, attestation)).toThrow(
+            /does not match its persisted validation attestation/
+        );
+    });
+
+    test("derives rollout and outbox identities in their canonical domains", { tags: "p1" }, () => {
+        const materializationPlan = plan(1, ["a"]);
+        const rollout = new MaterializationRollout({ plan: materializationPlan });
+        expect(
+            rollout.id.equals(
+                Digest.sha256(
+                    encodeCanonicalJson({
+                        compensates: null,
+                        domain: "agent-core.materialization-rollout.v1",
+                        planId: rollout.plan.id.value,
+                        previousPlanId: null
+                    })
+                )
+            )
+        ).toBe(true);
+
+        const actorPlan = materializationPlan.actors[0]!;
+        const entry = MaterializationOutboxEntry.pending(rollout.id, actorPlan);
+        expect(
+            entry.id.equals(
+                Digest.sha256(
+                    encodeCanonicalJson({
+                        actorPlanId: actorPlan.id.value,
+                        domain: "agent-core.materialization-outbox.v1",
+                        rolloutId: rollout.id.value,
+                        target: { id: actorPlan.actor.id.value, kind: actorPlan.actor.kind }
+                    })
+                )
+            )
+        ).toBe(true);
+    });
+
+    test("labels deployment rollout and outbox decode subjects", { tags: "p2" }, () => {
+        const deploymentData = DeploymentRecord.initial(tenantId, deploymentKey).toData() as object;
+        const deploymentCases = [
+            [{ id: 7 }, /Deployment ID must be a string/],
+            [{ tenantId: 7 }, /Deployment Tenant ID must be a string/],
+            [{ key: 7 }, /Deployment key must be a string/],
+            [{ activePlanId: 7 }, /Deployment active plan must be a string/],
+            [{ pendingRolloutId: 7 }, /Deployment pending rollout must be a string/],
+            [{ nextGeneration: 1.5 }, /Deployment next generation must be a non-negative safe integer/],
+            [{ nextGeneration: -1 }, /Deployment next generation must be a non-negative safe integer/]
+        ] as const;
+        for (const [patch, message] of deploymentCases) {
+            expect(() => DeploymentRecord.fromData({ ...deploymentData, ...patch })).toThrow(
+                message
+            );
+        }
+        expect(() => DeploymentRecord.fromData(null)).toThrow(/Deployment must be an object/);
+
+        const linked = new MaterializationRollout({
+            plan: plan(1, ["a"]),
+            previousPlanId: digest("previous"),
+            compensates: digest("failed")
+        });
+        const rolloutData = linked.toData() as object;
+        const rolloutCases = [
+            [{ id: 7 }, /Materialization rollout ID must be a string/],
+            [{ previousPlanId: 7 }, /Previous plan ID must be a string/],
+            [{ compensates: 7 }, /Compensated rollout ID must be a string/]
+        ] as const;
+        for (const [patch, message] of rolloutCases) {
+            expect(() => MaterializationRollout.fromData({ ...rolloutData, ...patch })).toThrow(
+                message
+            );
+        }
+        expect(() => MaterializationRollout.fromData(["entry"])).toThrow(
+            /Materialization rollout must be an object/
+        );
+
+        const entry = MaterializationOutboxEntry.pending(
+            linked.id,
+            linked.plan.actors[0]!
+        ).acknowledge(digest("reply"));
+        const entryData = entry.toData() as object;
+        const entryCases = [
+            [{ status: 7 }, /Materialization outbox status must be a string/],
+            [{ rolloutId: 7 }, /Materialization outbox rollout ID must be a string/],
+            [{ actorPlanId: 7 }, /Materialization outbox Actor plan ID must be a string/],
+            [{ replyDigest: 7 }, /Materialization outbox reply digest must be a string/],
+            [{ id: 7 }, /Materialization outbox ID must be a string/],
+            [
+                { target: { id: 7, kind: "workspace" } },
+                /Materialization target Actor ID must be a string/
+            ],
+            [
+                { target: { id: "target", kind: 7 } },
+                /Materialization target Actor kind must be a string/
+            ]
+        ] as const;
+        for (const [patch, message] of entryCases) {
+            expect(() => MaterializationOutboxEntry.fromData({ ...entryData, ...patch })).toThrow(
+                message
+            );
+        }
+    });
+
+    test("round-trips every materialization target Actor kind", { tags: "p1" }, () => {
+        for (const kind of ["tenant", "run", "environment", "slate"] as const) {
+            const actorPlan = new ActorPlan({
+                actor: new ActorRef(kind, new ActorId(`${kind}-target`)),
+                origin: origin(1),
+                projections: []
+            });
+            const entry = MaterializationOutboxEntry.pending(digest("rollout"), actorPlan);
+            expect(MaterializationOutboxEntry.fromData(entry.toData())).toEqual(entry);
+        }
+    });
+
+    test("names generation and attempt counters when they cannot advance", { tags: "p2" }, () => {
+        const maxed = new DeploymentRecord(
+            deploymentId,
+            tenantId,
+            deploymentKey,
+            undefined,
+            undefined,
+            Number.MAX_SAFE_INTEGER,
+            Revision.initial()
+        );
+        expect(() => maxed.begin(digest("rollout"), Number.MAX_SAFE_INTEGER)).toThrow(
+            /Deployment generation cannot advance/
+        );
+        const pendingMaxed = new DeploymentRecord(
+            deploymentId,
+            tenantId,
+            deploymentKey,
+            undefined,
+            digest("pending"),
+            Number.MAX_SAFE_INTEGER,
+            Revision.initial()
+        );
+        expect(() =>
+            pendingMaxed.compensate(
+                digest("pending"),
+                digest("compensation"),
+                Number.MAX_SAFE_INTEGER
+            )
+        ).toThrow(/Deployment generation cannot advance/);
+
+        const actorPlan = plan(1, ["a"]).actors[0]!;
+        const exhausted = new MaterializationOutboxEntry(
+            digest("rollout"),
+            actorPlan.actor,
+            actorPlan.id,
+            "pending",
+            Number.MAX_SAFE_INTEGER,
+            undefined,
+            new Revision(Number.MAX_SAFE_INTEGER)
+        );
+        expect(() => exhausted.attempted()).toThrow(
+            /Materialization outbox attempts cannot advance/
+        );
+    });
+
+    test("reports compensation mismatch on deployments without a pending rollout", { tags: "p1" }, () => {
+        expect(() =>
+            DeploymentRecord.initial(tenantId, deploymentKey).compensate(
+                digest("failed"),
+                digest("compensation"),
+                1
+            )
+        ).toThrow(/Deployment compensation does not match its failed pending rollout/);
+    });
+
+    test("links successor rollouts to the active plan they replace", { tags: "p1" }, () => {
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const first = beginRollout(controller, plan(1, ["a"]));
+        acknowledgeAll(controller, store, first.id);
+        controller.complete(first.id);
+
+        const second = controller.begin(
+            plan(2, ["b"]),
+            deploymentKey,
+            plan(1, ["a"]),
+            undefined,
+            validationAttestation(2)
+        );
+        expect(second.previousPlanId?.equals(first.plan.id)).toBe(true);
+    });
+
+    test("compensates pending rollouts exactly once per failed rollout", { tags: "p0" }, () => {
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const first = beginRollout(controller, plan(1, ["a"]));
+        acknowledgeAll(controller, store, first.id);
+        controller.complete(first.id);
+        const failed = beginRollout(controller, plan(2, ["b"]));
+
+        const compensation = controller.begin(
+            plan(3, ["a"]),
+            deploymentKey,
+            undefined,
+            failed.id,
+            validationAttestation(3)
+        );
+        expect(compensation.compensates?.equals(failed.id)).toBe(true);
+        expect(compensation.previousPlanId?.equals(first.plan.id)).toBe(true);
+
+        expect(() =>
+            controller.begin(
+                plan(3, ["a"]),
+                deploymentKey,
+                undefined,
+                undefined,
+                validationAttestation(3)
+            )
+        ).toThrow(/already has a different pending rollout/);
+        expect(() =>
+            controller.begin(
+                plan(3, ["a"]),
+                deploymentKey,
+                undefined,
+                first.id,
+                validationAttestation(3)
+            )
+        ).toThrow(/already has a different pending rollout/);
+    });
+
+    test("requires every target acknowledged before completing", { tags: "p0" }, () => {
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const rollout = beginRollout(controller, plan(1, ["a", "b"]));
+        const entries = outbox(store, rollout.id);
+        expect(entries).toHaveLength(2);
+        controller.acknowledge(entries[0]!.id, receipt(entries[0]!, digest("reply:first")));
+
+        expect(() => controller.complete(rollout.id)).toThrow(
+            /cannot complete with pending targets/
+        );
+    });
+
+    test("treats completion as idempotent only for the completed rollout", { tags: "p1" }, () => {
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const first = beginRollout(controller, plan(1, ["a"]));
+        acknowledgeAll(controller, store, first.id);
+        expect(controller.complete(first.id).activePlanId?.equals(first.plan.id)).toBe(true);
+        expect(controller.complete(first.id).activePlanId?.equals(first.plan.id)).toBe(true);
+
+        const second = beginRollout(controller, plan(2, ["b"]));
+        acknowledgeAll(controller, store, second.id);
+        expect(controller.complete(second.id).activePlanId?.equals(second.plan.id)).toBe(true);
+        expect(() => controller.complete(first.id)).toThrow(
+            /Deployment completion does not match its pending rollout/
+        );
+    });
+
+    test("acknowledges idempotently without issuing redundant writes", { tags: "p1" }, () => {
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const rollout = beginRollout(controller, plan(1, ["a"]));
+        const entry = outbox(store, rollout.id)[0]!;
+        const reply = digest("reply");
+        const acknowledged = controller.acknowledge(entry.id, receipt(entry, reply));
+
+        let writes = 0;
+        const write = store.compareAndSetOutbox.bind(store);
+        store.compareAndSetOutbox = (transaction, expected, next) => {
+            writes += 1;
+            return write(transaction, expected, next);
+        };
+        expect(controller.acknowledge(entry.id, receipt(entry, reply))).toEqual(acknowledged);
+        expect(writes).toBe(0);
+    });
+
+    test("validates outbox closure independently of listing order", { tags: "p1" }, () => {
+        const rollout = new MaterializationRollout({ plan: plan(1, ["a", "b"]) });
+        const expected = expectedOutboxEntries(rollout);
+        expect(expected).toHaveLength(2);
+        expect(() => requireExactOutboxClosure(rollout, [...expected].reverse())).not.toThrow();
+        expect(() => requireExactOutboxClosure(rollout, [expected[0]!, expected[0]!])).toThrow(
+            /exact target closure/
+        );
+    });
+
+    test("accepts only attempt and acknowledgement outbox transitions", { tags: "p1" }, () => {
+        const actorPlan = plan(1, ["a"]).actors[0]!;
+        const entry = MaterializationOutboxEntry.pending(digest("rollout"), actorPlan);
+        const acknowledged = entry.acknowledge(digest("reply"));
+        expect(isLegalOutboxTransition(entry, entry.attempted())).toBe(true);
+        expect(isLegalOutboxTransition(entry, acknowledged)).toBe(true);
+        expect(isLegalOutboxTransition(entry, entry)).toBe(false);
+
+        const ackedOnce = new MaterializationOutboxEntry(
+            digest("rollout"),
+            actorPlan.actor,
+            actorPlan.id,
+            "acknowledged",
+            1,
+            digest("reply"),
+            new Revision(2)
+        );
+        const ackedTwice = new MaterializationOutboxEntry(
+            digest("rollout"),
+            actorPlan.actor,
+            actorPlan.id,
+            "acknowledged",
+            2,
+            digest("reply"),
+            new Revision(3)
+        );
+        expect(isLegalOutboxTransition(ackedOnce, ackedTwice)).toBe(false);
+    });
+
+    test("accepts only allocation completion and compensation deployment transitions", { tags: "p1" }, () => {
+        const dep = (
+            active: Digest | undefined,
+            pending: Digest | undefined,
+            nextGeneration: number,
+            revision: number
+        ): DeploymentRecord =>
+            new DeploymentRecord(
+                deploymentId,
+                tenantId,
+                deploymentKey,
+                active,
+                pending,
+                nextGeneration,
+                new Revision(revision)
+            );
+        const initial = DeploymentRecord.initial(tenantId, deploymentKey);
+        expect(isLegalDeploymentTransition(undefined, initial)).toBe(true);
+        expect(isLegalDeploymentTransition(undefined, dep(undefined, undefined, 1, 1))).toBe(false);
+        expect(isLegalDeploymentTransition(undefined, dep(undefined, undefined, 2, 0))).toBe(false);
+        expect(isLegalDeploymentTransition(undefined, dep(digest("plan"), undefined, 1, 0))).toBe(
+            false
+        );
+        expect(
+            isLegalDeploymentTransition(undefined, dep(undefined, digest("rollout"), 1, 0))
+        ).toBe(false);
+
+        const begun = initial.begin(digest("rollout"), 1);
+        expect(isLegalDeploymentTransition(initial, begun)).toBe(true);
+        expect(isLegalDeploymentTransition(initial, dep(digest("plan"), undefined, 1, 1))).toBe(
+            false
+        );
+        expect(
+            isLegalDeploymentTransition(initial, dep(undefined, digest("rollout"), 1, 1))
+        ).toBe(false);
+        expect(
+            isLegalDeploymentTransition(initial, dep(digest("plan"), digest("rollout"), 2, 1))
+        ).toBe(false);
+        expect(isLegalDeploymentTransition(initial, dep(undefined, undefined, 2, 1))).toBe(false);
+
+        expect(isLegalDeploymentTransition(begun, dep(digest("plan"), undefined, 2, 2))).toBe(true);
+        expect(
+            isLegalDeploymentTransition(
+                begun,
+                begun.compensate(digest("rollout"), digest("compensation"), 2)
+            )
+        ).toBe(true);
+        expect(isLegalDeploymentTransition(begun, dep(digest("plan"), undefined, 2, 5))).toBe(
+            false
+        );
+        expect(isLegalDeploymentTransition(begun, dep(undefined, undefined, 2, 2))).toBe(false);
+        expect(isLegalDeploymentTransition(begun, dep(digest("plan"), undefined, 3, 2))).toBe(
+            false
+        );
+        expect(isLegalDeploymentTransition(begun, dep(undefined, undefined, 3, 2))).toBe(false);
+        expect(
+            isLegalDeploymentTransition(begun, dep(undefined, digest("rollout"), 3, 2))
+        ).toBe(false);
+        expect(
+            isLegalDeploymentTransition(begun, dep(digest("intro"), digest("compensation"), 3, 2))
+        ).toBe(false);
+
+        const active = digest("active-plan");
+        const current = dep(active, digest("second"), 2, 3);
+        expect(
+            isLegalDeploymentTransition(current, dep(active, digest("compensation"), 3, 4))
+        ).toBe(true);
+        expect(
+            isLegalDeploymentTransition(current, dep(active, digest("compensation"), 2, 4))
+        ).toBe(false);
+        expect(
+            isLegalDeploymentTransition(
+                current,
+                dep(digest("swapped"), digest("compensation"), 2, 4)
+            )
+        ).toBe(false);
+        expect(
+            isLegalDeploymentTransition(current, dep(undefined, digest("compensation"), 3, 4))
+        ).toBe(false);
+        expect(
+            isLegalDeploymentTransition(
+                current,
+                dep(digest("swapped"), digest("compensation"), 3, 4)
+            )
+        ).toBe(false);
+
+        const tenantB = new TenantId("tenant-b");
+        expect(
+            isLegalDeploymentTransition(
+                begun,
+                new DeploymentRecord(
+                    DeploymentId.derive(tenantB, deploymentKey),
+                    tenantB,
+                    deploymentKey,
+                    digest("plan"),
+                    undefined,
+                    2,
+                    new Revision(2)
+                )
+            )
+        ).toBe(false);
+        const keyB = new DeploymentKey("elsewhere");
+        expect(
+            isLegalDeploymentTransition(
+                begun,
+                new DeploymentRecord(
+                    DeploymentId.derive(tenantId, keyB),
+                    tenantId,
+                    keyB,
+                    digest("plan"),
+                    undefined,
+                    2,
+                    new Revision(2)
+                )
+            )
+        ).toBe(false);
+    });
+
+    test("rejects forward rollback and union plans across deployments", { tags: "p1" }, () => {
+        const active = plan(1, ["a"]);
+        const otherKey = new DeploymentKey("elsewhere");
+        const failedForeign = new MaterializationPlan({
+            origin: new ManagedOrigin({
+                ...origin(2),
+                deploymentId: DeploymentId.derive(tenantId, otherKey)
+            }),
+            actors: []
+        });
+        expect(() => forwardRollbackPlan(active, failedForeign, origin(3))).toThrow(
+            /Forward rollback must advance the same Tenant deployment/
+        );
+
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const first = beginRollout(controller, plan(1, ["a"]));
+        acknowledgeAll(controller, store, first.id);
+        controller.complete(first.id);
+        store.loadPlan = () =>
+            new MaterializationPlan({
+                origin: new ManagedOrigin({
+                    ...origin(1),
+                    deploymentId: DeploymentId.derive(tenantId, otherKey)
+                }),
+                actors: []
+            });
+        expect(() =>
+            controller.begin(
+                plan(2, ["b"]),
+                deploymentKey,
+                undefined,
+                undefined,
+                validationAttestation(2)
+            )
+        ).toThrow(/Materialization rollout plans belong to different deployments/);
     });
 });
 

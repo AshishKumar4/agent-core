@@ -101,6 +101,237 @@ export function materializationStoreContract<TTransaction>(
             expect(Object.isFrozen(store.listManagedState())).toBe(true);
         });
 
+        test("lists plans generations and managed state in canonical order", { tags: "p1" }, () => {
+            const actor = actorRef("ordering");
+            const store = create(actor);
+            const planAlpha = materializationState(actor, 1, "p-alpha");
+            const planBeta = materializationState(actor, 2, "p-beta");
+            const first = materializationState(actor, 1, "g-alpha", "slot:kk");
+            const second = materializationState(actor, 2, "g-beta", "slot:mm");
+            const third = materializationState(actor, 3, "g-gamma", "slot:pp");
+
+            store.addPlan(planAlpha.plan);
+            store.addPlan(planBeta.plan);
+            installGeneration(store, first);
+            installGeneration(store, second);
+            installGeneration(store, third);
+
+            expect(store.listPlans().map((plan) => plan.id.value)).toEqual([
+                planBeta.plan.id.value,
+                planAlpha.plan.id.value
+            ]);
+            expect(store.listGenerations().map((generation) => generation.id.value)).toEqual([
+                second.materialization.generation.id.value,
+                first.materialization.generation.id.value,
+                third.materialization.generation.id.value
+            ]);
+            expect(store.listManagedState().map((record) => record.generationId.value)).toEqual([
+                second.materialization.generation.id.value,
+                first.materialization.generation.id.value,
+                third.materialization.generation.id.value
+            ]);
+            const stored = store.getManagedState(first.materialization.records[0]!.id);
+            expect(ManagedStateRecord.encode(stored!)).toEqual(
+                ManagedStateRecord.encode(first.materialization.records[0]!)
+            );
+        });
+
+        test("orders managed state within one generation by logical key", { tags: "p1" }, () => {
+            const actor = actorRef("ordering");
+            const store = create(actor);
+            const fixture = materializationStateWithKeys(actor, 1, "g-two", [
+                "slot:zz",
+                "slot:aa"
+            ]);
+            installGeneration(store, fixture);
+
+            expect(
+                store
+                    .listManagedState(fixture.materialization.generation.id)
+                    .map((record) => record.logicalKey)
+            ).toEqual(["slot:aa", "slot:zz"]);
+        });
+
+        test("replays managed state through addManagedState in a multi-record generation", { tags: "p1" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationStateWithKeys(actor, 1, "replay", [
+                "slot:aa",
+                "slot:zz"
+            ]);
+            installGeneration(store, fixture);
+            installGeneration(store, fixture);
+
+            for (const record of fixture.materialization.records) {
+                expect(() => store.addManagedState(record)).not.toThrow();
+            }
+            expect(store.listManagedState(fixture.materialization.generation.id)).toHaveLength(2);
+        });
+
+        test("seals a stored generation closure against new managed state", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationState(actor, 1, "sealed");
+            installGeneration(store, fixture);
+            const record = fixture.materialization.records[0]!;
+            const intruder = new ManagedStateRecord({
+                actor,
+                origin: record.origin,
+                generationId: record.generationId,
+                logicalKey: "slot:intruder",
+                recordKind: "policy-set",
+                desired: new PolicySet({ approvals: ["execute"] }).toData()
+            });
+
+            expect(() =>
+                store.transaction((transaction) => {
+                    store.insertManagedState(transaction, intruder);
+                })
+            ).toThrow(/Materialization generation .* is immutable/);
+            expect(store.listManagedState()).toHaveLength(1);
+        });
+
+        test("rejects divergent record sets under one generation identity", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationState(actor, 1, "divergent");
+            installGeneration(store, fixture);
+            const generation = fixture.materialization.generation;
+            const divergent = new MaterializationGeneration({
+                actor,
+                origin: generation.origin,
+                actorPlanId: generation.actorPlanId,
+                managedRecordIds: [digestOf("forged-record")]
+            });
+            expect(divergent.id.equals(generation.id)).toBe(true);
+
+            expect(() =>
+                store.transaction((transaction) => {
+                    store.insertGeneration(transaction, divergent);
+                })
+            ).toThrow(/Materialization generation .* is immutable/);
+        });
+
+        test("rejects divergent codec bytes under one managed-state identity", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationState(actor, 1, "identity");
+            installGeneration(store, fixture);
+            const record = fixture.materialization.records[0]!;
+            const divergent = new ManagedStateRecord({
+                actor,
+                origin: new ManagedOrigin({
+                    tenantId: record.origin.tenantId,
+                    deploymentId: record.origin.deploymentId,
+                    attestationDigest: record.origin.attestationDigest,
+                    blueprintDigest: digestOf("forged-blueprint"),
+                    packageLockDigest: record.origin.packageLockDigest,
+                    configDigest: record.origin.configDigest,
+                    generation: record.origin.generation
+                }),
+                generationId: record.generationId,
+                logicalKey: record.logicalKey,
+                recordKind: record.recordKind,
+                desired: record.desired
+            });
+            expect(divergent.id.equals(record.id)).toBe(true);
+
+            expect(() =>
+                store.transaction((transaction) => {
+                    store.insertManagedState(transaction, divergent);
+                })
+            ).toThrow(/Managed state .* is immutable/);
+        });
+
+        test("rejects generation queries for a foreign Actor", { tags: "p0" }, () => {
+            const store = create(actorRef("owner"));
+
+            expect(() => store.listGenerations(actorRef("foreign"))).toThrow(/different Actor/);
+        });
+
+        test("rejects multi-actor plans even when they include the owner", { tags: "p0" }, () => {
+            const owner = actorRef("owner");
+            const store = create(owner);
+            const origin = materializationState(owner, 1, "multi").plan.origin;
+            const multi = new MaterializationPlan({
+                origin,
+                actors: [
+                    new ActorPlan({
+                        actor: owner,
+                        origin,
+                        projections: [policyProjection("slot:owner", new PolicySet({}))]
+                    }),
+                    new ActorPlan({
+                        actor: new ActorRef("workspace", new ActorId("zz-other")),
+                        origin,
+                        projections: [policyProjection("slot:other", new PolicySet({}))]
+                    })
+                ]
+            });
+
+            expect(() => store.addPlan(multi)).toThrow(/exactly the store owner/);
+            expect(store.listPlans()).toEqual([]);
+        });
+
+        test("returns false for a revision-expecting CAS on an absent pointer", { tags: "p1" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationState(actor, 1, "absent");
+            installGeneration(store, fixture);
+
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        new Revision(0),
+                        MaterializationGenerationPointer.initial(
+                            actor,
+                            deploymentId,
+                            fixture.materialization.generation.id
+                        ).activate(fixture.materialization.generation.id)
+                    )
+                )
+            ).toBe(false);
+            expect(store.getGenerationPointer(actor, deploymentId)).toBeUndefined();
+        });
+
+        test("rejects pointer CAS onto the currently active generation", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationState(actor, 1, "active");
+            installGeneration(store, fixture);
+            const initial = MaterializationGenerationPointer.initial(
+                actor,
+                deploymentId,
+                fixture.materialization.generation.id
+            );
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        undefined,
+                        initial
+                    )
+                )
+            ).toBe(true);
+
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        initial.revision,
+                        initial.activate(fixture.materialization.generation.id)
+                    )
+                )
+            ).toThrow(/strictly increase/);
+        });
+
         test("makes equal immutable record replay idempotent", () => {
             const actor = actorRef("workspace");
             const store = create(actor);
@@ -131,6 +362,9 @@ export function materializationStoreContract<TTransaction>(
                 expect.objectContaining({
                     code: "protocol.invalid-state"
                 })
+            );
+            expect(() => store.addBlueprint(conflict)).toThrow(
+                /Blueprint platform.1\.0\.0 is immutable/
             );
             expect(Blueprint.encode(store.getBlueprint("platform", new SemVer("1.0.0"))!)).toEqual(
                 Blueprint.encode(original)
@@ -556,11 +790,32 @@ export function materializationState(
     generation: number,
     seed: string,
     logicalKey = `slot:${seed}`,
-    desiredSeed = seed
+    desiredSeed = seed,
+    deploymentKey = "platform"
+): MaterializationFixture {
+    return materializationFixture(actor, generation, seed, [logicalKey], desiredSeed, deploymentKey);
+}
+
+export function materializationStateWithKeys(
+    actor: ActorRef,
+    generation: number,
+    seed: string,
+    logicalKeys: readonly string[]
+): MaterializationFixture {
+    return materializationFixture(actor, generation, seed, logicalKeys, seed, "platform");
+}
+
+function materializationFixture(
+    actor: ActorRef,
+    generation: number,
+    seed: string,
+    logicalKeys: readonly string[],
+    desiredSeed: string,
+    deploymentKey: string
 ): MaterializationFixture {
     const managedOrigin = new ManagedOrigin({
         tenantId,
-        deploymentId,
+        deploymentId: DeploymentId.derive(tenantId, new DeploymentKey(deploymentKey)),
         attestationDigest: digestOf(`attestation:${seed}`),
         blueprintDigest: digestOf(`blueprint:${seed}`),
         packageLockDigest: digestOf(`lock:${seed}`),
@@ -570,7 +825,9 @@ export function materializationState(
     const actorPlan = new ActorPlan({
         actor,
         origin: managedOrigin,
-        projections: [policyProjection(logicalKey, policyForSeed(desiredSeed))]
+        projections: logicalKeys.map((logicalKey) =>
+            policyProjection(logicalKey, policyForSeed(desiredSeed))
+        )
     });
     return {
         actor,

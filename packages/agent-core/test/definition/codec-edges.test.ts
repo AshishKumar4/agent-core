@@ -19,6 +19,7 @@ import {
     PackageDependency,
     PackageId,
     PackageLock,
+    PackagePin,
     PackageRelease,
     PlatformCompatibility,
     PolicySet,
@@ -154,6 +155,102 @@ describe("definition codec adversarial edges", () => {
         ).toThrow(/Actor kind/);
     });
 
+    test("accepts generation zero and distinguishes origins by every field", { tags: "p1" }, () => {
+        const zero = new ManagedOrigin({ ...originInit(), generation: 0 });
+        expect(zero.generation).toBe(0);
+        expect(ManagedOrigin.fromData(zero.toData()).generation).toBe(0);
+
+        const base = new ManagedOrigin(originInit());
+        expect(base.equals(new ManagedOrigin(originInit()))).toBe(true);
+        const variants: readonly Partial<ReturnType<typeof originInit>>[] = [
+            { tenantId: new TenantId("other-tenant") },
+            { deploymentId: DeploymentId.derive(tenantId, new DeploymentKey("other")) },
+            { attestationDigest: digest("other-attestation") },
+            { blueprintDigest: digest("other-blueprint") },
+            { packageLockDigest: digest("other-lock") },
+            { configDigest: digest("other-config") },
+            { generation: 2 }
+        ];
+        for (const variant of variants) {
+            const other = new ManagedOrigin({ ...originInit(), ...variant });
+            expect({ variant, equals: base.equals(other) }).toEqual({ variant, equals: false });
+            expect({ variant, equals: other.equals(base) }).toEqual({ variant, equals: false });
+        }
+    });
+
+    test("names every malformed managed origin field in its codec error", { tags: "p2" }, () => {
+        const data = new ManagedOrigin(originInit()).toData() as object;
+        expect(() => ManagedOrigin.fromData({ ...data, tenantId: 7 })).toThrow(
+            "Managed origin Tenant ID must be a string"
+        );
+        expect(() => ManagedOrigin.fromData({ ...data, deploymentId: 7 })).toThrow(
+            "Managed origin deployment ID must be a string"
+        );
+        expect(() => ManagedOrigin.fromData({ ...data, attestationDigest: 7 })).toThrow(
+            "Managed origin attestation digest must be a string"
+        );
+        expect(() => ManagedOrigin.fromData({ ...data, blueprintDigest: 7 })).toThrow(
+            "Blueprint digest must be a string"
+        );
+        expect(() => ManagedOrigin.fromData({ ...data, packageLockDigest: 7 })).toThrow(
+            "Package lock digest must be a string"
+        );
+        expect(() => ManagedOrigin.fromData({ ...data, configDigest: 7 })).toThrow(
+            "Config digest must be a string"
+        );
+        expect(() => ManagedOrigin.fromData(null)).toThrow("Managed origin must be an object");
+        expect(() => ManagedOrigin.fromData([])).toThrow("Managed origin must be an object");
+        expect(() => ManagedOrigin.fromData("payload")).toThrow(
+            "Managed origin must be an object"
+        );
+    });
+
+    test("freezes package pins and names malformed pin and lock fields", { tags: "p2" }, () => {
+        const pin = new PackagePin(
+            new PackageId("pinned"),
+            new SemVer("1.0.0"),
+            digest("manifest"),
+            digest("code")
+        );
+        expect(Object.isFrozen(pin)).toBe(true);
+
+        const pinData = pin.toData() as object;
+        expect(() => PackagePin.fromData({ ...pinData, id: 7 })).toThrow(
+            "Package pin ID must be a string"
+        );
+        expect(() => PackagePin.fromData({ ...pinData, version: 7 })).toThrow(
+            "Package pin version must be a string"
+        );
+        expect(() => PackagePin.fromData({ ...pinData, manifestDigest: 7 })).toThrow(
+            "Package manifest digest must be a string"
+        );
+        expect(() => PackagePin.fromData({ ...pinData, codeDigest: 7 })).toThrow(
+            "Package code digest must be a string"
+        );
+        expect(() => PackagePin.fromData(null)).toThrow("Package pin must be an object");
+        expect(() => PackagePin.fromData([])).toThrow("Package pin must be an object");
+        expect(() => PackagePin.fromData("payload")).toThrow("Package pin must be an object");
+
+        const lockData = new PackageLock({
+            target,
+            roots: [],
+            snapshotRevision: Revision.initial(),
+            snapshotDigest: digest("snapshot"),
+            packages: [pin]
+        }).toData() as object;
+        expect(() => PackageLock.fromData({ ...lockData, snapshotDigest: 7 })).toThrow(
+            "Package lock snapshot digest must be a string"
+        );
+        expect(() => PackageLock.fromData(null)).toThrow("Package lock must be an object");
+        expect(() => PackageLock.fromData([])).toThrow("Package lock must be an object");
+        expect(() => PackageLock.fromData("payload")).toThrow("Package lock must be an object");
+        for (const snapshotRevision of ["1", -1, 0.5]) {
+            expect(() => PackageLock.fromData({ ...lockData, snapshotRevision })).toThrow(
+                "Package lock snapshot revision must be a non-negative safe integer"
+            );
+        }
+    });
+
     test("rejects malformed Package locks releases and snapshots", () => {
         const lock = new PackageLock({
             target,
@@ -252,15 +349,19 @@ function releaseInit(release: PackageRelease): PackageReleaseInit {
 }
 
 function origin(generation: number): ManagedOrigin {
-    return new ManagedOrigin({
+    return new ManagedOrigin({ ...originInit(), generation });
+}
+
+function originInit() {
+    return {
         tenantId,
         deploymentId,
         attestationDigest: digest("attestation"),
         blueprintDigest: digest("blueprint"),
         packageLockDigest: digest("lock"),
         configDigest: digest("config"),
-        generation
-    });
+        generation: 1
+    };
 }
 
 function packageRelease(): PackageRelease {

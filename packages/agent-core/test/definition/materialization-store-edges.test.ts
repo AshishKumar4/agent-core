@@ -8,10 +8,15 @@ import {
 } from "../../src/actors";
 import { Digest, Revision, SemVer } from "../../src/core";
 import {
+    Blueprint,
     DeploymentId,
     DeploymentKey,
+    ManagedStateRecord,
+    MaterializationGeneration,
     MaterializationGenerationId,
-    MaterializationGenerationPointer
+    MaterializationGenerationPointer,
+    MaterializationPlan,
+    PolicySet
 } from "../../src/definition";
 import {
     MaterializationStore,
@@ -26,7 +31,8 @@ import { TenantId } from "../../src/identity";
 import {
     blueprint,
     installGeneration,
-    materializationState
+    materializationState,
+    materializationStateWithKeys
 } from "./materialization-store-contract";
 
 const encoder = new TextEncoder();
@@ -85,6 +91,265 @@ describe("MaterializationStore hostile adapter boundaries", () => {
         expect(() => duplicate.listPlans()).toThrow(/duplicate immutable key/);
         expect(duplicate.getBlueprint("missing", new SemVer("1.0.0"))).toBeUndefined();
     });
+
+    test("rejects foreign rows behind honest adapters", { tags: "p0" }, () => {
+        const foreign = new ActorRef("workspace", new ActorId("foreign"));
+        const foreignState = materializationState(foreign, 1, "foreign-rows");
+
+        const planStore = hostileStore(false);
+        planStore.rows.plans.push(rowForPlan(foreignState.plan));
+        expect(() => planStore.getPlan(foreignState.plan.id)).toThrow(
+            /exactly the store owner/
+        );
+
+        const generationStore = hostileStore(false);
+        generationStore.rows.generations.push(
+            rowForGeneration(foreignState.materialization.generation)
+        );
+        for (const record of foreignState.materialization.records) {
+            generationStore.rows.managedState.push(rowForManagedState(record));
+        }
+        expect(() => generationStore.listGenerations()).toThrow(
+            /Stored materialization generation belongs to a different Actor/
+        );
+
+        const stateStore = hostileStore(false);
+        stateStore.rows.managedState.push(
+            rowForManagedState(foreignState.materialization.records[0]!)
+        );
+        expect(() => stateStore.listManagedState()).toThrow(
+            /Stored managed state belongs to a different Actor/
+        );
+    });
+
+    test("validates blueprint identity against requested keys", { tags: "p1" }, () => {
+        const real = blueprint("real", "1.0.0", { value: "real" });
+        const mangled = hostileStore(false);
+        mangled.rows.blueprints.push({ ...rowForBlueprint(real), name: "wrong" });
+        expect(() => mangled.listBlueprints()).toThrow(
+            /Stored Blueprint key or projection does not match codec bytes/
+        );
+
+        const aliased = hostileStore(false);
+        aliased.blueprintAlias = rowForBlueprint(real);
+        expect(() => aliased.getBlueprint("alias", new SemVer("1.0.0"))).toThrow(
+            /Stored Blueprint key or projection does not match codec bytes/
+        );
+        expect(() => aliased.getBlueprint("real", new SemVer("2.0.0"))).toThrow(
+            /Stored Blueprint key or projection does not match codec bytes/
+        );
+    });
+
+    test("pins projection and codec-byte diagnostics for stored records", { tags: "p2" }, () => {
+        const planStore = hostileStore();
+        planStore.rows.plans[0] = {
+            ...planStore.rows.plans[0]!,
+            generation: planStore.rows.plans[0]!.generation + 1
+        };
+        expect(() => planStore.listPlans()).toThrow(
+            /Stored materialization-plan key or projection does not match codec bytes/
+        );
+
+        const generationStore = hostileStore();
+        generationStore.rows.generations[0] = {
+            ...generationStore.rows.generations[0]!,
+            generation: generationStore.rows.generations[0]!.generation + 1
+        };
+        expect(() => generationStore.listGenerations()).toThrow(
+            /Stored generation key or projection does not match codec bytes/
+        );
+
+        const stateStore = hostileStore();
+        stateStore.rows.managedState[0] = {
+            ...stateStore.rows.managedState[0]!,
+            desiredDigest: digest("mangled-desired").value
+        };
+        expect(() => stateStore.listManagedState()).toThrow(
+            /Stored managed-state key or projection does not match codec bytes/
+        );
+
+        const pointerStore = hostileStore();
+        pointerStore.rows.pointers[0] = { ...pointerStore.rows.pointers[0]!, revision: 5 };
+        expect(() => pointerStore.listGenerationPointers()).toThrow(
+            /Stored generation-pointer projection does not match codec bytes/
+        );
+
+        const pointerDeployment = hostileStore();
+        pointerDeployment.rows.pointers[0] = {
+            ...pointerDeployment.rows.pointers[0]!,
+            deploymentId: digest("mangled-deployment").value
+        };
+        expect(() => pointerDeployment.listGenerationPointers()).toThrow(
+            /Stored generation-pointer projection does not match codec bytes/
+        );
+
+        const byteCases = [
+            ["blueprints", /Stored Blueprint codec bytes are malformed/],
+            ["plans", /Stored materialization plan codec bytes are malformed/],
+            ["generations", /Stored materialization generation codec bytes are malformed/],
+            ["managedState", /Stored managed state codec bytes are malformed/],
+            ["pointers", /Stored generation pointer codec bytes are malformed/]
+        ] as const;
+        for (const [collection, message] of byteCases) {
+            const corrupted = hostileStore();
+            corrupted.rows[collection][0] = {
+                ...corrupted.rows[collection][0]!,
+                bytes: "bad"
+            } as never;
+            const read = () => {
+                if (collection === "blueprints") return corrupted.listBlueprints();
+                if (collection === "plans") return corrupted.listPlans();
+                if (collection === "generations") return corrupted.listGenerations();
+                if (collection === "managedState") return corrupted.listManagedState();
+                return corrupted.listGenerationPointers();
+            };
+            expect(read).toThrow(message);
+        }
+    });
+
+    test("rejects pointers that target missing or foreign state", { tags: "p0" }, () => {
+        const missing = hostileStore();
+        missing.rows.generations.length = 0;
+        missing.rows.managedState.length = 0;
+        expect(() => missing.listGenerationPointers()).toThrow(
+            /Stored generation pointer targets missing or foreign state/
+        );
+
+        const fixture = materializationState(actor, 1, "pointer-target");
+        const otherDeployment = DeploymentId.derive(
+            new TenantId("tenant"),
+            new DeploymentKey("other")
+        );
+        const crossDeployment = hostileStore(false);
+        crossDeployment.rows.generations.push(
+            rowForGeneration(fixture.materialization.generation)
+        );
+        for (const record of fixture.materialization.records) {
+            crossDeployment.rows.managedState.push(rowForManagedState(record));
+        }
+        crossDeployment.rows.pointers.push(
+            rowForPointer(
+                new MaterializationGenerationPointer({
+                    actor,
+                    deploymentId: otherDeployment,
+                    generationId: fixture.materialization.generation.id,
+                    revision: new Revision(0)
+                })
+            )
+        );
+        expect(() => crossDeployment.listGenerationPointers()).toThrow(
+            /Stored generation pointer targets missing or foreign state/
+        );
+
+        const foreign = new ActorRef("workspace", new ActorId("foreign"));
+        const foreignPointer = hostileStore(false);
+        foreignPointer.rows.generations.push(
+            rowForGeneration(fixture.materialization.generation)
+        );
+        for (const record of fixture.materialization.records) {
+            foreignPointer.rows.managedState.push(rowForManagedState(record));
+        }
+        foreignPointer.rows.pointers.push(
+            rowForPointer(
+                new MaterializationGenerationPointer({
+                    actor: foreign,
+                    deploymentId,
+                    generationId: fixture.materialization.generation.id,
+                    revision: new Revision(0)
+                })
+            )
+        );
+        expect(() => foreignPointer.listGenerationPointers()).toThrow(
+            /Stored generation pointer targets missing or foreign state/
+        );
+    });
+
+    test("enforces exact managed-state closures per generation", { tags: "p0" }, () => {
+        const fixture = materializationStateWithKeys(actor, 1, "closure", [
+            "slot:aa",
+            "slot:zz"
+        ]);
+        const generation = fixture.materialization.generation;
+        const stray = new ManagedStateRecord({
+            actor,
+            origin: generation.origin,
+            generationId: generation.id,
+            logicalKey: "slot:stray",
+            recordKind: "policy-set",
+            desired: new PolicySet({ approvals: ["execute"] }).toData()
+        });
+        const mixed = hostileStore(false);
+        mixed.rows.generations.push(rowForGeneration(generation));
+        mixed.rows.managedState.push(
+            rowForManagedState(fixture.materialization.records[0]!),
+            rowForManagedState(stray)
+        );
+        expect(() => mixed.getGeneration(generation.id)).toThrow(
+            /Materialization generation closure does not match managed state/
+        );
+
+        const otherFixture = materializationState(actor, 2, "closure-other");
+        const seed = new MaterializationGeneration({
+            actor,
+            origin: generation.origin,
+            actorPlanId: digest("closure-plan"),
+            managedRecordIds: []
+        });
+        const member = new ManagedStateRecord({
+            actor,
+            origin: generation.origin,
+            generationId: seed.id,
+            logicalKey: "slot:member",
+            recordKind: "policy-set",
+            desired: new PolicySet({}).toData()
+        });
+        const foreignRecord = otherFixture.materialization.records[0]!;
+        const manual = new MaterializationGeneration({
+            actor,
+            origin: generation.origin,
+            actorPlanId: digest("closure-plan"),
+            managedRecordIds: [member.id, foreignRecord.id]
+        });
+        const disowned = hostileStore(false);
+        disowned.unfilteredManagedState = true;
+        disowned.rows.generations.push(rowForGeneration(manual));
+        disowned.rows.managedState.push(
+            rowForManagedState(member),
+            rowForManagedState(foreignRecord)
+        );
+        expect(() => disowned.getGeneration(manual.id)).toThrow(
+            /Managed state does not belong to its materialization generation/
+        );
+
+        const left = new ManagedStateRecord({
+            actor,
+            origin: generation.origin,
+            generationId: seed.id,
+            logicalKey: "slot:shared",
+            recordKind: "policy-set",
+            desired: new PolicySet({}).toData()
+        });
+        const right = new ManagedStateRecord({
+            actor,
+            origin: generation.origin,
+            generationId: seed.id,
+            logicalKey: "slot:shared",
+            recordKind: "policy-set",
+            desired: new PolicySet({ approvals: ["execute"] }).toData()
+        });
+        const duplicated = new MaterializationGeneration({
+            actor,
+            origin: generation.origin,
+            actorPlanId: digest("closure-plan"),
+            managedRecordIds: [left.id, right.id]
+        });
+        const conflicted = hostileStore(false);
+        conflicted.rows.generations.push(rowForGeneration(duplicated));
+        conflicted.rows.managedState.push(rowForManagedState(left), rowForManagedState(right));
+        expect(() => conflicted.getGeneration(duplicated.id)).toThrow(
+            /Materialization generation contains conflicting logical keys/
+        );
+    });
 });
 
 interface HostileRows {
@@ -99,6 +364,8 @@ class HostileMaterializationStore extends MaterializationStore<HostileRows> {
     public alias = false;
     public duplicatePlans = false;
     public pointerFault: "none" | "refuse" | "drop" = "none";
+    public blueprintAlias: StoredBlueprint | undefined;
+    public unfilteredManagedState = false;
 
     public constructor(
         owner: ActorRef,
@@ -115,6 +382,7 @@ class HostileMaterializationStore extends MaterializationStore<HostileRows> {
     }
 
     protected findBlueprint(_tx: HostileRows, name: string, version: string) {
+        if (this.blueprintAlias !== undefined) return this.blueprintAlias;
         return this.rows.blueprints.find((row) => row.name === name && row.version === version);
     }
     protected blueprintRecords() {
@@ -162,6 +430,7 @@ class HostileMaterializationStore extends MaterializationStore<HostileRows> {
             : this.rows.managedState.find((row) => row.id === id);
     }
     protected managedStateRecords(_tx: HostileRows, generationId?: MaterializationGenerationId) {
+        if (this.unfilteredManagedState) return this.rows.managedState;
         return this.rows.managedState.filter(
             (row) => generationId === undefined || row.generationId.equals(generationId)
         );
@@ -224,4 +493,64 @@ function hostileStore(complete = true): HostileMaterializationStore {
 
 function digest(value: string): Digest {
     return Digest.sha256(encoder.encode(value));
+}
+
+function rowForBlueprint(value: Blueprint): StoredBlueprint {
+    const bytes = Blueprint.encode(value);
+    return {
+        name: value.meta.name,
+        version: value.meta.version.toString(),
+        digest: Digest.sha256(bytes).value,
+        bytes
+    };
+}
+
+function rowForPlan(plan: MaterializationPlan): StoredMaterializationPlan {
+    return {
+        id: plan.id.value,
+        blueprintDigest: plan.blueprintDigest.value,
+        packageLockDigest: plan.packageLockDigest.value,
+        configDigest: plan.configDigest.value,
+        generation: plan.generation,
+        bytes: MaterializationPlan.encode(plan)
+    };
+}
+
+function rowForGeneration(generation: MaterializationGeneration): StoredMaterializationGeneration {
+    return {
+        id: generation.id,
+        actorKind: generation.actor.kind,
+        actorId: new ActorId(generation.actor.id.value),
+        blueprintDigest: generation.origin.blueprintDigest.value,
+        packageLockDigest: generation.origin.packageLockDigest.value,
+        configDigest: generation.origin.configDigest.value,
+        generation: generation.origin.generation,
+        bytes: MaterializationGeneration.encode(generation)
+    };
+}
+
+function rowForManagedState(record: ManagedStateRecord): StoredManagedStateRecord {
+    return {
+        id: record.id.value,
+        generationId: record.generationId,
+        actorKind: record.actor.kind,
+        actorId: new ActorId(record.actor.id.value),
+        logicalKey: record.logicalKey,
+        recordKind: record.recordKind,
+        desiredDigest: record.desiredDigest.value,
+        bytes: ManagedStateRecord.encode(record)
+    };
+}
+
+function rowForPointer(
+    pointer: MaterializationGenerationPointer
+): StoredMaterializationGenerationPointer {
+    return {
+        actorKind: pointer.actor.kind,
+        actorId: new ActorId(pointer.actor.id.value),
+        deploymentId: pointer.deploymentId.value,
+        generationId: pointer.generationId,
+        revision: pointer.revision.value,
+        bytes: MaterializationGenerationPointer.encode(pointer)
+    };
 }

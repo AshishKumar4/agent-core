@@ -108,6 +108,41 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             ]);
         });
 
+        test("misses absent snapshots and orders them by revision then digest", { tags: "p1" }, () => {
+            const store = create();
+            expect(store.getSnapshot(digestOf("missing-snapshot"))).toBeUndefined();
+
+            const first = new MetadataSnapshot({
+                revision: new Revision(1),
+                releases: [packageRelease("m-two", "1.0.0")]
+            });
+            const second = new MetadataSnapshot({
+                revision: new Revision(2),
+                releases: [packageRelease("m-three", "1.0.0")]
+            });
+            const third = new MetadataSnapshot({
+                revision: new Revision(3),
+                releases: [packageRelease("m-five", "1.0.0")]
+            });
+            expect([first, second, third].map((snapshot) => snapshot.digest.value).sort()).toEqual([
+                third.digest.value,
+                second.digest.value,
+                first.digest.value
+            ]);
+            store.addSnapshot(second);
+            store.addSnapshot(first);
+            store.addSnapshot(third);
+
+            expect(store.listSnapshots().map((snapshot) => snapshot.revision.value)).toEqual([
+                1, 2, 3
+            ]);
+            expect(store.listSnapshots().map((snapshot) => snapshot.digest.value)).toEqual([
+                first.digest.value,
+                second.digest.value,
+                third.digest.value
+            ]);
+        });
+
         test("persists package locks by canonical lock digest", () => {
             const store = create();
             const digest = digestOf("snapshot");

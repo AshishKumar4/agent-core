@@ -175,12 +175,15 @@ describe("same-Actor additive materialization", () => {
             semanticNoop: false
         });
         expect(applied.insertedRecords).toHaveLength(2);
+        expect(applied.blockers).toEqual([]);
         expect(replayed).toMatchObject({
             insertedGeneration: false,
             insertedRecords: [],
             pointerChanged: false,
             semanticNoop: true
         });
+        expect(replayed.actions).toEqual(["noop", "noop"]);
+        expect(replayed.blockers).toEqual([]);
         expect(snapshot.generations).toHaveLength(1);
         expect(snapshot.records).toHaveLength(2);
         expect(snapshot.pointer?.revision.value).toBe(0);
@@ -421,6 +424,10 @@ describe("same-Actor additive materialization", () => {
         const blocked = materializer.apply(actorPlan(actor, origin(2, "two"), []));
         expect(blocked.blockers).toEqual(["unknown:w5-unavailable"]);
         expect(blocked.pointerChanged).toBe(false);
+        expect(blocked.insertedGeneration).toBe(false);
+        expect(blocked.insertedRecords).toEqual([]);
+        expect(blocked.semanticNoop).toBe(false);
+        expect(blocked.actions).toEqual(["remove"]);
         expect(store.snapshot()).toMatchObject({
             generations: before.generations,
             records: before.records,
@@ -455,6 +462,101 @@ describe("same-Actor additive materialization", () => {
             ).toThrow(corruption === "missing" ? /Missing active/ : /did not persist/);
             expectEmpty(store);
         }
+    });
+
+    test("materializes an empty first generation without a previous pointer", { tags: "p1" }, () => {
+        const actor = actorRef("workspace-empty-first");
+        const store = new MemoryMaterializationStore(actor);
+
+        const result = localMaterializer(actor, store).apply(
+            actorPlan(actor, origin(1, "empty"), [])
+        );
+
+        expect(result).toMatchObject({
+            insertedGeneration: true,
+            pointerChanged: true,
+            semanticNoop: false
+        });
+        expect(result.insertedRecords).toEqual([]);
+        expect(result.actions).toEqual([]);
+        expect(result.blockers).toEqual([]);
+        expect(store.snapshot().pointer?.revision.value).toBe(0);
+    });
+
+    test("does not report a semantic no-op when any action mutates state", { tags: "p1" }, () => {
+        const actor = actorRef("workspace-mixed-actions");
+        const store = new MemoryMaterializationStore(actor);
+        const materializer = localMaterializer(actor, store);
+        materializer.apply(
+            actorPlan(actor, origin(1, "one"), [
+                projection("slot:a", { value: 1 }),
+                projection("slot:b", { value: 1 })
+            ])
+        );
+
+        const updated = materializer.apply(
+            actorPlan(actor, origin(2, "two"), [
+                projection("slot:a", { value: 1 }),
+                projection("slot:b", { value: 2 })
+            ])
+        );
+
+        expect(updated.semanticNoop).toBe(false);
+        expect(updated.pointerChanged).toBe(true);
+        expect(updated.actions).toEqual(["update", "noop"]);
+    });
+
+    test("rejects a store that rewrites immutable managed state or generations", { tags: "p0" }, () => {
+        const actor = actorRef("workspace-immutable");
+        const plan = actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })]);
+        const desired = materializeActorPlan(actor, plan);
+        const record = requireOne(desired.records);
+
+        const recordStore = new MemoryMaterializationStore(actor);
+        const forgedRecord = Object.assign(
+            Object.create(ManagedStateRecord.prototype) as ManagedStateRecord,
+            record,
+            { desired: { forged: true } }
+        );
+        recordStore.transaction((transaction) => {
+            transaction.records.set(record.id.value, forgedRecord);
+        });
+        expect(() => localMaterializer(actor, recordStore).apply(plan)).toThrow(
+            /Managed state .+ is immutable/
+        );
+
+        const generationStore = new MemoryMaterializationStore(actor);
+        const other = materializeActorPlan(
+            actor,
+            actorPlan(actor, origin(1, "other"), [projection("policy:other", { value: 3 })])
+        );
+        const forgedGeneration = Object.assign(
+            Object.create(MaterializationGeneration.prototype) as MaterializationGeneration,
+            other.generation,
+            { id: desired.generation.id }
+        );
+        generationStore.transaction((transaction) => {
+            transaction.generations.set(desired.generation.id.value, forgedGeneration);
+        });
+        expect(() => localMaterializer(actor, generationStore).apply(plan)).toThrow(
+            /Materialization generation .+ is immutable/
+        );
+    });
+
+    test("rejects an active pointer owned by a different Actor", { tags: "p0" }, () => {
+        const actor = actorRef("workspace-pointer-owner");
+        const store = new MemoryMaterializationStore(actor);
+        const materializer = localMaterializer(actor, store);
+        materializer.apply(
+            actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
+        );
+        store.returnForeignPointer = true;
+
+        expect(() =>
+            materializer.apply(
+                actorPlan(actor, origin(2, "two"), [projection("policy:stable", { value: 2 })])
+            )
+        ).toThrow("Materialization generation pointer belongs to a different Actor");
     });
 
     test("reuses an equal immutable journal closure when activation was not yet pointed", () => {
@@ -498,6 +600,7 @@ class MemoryMaterializationStore extends LocalMaterializationStore<StoreState> {
     public failCas = false;
     public readonly resourcePort = new MemoryManagedResourcePort<StoreState>();
     public returnForeignGeneration = false;
+    public returnForeignPointer = false;
     public pointerCorruption: "none" | "missing" | "different" = "none";
     #casCompleted = false;
 
@@ -548,6 +651,14 @@ class MemoryMaterializationStore extends LocalMaterializationStore<StoreState> {
         targetDeploymentId: DeploymentId
     ): MaterializationGenerationPointer | undefined {
         const pointer = transaction.pointers.get(actorKey(actor, targetDeploymentId));
+        if (this.returnForeignPointer && pointer !== undefined) {
+            return new MaterializationGenerationPointer({
+                actor: actorRef("foreign-owner"),
+                deploymentId: pointer.deploymentId,
+                generationId: pointer.generationId,
+                revision: pointer.revision
+            });
+        }
         if (!this.#casCompleted || this.pointerCorruption === "none") return pointer;
         if (this.pointerCorruption === "missing") return undefined;
         return pointer === undefined
@@ -699,6 +810,14 @@ function actorKey(actor: ActorRef, targetDeploymentId: DeploymentId): string {
 
 function digestOf(value: string): Digest {
     return Digest.sha256(encoder.encode(value));
+}
+
+function requireOne<T>(items: readonly T[]): T {
+    const [first] = items;
+    if (first === undefined || items.length !== 1) {
+        throw new TypeError("Expected exactly one item");
+    }
+    return first;
 }
 
 function emptyState(): StoreState {

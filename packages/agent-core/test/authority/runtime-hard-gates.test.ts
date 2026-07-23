@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
-import { AgentCoreError } from "../../src/errors";
+import { Digest, Revision, SecretRef, encodeCanonicalJson } from "../../src/core";
+import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
     Membership,
@@ -9,6 +9,7 @@ import {
     GuestVerificationScheme,
     Principal,
     PrincipalId,
+    ProjectId,
     RoleName,
     ScopeRef,
     SubjectRef,
@@ -524,6 +525,490 @@ describe("TenantAuthorityRuntime hard gates", () => {
     });
 });
 
+describe("TenantAuthorityRuntime mutation kill gates", () => {
+    test("uses exact denial codes for issuer and Tenant guards", { tags: "p0" }, () => {
+        expectAgentError(
+            () => new TenantAuthorityRuntime(new FakeAuthorityStore(), owner),
+            "protocol.invalid-state",
+            "Tenant authority runtime requires a Tenant Actor"
+        );
+        const store = new FakeAuthorityStore();
+        const allow = directGrant("tenant-guard-allow");
+        store.grantRecords.push(allow);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        expectAgentError(
+            () =>
+                runtime.validateBinding(
+                    validationRequest(allow.id, {
+                        ownerTenant: new TenantId("tenant-guard-other")
+                    }),
+                    new Date(10)
+                ),
+            "authority.denied",
+            "Authority request targets another Tenant"
+        );
+        expect(
+            runtime.validateBinding(validationRequest(allow.id), new Date(10)).pathEpochs.path
+        ).toHaveLength(2);
+    });
+
+    test("reports canonical topology and Grant denials with exact messages", { tags: "p0" }, () => {
+        const store = new FakeAuthorityStore();
+        const allow = directGrant("topology-allow");
+        store.grantRecords.push(allow);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        expectAgentError(
+            () =>
+                runtime.validateBinding(
+                    validationRequest(allow.id, {
+                        scope: ScopeRef.workspace(tenantId, new WorkspaceId("topology-missing"))
+                    }),
+                    new Date(10)
+                ),
+            "authority.denied",
+            "Authority target does not match canonical Tenant topology"
+        );
+        expectAgentError(
+            () =>
+                runtime.validateBinding(
+                    validationRequest(allow.id, {
+                        scope: ScopeRef.workspace(
+                            tenantId,
+                            new ProjectId("topology-phantom"),
+                            workspace.id
+                        )
+                    }),
+                    new Date(10)
+                ),
+            "authority.denied",
+            "Authority target does not match canonical Tenant topology"
+        );
+        expectAgentError(
+            () =>
+                runtime.validateBinding(validationRequest(new GrantId("topology-absent")), new Date(10)),
+            "authority.denied",
+            "Binding requires a live allow Grant reaching its Workspace"
+        );
+    });
+
+    test("denies deny-backed and revoked-backed Bindings with exact reasons and decision", { tags: "p0" }, () => {
+        const store = new FakeAuthorityStore();
+        store.principalRecord = new Principal(principalId, "user", "active");
+        const denyBacking = new Grant(
+            new GrantId("deny-backing"),
+            workspaceScope,
+            SubjectRef.principal(principalId),
+            "deny",
+            new CapabilitySpec({ facetPattern: "workspace:other.*", impacts: ["observe"] }),
+            { kind: "direct" }
+        );
+        store.grantRecords.push(denyBacking);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        const denied = runtime.check(checkRequest(activeBinding(denyBacking), fixedPath()), new Date(10));
+        expect(denied.decision).toBe("deny");
+        expect(denied.allowed).toBe(false);
+        expect(denied.reason).toBe("missingGrant");
+
+        const revokedStore = new FakeAuthorityStore();
+        revokedStore.principalRecord = new Principal(principalId, "user", "active");
+        const revoked = new Grant(
+            new GrantId("revoked-stranger-backing"),
+            workspaceScope,
+            SubjectRef.principal(new PrincipalId("revoked-stranger")),
+            "allow",
+            capability,
+            { kind: "direct" }
+        ).revoke();
+        revokedStore.grantRecords.push(revoked);
+        const revokedRuntime = new TenantAuthorityRuntime(revokedStore, issuer);
+        const evidence = revokedRuntime.check(
+            checkRequest(activeBinding(revoked), fixedPath()),
+            new Date(10)
+        );
+        expect(evidence.decision).toBe("deny");
+        expect(evidence.reason).toBe("revokedGrant");
+    });
+
+    test("rejects administer intents for guests before Grant evaluation", { tags: "p0" }, () => {
+        const store = new FakeAuthorityStore();
+        const home = new TenantId("administer-home");
+        const guest = new PrincipalId("administer-guest");
+        const subject = SubjectRef.foreign(home, guest, GuestVerificationScheme.callback);
+        const trust = new GuestTrust(
+            new GuestTrustId("administer-trust"),
+            tenantId,
+            home,
+            { kind: "callback", endpoint: "https://administer.example/verify" },
+            "active",
+            Revision.initial()
+        );
+        const proof = new GuestVerification(
+            new PrincipalRef(home, guest),
+            trust.id,
+            trust.revision,
+            "callback",
+            Digest.sha256(Uint8Array.of(13)),
+            new Date(1),
+            new Date(100)
+        );
+        const membership = new Membership(
+            new MembershipId("administer-member"),
+            workspaceScope,
+            subject,
+            new RoleName("guest"),
+            "active",
+            Revision.initial(),
+            proof
+        );
+        const allow = new Grant(
+            GrantId.forRole(membership.id, 0),
+            workspaceScope,
+            subject,
+            "allow",
+            capability,
+            {
+                kind: "role",
+                membershipId: membership.id,
+                roleName: membership.role.value,
+                ruleOrdinal: 0,
+                guest: true
+            }
+        );
+        store.trustRecords.push(trust);
+        store.membershipRecords.push(membership);
+        store.grantRecords.push(allow);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        expect(
+            runtime.check(
+                checkRequest(activeBinding(allow), fixedPath(), {
+                    principal: proof.principal,
+                    impact: "administer"
+                }),
+                new Date(10)
+            ).reason
+        ).toBe("guestElevation");
+    });
+
+    test("keeps Team-granted authority closed to non-members", { tags: "p0" }, () => {
+        const store = new FakeAuthorityStore();
+        store.principalRecord = new Principal(principalId, "user", "active");
+        const team = new Team(
+            new TeamId("closed-team"),
+            tenantId,
+            "Closed",
+            [new PrincipalId("closed-member")],
+            Revision.initial()
+        );
+        store.teamRecords.push(team);
+        const allow = new Grant(
+            new GrantId("closed-team-allow"),
+            workspaceScope,
+            SubjectRef.team(team.id),
+            "allow",
+            capability,
+            { kind: "direct" }
+        );
+        store.grantRecords.push(allow);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        const result = runtime.check(checkRequest(activeBinding(allow), fixedPath()), new Date(10));
+        expect(result.allowed).toBe(false);
+        expect(result.reason).toBe("noMatchingAllow");
+    });
+
+    test("admits valid attenuation chains across and within Scopes", { tags: "p0" }, () => {
+        const store = new FakeAuthorityStore();
+        store.principalRecord = new Principal(principalId, "user", "active");
+        const parent = new Grant(
+            new GrantId("chain-parent"),
+            ScopeRef.tenant(tenantId),
+            SubjectRef.principal(principalId),
+            "allow",
+            capability,
+            { kind: "direct" }
+        );
+        const child = new Grant(
+            new GrantId("chain-child"),
+            workspaceScope,
+            SubjectRef.principal(principalId),
+            "allow",
+            capability,
+            { kind: "direct" },
+            parent.id
+        );
+        store.grantRecords.push(parent, child);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        const across = runtime.check(checkRequest(activeBinding(child), fixedPath()), new Date(10));
+        expect(across.allowed).toBe(true);
+        expect(across.reason).toBe("allowed");
+        expect(across.decision).toBe("allow");
+        expect(across.matchedAllow.map((id) => id.value)).toEqual(["chain-child", "chain-parent"]);
+
+        const sameStore = new FakeAuthorityStore();
+        sameStore.principalRecord = new Principal(principalId, "user", "active");
+        const sameParent = new Grant(
+            new GrantId("same-parent"),
+            workspaceScope,
+            SubjectRef.principal(principalId),
+            "allow",
+            capability,
+            { kind: "direct" }
+        );
+        const sameChild = new Grant(
+            new GrantId("same-child"),
+            workspaceScope,
+            SubjectRef.principal(principalId),
+            "allow",
+            capability,
+            { kind: "direct" },
+            sameParent.id
+        );
+        sameStore.grantRecords.push(sameParent, sameChild);
+        const sameRuntime = new TenantAuthorityRuntime(sameStore, issuer);
+        const within = sameRuntime.check(
+            checkRequest(activeBinding(sameChild), fixedPath()),
+            new Date(10)
+        );
+        expect(within.allowed).toBe(true);
+        expect(within.matchedAllow.map((id) => id.value)).toEqual(["same-child", "same-parent"]);
+    });
+
+    test("fails closed on each malformed backing lineage with the exact reason", { tags: "p0" }, () => {
+        const stranger = SubjectRef.principal(new PrincipalId("lineage-stranger"));
+        const denyParent = new Grant(
+            new GrantId("lineage-deny-parent"),
+            workspaceScope,
+            stranger,
+            "deny",
+            capability,
+            { kind: "direct" }
+        );
+        const offPathParent = new Grant(
+            new GrantId("lineage-offpath-parent"),
+            ScopeRef.workspace(tenantId, new WorkspaceId("lineage-elsewhere")),
+            SubjectRef.principal(principalId),
+            "allow",
+            capability,
+            { kind: "direct" }
+        );
+        const invertedParent = new Grant(
+            new GrantId("lineage-inverted-parent"),
+            workspaceScope,
+            SubjectRef.principal(principalId),
+            "allow",
+            capability,
+            { kind: "direct" }
+        );
+        const narrowParent = new Grant(
+            new GrantId("lineage-narrow-parent"),
+            workspaceScope,
+            stranger,
+            "allow",
+            new CapabilitySpec({ facetPattern: "workspace:other.*", impacts: ["observe"] }),
+            { kind: "direct" }
+        );
+        const cycleId = new GrantId("lineage-cycle");
+        const cases: readonly { readonly parent?: Grant; readonly child: Grant }[] = [
+            { parent: denyParent, child: attenuated("lineage-deny-child", denyParent.id) },
+            { parent: offPathParent, child: attenuated("lineage-offpath-child", offPathParent.id) },
+            {
+                parent: invertedParent,
+                child: new Grant(
+                    new GrantId("lineage-inverted-child"),
+                    ScopeRef.tenant(tenantId),
+                    SubjectRef.principal(principalId),
+                    "allow",
+                    capability,
+                    { kind: "direct" },
+                    invertedParent.id
+                )
+            },
+            { parent: narrowParent, child: attenuated("lineage-narrow-child", narrowParent.id) },
+            {
+                child: new Grant(
+                    cycleId,
+                    workspaceScope,
+                    SubjectRef.principal(principalId),
+                    "allow",
+                    capability,
+                    { kind: "direct" },
+                    cycleId
+                )
+            }
+        ];
+        for (const lineage of cases) {
+            const store = new FakeAuthorityStore();
+            store.principalRecord = new Principal(principalId, "user", "active");
+            if (lineage.parent !== undefined) store.grantRecords.push(lineage.parent);
+            store.grantRecords.push(lineage.child);
+            const runtime = new TenantAuthorityRuntime(store, issuer);
+            const result = runtime.check(
+                checkRequest(activeBinding(lineage.child), fixedPath()),
+                new Date(10)
+            );
+            expect(result.allowed, lineage.child.id.value).toBe(false);
+            expect(result.reason, lineage.child.id.value).toBe("invalidDelegation");
+        }
+    });
+
+    test("excludes revoked and broken-lineage siblings from allow evidence", { tags: "p0" }, () => {
+        const store = new FakeAuthorityStore();
+        store.principalRecord = new Principal(principalId, "user", "active");
+        const backing = directGrant("sibling-backing");
+        const revokedSibling = directGrant("sibling-revoked").revoke();
+        const orphanSibling = new Grant(
+            new GrantId("sibling-orphan"),
+            workspaceScope,
+            SubjectRef.principal(principalId),
+            "allow",
+            capability,
+            { kind: "direct" },
+            new GrantId("sibling-ghost")
+        );
+        store.grantRecords.push(backing, revokedSibling, orphanSibling);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        const evidence = runtime.check(checkRequest(activeBinding(backing), fixedPath()), new Date(10));
+        expect(evidence.allowed).toBe(true);
+        expect(evidence.matchedAllow.map((id) => id.value)).toEqual([backing.id.value]);
+    });
+
+    test("returns bare noMatchingAllow evidence for a backing Grant outside the Grant table", { tags: "p0" }, () => {
+        const store = new DetachedGrantStore();
+        store.principalRecord = new Principal(principalId, "user", "active");
+        const backing = directGrant("detached-backing");
+        store.grantRecords.push(backing);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        const evidence = runtime.check(checkRequest(activeBinding(backing), fixedPath()), new Date(10));
+        expect(evidence.allowed).toBe(false);
+        expect(evidence.decision).toBe("deny");
+        expect(evidence.reason).toBe("noMatchingAllow");
+        expect(evidence.matchedAllow).toEqual([]);
+        expect(evidence.matchedDeny).toEqual([]);
+    });
+
+    test("rejects each stale guest-grant currency branch through Binding validation", { tags: "p0" }, () => {
+        const home = new TenantId("currency-home");
+        const guest = new PrincipalId("currency-guest");
+        const subject = SubjectRef.foreign(home, guest, GuestVerificationScheme.callback);
+        const message = "Binding requires a live allow Grant reaching its Workspace";
+        const proofFor = (trust: GuestTrust): InstanceType<typeof GuestVerification> =>
+            new GuestVerification(
+                new PrincipalRef(home, guest),
+                trust.id,
+                trust.revision,
+                "callback",
+                Digest.sha256(Uint8Array.of(11)),
+                new Date(1),
+                new Date(100)
+            );
+        const makeMembership = (
+            id: string,
+            state: "active" | "revoked",
+            proof?: InstanceType<typeof GuestVerification>
+        ): Membership =>
+            new Membership(
+                new MembershipId(id),
+                workspaceScope,
+                subject,
+                new RoleName("guest"),
+                state,
+                Revision.initial(),
+                proof
+            );
+        const roleGrant = (id: string, membershipId: MembershipId): Grant =>
+            new Grant(new GrantId(id), workspaceScope, subject, "allow", capability, {
+                kind: "role",
+                membershipId,
+                roleName: "guest",
+                ruleOrdinal: 0,
+                guest: true
+            });
+        const expectStale = (
+            grant: Grant,
+            membership: Membership | undefined,
+            trust: GuestTrust | undefined
+        ): void => {
+            const store = new FakeAuthorityStore();
+            if (trust !== undefined) store.trustRecords.push(trust);
+            if (membership !== undefined) store.membershipRecords.push(membership);
+            store.grantRecords.push(grant);
+            const runtime = new TenantAuthorityRuntime(store, issuer);
+            expectAgentError(
+                () => runtime.validateBinding(validationRequest(grant.id), new Date(10)),
+                "authority.denied",
+                message
+            );
+        };
+
+        const callbackTrust = new GuestTrust(
+            new GuestTrustId("currency-trust-callback"),
+            tenantId,
+            home,
+            { kind: "callback", endpoint: "https://currency.example/verify" },
+            "active",
+            Revision.initial()
+        );
+        const nonGuestMembership = makeMembership(
+            "currency-member-nonguest",
+            "active",
+            proofFor(callbackTrust)
+        );
+        expectStale(
+            new Grant(new GrantId("currency-grant-nonguest"), workspaceScope, subject, "allow", capability, {
+                kind: "role",
+                membershipId: nonGuestMembership.id,
+                roleName: "guest",
+                ruleOrdinal: 0,
+                guest: false
+            }),
+            nonGuestMembership,
+            callbackTrust
+        );
+        expectStale(
+            roleGrant("currency-grant-ghost", new MembershipId("currency-ghost")),
+            undefined,
+            callbackTrust
+        );
+        const revokedMembership = makeMembership(
+            "currency-member-revoked",
+            "revoked",
+            proofFor(callbackTrust)
+        );
+        expectStale(
+            roleGrant("currency-grant-revoked", revokedMembership.id),
+            revokedMembership,
+            callbackTrust
+        );
+        const unverifiedMembership = makeMembership("currency-member-unverified", "active");
+        expectStale(
+            roleGrant("currency-grant-unverified", unverifiedMembership.id),
+            unverifiedMembership,
+            callbackTrust
+        );
+        const tokenTrust = new GuestTrust(
+            new GuestTrustId("currency-trust-token"),
+            tenantId,
+            home,
+            {
+                kind: "token",
+                issuer: "currency-issuer",
+                key: new SecretRef("env", "host", "currency-key")
+            },
+            "active",
+            Revision.initial()
+        );
+        const mismatchedMembership = makeMembership(
+            "currency-member-mismatched",
+            "active",
+            proofFor(tokenTrust)
+        );
+        expectStale(
+            roleGrant("currency-grant-mismatched", mismatchedMembership.id),
+            mismatchedMembership,
+            tokenTrust
+        );
+    });
+});
+
 class FakeAuthorityStore implements TenantAuthorityReadStore {
     public readonly tenantId = tenantId;
     public principalRecord: Principal | undefined;
@@ -555,6 +1040,41 @@ class FakeAuthorityStore implements TenantAuthorityReadStore {
     }
     public epoch(scope: ScopeRef): ScopeEpoch {
         return new ScopeEpoch(scope, scope.kind === "tenant" ? 1 : 2);
+    }
+}
+
+class DetachedGrantStore extends FakeAuthorityStore {
+    public override grants(): readonly Grant[] {
+        return [];
+    }
+}
+
+function fixedPath(): PathEpochEvidence {
+    return new PathEpochEvidence([
+        new ScopeEpoch(ScopeRef.tenant(tenantId), 1),
+        new ScopeEpoch(workspaceScope, 2)
+    ]);
+}
+
+function attenuated(id: string, parent: GrantId): Grant {
+    return new Grant(
+        new GrantId(id),
+        workspaceScope,
+        SubjectRef.principal(principalId),
+        "allow",
+        capability,
+        { kind: "direct" },
+        parent
+    );
+}
+
+function expectAgentError(action: () => unknown, code: AgentCoreErrorCode, message: string): void {
+    try {
+        action();
+        throw new Error("Expected AgentCoreError");
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        expect(error).toMatchObject({ code, message });
     }
 }
 
@@ -607,7 +1127,10 @@ function validationRequest(
 function checkRequest(
     target: Binding,
     expectedPath: PathEpochEvidence,
-    overrides: { principal?: PrincipalRef; impact?: "observe" | "delegate" } = {}
+    overrides: {
+        principal?: PrincipalRef;
+        impact?: "observe" | "delegate" | "administer";
+    } = {}
 ): AuthorityCheckRequest {
     const impact = overrides.impact ?? "observe";
     return new AuthorityCheckRequest({

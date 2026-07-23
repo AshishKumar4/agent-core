@@ -229,6 +229,168 @@ describe("PackageCodeManifest", () => {
         });
         expect(cyclic.modules).toHaveLength(2);
     });
+
+    test("derives one pinned content digest for the canonical golden closure", { tags: "p1" }, () => {
+        const manifest = new PackageCodeManifest({
+            compatibilityDate: "2026-07-10",
+            modules: [
+                new PackageCodeModule({
+                    specifier: "./main.js",
+                    content: ContentRef.fromDigest(digest("golden-module")),
+                    media: new MediaHint("application/javascript")
+                })
+            ],
+            entrypoints: [
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("golden.facet"),
+                    version: new SemVer("1.0.0"),
+                    module: "./main.js"
+                })
+            ]
+        });
+        expect(manifest.digest.value).toBe(
+            "9344545257f4bdc258674206733f9b953ec79f524027f182938b128ba98d9882"
+        );
+    });
+
+    test("sorts module imports and names nonblank specifier subjects", { tags: "p1" }, () => {
+        const sorted = new PackageCodeModule({
+            specifier: "./main.js",
+            content: ContentRef.fromDigest(digest("main")),
+            media: new MediaHint("application/javascript"),
+            imports: ["./z.js", "./a.js"]
+        });
+        expect(sorted.imports).toEqual(["./a.js", "./z.js"]);
+        expect(() => module("", "main")).toThrow(
+            /Code module specifier must be a nonblank canonical string/
+        );
+        expect(() => module("./main.js", "main", [" x"])).toThrow(
+            /Code module import must be a nonblank canonical string/
+        );
+        expect(
+            () =>
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("facet"),
+                    version: new SemVer("1.0.0"),
+                    module: ""
+                })
+        ).toThrow(/Code entrypoint module must be a nonblank canonical string/);
+        const named = new PackageCodeEntrypoint({
+            facet: new FacetPackageId("facet"),
+            version: new SemVer("1.0.0"),
+            module: "./main.js",
+            exportName: "run2"
+        });
+        expect(named.exportName).toBe("run2");
+        expect(
+            () =>
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("facet"),
+                    version: new SemVer("1.0.0"),
+                    module: "./main.js",
+                    exportName: "1abc"
+                })
+        ).toThrow(/JavaScript identifier/);
+    });
+
+    test("rejects noncanonical media hints in every malformed shape", { tags: "p1" }, () => {
+        const build = (media: MediaHint): PackageCodeModule =>
+            new PackageCodeModule({
+                specifier: "./main.js",
+                content: ContentRef.fromDigest(digest("main")),
+                media
+            });
+        expect(() => build(new MediaHint("@application/javascript"))).toThrow(
+            /canonical media type without parameters/
+        );
+        expect(() => build(new MediaHint("application/javascript@@@"))).toThrow(
+            /canonical media type without parameters/
+        );
+        expect(() => build(new MediaHint("application/javascript; charset=utf-8"))).toThrow(
+            /canonical media type without parameters/
+        );
+        expect(() => build(null as never)).toThrow(/Code module media must be a MediaHint/);
+        expect(() => build({ mediaType: 7 } as never)).toThrow(
+            /Code module media must be a MediaHint/
+        );
+        expect(() =>
+            build(Object.assign(() => undefined, { mediaType: "text/plain" }) as never)
+        ).toThrow(/Code module media must be a MediaHint/);
+    });
+
+    test("anchors and bounds the compatibility calendar date", { tags: "p1" }, () => {
+        const build = (compatibilityDate: string): PackageCodeManifest =>
+            new PackageCodeManifest({
+                compatibilityDate,
+                modules: [module("./main.js", "main")],
+                entrypoints: [entry("facet", "./main.js")]
+            });
+        for (const malformed of ["x2026-07-10", "2026-07-10x", "not-a-date"]) {
+            expect(() => build(malformed)).toThrow(
+                /Package code compatibility date must be YYYY-MM-DD/
+            );
+        }
+        for (const impossible of ["2026-13-01", "2026-00-10", "2026-04-31", "0000-01-01"]) {
+            expect(() => build(impossible)).toThrow(/valid calendar date/);
+        }
+        expect(
+            () =>
+                new PackageCodeManifest({
+                    compatibilityDate: "2026-07-10",
+                    modules: [] as never,
+                    entrypoints: [entry("facet", "./main.js")]
+                })
+        ).toThrow(/requires modules and entrypoints/);
+    });
+
+    test("names each decoded field subject and rejects nonobject payloads", { tags: "p2" }, () => {
+        const validModule = {
+            content: ContentRef.fromDigest(digest("main")).value,
+            imports: [],
+            media: "application/javascript",
+            specifier: "./main.js"
+        };
+        expect(() => PackageCodeModule.fromData({ ...validModule, specifier: 7 })).toThrow(
+            /Code module specifier must be a string/
+        );
+        expect(() => PackageCodeModule.fromData({ ...validModule, content: 7 })).toThrow(
+            /Code module content must be a string/
+        );
+        expect(() => PackageCodeModule.fromData({ ...validModule, media: 7 })).toThrow(
+            /Code module media must be a string/
+        );
+        expect(() => PackageCodeModule.fromData([])).toThrow(/Code module must be an object/);
+        expect(() => PackageCodeModule.fromData("text")).toThrow(/Code module must be an object/);
+        expect(() => PackageCodeModule.fromData(null)).toThrow(/Code module must be an object/);
+
+        const validEntrypoint = {
+            exportName: "default",
+            facet: "facet",
+            module: "./main.js",
+            version: "1.0.0"
+        };
+        expect(() => PackageCodeEntrypoint.fromData({ ...validEntrypoint, facet: 7 })).toThrow(
+            /Code entrypoint Facet must be a string/
+        );
+        expect(() => PackageCodeEntrypoint.fromData({ ...validEntrypoint, version: 7 })).toThrow(
+            /Code entrypoint version must be a string/
+        );
+        expect(() => PackageCodeEntrypoint.fromData({ ...validEntrypoint, module: 7 })).toThrow(
+            /Code entrypoint module must be a string/
+        );
+        expect(() =>
+            PackageCodeEntrypoint.fromData({ ...validEntrypoint, exportName: 7 })
+        ).toThrow(/Code entrypoint export must be a string/);
+
+        const manifest = new PackageCodeManifest({
+            compatibilityDate: "2026-07-10",
+            modules: [module("./main.js", "main")],
+            entrypoints: [entry("facet", "./main.js")]
+        });
+        expect(() =>
+            PackageCodeManifest.fromData({ ...(manifest.toData() as object), digest: 7 })
+        ).toThrow(/Package code digest must be a string/);
+    });
 });
 
 function module(

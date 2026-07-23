@@ -6,11 +6,19 @@ import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../s
 import { Grant, GrantId, ScopeEpoch } from "../../src/authority";
 import { Binding } from "../../src/authority/binding";
 import { InvalidationWatermark, PathEpochEvidence } from "../../src/authority/epoch";
-import { PrincipalId, ProjectId, ScopeRef, TenantId } from "../../src/identity";
+import {
+    MembershipId,
+    PrincipalId,
+    ProjectId,
+    ScopeRef,
+    SubjectRef,
+    TenantId
+} from "../../src/identity";
 import { PrincipalRef } from "../identity/internal-fixture";
 import {
     allowGrant,
     capability,
+    otherPrincipalId,
     principal,
     projectScope,
     tenantScope,
@@ -213,4 +221,179 @@ describe("Grant model", () => {
                 )
         ).toThrow("Deny Grants cannot be attenuated or delegated");
     });
+
+    test("attenuation requires an allow-effect parent", { tags: "p0" }, () => {
+        const parent = allowGrant("attenuate-parent");
+        const child = allowGrant("attenuate-child", principal, workspaceScope, capability(), parent.id);
+        const deny = new Grant(
+            new GrantId("attenuate-deny"),
+            workspaceScope,
+            principal,
+            "deny",
+            capability(),
+            { kind: "direct" }
+        );
+
+        expect(parent.canAttenuate(child)).toBe(true);
+        expect(deny.canAttenuate(child)).toBe(false);
+    });
+
+    test("role Grant replacement pins subject, Scope, origin, and lineage exactly", { tags: "p0" }, () => {
+        const base = roleGrant();
+        expect(() => base.assertCanReplace(roleGrant({ spec: capability(["mutate"]) }))).not.toThrow();
+        expect(() => base.assertCanReplace(roleGrant().revoke())).not.toThrow();
+
+        const violations: readonly (readonly [string, Grant])[] = [
+            ["scope", roleGrant({ scope: tenantScope })],
+            ["subject", roleGrant({ subject: SubjectRef.principal(otherPrincipalId) })],
+            ["attenuation lineage", roleGrant({ attenuationOf: new GrantId("role-replace-parent") })],
+            ["membership", roleGrant({ membershipId: new MembershipId("role-replace-other") })],
+            ["rule ordinal", roleGrant({ ruleOrdinal: 1 })],
+            ["guest flag", roleGrant({ guest: true })],
+            ["origin kind", allowGrant("role-replace")]
+        ];
+        for (const [field, next] of violations) {
+            const error = caughtAgentCoreError(() => base.assertCanReplace(next));
+            expect(error.code, field).toBe("protocol.invalid-state");
+            expect(error.message, field).toBe(
+                "Grant subject, Scope, origin, and attenuation lineage are immutable"
+            );
+        }
+
+        const reactivation = caughtAgentCoreError(() => base.revoke().assertCanReplace(roleGrant()));
+        expect(reactivation.code).toBe("protocol.invalid-state");
+        expect(reactivation.message).toBe("Revoked Grants cannot reactivate");
+    });
+
+    test("direct Grants replace only with their exact revocation", { tags: "p0" }, () => {
+        const direct = allowGrant(
+            "direct-replace",
+            principal,
+            workspaceScope,
+            capability(["observe"], "workspace:mail.aa")
+        );
+        expect(() => direct.assertCanReplace(direct.revoke())).not.toThrow();
+
+        const tampered = allowGrant(
+            "direct-replace",
+            principal,
+            workspaceScope,
+            capability(["observe"], "workspace:mail.ab")
+        ).revoke();
+        const error = caughtAgentCoreError(() => direct.assertCanReplace(tampered));
+        expect(error.code).toBe("protocol.invalid-state");
+        expect(error.message).toBe("Direct Grants are immutable except for revocation");
+    });
+
+    test("Grant.fromData rejects malformed fields with exact reasons", { tags: "p0" }, () => {
+        const data = allowGrant("codec-reasons").toData();
+
+        expect(() => Grant.fromData({ ...data, attenuationOf: 7 })).toThrow(
+            new TypeError("Grant attenuation parent must be a string or null")
+        );
+        expect(() => Grant.fromData({ ...data, id: 7 })).toThrow(
+            new TypeError("Grant ID must be a string")
+        );
+        expect(() => Grant.fromData({ ...data, origin: { kind: 7 } })).toThrow(
+            new TypeError("Grant origin kind must be a string")
+        );
+        expect(() => Grant.fromData({ ...data, origin: { kind: "unknown" } })).toThrow(
+            new TypeError("Grant origin kind is invalid")
+        );
+        expect(() =>
+            Grant.fromData({
+                ...data,
+                origin: {
+                    guest: false,
+                    kind: "role",
+                    membershipId: 7,
+                    roleName: "reader",
+                    ruleOrdinal: 0
+                }
+            })
+        ).toThrow(new TypeError("Membership ID must be a string"));
+        expect(() =>
+            Grant.fromData({
+                ...data,
+                origin: {
+                    guest: false,
+                    kind: "role",
+                    membershipId: "role-membership",
+                    roleName: 7,
+                    ruleOrdinal: 0
+                }
+            })
+        ).toThrow(new TypeError("Role name must be a string"));
+    });
+
+    test("round-trips role Grant origins through the canonical codec", { tags: "p0" }, () => {
+        const grant = roleGrant({ attenuationOf: new GrantId("role-roundtrip-parent") });
+        const decoded = Grant.decode(Grant.encode(grant));
+
+        expect(decoded.toData()).toEqual(grant.toData());
+        expect(decoded.attenuationOf?.value).toBe("role-roundtrip-parent");
+        expect(decoded.origin.kind).toBe("role");
+        if (decoded.origin.kind === "role") {
+            expect(decoded.origin.membershipId.value).toBe("role-membership");
+            expect(decoded.origin.roleName).toBe("reader");
+            expect(decoded.origin.ruleOrdinal).toBe(0);
+            expect(decoded.origin.guest).toBe(false);
+        }
+    });
+
+    test("role origins admit 1..256 character names and non-negative ordinals", { tags: "p0" }, () => {
+        expect(roleGrant({ roleName: "x".repeat(256) }).origin.kind).toBe("role");
+        for (const overrides of [
+            { roleName: "" },
+            { roleName: "x".repeat(257) },
+            { ruleOrdinal: -1 }
+        ]) {
+            expect(() => roleGrant(overrides)).toThrow(
+                new TypeError("Role Grant origin is invalid")
+            );
+        }
+    });
 });
+
+function roleGrant(
+    overrides: {
+        readonly scope?: ScopeRef;
+        readonly subject?: SubjectRef;
+        readonly spec?: CapabilitySpec;
+        readonly attenuationOf?: GrantId;
+        readonly membershipId?: MembershipId;
+        readonly roleName?: string;
+        readonly ruleOrdinal?: number;
+        readonly guest?: boolean;
+    } = {}
+): Grant {
+    return new Grant(
+        new GrantId("role-replace"),
+        overrides.scope ?? workspaceScope,
+        overrides.subject ?? principal,
+        "allow",
+        overrides.spec ?? capability(),
+        {
+            kind: "role",
+            membershipId: overrides.membershipId ?? new MembershipId("role-membership"),
+            roleName: overrides.roleName ?? "reader",
+            ruleOrdinal: overrides.ruleOrdinal ?? 0,
+            guest: overrides.guest ?? false
+        },
+        overrides.attenuationOf
+    );
+}
+
+function caughtAgentCoreError(run: () => unknown): AgentCoreError {
+    let caught: unknown;
+    try {
+        run();
+    } catch (error) {
+        caught = error;
+    }
+    expect(caught).toBeInstanceOf(AgentCoreError);
+    if (!(caught instanceof AgentCoreError)) {
+        throw new TypeError("Expected an AgentCoreError");
+    }
+    return caught;
+}

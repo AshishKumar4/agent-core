@@ -174,6 +174,134 @@ describe("package releases", () => {
             "codec.unknown-major"
         );
     });
+
+    test("requires canonical nonblank dependency ranges and named subjects", { tags: "p1" }, () => {
+        expect(() => new PackageDependency(new PackageId("dep"), "")).toThrow(
+            /Package dependency range must be a nonblank canonical string/
+        );
+        expect(() => new PackageDependency(new PackageId("dep"), "^1 ")).toThrow(
+            /Package dependency range must be a nonblank canonical string/
+        );
+        expect(() => PackageDependency.fromData({ id: "dep", range: 7 })).toThrow(
+            /Package dependency range must be a string/
+        );
+        expect(() => PackageDependency.fromData({ id: 7, range: "*" })).toThrow(
+            /Package dependency ID must be a string/
+        );
+    });
+
+    test("requires a bijection between Facet manifests and code entrypoints", { tags: "p0" }, () => {
+        const release = packageRelease("root", "1.0.0");
+        const mainModule = release.codeManifest.modules[0];
+        const withExtraEntrypoint = new PackageCodeManifest({
+            compatibilityDate: release.codeManifest.compatibilityDate,
+            modules: [mainModule],
+            entrypoints: [
+                new PackageCodeEntrypoint({
+                    facet: release.manifests[0].id,
+                    version: release.manifests[0].version,
+                    module: mainModule.specifier
+                }),
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("z.extra.facet"),
+                    version: release.manifests[0].version,
+                    module: mainModule.specifier
+                })
+            ]
+        });
+        expect(
+            () =>
+                new PackageRelease({
+                    id: release.id,
+                    version: release.version,
+                    compatibility: release.compatibility,
+                    dependencies: [],
+                    manifests: release.manifests,
+                    codeManifest: withExtraEntrypoint,
+                    provenance: release.provenance
+                })
+        ).toThrow(/exactly match/);
+
+        const twoManifests = [
+            manifest("root.facet", "1.0.0"),
+            manifest("root.other", "1.0.0")
+        ] as [FacetManifest, FacetManifest];
+        const partiallyMatching = new PackageCodeManifest({
+            compatibilityDate: release.codeManifest.compatibilityDate,
+            modules: [mainModule],
+            entrypoints: [
+                new PackageCodeEntrypoint({
+                    facet: twoManifests[0].id,
+                    version: twoManifests[0].version,
+                    module: mainModule.specifier
+                }),
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("root.unrelated"),
+                    version: twoManifests[1].version,
+                    module: mainModule.specifier
+                })
+            ]
+        });
+        expect(
+            () =>
+                new PackageRelease({
+                    id: release.id,
+                    version: release.version,
+                    compatibility: release.compatibility,
+                    dependencies: [],
+                    manifests: twoManifests,
+                    codeManifest: partiallyMatching,
+                    provenance: release.provenance
+                })
+        ).toThrow(/exactly match/);
+    });
+
+    test("names malformed compatibility, digest, and identity subjects", { tags: "p2" }, () => {
+        const release = packageRelease("root", "1.0.0");
+        const rebuild = (compatibility: CompatRange): PackageRelease =>
+            new PackageRelease({
+                id: release.id,
+                version: release.version,
+                compatibility,
+                dependencies: [],
+                manifests: release.manifests,
+                codeManifest: release.codeManifest,
+                provenance: release.provenance
+            });
+        expect(() => rebuild(new CompatRange("not-semver", "*"))).toThrow(
+            /Package spec compatibility must be a valid semantic version range/
+        );
+        expect(() => rebuild(new CompatRange("*", "not-semver"))).toThrow(
+            /Package host compatibility must be a valid semantic version range/
+        );
+
+        const data = requireObject(release.toData());
+        expect(() => PackageRelease.fromData({ ...data, id: 7 })).toThrow(
+            /Package ID must be a string/
+        );
+        expect(() => PackageRelease.fromData({ ...data, version: 7 })).toThrow(
+            /Package version must be a string/
+        );
+        expect(() => PackageRelease.fromData({ ...data, manifestDigest: 7 })).toThrow(
+            /Manifest digest must be a string/
+        );
+        expect(() => PackageRelease.fromData({ ...data, codeDigest: 7 })).toThrow(
+            /Code digest must be a string/
+        );
+        expect(() => PackageRelease.fromData({ ...data, configSchema: 7 })).toThrow(
+            /Package config schema must be an object/
+        );
+    });
+
+    test("rejects nonobject release payloads and missing required fields", { tags: "p1" }, () => {
+        expect(() => PackageRelease.fromData(null)).toThrow(/Package release must be an object/);
+        expect(() => PackageRelease.fromData([])).toThrow(/Package release must be an object/);
+        expect(() => PackageRelease.fromData("text")).toThrow(/Package release must be an object/);
+        const { id: _id, ...withoutId } = requireObject(packageRelease("root", "1.0.0").toData());
+        expect(() => PackageRelease.fromData(withoutId)).toThrow(
+            /Package release contains missing or unknown fields/
+        );
+    });
 });
 
 describe("metadata snapshots", () => {
@@ -236,6 +364,20 @@ describe("metadata snapshots", () => {
                 releases: [release, otherBuild]
             }).releases
         ).toHaveLength(2);
+    });
+
+    test("rejects malformed snapshot revisions and digests with exact subjects", { tags: "p1" }, () => {
+        const data = requireObject(
+            new MetadataSnapshot({ revision: new Revision(1), releases: [] }).toData()
+        );
+        expect(() => MetadataSnapshot.fromData({ ...data, digest: 7 })).toThrow(
+            /Snapshot digest must be a string/
+        );
+        for (const revision of ["7", 1.5, -1] as const) {
+            expect(() => MetadataSnapshot.fromData({ ...data, revision })).toThrow(
+                /Snapshot revision must be a non-negative safe integer/
+            );
+        }
     });
 });
 

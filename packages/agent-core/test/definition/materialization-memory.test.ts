@@ -23,6 +23,7 @@ import {
     blueprint,
     installGeneration,
     materializationState,
+    materializationStateWithKeys,
     materializationStoreContract
 } from "./materialization-store-contract";
 
@@ -116,6 +117,252 @@ describe("MemoryMaterializationStore persistence", () => {
                 .getGenerationPointer(actor, first.materialization.generation.origin.deploymentId)
                 ?.generationId.equals(second.materialization.generation.id)
         ).toBe(true);
+    });
+
+    test("orders detached materialization snapshot rows deterministically", { tags: "p1" }, () => {
+        const actor = actorRef("ordering");
+        const store = new MemoryMaterializationStore(actor);
+        const planAlpha = materializationState(actor, 1, "p-alpha");
+        const planBeta = materializationState(actor, 2, "p-beta");
+        const first = materializationState(actor, 1, "g-alpha", "slot:kk");
+        const second = materializationState(actor, 2, "g-beta", "slot:mm");
+        const third = materializationState(actor, 3, "g-gamma", "slot:pp");
+        store.addPlan(planAlpha.plan);
+        store.addPlan(planBeta.plan);
+        installGeneration(store, first);
+        installGeneration(store, second);
+        installGeneration(store, third);
+        expect(
+            [planAlpha, planBeta].map((fixture) => fixture.plan.id.value).sort()
+        ).toEqual([planBeta.plan.id.value, planAlpha.plan.id.value]);
+        expect(
+            [first, second, third]
+                .map((fixture) => fixture.materialization.generation.id.value)
+                .sort()
+        ).toEqual([
+            second.materialization.generation.id.value,
+            first.materialization.generation.id.value,
+            third.materialization.generation.id.value
+        ]);
+
+        const detached = store.snapshot();
+        expect(detached.plans.map((row) => row.id)).toEqual([
+            planBeta.plan.id.value,
+            planAlpha.plan.id.value
+        ]);
+        expect(detached.generations.map((row) => row.id.value)).toEqual([
+            second.materialization.generation.id.value,
+            first.materialization.generation.id.value,
+            third.materialization.generation.id.value
+        ]);
+        expect(detached.managedState.map((row) => row.generationId.value)).toEqual([
+            second.materialization.generation.id.value,
+            first.materialization.generation.id.value,
+            third.materialization.generation.id.value
+        ]);
+        expect(detached.managedState.map((row) => row.logicalKey)).toEqual([
+            "slot:mm",
+            "slot:kk",
+            "slot:pp"
+        ]);
+    });
+
+    test("orders generation pointers by deployment across deployments", { tags: "p1" }, () => {
+        const actor = actorRef("ordering");
+        const store = new MemoryMaterializationStore(actor);
+        const fixtures = ["dep-b", "dep-a", "dep-c"].map((key) =>
+            materializationState(actor, 1, key, `slot:${key}`, key, key)
+        );
+        for (const fixture of fixtures) {
+            installGeneration(store, fixture);
+            store.transaction((transaction) => {
+                expect(
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        fixture.materialization.generation.origin.deploymentId,
+                        undefined,
+                        MaterializationGenerationPointer.initial(
+                            actor,
+                            fixture.materialization.generation.origin.deploymentId,
+                            fixture.materialization.generation.id
+                        )
+                    )
+                ).toBe(true);
+            });
+        }
+        const deployments = fixtures.map(
+            (fixture) => fixture.materialization.generation.origin.deploymentId.value
+        );
+        expect([...deployments].sort()).toEqual([deployments[1], deployments[2], deployments[0]]);
+
+        expect(store.listGenerationPointers()).toHaveLength(3);
+        for (const fixture of fixtures) {
+            expect(
+                store.getGenerationPointer(
+                    actor,
+                    fixture.materialization.generation.origin.deploymentId
+                )?.revision.value
+            ).toBe(0);
+        }
+        expect(store.snapshot().pointers.map((row) => row.deploymentId)).toEqual([
+            deployments[1],
+            deployments[2],
+            deployments[0]
+        ]);
+    });
+
+    test("rejects Tenant control records in Actor-local snapshots", { tags: "p0" }, () => {
+        const tenant = actorRef("control");
+        const control = new MemoryMaterializationStore(tenant);
+        control.addBlueprint(blueprint("platform", "1.0.0", {}));
+        control.addPlan(materializationState(tenant, 1, "control").plan);
+        const snapshot = control.snapshot();
+        const empty = {
+            blueprints: [],
+            plans: [],
+            generations: [],
+            managedState: [],
+            pointers: []
+        };
+
+        expect(
+            () =>
+                new MemoryMaterializationStore(actorRef("workspace-owner", "workspace"), {
+                    ...empty,
+                    blueprints: snapshot.blueprints
+                })
+        ).toThrow(/Actor-local materialization snapshots cannot contain Tenant control records/);
+        expect(
+            () =>
+                new MemoryMaterializationStore(actorRef("workspace-owner", "workspace"), {
+                    ...empty,
+                    plans: snapshot.plans
+                })
+        ).toThrow(/Actor-local materialization snapshots cannot contain Tenant control records/);
+    });
+
+    test("restores multi-record generations from a detached snapshot", { tags: "p1" }, () => {
+        const actor = actorRef("workspace");
+        const fixture = materializationStateWithKeys(actor, 1, "restore-two", [
+            "slot:aa",
+            "slot:zz"
+        ]);
+        const store = new MemoryMaterializationStore(actor);
+        installGeneration(store, fixture);
+
+        const restored = new MemoryMaterializationStore(actor, store.snapshot());
+        expect(restored.listManagedState(fixture.materialization.generation.id)).toHaveLength(2);
+        expect(
+            restored
+                .listManagedState(fixture.materialization.generation.id)
+                .map((record) => record.logicalKey)
+        ).toEqual(["slot:aa", "slot:zz"]);
+    });
+
+    test("names malformed snapshot rows with their exact subject", { tags: "p2" }, () => {
+        const snapshot = completeSnapshot();
+        const cases: readonly [
+            keyof MemoryMaterializationSnapshot,
+            string,
+            unknown,
+            RegExp
+        ][] = [
+            [
+                "plans",
+                "generation",
+                -1,
+                /Memory materialization snapshot materialization plan generation is malformed/
+            ],
+            [
+                "plans",
+                "generation",
+                1.5,
+                /Memory materialization snapshot materialization plan generation is malformed/
+            ],
+            ["blueprints", "name", 7, /Memory materialization snapshot Blueprint name is malformed/],
+            [
+                "generations",
+                "id",
+                "1".repeat(64),
+                /Memory materialization snapshot generation ID is malformed/
+            ],
+            [
+                "generations",
+                "actorId",
+                "other",
+                /Memory materialization snapshot generation Actor ID is malformed/
+            ],
+            [
+                "managedState",
+                "generationId",
+                "1".repeat(64),
+                /Memory materialization snapshot managed-state generation ID is malformed/
+            ],
+            [
+                "managedState",
+                "actorId",
+                "other",
+                /Memory materialization snapshot managed-state Actor ID is malformed/
+            ],
+            [
+                "pointers",
+                "actorId",
+                "other",
+                /Memory materialization snapshot generation-pointer Actor ID is malformed/
+            ],
+            [
+                "pointers",
+                "generationId",
+                "1".repeat(64),
+                /Memory materialization snapshot generation-pointer generation ID is malformed/
+            ],
+            [
+                "pointers",
+                "revision",
+                -1,
+                /Memory materialization snapshot generation-pointer revision is malformed/
+            ],
+            [
+                "blueprints",
+                "bytes",
+                "bad",
+                /Memory materialization snapshot Blueprint bytes are malformed/
+            ],
+            [
+                "plans",
+                "bytes",
+                "bad",
+                /Memory materialization snapshot materialization plan bytes are malformed/
+            ],
+            [
+                "generations",
+                "bytes",
+                "bad",
+                /Memory materialization snapshot generation bytes are malformed/
+            ],
+            [
+                "managedState",
+                "bytes",
+                "bad",
+                /Memory materialization snapshot managed state bytes are malformed/
+            ],
+            [
+                "pointers",
+                "bytes",
+                "bad",
+                /Memory materialization snapshot generation pointer bytes are malformed/
+            ]
+        ];
+        for (const [collection, field, value, message] of cases) {
+            const corrupted = {
+                ...snapshot,
+                [collection]: [{ ...snapshot[collection][0]!, [field]: value }]
+            } as MemoryMaterializationSnapshot;
+            expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow(
+                message
+            );
+        }
     });
 
     test("rejects asynchronous transactions without committing their draft", async () => {

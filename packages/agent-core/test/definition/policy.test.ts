@@ -105,6 +105,33 @@ describe("monotone policy composition", () => {
         }
     });
 
+    test("merges tiers monotonically regardless of policy order", { tags: "p0" }, () => {
+        const direct = new PolicySet({ tiers: { execute: "direct" } });
+        const mediated = new PolicySet({ tiers: { execute: "mediated" } });
+
+        expect(mergePolicySets([direct, mediated]).tierFor("execute")).toBe("mediated");
+        expect(mergePolicySets([mediated, direct]).tierFor("execute")).toBe("mediated");
+        expect(mergePolicySets([direct]).tierFor("execute")).toBe("direct");
+        expect(mergePolicySets([direct, new PolicySet()]).tierFor("execute")).toBe("direct");
+        expect(mergePolicySets([direct]).tierFor("observe")).toBeUndefined();
+    });
+
+    test("takes the minimum revocation window regardless of order and accepts zero", { tags: "p1" }, () => {
+        expect(
+            mergePolicySets([
+                new PolicySet({ maxDirectRevocationWindowMs: 20 }),
+                new PolicySet({ maxDirectRevocationWindowMs: 500 })
+            ]).maxDirectRevocationWindowMs
+        ).toBe(20);
+        expect(new PolicySet({ maxDirectRevocationWindowMs: 0 }).maxDirectRevocationWindowMs).toBe(
+            0
+        );
+    });
+
+    test("returns the canonical empty policy for an empty merge", { tags: "p1" }, () => {
+        expect(mergePolicySets([])).toBe(PolicySet.empty());
+    });
+
     test("[C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements", () => {
         const packagePolicy = new PolicySet({
             approvals: ["observe"],
@@ -203,6 +230,38 @@ describe("policy declaration codec", () => {
 
         const encoded = PolicySet.encode(policy);
         expect(PolicySet.encode(PolicySet.decode(encoded))).toEqual(encoded);
+    });
+
+    test("rejects invalid impacts placements and non-object payloads", { tags: "p2" }, () => {
+        const payload = {
+            approvals: [],
+            maxDirectRevocationWindowMs: null,
+            placement: { allowed: ["dynamic", "provider", "bundled"] },
+            tiers: {}
+        };
+
+        expect(() => PolicySet.fromData({ ...payload, approvals: ["bogus"] })).toThrow(
+            "Policy approvals is invalid"
+        );
+        expect(() => PolicySet.fromData({ ...payload, tiers: null })).toThrow(
+            "Policy tiers must be an object"
+        );
+        expect(() => PolicySet.fromData({ ...payload, tiers: undefined } as never)).toThrow(
+            "Policy tiers must be an object"
+        );
+        expect(() => PolicySet.fromData(null)).toThrow("Policy set must be an object");
+        expect(() => PolicySet.fromData([])).toThrow("Policy set must be an object");
+        expect(() => PolicySet.fromData("payload")).toThrow("Policy set must be an object");
+        expect(() => PolicySet.fromData(undefined as never)).toThrow(
+            "Policy set must be an object"
+        );
+        expect(() =>
+            evaluatePolicy({
+                impact: "observe",
+                turnOwnedSession: false,
+                placement: "hostile" as never
+            })
+        ).toThrow("Policy placement is invalid");
     });
 
     test("makes approval removal unrepresentable and rejects malformed codec data", () => {

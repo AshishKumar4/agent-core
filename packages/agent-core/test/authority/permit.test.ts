@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors";
 import { RunId, TurnId } from "../../src/agents";
 import {
+    AuthenticatedAuthorityPermit,
     AuthorityPermit,
     AuthorityPermitAuthenticator,
     AuthorityPermitAuthorityPort,
@@ -12,6 +13,7 @@ import {
     PathEpochEvidence,
     ScopeEpoch,
     StoredAuthorityPermitAdmissionPort,
+    requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
     type AuthorityPermitOwnerStore
 } from "../../src/authority";
@@ -1156,4 +1158,530 @@ function substitutions(
 
 function digest(value: string): Digest {
     return Digest.sha256(new TextEncoder().encode(value));
+}
+
+describe("AuthorityPermit mutation gates", () => {
+    test("exposes every expectation field through the permit getters", { tags: "p0" }, () => {
+        const expected = expectation();
+        const permit = new AuthorityPermit({
+            ...expected,
+            nonce: "getter-nonce",
+            issuedAt,
+            expiresAt
+        });
+
+        expect(permit.tenant.equals(tenant)).toBe(true);
+        expect(permit.issuer.equals(issuerActor)).toBe(true);
+        expect(permit.source.equals(sourceActor)).toBe(true);
+        expect(permit.principal.equals(principal)).toBe(true);
+        expect(permit.binding.name.value).toBe("mail");
+        expect(permit.binding.generation.value).toBe(3);
+        expect(permit.facet.value).toBe("workspace:mail");
+        expect(permit.operation.value).toBe("mail:send");
+        expect(permit.package.toData()).toEqual(expected.package.toData());
+        expect(permit.invocation.equals(invocation)).toBe(true);
+        expect(permit.claim.value).toBe("permit-claim");
+        expect(permit.argumentsDigest.equals(expected.argumentsDigest)).toBe(true);
+        expect(permit.intentDigest.equals(expected.intentDigest)).toBe(true);
+        expect(permit.pathEpochs.equals(path)).toBe(true);
+        expect(permit.lease?.turn.equals(lease.turn)).toBe(true);
+        expect(permit.lease?.holder.equals(principal)).toBe(true);
+        expect(permit.lease?.epoch).toBe(7);
+    });
+
+    test("is consumable at the exact issuance instant with exact time denials", { tags: "p0" }, () => {
+        const expected = expectation();
+        const permit = new AuthorityPermit({
+            ...expected,
+            nonce: "boundary-nonce",
+            issuedAt,
+            expiresAt
+        });
+
+        expect(() => permit.assertConsumable(expected, issuedAt)).not.toThrow();
+        expect(() =>
+            permit.assertConsumable(expected, new Date(expiresAt.getTime() - 1))
+        ).not.toThrow();
+        const early = caughtAgentCoreError(() =>
+            permit.assertConsumable(expected, new Date(issuedAt.getTime() - 1))
+        );
+        expect(early.code).toBe("authority.denied");
+        expect(early.message).toBe("Authority permit is not valid at the target admission time");
+        expect(() => permit.assertConsumable(expected, new Date(Number.NaN))).toThrow(
+            new TypeError("Authority permit consumption time must be a valid non-negative Date")
+        );
+    });
+
+    test("validates issuance and expiry times with exact subjects", { tags: "p0" }, () => {
+        expect(
+            () =>
+                new AuthorityPermit({
+                    ...expectation(),
+                    nonce: "invalid-issue",
+                    issuedAt: new Date(Number.NaN),
+                    expiresAt
+                })
+        ).toThrow(new TypeError("Authority permit issuance time must be a valid non-negative Date"));
+        expect(
+            () =>
+                new AuthorityPermit({
+                    ...expectation(),
+                    nonce: "invalid-expiry",
+                    issuedAt,
+                    expiresAt: new Date(Number.NaN)
+                })
+        ).toThrow(new TypeError("Authority permit expiry must be a valid non-negative Date"));
+        expect(
+            () =>
+                new AuthorityPermit({
+                    ...expectation(),
+                    nonce: "negative-issue",
+                    issuedAt: new Date(-1),
+                    expiresAt
+                })
+        ).toThrow(new TypeError("Authority permit issuance time must be a valid non-negative Date"));
+
+        const epochPermit = new AuthorityPermit({
+            ...expectation(),
+            nonce: "epoch-issue",
+            issuedAt: new Date(0),
+            expiresAt: new Date(1)
+        });
+        expect(epochPermit.issuedAt.getTime()).toBe(0);
+    });
+
+    test("rejects blank and non-canonical nonces exactly", { tags: "p0" }, () => {
+        for (const nonce of ["", " padded"]) {
+            expect(
+                () => new AuthorityPermit({ ...expectation(), nonce, issuedAt, expiresAt })
+            ).toThrow(new TypeError("Authority permit nonce must be a nonblank canonical string"));
+        }
+    });
+
+    test("requires the Tenant to qualify the path even when the principal matches", { tags: "p0" }, () => {
+        expect(() =>
+            expectation({
+                pathEpochs: new PathEpochEvidence([
+                    new ScopeEpoch(ScopeRef.tenant(new TenantId("permit-foreign-tenant")), 1)
+                ])
+            })
+        ).toThrow(new TypeError("Authority permit Tenant must qualify its principal and path"));
+    });
+
+    test("pins the reservation obligation to the exact invocation item", { tags: "p0" }, () => {
+        expect(() =>
+            expectation({
+                reservation: {
+                    run: new RunId("permit-run"),
+                    registryEpoch: 5,
+                    obligation: {
+                        kind: "invocationItem",
+                        invocation: new InvocationId("permit-drift-invocation"),
+                        itemIndex: 2,
+                        itemKey
+                    }
+                }
+            })
+        ).toThrow(new TypeError("Authority permit reservation must match its exact invocation item"));
+        expect(() =>
+            expectation({
+                reservation: {
+                    run: new RunId("permit-run"),
+                    registryEpoch: 5,
+                    obligation: { kind: "invocationItem", invocation, itemIndex: 3, itemKey }
+                }
+            })
+        ).toThrow(new TypeError("Authority permit reservation must match its exact invocation item"));
+    });
+
+    test("decodes only canonical Actor and claim owner kinds", { tags: "p0" }, () => {
+        const data = expectation().toData();
+        const withSource = (kind: string) =>
+            AuthorityPermitExpectation.fromData({
+                ...data,
+                source: { id: "permit-source-actor", kind }
+            });
+
+        expect(withSource("environment").source.kind).toBe("environment");
+        expect(withSource("slate").source.kind).toBe("slate");
+        expect(() => withSource("attacker")).toThrow(
+            new TypeError("Authority permit Actor kind is invalid")
+        );
+        expect(() =>
+            AuthorityPermitExpectation.fromData({
+                ...data,
+                claimOwner: {
+                    actor: { id: "permit-target-actor", kind: "run" },
+                    kind: "attacker",
+                    worker: "permit-worker"
+                }
+            })
+        ).toThrow(new TypeError("Authority permit claim owner kind is invalid"));
+    });
+
+    test("requires lease tokens to carry exact qualified identities", { tags: "p0" }, () => {
+        expect(() =>
+            expectation({
+                lease: Object.freeze({
+                    turn: new RunId("permit-forged-turn"),
+                    holder: principal,
+                    epoch: 7
+                })
+            })
+        ).toThrow(new TypeError("Authority permit lease must carry an exact qualified holder"));
+    });
+});
+
+describe("AuthorityPermit authentication mutation gates", () => {
+    test("rejects authentications minted without the module issuer", { tags: "p0" }, () => {
+        const permit = new AuthorityPermit({
+            ...expectation(),
+            nonce: "auth-forged",
+            issuedAt,
+            expiresAt
+        });
+        const error = caughtAgentCoreError(
+            () => new AuthenticatedAuthorityPermit(Symbol("forged-issuer"), permit)
+        );
+        expect(error.code).toBe("authority.denied");
+        expect(error.message).toBe("Authority permit authentication has an invalid issuer");
+    });
+
+    test("authenticates only the canonical issuer record with exact denials", { tags: "p0" }, async () => {
+        const expected = expectation();
+        const permit = new AuthorityPermit({
+            ...expected,
+            nonce: "auth-nonce-a",
+            issuedAt,
+            expiresAt
+        });
+        const bytes = AuthorityPermit.encode(permit);
+        const drifted = new AuthorityPermit({
+            ...expected,
+            nonce: "auth-nonce-b",
+            issuedAt,
+            expiresAt
+        });
+
+        const authenticated = await new AuthorityPermitAuthenticator(
+            new FixedIssuedRecordSource(bytes)
+        ).authenticate(permit, expected);
+        expect(authenticated.matches(permit)).toBe(true);
+
+        const denials: readonly (readonly [
+            string,
+            AuthorityPermitIssuedRecordSource,
+            AuthorityPermitExpectation,
+            string
+        ])[] = [
+            [
+                "target mismatch",
+                new FixedIssuedRecordSource(bytes),
+                expectation({ claim: new ItemClaimId("auth-other-claim") }),
+                "Authority permit does not match the target expectation"
+            ],
+            [
+                "missing record",
+                new FixedIssuedRecordSource(undefined),
+                expected,
+                "Authority permit has no authenticated issuer record"
+            ],
+            [
+                "malformed record",
+                new FixedIssuedRecordSource(Uint8Array.of(0)),
+                expected,
+                "Authority permit issuer record is malformed"
+            ],
+            [
+                "drifted record",
+                new FixedIssuedRecordSource(AuthorityPermit.encode(drifted)),
+                expected,
+                "Authority permit differs from its authenticated issuer record"
+            ]
+        ];
+        for (const [name, source, target, message] of denials) {
+            let caught: unknown;
+            try {
+                await new AuthorityPermitAuthenticator(source).authenticate(permit, target);
+            } catch (error) {
+                caught = error;
+            }
+            expect(caught, name).toBeInstanceOf(AgentCoreError);
+            if (caught instanceof AgentCoreError) {
+                expect(caught.code, name).toBe("authority.denied");
+                expect(caught.message, name).toBe(message);
+            }
+        }
+    });
+
+    test("admission evidence binds to the exact authenticated permit bytes", { tags: "p0" }, async () => {
+        const expected = expectation();
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const permit = store.transaction((transaction) =>
+            new AuthorityPermitIssuer(store, new CurrentAuthority()).issue(
+                transaction,
+                expected,
+                "auth-evidence-a",
+                issuedAt,
+                expiresAt
+            )
+        );
+        const authentication = await authenticate(store, permit, expected);
+
+        expect(() => requireAuthenticatedAuthorityPermit(authentication, permit)).not.toThrow();
+        const other = new AuthorityPermit({
+            ...expected,
+            nonce: "auth-evidence-b",
+            issuedAt,
+            expiresAt
+        });
+        expect(authentication.matches(other)).toBe(false);
+        const error = caughtAgentCoreError(() =>
+            requireAuthenticatedAuthorityPermit(authentication, other)
+        );
+        expect(error.code).toBe("authority.denied");
+        expect(error.message).toBe("Authority permit lacks authenticated issuer evidence");
+    });
+});
+
+describe("MemoryAuthorityPermitStore mutation gates", () => {
+    test("issue is idempotent for the exact expectation and denies conflicts", { tags: "p0" }, () => {
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const expected = expectation();
+        const permit = new AuthorityPermit({
+            ...expected,
+            nonce: "store-issue-nonce",
+            issuedAt,
+            expiresAt
+        });
+
+        store.transaction((transaction) => {
+            expect(store.issue(transaction, permit)).toBe(permit);
+            const replay = new AuthorityPermit({
+                ...expected,
+                nonce: "store-issue-nonce",
+                issuedAt: new Date(issuedAt.getTime() + 500),
+                expiresAt: new Date(expiresAt.getTime() + 500)
+            });
+            const settled = store.issue(transaction, replay);
+            expect(AuthorityPermit.encode(settled)).toEqual(AuthorityPermit.encode(permit));
+
+            const conflicting = new AuthorityPermit({
+                ...expectation({ claim: new ItemClaimId("store-other-claim") }),
+                nonce: "store-issue-nonce",
+                issuedAt,
+                expiresAt
+            });
+            const error = caughtAgentCoreError(() => store.issue(transaction, conflicting));
+            expect(error.code).toBe("authority.denied");
+            expect(error.message).toBe(
+                "Authority permit nonce is bound to another issuance expectation"
+            );
+            return undefined;
+        });
+    });
+
+    test("a consumed nonce can never be reused by the same owner", { tags: "p0" }, async () => {
+        const expected = expectation({
+            target: {
+                actor: issuerActor,
+                fence: 11,
+                domain: new ProtectionDomain("backend", "permit-domain", "may-hold-secrets")
+            }
+        });
+        const issuerStore = new MemoryAuthorityPermitStore(issuerActor);
+        const permit = issuerStore.transaction((transaction) =>
+            new AuthorityPermitIssuer(issuerStore, new CurrentAuthority()).issue(
+                transaction,
+                expected,
+                "store-consumed-reuse",
+                issuedAt,
+                expiresAt
+            )
+        );
+        const authentication = await authenticate(issuerStore, permit, expected);
+
+        const ownerStore = new MemoryAuthorityPermitStore(issuerActor);
+        ownerStore.transaction((transaction) =>
+            ownerStore.consume(
+                transaction,
+                authentication,
+                permit,
+                expected,
+                new Date(issuedAt.getTime() + 1)
+            )
+        );
+        const reissue = caughtAgentCoreError(() =>
+            ownerStore.transaction((transaction) => ownerStore.issue(transaction, permit))
+        );
+        expect(reissue.code).toBe("authority.denied");
+        expect(reissue.message).toBe("Authority permit nonce was already used by this Actor owner");
+        const replay = caughtAgentCoreError(() =>
+            ownerStore.transaction((transaction) =>
+                ownerStore.consume(
+                    transaction,
+                    authentication,
+                    permit,
+                    expected,
+                    new Date(issuedAt.getTime() + 2)
+                )
+            )
+        );
+        expect(replay.code).toBe("authority.denied");
+        expect(replay.message).toBe("Authority permit nonce was already used by this Actor owner");
+    });
+
+    test("snapshots order issued and consumed records canonically", { tags: "p1" }, async () => {
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const expected = expectation();
+        const second = new AuthorityPermit({
+            ...expected,
+            nonce: "store-order-b",
+            issuedAt,
+            expiresAt
+        });
+        const first = new AuthorityPermit({
+            ...expected,
+            nonce: "store-order-a",
+            issuedAt,
+            expiresAt
+        });
+        store.transaction((transaction) => {
+            store.issue(transaction, second);
+            store.issue(transaction, first);
+            return undefined;
+        });
+        expect(store.snapshot().issued.map((record) => record.nonce)).toEqual([
+            "store-order-a",
+            "store-order-b"
+        ]);
+
+        const authenticationB = await authenticate(store, second, expected);
+        const authenticationA = await authenticate(store, first, expected);
+        const targetStore = new MemoryAuthorityPermitStore(targetActor);
+        targetStore.transaction((transaction) => {
+            targetStore.consume(
+                transaction,
+                authenticationB,
+                second,
+                expected,
+                new Date(issuedAt.getTime() + 1)
+            );
+            targetStore.consume(
+                transaction,
+                authenticationA,
+                first,
+                expected,
+                new Date(issuedAt.getTime() + 1)
+            );
+            return undefined;
+        });
+        expect(targetStore.snapshot().consumed.map((record) => record.nonce)).toEqual([
+            "store-order-a",
+            "store-order-b"
+        ]);
+    });
+
+    test("snapshot and staged bytes stay detached from committed state", { tags: "p0" }, () => {
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const permit = new AuthorityPermit({
+            ...expectation(),
+            nonce: "store-detached",
+            issuedAt,
+            expiresAt
+        });
+        store.transaction((transaction) => store.issue(transaction, permit));
+
+        const snapshot = store.snapshot();
+        for (const record of snapshot.issued) {
+            record.bytes.fill(0);
+        }
+        expect(
+            store.transaction(
+                (transaction) => store.issued(transaction, "store-detached")?.digest().value
+            )
+        ).toBe(permit.digest().value);
+
+        expect(() =>
+            store.transaction((transaction) => {
+                transaction.issuedRecords.get("store-detached")?.fill(0);
+                throw new AgentCoreError("protocol.invalid-state", "abort staged mutation");
+            })
+        ).toThrow(/abort staged mutation/);
+        expect(
+            store.transaction(
+                (transaction) => store.issued(transaction, "store-detached")?.digest().value
+            )
+        ).toBe(permit.digest().value);
+    });
+
+    test("detects issued records filed under a foreign nonce", { tags: "p0" }, () => {
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const permit = new AuthorityPermit({
+            ...expectation(),
+            nonce: "store-real-nonce",
+            issuedAt,
+            expiresAt
+        });
+        expect(() =>
+            store.transaction((transaction) => {
+                transaction.issuedRecords.set("store-alias-nonce", AuthorityPermit.encode(permit));
+                const error = caughtAgentCoreError(() =>
+                    store.issued(transaction, "store-alias-nonce")
+                );
+                expect(error.code).toBe("codec.invalid");
+                expect(error.message).toBe("Stored authority permit ownership is malformed");
+                throw new AgentCoreError("protocol.invalid-state", "discard corrupted staging");
+            })
+        ).toThrow(/discard corrupted staging/);
+    });
+
+    test("restore rejects holed snapshot records as malformed", { tags: "p0" }, () => {
+        // Length-only arrays model malformed persisted records without forging types.
+        const issuedHole = caughtAgentCoreError(
+            () =>
+                new MemoryAuthorityPermitStore(issuerActor, {
+                    version: 1,
+                    issued: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 }),
+                    consumed: []
+                })
+        );
+        expect(issuedHole.code).toBe("codec.invalid");
+        expect(issuedHole.message).toBe("Stored authority permit ownership is malformed");
+
+        const consumedHole = caughtAgentCoreError(
+            () =>
+                new MemoryAuthorityPermitStore(issuerActor, {
+                    version: 1,
+                    issued: [],
+                    consumed: Array.from<{ nonce: string; digest: string }>({ length: 1 })
+                })
+        );
+        expect(consumedHole.code).toBe("codec.invalid");
+        expect(consumedHole.message).toBe("Stored authority permit ownership is malformed");
+    });
+});
+
+class FixedIssuedRecordSource extends AuthorityPermitIssuedRecordSource {
+    public constructor(private readonly bytes: Uint8Array | undefined) {
+        super();
+    }
+
+    public issued(): Promise<Uint8Array | undefined> {
+        return Promise.resolve(this.bytes);
+    }
+}
+
+function caughtAgentCoreError(run: () => unknown): AgentCoreError {
+    let caught: unknown;
+    try {
+        run();
+    } catch (error) {
+        caught = error;
+    }
+    expect(caught).toBeInstanceOf(AgentCoreError);
+    if (!(caught instanceof AgentCoreError)) {
+        throw new TypeError("Expected an AgentCoreError");
+    }
+    return caught;
 }

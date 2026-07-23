@@ -9,6 +9,7 @@ import {
     ManagedStateRecord,
     MaterializationGeneration,
     PolicySet,
+    RunPinEvidence,
     applyReconciliation,
     planReconciliation,
     policyProjection,
@@ -156,6 +157,165 @@ describe("reconciliation adversarial boundaries", () => {
         expect(() => planReconciliation(missing, listing, owner(), [previous], [])).toThrow(
             /drifted missing before removal/
         );
+    });
+});
+
+describe("reconciliation ordering and persistence proof", () => {
+    test("orders actions create update noop remove with identity tie-breaks", { tags: "p1" }, () => {
+        const candidates = ["a", "b", "c", "d", "e", "f", "g", "h"].map((suffix) =>
+            record(1, `policy:${suffix}`, PolicySet.empty())
+        );
+        const ranked = [...candidates].sort((left, right) =>
+            left.resourceId.value < right.resourceId.value ? -1 : 1
+        );
+        const updatePrevious = ranked[0]!;
+        const updateDesired = record(
+            2,
+            updatePrevious.logicalKey,
+            new PolicySet({ approvals: ["execute"] })
+        );
+        const noop = ranked[1]!;
+        const removeSmall = ranked[2]!;
+        const removeLarge = ranked[3]!;
+        const createSmall = ranked[4]!;
+        const createLarge = ranked[5]!;
+        const state = memoryState();
+        for (const kept of [updatePrevious, noop, removeSmall, removeLarge]) {
+            state.resources.set(kept.resourceId.value, snapshotOf(kept));
+        }
+        const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
+
+        const plan = planReconciliation(
+            state,
+            port,
+            owner(),
+            [removeLarge, removeSmall, updatePrevious, noop],
+            [updateDesired, createLarge, noop, createSmall]
+        );
+
+        expect(plan.blockers).toEqual([]);
+        expect(plan.actions.map((action) => action.kind)).toEqual([
+            "create",
+            "create",
+            "update",
+            "noop",
+            "remove",
+            "remove"
+        ]);
+        expect(
+            plan.actions.map((action) =>
+                action.kind === "create"
+                    ? action.desired.resourceId.value
+                    : action.current.resourceId.value
+            )
+        ).toEqual(
+            [createSmall, createLarge, updatePrevious, noop, removeSmall, removeLarge].map(
+                (entry) => entry.resourceId.value
+            )
+        );
+    });
+
+    test("sorts blocker labels canonically across evidence kinds", { tags: "p1" }, () => {
+        const updatePrevious = record(1, "policy:update", PolicySet.empty());
+        const updateDesired = record(
+            2,
+            "policy:update",
+            new PolicySet({ approvals: ["execute"] })
+        );
+        const removed = record(1, "policy:removed", PolicySet.empty());
+        const state = memoryState();
+        state.resources.set(updatePrevious.resourceId.value, snapshotOf(updatePrevious));
+        state.resources.set(removed.resourceId.value, snapshotOf(removed));
+        const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
+        port.evidence = (change) =>
+            change.kind === "update"
+                ? new RunPinEvidence("stale", ["b"])
+                : new RunPinEvidence("blocked", ["a"]);
+
+        const plan = planReconciliation(
+            state,
+            port,
+            owner(),
+            [updatePrevious, removed],
+            [updateDesired]
+        );
+        expect(plan.blockers).toEqual(["blocked:a", "stale:b"]);
+    });
+
+    test("applies nothing while any blocker remains", { tags: "p0" }, () => {
+        const desired = record(1, "policy:gated", PolicySet.empty());
+        const state = memoryState();
+        const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
+
+        applyReconciliation(state, port, {
+            actions: [{ kind: "create", desired }],
+            blockers: ["stale:pinned"]
+        });
+        expect(state.resources.size).toBe(0);
+    });
+
+    test("rejects snapshots whose logical identity drifted from the record", { tags: "p1" }, () => {
+        const desired = record(1, "policy:a", PolicySet.empty());
+        const state = memoryState();
+        const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
+
+        state.resources.set(
+            desired.resourceId.value,
+            Object.freeze({ ...snapshotOf(desired), logicalKey: "policy:other" })
+        );
+        expect(() => planReconciliation(state, port, owner(), [desired], [desired])).toThrow(
+            /foreign ownership or identity/
+        );
+
+        state.resources.set(
+            desired.resourceId.value,
+            Object.freeze({ ...snapshotOf(desired), recordKind: "slot-entry" })
+        );
+        expect(() => planReconciliation(state, port, owner(), [desired], [desired])).toThrow(
+            /foreign ownership or identity/
+        );
+    });
+
+    test("rejects owner adapters that persist stale desired state", { tags: "p0" }, () => {
+        const previous = record(1, "policy:a", PolicySet.empty());
+        const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
+        const state = memoryState(snapshotOf(previous));
+        const stale = new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
+            public update(
+                transaction: MemoryManagedResourceState,
+                current: ManagedResourceSnapshot,
+                next: ManagedStateRecord
+            ): ManagedResourceSnapshot {
+                const snapshot = Object.freeze({
+                    actor: next.actor,
+                    tenantId: next.origin.tenantId,
+                    deploymentId: next.origin.deploymentId,
+                    resourceId: next.resourceId,
+                    logicalKey: next.logicalKey,
+                    recordKind: next.recordKind,
+                    desiredDigest: current.desiredDigest,
+                    revision: current.revision.next()
+                });
+                transaction.resources.set(next.resourceId.value, snapshot);
+                return snapshot;
+            }
+        })();
+
+        const plan = planReconciliation(state, stale, owner(), [previous], [desired]);
+        expect(() => applyReconciliation(state, stale, plan)).toThrow(
+            /Managed resource .* did not persist desired state/
+        );
+    });
+
+    test("labels duplicate identities with their generation subject", { tags: "p2" }, () => {
+        const desired = record(1, "policy:a", PolicySet.empty());
+        const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
+        expect(() =>
+            planReconciliation(memoryState(), port, owner(), [desired, desired], [])
+        ).toThrow(/previous generation contains duplicate managed resource identity/);
+        expect(() =>
+            planReconciliation(memoryState(), port, owner(), [], [desired, desired])
+        ).toThrow(/desired generation contains duplicate managed resource identity/);
     });
 });
 

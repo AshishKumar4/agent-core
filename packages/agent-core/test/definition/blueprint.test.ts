@@ -129,6 +129,87 @@ describe("Blueprint", () => {
             )
         );
     });
+
+    test("keeps every optional declaration group in canonical Blueprint data", { tags: "p1" }, () => {
+        const blueprint = new Blueprint({
+            meta: { name: "complete", version: new SemVer("1.0.0") },
+            packages: [],
+            policies: PolicySet.empty(),
+            scopes: { project: "default" },
+            agents: [{ name: "helper" }],
+            slots: [],
+            subscriptions: [{ event: "task.created" }],
+            environments: [{ name: "sandbox" }],
+            surfaces: { primary: "owner.slot" }
+        });
+        const data = requireObject(blueprint.toData());
+        expect(data["scopes"]).toEqual({ project: "default" });
+        expect(data["subscriptions"]).toEqual([{ event: "task.created" }]);
+        expect(data["environments"]).toEqual([{ name: "sandbox" }]);
+        expect(data["surfaces"]).toEqual({ primary: "owner.slot" });
+    });
+
+    test("names each malformed declaration subject at construction", { tags: "p1" }, () => {
+        const meta = { name: "subjects", version: new SemVer("1.0.0") };
+        const base = { meta, packages: [], policies: PolicySet.empty() };
+        expect(() => new Blueprint({ ...base, agents: [], scopes: 7 })).toThrow(
+            /Blueprint scope scaffold must be an object declaration/
+        );
+        expect(() => new Blueprint({ ...base, agents: [7] })).toThrow(
+            /Blueprint agent must be an object declaration/
+        );
+        expect(() => new Blueprint({ ...base, agents: [[]] })).toThrow(
+            /Blueprint agent must be an object declaration/
+        );
+        expect(() => new Blueprint({ ...base, agents: ["text"] })).toThrow(
+            /Blueprint agent must be an object declaration/
+        );
+        expect(() => new Blueprint({ ...base, agents: [], slots: [7] })).toThrow(
+            /Blueprint slot must be an object declaration/
+        );
+        expect(() => new Blueprint({ ...base, agents: [], surfaces: 7 })).toThrow(
+            /Blueprint surface layout must be an object declaration/
+        );
+        const dataAgent = new Blueprint({ ...base, agents: [{ toData: 7 }] });
+        expect(dataAgent.agents[0]).toEqual({ toData: 7 });
+    });
+
+    test("rejects nonobject payloads, entry positions, and unknown metadata keys", { tags: "p1" }, () => {
+        expect(() => Blueprint.fromData([])).toThrow(/Blueprint must be an object/);
+        expect(() => Blueprint.fromData("text")).toThrow(/Blueprint must be an object/);
+        const valid = new Blueprint({
+            meta: { name: "strict", version: new SemVer("1.0.0") },
+            packages: [],
+            policies: PolicySet.empty(),
+            agents: []
+        }).toData();
+        expect(() => Blueprint.fromData({ ...(valid as object), agents: [7] })).toThrow(
+            /Blueprint agents entry 0 must be an object/
+        );
+
+        expect(() => BlueprintMeta.fromData({ name: 7, version: "1.0.0" })).toThrow(
+            /Blueprint name must be a string/
+        );
+        expect(() => BlueprintMeta.fromData({ name: "x", version: 7 })).toThrow(
+            /Blueprint version must be a string/
+        );
+        expect(() => new BlueprintMeta("", new SemVer("1.0.0"))).toThrow(
+            /Blueprint name must be a nonblank canonical string/
+        );
+        expect(() => new BlueprintMeta("name ", new SemVer("1.0.0"))).toThrow(
+            /Blueprint name must be a nonblank canonical string/
+        );
+
+        const request = { id: "package", range: ">=1.0.0 <2.0.0-0" };
+        for (const unknown of ["legacy", "Stryker was here"]) {
+            expect(() =>
+                BlueprintMeta.fromData({ name: "x", version: "1.0.0", [unknown]: true })
+            ).toThrow(/Blueprint metadata contains missing or unknown fields/);
+            expect(() =>
+                PackageInstall.fromData({ config: {}, request, [unknown]: true })
+            ).toThrow(/Package install contains missing or unknown fields/);
+        }
+    });
 });
 
 function install(

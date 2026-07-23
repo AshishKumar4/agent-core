@@ -180,6 +180,44 @@ describe("Blueprint config", () => {
             composeConfigSchema(BASE_CONFIG_SCHEMA, [releaseWithSetting(true)])
         ).not.toThrow();
     });
+
+    test("orders composed package properties by ID and inlines single-fragment schemas", { tags: "p1" }, () => {
+        const zeta = releaseFromManifest("zeta", bareManifest("zeta.facet"));
+        const alpha = releaseFromManifest("alpha", bareManifest("alpha.facet"));
+        const composition = requireObject(
+            requireArray(
+                requireObject(composeConfigSchema(BASE_CONFIG_SCHEMA, [zeta, alpha]).document)[
+                    "allOf"
+                ]!
+            )[1]!
+        );
+        expect(composition["required"]).toEqual(["alpha", "zeta"]);
+        expect(requireObject(composition["properties"]!)["zeta"]).toEqual({});
+
+        const document = { properties: { region: { type: "string" } }, type: "object" };
+        const single = releaseFromManifest(
+            "single",
+            bareManifest("single.facet"),
+            new JsonSchema(document)
+        );
+        const singleComposition = requireObject(
+            requireArray(
+                requireObject(composeConfigSchema(BASE_CONFIG_SCHEMA, [single]).document)["allOf"]!
+            )[1]!
+        );
+        expect(requireObject(singleComposition["properties"]!)["single"]).toEqual(document);
+    });
+
+    test("rejects nonobject secret references and config codec values exactly", { tags: "p1" }, () => {
+        expect(() => decodeSecretRef(null)).toThrow(/Secret reference must be an object/);
+        expect(() => decodeSecretRef([])).toThrow(/Secret reference must be an object/);
+        expect(() => decodeSecretRef("text")).toThrow(/Secret reference must be an object/);
+
+        const encoded = requireObject(decodeCanonicalJson(Config.encode(new Config({}))));
+        expect(() =>
+            Config.decode(encodeCanonicalJson({ ...encoded, payload: { value: 7 } }))
+        ).toThrow(/Config value must be an object/);
+    });
 });
 
 function packageRelease(): PackageRelease {
@@ -239,15 +277,18 @@ function packageRelease(): PackageRelease {
 }
 
 function packageReleaseWithoutSchemas(): PackageRelease {
-    const manifest = new FacetManifest({
-        id: new FacetPackageId("bare.facet"),
+    return releaseFromManifest("bare", bareManifest("bare.facet"));
+}
+
+function bareManifest(id: string): FacetManifest {
+    return new FacetManifest({
+        id: new FacetPackageId(id),
         version: new SemVer("1.0.0"),
         compat: CompatRange.any(),
         isolation: ["dynamic"],
         bindings: [],
         contributions: Contributions.empty()
     });
-    return releaseFromManifest("bare", manifest);
 }
 
 function releaseWithSetting(setting: JsonValue): PackageRelease {
@@ -262,7 +303,11 @@ function releaseWithSetting(setting: JsonValue): PackageRelease {
     return releaseFromManifest("setting", manifest);
 }
 
-function releaseFromManifest(id: string, manifest: FacetManifest): PackageRelease {
+function releaseFromManifest(
+    id: string,
+    manifest: FacetManifest,
+    configSchema?: JsonSchema
+): PackageRelease {
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [
@@ -287,7 +332,8 @@ function releaseFromManifest(id: string, manifest: FacetManifest): PackageReleas
         dependencies: [],
         manifests: [manifest],
         codeManifest,
-        provenance: { registry: "test" }
+        provenance: { registry: "test" },
+        ...(configSchema === undefined ? {} : { configSchema })
     });
 }
 
@@ -296,6 +342,13 @@ function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } 
         throw new TypeError("Expected object");
     }
     return value as { readonly [key: string]: JsonValue };
+}
+
+function requireArray(value: JsonValue): readonly JsonValue[] {
+    if (!Array.isArray(value)) {
+        throw new TypeError("Expected array");
+    }
+    return value;
 }
 
 function digest(value: string): Digest {

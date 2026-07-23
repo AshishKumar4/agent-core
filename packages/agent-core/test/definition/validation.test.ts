@@ -8,7 +8,9 @@ import {
     Revision,
     SecretRef,
     SemVer,
+    encodeCanonicalJson,
     strictJsonSchemaValidator,
+    type JsonSchemaValidator,
     type JsonValue
 } from "../../src/core";
 import { Blueprint, PackageInstall } from "../../src/definition/blueprint";
@@ -19,7 +21,12 @@ import {
 } from "../../src/definition/code-manifest";
 import { PlatformCompatibility } from "../../src/definition/compatibility";
 import { BlueprintDeclarationCodecPort } from "../../src/definition/declaration";
-import { Config, SECRET_REF_SCHEMA } from "../../src/definition/config";
+import {
+    BASE_CONFIG_SCHEMA,
+    Config,
+    SECRET_REF_SCHEMA,
+    composeConfigSchema
+} from "../../src/definition/config";
 import { PackageId } from "../../src/definition/id";
 import { PackageLock, PackagePin } from "../../src/definition/package-lock";
 import { MetadataSnapshot, PackageDependency, PackageRelease } from "../../src/definition/package";
@@ -664,6 +671,332 @@ describe("Blueprint validation", () => {
         expect(first.bytes()).toEqual(second.bytes());
         expect(first.digest.equals(second.digest)).toBe(true);
     });
+
+    test("binds attestation digests to the exact validated content", { tags: "p0" }, () => {
+        const cardSlot = new SlotDeclaration(
+            new SlotName("dashboard.card"),
+            new JsonSchema({ type: "object" }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        );
+        const release = packageRelease("cards", {
+            contributions: new Contributions([
+                new Contribution(new SlotName("dashboard.card"), [{ title: "Health" }])
+            ])
+        });
+        const lock = packageLock([release]);
+        const result = validateBlueprint(blueprint([install("cards", "^1")], { slots: [cardSlot] }), {
+            lock,
+            releases: [release],
+            schemaValidator
+        });
+
+        expect(result.digest.equals(result.attestation.definitionDigest)).toBe(true);
+        expect(
+            result.attestation.declarationDigest.equals(
+                Digest.sha256(
+                    encodeCanonicalJson(
+                        result.declarations.map((declaration) => ({
+                            contributor: declaration.contributor,
+                            index: declaration.index,
+                            slot: declaration.slot,
+                            value: declaration.value
+                        }))
+                    )
+                )
+            )
+        ).toBe(true);
+        expect(
+            result.attestation.placementDigest.equals(
+                Digest.sha256(
+                    encodeCanonicalJson(
+                        result.placements.map((entry) => ({
+                            facetId: entry.facetId,
+                            facetVersion: entry.facetVersion,
+                            packageId: entry.packageId,
+                            selection: {
+                                manifest: entry.selection.manifest,
+                                policy: entry.selection.policy,
+                                selected: entry.selection.selected,
+                                substrate: entry.selection.substrate,
+                                trust: entry.selection.trust
+                            }
+                        }))
+                    )
+                )
+            )
+        ).toBe(true);
+        expect(result.configSchema.document).toEqual(
+            composeConfigSchema(BASE_CONFIG_SCHEMA, [...result.releases]).document
+        );
+
+        const leaked = result.bytes();
+        leaked.fill(0);
+        expect(result.digest.equals(Digest.sha256(result.bytes()))).toBe(true);
+        expect(
+            Object.isFrozen(
+                new BlueprintValidator({
+                    lock,
+                    releases: [release],
+                    target,
+                    declarationCodecs,
+                    placement,
+                    schemaValidator
+                })
+            )
+        ).toBe(true);
+    });
+
+    test("honors the supplied schema validator as the config authority", { tags: "p0" }, () => {
+        const rejectEverything: JsonSchemaValidator = { validate: () => false };
+        const release = packageRelease("plain");
+        expect(() =>
+            validateBlueprint(blueprint([install("plain", "^1")]), {
+                lock: packageLock([release]),
+                releases: [release],
+                schemaValidator: rejectEverything
+            })
+        ).toThrow(/composed config schema/);
+    });
+
+    test("registers platform core slots for contributions and rejects duplicates by source", { tags: "p1" }, () => {
+        const hostSlot = new SlotDeclaration(
+            new SlotName("host.panel"),
+            new JsonSchema({
+                properties: { title: { type: "string" } },
+                required: ["title"],
+                type: "object"
+            }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        );
+        const release = packageRelease("host-cards", {
+            contributions: new Contributions([
+                new Contribution(new SlotName("host.panel"), [{ title: "Status" }])
+            ])
+        });
+        const options = {
+            lock: packageLock([release]),
+            releases: [release],
+            target,
+            declarationCodecs,
+            placement,
+            schemaValidator
+        };
+        const result = validateDefinition(blueprint([install("host-cards", "^1")]), {
+            ...options,
+            coreSlots: [hostSlot]
+        });
+        expect(result.declarations).toEqual([
+            {
+                contributor: "host-cards.facet",
+                index: 0,
+                slot: "host.panel",
+                value: { title: "Status" }
+            }
+        ]);
+        expect(() =>
+            validateDefinition(blueprint([install("host-cards", "^1")]), {
+                ...options,
+                coreSlots: [hostSlot, hostSlot]
+            })
+        ).toThrow(/Core slot duplicates slot host.panel/);
+        expect(() =>
+            validateDefinition(
+                blueprint([install("host-cards", "^1")], { slots: [hostSlot, hostSlot] }),
+                options
+            )
+        ).toThrow(/Blueprint slot duplicates slot host.panel/);
+    });
+
+    test("matches every pin against full release identity, not shared content", { tags: "p0" }, () => {
+        const shared = facetManifest("shared.facet", "1.0.0");
+        const aaa = releaseWith("aaa", [shared], "twin-code");
+        const bbb = releaseWith("bbb", [shared], "twin-code");
+        expect(aaa.manifestDigest.equals(bbb.manifestDigest)).toBe(true);
+        expect(aaa.codeDigest.equals(bbb.codeDigest)).toBe(true);
+
+        const result = validateBlueprint(blueprint([install("aaa", "^1"), install("bbb", "^1")]), {
+            lock: packageLock([aaa, bbb]),
+            releases: [aaa, bbb],
+            schemaValidator
+        });
+        expect(result.releases.map((release) => release.id.value)).toEqual(["aaa", "bbb"]);
+    });
+
+    test("orders validated placements by package, Facet, and version", { tags: "p1" }, () => {
+        const alpha = releaseWith("alpha", [facetManifest("z.facet", "2.0.0")], "alpha-code");
+        const zeta = releaseWith("zeta", [facetManifest("a.facet", "1.0.0")], "zeta-code");
+        const result = validateBlueprint(blueprint([install("alpha", "^1"), install("zeta", "^1")]), {
+            lock: packageLock([alpha, zeta]),
+            releases: [alpha, zeta],
+            schemaValidator
+        });
+        expect(
+            result.placements.map((entry) => [entry.packageId, entry.facetId, entry.facetVersion])
+        ).toEqual([
+            ["alpha", "z.facet", "2.0.0"],
+            ["zeta", "a.facet", "1.0.0"]
+        ]);
+    });
+
+    test("orders declarations by contributor, slot, and contribution index", { tags: "p1" }, () => {
+        const orderedSlot = new SlotDeclaration(
+            new SlotName("ordered.slot"),
+            new JsonSchema({ type: "object" }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        );
+        const multi = releaseWith(
+            "multi",
+            [
+                facetManifest(
+                    "multi.facet",
+                    "1.0.0",
+                    new Contributions([
+                        new Contribution(new SlotName("ordered.slot"), [
+                            { n: "v1-0" },
+                            { n: "v1-1" }
+                        ])
+                    ])
+                ),
+                facetManifest(
+                    "multi.facet",
+                    "2.0.0",
+                    new Contributions([
+                        new Contribution(new SlotName("ordered.slot"), [
+                            { n: "v2-0" },
+                            { n: "v2-1" }
+                        ])
+                    ])
+                )
+            ],
+            "multi-code"
+        );
+        const interleaved = validateBlueprint(
+            blueprint([install("multi", "^1")], { slots: [orderedSlot] }),
+            { lock: packageLock([multi]), releases: [multi], schemaValidator }
+        );
+        expect(interleaved.declarations).toEqual([
+            { contributor: "multi.facet", index: 0, slot: "ordered.slot", value: { n: "v1-0" } },
+            { contributor: "multi.facet", index: 0, slot: "ordered.slot", value: { n: "v2-0" } },
+            { contributor: "multi.facet", index: 1, slot: "ordered.slot", value: { n: "v1-1" } },
+            { contributor: "multi.facet", index: 1, slot: "ordered.slot", value: { n: "v2-1" } }
+        ]);
+
+        const aSlot = new SlotDeclaration(
+            new SlotName("a.slot"),
+            new JsonSchema({ type: "object" }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        );
+        const zSlot = new SlotDeclaration(
+            new SlotName("z.slot"),
+            new JsonSchema({ type: "object" }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        );
+        const apkg = releaseWith(
+            "apkg",
+            [
+                facetManifest(
+                    "a.facet",
+                    "1.0.0",
+                    new Contributions([new Contribution(new SlotName("z.slot"), [{ n: "za" }])])
+                )
+            ],
+            "apkg-code"
+        );
+        const bpkg = releaseWith(
+            "bpkg",
+            [
+                facetManifest(
+                    "z.facet",
+                    "1.0.0",
+                    new Contributions([new Contribution(new SlotName("a.slot"), [{ n: "az" }])])
+                )
+            ],
+            "bpkg-code"
+        );
+        const crossed = validateBlueprint(
+            blueprint([install("apkg", "^1"), install("bpkg", "^1")], { slots: [aSlot, zSlot] }),
+            { lock: packageLock([apkg, bpkg]), releases: [apkg, bpkg], schemaValidator }
+        );
+        expect(crossed.declarations).toEqual([
+            { contributor: "a.facet", index: 0, slot: "z.slot", value: { n: "za" } },
+            { contributor: "z.facet", index: 0, slot: "a.slot", value: { n: "az" } }
+        ]);
+    });
+
+    test("attributes duplicate package slot declarations to the sorted later manifest", { tags: "p1" }, () => {
+        const sharedSlot = new SlotDeclaration(
+            new SlotName("shared.slot"),
+            new JsonSchema({ type: "object" }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        ).toData();
+        const apkg = releaseWith(
+            "apkg",
+            [
+                facetManifest(
+                    "z.facet",
+                    "1.0.0",
+                    new Contributions([new Contribution(new SlotName("slots"), [sharedSlot])])
+                )
+            ],
+            "apkg-code"
+        );
+        const bpkg = releaseWith(
+            "bpkg",
+            [
+                facetManifest(
+                    "a.facet",
+                    "1.0.0",
+                    new Contributions([new Contribution(new SlotName("slots"), [sharedSlot])])
+                )
+            ],
+            "bpkg-code"
+        );
+        expect(() =>
+            validateBlueprint(blueprint([install("apkg", "^1"), install("bpkg", "^1")]), {
+                lock: packageLock([apkg, bpkg]),
+                releases: [apkg, bpkg],
+                schemaValidator
+            })
+        ).toThrow(/Package z.facet slot duplicates slot shared.slot/);
+    });
+
+    test("validates malformed core contributions for every executable slot kind", { tags: "p1" }, () => {
+        for (const slot of [
+            "automations",
+            "events",
+            "ingress",
+            "interceptors",
+            "operations",
+            "surfaces"
+        ]) {
+            const release = packageRelease(`bad-${slot}`, {
+                contributions: new Contributions([
+                    new Contribution(new SlotName(slot), [{ bogus: true }])
+                ])
+            });
+            expect(() =>
+                validateBlueprint(blueprint([install(release.id.value, "^1")]), {
+                    lock: packageLock([release]),
+                    releases: [release],
+                    schemaValidator
+                })
+            ).toThrow(/Declaration contains missing or unknown fields/);
+        }
+
+        const badCommand = packageRelease("bad-command", {
+            contributions: new Contributions([
+                new Contribution(new SlotName("commands"), [{ bogus: true }]),
+                new Contribution(new SlotName("zzz.slot"), [{}])
+            ])
+        });
+        expect(() =>
+            validateBlueprint(blueprint([install("bad-command", "^1")]), {
+                lock: packageLock([badCommand]),
+                releases: [badCommand],
+                schemaValidator
+            })
+        ).toThrow(/Declaration contains missing or unknown fields/);
+    });
 });
 
 interface ReleaseOverrides {
@@ -741,6 +1074,55 @@ function packageRelease(id: string, overrides: ReleaseOverrides = {}): PackageRe
         codeManifest,
         provenance: { registry: "test" },
         ...(overrides.configSchema === undefined ? {} : { configSchema: overrides.configSchema })
+    });
+}
+
+function facetManifest(
+    id: string,
+    version: string,
+    contributions: Contributions = Contributions.empty()
+): FacetManifest {
+    return new FacetManifest({
+        id: new FacetPackageId(id),
+        version: new SemVer(version),
+        compat: CompatRange.any(),
+        isolation: ["dynamic"],
+        bindings: [],
+        contributions
+    });
+}
+
+function releaseWith(
+    id: string,
+    manifests: readonly FacetManifest[],
+    codeContent: string
+): PackageRelease {
+    const codeManifest = new PackageCodeManifest({
+        compatibilityDate: "2026-07-10",
+        modules: [
+            new PackageCodeModule({
+                specifier: "./main.js",
+                content: ContentRef.fromDigest(digest(codeContent)),
+                media: new MediaHint("application/javascript")
+            })
+        ],
+        entrypoints: manifests.map(
+            (manifest) =>
+                new PackageCodeEntrypoint({
+                    facet: manifest.id,
+                    version: manifest.version,
+                    module: "./main.js"
+                })
+        ) as [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]]
+    });
+    return new PackageRelease({
+        id: new PackageId(id),
+        version: new SemVer("1.0.0"),
+        compatibility: CompatRange.any(),
+        dependencies: [],
+        manifests: manifests as [FacetManifest, ...FacetManifest[]],
+        codeManifest,
+        provenance: { registry: "test" }
     });
 }
 

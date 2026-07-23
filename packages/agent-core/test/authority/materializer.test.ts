@@ -21,6 +21,8 @@ import {
     ScopeEpoch
 } from "../../src/authority";
 import {
+    allowGrant,
+    capability,
     otherPrincipalId,
     principal,
     projectScope,
@@ -271,6 +273,102 @@ describe("RoleGrantMaterializer", () => {
         ]);
     });
 
+    test("[C13-AUTH-ROLE-MATERIALIZATION] canonicalizes desired and changed records into Grant ID order", { tags: "p0" }, () => {
+        const assignedRole = role("ordered-role", [
+            new RoleRule(
+                "allow",
+                new CapabilitySpec({ facetPattern: "workspace:mail.*", impacts: ["observe"] })
+            ),
+            new RoleRule(
+                "allow",
+                new CapabilitySpec({ facetPattern: "workspace:files.*", impacts: ["observe"] })
+            )
+        ]);
+        const member = new Membership(
+            new MembershipId("mutation-member"),
+            workspaceScope,
+            principal,
+            assignedRole.name,
+            "active",
+            Revision.initial()
+        );
+        const result = new RoleGrantMaterializer().materialize({
+            membership: member,
+            role: assignedRole,
+            existing: []
+        });
+        const ruleZero = GrantId.forRole(member.id, 0).value;
+        const ruleOne = GrantId.forRole(member.id, 1).value;
+        expect(ruleOne.localeCompare(ruleZero)).toBeLessThan(0);
+        expect(result.desiredRecords.map((grant) => grant.id.value)).toEqual([ruleOne, ruleZero]);
+        expect(result.changedRecords.map((grant) => grant.id.value)).toEqual([ruleOne, ruleZero]);
+        expect(result.semanticNoop).toBe(false);
+    });
+
+    test("[C13-AUTH-ROLE-MATERIALIZATION] reconciles only Membership-owned role Grants and orders affected Scopes", { tags: "p0" }, () => {
+        const assignedRole = role("owned-role", [new RoleRule("allow", capability())]);
+        const member = new Membership(
+            new MembershipId("membership-authority"),
+            workspaceScope,
+            principal,
+            assignedRole.name,
+            "active",
+            Revision.initial()
+        );
+        const foreignMembership = new MembershipId("membership-foreign");
+        const direct = allowGrant("direct-existing");
+        const foreign = new Grant(
+            GrantId.forRole(foreignMembership, 0),
+            workspaceScope,
+            principal,
+            "allow",
+            capability(),
+            {
+                kind: "role",
+                membershipId: foreignMembership,
+                roleName: "owned-role",
+                ruleOrdinal: 0,
+                guest: false
+            }
+        );
+        const stale = new Grant(
+            GrantId.forRole(member.id, 7),
+            projectScope,
+            principal,
+            "allow",
+            capability(["observe"], "workspace:legacy.*"),
+            {
+                kind: "role",
+                membershipId: member.id,
+                roleName: "stale-role",
+                ruleOrdinal: 7,
+                guest: false
+            }
+        );
+        const result = new RoleGrantMaterializer().materialize({
+            membership: member,
+            role: assignedRole,
+            existing: [direct, foreign, stale]
+        });
+        const activeId = GrantId.forRole(member.id, 0).value;
+        const staleId = GrantId.forRole(member.id, 7).value;
+        expect(result.desiredRecords.map((grant) => grant.id.value)).toEqual(
+            [activeId, staleId].sort((left, right) => left.localeCompare(right))
+        );
+        expect(
+            result.desiredRecords.find((grant) => grant.id.value === activeId)?.state.name
+        ).toBe("active");
+        expect(
+            result.desiredRecords.find((grant) => grant.id.value === staleId)?.state.name
+        ).toBe("revoked");
+        expect(result.changedRecords).toHaveLength(2);
+        expect(result.semanticNoop).toBe(false);
+        expect(result.affectedScopes.map((scope) => scope.kind)).toEqual([
+            "project",
+            "workspace"
+        ]);
+    });
+
     test("rejects handshake as a steady-state guest verification scheme", () => {
         const guest = SubjectRef.foreign(
             tenantId,
@@ -322,6 +420,26 @@ describe("EpochPlanner", () => {
             ["project", 7],
             ["tenant", 6],
             ["workspace", 8]
+        ]);
+    });
+
+    test("plans the complete next epoch set with canonical affected Scopes", { tags: "p0" }, () => {
+        const plan = new EpochPlanner().plan(
+            [new ScopeEpoch(tenantScope, 5), new ScopeEpoch(projectScope, 6)],
+            [
+                { kind: "grant", scope: workspaceScope },
+                { kind: "membership", affectedScopes: [projectScope] }
+            ]
+        );
+        expect(plan.affectedScopes.map((scope) => scope.kind)).toEqual(["project", "workspace"]);
+        expect(plan.bumped.map((entry) => [entry.scope.kind, entry.epoch])).toEqual([
+            ["project", 7],
+            ["workspace", 1]
+        ]);
+        expect(plan.next.map((entry) => [entry.scope.kind, entry.epoch])).toEqual([
+            ["project", 7],
+            ["tenant", 5],
+            ["workspace", 1]
         ]);
     });
 
