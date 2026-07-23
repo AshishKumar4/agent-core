@@ -354,7 +354,9 @@ class SqliteRuntime extends Runtime<TransactionalSqlite> {
 
 test(
     "generated InvocationLedger histories preserve exact records, outbox evidence, and test-audit state across memory and SQLite restarts",
-    { tags: "p0", timeout: 30_000 },
+    // Generated histories replay hundreds of ledger steps; instrumented runs
+    // (mutation sandboxes) need far more than an interactive budget.
+    { tags: "p0", timeout: 180_000 },
     () => {
         runRequiredLifecycle();
         const generatedCoverage = new Set<CoverageHit>();
