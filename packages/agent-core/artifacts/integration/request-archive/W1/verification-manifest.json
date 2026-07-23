@@ -62,6 +62,7 @@
     "test/core/context-values.test.ts",
     "test/core/digest.test.ts",
     "test/core/error-taxonomy.test.ts",
+    "test/core/errors.test.ts",
     "test/core/id.test.ts",
     "test/core/revision.test.ts",
     "test/core/schema.test.ts",

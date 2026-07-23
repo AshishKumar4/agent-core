@@ -1241,3 +1241,228 @@ function createPinnedTurn(
         new Revision(expectedBranchRevision)
     );
 }
+
+describe("SQLite Run storage exact projections", () => {
+    it(
+        "replace without an existing record fails as a typed revision conflict",
+        { tags: "p0" },
+        () => {
+            const storage = new SqliteRunStorage(new TestSqlite(), owner);
+            expectExactFailure(
+                () => storage.transaction((tx) => storage.replace(tx, row("absent", 1), 0)),
+                "protocol.revision-conflict",
+                "Run record revision changed"
+            );
+        }
+    );
+
+    it("replace rejects stale and skipped revisions without writing", { tags: "p0" }, () => {
+        const storage = new SqliteRunStorage(new TestSqlite(), owner);
+        storage.transaction((tx) => storage.insert(tx, row("cas", 0)));
+        expectExactFailure(
+            () => storage.transaction((tx) => storage.replace(tx, row("cas", 2), 0)),
+            "protocol.revision-conflict",
+            "Run record revision changed"
+        );
+        expectExactFailure(
+            () => storage.transaction((tx) => storage.replace(tx, row("cas", 1), 1)),
+            "protocol.revision-conflict",
+            "Run record revision changed"
+        );
+        const unchanged = storage.transaction((tx) => storage.get(tx, "commit", "cas"));
+        expect(unchanged?.revision).toBe(0);
+        expect(new TextDecoder().decode(unchanged?.bytes)).toBe("record:cas:0");
+        storage.transaction((tx) => storage.replace(tx, row("cas", 1), 0));
+        expect(storage.transaction((tx) => storage.get(tx, "commit", "cas"))?.revision).toBe(1);
+    });
+
+    it("insert idempotence compares the exact revision and bytes", { tags: "p0" }, () => {
+        const storage = new SqliteRunStorage(new TestSqlite(), owner);
+        const template = {
+            kind: "commit" as const,
+            key: "exact-bytes",
+            revision: null,
+            bytes: Uint8Array.of(1, 2)
+        };
+        storage.transaction((tx) => storage.insert(tx, template));
+        expectExactFailure(
+            () => storage.transaction((tx) => storage.insert(tx, { ...template, revision: 0 })),
+            "run.invalid-state",
+            "Run records are immutable unless replaced by revision CAS"
+        );
+        expectExactFailure(
+            () =>
+                storage.transaction((tx) =>
+                    storage.insert(tx, { ...template, bytes: Uint8Array.of(1, 2, 3) })
+                ),
+            "run.invalid-state",
+            "Run records are immutable unless replaced by revision CAS"
+        );
+        expectExactFailure(
+            () =>
+                storage.transaction((tx) =>
+                    storage.insert(tx, { ...template, bytes: Uint8Array.of(1, 9) })
+                ),
+            "run.invalid-state",
+            "Run records are immutable unless replaced by revision CAS"
+        );
+        storage.transaction((tx) => storage.insert(tx, { ...template, bytes: Uint8Array.of(1, 2) }));
+        const stored = storage.transaction((tx) => storage.get(tx, "commit", "exact-bytes"));
+        expect(stored?.revision).toBeNull();
+        expect(Array.from(stored?.bytes ?? [])).toEqual([1, 2]);
+    });
+
+    it("insertParent rejects a negative ordinal as a typed malformed edge", { tags: "p1" }, () => {
+        const storage = new SqliteRunStorage(new TestSqlite(), owner);
+        expectExactFailure(
+            () =>
+                storage.transaction((tx) =>
+                    storage.insertParent(tx, { commit: "commit", ordinal: -1, parent: "root" })
+                ),
+            "codec.invalid",
+            "Stored Run parent edge is malformed"
+        );
+        expect(storage.transaction((tx) => storage.parents(tx, "commit"))).toEqual([]);
+    });
+
+    it("reopen rejects marker version drift from the substrate", { tags: "p0" }, () => {
+        const database = new MutatingSqlite(new TestSqlite());
+        new SqliteRunStorage(database, owner);
+        database.mutate = (statement, rows) =>
+            statement.includes("SELECT version, owner_kind, owner_id")
+                ? rows.map((value) => ({ ...value, version: 2 }))
+                : rows;
+        expectExactFailure(
+            () => new SqliteRunStorage(database, owner),
+            "codec.invalid",
+            "Run storage schema version or owner does not match"
+        );
+    });
+
+    it("reopen rejects owner drift in kind or id alone", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        new SqliteRunStorage(database, owner);
+        expectExactFailure(
+            () => new SqliteRunStorage(database, new ActorRef("run", new ActorId(owner.id.value))),
+            "codec.invalid",
+            "Run storage schema version or owner does not match"
+        );
+        expectExactFailure(
+            () =>
+                new SqliteRunStorage(
+                    database,
+                    new ActorRef("workspace", new ActorId("another-owner"))
+                ),
+            "codec.invalid",
+            "Run storage schema version or owner does not match"
+        );
+    });
+
+    it(
+        "reports a renamed object with a matching count as an incomplete schema",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            new SqliteRunStorage(database, owner);
+            database.run("DROP INDEX agent_run_commit_parent_reverse", []);
+            database.run(
+                "CREATE INDEX agent_run_commit_parent_alternate ON agent_run_commit_parents (parent_id, commit_id)",
+                []
+            );
+            expectExactFailure(
+                () => new SqliteRunStorage(database, owner),
+                "codec.invalid",
+                "Run storage schema is incomplete or contains unexpected objects"
+            );
+        }
+    );
+
+    it("get rejects each drifted record projection column exactly", { tags: "p0" }, () => {
+        const database = new MutatingSqlite(new TestSqlite());
+        const storage = new SqliteRunStorage(database, owner);
+        storage.transaction((tx) => storage.insert(tx, row("drift", 0)));
+        const drifts: readonly ((value: SqliteRow) => SqliteRow)[] = [
+            (value) => ({ ...value, kind: "turn" }),
+            (value) => ({ ...value, record_key: "other" }),
+            (value) => ({ ...value, revision: -1 }),
+            (value) => ({ ...value, revision: 1.5 }),
+            (value) => ({ ...value, revision: "bad" })
+        ];
+        for (const drift of drifts) {
+            database.mutate = (statement, rows) =>
+                statement.includes("WHERE kind = ? AND record_key = ?") ? rows.map(drift) : rows;
+            expectExactFailure(
+                () => storage.transaction((tx) => storage.get(tx, "commit", "drift")),
+                "codec.invalid",
+                "Stored Run record projection is malformed"
+            );
+        }
+    });
+
+    it("parent projections report the exact invalid column", { tags: "p1" }, () => {
+        const database = new MutatingSqlite(new TestSqlite());
+        const storage = new SqliteRunStorage(database, owner);
+        storage.transaction((tx) =>
+            storage.insertParent(tx, { commit: "commit", ordinal: 0, parent: "root" })
+        );
+        const drifts: readonly (readonly [(value: SqliteRow) => SqliteRow, string])[] = [
+            [(value) => ({ ...value, ordinal: "bad" }), "SQLite ordinal is invalid"],
+            [(value) => ({ ...value, ordinal: 1.5 }), "SQLite ordinal is invalid"],
+            [(value) => ({ ...value, commit_id: "" }), "SQLite commit_id is invalid"]
+        ];
+        for (const [drift, message] of drifts) {
+            database.mutate = (statement, rows) =>
+                statement.includes("WHERE commit_id = ? ORDER BY ordinal") ? rows.map(drift) : rows;
+            expectExactFailure(
+                () => storage.transaction((tx) => storage.parents(tx, "commit")),
+                "codec.invalid",
+                message
+            );
+        }
+    });
+
+    it("restart validation scans every stored parent edge", { tags: "p0" }, () => {
+        const database = new MutatingSqlite(new TestSqlite());
+        new SqliteRunStorage(database, owner);
+        database.mutate = (statement, rows) =>
+            statement.includes("ORDER BY commit_id, ordinal")
+                ? [{ commit_id: "scan", ordinal: 2, parent_id: "parent" }]
+                : rows;
+        expectExactFailure(
+            () => new SqliteRunStorage(database, owner),
+            "codec.invalid",
+            "Stored Run parent edge is malformed"
+        );
+    });
+
+    it("get returns bytes detached from the substrate row", { tags: "p1" }, () => {
+        const database = new MutatingSqlite(new TestSqlite());
+        const storage = new SqliteRunStorage(database, owner);
+        storage.transaction((tx) => storage.insert(tx, row("alias")));
+        const sharedBytes = Uint8Array.of(7, 8, 9);
+        database.mutate = (statement, rows) =>
+            statement.includes("WHERE kind = ? AND record_key = ?")
+                ? [{ kind: "commit", record_key: "alias", revision: null, record: sharedBytes }]
+                : rows;
+        const first = storage.transaction((tx) => storage.get(tx, "commit", "alias"));
+        first?.bytes.fill(0);
+        expect(Array.from(sharedBytes)).toEqual([7, 8, 9]);
+        const second = storage.transaction((tx) => storage.get(tx, "commit", "alias"));
+        expect(Array.from(second?.bytes ?? [])).toEqual([7, 8, 9]);
+    });
+});
+
+function expectExactFailure(
+    operation: () => unknown,
+    code: AgentCoreError["code"],
+    message: string
+): void {
+    try {
+        operation();
+        throw new TypeError("Expected operation to fail");
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        expect((error as AgentCoreError).code).toBe(code);
+        expect((error as AgentCoreError).message).toBe(message);
+    }
+}

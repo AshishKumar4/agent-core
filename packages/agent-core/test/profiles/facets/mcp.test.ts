@@ -1,12 +1,19 @@
-import { Digest, strictJsonSchemaValidator, type JsonValue } from "../../../src/core";
+import {
+    Digest,
+    encodeCanonicalJson,
+    strictJsonSchemaValidator,
+    type JsonValue
+} from "../../../src/core";
 import {
     EffectDispatch,
     EffectDispatchAttempt,
+    MCP_CONTROL_CONTRACTS,
     MCP_IMPACT_ANNOTATION,
     MCP_MAXIMUM_PROMPT_BYTES,
     MCP_MAXIMUM_PROMPTS,
     MCP_PROTOCOL_REVISION,
     McpDiscoveryBackend,
+    McpDiscoveryError,
     McpDiscoveryRegistration,
     McpFacet,
     McpPromptMaterializationContract,
@@ -98,6 +105,37 @@ describe("MCP protected lifecycle and durable operation registration", () => {
         );
         await expect(facet.start()).rejects.toMatchObject({ code: "authority.denied" });
         expect(server.started).toBe(false);
+    });
+
+    test("stop() reaches the server backend through mediation", { tags: "p1" }, async () => {
+        const server = new TestMcpServer();
+        const facet = new McpFacet(
+            recordingRuntime("mcp-stop").runtime,
+            createDiscovery(),
+            server,
+            new MemoryMcpDiscoveryRegistrationStore()
+        );
+        await facet.start();
+        expect(server.started).toBe(true);
+        await facet.stop();
+        expect(server.started).toBe(false);
+    });
+
+    test("seeds and snapshots the registration store with defensive byte copies", {
+        tags: "p1"
+    }, () => {
+        const registration = new McpDiscoveryRegistration(new TestMcpServer().document);
+        const seed = McpDiscoveryRegistration.encode(registration);
+        const seeded = new MemoryMcpDiscoveryRegistrationStore(seed);
+        seed.fill(0);
+        expect(seeded.load()?.digest.equals(registration.digest)).toBe(true);
+
+        const saved = new MemoryMcpDiscoveryRegistrationStore();
+        saved.save(registration);
+        const snapshot = saved.snapshot();
+        expect(snapshot).toBeDefined();
+        snapshot?.fill(0);
+        expect(saved.load()?.digest.equals(registration.digest)).toBe(true);
     });
 });
 
@@ -296,6 +334,236 @@ describe("MCP normative discovery", () => {
         expect(() => facet.call({ operation: "missing", arguments: {} })).toThrow(
             expect.objectContaining({ detailCode: "operation.missing" })
         );
+    });
+
+    test("accepts prompt sets exactly at the declared item and byte bounds", {
+        tags: "p1"
+    }, () => {
+        const prompts = [
+            { title: "one", body: "body" },
+            { title: "two", body: "body" }
+        ] as const;
+        const exactBytes = encodeCanonicalJson(
+            prompts.map((prompt) => ({ title: prompt.title, body: prompt.body }))
+        ).byteLength;
+        const contract = new McpPromptMaterializationContract(2, exactBytes);
+        expect(contract.materialize(prompts).sections.map((section) => section.title)).toEqual([
+            "one",
+            "two"
+        ]);
+    });
+
+    test("rejects non-integer discovery prompt bounds with the backend's own error", {
+        tags: "p1"
+    }, () => {
+        for (const invalid of [
+            { maximumPrompts: 1.5 },
+            { maximumPrompts: 0 },
+            { maximumPrompts: MCP_MAXIMUM_PROMPTS + 1 },
+            { maximumPromptBytes: 0.5 },
+            { maximumPromptBytes: 0 },
+            { maximumPromptBytes: MCP_MAXIMUM_PROMPT_BYTES + 1 }
+        ]) {
+            expect(
+                () => new McpDiscoveryBackend({ ...config(), ...invalid }, strictJsonSchemaValidator)
+            ).toThrow("MCP prompt bounds must be positive safe integers");
+        }
+    });
+
+    test("projects resources behind a closed empty input schema and omits empty prompt contributions", {
+        tags: "p1"
+    }, () => {
+        const discovered = createDiscovery().discover(new TestMcpServer().document);
+        expect(discovered.operations[1]?.input.document).toEqual({
+            type: "object",
+            additionalProperties: false
+        });
+        const withoutPrompts = createDiscovery().discover(document());
+        expect(withoutPrompts.contributions.entries.map((entry) => entry.slot.value)).toEqual([
+            "operations"
+        ]);
+    });
+
+    test("rejects untrimmed discovered operation names", { tags: "p1" }, () => {
+        expect(() =>
+            createDiscovery().discover({
+                revision: MCP_PROTOCOL_REVISION,
+                tools: [{ name: "tool ", inputSchema: {}, outputSchema: {} }],
+                resources: [],
+                prompts: []
+            })
+        ).toThrow(expect.objectContaining({ detailCode: "name.duplicate" }));
+    });
+
+    test("wraps malformed member primitives as the canonical malformed-document error", {
+        tags: "p1"
+    }, () => {
+        for (const malformed of [
+            {
+                revision: MCP_PROTOCOL_REVISION,
+                tools: [{ name: 1, inputSchema: {}, outputSchema: {} }],
+                resources: [],
+                prompts: []
+            },
+            {
+                revision: MCP_PROTOCOL_REVISION,
+                tools: [],
+                resources: [{ name: 1, outputSchema: {} }],
+                prompts: []
+            },
+            {
+                revision: MCP_PROTOCOL_REVISION,
+                tools: [],
+                resources: [],
+                prompts: [{ title: 1, body: "body" }]
+            },
+            {
+                revision: MCP_PROTOCOL_REVISION,
+                tools: [],
+                resources: [],
+                prompts: [{ title: "hint", body: 1 }]
+            }
+        ]) {
+            expect(() => createDiscovery().discover(malformed as never)).toThrow(
+                expect.objectContaining({
+                    name: "McpDiscoveryError",
+                    detailCode: "schema.invalid",
+                    message: "MCP discovery document is malformed"
+                })
+            );
+        }
+    });
+
+    test("defaults unannotated metadata-bearing tools by locality and rejects malformed impact metadata", {
+        tags: "p1"
+    }, () => {
+        const local = new McpDiscoveryBackend(
+            { ...config(), remote: false },
+            strictJsonSchemaValidator
+        );
+        expect(local.discover(document({ _meta: { unrelated: true } })).operations[0]?.impact).toBe(
+            "execute"
+        );
+        for (const metadata of [{ _meta: [] }, { _meta: null }]) {
+            expect(() => createDiscovery().discover(document(metadata as never))).toThrow(
+                expect.objectContaining({
+                    detailCode: "impact.invalid",
+                    message: "MCP tool metadata must be an object"
+                })
+            );
+        }
+        expect(() =>
+            createDiscovery().discover(document({ _meta: { [MCP_IMPACT_ANNOTATION]: 1 } }))
+        ).toThrow(
+            expect.objectContaining({ message: "MCP tool impact metadata must be a string" })
+        );
+        expect(() => createDiscovery().discover(document({ impact: "observe" }))).toThrow(
+            expect.objectContaining({
+                message: `MCP impact must use _meta["${MCP_IMPACT_ANNOTATION}"]`
+            })
+        );
+    });
+
+    test("freezes registration documents deeply including null-bearing metadata", {
+        tags: "p1"
+    }, () => {
+        const registration = new McpDiscoveryRegistration({
+            revision: MCP_PROTOCOL_REVISION,
+            tools: [{ name: "tool", inputSchema: {}, outputSchema: {}, _meta: { note: null } }],
+            resources: [],
+            prompts: [{ title: "hint", body: "body" }]
+        });
+        expect(Object.isFrozen(registration.document.tools)).toBe(true);
+        expect(Object.isFrozen(registration.document.tools[0])).toBe(true);
+        expect(Object.isFrozen(registration.document.prompts)).toBe(true);
+    });
+
+    test("names the persisted digest when decoding a corrupt registration record", {
+        tags: "p2"
+    }, () => {
+        const bytes = encodeCanonicalJson({
+            kind: "facet.mcp-discovery-registration",
+            version: { major: 1, minor: 0 },
+            payload: {
+                digest: 1,
+                document: {
+                    revision: MCP_PROTOCOL_REVISION,
+                    tools: [],
+                    resources: [],
+                    prompts: []
+                }
+            }
+        });
+        expect(() => McpDiscoveryRegistration.decode(bytes)).toThrow(
+            "MCP discovery digest must be a string"
+        );
+    });
+});
+
+describe("MCP wire codecs and error identity", () => {
+    test("decodes empty control inputs strictly and round-trips discovery results", {
+        tags: "p1"
+    }, () => {
+        expect(MCP_CONTROL_CONTRACTS.start.decodeInput({})).toEqual({});
+        expect(() => MCP_CONTROL_CONTRACTS.start.decodeInput(null)).toThrow(
+            "MCP control input must be an object"
+        );
+
+        const result = createDiscovery().discover(new TestMcpServer().document);
+        const decoded = MCP_CONTROL_CONTRACTS.discover.decodeOutput(
+            MCP_CONTROL_CONTRACTS.discover.encodeOutput(result)
+        );
+        expect(
+            decoded.operations.map((operation) => [operation.name.value, operation.impact])
+        ).toEqual([
+            ["send", "externalSend"],
+            ["read", "observe"]
+        ]);
+        expect(decoded.prompts).toEqual([{ title: "hint", body: "body" }]);
+        expect(decoded.promptContribution.sections.map((section) => section.title)).toEqual([
+            "hint"
+        ]);
+        expect(decoded.contributions.toData()).toEqual(result.contributions.toData());
+    });
+
+    test("names discovery result members in decode errors", { tags: "p2" }, () => {
+        expect(() =>
+            MCP_CONTROL_CONTRACTS.discover.decodeOutput({
+                operations: true,
+                prompts: [],
+                promptContribution: [],
+                contributions: {}
+            })
+        ).toThrow("MCP operations must be an array");
+        expect(() =>
+            MCP_CONTROL_CONTRACTS.discover.decodeOutput({
+                operations: [],
+                prompts: [],
+                promptContribution: [],
+                contributions: { operations: true }
+            })
+        ).toThrow("MCP contribution operations must be an array");
+    });
+
+    test("maps missing-operation errors to operation.missing and the rest to invalid input", {
+        tags: "p0"
+    }, () => {
+        const missing = new McpDiscoveryError("operation.missing", "missing");
+        expect(missing.code).toBe("operation.missing");
+        expect(missing.name).toBe("McpDiscoveryError");
+        expect(missing.detail).toEqual({ code: "operation.missing" });
+        for (const detailCode of [
+            "revision.mismatch",
+            "schema.invalid",
+            "prompt.bound",
+            "name.duplicate",
+            "impact.invalid",
+            "registration.invalid"
+        ] as const) {
+            expect(new McpDiscoveryError(detailCode, "invalid").code).toBe(
+                "operation.invalid-input"
+            );
+        }
     });
 });
 

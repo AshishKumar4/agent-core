@@ -1,7 +1,12 @@
 import { RunId } from "../../../src/agents";
-import { JsonSchema } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
+import { CompatRange, JsonSchema, SemVer, type JsonValue } from "../../../src/core";
 import {
+    FacetPackageId,
+    OperationName,
+    TASK_ACTION_CONTROL,
     TASK_ACTION_EVENT,
+    TASK_ACTION_EVENT_CONTRACT,
     TASK_ACTION_SUBSCRIPTION,
     TASK_BOARD_SURFACE,
     TASK_CONTRIBUTIONS,
@@ -10,8 +15,13 @@ import {
     TaskBackend,
     TaskEntry,
     TaskFacet,
-    TaskId
+    TaskId,
+    createTaskManifest,
+    type FacetManifest,
+    type InternalProfileFacetRuntime,
+    type OperationContext
 } from "../../../src/facets";
+import { InvocationId } from "../../../src/invocations";
 import { describe, expect, test } from "vitest";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
@@ -50,6 +60,40 @@ describe("Task protected facade", () => {
             taskId: "child",
             action: { action: "complete" }
         });
+    });
+
+    test("submitAction verifies the task exists before any Event is emitted", { tags: "p1" }, async () => {
+        const { runtime, admission } = recordingRuntime("task-missing-action");
+        const task = new TaskFacet(runtime, new TaskBackend());
+        await expect(
+            task.submitAction({ taskId: taskId("missing"), action: {} })
+        ).rejects.toMatchObject({ detailCode: "task.not-found" });
+        expect(admission.calls.some((call) => call.kind === "emit")).toBe(false);
+    });
+
+    test("internal runtime routes create, update, and list to the backend", { tags: "p1" }, async () => {
+        const { runtime } = recordingRuntime("task");
+        const backend = new TaskBackend();
+        const internal = new TaskFacet(runtime, backend).asInternalRuntime(taskManifest());
+        await internal.start({ signal: new AbortController().signal });
+        expect(internal.active).toBe(true);
+
+        const context = internalContext();
+        await expect(
+            execute(internal, "create", {
+                task: { id: "task", parentId: null, runId: null, attributes: {} }
+            }, context)
+        ).resolves.toBeNull();
+        await expect(
+            execute(internal, "update", {
+                id: "task",
+                update: { attributes: { done: true } }
+            }, context)
+        ).resolves.toEqual({ id: "task", parentId: null, runId: null, attributes: { done: true } });
+        await expect(execute(internal, "list", {}, context)).resolves.toEqual([
+            { id: "task", parentId: null, runId: null, attributes: { done: true } }
+        ]);
+        expect(backend.list()).toHaveLength(1);
     });
 
     test("denial prevents task mutation and Event delivery", async () => {
@@ -156,6 +200,118 @@ describe("Task declarations and backend", () => {
         });
     });
 
+    test("enforces context-owned task identifier classes", { tags: "p1" }, () => {
+        const alienId: TaskId = new RunId("alien");
+        expect(() => new TaskEntry(alienId, undefined, undefined, {})).toThrow(
+            "Task identifiers must use their context-owned classes"
+        );
+        const alienParent: TaskId = new RunId("parent");
+        expect(() => new TaskEntry(taskId("child"), alienParent, undefined, {})).toThrow(
+            "Task identifiers must use their context-owned classes"
+        );
+        expect(() => new TaskEntry(new TaskId(" x"), undefined, undefined, {})).toThrow(
+            "Task ID must be canonical"
+        );
+    });
+
+    test("preserves parent and Run links when an update omits them", { tags: "p1" }, () => {
+        const backend = new TaskBackend();
+        backend.create(new TaskEntry(taskId("parent"), undefined, undefined, {}));
+        backend.create(new TaskEntry(taskId("child"), taskId("parent"), new RunId("run-1"), {}));
+        const revised = backend.update(taskId("child"), { attributes: { touched: true } });
+        expect(revised.parentId?.equals(taskId("parent"))).toBe(true);
+        expect(revised.runId?.equals(new RunId("run-1"))).toBe(true);
+        expect(revised.attributes).toEqual({ touched: true });
+    });
+
+    test("lists tasks sorted by ID regardless of creation order", { tags: "p1" }, () => {
+        const backend = new TaskBackend();
+        backend.create(new TaskEntry(taskId("b"), undefined, undefined, {}));
+        backend.create(new TaskEntry(taskId("a"), undefined, undefined, {}));
+        backend.create(new TaskEntry(taskId("c"), undefined, undefined, {}));
+        expect(backend.list().map((task) => task.id.value)).toEqual(["a", "b", "c"]);
+    });
+
+    test("raises typed TaskErrors with exact codes and messages", { tags: "p1" }, () => {
+        const backend = new TaskBackend();
+        backend.create(new TaskEntry(taskId("only"), undefined, undefined, {}));
+        expectTaskError(
+            () => backend.create(new TaskEntry(taskId("only"), undefined, undefined, {})),
+            "task.exists",
+            "Task ID already exists"
+        );
+        expectTaskError(
+            () => backend.update(taskId("missing"), {}),
+            "task.not-found",
+            "Task does not exist"
+        );
+        expectTaskError(
+            () => backend.assertExists(taskId("missing")),
+            "task.not-found",
+            "Task does not exist"
+        );
+        expectTaskError(
+            () => backend.create(new TaskEntry(taskId("orphan"), taskId("missing"), undefined, {})),
+            "task.parent",
+            "Task parent must exist"
+        );
+        backend.create(new TaskEntry(taskId("child"), taskId("only"), undefined, {}));
+        expectTaskError(
+            () => backend.update(taskId("only"), { parentId: taskId("child") }),
+            "task.cycle",
+            "Task hierarchy must be acyclic"
+        );
+    });
+
+    test("decodes wire task payloads to context-owned identifiers", { tags: "p1" }, () => {
+        const created = TASK_OPERATION_CONTRACTS.create.decodeInput({
+            task: { id: "child", parentId: "parent", runId: "run-1", attributes: { a: 1 } }
+        });
+        expect(created.task.id.value).toBe("child");
+        expect(created.task.parentId?.value).toBe("parent");
+        expect(created.task.runId?.value).toBe("run-1");
+        expect(created.task.attributes).toEqual({ a: 1 });
+
+        const updated = TASK_OPERATION_CONTRACTS.update.decodeInput({ id: "task", update: {} });
+        expect(updated.id.value).toBe("task");
+        expect(Object.keys(updated.update)).toEqual([]);
+
+        expect(TASK_OPERATION_CONTRACTS.list.decodeInput({})).toEqual({});
+
+        const action = TASK_ACTION_EVENT_CONTRACT.decodePayload({
+            taskId: "task",
+            action: { move: "done" }
+        });
+        expect(action.kind).toBe("task.actionSubmitted");
+        expect(action.taskId.value).toBe("task");
+        expect(action.action).toEqual({ move: "done" });
+
+        const control = TASK_ACTION_CONTROL.decodeInput({ taskId: "task", action: 1 });
+        expect(control.taskId.value).toBe("task");
+        expect(control.action).toBe(1);
+    });
+
+    test("names the offending field when task wire data is malformed", { tags: "p2" }, () => {
+        expect(() =>
+            TASK_OPERATION_CONTRACTS.update.decodeInput({ id: 5, update: {} })
+        ).toThrow("Task ID must be a string");
+        expect(() =>
+            TASK_OPERATION_CONTRACTS.create.decodeInput({
+                task: { id: 5, parentId: null, runId: null, attributes: {} }
+            })
+        ).toThrow("Task ID must be a string");
+        expect(() => TASK_ACTION_EVENT_CONTRACT.decodePayload(null)).toThrow(
+            "Task action Event must be an object"
+        );
+        expect(() =>
+            TASK_ACTION_EVENT_CONTRACT.decodePayload({ taskId: 5, action: null })
+        ).toThrow("Task action ID must be a string");
+        expect(() => TASK_ACTION_CONTROL.decodeInput({ taskId: 5, action: null })).toThrow(
+            "Task action ID must be a string"
+        );
+        expect(() => new TaskId("")).toThrow("Task ID must contain between 1 and 256 characters");
+    });
+
     test("round-trips absent, concrete, and cleared optional task updates", () => {
         const contract = TASK_OPERATION_CONTRACTS.update;
         expect(
@@ -193,4 +349,49 @@ describe("Task declarations and backend", () => {
 
 function taskId(value: string): TaskId {
     return new TaskId(value);
+}
+
+function expectTaskError(
+    action: () => unknown,
+    detailCode: string,
+    message: string
+): void {
+    expect(action).toThrow(
+        expect.objectContaining({
+            name: "TaskError",
+            code: "operation.invalid-input",
+            detailCode,
+            message
+        })
+    );
+}
+
+function taskManifest(): FacetManifest {
+    return createTaskManifest({
+        id: new FacetPackageId("profile.task"),
+        version: new SemVer("1.0.0"),
+        compat: new CompatRange("^1.0.0", "^1.0.0"),
+        bindings: []
+    });
+}
+
+function internalContext(): OperationContext {
+    return Object.freeze({
+        invocation: new InvocationId("internal-invocation"),
+        itemIndex: 0,
+        idempotencyKey: "internal-idempotency",
+        signal: new AbortController().signal,
+        content: new MemoryContentStore()
+    });
+}
+
+function execute(
+    internal: InternalProfileFacetRuntime,
+    name: string,
+    input: JsonValue,
+    context: OperationContext
+): Promise<JsonValue> {
+    const operation = internal.operation(new OperationName(name));
+    if (operation === undefined) throw new TypeError(`Missing internal Operation ${name}`);
+    return operation.execute(context, input);
 }

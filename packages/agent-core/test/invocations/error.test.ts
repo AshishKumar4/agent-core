@@ -9,6 +9,7 @@ import {
     MemoryInvocationPersistence,
     WriteRecordId,
     createInvocationMemoryState,
+    invocationError,
     validateAuditAppend
 } from "../../src/invocations";
 import { invocationCodecs, prepared } from "./fixture";
@@ -40,6 +41,15 @@ describe("invocation operational error taxonomy", () => {
             () => validateAuditAppend(audit, { get: () => undefined }),
             "audit.missing-cause"
         );
+    });
+
+    test("names invocation errors and preserves the failure taxonomy", { tags: "p1" }, () => {
+        const error = invocationError("state.invalid-transition", "invalid transition");
+        expect(error).toBeInstanceOf(InvocationError);
+        expect(error.name).toBe("InvocationError");
+        expect(error.code).toBe("invocation.invalid");
+        expect(error.failure).toBe("state.invalid-transition");
+        expect(error.message).toBe("invalid transition");
     });
 });
 

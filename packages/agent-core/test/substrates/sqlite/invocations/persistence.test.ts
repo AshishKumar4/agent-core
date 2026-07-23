@@ -19,7 +19,12 @@ import {
     type PreparedInvocation
 } from "../../../../src/invocations";
 import { PrincipalId } from "../../../../src/identity";
-import { TransactionalSqlite } from "../../../../src/substrates/sqlite/sqlite";
+import { AgentCoreError } from "../../../../src/errors";
+import {
+    TransactionalSqlite,
+    type SqliteRow,
+    type SqliteValue
+} from "../../../../src/substrates/sqlite/sqlite";
 import { TestSqlite } from "../../../helpers/sqlite";
 import {
     admissionFor,
@@ -402,6 +407,574 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         );
     });
 });
+
+describe("SqliteInvocationPersistence append conflict taxonomy", () => {
+    test("duplicate appends carry the exact duplicate-record failure", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const invocation = prepared("sqlite-exact-duplicate");
+        harness.transaction((transaction) =>
+            harness.persistence.insertPrepared(transaction, invocation)
+        );
+        expectInvocationFailure(
+            () => harness.persistence.insertPrepared(harness.database, invocation),
+            "store.duplicate-record",
+            "Invocation record append conflicted"
+        );
+    });
+
+    test(
+        "classifies substrate errors as conflicts by SQLITE_CONSTRAINT code alone",
+        { tags: "p1" },
+        () => {
+            const database = new FaultingSqlite();
+            const persistence = createSqliteInvocationPersistence(database);
+            database.fault = () => {
+                throw Object.assign(new TypeError("row rejected"), {
+                    code: "SQLITE_CONSTRAINT_UNIQUE"
+                });
+            };
+            expectInvocationFailure(
+                () => persistence.insertPrepared(database, prepared("sqlite-coded-conflict")),
+                "store.duplicate-record",
+                "Invocation record append conflicted"
+            );
+        }
+    );
+
+    test("rethrows non-constraint substrate errors unchanged", { tags: "p1" }, () => {
+        const database = new FaultingSqlite();
+        const persistence = createSqliteInvocationPersistence(database);
+        database.fault = () => {
+            throw Object.assign(new TypeError("disk io failure"), { code: "SQLITE_IOERR" });
+        };
+        let caught: unknown = "unset";
+        try {
+            persistence.insertPrepared(database, prepared("sqlite-io-failure"));
+        } catch (error) {
+            caught = error;
+        }
+        expect(caught).toBeInstanceOf(TypeError);
+        if (caught instanceof TypeError) expect(caught.message).toBe("disk io failure");
+    });
+
+    test("rethrows null substrate failures without conversion", { tags: "p1" }, () => {
+        const database = new FaultingSqlite();
+        const persistence = createSqliteInvocationPersistence(database);
+        const torn: unknown = null;
+        database.fault = () => {
+            throw torn;
+        };
+        let caught: unknown = "unset";
+        try {
+            persistence.insertPrepared(database, prepared("sqlite-null-failure"));
+        } catch (error) {
+            caught = error;
+        }
+        expect(caught).toBeNull();
+    });
+
+    test(
+        "rethrows substrate AgentCoreErrors ahead of constraint classification",
+        { tags: "p1" },
+        () => {
+            const database = new FaultingSqlite();
+            const persistence = createSqliteInvocationPersistence(database);
+            database.fault = () => {
+                throw new AgentCoreError("codec.invalid", "unique constraint sentinel");
+            };
+            let caught: unknown = "unset";
+            try {
+                persistence.insertPrepared(database, prepared("sqlite-typed-failure"));
+            } catch (error) {
+                caught = error;
+            }
+            expect(caught).toBeInstanceOf(AgentCoreError);
+            if (caught instanceof AgentCoreError) {
+                expect(caught.code).toBe("codec.invalid");
+                expect(caught.message).toBe("unique constraint sentinel");
+            }
+        }
+    );
+});
+
+describe("SqliteInvocationPersistence projection integrity", () => {
+    test("fails closed on every substituted Approval revision column", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const approvals = ["id", "invocation", "revision"].map((key) => {
+            const invocation = prepared(`sqlite-approval-${key}`);
+            return Approval.pending(
+                new ApprovalId(`sqlite-approval-${key}-approval`),
+                invocation.header.id,
+                invocation.intentDigest,
+                new Date(1000)
+            );
+        });
+        const [byId, byInvocation, byRevision] = approvals;
+        harness.transaction((transaction) => {
+            for (const approval of approvals) {
+                harness.persistence.appendApproval(transaction, approval);
+            }
+        });
+        expect(byId).toBeDefined();
+        expect(byInvocation).toBeDefined();
+        expect(byRevision).toBeDefined();
+        if (byId === undefined || byInvocation === undefined || byRevision === undefined) return;
+
+        harness.database.run(
+            "UPDATE invocation_approval_revisions SET approval_id = 'sqlite-substituted-approval' WHERE approval_id = ?",
+            [byId.id.value]
+        );
+        expectCorrupt(() =>
+            harness.persistence.approval(
+                harness.database,
+                new ApprovalId("sqlite-substituted-approval")
+            )
+        );
+
+        harness.database.run(
+            "UPDATE invocation_approval_revisions SET invocation_id = 'sqlite-substituted-invocation' WHERE approval_id = ?",
+            [byInvocation.id.value]
+        );
+        expectCorrupt(() => harness.persistence.approval(harness.database, byInvocation.id));
+
+        harness.database.run(
+            "UPDATE invocation_approval_revisions SET revision = 7 WHERE approval_id = ?",
+            [byRevision.id.value]
+        );
+        expectCorrupt(() => harness.persistence.approval(harness.database, byRevision.id));
+    });
+
+    test(
+        "fails closed when the Approval identity index points at a foreign Approval",
+        { tags: "p1" },
+        () => {
+            const harness = new SqliteHarness();
+            const first = prepared("sqlite-foreign-identity-first");
+            const second = prepared("sqlite-foreign-identity-second");
+            const firstApproval = Approval.pending(
+                new ApprovalId("sqlite-foreign-identity-first-approval"),
+                first.header.id,
+                first.intentDigest,
+                new Date(1000)
+            );
+            const secondApproval = Approval.pending(
+                new ApprovalId("sqlite-foreign-identity-second-approval"),
+                second.header.id,
+                second.intentDigest,
+                new Date(1000)
+            );
+            harness.transaction((transaction) => {
+                harness.persistence.appendApproval(transaction, firstApproval);
+                harness.persistence.appendApproval(transaction, secondApproval);
+            });
+            harness.database.run(
+                "DELETE FROM invocation_approval_identities WHERE invocation_id = ?",
+                [second.header.id.value]
+            );
+            harness.database.run(
+                "UPDATE invocation_approval_identities SET approval_id = ? WHERE invocation_id = ?",
+                [secondApproval.id.value, first.header.id.value]
+            );
+            expectCorrupt(() =>
+                harness.persistence.approvalForInvocation(harness.database, first.header.id)
+            );
+        }
+    );
+
+    test(
+        "rejects Approval revisions appended under a different Approval identity",
+        { tags: "p1" },
+        () => {
+            const harness = new SqliteHarness();
+            const invocation = prepared("sqlite-identity-mismatch");
+            const original = Approval.pending(
+                new ApprovalId("sqlite-identity-mismatch-original"),
+                invocation.header.id,
+                invocation.intentDigest,
+                new Date(1000),
+                new Date(5000)
+            );
+            const usurper = Approval.pending(
+                new ApprovalId("sqlite-identity-mismatch-usurper"),
+                invocation.header.id,
+                invocation.intentDigest,
+                new Date(1000),
+                new Date(5000)
+            ).approve(new PrincipalId("approver"), new Date(2000));
+            harness.transaction((transaction) =>
+                harness.persistence.appendApproval(transaction, original)
+            );
+            expectCorrupt(() => harness.persistence.appendApproval(harness.database, usurper));
+        }
+    );
+
+    test("fails closed on every substituted claim column", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const byId = systemClaim("sqlite-claim-id", 0);
+        const byInvocation = systemClaim("sqlite-claim-invocation", 0);
+        const byItem = systemClaim("sqlite-claim-item", 0);
+        harness.transaction((transaction) => {
+            harness.persistence.appendClaim(transaction, byId);
+            harness.persistence.appendClaim(transaction, byInvocation);
+            harness.persistence.appendClaim(transaction, byItem);
+        });
+
+        harness.database.run(
+            "UPDATE invocation_item_claims SET id = 'sqlite-substituted-claim' WHERE id = ?",
+            [byId.id.value]
+        );
+        expectCorrupt(() =>
+            harness.persistence.claim(harness.database, new ItemClaimId("sqlite-substituted-claim"))
+        );
+
+        harness.database.run(
+            "UPDATE invocation_item_claims SET invocation_id = 'sqlite-substituted-invocation' WHERE id = ?",
+            [byInvocation.id.value]
+        );
+        expectCorrupt(() => harness.persistence.claim(harness.database, byInvocation.id));
+
+        harness.database.run("UPDATE invocation_item_claims SET item_index = 6 WHERE id = ?", [
+            byItem.id.value
+        ]);
+        expectCorrupt(() => harness.persistence.claim(harness.database, byItem.id));
+    });
+
+    test("fails closed on every substituted attempt column", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const attempts = ["id", "invocation", "item", "ordinal"].map((key) => {
+            const invocation = prepared(`sqlite-attempt-${key}`);
+            const claim = systemClaim(`sqlite-attempt-${key}`, 0);
+            return systemAttempt(invocation, claim, `sqlite-attempt-${key}`);
+        });
+        const [byId, byInvocation, byItem, byOrdinal] = attempts;
+        harness.transaction((transaction) => {
+            for (const attempt of attempts) {
+                harness.persistence.appendAttempt(transaction, attempt);
+            }
+        });
+        expect(byId).toBeDefined();
+        expect(byInvocation).toBeDefined();
+        expect(byItem).toBeDefined();
+        expect(byOrdinal).toBeDefined();
+        if (
+            byId === undefined ||
+            byInvocation === undefined ||
+            byItem === undefined ||
+            byOrdinal === undefined
+        ) {
+            return;
+        }
+
+        harness.database.run(
+            "UPDATE invocation_effect_attempts SET id = 'sqlite-substituted-attempt' WHERE id = ?",
+            [byId.id.value]
+        );
+        expectCorrupt(() => harness.persistence.attemptForClaim(harness.database, byId.claim));
+
+        harness.database.run(
+            "UPDATE invocation_effect_attempts SET invocation_id = 'sqlite-substituted-invocation' WHERE id = ?",
+            [byInvocation.id.value]
+        );
+        expectCorrupt(() => harness.persistence.attempt(harness.database, byInvocation.id));
+
+        harness.database.run("UPDATE invocation_effect_attempts SET item_index = 6 WHERE id = ?", [
+            byItem.id.value
+        ]);
+        expectCorrupt(() => harness.persistence.attempt(harness.database, byItem.id));
+
+        harness.database.run("UPDATE invocation_effect_attempts SET ordinal = 6 WHERE id = ?", [
+            byOrdinal.id.value
+        ]);
+        expectCorrupt(() => harness.persistence.attempt(harness.database, byOrdinal.id));
+    });
+
+    test("fails closed on every substituted preEffect Receipt column", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const receipts = ["id", "invocation", "item"].map(
+            (key) =>
+                new PreEffectReceipt(
+                    new ReceiptId(`sqlite-receipt-${key}`),
+                    new InvocationId(`sqlite-receipt-${key}-invocation`),
+                    0,
+                    "deniedPreEffect",
+                    new Date(1000),
+                    "denied"
+                )
+        );
+        const [byId, byInvocation, byItem] = receipts;
+        harness.transaction((transaction) => {
+            for (const receipt of receipts) {
+                harness.persistence.appendReceipt(transaction, receipt);
+            }
+        });
+        expect(byId).toBeDefined();
+        expect(byInvocation).toBeDefined();
+        expect(byItem).toBeDefined();
+        if (byId === undefined || byInvocation === undefined || byItem === undefined) return;
+
+        harness.database.run(
+            "UPDATE invocation_receipts SET id = 'sqlite-substituted-receipt' WHERE id = ?",
+            [byId.id.value]
+        );
+        expectCorrupt(() =>
+            harness.persistence.receipt(
+                harness.database,
+                new ReceiptId("sqlite-substituted-receipt")
+            )
+        );
+
+        harness.database.run(
+            "UPDATE invocation_receipts SET invocation_id = 'sqlite-substituted-invocation' WHERE id = ?",
+            [byInvocation.id.value]
+        );
+        expectCorrupt(() => harness.persistence.receipt(harness.database, byInvocation.id));
+
+        harness.database.run("UPDATE invocation_receipts SET item_index = 6 WHERE id = ?", [
+            byItem.id.value
+        ]);
+        expectCorrupt(() => harness.persistence.receipt(harness.database, byItem.id));
+    });
+
+    test("fails closed on substituted attempt Receipt pointers", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const sources = ["substituted", "previous", "item"].map((key) => {
+            const invocation = prepared(`sqlite-receipt-pointer-${key}`);
+            const claim = systemClaim(`sqlite-receipt-pointer-${key}`, 0);
+            return systemAttempt(invocation, claim, `sqlite-receipt-pointer-${key}`);
+        });
+        const siblingInvocation = prepared("sqlite-receipt-pointer-sibling");
+        const siblingClaim = systemClaim("sqlite-receipt-pointer-sibling", 0);
+        const sibling = systemAttempt(
+            siblingInvocation,
+            siblingClaim,
+            "sqlite-receipt-pointer-sibling"
+        );
+        const [substituted, forgedPrevious, movedItem] = sources;
+        harness.transaction((transaction) => {
+            for (const attempt of [...sources, sibling]) {
+                harness.persistence.appendAttempt(transaction, attempt);
+            }
+        });
+        expect(substituted).toBeDefined();
+        expect(forgedPrevious).toBeDefined();
+        expect(movedItem).toBeDefined();
+        if (substituted === undefined || forgedPrevious === undefined || movedItem === undefined) {
+            return;
+        }
+        const receiptFor = (attempt: EffectAttempt<string, string>, key: string) =>
+            new AttemptReceipt(
+                new ReceiptId(`sqlite-receipt-pointer-${key}-receipt`),
+                attempt.id,
+                "failed",
+                undefined,
+                new Date(3000),
+                undefined
+            );
+        const substitutedReceipt = receiptFor(substituted, "substituted");
+        const forgedPreviousReceipt = receiptFor(forgedPrevious, "previous");
+        const movedItemReceipt = receiptFor(movedItem, "item");
+        harness.transaction((transaction) => {
+            harness.persistence.appendReceipt(transaction, substitutedReceipt);
+            harness.persistence.appendReceipt(transaction, forgedPreviousReceipt);
+            harness.persistence.appendReceipt(transaction, movedItemReceipt);
+        });
+
+        harness.database.run("UPDATE invocation_receipts SET attempt_id = ? WHERE id = ?", [
+            sibling.id.value,
+            substitutedReceipt.id.value
+        ]);
+        expectCorrupt(() => harness.persistence.receipt(harness.database, substitutedReceipt.id));
+
+        harness.database.run(
+            "UPDATE invocation_receipts SET previous_id = 'sqlite-ghost-previous' WHERE id = ?",
+            [forgedPreviousReceipt.id.value]
+        );
+        expectCorrupt(() =>
+            harness.persistence.receipt(harness.database, forgedPreviousReceipt.id)
+        );
+
+        harness.database.run("UPDATE invocation_receipts SET item_index = 6 WHERE id = ?", [
+            movedItemReceipt.id.value
+        ]);
+        expectCorrupt(() => harness.persistence.receipt(harness.database, movedItemReceipt.id));
+    });
+
+    test("fails closed on pointer columns forged onto preEffect Receipts", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const receipts = ["attempt", "previous", "variant"].map(
+            (key) =>
+                new PreEffectReceipt(
+                    new ReceiptId(`sqlite-forged-${key}`),
+                    new InvocationId(`sqlite-forged-${key}-invocation`),
+                    0,
+                    "deniedPreEffect",
+                    new Date(1000),
+                    "denied"
+                )
+        );
+        const [forgedAttempt, forgedPrevious, flippedVariant] = receipts;
+        harness.transaction((transaction) => {
+            for (const receipt of receipts) {
+                harness.persistence.appendReceipt(transaction, receipt);
+            }
+        });
+        expect(forgedAttempt).toBeDefined();
+        expect(forgedPrevious).toBeDefined();
+        expect(flippedVariant).toBeDefined();
+        if (
+            forgedAttempt === undefined ||
+            forgedPrevious === undefined ||
+            flippedVariant === undefined
+        ) {
+            return;
+        }
+        harness.database.run("PRAGMA ignore_check_constraints = 1", []);
+
+        harness.database.run(
+            "UPDATE invocation_receipts SET attempt_id = 'sqlite-ghost-attempt' WHERE id = ?",
+            [forgedAttempt.id.value]
+        );
+        expectCorrupt(() => harness.persistence.receipt(harness.database, forgedAttempt.id));
+
+        harness.database.run(
+            "UPDATE invocation_receipts SET previous_id = 'sqlite-ghost-previous' WHERE id = ?",
+            [forgedPrevious.id.value]
+        );
+        expectCorrupt(() => harness.persistence.receipt(harness.database, forgedPrevious.id));
+
+        harness.database.run("UPDATE invocation_receipts SET variant = 'attempt' WHERE id = ?", [
+            flippedVariant.id.value
+        ]);
+        expectCorrupt(() => harness.persistence.receipt(harness.database, flippedVariant.id));
+    });
+
+    test(
+        "attempt Receipts without evidence carry the exact missing-evidence failure",
+        { tags: "p1" },
+        () => {
+            const harness = new SqliteHarness();
+            expectInvocationFailure(
+                () =>
+                    harness.persistence.appendReceipt(
+                        harness.database,
+                        new AttemptReceipt(
+                            new ReceiptId("sqlite-missing-evidence"),
+                            new EffectAttemptId("sqlite-missing-evidence-attempt"),
+                            "failed",
+                            undefined,
+                            new Date(2000),
+                            undefined
+                        )
+                    ),
+                "store.missing-evidence",
+                "Attempt Receipt requires an existing EffectAttempt"
+            );
+        }
+    );
+
+    test("reports byte-level corruption with the exact codec failure", { tags: "p1" }, () => {
+        const harness = new SqliteHarness();
+        const invocation = prepared("sqlite-exact-bytes");
+        harness.transaction((transaction) =>
+            harness.persistence.insertPrepared(transaction, invocation)
+        );
+        harness.database.run(
+            "UPDATE invocation_prepared_records SET record = 'not-bytes' WHERE id = ?",
+            [invocation.header.id.value]
+        );
+        expectCorrupt(() => harness.persistence.prepared(harness.database, invocation.header.id));
+    });
+
+    test(
+        "fails closed when the substrate returns rows keyed to a different identity",
+        { tags: "p1" },
+        () => {
+            const database = new ColumnSubstitutingSqlite();
+            const persistence = createSqliteInvocationPersistence(database);
+            const invocation = prepared("sqlite-doctored-row");
+            const continuation = new InvocationContinuation<string>(
+                invocation.header.id,
+                invocation.intentDigest,
+                new ApprovalId("sqlite-doctored-row-approval"),
+                new EffectAttemptId("sqlite-doctored-row-attempt"),
+                0,
+                0,
+                new ItemClaimId("sqlite-doctored-row-claim"),
+                {
+                    kind: "system",
+                    actor: invocation.header.actor,
+                    worker: new ClaimWorkerId("sqlite-doctored-row-worker")
+                },
+                invocation.item(0).idempotencyKey,
+                new Date(2000)
+            );
+            database.transaction(() => {
+                persistence.insertPrepared(database, invocation);
+                persistence.insertContinuation(database, continuation);
+            });
+            database.substitute = true;
+            expectCorrupt(() => persistence.prepared(database, invocation.header.id));
+            expectCorrupt(() => persistence.continuation(database, invocation.header.id));
+        }
+    );
+});
+
+function expectInvocationFailure(
+    operation: () => void,
+    failure: InvocationError["failure"],
+    message: string
+): void {
+    try {
+        operation();
+    } catch (error) {
+        expect(error).toBeInstanceOf(InvocationError);
+        if (error instanceof InvocationError) {
+            expect(error.failure).toBe(failure);
+            expect(error.message).toBe(message);
+        }
+        return;
+    }
+    throw new TypeError(`Expected InvocationError ${failure}`);
+}
+
+function expectCorrupt(operation: () => unknown): void {
+    try {
+        operation();
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        if (error instanceof AgentCoreError) {
+            expect(error.code).toBe("codec.invalid");
+            expect(error.message).toBe("Stored invocation projection does not match codec bytes");
+        }
+        return;
+    }
+    throw new TypeError("Expected stored projection corruption");
+}
+
+class FaultingSqlite extends TestSqlite {
+    public fault: (() => never) | undefined;
+
+    public run(statement: string, bindings: readonly SqliteValue[]): void {
+        if (this.fault !== undefined && statement.startsWith("INSERT")) this.fault();
+        super.run(statement, bindings);
+    }
+}
+
+class ColumnSubstitutingSqlite extends TestSqlite {
+    public substitute = false;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        if (!this.substitute) return rows;
+        if (statement.includes("FROM invocation_prepared_records")) {
+            return rows.map((row) => ({ ...row, id: "sqlite-doctored-key" }));
+        }
+        if (statement.includes("FROM invocation_continuations")) {
+            return rows.map((row) => ({ ...row, invocation_id: "sqlite-doctored-key" }));
+        }
+        return rows;
+    }
+}
 
 function systemClaim(id: string, ordinal: number): ItemClaim<string> {
     return new ItemClaim(

@@ -1,11 +1,18 @@
-import { Digest, type JsonValue } from "../../../src/core";
+import { CompatRange, Digest, SemVer, type JsonValue } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import {
+    BindingName,
+    BindingRequirement,
     DEVICE_COMMANDS,
     DEVICE_COMMAND_EVENTS,
+    DEVICE_COMMAND_EVENT_CONTRACTS,
+    DEVICE_COMMAND_SURFACE,
     DEVICE_CONTRIBUTIONS,
+    DEVICE_ENVIRONMENT_BINDING,
     DEVICE_OPERATIONS,
     DEVICE_OPERATION_CONTRACTS,
+    DEVICE_PAIR_CONTROL,
     DeviceBackend,
     DeviceCommandId,
     DeviceConsentBackend,
@@ -13,12 +20,19 @@ import {
     DeviceError,
     DeviceFacet,
     DeviceId,
+    FacetPackageId,
     MemoryDeviceConsentBackend,
+    OperationName,
     ProfileEffectContext,
     VersionedProfileWireCodec,
+    createDeviceManifest,
     type DeviceAdmission,
     type DeviceTransportRequest,
     type EffectDispatch,
+    type FacetManifest,
+    type InternalProfileFacetRuntime,
+    type Operation,
+    type OperationContext,
     type ReverseDeviceTransportBackend
 } from "../../../src/facets";
 import { EffectAttemptId, InvocationId } from "../../../src/invocations";
@@ -387,6 +401,411 @@ describe("Device effect identity to reverse transport", () => {
     });
 });
 
+describe("Device consent boundaries and error identity", () => {
+    test(
+        "rejects a forged admission copy even for the exact requested Device pair",
+        { tags: "p0" },
+        async () => {
+            const agent = principal("forged-agent");
+            const phone = deviceId("forged-phone");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const admission = grantAndAdmit(consent, phone, agent, 2);
+            const transport = new TestDeviceTransport();
+            const backend = new DeviceBackend(new LiveSession(), transport, {
+                read: () => undefined
+            });
+
+            await expect(
+                backend.execute(
+                    "camera",
+                    { deviceId: phone, arguments: { facing: "front" } },
+                    effectContext({ ...admission })
+                )
+            ).rejects.toMatchObject({ detailCode: "consent.invalid" });
+            expect(transport.sent).toEqual([]);
+        }
+    );
+
+    test("admits a consent clock at the epoch boundary and sequences admissions", {
+        tags: "p1"
+    }, () => {
+        const epochClock = new (class extends DeviceConsentBackend {
+            protected assertLive(): number {
+                return 0;
+            }
+        })();
+        const first = epochClock.admit(undefined, deviceId("epoch-phone"), principal("epoch"));
+        expect(first.admittedAt).toBe(0);
+        expect(first.sequence).toBe(1);
+        expect(
+            epochClock.admit(undefined, deviceId("epoch-phone"), principal("epoch")).sequence
+        ).toBe(2);
+    });
+
+    test("rejects consent grants expiring now, in the past, or at non-integer instants", {
+        tags: "p1"
+    }, () => {
+        const agent = principal("grant-agent");
+        const phone = deviceId("grant-phone");
+        const consent = new MemoryDeviceConsentBackend(() => 10);
+        for (const expiresAt of [10, 9, Number.POSITIVE_INFINITY, Number.NaN]) {
+            expect(() => consent.grant(phone, agent, expiresAt)).toThrow(
+                expect.objectContaining({
+                    detailCode: "consent.invalid",
+                    message: "Device consent expiration must be in the future"
+                })
+            );
+        }
+        consent.grant(phone, agent, 11);
+        expect(consent.admit(undefined, phone, agent).admittedAt).toBe(10);
+    });
+
+    test("requires canonical pairing credentials before reverse transport", {
+        tags: "p1"
+    }, () => {
+        const backend = new DeviceBackend(new LiveSession(), new TestDeviceTransport(), {
+            read: () => undefined
+        });
+        expect(() =>
+            backend.pair({
+                deviceId: deviceId("phone"),
+                publicKey: "key ",
+                operatorApproval: "approved"
+            })
+        ).toThrow(
+            expect.objectContaining({
+                detailCode: "command.invalid",
+                message: "Device public key must be canonical"
+            })
+        );
+        expect(() =>
+            backend.pair({
+                deviceId: deviceId("phone"),
+                publicKey: "key",
+                operatorApproval: " approved"
+            })
+        ).toThrow(
+            expect.objectContaining({
+                detailCode: "command.invalid",
+                message: "Operator approval must be canonical"
+            })
+        );
+    });
+
+    test("maps consent denial to authority.denied and every other detail to invalid input", {
+        tags: "p0"
+    }, () => {
+        const denied = new DeviceError("consent.denied", "denied");
+        expect(denied.code).toBe("authority.denied");
+        expect(denied.name).toBe("DeviceError");
+        expect(denied.detail).toEqual({ code: "consent.denied" });
+        for (const detailCode of [
+            "consent.invalid",
+            "consent.exhausted",
+            "command.invalid"
+        ] as const) {
+            expect(new DeviceError(detailCode, "invalid").code).toBe("operation.invalid-input");
+        }
+        const invalidClock = new (class extends DeviceConsentBackend {
+            protected assertLive(): number {
+                return -1;
+            }
+        })();
+        expect(() => invalidClock.admit(undefined, deviceId("phone"), principal("agent"))).toThrow(
+            "Device consent admission time is invalid"
+        );
+    });
+
+    test("names Device identifiers in canonical identity errors", { tags: "p2" }, () => {
+        expect(() => new DeviceId("")).toThrow(
+            "Device ID must contain between 1 and 256 characters"
+        );
+        expect(() => new DeviceCommandId("")).toThrow(
+            "Device command ID must contain between 1 and 256 characters"
+        );
+    });
+});
+
+describe("Device wire codecs", () => {
+    test("decodes live, cached, and pairing inputs into typed identities", { tags: "p1" }, () => {
+        const camera = DEVICE_OPERATION_CONTRACTS.camera.decodeInput({
+            deviceId: "phone",
+            arguments: { facing: "front" }
+        });
+        expect(camera.deviceId.value).toBe("phone");
+        expect(camera.arguments).toEqual({ facing: "front" });
+
+        const cached = DEVICE_OPERATION_CONTRACTS.readCached.decodeInput({
+            deviceId: "phone",
+            key: "last"
+        });
+        expect(cached.deviceId.value).toBe("phone");
+        expect(cached.key).toBe("last");
+        expect(DEVICE_OPERATION_CONTRACTS.readCached.encodeOutput(undefined)).toBeNull();
+        expect(DEVICE_OPERATION_CONTRACTS.readCached.decodeOutput(null)).toBeUndefined();
+        expect(DEVICE_OPERATION_CONTRACTS.readCached.decodeOutput({ cached: true })).toEqual({
+            cached: true
+        });
+
+        const pair = DEVICE_PAIR_CONTROL.decodeInput({
+            deviceId: "phone",
+            publicKey: "key",
+            operatorApproval: "approved"
+        });
+        expect(pair.deviceId.value).toBe("phone");
+        expect(pair.publicKey).toBe("key");
+        expect(pair.operatorApproval).toBe("approved");
+    });
+
+    test("names decode subjects in wire errors", { tags: "p2" }, () => {
+        expect(() => DEVICE_OPERATION_CONTRACTS.camera.decodeInput(null)).toThrow(
+            "Device camera input must be an object"
+        );
+        expect(() =>
+            DEVICE_OPERATION_CONTRACTS.readCached.decodeInput({ deviceId: 1, key: "last" })
+        ).toThrow("Device ID must be a string");
+        expect(() =>
+            DEVICE_OPERATION_CONTRACTS.readCached.decodeInput({ deviceId: "phone", key: 1 })
+        ).toThrow("Device cache key must be a string");
+        expect(() =>
+            DEVICE_PAIR_CONTROL.decodeInput({
+                deviceId: 1,
+                publicKey: "key",
+                operatorApproval: "approved"
+            })
+        ).toThrow("Device ID must be a string");
+        expect(() =>
+            DEVICE_PAIR_CONTROL.decodeInput({
+                deviceId: "phone",
+                publicKey: 1,
+                operatorApproval: "approved"
+            })
+        ).toThrow("Device public key must be a string");
+        expect(() =>
+            DEVICE_PAIR_CONTROL.decodeInput({
+                deviceId: "phone",
+                publicKey: "key",
+                operatorApproval: 1
+            })
+        ).toThrow("Operator approval must be a string");
+    });
+
+    test("round-trips command Event payloads with exact kinds and optional results", {
+        tags: "p1"
+    }, () => {
+        const invoked = DEVICE_COMMAND_EVENT_CONTRACTS.invoked;
+        const encodedInvoked = invoked.encodePayload({
+            kind: "command.invoked",
+            commandId: new DeviceCommandId("cmd-1"),
+            operation: "camera",
+            deviceId: deviceId("phone"),
+            arguments: { facing: "front" }
+        });
+        expect(encodedInvoked).toEqual({
+            commandId: "cmd-1",
+            operation: "camera",
+            deviceId: "phone",
+            arguments: { facing: "front" }
+        });
+        const decodedInvoked = invoked.decodePayload(encodedInvoked);
+        expect(decodedInvoked.kind).toBe("command.invoked");
+        expect(decodedInvoked.commandId.value).toBe("cmd-1");
+        expect(decodedInvoked.operation).toBe("camera");
+        expect(decodedInvoked.deviceId.value).toBe("phone");
+        expect(decodedInvoked.arguments).toEqual({ facing: "front" });
+
+        const completed = DEVICE_COMMAND_EVENT_CONTRACTS.completed;
+        expect(
+            completed.encodePayload({
+                kind: "command.completed",
+                commandId: new DeviceCommandId("cmd-1"),
+                succeeded: true,
+                result: { ok: true }
+            })
+        ).toEqual({ commandId: "cmd-1", succeeded: true, result: { ok: true } });
+        expect(
+            completed.encodePayload({
+                kind: "command.completed",
+                commandId: new DeviceCommandId("cmd-1"),
+                succeeded: false
+            })
+        ).toEqual({ commandId: "cmd-1", succeeded: false });
+
+        const decodedCompleted = completed.decodePayload({
+            commandId: "cmd-1",
+            succeeded: true,
+            result: 5
+        });
+        expect(decodedCompleted.kind).toBe("command.completed");
+        expect(decodedCompleted.commandId.value).toBe("cmd-1");
+        expect(decodedCompleted.succeeded).toBe(true);
+        expect(decodedCompleted.result).toBe(5);
+        const withoutResult = completed.decodePayload({ commandId: "cmd-1", succeeded: true });
+        expect(Object.hasOwn(withoutResult, "result")).toBe(false);
+    });
+
+    test("rejects command Event payloads outside the typed surface", { tags: "p1" }, () => {
+        const invoked = DEVICE_COMMAND_EVENT_CONTRACTS.invoked;
+        expect(() => invoked.decodePayload(null)).toThrow(
+            "Device command invoked Event must be an object"
+        );
+        expect(() =>
+            invoked.decodePayload({ operation: "camera", deviceId: "phone", arguments: {} })
+        ).toThrow("Device command ID must be a string");
+        expect(() =>
+            invoked.decodePayload({
+                commandId: "cmd-1",
+                operation: "bogus",
+                deviceId: "phone",
+                arguments: {}
+            })
+        ).toThrow("Device command operation is invalid");
+        expect(() =>
+            invoked.decodePayload({
+                commandId: "cmd-1",
+                operation: 5,
+                deviceId: "phone",
+                arguments: {}
+            })
+        ).toThrow("Device command operation is invalid");
+        expect(() =>
+            invoked.decodePayload({
+                commandId: "cmd-1",
+                operation: "camera",
+                deviceId: 1,
+                arguments: {}
+            })
+        ).toThrow("Device ID must be a string");
+
+        const completed = DEVICE_COMMAND_EVENT_CONTRACTS.completed;
+        expect(() => completed.decodePayload(null)).toThrow(
+            "Device command completed Event must be an object"
+        );
+        expect(() => completed.decodePayload({ succeeded: true })).toThrow(
+            "Device command ID must be a string"
+        );
+        expect(() => completed.decodePayload({ commandId: "cmd-1", succeeded: "yes" })).toThrow(
+            "Device command completion state is invalid"
+        );
+    });
+});
+
+describe("Device internal runtime and typed command flow", () => {
+    test("asInternalRuntime registers the six declared operations and command surface", {
+        tags: "p1"
+    }, async () => {
+        const agent = principal("internal-agent");
+        const phone = deviceId("internal-phone");
+        const consent = new MemoryDeviceConsentBackend(() => 1);
+        const admitted = grantAndAdmit(consent, phone, agent, 2);
+        const transport = new TestDeviceTransport();
+        const facet = new DeviceFacet(
+            recordingRuntime("device").runtime,
+            new DeviceBackend(new LiveSession(), transport, {
+                read: (_device, key) => (key === "present" ? { cached: true } : undefined)
+            })
+        );
+
+        const internal = facet.asInternalRuntime(deviceManifest());
+
+        expect(internal.surface(DEVICE_COMMAND_SURFACE.id)?.descriptor).toBe(
+            DEVICE_COMMAND_SURFACE
+        );
+        const invocations = [
+            ["camera", { facing: "front" }],
+            ["location", { accuracyMeters: 5 }],
+            ["sms", { to: "+15550000", message: "hello" }],
+            ["screen", { mode: "capture" }],
+            ["system.run", { command: "status" }]
+        ] as const;
+        for (const [name, operationArguments] of invocations) {
+            await expect(
+                requireOperation(internal, name).execute(operationContext(admitted), {
+                    deviceId: phone.value,
+                    arguments: operationArguments
+                })
+            ).resolves.toEqual({ operation: name });
+        }
+        expect(transport.sent.map((request) => request.operation)).toEqual([
+            "camera",
+            "location",
+            "sms",
+            "screen",
+            "system.run"
+        ]);
+        await expect(
+            requireOperation(internal, "readCached").execute(operationContext(undefined), {
+                deviceId: phone.value,
+                key: "present"
+            })
+        ).resolves.toEqual({ cached: true });
+    });
+
+    test("command() routes every typed operation and emits invoked/completed evidence", {
+        tags: "p1"
+    }, async () => {
+        const agent = principal("command-agent");
+        const phone = deviceId("command-phone");
+        const consent = new MemoryDeviceConsentBackend(() => 1);
+        consent.grant(phone, agent, 1000);
+        const transport = new TestDeviceTransport();
+        const { runtime, admission } = recordingRuntime("device-command", undefined, (_request, input) =>
+            consent.admit(undefined, inputDevice(input), agent)
+        );
+        const facet = new DeviceFacet(
+            runtime,
+            new DeviceBackend(new LiveSession(), transport, { read: () => undefined })
+        );
+        const commands = [
+            ["camera", { facing: "front" }],
+            ["location", { accuracyMeters: 5 }],
+            ["sms", { to: "+15550000", message: "hello" }],
+            ["screen", { mode: "capture" }],
+            ["system.run", { command: "status" }]
+        ] as const;
+
+        for (const [operation, commandArguments] of commands) {
+            await expect(
+                facet.command({
+                    commandId: new DeviceCommandId(`command-${operation}`),
+                    deviceId: phone,
+                    operation,
+                    arguments: commandArguments
+                })
+            ).resolves.toEqual({ operation });
+        }
+
+        expect(transport.sent.map((request) => request.operation)).toEqual([
+            "camera",
+            "location",
+            "sms",
+            "screen",
+            "system.run"
+        ]);
+        expect(admission.calls.map((call) => [call.kind, call.name])).toEqual(
+            commands.flatMap(([operation]) => [
+                ["invoke", operation],
+                ["emit", "command.invoked"],
+                ["emit", "command.completed"]
+            ])
+        );
+        const [invokedCall, completedCall] = admission.calls.slice(1, 3);
+        expect(invokedCall?.input).toEqual({
+            commandId: "command-camera",
+            operation: "camera",
+            deviceId: phone.value,
+            arguments: { facing: "front" }
+        });
+        expect(completedCall?.input).toEqual({
+            commandId: "command-camera",
+            succeeded: true,
+            result: { operation: "camera" }
+        });
+        expect(invokedCall?.receipt).toBeDefined();
+        expect(invokedCall?.receipt).toBe(completedCall?.receipt);
+    });
+});
+
 class LiveSession extends DeviceEnvironmentSessionDependency {
     public assertUsable(): void {}
 }
@@ -493,4 +912,41 @@ function grantAndAdmit(
 ): DeviceAdmission {
     consent.grant(deviceId, agentId, expiresAt);
     return consent.admit(undefined, deviceId, agentId);
+}
+
+function deviceManifest(): FacetManifest {
+    return createDeviceManifest({
+        id: new FacetPackageId("profile.device"),
+        version: new SemVer("1.0.0"),
+        compat: new CompatRange("^1.0.0", "^1.0.0"),
+        bindings: [
+            new BindingRequirement(
+                new BindingName(DEVICE_ENVIRONMENT_BINDING),
+                new FacetPackageId("dependency.environment"),
+                new CompatRange("^1.0.0", "^1.0.0")
+            )
+        ]
+    });
+}
+
+function requireOperation(internal: InternalProfileFacetRuntime, name: string): Operation {
+    const operation = internal.operation(new OperationName(name));
+    if (operation === undefined) throw new TypeError(`Operation ${name} is not registered`);
+    return operation;
+}
+
+function operationContext(targetAdmission: unknown): OperationContext {
+    return {
+        invocation: new InvocationId("device-internal-invocation"),
+        itemIndex: 0,
+        idempotencyKey: "device-internal-key",
+        attempt: {
+            id: new EffectAttemptId("device-internal-attempt"),
+            ordinal: 0,
+            intentDigest: Digest.sha256(new TextEncoder().encode("device-internal"))
+        },
+        targetAdmission,
+        signal: new AbortController().signal,
+        content: new MemoryContentStore()
+    };
 }

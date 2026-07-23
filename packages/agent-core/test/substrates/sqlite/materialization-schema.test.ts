@@ -371,6 +371,177 @@ describe("SQLite materialization schema", () => {
         expect(database.all("SELECT id FROM definition_managed_state", [])).toEqual([]);
         expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
     });
+
+    test("names the exact legacy and unmarked schema reset reasons", { tags: "p1" }, () => {
+        const legacy = new TestSqlite();
+        legacy.run("CREATE TABLE composition_slot_entries (sentinel TEXT)", []);
+        expect(() => new SqliteMaterializationStore(legacy, actorRef("legacy-exact"))).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): legacy table composition_slot_entries exists"
+            })
+        );
+
+        const unmarked = expect.objectContaining({
+            code: "codec.invalid",
+            message:
+                "Materialization reset required (reset-required): definition materialization objects exist without a schema marker"
+        });
+        const unmarkedTable = new TestSqlite();
+        unmarkedTable.run("CREATE TABLE definition_blueprints (sentinel TEXT)", []);
+        expect(
+            () => new SqliteMaterializationStore(unmarkedTable, actorRef("unmarked-table"))
+        ).toThrowError(unmarked);
+
+        const unmarkedIndex = new TestSqlite();
+        unmarkedIndex.run("CREATE TABLE bystander (sentinel TEXT)", []);
+        unmarkedIndex.run(
+            "CREATE INDEX definition_managed_state_generation ON bystander (sentinel)",
+            []
+        );
+        expect(
+            () => new SqliteMaterializationStore(unmarkedIndex, actorRef("unmarked-index"))
+        ).toThrowError(unmarked);
+    });
+
+    test("names the exact incomplete-schema reset reason for missing tables and indexes", { tags: "p1" }, () => {
+        const incomplete = expect.objectContaining({
+            code: "codec.invalid",
+            message:
+                "Materialization reset required (reset-required): the marked definition materialization schema is incomplete"
+        });
+        const missingTable = new TestSqlite();
+        new SqliteMaterializationStore(missingTable, actorRef("missing-table"));
+        missingTable.run("DROP TABLE definition_blueprints", []);
+        expect(
+            () => new SqliteMaterializationStore(missingTable, actorRef("missing-table"))
+        ).toThrowError(incomplete);
+
+        const missingIndex = new TestSqlite();
+        new SqliteMaterializationStore(missingIndex, actorRef("missing-index"));
+        missingIndex.run("DROP INDEX definition_managed_state_generation", []);
+        expect(
+            () => new SqliteMaterializationStore(missingIndex, actorRef("missing-index"))
+        ).toThrowError(incomplete);
+    });
+
+    test("names the exact malformed marked object reset reasons", { tags: "p1" }, () => {
+        const malformedTable = new TestSqlite();
+        new SqliteMaterializationStore(malformedTable, actorRef("exact-malformed-table"));
+        malformedTable.run("DROP TABLE definition_blueprints", []);
+        malformedTable.run("CREATE TABLE definition_blueprints (sentinel TEXT) STRICT", []);
+        expect(
+            () => new SqliteMaterializationStore(malformedTable, actorRef("exact-malformed-table"))
+        ).toThrowError(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): the marked definition materialization table definition_blueprints is malformed"
+            })
+        );
+
+        const malformedIndex = new TestSqlite();
+        new SqliteMaterializationStore(malformedIndex, actorRef("exact-malformed-index"));
+        malformedIndex.run("DROP INDEX definition_managed_state_generation", []);
+        malformedIndex.run(
+            `CREATE INDEX definition_managed_state_generation
+             ON definition_managed_state (logical_key)`,
+            []
+        );
+        expect(
+            () => new SqliteMaterializationStore(malformedIndex, actorRef("exact-malformed-index"))
+        ).toThrowError(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): the marked definition materialization index definition_managed_state_generation is malformed"
+            })
+        );
+    });
+
+    test("tolerates triggers and indexes on tables outside the materialization schema", { tags: "p2" }, () => {
+        const database = new TestSqlite();
+        const actor = actorRef("bystander-trigger");
+        new SqliteMaterializationStore(database, actor);
+        database.run("CREATE TABLE bystander (sentinel TEXT)", []);
+        database.run(
+            `CREATE TRIGGER bystander_trigger AFTER INSERT ON bystander
+             BEGIN SELECT 1; END`,
+            []
+        );
+        database.run("CREATE INDEX bystander_index ON bystander (sentinel)", []);
+
+        expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
+    });
+
+    test("names the exact schema marker reset reasons", { tags: "p1" }, () => {
+        const unsupported = expect.objectContaining({
+            code: "codec.invalid",
+            message:
+                "Materialization reset required (reset-required): the definition materialization schema version is unsupported"
+        });
+        const missingRow = new TestSqlite();
+        new SqliteMaterializationStore(missingRow, actorRef("missing-marker-row"));
+        missingRow.run("DELETE FROM definition_materialization_schema", []);
+        expect(
+            () => new SqliteMaterializationStore(missingRow, actorRef("missing-marker-row"))
+        ).toThrowError(unsupported);
+
+        const wrongKind = new TestSqlite();
+        new SqliteMaterializationStore(wrongKind, actorRef("marker-owner"));
+        expect(
+            () => new SqliteMaterializationStore(wrongKind, actorRef("marker-owner", "workspace"))
+        ).toThrowError(unsupported);
+    });
+
+    test("names exact unsupported managed-state reset reasons and keeps plain codec failures", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const actor = actorRef("exact-unsupported");
+        const store = new SqliteMaterializationStore(database, actor);
+        const closure = installSupportedClosure(store, actor, "exact-unsupported");
+
+        database.run("PRAGMA ignore_check_constraints = ON", []);
+        database.run("UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?", [
+            closure.record.id.value
+        ]);
+        database.run("PRAGMA ignore_check_constraints = OFF", []);
+        expect(() => store.getManagedState(closure.record.id)).toThrowError(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): unsupported managed-state kind binding"
+            })
+        );
+
+        database.run("UPDATE definition_managed_state SET record_kind = ? WHERE id = ?", [
+            closure.record.recordKind,
+            closure.record.id.value
+        ]);
+        database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
+            withLegacyManagedStateKind(ManagedStateRecord.encode(closure.record)),
+            closure.record.id.value
+        ]);
+        expect(() => store.getManagedState(closure.record.id)).toThrowError(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): stored codec bytes contain an unsupported materialization closure"
+            })
+        );
+
+        database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
+            Uint8Array.of(1, 2, 3),
+            closure.record.id.value
+        ]);
+        expect(() => store.getManagedState(closure.record.id)).toThrowError(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: expect.not.stringContaining("reset-required")
+            })
+        );
+    });
 });
 
 function supportedPlan(actor: ReturnType<typeof actorRef>, seed: string): MaterializationPlan {

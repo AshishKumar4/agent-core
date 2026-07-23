@@ -37,6 +37,7 @@ import {
 } from "../../authority/internal-fixture";
 import { SqliteBindingStore } from "../../../src/substrates/sqlite/binding";
 import {
+    initializeSqliteAuthoritySchema,
     listSqliteEpochs,
     listSqliteGrants,
     loadSqliteEpoch,
@@ -1245,4 +1246,267 @@ function watermarkProjection(record: InvalidationWatermark): SqliteRow {
         revision: record.revision.value,
         record: InvalidationWatermark.encode(record)
     };
+}
+
+describe("SQLite authority adapter mutation gates", () => {
+    const scope = ScopeRef.tenant(tenantId);
+    const foreignScope = ScopeRef.tenant(new TenantId("gate-foreign"));
+    const grant = new Grant(
+        new GrantId("gate-grant"),
+        scope,
+        SubjectRef.principal(ownerId),
+        "allow",
+        new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+        { kind: "direct" }
+    );
+    const corruptMessage = "Stored Tenant authority state is malformed";
+
+    test("grant revocation persists and revoked grants cannot reactivate", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        saveSqliteGrant(database, grant);
+        saveSqliteGrant(database, grant.revoke());
+        expect(loadSqliteGrant(database, grant.id)?.state.name).toBe("revoked");
+        expectExactFailure(
+            () => saveSqliteGrant(database, grant),
+            "protocol.invalid-state",
+            "Revoked Grants cannot reactivate"
+        );
+        expect(loadSqliteGrant(database, grant.id)?.state.name).toBe("revoked");
+    });
+
+    test(
+        "grant writes that do not land fail with the exact concurrent-change conflict",
+        { tags: "p0" },
+        () => {
+            const database = new TamperedSqlite();
+            initializeSqliteAuthoritySchema(database);
+            database.dropRuns = true;
+            expectExactFailure(
+                () => saveSqliteGrant(database, grant),
+                "protocol.revision-conflict",
+                "Grant changed concurrently"
+            );
+        }
+    );
+
+    test("grant projections must match their stored columns", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        saveSqliteGrant(database, grant);
+        const sibling = new Grant(
+            new GrantId("gate-grant-sibling"),
+            scope,
+            SubjectRef.principal(ownerId),
+            "allow",
+            new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+            { kind: "direct" }
+        );
+        const drifts: readonly (readonly [string, SqliteValue, SqliteValue])[] = [
+            ["record", Grant.encode(sibling), Grant.encode(grant)],
+            ["scope_key", "tampered", scopeKey(grant.scope)],
+            ["subject_key", "tampered", subjectKey(grant.subject)],
+            ["effect", "deny", grant.effect],
+            ["parent_grant_id", "phantom", null]
+        ];
+        for (const [column, drifted, restored] of drifts) {
+            database.run(`UPDATE tenant_grants SET ${column} = ? WHERE id = ?`, [
+                drifted,
+                grant.id.value
+            ]);
+            expectExactFailure(
+                () => loadSqliteGrant(database, grant.id),
+                "codec.invalid",
+                corruptMessage
+            );
+            database.run(`UPDATE tenant_grants SET ${column} = ? WHERE id = ?`, [
+                restored,
+                grant.id.value
+            ]);
+        }
+        expect(loadSqliteGrant(database, grant.id)?.id.equals(grant.id)).toBe(true);
+    });
+
+    test("grant driver rows must belong to the queried id", { tags: "p0" }, () => {
+        const database = new StubSqlite({
+            id: "foreign-row",
+            scope_key: scopeKey(grant.scope),
+            subject_key: subjectKey(grant.subject),
+            effect: grant.effect,
+            parent_grant_id: null,
+            state: grant.state.name,
+            record: Grant.encode(grant)
+        });
+        expectExactFailure(
+            () => loadSqliteGrant(database, grant.id),
+            "codec.invalid",
+            corruptMessage
+        );
+    });
+
+    test("text and byte columns fail closed as typed corruption", { tags: "p1" }, () => {
+        const grantRow = {
+            id: "",
+            scope_key: scopeKey(grant.scope),
+            subject_key: subjectKey(grant.subject),
+            effect: grant.effect,
+            parent_grant_id: null,
+            state: grant.state.name,
+            record: Grant.encode(grant)
+        } satisfies SqliteRow;
+        expectExactFailure(
+            () => listSqliteGrants(new StubSqlite(grantRow)),
+            "codec.invalid",
+            corruptMessage
+        );
+        expectExactFailure(
+            () =>
+                loadSqliteEpoch(
+                    new StubSqlite({ scope_key: scopeKey(scope), epoch: 1, record: 42 }),
+                    scope
+                ),
+            "codec.invalid",
+            corruptMessage
+        );
+    });
+
+    test("epoch writes advance exactly once from the stored epoch", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        expectExactFailure(
+            () => saveSqliteEpoch(database, new ScopeEpoch(scope, 2)),
+            "protocol.revision-conflict",
+            "Scope epoch writes must advance exactly once"
+        );
+        expect(loadSqliteEpoch(database, scope).epoch).toBe(0);
+        saveSqliteEpoch(database, new ScopeEpoch(scope, 1));
+        saveSqliteEpoch(database, new ScopeEpoch(scope, 1));
+        expectExactFailure(
+            () => saveSqliteEpoch(database, new ScopeEpoch(scope, 3)),
+            "protocol.revision-conflict",
+            "Scope epoch writes must advance exactly once"
+        );
+        expect(loadSqliteEpoch(database, scope).epoch).toBe(1);
+    });
+
+    test(
+        "epoch writes that do not land fail with the exact concurrent-change conflict",
+        { tags: "p0" },
+        () => {
+            const database = new TamperedSqlite();
+            initializeSqliteAuthoritySchema(database);
+            database.dropRuns = true;
+            expectExactFailure(
+                () => saveSqliteEpoch(database, new ScopeEpoch(scope, 1)),
+                "protocol.revision-conflict",
+                "Scope epoch changed concurrently"
+            );
+        }
+    );
+
+    test("epoch projections must match their stored columns", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        saveSqliteEpoch(database, new ScopeEpoch(scope, 1));
+        database.run("UPDATE tenant_scope_epochs SET epoch = 2 WHERE scope_key = ?", [
+            scopeKey(scope)
+        ]);
+        expectExactFailure(() => loadSqliteEpoch(database, scope), "codec.invalid", corruptMessage);
+        expectExactFailure(() => listSqliteEpochs(database), "codec.invalid", corruptMessage);
+        database.run("UPDATE tenant_scope_epochs SET epoch = 1 WHERE scope_key = ?", [
+            scopeKey(scope)
+        ]);
+        database.run("UPDATE tenant_scope_epochs SET record = ? WHERE scope_key = ?", [
+            ScopeEpoch.encode(new ScopeEpoch(foreignScope, 1)),
+            scopeKey(scope)
+        ]);
+        expectExactFailure(() => loadSqliteEpoch(database, scope), "codec.invalid", corruptMessage);
+        expectExactFailure(() => listSqliteEpochs(database), "codec.invalid", corruptMessage);
+        database.run("UPDATE tenant_scope_epochs SET record = ? WHERE scope_key = ?", [
+            ScopeEpoch.encode(new ScopeEpoch(scope, 1)),
+            scopeKey(scope)
+        ]);
+        database.run("UPDATE tenant_scope_epochs SET scope_key = 'tampered' WHERE scope_key = ?", [
+            scopeKey(scope)
+        ]);
+        expectExactFailure(() => listSqliteEpochs(database), "codec.invalid", corruptMessage);
+        expect(loadSqliteEpoch(database, scope).epoch).toBe(0);
+    });
+
+    test("epoch driver rows must match the queried scope key", { tags: "p0" }, () => {
+        const database = new StubSqlite({
+            scope_key: "foreign-key",
+            epoch: 1,
+            record: ScopeEpoch.encode(new ScopeEpoch(scope, 1))
+        });
+        expectExactFailure(() => loadSqliteEpoch(database, scope), "codec.invalid", corruptMessage);
+    });
+
+    test("a stored zero epoch round-trips", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        database.run("INSERT INTO tenant_scope_epochs (scope_key, epoch, record) VALUES (?, ?, ?)", [
+            scopeKey(scope),
+            0,
+            ScopeEpoch.encode(new ScopeEpoch(scope, 0))
+        ]);
+        expect(loadSqliteEpoch(database, scope).epoch).toBe(0);
+        expect(
+            listSqliteEpochs(database).some(
+                (record) => record.scope.equals(scope) && record.epoch === 0
+            )
+        ).toBe(true);
+    });
+
+    test("read and write failures carry their exact taxonomy", { tags: "p1" }, () => {
+        const failingWrite = new StubSqlite();
+        failingWrite.failRuns = true;
+        expectExactFailure(
+            () => initializeSqliteAuthoritySchema(failingWrite),
+            "protocol.revision-conflict",
+            "Authority write failed"
+        );
+        const failingRead = new StubSqlite();
+        failingRead.failReads = true;
+        expectExactFailure(
+            () => loadSqliteGrant(failingRead, grant.id),
+            "codec.invalid",
+            "Authority read failed"
+        );
+    });
+});
+
+class TamperedSqlite extends TransactionalSqlite {
+    readonly #database = new TestSqlite();
+    public dropRuns = false;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        return this.#database.all(statement, bindings);
+    }
+
+    public run(statement: string, bindings: readonly SqliteValue[]): void {
+        if (!this.dropRuns) this.#database.run(statement, bindings);
+    }
+
+    public transaction<Result>(
+        operation: () => Result,
+        ...guard: SynchronousResultGuard<Result>
+    ): Result {
+        return this.#database.transaction(operation, ...guard);
+    }
+}
+
+function expectExactFailure(
+    operation: () => unknown,
+    code: AgentCoreError["code"],
+    message: string
+): void {
+    try {
+        operation();
+        throw new TypeError("Expected operation to fail");
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        expect((error as AgentCoreError).code).toBe(code);
+        expect((error as AgentCoreError).message).toBe(message);
+    }
 }

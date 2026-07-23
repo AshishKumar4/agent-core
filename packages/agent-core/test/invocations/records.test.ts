@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { ContentRef, Digest, Revision, encodeCanonicalJson } from "../../src/core";
+import { AgentCoreError } from "../../src/errors";
 import { PrincipalId } from "../../src/identity";
 import {
     Approval,
@@ -11,6 +12,8 @@ import {
     ClaimWorkerId,
     EffectAttempt,
     EffectAttemptId,
+    InvocationContinuation,
+    InvocationError,
     InvocationId,
     ItemClaim,
     ItemClaimId,
@@ -21,7 +24,7 @@ import {
     ReceiptId,
     terminalBatchOutcome
 } from "../../src/invocations";
-import { admissionFor, attemptCodec, claimCodec } from "./fixture";
+import { admissionFor, attemptCodec, claimCodec, continuationCodec } from "./fixture";
 
 describe("Invocation evidence records", () => {
     test("guards every Approval terminal transition and round-trips revisions", () => {
@@ -453,6 +456,457 @@ describe("Invocation evidence records", () => {
         expect(terminalBatchOutcome("indeterminate")).toBeUndefined();
         expect(() => deriveBatchOutcome(0, [])).toThrow();
     });
+
+    test("consumes an Approval only from the approved state and exactly at or after approval", { tags: "p0" }, () => {
+        const pending = approval("consume-guard", time(10));
+        const denied = pending.deny(new PrincipalId("consume-denier"), time(2), "no");
+        expectInvocationInvalid(
+            () => denied.consume(new EffectAttemptId("denied-consume"), time(3)),
+            /consumption requires approved state/
+        );
+        expectInvocationInvalid(
+            () => pending.consume(new EffectAttemptId("pending-consume"), time(3)),
+            /consumption requires approved state/
+        );
+        const approved = approval("consume-boundary", time(10)).approve(
+            new PrincipalId("consume-approver"),
+            time(2)
+        );
+        expectInvalidTransition(
+            () => approved.consume(new EffectAttemptId("backdated-consume"), time(1)),
+            /cannot precede approval/
+        );
+        const consumed = approved.consume(new EffectAttemptId("boundary-consume"), time(2));
+        expect(consumed.state).toMatchObject({ kind: "consumed", approvedAt: time(2), at: time(2) });
+        expect(consumed.revision.value).toBe(2);
+    });
+
+    test("guards every Approval decision against its request and expiry boundaries", { tags: "p1" }, () => {
+        const atRequest = approval("decision-floor", time(10)).approve(
+            new PrincipalId("floor-approver"),
+            time(1)
+        );
+        expect(atRequest.state).toMatchObject({ kind: "approved", at: time(1) });
+        expectInvalidTransition(
+            () =>
+                approval("decision-precedes", time(10)).approve(
+                    new PrincipalId("early-approver"),
+                    time(0)
+                ),
+            /decision cannot precede request/
+        );
+        expectInvocationInvalid(
+            () =>
+                approval("decision-expiry", time(5)).approve(
+                    new PrincipalId("late-approver"),
+                    time(5)
+                ),
+            /past its expiry/
+        );
+        expectInvocationInvalid(
+            () =>
+                approval("denial-expiry", time(5)).deny(
+                    new PrincipalId("late-denier"),
+                    time(5),
+                    "late"
+                ),
+            /past its expiry/
+        );
+        const noExpiry = Approval.pending(
+            new ApprovalId("no-expiry-decision"),
+            new InvocationId("no-expiry-decision-invocation"),
+            Digest.sha256(new TextEncoder().encode("no-expiry-decision")),
+            time(1)
+        );
+        expect(noExpiry.approve(new PrincipalId("open-approver"), time(50)).state.kind).toBe(
+            "approved"
+        );
+        expectInvocationInvalid(
+            () => noExpiry.expire(time(50)),
+            /cannot expire before its deadline/
+        );
+        expectInvocationInvalid(
+            () => approval("expire-early", time(5)).expire(time(4)),
+            /cannot expire before its deadline/
+        );
+        const decided = approval("pending-guard", time(10)).deny(
+            new PrincipalId("guard-denier"),
+            time(2),
+            "no"
+        );
+        expectInvocationInvalid(
+            () => decided.approve(new PrincipalId("late"), time(3)),
+            /approve requires pending state/
+        );
+        const granted = approval("pending-guard-approved", time(10)).approve(
+            new PrincipalId("guard-approver"),
+            time(2)
+        );
+        expectInvocationInvalid(
+            () => granted.deny(new PrincipalId("late"), time(3), "no"),
+            /deny requires pending state/
+        );
+        expectInvocationInvalid(
+            () => granted.expire(time(11)),
+            /expire requires pending state/
+        );
+    });
+
+    test("validates stored Approval chronology at its exact boundaries", { tags: "p1" }, () => {
+        class DerivedInvocationId extends InvocationId {}
+        const id = new ApprovalId("chronology");
+        const invocation = new InvocationId("chronology-invocation");
+        const digest = Digest.sha256(new TextEncoder().encode("chronology"));
+        const principal = new PrincipalId("chronology-approver");
+        const firstAttempt = new EffectAttemptId("chronology-attempt");
+        expect(() =>
+            Approval.pending(id, new DerivedInvocationId("derived-invocation"), digest, time(1))
+        ).toThrow(/exact context classes/);
+        const build = (
+            revision: number,
+            state: ConstructorParameters<typeof Approval>[6],
+            expiresAt: Date | undefined = time(10)
+        ) => new Approval(id, invocation, digest, time(1), expiresAt, new Revision(revision), state);
+
+        const boundary = build(2, {
+            kind: "consumed",
+            by: principal,
+            approvedAt: time(1),
+            at: time(1),
+            firstAttempt
+        });
+        expect(boundary.state.kind).toBe("consumed");
+        expect(() =>
+            build(2, {
+                kind: "consumed",
+                by: principal,
+                approvedAt: time(3),
+                at: time(2),
+                firstAttempt
+            })
+        ).toThrow(/Consumed Approval/);
+        expect(() =>
+            build(3, {
+                kind: "consumed",
+                by: principal,
+                approvedAt: time(2),
+                at: time(3),
+                firstAttempt
+            })
+        ).toThrow(/Consumed Approval/);
+        expect(() =>
+            build(
+                2,
+                { kind: "consumed", by: principal, approvedAt: time(2), at: time(5), firstAttempt },
+                time(5)
+            )
+        ).toThrow(/Consumed Approval/);
+        expect(() => build(1, { kind: "expired", at: time(5) }, undefined)).toThrow(
+            /Expired Approval/
+        );
+        expect(() =>
+            build(1, { kind: "denied", by: principal, at: time(2), reason: "  " })
+        ).toThrow(/must not be blank/);
+    });
+
+    test("reports the exact subject for every invalid Approval time input", { tags: "p2" }, () => {
+        const id = new ApprovalId("time-subjects");
+        const invocation = new InvocationId("time-subjects-invocation");
+        const digest = Digest.sha256(new TextEncoder().encode("time-subjects"));
+        const principal = new PrincipalId("time-subjects-approver");
+        const invalid = new Date(Number.NaN);
+        expect(() => Approval.pending(id, invocation, digest, invalid)).toThrow(
+            /Approval request time must be a valid Date/
+        );
+        expect(() => Approval.pending(id, invocation, digest, time(1), invalid)).toThrow(
+            /Approval expiry must be a valid Date/
+        );
+        const pending = approval("time-subjects", time(10));
+        expect(() => pending.expire(invalid)).toThrow(
+            /Approval expiration time must be a valid Date/
+        );
+        expect(() => pending.approve(principal, invalid)).toThrow(
+            /Approval decision time must be a valid Date/
+        );
+        expect(
+            () =>
+                new Approval(id, invocation, digest, time(1), time(10), new Revision(1), {
+                    kind: "approved",
+                    by: principal,
+                    at: invalid
+                })
+        ).toThrow(/Approval state time must be a valid Date/);
+        expect(
+            () =>
+                new Approval(id, invocation, digest, time(1), time(10), new Revision(2), {
+                    kind: "consumed",
+                    by: principal,
+                    approvedAt: invalid,
+                    at: time(2),
+                    firstAttempt: new EffectAttemptId("time-subjects-attempt")
+                })
+        ).toThrow(/Approval time must be a valid Date/);
+    });
+
+    test("enforces ItemClaim identity, expiry, and recovery ownership precisely", { tags: "p0" }, () => {
+        class DerivedItemClaimId extends ItemClaimId {}
+        class DerivedInvocationId extends InvocationId {}
+        const owner = {
+            kind: "executor",
+            token: "lease",
+            worker: new ClaimWorkerId("worker-a")
+        } as const;
+        expect(
+            () =>
+                new ItemClaim(
+                    new DerivedItemClaimId("derived-claim"),
+                    new InvocationId("derived-claim-invocation"),
+                    0,
+                    0,
+                    owner,
+                    time(5)
+                )
+        ).toThrow(/exact context classes/);
+        expect(
+            () =>
+                new ItemClaim(
+                    new ItemClaimId("derived-claim-invocation-id"),
+                    new DerivedInvocationId("derived-invocation"),
+                    0,
+                    0,
+                    owner,
+                    time(5)
+                )
+        ).toThrow(/exact context classes/);
+        expect(
+            () =>
+                new ItemClaim(
+                    new ItemClaimId("invalid-expiry-claim"),
+                    new InvocationId("invalid-expiry-invocation"),
+                    0,
+                    0,
+                    owner,
+                    new Date(Number.NaN)
+                )
+        ).toThrow(/Claim expiry must be a valid Date/);
+
+        const claim = new ItemClaim(
+            new ItemClaimId("recovery-claim"),
+            new InvocationId("recovery-invocation"),
+            0,
+            1,
+            owner,
+            time(5)
+        );
+        expect(() => claim.requireFuture(new Date(Number.NaN))).toThrow(
+            /Claim time must be a valid Date/
+        );
+        expectInvocationInvalid(() => claim.requireFuture(time(5)), /future expiry/);
+        const replacementOwner = {
+            kind: "system",
+            actor: new ActorRef("run", new ActorId("recovery-actor")),
+            worker: new ClaimWorkerId("worker-b")
+        } as const;
+        expect(() =>
+            claim.recover(
+                new ItemClaimId("invalid-now"),
+                replacementOwner,
+                time(9),
+                new Date(Number.NaN)
+            )
+        ).toThrow(/Claim recovery time must be a valid Date/);
+        expectInvocationInvalid(
+            () => claim.recover(new ItemClaimId("too-early"), replacementOwner, time(9), time(4)),
+            /Only an expired claim may be recovered/
+        );
+        expectInvocationInvalid(
+            () =>
+                claim.recover(
+                    new ItemClaimId("same-worker"),
+                    { kind: "system", actor: replacementOwner.actor, worker: owner.worker },
+                    time(9),
+                    time(5)
+                ),
+            /different worker/
+        );
+        const recovered = claim.recover(
+            new ItemClaimId("recovered"),
+            replacementOwner,
+            time(9),
+            time(5)
+        );
+        expect(recovered.owner.worker.value).toBe("worker-b");
+        expect(recovered.itemIndex).toBe(0);
+        expect(recovered.attemptOrdinal).toBe(1);
+        expect(recovered.invocation.equals(claim.invocation)).toBe(true);
+    });
+
+    test("rejects EffectAttempt identifier, ordinal, and start-time violations", { tags: "p1" }, () => {
+        class DerivedInvocationId extends InvocationId {}
+        class DerivedItemClaimId extends ItemClaimId {}
+        class DerivedAuditRecordId extends AuditRecordId {}
+        const attempt = (overrides: {
+            readonly invocation?: InvocationId;
+            readonly claim?: ItemClaimId;
+            readonly auditCause?: AuditRecordId;
+            readonly ordinal?: number;
+            readonly startedAt?: Date;
+        }) =>
+            new EffectAttempt(
+                new EffectAttemptId("guarded-attempt"),
+                overrides.invocation ?? new InvocationId("guarded-invocation"),
+                0,
+                overrides.ordinal ?? 0,
+                overrides.claim ?? new ItemClaimId("guarded-claim"),
+                "lease",
+                admissionFor("guarded-invocation", 0, overrides.ordinal ?? 0),
+                overrides.startedAt ?? time(2),
+                "agent-core.item.v1:guarded",
+                overrides.auditCause ?? new AuditRecordId("guarded-audit")
+            );
+        expect(() => attempt({ invocation: new DerivedInvocationId("derived") })).toThrow(
+            /exact context classes/
+        );
+        expect(() => attempt({ claim: new DerivedItemClaimId("derived") })).toThrow(
+            /exact context classes/
+        );
+        expect(() => attempt({ auditCause: new DerivedAuditRecordId("derived") })).toThrow(
+            /exact context classes/
+        );
+        expect(() => attempt({ ordinal: -1 })).toThrow(/non-negative safe integers/);
+        expect(() => attempt({ startedAt: new Date(Number.NaN) })).toThrow(
+            /Effect attempt start time must be a valid Date/
+        );
+    });
+
+    test("rejects Receipt identifier violations and misimplemented variants", { tags: "p1" }, () => {
+        class DerivedReceiptId extends ReceiptId {}
+        class DerivedInvocationId extends InvocationId {}
+        class DerivedEffectAttemptId extends EffectAttemptId {}
+        expect(
+            () =>
+                new PreEffectReceipt(
+                    new DerivedReceiptId("derived-receipt"),
+                    new InvocationId("derived-receipt-invocation"),
+                    0,
+                    "deniedPreEffect",
+                    time(1),
+                    "reason"
+                )
+        ).toThrow(/exact context classes/);
+        expect(
+            () =>
+                new PreEffectReceipt(
+                    new ReceiptId("derived-invocation-receipt"),
+                    new DerivedInvocationId("derived-invocation"),
+                    0,
+                    "deniedPreEffect",
+                    time(1),
+                    "reason"
+                )
+        ).toThrow(/exact context classes/);
+        expect(
+            () =>
+                new AttemptReceipt(
+                    new DerivedReceiptId("derived-attempt-receipt"),
+                    new EffectAttemptId("derived-receipt-attempt"),
+                    "failed",
+                    undefined,
+                    time(1),
+                    undefined
+                )
+        ).toThrow(/exact context classes/);
+        expect(
+            () =>
+                new AttemptReceipt(
+                    new ReceiptId("derived-attempt-id-receipt"),
+                    new DerivedEffectAttemptId("derived-attempt"),
+                    "failed",
+                    undefined,
+                    time(1),
+                    undefined
+                )
+        ).toThrow(/exact context classes/);
+        expect(
+            () =>
+                new AttemptReceipt(
+                    new ReceiptId("derived-previous-receipt"),
+                    new EffectAttemptId("derived-previous-attempt"),
+                    "failed",
+                    new DerivedReceiptId("derived-previous"),
+                    time(1),
+                    undefined
+                )
+        ).toThrow(/exact context classes/);
+        expect(
+            () =>
+                new PreEffectReceipt(
+                    new ReceiptId("invalid-time-receipt"),
+                    new InvocationId("invalid-time-invocation"),
+                    0,
+                    "deniedPreEffect",
+                    new Date(Number.NaN),
+                    "reason"
+                )
+        ).toThrow(/Receipt time must be a valid Date/);
+        expect(() => Receipt.encode(new UnknownReceipt())).toThrow(
+            /Receipt implementation is invalid/
+        );
+    });
+
+    test("requires InvocationContinuation identifiers, canonical keys, and a valid admission time", { tags: "p1" }, () => {
+        class DerivedApprovalId extends ApprovalId {}
+        class DerivedEffectAttemptId extends EffectAttemptId {}
+        class DerivedItemClaimId extends ItemClaimId {}
+        const continuation = (overrides: {
+            readonly approval?: ApprovalId;
+            readonly firstAttempt?: EffectAttemptId;
+            readonly firstClaim?: ItemClaimId;
+            readonly firstItemKey?: string;
+            readonly admittedAt?: Date;
+        }) =>
+            new InvocationContinuation<string>(
+                new InvocationId("continuation-invocation"),
+                Digest.sha256(new TextEncoder().encode("continuation")),
+                overrides.approval ?? new ApprovalId("continuation-approval"),
+                overrides.firstAttempt ?? new EffectAttemptId("continuation-attempt"),
+                0,
+                0,
+                overrides.firstClaim ?? new ItemClaimId("continuation-claim"),
+                {
+                    kind: "executor",
+                    token: "lease",
+                    worker: new ClaimWorkerId("continuation-worker")
+                },
+                overrides.firstItemKey ?? "agent-core.item.v1:continuation",
+                overrides.admittedAt ?? time(3)
+            );
+        expect(() => continuation({ approval: new DerivedApprovalId("derived") })).toThrow(
+            /exact context classes/
+        );
+        expect(() =>
+            continuation({ firstAttempt: new DerivedEffectAttemptId("derived") })
+        ).toThrow(/exact context classes/);
+        expect(() => continuation({ firstClaim: new DerivedItemClaimId("derived") })).toThrow(
+            /exact context classes/
+        );
+        expect(() => continuation({ firstItemKey: "" })).toThrow(/must be canonical/);
+        expect(() => continuation({ firstItemKey: " padded " })).toThrow(/must be canonical/);
+        expect(() => continuation({ admittedAt: new Date(Number.NaN) })).toThrow(
+            /Continuation admission time must be a valid Date/
+        );
+        const decoded = continuationCodec.decode(continuationCodec.encode(continuation({})));
+        expect(decoded.admittedAt.toISOString()).toBe(time(3).toISOString());
+        expect(decoded.firstItemKey).toBe("agent-core.item.v1:continuation");
+    });
+
+    test("derives a batch outcome only from one complete Receipt slot per item", { tags: "p1" }, () => {
+        const success = attempted("slot-success", "succeeded");
+        expect(deriveBatchOutcome(2, [success, undefined])).toBeUndefined();
+        expect(() => deriveBatchOutcome(2, [success])).toThrow(/one Receipt slot per/);
+        expect(terminalBatchOutcome(undefined)).toBeUndefined();
+        expect(terminalBatchOutcome("cancelled")).toBe("cancelled");
+    });
 });
 
 class UnknownReceipt extends Receipt {
@@ -492,6 +946,29 @@ function attempted(id: string, outcome: "succeeded" | "failed" | "indeterminate"
 
 function content(value: string): ContentRef {
     return ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode(value)));
+}
+
+function caughtFrom(operation: () => unknown): unknown {
+    try {
+        operation();
+    } catch (error) {
+        return error;
+    }
+    throw new TypeError("Expected operation to throw");
+}
+
+function expectInvocationInvalid(operation: () => unknown, message: RegExp): void {
+    const error = caughtFrom(operation);
+    expect(error).toBeInstanceOf(AgentCoreError);
+    expect((error as AgentCoreError).code).toBe("invocation.invalid");
+    expect((error as AgentCoreError).message).toMatch(message);
+}
+
+function expectInvalidTransition(operation: () => unknown, message: RegExp): void {
+    const error = caughtFrom(operation);
+    expect(error).toBeInstanceOf(InvocationError);
+    expect((error as InvocationError).failure).toBe("state.invalid-transition");
+    expect((error as InvocationError).message).toMatch(message);
 }
 
 function time(second: number): Date {

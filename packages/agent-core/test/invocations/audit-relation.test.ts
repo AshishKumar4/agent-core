@@ -19,7 +19,9 @@ import {
     type ApprovalAuditPhase,
     type AuditEvidenceResolver,
     type AuditRecordLookup,
-    type ReceiptAuditOutcome
+    type ReceiptAuditEvidence,
+    type ReceiptAuditOutcome,
+    type WriteAuditOutcome
 } from "../../src/invocations";
 
 describe("complete local AuditKind relation", () => {
@@ -232,17 +234,7 @@ describe("complete local AuditKind relation", () => {
 
     test("[C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge", () => {
         const graph = fixture();
-        const noEvidence: AuditEvidenceResolver = {
-            approval: () => undefined,
-            attempt: () => undefined,
-            receipt: () => undefined,
-            event: () => undefined,
-            route: () => undefined,
-            projection: () => undefined,
-            delivery: () => undefined,
-            commit: () => undefined,
-            write: () => undefined
-        };
+        const noEvidence = emptyEvidence();
         expect(() =>
             validateAuditAppend(
                 graph.projected,
@@ -343,6 +335,455 @@ describe("complete local AuditKind relation", () => {
                 graph.projected.id
             )
         ).toThrow("Invocation audit roots cannot have a cause");
+    });
+});
+
+describe("audit evidence substantiation", () => {
+    test("requires write evidence to match the causal invocation and outcome", { tags: "p1" }, () => {
+        const invocationId = new InvocationId("write-substantiation-invocation");
+        const writeId = new WriteRecordId("write-substantiation");
+        const cause = record("write-substantiation-root", { kind: "invocation", id: invocationId });
+        const next = record(
+            "write-substantiation-audit",
+            { kind: "write", id: writeId, outcome: "committed" },
+            cause.id
+        );
+        const withWrite = (
+            invocation: InvocationId,
+            outcome: WriteAuditOutcome
+        ): AuditEvidenceResolver => ({
+            ...emptyEvidence(),
+            write: (id) => (id.equals(writeId) ? { invocation, outcome } : undefined)
+        });
+        expectUnsubstantiated(
+            cause,
+            next,
+            withWrite(new InvocationId("write-substantiation-other"), "committed")
+        );
+        expectUnsubstantiated(cause, next, withWrite(invocationId, "duplicate"));
+        expectSubstantiated(cause, next, withWrite(invocationId, "committed"));
+    });
+
+    test("requires delivery evidence for the projected reservation", { tags: "p1" }, () => {
+        const reservation = new RouteReservationId("delivery-substantiation");
+        const cause = record("delivery-substantiation-root", {
+            kind: "routeProjected",
+            projection: new RouteProjectionId("delivery-substantiation-projection"),
+            reservation
+        });
+        const next = record("delivery-substantiation-audit", { kind: "delivery", reservation }, cause.id);
+        expectUnsubstantiated(cause, next, emptyEvidence());
+        expectUnsubstantiated(cause, next, {
+            ...emptyEvidence(),
+            delivery: () => ({ reservation: new RouteReservationId("delivery-substantiation-other") })
+        });
+        expectSubstantiated(cause, next, { ...emptyEvidence(), delivery: () => ({ reservation }) });
+    });
+
+    test("requires approval evidence to match the invocation approval", { tags: "p1" }, () => {
+        const invocationId = new InvocationId("approval-substantiation-invocation");
+        const cause = record("approval-substantiation-root", { kind: "invocation", id: invocationId });
+        const next = record(
+            "approval-substantiation-audit",
+            { kind: "approval", id: new ApprovalId("approval-substantiation"), phase: "pending" },
+            cause.id
+        );
+        expectUnsubstantiated(cause, next, emptyEvidence());
+        expectUnsubstantiated(cause, next, {
+            ...emptyEvidence(),
+            approval: () => ({
+                invocation: new InvocationId("approval-substantiation-other"),
+                phase: "pending"
+            })
+        });
+        expectUnsubstantiated(cause, next, {
+            ...emptyEvidence(),
+            approval: () => ({ invocation: invocationId, phase: "consumed" })
+        });
+        expectSubstantiated(cause, next, {
+            ...emptyEvidence(),
+            approval: () => ({ invocation: invocationId, phase: "pending" })
+        });
+    });
+
+    test("requires attempt evidence for direct invocation attempts", { tags: "p1" }, () => {
+        const cause = record("attempt-substantiation-root", {
+            kind: "invocation",
+            id: new InvocationId("attempt-substantiation-invocation")
+        });
+        const next = record(
+            "attempt-substantiation-audit",
+            { kind: "attempt", id: new EffectAttemptId("attempt-substantiation") },
+            cause.id
+        );
+        expectUnsubstantiated(cause, next, emptyEvidence());
+    });
+
+    test("requires pre-effect receipt evidence for direct invocation receipts", { tags: "p1" }, () => {
+        const invocationId = new InvocationId("pre-effect-invocation");
+        const receiptId = new ReceiptId("pre-effect-receipt");
+        const cause = record("pre-effect-root", { kind: "invocation", id: invocationId });
+        const denied = record(
+            "pre-effect-denied",
+            { kind: "receipt", id: receiptId, outcome: "deniedPreEffect" },
+            cause.id
+        );
+        const cancelled = record(
+            "pre-effect-cancelled",
+            { kind: "receipt", id: receiptId, outcome: "cancelledPreEffect" },
+            cause.id
+        );
+        const succeeded = record(
+            "pre-effect-succeeded",
+            { kind: "receipt", id: receiptId, outcome: "succeeded" },
+            cause.id
+        );
+        const withReceipt = (evidence: ReceiptAuditEvidence): AuditEvidenceResolver => ({
+            ...emptyEvidence(),
+            receipt: (id) => (id.equals(receiptId) ? evidence : undefined)
+        });
+        expectUnsubstantiated(
+            cause,
+            succeeded,
+            withReceipt({ invocation: invocationId, outcome: "succeeded" })
+        );
+        expectUnsubstantiated(cause, denied, emptyEvidence());
+        expectUnsubstantiated(
+            cause,
+            denied,
+            withReceipt({ invocation: invocationId, outcome: "cancelledPreEffect" })
+        );
+        expectUnsubstantiated(
+            cause,
+            denied,
+            withReceipt({
+                invocation: invocationId,
+                outcome: "deniedPreEffect",
+                attempt: new EffectAttemptId("pre-effect-attempt")
+            })
+        );
+        expectSubstantiated(
+            cause,
+            denied,
+            withReceipt({ invocation: invocationId, outcome: "deniedPreEffect" })
+        );
+        expectSubstantiated(
+            cause,
+            cancelled,
+            withReceipt({ invocation: invocationId, outcome: "cancelledPreEffect" })
+        );
+    });
+
+    test("requires consistent approval and attempt evidence for approved attempts", { tags: "p1" }, () => {
+        const invocationId = new InvocationId("approved-attempt-invocation");
+        const cause = record("approved-attempt-cause", {
+            kind: "approval",
+            id: new ApprovalId("approved-attempt-approval"),
+            phase: "approved"
+        });
+        const next = record(
+            "approved-attempt-audit",
+            { kind: "attempt", id: new EffectAttemptId("approved-attempt") },
+            cause.id
+        );
+        const attemptEvidence = { invocation: invocationId, auditCause: cause.id };
+        const approvalEvidence = { invocation: invocationId, phase: "approved" as const };
+        expectUnsubstantiated(cause, next, { ...emptyEvidence(), attempt: () => attemptEvidence });
+        expectUnsubstantiated(cause, next, {
+            ...emptyEvidence(),
+            approval: () => ({ invocation: invocationId, phase: "pending" }),
+            attempt: () => attemptEvidence
+        });
+        expectUnsubstantiated(cause, next, { ...emptyEvidence(), approval: () => approvalEvidence });
+        expectSubstantiated(cause, next, {
+            ...emptyEvidence(),
+            approval: () => approvalEvidence,
+            attempt: () => attemptEvidence
+        });
+    });
+
+    test("requires consistent approval and receipt evidence for denied receipts", { tags: "p1" }, () => {
+        const invocationId = new InvocationId("denied-receipt-invocation");
+        const receiptId = new ReceiptId("denied-receipt");
+        const cause = record("denied-receipt-cause", {
+            kind: "approval",
+            id: new ApprovalId("denied-receipt-approval"),
+            phase: "denied"
+        });
+        const denied = record(
+            "denied-receipt-audit",
+            { kind: "receipt", id: receiptId, outcome: "deniedPreEffect" },
+            cause.id
+        );
+        const cancelled = record(
+            "denied-receipt-cancelled",
+            { kind: "receipt", id: receiptId, outcome: "cancelledPreEffect" },
+            cause.id
+        );
+        const approvalEvidence = { invocation: invocationId, phase: "denied" as const };
+        const receiptEvidence = { invocation: invocationId, outcome: "deniedPreEffect" as const };
+        expectUnsubstantiated(cause, cancelled, {
+            ...emptyEvidence(),
+            approval: () => approvalEvidence,
+            receipt: () => receiptEvidence
+        });
+        expectUnsubstantiated(cause, denied, { ...emptyEvidence(), receipt: () => receiptEvidence });
+        expectUnsubstantiated(cause, denied, {
+            ...emptyEvidence(),
+            approval: () => ({ invocation: invocationId, phase: "pending" }),
+            receipt: () => receiptEvidence
+        });
+        expectUnsubstantiated(cause, denied, { ...emptyEvidence(), approval: () => approvalEvidence });
+        expectUnsubstantiated(cause, denied, {
+            ...emptyEvidence(),
+            approval: () => approvalEvidence,
+            receipt: () => ({ invocation: invocationId, outcome: "cancelledPreEffect" })
+        });
+        expectUnsubstantiated(cause, denied, {
+            ...emptyEvidence(),
+            approval: () => approvalEvidence,
+            receipt: () => ({
+                invocation: invocationId,
+                outcome: "deniedPreEffect",
+                attempt: new EffectAttemptId("denied-receipt-attempt")
+            })
+        });
+        expectUnsubstantiated(cause, denied, {
+            ...emptyEvidence(),
+            approval: () => approvalEvidence,
+            receipt: () => ({
+                invocation: new InvocationId("denied-receipt-other"),
+                outcome: "deniedPreEffect"
+            })
+        });
+        expectSubstantiated(cause, denied, {
+            ...emptyEvidence(),
+            approval: () => approvalEvidence,
+            receipt: () => receiptEvidence
+        });
+    });
+
+    test("requires attempt-linked receipt evidence for effect receipts", { tags: "p1" }, () => {
+        const attemptId = new EffectAttemptId("effect-receipt-attempt");
+        const receiptId = new ReceiptId("effect-receipt");
+        const invocationId = new InvocationId("effect-receipt-invocation");
+        const cause = record("effect-receipt-cause", { kind: "attempt", id: attemptId });
+        const succeeded = record(
+            "effect-receipt-audit",
+            { kind: "receipt", id: receiptId, outcome: "succeeded" },
+            cause.id
+        );
+        const denied = record(
+            "effect-receipt-denied",
+            { kind: "receipt", id: receiptId, outcome: "deniedPreEffect" },
+            cause.id
+        );
+        expectUnsubstantiated(cause, denied, {
+            ...emptyEvidence(),
+            receipt: () => ({ invocation: invocationId, attempt: attemptId, outcome: "deniedPreEffect" })
+        });
+        expectUnsubstantiated(cause, succeeded, emptyEvidence());
+        expectUnsubstantiated(cause, succeeded, {
+            ...emptyEvidence(),
+            receipt: () => ({ invocation: invocationId, outcome: "succeeded" })
+        });
+        expectUnsubstantiated(cause, succeeded, {
+            ...emptyEvidence(),
+            receipt: () => ({
+                invocation: invocationId,
+                attempt: new EffectAttemptId("effect-receipt-other"),
+                outcome: "succeeded"
+            })
+        });
+        expectUnsubstantiated(cause, succeeded, {
+            ...emptyEvidence(),
+            receipt: () => ({ invocation: invocationId, attempt: attemptId, outcome: "failed" })
+        });
+        expectSubstantiated(cause, succeeded, {
+            ...emptyEvidence(),
+            receipt: () => ({ invocation: invocationId, attempt: attemptId, outcome: "succeeded" })
+        });
+    });
+
+    test("requires linked indeterminate and settling receipts for supersession", { tags: "p1" }, () => {
+        const invocationId = new InvocationId("supersession-invocation");
+        const attemptId = new EffectAttemptId("supersession-attempt");
+        const previousId = new ReceiptId("supersession-previous");
+        const nextId = new ReceiptId("supersession-next");
+        const cause = record("supersession-cause", {
+            kind: "receipt",
+            id: previousId,
+            outcome: "indeterminate"
+        });
+        const unrelated = record("supersession-unrelated", {
+            kind: "receipt",
+            id: new ReceiptId("supersession-unrelated-receipt"),
+            outcome: "indeterminate"
+        });
+        const settled = record("supersession-settled", {
+            kind: "receipt",
+            id: previousId,
+            outcome: "succeeded"
+        });
+        const supersededBy = (causeRecord: AuditRecord, id: string) =>
+            record(id, { kind: "receiptSuperseded", previous: previousId, next: nextId }, causeRecord.id);
+        const previousEvidence = {
+            invocation: invocationId,
+            attempt: attemptId,
+            outcome: "indeterminate" as const
+        };
+        const currentEvidence = {
+            invocation: invocationId,
+            attempt: attemptId,
+            outcome: "succeeded" as const,
+            previous: previousId
+        };
+        const withReceipts = (
+            previous: ReceiptAuditEvidence | undefined,
+            current: ReceiptAuditEvidence | undefined
+        ): AuditEvidenceResolver => ({
+            ...emptyEvidence(),
+            receipt: (id) => {
+                if (id.equals(previousId)) return previous;
+                if (id.equals(nextId)) return current;
+                return undefined;
+            }
+        });
+        const next = supersededBy(cause, "supersession-audit");
+        expectUnsubstantiated(
+            unrelated,
+            supersededBy(unrelated, "supersession-unrelated-audit"),
+            withReceipts(previousEvidence, currentEvidence)
+        );
+        expectUnsubstantiated(
+            settled,
+            supersededBy(settled, "supersession-settled-audit"),
+            withReceipts(previousEvidence, currentEvidence)
+        );
+        expectUnsubstantiated(
+            cause,
+            next,
+            withReceipts({ ...previousEvidence, outcome: "succeeded" }, currentEvidence)
+        );
+        expectUnsubstantiated(cause, next, withReceipts(undefined, currentEvidence));
+        expectUnsubstantiated(cause, next, withReceipts(previousEvidence, undefined));
+        expectUnsubstantiated(
+            cause,
+            next,
+            withReceipts(previousEvidence, {
+                ...currentEvidence,
+                previous: new ReceiptId("supersession-other")
+            })
+        );
+        expectUnsubstantiated(
+            cause,
+            next,
+            withReceipts(previousEvidence, {
+                invocation: invocationId,
+                attempt: attemptId,
+                outcome: "succeeded"
+            })
+        );
+        expectUnsubstantiated(
+            cause,
+            next,
+            withReceipts({ invocation: invocationId, outcome: "indeterminate" }, currentEvidence)
+        );
+        expectUnsubstantiated(
+            cause,
+            next,
+            withReceipts(previousEvidence, {
+                ...currentEvidence,
+                attempt: new EffectAttemptId("supersession-other-attempt")
+            })
+        );
+        expectUnsubstantiated(
+            cause,
+            next,
+            withReceipts(previousEvidence, {
+                invocation: invocationId,
+                outcome: "succeeded",
+                previous: previousId
+            })
+        );
+        expectUnsubstantiated(
+            cause,
+            next,
+            withReceipts(previousEvidence, { ...currentEvidence, outcome: "indeterminate" })
+        );
+        expectSubstantiated(cause, next, withReceipts(previousEvidence, currentEvidence));
+    });
+
+    test("requires receipt-linked event and commit evidence", { tags: "p1" }, () => {
+        const receiptId = new ReceiptId("linkage-receipt");
+        const eventId = new EventId("linkage-event");
+        const commitId = new RunCommitId("linkage-commit");
+        const cause = record("linkage-cause", { kind: "receipt", id: receiptId, outcome: "succeeded" });
+        const event = record("linkage-event-audit", { kind: "event", id: eventId }, cause.id);
+        const commit = record("linkage-commit-audit", { kind: "commit", id: commitId }, cause.id);
+        expectUnsubstantiated(cause, event, emptyEvidence());
+        expectUnsubstantiated(cause, event, { ...emptyEvidence(), event: () => ({}) });
+        expectUnsubstantiated(cause, event, {
+            ...emptyEvidence(),
+            event: () => ({ receipt: new ReceiptId("linkage-other-receipt") })
+        });
+        expectSubstantiated(cause, event, { ...emptyEvidence(), event: () => ({ receipt: receiptId }) });
+        expectUnsubstantiated(cause, commit, emptyEvidence());
+        expectUnsubstantiated(cause, commit, { ...emptyEvidence(), commit: () => ({}) });
+        expectUnsubstantiated(cause, commit, {
+            ...emptyEvidence(),
+            commit: () => ({ receipt: new ReceiptId("linkage-other-receipt") })
+        });
+        expectSubstantiated(cause, commit, {
+            ...emptyEvidence(),
+            commit: () => ({ receipt: receiptId })
+        });
+    });
+
+    test("requires route evidence bound to the causal event", { tags: "p1" }, () => {
+        const eventId = new EventId("route-substantiation-event");
+        const reservation = new RouteReservationId("route-substantiation-reservation");
+        const projection = new RouteProjectionId("route-substantiation-projection");
+        const invocationId = new InvocationId("route-substantiation-invocation");
+        const cause = record("route-substantiation-cause", { kind: "event", id: eventId });
+        const next = record(
+            "route-substantiation-audit",
+            { kind: "routeReserved", id: reservation },
+            cause.id
+        );
+        expectUnsubstantiated(cause, next, emptyEvidence());
+        expectUnsubstantiated(cause, next, {
+            ...emptyEvidence(),
+            route: () => ({
+                event: new EventId("route-substantiation-other"),
+                invocation: invocationId,
+                projection
+            })
+        });
+        expectSubstantiated(cause, next, {
+            ...emptyEvidence(),
+            route: () => ({ event: eventId, invocation: invocationId, projection })
+        });
+    });
+
+    test("requires commit evidence bound to the delivered reservation", { tags: "p1" }, () => {
+        const reservation = new RouteReservationId("delivered-commit-reservation");
+        const cause = record("delivered-commit-cause", { kind: "delivery", reservation });
+        const next = record(
+            "delivered-commit-audit",
+            { kind: "commit", id: new RunCommitId("delivered-commit") },
+            cause.id
+        );
+        expectUnsubstantiated(cause, next, emptyEvidence());
+        expectUnsubstantiated(cause, next, {
+            ...emptyEvidence(),
+            commit: () => ({ receipt: new ReceiptId("delivered-commit-receipt") })
+        });
+        expectUnsubstantiated(cause, next, {
+            ...emptyEvidence(),
+            commit: () => ({ reservation: new RouteReservationId("delivered-commit-other") })
+        });
+        expectSubstantiated(cause, next, { ...emptyEvidence(), commit: () => ({ reservation }) });
     });
 });
 
@@ -485,6 +926,42 @@ function fixture() {
         projection,
         evidence
     };
+}
+
+function emptyEvidence(): AuditEvidenceResolver {
+    return {
+        approval: () => undefined,
+        attempt: () => undefined,
+        receipt: () => undefined,
+        event: () => undefined,
+        route: () => undefined,
+        projection: () => undefined,
+        delivery: () => undefined,
+        commit: () => undefined,
+        write: () => undefined
+    };
+}
+
+function relationLookup(cause: AuditRecord): AuditRecordLookup {
+    return { get: (id) => (id.equals(cause.id) ? cause : undefined) };
+}
+
+function expectSubstantiated(
+    cause: AuditRecord,
+    next: AuditRecord,
+    evidence: AuditEvidenceResolver
+): void {
+    expect(() => validateAuditAppend(next, relationLookup(cause), undefined, evidence)).not.toThrow();
+}
+
+function expectUnsubstantiated(
+    cause: AuditRecord,
+    next: AuditRecord,
+    evidence: AuditEvidenceResolver
+): void {
+    expect(() => validateAuditAppend(next, relationLookup(cause), undefined, evidence)).toThrow(
+        /not permitted/
+    );
 }
 
 function record(

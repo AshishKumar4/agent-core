@@ -1,17 +1,25 @@
 import { describe, expect, test } from "vitest";
+import { CompatRange, SemVer } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
+import { InvocationId } from "../../../src/invocations";
 import {
     FILESYSTEM_ERROR_CODES,
     FILESYSTEM_OPERATION_CONTRACTS,
     FILESYSTEM_OPERATIONS,
+    FacetPackageId,
     FilesystemError,
     FilesystemFacet,
     FilesystemObservationBackend,
+    type FacetData,
     type FilesystemBackend,
     type FilesystemReaderBackend,
+    type OperationContext,
     MemoryFilesystemBackend,
     MountFilesystemBackend,
     ObservedFilesystemBackend,
+    OperationName,
     ReadonlyFilesystemBackend,
+    createFilesystemManifest,
     normalizeFilesystemPath
 } from "../../../src/facets";
 import {
@@ -68,7 +76,8 @@ mutableFilesystemBackendEvidence(
 describe("Filesystem protected facade", () => {
     test("[P11-FILESYSTEM-RECEIPT] routes all seven Operations and delegates mutation receipts to the host port", async () => {
         const { runtime, admission } = recordingRuntime("filesystem");
-        const facet = new FilesystemFacet(runtime, new MemoryFilesystemBackend());
+        const backend = new MemoryFilesystemBackend();
+        const facet = new FilesystemFacet(runtime, backend);
 
         const mkdirReceipt = await facet.mkdir({ path: "/docs" });
         const writeReceipt = await facet.write({
@@ -84,7 +93,11 @@ describe("Filesystem protected facade", () => {
             entries: [{ path: "/docs/a" }]
         });
         const moveReceipt = await facet.move({ source: "/docs/a", destination: "/docs/b" });
+        expect([...backend.read("/docs/b")]).toEqual([1, 2]);
         const removeReceipt = await facet.remove({ path: "/docs/b" });
+        expect(() => backend.stat("/docs/b")).toThrow(
+            expect.objectContaining({ detailCode: "not-found" })
+        );
 
         expect(admission.calls.map((call) => call.name)).toEqual([
             "mkdir",
@@ -414,6 +427,275 @@ describe("Filesystem backend invariants", () => {
     });
 });
 
+describe("Filesystem memory backend boundaries", () => {
+    test("accepts a zero byte limit and enforces it exactly", { tags: "p1" }, () => {
+        const filesystem = new MemoryFilesystemBackend(0);
+        filesystem.write("/empty", new Uint8Array());
+        expect(filesystem.stat("/empty").size).toBe(0);
+        expect(() => filesystem.write("/full", new Uint8Array([1]))).toThrow(
+            expect.objectContaining({ detailCode: "too-large" })
+        );
+    });
+
+    test("omits the cursor on final pages and copies written content", { tags: "p1" }, () => {
+        const filesystem = new MemoryFilesystemBackend();
+        filesystem.mkdir("/docs");
+        filesystem.write("/docs/a", new Uint8Array([1]));
+        filesystem.write("/docs/b", new Uint8Array([2]));
+        expect(Object.keys(filesystem.list("/docs"))).toEqual(["entries"]);
+        expect(Object.keys(filesystem.list("/docs", undefined, 2))).toEqual(["entries"]);
+        const first = filesystem.list("/docs", undefined, 1);
+        expect(first.cursor).toBe("/docs/a");
+        const second = filesystem.list("/docs", first.cursor, 1);
+        expect(second.entries.map((entry) => entry.path)).toEqual(["/docs/b"]);
+        expect(Object.keys(second)).toEqual(["entries"]);
+
+        const content = new Uint8Array([1, 2]);
+        filesystem.write("/docs/copy", content);
+        content[0] = 9;
+        expect([...filesystem.read("/docs/copy")]).toEqual([1, 2]);
+    });
+
+    test("replaces and upserts existing files with the new content", { tags: "p1" }, () => {
+        const filesystem = new MemoryFilesystemBackend();
+        filesystem.write("/file", new Uint8Array([1]), "create");
+        filesystem.write("/file", new Uint8Array([9]), "replace");
+        expect([...filesystem.read("/file")]).toEqual([9]);
+        filesystem.write("/file", new Uint8Array([7]), "upsert");
+        expect([...filesystem.read("/file")]).toEqual([7]);
+        filesystem.write("/fresh", new Uint8Array([5]));
+        expect([...filesystem.read("/fresh")]).toEqual([5]);
+    });
+
+    test("removes and moves exactly the named subtree", { tags: "p1" }, () => {
+        const filesystem = new MemoryFilesystemBackend();
+        filesystem.mkdir("/dir");
+        filesystem.write("/dir/inner", new Uint8Array([1]));
+        filesystem.write("/dirfile", new Uint8Array([2]));
+        filesystem.remove("/dir");
+        expect(() => filesystem.stat("/dir")).toThrow(
+            expect.objectContaining({ detailCode: "not-found" })
+        );
+        expect(() => filesystem.stat("/dir/inner")).toThrow(
+            expect.objectContaining({ detailCode: "not-found" })
+        );
+        expect([...filesystem.read("/dirfile")]).toEqual([2]);
+
+        filesystem.mkdir("/src");
+        filesystem.write("/src/f", new Uint8Array([3]));
+        filesystem.write("/srcfile", new Uint8Array([4]));
+        filesystem.move("/src", "/moved");
+        expect([...filesystem.read("/moved/f")]).toEqual([3]);
+        expect(() => filesystem.stat("/src")).toThrow(
+            expect.objectContaining({ detailCode: "not-found" })
+        );
+        expect([...filesystem.read("/srcfile")]).toEqual([4]);
+        expect([...filesystem.read("/dirfile")]).toEqual([2]);
+    });
+
+    test("reports a file parent as not-a-directory when moving under a file", { tags: "p1" }, () => {
+        const filesystem = new MemoryFilesystemBackend();
+        filesystem.write("/plain", new Uint8Array([1]));
+        expect(() => filesystem.move("/plain", "/plain/child")).toThrow(
+            expect.objectContaining({ detailCode: "not-a-directory" })
+        );
+    });
+
+    test("creates recursive directories parents-first", { tags: "p1" }, () => {
+        const filesystem = new MemoryFilesystemBackend();
+        filesystem.mkdir("/x/y", true);
+        expect(filesystem.stat("/x").modifiedAt).toBeLessThan(filesystem.stat("/x/y").modifiedAt);
+    });
+
+    test("publishes exact filesystem error metadata and messages", { tags: "p2" }, () => {
+        const probe = new FilesystemError("not-found", "/probe", "Probe message");
+        expect(probe.code).toBe("operation.invalid-input");
+        expect(probe.name).toBe("FilesystemError");
+        expect(probe.detailCode).toBe("not-found");
+        expect(probe.path).toBe("/probe");
+        expect(probe.message).toBe("Probe message");
+
+        const filesystem = new MemoryFilesystemBackend(1);
+        filesystem.mkdir("/dir");
+        filesystem.write("/file", new Uint8Array([1]));
+        expect(() => filesystem.read("/dir")).toThrow("Cannot read a directory");
+        expect(() => filesystem.read("/file", { offset: -1 })).toThrow(
+            "Read range values must be non-negative safe integers"
+        );
+        expect(() => filesystem.read("/file", { offset: -1 })).toThrow(
+            expect.objectContaining({
+                code: "operation.invalid-input",
+                detailCode: "operation.invalid-input"
+            })
+        );
+        expect(() => filesystem.list("/dir", undefined, 0)).toThrow("List limit must be positive");
+        expect(() => filesystem.write("/file", new Uint8Array([1, 2]))).toThrow(
+            "File exceeds the configured size limit"
+        );
+        expect(() => filesystem.write("/dir", new Uint8Array())).toThrow("Path is a directory");
+        expect(() => filesystem.write("/file", new Uint8Array(), "create")).toThrow(
+            "Path already exists"
+        );
+        expect(() => filesystem.write("/missing", new Uint8Array(), "replace")).toThrow(
+            "Path does not exist"
+        );
+        expect(() => filesystem.write("/file", new Uint8Array(), "invalid" as never)).toThrow(
+            "Write mode must be create, replace, or upsert"
+        );
+        expect(() => filesystem.move("/file", "/dir")).toThrow("Destination already exists");
+        expect(() => filesystem.mkdir("/dir")).toThrow("Directory already exists");
+        expect(() => filesystem.mkdir("/file")).toThrow("Path is not a directory");
+        expect(() => filesystem.remove("/")).toThrow("Filesystem root cannot be mutated");
+        expect(() => filesystem.stat("/missing")).toThrow("Path does not exist");
+        expect(() => filesystem.list("/file")).toThrow("Path is not a directory");
+    });
+});
+
+describe("Filesystem observation and mount boundaries", () => {
+    test("records the exact observed paths for every operation", { tags: "p1" }, () => {
+        const observations = new RecordingObservations();
+        const filesystem = new ObservedFilesystemBackend(
+            new MemoryFilesystemBackend(),
+            observations
+        );
+        filesystem.write("/f", new Uint8Array([1]));
+        filesystem.move("/f", "/g");
+        expect(observations.values).toEqual([
+            { operation: "write", paths: ["/f"] },
+            { operation: "move", paths: ["/f", "/g"] }
+        ]);
+    });
+
+    test("resolves the longest mount prefix regardless of declaration order", { tags: "p1" }, () => {
+        const outer = new MemoryFilesystemBackend();
+        const inner = new MemoryFilesystemBackend();
+        const mounted = new MountFilesystemBackend([
+            { path: "/a", backend: outer },
+            { path: "/a/b", backend: inner }
+        ]);
+        mounted.write("/a/b/f", new Uint8Array([1]));
+        expect([...inner.read("/f")]).toEqual([1]);
+        expect(() => outer.stat("/b")).toThrow(
+            expect.objectContaining({ detailCode: "not-found" })
+        );
+        expect([...mounted.read("/a/b/f")]).toEqual([1]);
+    });
+
+    test("keeps final mount pages cursorless and refuses foreign cursors", { tags: "p1" }, () => {
+        const mounted = new MountFilesystemBackend([
+            { path: "/a", backend: new MemoryFilesystemBackend() },
+            { path: "/b", backend: new MemoryFilesystemBackend() }
+        ]);
+        mounted.mkdir("/a/docs");
+        mounted.write("/a/docs/f", new Uint8Array([1]));
+        expect(Object.keys(mounted.list("/a/docs"))).toEqual(["entries"]);
+        expect(() => mounted.list("/a", "/b/x")).toThrow(
+            "Path belongs to another filesystem mount"
+        );
+        expect(() => mounted.list("/a", "/b/x")).toThrow(
+            expect.objectContaining({ detailCode: "path.invalid" })
+        );
+    });
+});
+
+describe("Filesystem wire codecs", () => {
+    test("keeps optional wire fields absent and decodes strict values", { tags: "p1" }, () => {
+        const contracts = FILESYSTEM_OPERATION_CONTRACTS;
+        expect(contracts.read.encodeInput({ path: "/file" })).toEqual({ path: "/file" });
+        expect(contracts.read.decodeInput(contracts.read.encodeInput({ path: "/file" }))).toEqual({
+            path: "/file"
+        });
+        expect(contracts.mkdir.decodeInput({ path: "/d" })).toEqual({ path: "/d" });
+        expect(contracts.mkdir.decodeInput({ path: "/d", recursive: true })).toEqual({
+            path: "/d",
+            recursive: true
+        });
+        expect(
+            contracts.stat.decodeOutput({ path: "/d", kind: "directory", size: 0, modifiedAt: 1 })
+        ).toEqual({ path: "/d", kind: "directory", size: 0, modifiedAt: 1 });
+        expect(() => contracts.write.decodeInput({ path: "/f", content: [1, "x"] })).toThrow(
+            "Filesystem bytes are invalid"
+        );
+    });
+
+    test("labels every malformed wire field in its error message", { tags: "p2" }, () => {
+        const contracts = FILESYSTEM_OPERATION_CONTRACTS;
+        expect(() => contracts.read.decodeInput({ path: 1 })).toThrow(
+            "Filesystem read path must be a string"
+        );
+        expect(() => contracts.list.decodeInput({ path: 1 })).toThrow(
+            "Filesystem list path must be a string"
+        );
+        expect(() => contracts.list.decodeInput({ path: "/x", cursor: 1 })).toThrow(
+            "Filesystem list cursor must be a string"
+        );
+        expect(() => contracts.move.decodeInput({ source: 1, destination: "/d" })).toThrow(
+            "Filesystem move source must be a string"
+        );
+        expect(() => contracts.move.decodeInput({ source: "/s", destination: 1 })).toThrow(
+            "Filesystem move destination must be a string"
+        );
+        expect(() => contracts.mkdir.decodeInput({ path: 1 })).toThrow(
+            "Filesystem mkdir path must be a string"
+        );
+        expect(() => contracts.write.decodeInput({ path: 1, content: [1] })).toThrow(
+            "Filesystem write path must be a string"
+        );
+        expect(() => contracts.list.decodeOutput({ entries: {} })).toThrow(
+            "Filesystem page entries must be an array"
+        );
+        expect(() => contracts.list.decodeOutput({ entries: [], cursor: 1 })).toThrow(
+            "Filesystem page cursor must be a string"
+        );
+        expect(() =>
+            contracts.stat.decodeOutput({ path: "/p", kind: 1, size: 0, modifiedAt: 0 })
+        ).toThrow("Filesystem entry kind must be a string");
+        expect(() =>
+            contracts.stat.decodeOutput({ path: 1, kind: "file", size: 0, modifiedAt: 0 })
+        ).toThrow("Filesystem stat path must be a string");
+    });
+});
+
+describe("Filesystem internal W8 runtime", () => {
+    test("executes all seven internal operations against the backend", { tags: "p1" }, async () => {
+        const backend = new MemoryFilesystemBackend();
+        const { runtime } = recordingRuntime("filesystem");
+        const internal = new FilesystemFacet(runtime, backend).asInternalRuntime(
+            createFilesystemManifest({
+                id: new FacetPackageId("profile.filesystem"),
+                version: new SemVer("1.0.0"),
+                compat: new CompatRange("^1.0.0", "^1.0.0"),
+                bindings: []
+            })
+        );
+        const execute = (name: string, input: FacetData): Promise<FacetData> => {
+            const operation = internal.operation(new OperationName(name));
+            if (operation === undefined) {
+                throw new TypeError(`Missing internal operation ${name}`);
+            }
+            return operation.execute(operationContext(), input);
+        };
+        await execute("mkdir", { path: "/docs", recursive: false });
+        await execute("write", { path: "/docs/a", content: [1, 2, 3] });
+        await expect(
+            execute("read", { path: "/docs/a", range: { offset: 1, length: 1 } })
+        ).resolves.toEqual([2]);
+        await expect(execute("stat", { path: "/docs/a" })).resolves.toMatchObject({
+            kind: "file",
+            size: 3
+        });
+        await expect(execute("list", { path: "/docs" })).resolves.toMatchObject({
+            entries: [{ path: "/docs/a" }]
+        });
+        await execute("move", { source: "/docs/a", destination: "/docs/b" });
+        expect([...backend.read("/docs/b")]).toEqual([1, 2, 3]);
+        await execute("remove", { path: "/docs/b" });
+        expect(() => backend.stat("/docs/b")).toThrow(
+            expect.objectContaining({ detailCode: "not-found" })
+        );
+    });
+});
+
 class NullObservations extends FilesystemObservationBackend {
     public record(): void {}
 }
@@ -453,6 +735,16 @@ function runFilesystemReaderContract(
     expect(() => reader.read("/../escape"), label).toThrow(
         expect.objectContaining({ detailCode: "path.invalid" })
     );
+}
+
+function operationContext(): OperationContext {
+    return {
+        invocation: new InvocationId("filesystem-internal-invocation"),
+        itemIndex: 0,
+        idempotencyKey: "filesystem-internal-idempotency",
+        signal: new AbortController().signal,
+        content: new MemoryContentStore()
+    };
 }
 
 function runFilesystemMutationContract(filesystem: FilesystemBackend, label = "filesystem"): void {

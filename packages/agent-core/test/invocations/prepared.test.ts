@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import {
     AuditRecordId,
+    InvocationError,
     InvocationId,
     InvocationPlacementPin,
     OperationPin,
@@ -286,7 +287,163 @@ describe("PreparedInvocation canonical identity", () => {
         expect(() => codec.decode(changed(header, { kind: "unknown" }))).toThrow();
         expect(() => codec.decode(changed(header, { items: [], kind: "batch" }))).toThrow();
     });
+
+    test("pins the canonical intent digest and derived item keys of a stable record", { tags: "p0" }, () => {
+        const single = prepared("golden", { value: 1 });
+        expect(single.intentDigest.value).toBe(
+            "f300d90c1e645b1a9ca09768439a6d32cdab85d18476ecef17b0faa768bddf0d"
+        );
+        expect(single.item(0).idempotencyKey).toBe(
+            "agent-core.item.v1:f0e21c7d96a65424b47bd57a37e4360c1dfbef81edee961ad86bc10c77f46a26"
+        );
+        const batch = prepared("golden-batch", [{ a: 1 }, { b: 2 }]);
+        expect(batch.intentDigest.value).toBe(
+            "6963f4407389c0b937c84e3a5e3cabd243e1bc4a32a3a29f96740677c8a89b6a"
+        );
+        expect(batch.item(0).idempotencyKey).toBe(
+            "agent-core.item.v1:ae1ce4c77b799f751e2a552622cdf433dca98d629b05222be78d5906c4e42f79"
+        );
+        expect(batch.item(1).idempotencyKey).toBe(
+            "agent-core.item.v1:288db365dbb866c4465942d5e71d9df5d84823759e9b9ad8875bc4b0fbf8db16"
+        );
+    });
+
+    test("derives distinct identities for a single item and its one-item batch under the same header", { tags: "p1" }, () => {
+        const single = prepared("shape-parity", { value: 1 });
+        const batch = prepared("shape-parity", [{ value: 1 }]);
+        expect(single.item(0).idempotencyKey).not.toBe(batch.item(0).idempotencyKey);
+        expect(single.intentDigest.value).not.toBe(batch.intentDigest.value);
+    });
+
+    test("freezes prepared invocations and rejects derived identifier classes", { tags: "p1" }, () => {
+        const record = prepared("frozen");
+        expect(Object.isFrozen(record)).toBe(true);
+        expect(Object.isFrozen(record.payload)).toBe(true);
+
+        class DerivedAuditRecordId extends AuditRecordId {}
+        class DerivedRouteReservationId extends RouteReservationId {}
+        const init = {
+            id: new InvocationId("derived-prepared"),
+            operation: operationPin("derived-prepared"),
+            domain: "domain:derived-prepared",
+            actor: new ActorRef("run", new ActorId("actor:derived-prepared")),
+            authority: "authority:derived-prepared",
+            pathEpochs: "epochs:derived-prepared",
+            auditCause: new AuditRecordId("audit:derived-prepared"),
+            idempotencySeed: "seed:derived-prepared"
+        };
+        expect(() =>
+            PreparedInvocation.create(
+                { ...init, auditCause: new DerivedAuditRecordId("audit:derived") },
+                { kind: "single", item: {} },
+                preparedReferenceCodecs
+            )
+        ).toThrow(/exact context classes/);
+        expect(() =>
+            PreparedInvocation.create(
+                {
+                    ...init,
+                    route: new DerivedRouteReservationId("route:derived"),
+                    projectionDigest: digest("projection:derived")
+                },
+                { kind: "single", item: {} },
+                preparedReferenceCodecs
+            )
+        ).toThrow(/exact context classes/);
+    });
+
+    test("reports precise item index failures", { tags: "p2" }, () => {
+        const batch = prepared("index-errors", [{ a: 1 }, { b: 2 }]);
+        expectIndexError(() => batch.item(-1), /non-negative safe integer/);
+        expectIndexError(() => batch.item(0.5), /non-negative safe integer/);
+        expectIndexError(() => batch.item(2), /out of range/);
+        const single = prepared("index-errors-single");
+        expectIndexError(() => single.item(1), /out of range/);
+    });
+
+    test("rejects malformed route evidence, actor kinds, and payload kinds with precise decode errors", { tags: "p1" }, () => {
+        const routed = PreparedInvocation.create(
+            {
+                id: new InvocationId("wire-routed"),
+                operation: operationPin("wire-routed"),
+                domain: "domain:wire-routed",
+                actor: new ActorRef("run", new ActorId("actor:wire-routed")),
+                authority: "authority:wire-routed",
+                pathEpochs: "epochs:wire-routed",
+                route: new RouteReservationId("route:wire-routed"),
+                projectionDigest: digest("projection:wire-routed"),
+                auditCause: new AuditRecordId("audit:wire-routed"),
+                idempotencySeed: "seed:wire-routed"
+            },
+            { kind: "single", item: {} },
+            preparedReferenceCodecs
+        );
+        const envelope = asObject(decodeCanonicalJson(codec.encode(routed)));
+        const payload = asObject(envelope["payload"] ?? null);
+        const header = asObject(payload["header"] ?? null);
+        const changed = (nextHeader: JsonValue, nextPayload?: JsonValue) =>
+            encodeCanonicalJson({
+                ...envelope,
+                payload: {
+                    ...payload,
+                    header: nextHeader,
+                    ...(nextPayload === undefined ? {} : { payload: nextPayload })
+                }
+            });
+        expect(() => codec.decode(changed({ ...header, route: null }))).toThrow(
+            /route evidence is malformed/
+        );
+        expect(() => codec.decode(changed({ ...header, projectionDigest: null }))).toThrow(
+            /route evidence is malformed/
+        );
+        expect(() => codec.decode(changed({ ...header, route: 1 }))).toThrow(
+            /route evidence is malformed/
+        );
+        expect(() => codec.decode(changed({ ...header, projectionDigest: 1 }))).toThrow(
+            /route evidence is malformed/
+        );
+        expect(() =>
+            codec.decode(changed({ ...header, actor: { id: "actor", kind: "unknown" } }))
+        ).toThrow(/Actor kind is invalid/);
+        expect(() => codec.decode(changed(header, { kind: "unknown" }))).toThrow(
+            /payload kind is invalid/
+        );
+    });
+
+    test("round-trips every declared actor kind", { tags: "p1" }, () => {
+        for (const kind of ["tenant", "workspace", "run", "environment", "slate"] as const) {
+            const record = PreparedInvocation.create(
+                {
+                    id: new InvocationId(`actor-${kind}`),
+                    operation: operationPin(`actor-${kind}`),
+                    domain: `domain:actor-${kind}`,
+                    actor: new ActorRef(kind, new ActorId(`actor:${kind}`)),
+                    authority: `authority:actor-${kind}`,
+                    pathEpochs: `epochs:actor-${kind}`,
+                    auditCause: new AuditRecordId(`audit:actor-${kind}`),
+                    idempotencySeed: `seed:actor-${kind}`
+                },
+                { kind: "single", item: { value: kind } },
+                preparedReferenceCodecs
+            );
+            expect(codec.decode(codec.encode(record)).header.actor.kind).toBe(kind);
+        }
+    });
 });
+
+function expectIndexError(operation: () => unknown, message: RegExp): void {
+    const caught = (() => {
+        try {
+            operation();
+        } catch (error) {
+            return error;
+        }
+        throw new TypeError("Expected an item index failure");
+    })();
+    expect(caught).toBeInstanceOf(InvocationError);
+    expect((caught as InvocationError).failure).toBe("state.invalid-transition");
+    expect((caught as InvocationError).message).toMatch(message);
+}
 
 function preparedWith(
     id: string,

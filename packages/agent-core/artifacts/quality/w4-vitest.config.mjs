@@ -17,6 +17,21 @@ export default defineConfig({
     },
     test: {
         environment: "node",
+        tags: [
+            {
+                name: "p0",
+                description:
+                    "Critical safety, authority, durability, and irreversible-integrity behavior"
+            },
+            {
+                name: "p1",
+                description: "Required runtime correctness, recovery, and integration behavior"
+            },
+            {
+                name: "p2",
+                description: "Compatibility, diagnostics, and exhaustive edge behavior"
+            }
+        ],
         include: [
             "test/definition/**/*.test.ts",
             "test/protocol/materialization-commands.test.ts",

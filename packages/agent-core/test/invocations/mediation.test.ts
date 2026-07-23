@@ -3,6 +3,7 @@ import { MemoryContentStore } from "../../src/content";
 import {
     Digest,
     JsonSchema,
+    Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
     type JsonValue
@@ -13,7 +14,8 @@ import {
     OperationDescriptor,
     OperationName,
     type FacetData,
-    type OperationContext
+    type OperationContext,
+    type ProtectedOperationRequest
 } from "../../src/facets";
 import {
     AttemptReceipt,
@@ -35,11 +37,15 @@ import {
     PreEffectReceipt,
     ReceiptId,
     ReplayOperationInvocationPort,
+    auditEvidenceIdentity,
     cloneInvocationMediationMemoryState,
     createInvocationMediationMemoryState,
     type CanonicalBatchInvocationRequest,
+    type CanonicalBatchItemResult,
     type InvocationMediationMemoryState,
-    type InvocationTransactionPort
+    type InvocationTransactionPort,
+    type Receipt,
+    type ReceiptObservation
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
@@ -802,6 +808,1020 @@ describe("W6 operation mediation integration", () => {
     });
 });
 
+describe("W6 replay operation invocation port", () => {
+    test("returns direct contexts unchanged and requires a nonblank scope", { tags: "p1" }, () => {
+        const { port, transactions, persistence, invocation } = replayHarness("direct-guards");
+        const context = port.directContext(
+            new OperationRequestKey("request:direct-guards"),
+            0,
+            { kind: "single" },
+            "permit"
+        );
+        expect(context.invocation.value).toBe("direct-0");
+        expect(context.attempt).toBeUndefined();
+        expect(
+            () =>
+                new ReplayOperationInvocationPort(
+                    "",
+                    transactions,
+                    persistence,
+                    { invocation: () => invocation },
+                    { context: (_key, itemIndex) => directContext(itemIndex) },
+                    new SuccessfulBatch(invocation)
+                )
+        ).toThrow(/canonical/);
+    });
+
+    test("names the changed bound intent of a reused OperationRequestKey", { tags: "p2" }, async () => {
+        const { port } = replayHarness("bound-intent");
+        const request = preflight("bound-intent");
+        await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: true }],
+            interceptions: [[]]
+        }));
+        await expect(
+            port.prepareMediated({ ...request, inputs: [{ raw: false }] }, () => {
+                throw new TypeError("interceptor must not run");
+            })
+        ).rejects.toThrow(/changed its bound intent/);
+    });
+
+    test("returns the durable preparation when a concurrent actor prepares first", { tags: "p1" }, async () => {
+        const { port, transactions, persistence, invocation } = replayHarness("concurrent-prepare");
+        const request = preflight("concurrent-prepare");
+        const result = await port.prepareMediated(request, () => {
+            amendReplay(transactions, persistence, "concurrent-prepare", request.requestKey.value, (record) => [
+                record.prepare(invocation, [{ concurrent: true }], [[trace("operation.before")]])
+            ]);
+            return { inputs: [{ mine: true }], interceptions: [[]] };
+        });
+        expect(result).toEqual({
+            kind: "new",
+            preparation: {
+                inputs: [{ concurrent: true }],
+                interceptions: [[trace("operation.before")]]
+            }
+        });
+    });
+
+    test("fails when the reservation disappears before preparation commits", { tags: "p1" }, async () => {
+        const { port, transactions } = replayHarness("vanishing-reservation");
+        await expect(
+            port.prepareMediated(preflight("vanishing-reservation"), () => {
+                transactions.transact((transaction) => {
+                    transaction.replays.clear();
+                    transaction.replayRevision.clear();
+                    transaction.replayByRequest.clear();
+                });
+                return { inputs: [{ prepared: true }], interceptions: [[]] };
+            })
+        ).rejects.toThrow(/disappeared before preparation/);
+    });
+
+    test("names the before phase that changed either item cardinality", { tags: "p2" }, async () => {
+        const { port } = replayHarness("count-mismatch");
+        const request = preflight("count-mismatch");
+        await expect(
+            port.prepareMediated(request, () => ({ inputs: [], interceptions: [[]] }))
+        ).rejects.toThrow(/changed the item count/);
+        await expect(
+            port.prepareMediated(request, () => ({
+                inputs: [{ prepared: true }],
+                interceptions: []
+            }))
+        ).rejects.toThrow(/changed the item count/);
+    });
+
+    test("authenticates every replay binding component before invocation", { tags: "p0" }, async () => {
+        const { port } = replayHarness("binding-auth");
+        const request = preflight("binding-auth");
+        const prepared = await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: true }],
+            interceptions: [[]]
+        }));
+        const invocationRequest = {
+            ...request,
+            inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+            authorization: "permit",
+            interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+            execute: async () => ({ effect: true })
+        };
+        const { replayBinding: _omitted, ...unbound } = invocationRequest;
+        await expect(port.invoke(unbound)).rejects.toThrow(
+            /changed its authenticated replay binding/
+        );
+        const substitutions = [
+            ...substitutedReplayBindings(request.replayBinding),
+            {
+                ...request.replayBinding,
+                execution: { kind: "route" as const, digest: new Digest("c".repeat(64)) }
+            }
+        ];
+        for (const replayBinding of substitutions) {
+            await expect(port.invoke({ ...invocationRequest, replayBinding })).rejects.toThrow(
+                /changed its authenticated replay binding/
+            );
+        }
+    });
+
+    test("resumes a partially recorded batch without repeating persisted effects", { tags: "p0" }, async () => {
+        const invocation = new InvocationId("partial-batch");
+        const batch = new SuccessfulBatch(invocation);
+        const { port, transactions, persistence } = replayHarness("partial-batch", batch);
+        const request = batchPreflight("partial-batch");
+        const prepared = await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: 0 }, { prepared: 1 }],
+            interceptions: [[], []]
+        }));
+        amendReplay(transactions, persistence, "partial-batch", request.requestKey.value, (record) => [
+            record.recordEffect(0, { effect: 0 }, new ReceiptId("receipt-0"))
+        ]);
+        const result = await port.invoke({
+            ...request,
+            inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+            interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+            execute: async (itemIndex) => ({ effect: itemIndex })
+        });
+        expect(result.outputs).toEqual([{ effect: 0 }, { effect: 1 }]);
+        expect(result.evidence).toEqual({
+            invocation: "partial-batch",
+            receipts: ["receipt-0", "receipt-1"]
+        });
+        expect(batch.calls).toBe(1);
+    });
+
+    test("rejects canonical batch replays that change persisted evidence", { tags: "p0" }, async () => {
+        const cases: readonly {
+            readonly scope: string;
+            readonly persisted: "effect" | "terminal";
+            readonly item: CanonicalBatchItemResult;
+        }[] = [
+            {
+                scope: "mismatch-output",
+                persisted: "effect",
+                item: {
+                    kind: "succeeded",
+                    itemIndex: 0,
+                    output: { effect: 99 },
+                    receipt: receiptWithId("receipt-0")
+                }
+            },
+            {
+                scope: "mismatch-receipt",
+                persisted: "effect",
+                item: {
+                    kind: "succeeded",
+                    itemIndex: 0,
+                    output: { effect: 0 },
+                    receipt: receiptWithId("receipt-substituted")
+                }
+            },
+            {
+                scope: "mismatch-succeeded-over-terminal",
+                persisted: "terminal",
+                item: {
+                    kind: "succeeded",
+                    itemIndex: 0,
+                    output: { effect: 0 },
+                    receipt: receiptWithId("receipt-0")
+                }
+            },
+            {
+                scope: "mismatch-terminal-over-effect",
+                persisted: "effect",
+                item: { kind: "terminal", itemIndex: 0, receipt: receiptWithId("receipt-0") }
+            }
+        ];
+        for (const mismatch of cases) {
+            const invocation = new InvocationId(mismatch.scope);
+            const batch: CanonicalBatchInvoker<string> = {
+                invoke: async () => ({
+                    invocation,
+                    items: [
+                        mismatch.item,
+                        {
+                            kind: "succeeded",
+                            itemIndex: 1,
+                            output: { effect: 1 },
+                            receipt: receiptWithId("receipt-1")
+                        }
+                    ]
+                })
+            };
+            const { port, transactions, persistence } = replayHarness(mismatch.scope, batch);
+            const request = batchPreflight(mismatch.scope);
+            const prepared = await port.prepareMediated(request, () => ({
+                inputs: [{ prepared: 0 }, { prepared: 1 }],
+                interceptions: [[], []]
+            }));
+            amendReplay(transactions, persistence, mismatch.scope, request.requestKey.value, (record) => [
+                mismatch.persisted === "effect"
+                    ? record.recordEffect(0, { effect: 0 }, new ReceiptId("receipt-0"))
+                    : record.recordTerminal(0, new ReceiptId("receipt-0"))
+            ]);
+            await expect(
+                port.invoke({
+                    ...request,
+                    inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+                    interceptions:
+                        prepared.kind === "new" ? prepared.preparation.interceptions : [],
+                    execute: async () => ({ effect: true })
+                })
+            ).rejects.toThrow(/changed a persisted effect output/);
+        }
+    });
+
+    test("rejects partially substituted canonical item indexes", { tags: "p1" }, async () => {
+        const invocation = new InvocationId("substituted-partial-index");
+        const batch: CanonicalBatchInvoker<string> = {
+            invoke: async () => ({
+                invocation,
+                items: [
+                    {
+                        kind: "succeeded",
+                        itemIndex: 0,
+                        output: { effect: 0 },
+                        receipt: receiptWithId("receipt-0")
+                    },
+                    {
+                        kind: "succeeded",
+                        itemIndex: 0,
+                        output: { effect: 1 },
+                        receipt: receiptWithId("receipt-1")
+                    }
+                ]
+            })
+        };
+        const { port } = replayHarness("substituted-partial-index", batch);
+        const request = batchPreflight("substituted-partial-index");
+        const prepared = await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: 0 }, { prepared: 1 }],
+            interceptions: [[], []]
+        }));
+        await expect(
+            port.invoke({
+                ...request,
+                inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+                interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+                execute: async () => ({ effect: true })
+            })
+        ).rejects.toThrow(/substituted item evidence/);
+    });
+
+    test("fails when the replay reservation disappears during mediation", { tags: "p1" }, async () => {
+        const transactions = new MemoryTransactions();
+        const persistence = new MemoryInvocationMediationPersistence();
+        const invocation = new InvocationId("vanishing-mediation");
+        const batch: CanonicalBatchInvoker<string> = {
+            invoke: async (batchRequest) => {
+                transactions.transact((transaction) => {
+                    transaction.replays.clear();
+                    transaction.replayRevision.clear();
+                    transaction.replayByRequest.clear();
+                });
+                return new SuccessfulBatch(invocation).invoke(batchRequest);
+            }
+        };
+        const port = new ReplayOperationInvocationPort(
+            "vanishing-mediation",
+            transactions,
+            persistence,
+            { invocation: () => invocation },
+            { context: (_key, itemIndex) => directContext(itemIndex) },
+            batch
+        );
+        const request = preflight("vanishing-mediation");
+        const prepared = await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: true }],
+            interceptions: [[]]
+        }));
+        await expect(
+            port.invoke({
+                ...request,
+                inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+                interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+                execute: async () => ({ effect: true })
+            })
+        ).rejects.toThrow(/Mediated replay reservation disappeared/);
+    });
+
+    test("fails closed exactly once for terminal batch outcomes", { tags: "p0" }, async () => {
+        const invocation = new InvocationId("terminal-once");
+        let calls = 0;
+        const terminalReceipt = new PreEffectReceipt(
+            new ReceiptId("terminal-once-receipt"),
+            invocation,
+            0,
+            "deniedPreEffect",
+            new Date(5),
+            "permit denied"
+        );
+        const batch: CanonicalBatchInvoker<string> = {
+            invoke: async () => {
+                calls += 1;
+                return {
+                    invocation,
+                    items: [{ kind: "terminal", itemIndex: 0, receipt: terminalReceipt }]
+                };
+            }
+        };
+        const { port } = replayHarness("terminal-once", batch);
+        const request = preflight("terminal-once");
+        const prepared = await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: true }],
+            interceptions: [[]]
+        }));
+        const invocationRequest = {
+            ...request,
+            inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+            authorization: "permit",
+            interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+            execute: async () => ({ effect: true })
+        };
+        await expect(port.invoke(invocationRequest)).rejects.toMatchObject({
+            code: "authority.denied"
+        });
+        await expect(port.invoke(invocationRequest)).rejects.toMatchObject({
+            code: "authority.denied"
+        });
+        expect(calls).toBe(1);
+    });
+
+    test("rejects mixed batch outcomes while persisting their evidence", { tags: "p0" }, async () => {
+        const invocation = new InvocationId("mixed-outcomes");
+        let calls = 0;
+        const batch: CanonicalBatchInvoker<string> = {
+            invoke: async () => {
+                calls += 1;
+                return {
+                    invocation,
+                    items: [
+                        {
+                            kind: "succeeded" as const,
+                            itemIndex: 0,
+                            output: { effect: 0 },
+                            receipt: receiptWithId("receipt-0")
+                        },
+                        {
+                            kind: "terminal" as const,
+                            itemIndex: 1,
+                            receipt: receiptWithId("receipt-1")
+                        }
+                    ]
+                };
+            }
+        };
+        const { port, transactions, persistence } = replayHarness("mixed-outcomes", batch);
+        const request = batchPreflight("mixed-outcomes");
+        const prepared = await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: 0 }, { prepared: 1 }],
+            interceptions: [[], []]
+        }));
+        const invocationRequest = {
+            ...request,
+            inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+            interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+            execute: async () => ({ effect: true })
+        };
+        await expect(port.invoke(invocationRequest)).rejects.toMatchObject({
+            code: "authority.denied",
+            message: expect.stringMatching(/without one successful output per item/u)
+        });
+        await expect(port.invoke(invocationRequest)).rejects.toMatchObject({
+            code: "authority.denied"
+        });
+        expect(calls).toBe(1);
+        const recorded = transactions.transact((transaction) =>
+            persistence.replay(transaction, "mixed-outcomes", request.requestKey.value)
+        );
+        expect(recorded?.items[0]?.effectOutput).toEqual({ effect: 0 });
+        expect(recorded?.items[1]?.receipt?.value).toBe("receipt-1");
+        expect(recorded?.items[1]?.effectOutput).toBeUndefined();
+    });
+
+    test("binds mediated presentation to stored effect outputs", { tags: "p1" }, async () => {
+        const invocation = new InvocationId("present-binding");
+        const { port, transactions, persistence } = replayHarness(
+            "present-binding",
+            new SuccessfulBatch(invocation)
+        );
+        const request = batchPreflight("present-binding");
+        await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: 0 }, { prepared: 1 }],
+            interceptions: [[], []]
+        }));
+        amendReplay(transactions, persistence, "present-binding", request.requestKey.value, (record) => {
+            const effected = record.recordEffect(0, { effect: 0 }, new ReceiptId("receipt-0"));
+            return [effected, effected.recordTerminal(1, new ReceiptId("receipt-1"))];
+        });
+        const present = (_itemIndex: number, output: FacetData) => ({
+            value: output,
+            traces: []
+        });
+        const interception = {
+            requestKey: request.requestKey,
+            facet: request.facet,
+            descriptor,
+            shape: request.shape
+        };
+        await expect(port.presentMediated(null, [], present, interception)).rejects.toThrow(
+            /does not identify its Invocation/
+        );
+        await expect(port.presentMediated({}, [], present, interception)).rejects.toThrow(
+            /does not identify its Invocation/
+        );
+        await expect(
+            port.presentMediated({ invocation: invocation.value }, [{ effect: 0 }, null], present, {
+                ...interception,
+                requestKey: new OperationRequestKey("request:present-binding-unknown")
+            })
+        ).rejects.toThrow(/does not bind its replay evidence/);
+        await expect(
+            port.presentMediated(
+                { invocation: invocation.value },
+                [{ effect: 0 }, null],
+                present,
+                interception
+            )
+        ).rejects.toThrow(/substituted an item output/);
+    });
+
+    test("replays a completed batch with its full presented output", { tags: "p0" }, async () => {
+        const invocation = new InvocationId("batch-replay");
+        const { port, transactions } = replayHarness("batch-replay", new SuccessfulBatch(invocation));
+        const request = batchPreflight("batch-replay");
+        const prepared = await port.prepareMediated(request, () => ({
+            inputs: [{ prepared: 0 }, { prepared: 1 }],
+            interceptions: [[], []]
+        }));
+        const result = await port.invoke({
+            ...request,
+            inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+            interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+            execute: async (itemIndex) => ({ effect: itemIndex })
+        });
+        await port.presentMediated(
+            result.evidence,
+            result.outputs,
+            (_itemIndex, output) => ({
+                value: { ...object(output), presented: true },
+                traces: []
+            }),
+            {
+                requestKey: request.requestKey,
+                facet: request.facet,
+                descriptor,
+                shape: request.shape
+            }
+        );
+        transactions.restart();
+        const replay = await port.prepareMediated(request, () => {
+            throw new TypeError("preparation must not rerun");
+        });
+        expect(replay).toEqual({
+            kind: "replay",
+            result: {
+                kind: "mediated",
+                output: [
+                    { effect: 0, presented: true },
+                    { effect: 1, presented: true }
+                ],
+                evidence: { invocation: "batch-replay", receipts: ["receipt-0", "receipt-1"] }
+            }
+        });
+    });
+});
+
+describe("W6 invocation publication outbox", () => {
+    test("rejects revisions that disagree with acknowledgement state", { tags: "p1" }, () => {
+        const base = observation("revision-guard");
+        expect(() => new InvocationPublicationOutbox(base, { kind: "pending" }, new Revision(1))).toThrow(
+            /revision does not match its state/
+        );
+        expect(
+            () =>
+                new InvocationPublicationOutbox(
+                    base,
+                    {
+                        kind: "pending",
+                        eventPublishedAt: new Date(1),
+                        commitAppendedAt: new Date(2)
+                    },
+                    new Revision(2)
+                )
+        ).toThrow(/revision does not match its state/);
+    });
+
+    test("orders publication lineage through follows", { tags: "p0" }, () => {
+        const base = observation("follows");
+        const pending = InvocationPublicationOutbox.pending(base);
+        const event = pending.eventPublished(new Date(10));
+        const published = event.commitAppended(new Date(20));
+        expect(event.follows(pending)).toBe(true);
+        expect(published.follows(event)).toBe(true);
+        expect(published.follows(pending)).toBe(false);
+        expect(pending.follows(pending)).toBe(false);
+        const substitutedTime = new InvocationPublicationOutbox(
+            base,
+            { kind: "published", eventPublishedAt: new Date(99), commitAppendedAt: new Date(20) },
+            new Revision(2)
+        );
+        expect(substitutedTime.follows(event)).toBe(false);
+        const other = InvocationPublicationOutbox.pending(observation("follows-other"))
+            .eventPublished(new Date(10));
+        expect(other.follows(pending)).toBe(false);
+    });
+
+    test("acknowledges each sink once in either order", { tags: "p0" }, () => {
+        const base = observation("acknowledge");
+        const pending = InvocationPublicationOutbox.pending(base);
+        expect(pending.state).toStrictEqual({ kind: "pending" });
+        const commitFirst = pending.commitAppended(new Date(7));
+        expect(commitFirst.state).toStrictEqual({
+            kind: "pending",
+            commitAppendedAt: new Date(7)
+        });
+        const published = commitFirst.eventPublished(new Date(9));
+        expect(published.state).toStrictEqual({
+            kind: "published",
+            eventPublishedAt: new Date(9),
+            commitAppendedAt: new Date(7)
+        });
+        expect(published.revision.value).toBe(2);
+        expect(() => commitFirst.commitAppended(new Date(11))).toThrow(
+            /commit publication acknowledgement is immutable/
+        );
+        const eventFirst = pending.eventPublished(new Date(3));
+        expect(() => eventFirst.eventPublished(new Date(4))).toThrow(
+            /event publication acknowledgement is immutable/
+        );
+        let failure: unknown;
+        try {
+            published.eventPublished(new Date(12));
+        } catch (error) {
+            failure = error;
+        }
+        expect(failure).toMatchObject({
+            code: "invocation.invalid",
+            failure: "state.invalid-transition",
+            message: expect.stringMatching(/event publication acknowledgement is immutable/u)
+        });
+    });
+
+    test("rejects invalid acknowledgement times", { tags: "p2" }, () => {
+        const base = observation("invalid-time");
+        expect(
+            () =>
+                new InvocationPublicationOutbox(
+                    base,
+                    { kind: "pending", eventPublishedAt: new Date(Number.NaN) },
+                    new Revision(1)
+                )
+        ).toThrow(/Event publication time must be a valid Date/);
+        expect(
+            () =>
+                new InvocationPublicationOutbox(
+                    base,
+                    { kind: "pending", commitAppendedAt: new Date(Number.NaN) },
+                    new Revision(1)
+                )
+        ).toThrow(/Commit append time must be a valid Date/);
+    });
+
+    test("round-trips acknowledgement states and rejects corrupted payloads", { tags: "p1" }, () => {
+        const base = observation("publication-codec");
+        const commitOnly = InvocationPublicationOutbox.pending(base).commitAppended(new Date(7));
+        const bytes = InvocationPublicationOutbox.encode(commitOnly);
+        expect(InvocationPublicationOutbox.encode(InvocationPublicationOutbox.decode(bytes))).toEqual(
+            bytes
+        );
+        expect(() =>
+            InvocationPublicationOutbox.decode(
+                mutateRecord(bytes, (payload) => {
+                    const state = payload["state"] as { [key: string]: JsonValue };
+                    state["commitAppendedAt"] = 42;
+                })
+            )
+        ).toThrow(/must be strings or null/);
+        expect(() =>
+            InvocationPublicationOutbox.decode(
+                mutateRecord(bytes, (payload) => {
+                    payload["id"] = "0".repeat(64);
+                })
+            )
+        ).toThrow(/publication ID does not match its observation/);
+        const publishedBytes = InvocationPublicationOutbox.encode(
+            commitOnly.eventPublished(new Date(9))
+        );
+        let failure: unknown;
+        try {
+            InvocationPublicationOutbox.decode(
+                mutateRecord(publishedBytes, (payload) => {
+                    const state = payload["state"] as { [key: string]: JsonValue };
+                    state["commitAppendedAt"] = null;
+                })
+            );
+        } catch (error) {
+            failure = error;
+        }
+        expect(failure).toMatchObject({
+            code: "invocation.invalid",
+            failure: "state.invalid-transition",
+            message: expect.stringMatching(/publication state is invalid/u)
+        });
+    });
+});
+
+describe("W6 invocation publication drainer", () => {
+    test("drains commit-first acknowledgements without re-appending the commit", { tags: "p0" }, async () => {
+        const transactions = new MemoryTransactions();
+        const persistence = new MemoryInvocationMediationPersistence();
+        const publication = InvocationPublicationOutbox.pending(observation("commit-first"));
+        transactions.transact((transaction) => {
+            persistence.appendPublication(transaction, publication);
+            persistence.appendPublication(transaction, publication.commitAppended(new Date(3)));
+        });
+        const events: string[] = [];
+        const commits: string[] = [];
+        const drainer = new InvocationPublicationDrainer(
+            transactions,
+            persistence,
+            {
+                publish: async (outboxId) => {
+                    events.push(outboxId.value);
+                }
+            },
+            {
+                append: async (outboxId) => {
+                    commits.push(outboxId.value);
+                }
+            },
+            () => new Date(10)
+        );
+        await drainer.flush();
+        expect(events).toEqual([publication.id.value]);
+        expect(commits).toEqual([]);
+        expect(
+            transactions.transact(
+                (transaction) => persistence.publication(transaction, publication.id)?.state
+            )
+        ).toEqual({ kind: "published", eventPublishedAt: new Date(10), commitAppendedAt: new Date(3) });
+    });
+
+    test("tolerates sinks that acknowledge their own publication", { tags: "p1" }, async () => {
+        const transactions = new MemoryTransactions();
+        const persistence = new MemoryInvocationMediationPersistence();
+        const publication = InvocationPublicationOutbox.pending(observation("self-acknowledged"));
+        transactions.transact((transaction) =>
+            persistence.appendPublication(transaction, publication)
+        );
+        const acknowledge = (outboxId: Digest, at: Date, sink: "event" | "commit") => {
+            transactions.transact((transaction) => {
+                const current = persistence.publication(transaction, outboxId);
+                if (current === undefined) throw new TypeError("Expected a publication");
+                persistence.appendPublication(
+                    transaction,
+                    sink === "event" ? current.eventPublished(at) : current.commitAppended(at)
+                );
+            });
+        };
+        let published = 0;
+        let committed = 0;
+        const drainer = new InvocationPublicationDrainer(
+            transactions,
+            persistence,
+            {
+                publish: async (outboxId) => {
+                    published += 1;
+                    acknowledge(outboxId, new Date(5), "event");
+                }
+            },
+            {
+                append: async (outboxId) => {
+                    committed += 1;
+                    acknowledge(outboxId, new Date(6), "commit");
+                }
+            },
+            () => new Date(10)
+        );
+        await drainer.flush();
+        expect(published).toBe(1);
+        expect(committed).toBe(1);
+        expect(
+            transactions.transact(
+                (transaction) => persistence.publication(transaction, publication.id)?.state
+            )
+        ).toEqual({ kind: "published", eventPublishedAt: new Date(5), commitAppendedAt: new Date(6) });
+    });
+
+    test("skips publications that vanish while draining", { tags: "p1" }, async () => {
+        const transactions = new MemoryTransactions();
+        const persistence = new MemoryInvocationMediationPersistence();
+        transactions.transact((transaction) => {
+            persistence.appendPublication(
+                transaction,
+                InvocationPublicationOutbox.pending(observation("vanish-a"))
+            );
+            persistence.appendPublication(
+                transaction,
+                InvocationPublicationOutbox.pending(observation("vanish-b"))
+            );
+        });
+        const events: string[] = [];
+        const drainer = new InvocationPublicationDrainer(
+            transactions,
+            persistence,
+            {
+                publish: async (outboxId) => {
+                    events.push(outboxId.value);
+                    transactions.transact((transaction) => {
+                        for (const key of transaction.publications.keys()) {
+                            if (key !== outboxId.value) transaction.publications.delete(key);
+                        }
+                    });
+                }
+            },
+            { append: async () => {} },
+            () => new Date(10)
+        );
+        await drainer.flush();
+        expect(events).toHaveLength(1);
+        expect(
+            transactions.transact(
+                (transaction) =>
+                    persistence.publication(transaction, new Digest(events[0] ?? ""))?.state.kind
+            )
+        ).toBe("published");
+    });
+
+    test("surfaces publications that disappear during acknowledgement", { tags: "p1" }, async () => {
+        const transactions = new MemoryTransactions();
+        const persistence = new MemoryInvocationMediationPersistence();
+        transactions.transact((transaction) =>
+            persistence.appendPublication(
+                transaction,
+                InvocationPublicationOutbox.pending(observation("acknowledgement-loss"))
+            )
+        );
+        const drainer = new InvocationPublicationDrainer(
+            transactions,
+            persistence,
+            { publish: async () => {} },
+            {
+                append: async () => {
+                    transactions.transact((transaction) => transaction.publications.clear());
+                }
+            },
+            () => new Date(10)
+        );
+        await expect(drainer.flush()).rejects.toMatchObject({
+            code: "invocation.invalid",
+            message: expect.stringMatching(/Publication disappeared during acknowledgement/u)
+        });
+    });
+});
+
+describe("W6 mediation memory persistence", () => {
+    test("verifies replay projections against their codec bytes", { tags: "p1" }, () => {
+        const persistence = new MemoryInvocationMediationPersistence();
+        const state = createInvocationMediationMemoryState();
+        const record = MediatedReplayRecord.reserve(replayReservation("memory-replay"));
+        expect(persistence.replayById(state, record.id)).toBeUndefined();
+        persistence.appendReplay(state, record);
+        const corruptIndex = cloneInvocationMediationMemoryState(state);
+        corruptIndex.replays.clear();
+        expect(() => persistence.replayById(corruptIndex, record.id)).toThrow(
+            /Replay revision index is corrupt/
+        );
+        const mismatched = cloneInvocationMediationMemoryState(state);
+        const other = MediatedReplayRecord.reserve(replayReservation("memory-replay-other"));
+        for (const key of mismatched.replays.keys()) {
+            mismatched.replays.set(key, MediatedReplayRecord.encode(other));
+        }
+        expect(() => persistence.replayById(mismatched, record.id)).toThrow(
+            /Replay projection does not match codec bytes/
+        );
+    });
+
+    test("guards replay append lineage", { tags: "p0" }, () => {
+        const persistence = new MemoryInvocationMediationPersistence();
+        const record = MediatedReplayRecord.reserve(replayReservation("memory-lineage"));
+        const state = createInvocationMediationMemoryState();
+        persistence.appendReplay(state, record);
+        expect(() => persistence.appendReplay(state, record)).toThrow(/Replay reservation exists/);
+        const residue = createInvocationMediationMemoryState();
+        residue.replayRevision.set(record.id.value, 0);
+        expect(() => persistence.appendReplay(residue, record)).toThrow(
+            /Replay reservation exists/
+        );
+        const prepared = record.prepare(new InvocationId("memory-lineage-invocation"), [{}], [[]]);
+        persistence.appendReplay(state, prepared);
+        expect(() => persistence.appendReplay(state, prepared)).toThrow(
+            /Replay revision is not the next reserved transition/
+        );
+        const rewound = cloneInvocationMediationMemoryState(state);
+        rewound.replayRevision.set(record.id.value, 0);
+        expect(() => persistence.appendReplay(rewound, prepared)).toThrow(
+            /Replay revision exists/
+        );
+    });
+
+    test("verifies audit projections against their codec bytes", { tags: "p1" }, () => {
+        const persistence = new MemoryInvocationMediationPersistence();
+        const state = createInvocationMediationMemoryState();
+        const actor = new ActorRef("run", new ActorId("memory-audit-actor"));
+        const kind = {
+            kind: "invocation" as const,
+            id: new InvocationId("memory-audit-invocation")
+        };
+        const record = new AuditRecord({
+            id: new AuditRecordId("memory-audit"),
+            actor,
+            tenant: new TenantId("memory-audit-tenant"),
+            correlation: new CorrelationId("memory-audit-correlation"),
+            kind
+        });
+        persistence.appendAudit(state, record);
+        expect(() => persistence.appendAudit(state, record)).toThrow(/Audit record exists/);
+        const misfiled = cloneInvocationMediationMemoryState(state);
+        misfiled.audits.set("memory-audit-other", AuditRecord.encode(record));
+        expect(() => persistence.audit(misfiled, new AuditRecordId("memory-audit-other"))).toThrow(
+            /Audit projection does not match codec bytes/
+        );
+        const scan = createInvocationMediationMemoryState();
+        scan.audits.set("memory-audit-misfiled", AuditRecord.encode(record));
+        expect(() => persistence.findAuditByEvidence(scan, actor, kind)).toThrow(
+            /Audit projection does not match codec bytes/
+        );
+        const cross = cloneInvocationMediationMemoryState(state);
+        const otherKind = {
+            kind: "invocation" as const,
+            id: new InvocationId("memory-audit-other-invocation")
+        };
+        cross.auditByEvidence.set(auditEvidenceIdentity(actor, otherKind).value, record.id.value);
+        expect(() => persistence.findAuditByEvidence(cross, actor, otherKind)).toThrow(
+            /Audit evidence projection does not match codec bytes/
+        );
+    });
+
+    test("orders pending publications and guards publication lineage", { tags: "p1" }, () => {
+        const persistence = new MemoryInvocationMediationPersistence();
+        const state = createInvocationMediationMemoryState();
+        const pendings = ["a", "b", "c"].map((suffix) =>
+            InvocationPublicationOutbox.pending(observation(`memory-order-${suffix}`))
+        );
+        const [low, middle, high] = [...pendings].sort((left, right) =>
+            left.id.value.localeCompare(right.id.value)
+        );
+        if (low === undefined || middle === undefined || high === undefined) {
+            throw new TypeError("Expected three publications");
+        }
+        persistence.appendPublication(state, high);
+        persistence.appendPublication(state, middle);
+        persistence.appendPublication(state, low);
+        persistence.appendPublication(state, middle.eventPublished(new Date(1)));
+        persistence.appendPublication(
+            state,
+            middle.eventPublished(new Date(1)).commitAppended(new Date(2))
+        );
+        expect(persistence.pendingPublications(state).map((record) => record.id.value)).toEqual([
+            low.id.value,
+            high.id.value
+        ]);
+        expect(() => persistence.appendPublication(state, low)).toThrow(
+            /Publication revision is not the next transition/
+        );
+        const orphan = InvocationPublicationOutbox.pending(
+            observation("memory-orphan")
+        ).eventPublished(new Date(1));
+        expect(() => persistence.appendPublication(state, orphan)).toThrow(
+            /Publication revision is not the next transition/
+        );
+        const misfiled = createInvocationMediationMemoryState();
+        misfiled.publications.set("0".repeat(64), InvocationPublicationOutbox.encode(low));
+        expect(() => persistence.publication(misfiled, new Digest("0".repeat(64)))).toThrow(
+            /Publication projection does not match codec bytes/
+        );
+        const snapshot = cloneInvocationMediationMemoryState(state);
+        for (const bytes of state.publications.values()) {
+            bytes.fill(0);
+        }
+        expect(persistence.publication(snapshot, low.id)?.id.equals(low.id)).toBe(true);
+    });
+});
+
+describe("W6 profile mediation port", () => {
+    test("dispatches exactly one canonical item with empty interceptions", { tags: "p1" }, async () => {
+        const invocation = new InvocationId("profile-shape");
+        const request = profileRequest();
+        const receipt = attemptReceipt("profile-shape", 0);
+        let observed: CanonicalBatchInvocationRequest<ProtectedOperationRequest> | undefined;
+        const port = new InvocationProtectedOperationPort(
+            { invocation: () => invocation },
+            {
+                invoke: async (batchRequest) => {
+                    observed = batchRequest;
+                    return {
+                        invocation,
+                        items: [{ kind: "succeeded", itemIndex: 0, receipt, output: { value: 2 } }]
+                    };
+                }
+            }
+        );
+        await expect(port.invoke(request)).resolves.toEqual({
+            kind: "output",
+            output: { value: 2 },
+            receipt
+        });
+        expect(observed?.request.requestKey.value).toBe(`profile:${invocation.value}`);
+        expect(observed?.request.interceptions).toEqual([[]]);
+        expect(observed?.request.inputs).toEqual([{ value: 1 }]);
+        expect(observed?.request.shape).toEqual({ kind: "single" });
+
+        const doubled = new InvocationProtectedOperationPort(
+            { invocation: () => invocation },
+            {
+                invoke: async () => ({
+                    invocation,
+                    items: [
+                        { kind: "succeeded", itemIndex: 0, receipt, output: {} },
+                        { kind: "succeeded", itemIndex: 1, receipt, output: {} }
+                    ]
+                })
+            }
+        );
+        await expect(doubled.invoke(request)).rejects.toThrow(
+            /substituted canonical item result/
+        );
+        const misindexed = new InvocationProtectedOperationPort(
+            { invocation: () => invocation },
+            {
+                invoke: async () => ({
+                    invocation,
+                    items: [{ kind: "succeeded", itemIndex: 5, receipt, output: {} }]
+                })
+            }
+        );
+        await expect(misindexed.invoke(request)).rejects.toThrow(
+            /substituted canonical item result/
+        );
+    });
+
+    test("maps terminal profile receipts to precise failures", { tags: "p2" }, async () => {
+        const invocation = new InvocationId("profile-failures");
+        const request = profileRequest();
+        const portFor = (receipt: Receipt) =>
+            new InvocationProtectedOperationPort(
+                { invocation: () => invocation },
+                {
+                    invoke: async () => ({
+                        invocation,
+                        items: [{ kind: "terminal", itemIndex: 0, receipt }]
+                    })
+                }
+            );
+        await expect(
+            portFor(
+                new PreEffectReceipt(
+                    new ReceiptId("profile-denied"),
+                    invocation,
+                    0,
+                    "deniedPreEffect",
+                    new Date(1),
+                    "profile denied"
+                )
+            ).invoke(request)
+        ).rejects.toMatchObject({ code: "authority.denied", message: "profile denied" });
+        await expect(
+            portFor(
+                new AttemptReceipt(
+                    new ReceiptId("profile-indeterminate"),
+                    new EffectAttemptId("profile-indeterminate-attempt"),
+                    "indeterminate",
+                    undefined,
+                    new Date(1),
+                    undefined
+                )
+            ).invoke(request)
+        ).rejects.toMatchObject({
+            code: "invocation.invalid",
+            message: expect.stringMatching(/outcome is indeterminate/u)
+        });
+        await expect(
+            portFor(
+                new AttemptReceipt(
+                    new ReceiptId("profile-failed"),
+                    new EffectAttemptId("profile-failed-attempt"),
+                    "failed",
+                    undefined,
+                    new Date(1),
+                    undefined
+                )
+            ).invoke(request)
+        ).rejects.toThrow(/did not produce a successful output/);
+    });
+});
+
 class MemoryTransactions implements InvocationTransactionPort<InvocationMediationMemoryState> {
     #state = createInvocationMediationMemoryState();
 
@@ -911,6 +1931,66 @@ function replayHarness(scope: string, batch?: CanonicalBatchInvoker<string>) {
         persistence,
         invocation
     };
+}
+
+function batchPreflight(id: string) {
+    return {
+        requestKey: new OperationRequestKey(`request:${id}`),
+        facet: new FacetRef("workspace:target"),
+        descriptor,
+        shape: { kind: "batch" as const, itemCount: 2 },
+        inputs: [{ raw: 0 }, { raw: 1 }],
+        authorization: "permit",
+        replayBinding: replayReservationBinding()
+    };
+}
+
+function receiptWithId(id: string): AttemptReceipt {
+    return new AttemptReceipt(
+        new ReceiptId(id),
+        new EffectAttemptId(`attempt:${id}`),
+        "succeeded",
+        undefined,
+        new Date(5),
+        undefined
+    );
+}
+
+function observation(id: string): ReceiptObservation {
+    return Object.freeze({
+        invocation: new InvocationId(`${id}-invocation`),
+        receipt: new ReceiptId(`${id}-receipt`),
+        audit: new AuditRecordId(`${id}-audit`)
+    });
+}
+
+function profileRequest(): ProtectedOperationRequest {
+    return {
+        facet: new FacetRef("workspace:target"),
+        binding: {} as never,
+        operation: {
+            descriptor,
+            execute: async (_context: OperationContext, input: FacetData) => input
+        },
+        input: { value: 1 },
+        resultMode: "output"
+    };
+}
+
+function amendReplay(
+    transactions: MemoryTransactions,
+    persistence: MemoryInvocationMediationPersistence,
+    scope: string,
+    requestKey: string,
+    amend: (record: MediatedReplayRecord) => readonly MediatedReplayRecord[]
+): void {
+    transactions.transact((transaction) => {
+        const record = persistence.replay(transaction, scope, requestKey);
+        if (record === undefined) throw new TypeError("Expected a stored replay record");
+        for (const next of amend(record)) {
+            persistence.appendReplay(transaction, next);
+        }
+    });
 }
 
 function preflight(id: string) {

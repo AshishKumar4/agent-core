@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+    InvocationId,
     immutableReference,
     requireArray,
     requireCanonicalText,
@@ -47,6 +48,50 @@ describe("invocation codec helpers", () => {
         ["valid Date", () => validDate(new Date(Number.NaN), "value")]
     ])("rejects malformed %s values", (_name, operation) => {
         expect(operation).toThrow(TypeError);
+    });
+
+    test("rejects primitive objects, non-canonical dates, and empty text", { tags: "p1" }, () => {
+        expect(() => requireObject("text", "value")).toThrow(TypeError);
+        expect(() => requireDate({ value: "2026-07-20" }, "value")).toThrow(TypeError);
+        expect(() => requireCanonicalText("", "value")).toThrow(TypeError);
+    });
+
+    test("compares canonical encodings beyond shared byte prefixes", { tags: "p1" }, () => {
+        expect(sameJson(1, 12)).toBe(false);
+        expect(sameJson(12, 1)).toBe(false);
+    });
+
+    test("freezes exact identifier references and rejects derived classes", { tags: "p1" }, () => {
+        const id = new InvocationId("codec-identifier");
+        expect(immutableReference(id)).toBe(id);
+        expect(Object.isFrozen(id)).toBe(true);
+        class DerivedInvocationId extends InvocationId {}
+        expect(() => immutableReference(new DerivedInvocationId("derived-identifier"))).toThrow(
+            /exact context classes/
+        );
+    });
+
+    test("accepts array and null-prototype structural references", { tags: "p1" }, () => {
+        const items = [1, ["nested"]];
+        expect(immutableReference(items)).toBe(items);
+        expect(Object.isFrozen(items)).toBe(true);
+        expect(Object.isFrozen(items[1])).toBe(true);
+        const bare: { value?: number } = Object.create(null);
+        bare.value = 1;
+        expect(immutableReference(bare)).toBe(bare);
+        expect(Object.isFrozen(bare)).toBe(true);
+    });
+
+    test("rejects symbol keys and ghost property descriptors", { tags: "p1" }, () => {
+        expect(() => immutableReference({ [Symbol("hidden")]: 1 })).toThrow(/symbol keys/);
+        const ghost = new Proxy(
+            {},
+            {
+                ownKeys: () => ["ghost"],
+                getOwnPropertyDescriptor: () => undefined
+            }
+        );
+        expect(() => immutableReference(ghost)).toThrow(/accessors/);
     });
 
     test("deep-freezes structural references and rejects cycles", () => {

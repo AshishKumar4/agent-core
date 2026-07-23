@@ -1,21 +1,38 @@
 import { describe, expect, test } from "vitest";
-import { ContentRef, Digest } from "../../src/core";
+import { ActorId, ActorRef } from "../../src/actors";
+import { ContentStore } from "../../src/content";
+import { ContentRef, Digest, SemVer, encodeCanonicalJson } from "../../src/core";
+import { PackageId } from "../../src/definition";
+import { AgentCoreError } from "../../src/errors";
+import { FacetRef, OperationRef, type FacetData } from "../../src/facets";
 import { PrincipalId } from "../../src/identity";
 import {
     Approval,
     ApprovalId,
+    AttemptReceipt,
     AuditRecord,
+    AuditRecordId,
+    CanonicalBatchInvocationPort,
     EffectAttemptId,
+    InvocationPlacementPin,
+    OperationPin,
     PreEffectReceipt,
-    type CanonicalBatchInvocationRequest
+    PreparedInvocation,
+    ReceiptCodec,
+    type CanonicalBatchInvocationRequest,
+    type CanonicalBatchInvocationResult,
+    type Receipt
 } from "../../src/invocations";
 import { InvocationId } from "../../src/interaction-references";
 import { ConfirmedOperationFailure, OperationRequestKey } from "../../src/operations";
 import {
     CanonicalBatchHarness as Harness,
+    CanonicalBatchPreparation,
     canonicalBatchDescriptor as descriptor,
-    canonicalBatchFacet as facet
+    canonicalBatchFacet as facet,
+    type CanonicalBatchHarnessState
 } from "../integration/canonical-batch-harness";
+import { preparedReferenceCodecs } from "./fixture";
 
 describe("CanonicalBatchInvocationPort", () => {
     test(
@@ -570,6 +587,602 @@ describe("CanonicalBatchInvocationPort", () => {
             )
         ).toBeUndefined();
     });
+
+    test(
+        "rejects a canonical identity whose replay carries a different intent",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("canonical-identity-drift");
+
+            const first = await harness.port.invoke(
+                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+            );
+            expect(first.items[0]).toMatchObject({ kind: "succeeded", output: { value: 1 } });
+
+            await expect(
+                harness.port.invoke(
+                    request(invocation, [{ value: 2 }], (index) => harness.executions.push(index))
+                )
+            ).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Prepared Invocation changed under its canonical identity"
+            });
+            expect(harness.executions).toEqual([0]);
+        }
+    );
+
+    test(
+        "rethrows a non-denial permit failure without recording any receipt",
+        { tags: "p1" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("permit-infrastructure-fault");
+            harness.permits.onIssue = async () => {
+                throw new AgentCoreError("lease.invalid", "permit infrastructure fault");
+            };
+
+            await expect(
+                harness.port.invoke(
+                    request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+                )
+            ).rejects.toMatchObject({
+                code: "lease.invalid",
+                message: "permit infrastructure fault"
+            });
+            expect(harness.executions).toEqual([]);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.ledger.currentReceipt(transaction, invocation, 0)
+                )
+            ).toBeUndefined();
+        }
+    );
+
+    test(
+        "rethrows a non-denial authentication failure without recording any receipt",
+        { tags: "p1" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("authentication-infrastructure-fault");
+            harness.authentication.onAuthenticate = async () => {
+                throw new AgentCoreError("lease.invalid", "authentication infrastructure fault");
+            };
+
+            await expect(
+                harness.port.invoke(
+                    request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+                )
+            ).rejects.toMatchObject({
+                code: "lease.invalid",
+                message: "authentication infrastructure fault"
+            });
+            expect(harness.executions).toEqual([]);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.ledger.currentReceipt(transaction, invocation, 0)
+                )
+            ).toBeUndefined();
+        }
+    );
+
+    test(
+        "reports the exact permit denial reason and its blank-message fallback",
+        { tags: "p2" },
+        async () => {
+            const denied = new Harness(false);
+            denied.permits.deniedItems.add(0);
+            const deniedResult = await denied.port.invoke(
+                request(new InvocationId("permit-denied-reason"), [{ value: 1 }], () => undefined)
+            );
+            expect(deniedResult.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "deniedPreEffect", reason: "permit denied" }
+            });
+
+            const blank = new Harness(false);
+            blank.permits.onIssue = async () => {
+                throw new AgentCoreError("authority.denied", "");
+            };
+            const blankResult = await blank.port.invoke(
+                request(new InvocationId("permit-denied-blank"), [{ value: 1 }], () => undefined)
+            );
+            expect(blankResult.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "deniedPreEffect", reason: "Authority permit denied" }
+            });
+        }
+    );
+
+    test(
+        "reports the exact authentication denial reason and its blank-message fallback",
+        { tags: "p2" },
+        async () => {
+            const denied = new Harness(false);
+            denied.authentication.deniedItems.add(0);
+            const deniedResult = await denied.port.invoke(
+                request(
+                    new InvocationId("authentication-denied-reason"),
+                    [{ value: 1 }],
+                    () => undefined
+                )
+            );
+            expect(deniedResult.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "deniedPreEffect", reason: "permit authentication denied" }
+            });
+
+            const blank = new Harness(false);
+            blank.authentication.onAuthenticate = async () => {
+                throw new AgentCoreError("authority.denied", "");
+            };
+            const blankResult = await blank.port.invoke(
+                request(
+                    new InvocationId("authentication-denied-blank"),
+                    [{ value: 1 }],
+                    () => undefined
+                )
+            );
+            expect(blankResult.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: {
+                    outcome: "deniedPreEffect",
+                    reason: "Authority permit authentication denied"
+                }
+            });
+        }
+    );
+
+    test(
+        "retries admission after its claim was recovered during permit issuance",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("claim-recovered-mid-issue");
+            const issued = deferred<void>();
+            const releaseFirst = deferred<void>();
+            const held = deferred<void>();
+            const releaseSecond = deferred<void>();
+            let issueCalls = 0;
+            harness.permits.onIssue = async () => {
+                issueCalls += 1;
+                if (issueCalls === 1) {
+                    issued.resolve(undefined);
+                    await releaseFirst.promise;
+                } else if (issueCalls === 2) {
+                    held.resolve(undefined);
+                    await releaseSecond.promise;
+                }
+            };
+            const value = request(invocation, [{ value: 1 }], (index) =>
+                harness.executions.push(index)
+            );
+
+            const stale = harness.port.invoke(value);
+            await issued.promise;
+            harness.setTime(10_000);
+            harness.restartRuntime();
+            const recovered = harness.port.invoke(value);
+            await held.promise;
+
+            releaseFirst.resolve(undefined);
+            await expect(stale).resolves.toMatchObject({
+                items: [{ kind: "succeeded", output: { value: 1 } }]
+            });
+            releaseSecond.resolve(undefined);
+            await expect(recovered).resolves.toMatchObject({
+                items: [{ kind: "succeeded", output: { value: 1 } }]
+            });
+
+            expect(harness.executions).toEqual([0]);
+            const durable = harness.transactions.transact((transaction) => ({
+                claims: harness.persistence.claimsForItem(transaction, invocation, 0),
+                attempts: harness.persistence.attemptsForItem(transaction, invocation, 0)
+            }));
+            expect(durable.claims.map((claim) => claim.id.value)).toEqual([
+                `claim:${invocation.value}:0:0`,
+                `claim:${invocation.value}:0:recovered`
+            ]);
+            expect(durable.attempts).toHaveLength(1);
+            expect(durable.attempts[0]?.claim.value).toBe(
+                `claim:${invocation.value}:0:recovered`
+            );
+        }
+    );
+
+    test(
+        "returns the racing pre-effect denial instead of admitting a stale permit",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("denial-raced-admission");
+            const issued = deferred<void>();
+            const release = deferred<void>();
+            let issueCalls = 0;
+            harness.permits.onIssue = async () => {
+                issueCalls += 1;
+                if (issueCalls === 1) {
+                    issued.resolve(undefined);
+                    await release.promise;
+                } else {
+                    throw new AgentCoreError("authority.denied", "concurrent permit denial");
+                }
+            };
+            const value = request(invocation, [{ value: 1 }], (index) =>
+                harness.executions.push(index)
+            );
+
+            const admitted = harness.port.invoke(value);
+            await issued.promise;
+            harness.restartRuntime();
+            const denied = await harness.port.invoke(value);
+            release.resolve(undefined);
+            const raced = await admitted;
+
+            expect(denied.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "deniedPreEffect", reason: "concurrent permit denial" }
+            });
+            expect(raced.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "deniedPreEffect" }
+            });
+            expect(itemReceipt(raced, 0).id.equals(itemReceipt(denied, 0).id)).toBe(true);
+            expect(harness.executions).toEqual([]);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toEqual([]);
+        }
+    );
+
+    test(
+        "replays a concurrent final failed receipt without duplicating the failed effect",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("failed-receipt-raced-admission");
+            const issued = deferred<void>();
+            const release = deferred<void>();
+            let issueCalls = 0;
+            harness.permits.onIssue = async () => {
+                issueCalls += 1;
+                if (issueCalls === 1) {
+                    issued.resolve(undefined);
+                    await release.promise;
+                }
+            };
+            let executions = 0;
+            const value = request(invocation, [{ value: 1 }], () => {
+                executions += 1;
+                throw new ConfirmedOperationFailure(
+                    "confirmed remote failure",
+                    ContentRef.fromDigest(digest("confirmed remote failure"))
+                );
+            });
+
+            const raced = harness.port.invoke(value);
+            await issued.promise;
+            harness.restartRuntime();
+            const failed = await harness.port.invoke(value);
+            release.resolve(undefined);
+            const replayed = await raced;
+
+            expect(failed.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "failed" }
+            });
+            expect(replayed.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "failed" }
+            });
+            expect(itemReceipt(replayed, 0).id.equals(itemReceipt(failed, 0).id)).toBe(true);
+            expect(executions).toBe(1);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toHaveLength(1);
+        }
+    );
+
+    test(
+        "reports a live concurrent attempt as lost target admission without repeating the effect",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("attempt-raced-admission");
+            const issued = deferred<void>();
+            const release = deferred<void>();
+            const started = deferred<void>();
+            const complete = deferred<void>();
+            let issueCalls = 0;
+            harness.permits.onIssue = async () => {
+                issueCalls += 1;
+                if (issueCalls === 1) {
+                    issued.resolve(undefined);
+                    await release.promise;
+                }
+            };
+            const value = request(invocation, [{ value: 1 }], (index) =>
+                harness.executions.push(index)
+            );
+
+            const loser = harness.port.invoke(value);
+            await issued.promise;
+            harness.restartRuntime();
+            const winner = harness.port.invoke({
+                ...value,
+                request: {
+                    ...value.request,
+                    execute: async () => {
+                        started.resolve(undefined);
+                        await complete.promise;
+                        return { value: 1 };
+                    }
+                }
+            });
+            await started.promise;
+            release.resolve(undefined);
+
+            await expect(loser).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "A concurrent EffectAttempt won target admission"
+            });
+            complete.resolve(undefined);
+            await expect(winner).resolves.toMatchObject({
+                items: [{ kind: "succeeded", output: { value: 1 } }]
+            });
+            expect(harness.executions).toEqual([]);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toHaveLength(1);
+        }
+    );
+
+    test(
+        "rejects an authority denial that raced an attempted item receipt",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("denial-after-attempt-receipt");
+            const issued = deferred<void>();
+            const release = deferred<void>();
+            let issueCalls = 0;
+            harness.permits.onIssue = async () => {
+                issueCalls += 1;
+                if (issueCalls === 1) {
+                    issued.resolve(undefined);
+                    await release.promise;
+                    throw new AgentCoreError("authority.denied", "raced permit denial");
+                }
+            };
+            const value = request(invocation, [{ value: 1 }], (index) =>
+                harness.executions.push(index)
+            );
+
+            const denied = harness.port.invoke(value);
+            await issued.promise;
+            harness.restartRuntime();
+            const completed = await harness.port.invoke(value);
+
+            release.resolve(undefined);
+            await expect(denied).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Authority denial raced an attempted item Receipt"
+            });
+            expect(completed.items[0]).toMatchObject({ kind: "succeeded", output: { value: 1 } });
+            expect(harness.executions).toEqual([0]);
+        }
+    );
+
+    test(
+        "terminalizes as indeterminate when result content persistence fails after the effect",
+        { tags: "p1" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("result-content-crash");
+            const port = new CanonicalBatchInvocationPort<
+                string,
+                CanonicalBatchHarnessState,
+                string,
+                string,
+                string,
+                string,
+                string
+            >(
+                harness.transactions,
+                harness.persistence,
+                harness.ledger,
+                harness.preparation,
+                harness.permits,
+                harness.authentication,
+                harness.records,
+                harness.finalAdmissions,
+                harness.evidence,
+                {
+                    resources: () => ({
+                        signal: new AbortController().signal,
+                        content: new FailingPutContentStore(harness.content)
+                    })
+                },
+                harness.now
+            );
+
+            const result = await port.invoke(
+                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+            );
+
+            expect(result.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "indeterminate" }
+            });
+            expect(harness.executions).toEqual([0]);
+        }
+    );
+
+    test("recovers a claim exactly at its expiry instant", { tags: "p1" }, async () => {
+        const harness = new Harness(false);
+        const invocation = new InvocationId("claim-expiry-boundary");
+        harness.permits.crashOnce = true;
+        const value = request(invocation, [{ value: 1 }], () => undefined);
+        await expect(harness.port.invoke(value)).rejects.toThrow("permit transport crash");
+
+        const claim = harness.transactions.transact((transaction) =>
+            harness.persistence.claimsForItem(transaction, invocation, 0).at(0)
+        );
+        if (claim === undefined) throw new TypeError("Initial claim is missing");
+        harness.setTime(claim.expiresAt.getTime());
+        const recovered = await harness.port.invoke(value);
+
+        expect(recovered.items[0]).toMatchObject({ kind: "succeeded", output: { value: 1 } });
+        expect(harness.records.createdClaims).toBe(2);
+        expect(
+            harness.transactions.transact((transaction) =>
+                harness.persistence.claimsForItem(transaction, invocation, 0)
+            )
+        ).toHaveLength(2);
+    });
+
+    test(
+        "rejects replaying a succeeded receipt that lost its canonical result content",
+        { tags: "p1" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("succeeded-receipt-without-result");
+            const value = request(invocation, [{ value: 1 }], () => {
+                throw new TypeError("provider response was lost");
+            });
+            const indeterminate = await harness.port.invoke(value);
+            expect(indeterminate.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "indeterminate" }
+            });
+
+            harness.transactions.transact((transaction) => {
+                const attempt = harness.persistence
+                    .attemptsForItem(transaction, invocation, 0)
+                    .at(0);
+                if (attempt === undefined) throw new TypeError("EffectAttempt is missing");
+                const receipt = harness.persistence
+                    .receiptsForAttempt(transaction, attempt.id)
+                    .at(0);
+                if (!(receipt instanceof AttemptReceipt)) {
+                    throw new TypeError("AttemptReceipt is missing");
+                }
+                transaction.receipts.set(
+                    receipt.id.value,
+                    ReceiptCodec.encode(
+                        new AttemptReceipt(
+                            receipt.id,
+                            receipt.attempt,
+                            "succeeded",
+                            undefined,
+                            receipt.recordedAt,
+                            undefined
+                        )
+                    )
+                );
+            });
+
+            await expect(harness.port.invoke(value)).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Successful Operation Receipt has no canonical result content"
+            });
+        }
+    );
+
+    test("rejects inexact input and interception counts independently", { tags: "p1" }, async () => {
+        const inputs = new Harness(false);
+        const value = request(new InvocationId("inexact-inputs"), [{ value: 1 }], () => undefined);
+        await expect(
+            inputs.port.invoke({
+                ...value,
+                request: {
+                    ...value.request,
+                    shape: { kind: "batch", itemCount: 2 },
+                    interceptions: [[], []]
+                }
+            })
+        ).rejects.toThrow(/nonempty exact payload shape/);
+
+        const interceptions = new Harness(false);
+        const exact = request(
+            new InvocationId("inexact-interceptions"),
+            [{ value: 1 }],
+            () => undefined
+        );
+        await expect(
+            interceptions.port.invoke({
+                ...exact,
+                request: { ...exact.request, interceptions: [] }
+            })
+        ).rejects.toThrow(/nonempty exact payload shape/);
+    });
+
+    test("rejects a prepared invocation whose operation binding drifts", { tags: "p1" }, async () => {
+        const kind = new Harness(false);
+        kind.preparation.override = (bound) =>
+            kind.preparation.create(bound.invocation, bound.request.inputs, "single");
+        await expect(
+            kind.port.invoke(
+                request(new InvocationId("prepared-kind-drift"), [{ value: 1 }], () => undefined)
+            )
+        ).rejects.toThrow(/does not bind the exact canonical batch request/);
+
+        const target = new Harness(false);
+        const other = new CanonicalBatchPreparation<string>(false, new FacetRef("workspace:other"));
+        target.preparation.override = (bound) =>
+            other.create(bound.invocation, bound.request.inputs);
+        await expect(
+            target.port.invoke(
+                request(new InvocationId("prepared-target-drift"), [{ value: 1 }], () => undefined)
+            )
+        ).rejects.toThrow(/does not bind the exact canonical batch request/);
+
+        const impact = new Harness(false);
+        const impactInvocation = new InvocationId("prepared-impact-drift");
+        impact.preparation.override = () => impactDriftedPrepared(impactInvocation, [{ value: 1 }]);
+        await expect(
+            impact.port.invoke(request(impactInvocation, [{ value: 1 }], () => undefined))
+        ).rejects.toThrow(/does not bind the exact canonical batch request/);
+    });
+
+    test("rejects prepared items that drift from the canonical inputs", { tags: "p1" }, async () => {
+        const count = new Harness(false);
+        count.preparation.override = (bound) =>
+            count.preparation.create(bound.invocation, [...bound.request.inputs, { value: 2 }]);
+        await expect(
+            count.port.invoke(
+                request(new InvocationId("prepared-count-drift"), [{ value: 1 }], () => undefined)
+            )
+        ).rejects.toThrow(/does not bind the exact canonical batch request/);
+
+        const single = new Harness(false);
+        single.preparation.override = (bound) =>
+            single.preparation.create(bound.invocation, [{ value: 999 }]);
+        await expect(
+            single.port.invoke(
+                request(new InvocationId("prepared-item-drift"), [{ value: 1 }], () => undefined)
+            )
+        ).rejects.toThrow(/does not bind the exact canonical batch request/);
+
+        const partial = new Harness(false);
+        partial.preparation.override = (bound) =>
+            partial.preparation.create(bound.invocation, [bound.request.inputs[0], { value: 999 }]);
+        await expect(
+            partial.port.invoke(
+                request(
+                    new InvocationId("prepared-partial-drift"),
+                    [{ value: 1 }, { value: 2 }],
+                    () => undefined
+                )
+            )
+        ).rejects.toThrow(/does not bind the exact canonical batch request/);
+    });
 });
 
 function request(
@@ -597,6 +1210,72 @@ function request(
 
 function digest(value: string): Digest {
     return Digest.sha256(new TextEncoder().encode(value));
+}
+
+function itemReceipt(result: CanonicalBatchInvocationResult, itemIndex: number): Receipt {
+    const item = result.items[itemIndex];
+    if (item === undefined) throw new TypeError("Canonical batch item result is missing");
+    return item.receipt;
+}
+
+// Mirrors the harness operation pin while flipping only the impact, so the drift is
+// invisible to the descriptor digest and must be caught by the impact binding check.
+function impactDriftedPrepared(
+    invocation: InvocationId,
+    items: readonly [FacetData, ...FacetData[]]
+): PreparedInvocation<string, string, string, string> {
+    return PreparedInvocation.create(
+        {
+            id: invocation,
+            operation: OperationPin.create({
+                operation: new OperationRef(`canonical-package:${descriptor.name.value}`),
+                target: facet.value,
+                package: new PackageId("canonical-package"),
+                version: new SemVer("1.0.0"),
+                manifestDigest: digest("manifest"),
+                descriptorDigest: Digest.sha256(encodeCanonicalJson(descriptor.toData())),
+                configurationDigest: digest("configuration"),
+                runtimeDigest: digest("runtime"),
+                activationGeneration: "generation",
+                registration: "registration",
+                impact: "mutate",
+                approvalRequired: false,
+                placement: new InvocationPlacementPin({
+                    manifest: ["provider"],
+                    policy: ["provider"],
+                    substrate: ["provider"],
+                    trust: ["provider"],
+                    selected: "provider"
+                })
+            }),
+            domain: `domain:${invocation.value}`,
+            actor: new ActorRef("run", new ActorId(`actor:${invocation.value}`)),
+            authority: `authority:${invocation.value}`,
+            pathEpochs: `epochs:${invocation.value}`,
+            auditCause: new AuditRecordId(`audit:${invocation.value}`),
+            idempotencySeed: `seed:${invocation.value}`
+        },
+        { kind: "batch", items },
+        preparedReferenceCodecs
+    );
+}
+
+class FailingPutContentStore extends ContentStore {
+    public constructor(private readonly inner: ContentStore) {
+        super();
+    }
+
+    public put(): ReturnType<ContentStore["put"]> {
+        return Promise.reject(new TypeError("content persistence crash"));
+    }
+
+    public get(...parameters: Parameters<ContentStore["get"]>): ReturnType<ContentStore["get"]> {
+        return this.inner.get(...parameters);
+    }
+
+    public stat(...parameters: Parameters<ContentStore["stat"]>): ReturnType<ContentStore["stat"]> {
+        return this.inner.stat(...parameters);
+    }
 }
 
 function time(second: number): Date {

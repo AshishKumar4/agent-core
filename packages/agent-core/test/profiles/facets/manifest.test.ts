@@ -59,6 +59,8 @@ import {
     createStandardProfileManifest,
     createTaskManifest,
     createWebManifest,
+    canonicalIsolationModes,
+    type FacetData,
     type IsolationMode
 } from "../../../src/facets";
 import { describe, expect, test } from "vitest";
@@ -427,6 +429,80 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         ).toThrow(/declarations do not match/u);
     });
 });
+
+describe("Facet manifest data validation", () => {
+    test("freezes binding requirements and validates isolation modes", { tags: "p1" }, () => {
+        const requirement = new BindingRequirement(
+            new BindingName("env"),
+            new FacetPackageId("dependency.env"),
+            new CompatRange("^1.0.0", "^1.0.0")
+        );
+        expect(Object.isFrozen(requirement)).toBe(true);
+        expect(() => canonicalIsolationModes(["dynamic", "bogus"] as never)).toThrow(
+            "Manifest isolation modes must contain known values"
+        );
+    });
+
+    test("round-trips the config schema document through toData and codec", { tags: "p1" }, () => {
+        const manifest = createFilesystemManifest(manifestInit("filesystem"));
+        expect(manifest.toData()).toMatchObject({ configSchema: { type: "object" } });
+        const decoded = FacetManifest.decode(FacetManifest.encode(manifest));
+        expect(decoded.configSchema?.document).toEqual({ type: "object" });
+    });
+
+    test("accepts boolean config schemas and rejects other documents", { tags: "p1" }, () => {
+        expect(
+            FacetManifest.fromData(manifestData({ configSchema: true })).configSchema?.document
+        ).toBe(true);
+        expect(() => FacetManifest.fromData(manifestData({ configSchema: null }))).toThrow(
+            "Manifest config schema must be an object or boolean"
+        );
+        expect(() => FacetManifest.fromData(manifestData({ configSchema: [] }))).toThrow(
+            "Manifest config schema must be an object or boolean"
+        );
+        expect(() => FacetManifest.fromData(manifestData({ isolation: ["bogus"] }))).toThrow(
+            "Manifest isolation mode is invalid"
+        );
+    });
+
+    test("labels malformed manifest and binding fields in messages", { tags: "p2" }, () => {
+        expect(() => FacetManifest.fromData(manifestData({ id: 1 }))).toThrow(
+            "Facet package ID must be a string"
+        );
+        expect(() => FacetManifest.fromData(manifestData({ version: 1 }))).toThrow(
+            "Facet version must be a string"
+        );
+        expect(() =>
+            FacetManifest.fromData(manifestData({ contributions: { custom: "nope" } }))
+        ).toThrow("Manifest contribution custom must be an array");
+        expect(() =>
+            BindingRequirement.fromData({
+                name: 1,
+                facet: "dependency.env",
+                compat: { host: "^1.0.0", spec: "^1.0.0" }
+            })
+        ).toThrow("Binding name must be a string");
+        expect(() =>
+            BindingRequirement.fromData({
+                name: "env",
+                facet: 1,
+                compat: { host: "^1.0.0", spec: "^1.0.0" }
+            })
+        ).toThrow("Binding facet must be a string");
+    });
+});
+
+function manifestData(overrides: { readonly [key: string]: FacetData }): FacetData {
+    return {
+        bindings: [],
+        compat: { host: "^1.0.0", spec: "^1.0.0" },
+        contributions: {},
+        id: "profile.sample",
+        isolation: ["provider"],
+        version: "1.2.3",
+        ...overrides
+    };
+}
 
 function profile(
     name: string,

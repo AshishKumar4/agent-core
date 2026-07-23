@@ -1,11 +1,18 @@
 import { describe, expect, test } from "vitest";
+import { CompatRange, SemVer } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
 import { evaluatePolicy } from "../../../src/definition";
 import {
+    BindingName,
+    BindingRequirement,
+    FacetPackageId,
     FilesystemFacet,
     FilesystemError,
     MemoryFilesystemBackend,
+    OperationName,
     SHELL_OPERATIONS,
     SHELL_OPERATION_CONTRACTS,
+    SHELL_REQUIRED_BINDING,
     ShellBackend,
     ShellCommandRegistryBackend,
     ShellError,
@@ -14,10 +21,14 @@ import {
     ShellFacet,
     ShellIoBackend,
     ShellTerminationClock,
+    SystemShellTerminationClock,
+    createShellManifest,
     tokenizeShellCommand,
+    type OperationContext,
     type ShellIo,
     type ShellProcessBackend
 } from "../../../src/facets";
+import { InvocationId } from "../../../src/invocations";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
 operationDeclarationEvidence("Shell", SHELL_OPERATIONS, { run: "execute", cancel: "mutate" });
@@ -431,6 +442,153 @@ describe("Shell backends", () => {
         await expect(rejected.wait()).resolves.toBe(1);
         expect(rejected.live).toBe(false);
     });
+
+    test("system termination clock waits in real time", { tags: "p1" }, async () => {
+        const clock = new SystemShellTerminationClock();
+        const start = Date.now();
+        await clock.wait(30);
+        expect(Date.now() - start).toBeGreaterThanOrEqual(25);
+    });
+
+    test(
+        "terminate never fences a process that terminates cooperatively",
+        { tags: "p1" },
+        async () => {
+            let fences = 0;
+            const confirmedBoundary = new ShellExecutionBoundary(
+                {
+                    completion: new Promise<number>(() => {}),
+                    forceTerminate() {},
+                    confirmTerminated: () => true,
+                    fence() {
+                        fences += 1;
+                    }
+                },
+                new ControlledTerminationClock(),
+                1_000
+            );
+            await expect(confirmedBoundary.terminate()).resolves.toBeUndefined();
+            await expect(confirmedBoundary.wait()).resolves.toBe(137);
+            expect(fences).toBe(0);
+
+            const completion = deferred<number>();
+            const completedBoundary = new ShellExecutionBoundary(
+                {
+                    completion: completion.promise,
+                    forceTerminate() {
+                        completion.resolve(130);
+                    },
+                    confirmTerminated: () => false,
+                    fence() {
+                        fences += 1;
+                    }
+                },
+                new ControlledTerminationClock(),
+                1_000
+            );
+            await expect(completedBoundary.terminate()).resolves.toBeUndefined();
+            await expect(completedBoundary.wait()).resolves.toBe(130);
+            expect(fences).toBe(0);
+        }
+    );
+
+    test("frees the execution ID once a run completes", { tags: "p1" }, async () => {
+        const registry = new ShellCommandRegistryBackend();
+        registry.register("ok", { start: () => immediateProcess(Promise.resolve(0)) });
+        const shell = createShell(registry);
+        await expect(
+            shell.run({ executionId: executionId("again"), commandLine: "ok" })
+        ).resolves.toBe(0);
+        await expect(
+            shell.run({ executionId: executionId("again"), commandLine: "ok" })
+        ).resolves.toBe(0);
+    });
+
+    test("decodes run wire inputs and cancel outputs exactly", { tags: "p1" }, () => {
+        const decoded = SHELL_OPERATION_CONTRACTS.run.decodeInput({
+            executionId: "wire",
+            commandLine: "tool"
+        });
+        expect(decoded.executionId.value).toBe("wire");
+        expect(decoded.commandLine).toBe("tool");
+        expect(SHELL_OPERATION_CONTRACTS.cancel.decodeOutput(true)).toBe(true);
+        expect(SHELL_OPERATION_CONTRACTS.cancel.decodeOutput(false)).toBe(false);
+    });
+
+    test(
+        "keeps escapes literal inside single quotes and tokenizes escaped blanks",
+        { tags: "p1" },
+        () => {
+            expect(tokenizeShellCommand("tool 'a\\b'")).toEqual(["tool", "a\\b"]);
+            expect(tokenizeShellCommand("\\ ")).toEqual([" "]);
+        }
+    );
+
+    test("reports shell failures with exact codes and messages", { tags: "p2" }, async () => {
+        const error = new ShellError("command.empty", "example");
+        expect(error.name).toBe("ShellError");
+        expect(error.code).toBe("operation.invalid-input");
+        expect(() => new ShellExecutionId("")).toThrow(
+            "Shell execution ID must contain between 1 and 256 characters"
+        );
+        expect(() => new ShellExecutionId(" padded")).toThrow(
+            "Shell execution ID must be canonical"
+        );
+        expect(() => tokenizeShellCommand("'oops")).toThrow(
+            expect.objectContaining({
+                detailCode: "command.invalid",
+                message: "Command line has an unfinished quote or escape"
+            })
+        );
+        const registry = new ShellCommandRegistryBackend();
+        expect(() =>
+            registry.register("bad name", { start: () => immediateProcess(Promise.resolve(0)) })
+        ).toThrow("Shell command name must be canonical");
+        const shell = createShell(registry);
+        await expect(
+            shell.run({ executionId: executionId("blank"), commandLine: " " })
+        ).rejects.toMatchObject({ message: "Command line is empty" });
+        await expect(
+            shell.run({ executionId: executionId("missing"), commandLine: "missing" })
+        ).rejects.toMatchObject({ message: "Unknown command: missing" });
+        expect(() =>
+            SHELL_OPERATION_CONTRACTS.run.decodeInput({ executionId: 5, commandLine: "tool" })
+        ).toThrow("Shell execution ID must be a string");
+        expect(() =>
+            SHELL_OPERATION_CONTRACTS.run.decodeInput({ executionId: "wire", commandLine: 5 })
+        ).toThrow("Shell command line must be a string");
+    });
+
+    test(
+        "executes run and cancel through the manifest-validated internal runtime",
+        { tags: "p1" },
+        async () => {
+            const registry = new ShellCommandRegistryBackend();
+            registry.register("ok", { start: () => immediateProcess(Promise.resolve(7)) });
+            const filesystem = new FilesystemFacet(
+                recordingRuntime("shell-internal-fs").runtime,
+                new MemoryFilesystemBackend()
+            );
+            const backend = new ShellBackend({ fs: filesystem }, registry, new RecordingIoBackend());
+            const manifest = createShellManifest(manifestInit());
+            const internal = new ShellFacet(
+                recordingRuntime("shell-internal").runtime,
+                backend
+            ).asInternalRuntime(manifest);
+
+            expect(internal.manifest).toBe(manifest);
+            await expect(
+                internal
+                    .operation(new OperationName("run"))
+                    ?.execute(operationContext(), { executionId: "internal-run", commandLine: "ok" })
+            ).resolves.toBe(7);
+            await expect(
+                internal
+                    .operation(new OperationName("cancel"))
+                    ?.execute(operationContext(), { executionId: "internal-absent" })
+            ).resolves.toBe(false);
+        }
+    );
 });
 
 class RecordingIoBackend extends ShellIoBackend {
@@ -520,4 +678,29 @@ function emptyIo(): ShellIo {
 
 function executionId(value: string): ShellExecutionId {
     return new ShellExecutionId(value);
+}
+
+function manifestInit() {
+    return {
+        id: new FacetPackageId("profile.shell"),
+        version: new SemVer("1.0.0"),
+        compat: new CompatRange("^1.0.0", "^1.0.0"),
+        bindings: [
+            new BindingRequirement(
+                new BindingName(SHELL_REQUIRED_BINDING),
+                new FacetPackageId(`dependency.${SHELL_REQUIRED_BINDING}`),
+                new CompatRange("^1.0.0", "^1.0.0")
+            )
+        ]
+    };
+}
+
+function operationContext(): OperationContext {
+    return {
+        invocation: new InvocationId("shell-internal-invocation"),
+        itemIndex: 0,
+        idempotencyKey: "shell-internal-idempotency",
+        signal: new AbortController().signal,
+        content: new MemoryContentStore()
+    };
 }

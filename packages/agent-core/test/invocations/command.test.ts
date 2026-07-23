@@ -77,10 +77,41 @@ describe("Invocation protocol command families", () => {
             '{"body":{},"invocation":1}',
             '{"body":null,"invocation":"x"}'
         ]) {
-            expect(() => command.payload.decode(new TextEncoder().encode(malformed))).toThrow();
+            expect(() => command.payload.decode(new TextEncoder().encode(malformed))).toThrow(
+                /payload is malformed/
+            );
         }
     });
+
+    test("binds backend codecs and rejects payloads that bypassed decoding", { tags: "p1" }, () => {
+        const backend = new Backend();
+        const command = protocolCommand(backend, INVOCATION_COMMANDS.attemptExecutor);
+        expect(command.replyCodec).toBe(backend.replyCodec);
+        expect(command.observationCodec).toBe(backend.observationCodec);
+        const envelope = {} as CommandEnvelope;
+        const carrier = Object.assign(() => undefined, {
+            invocation: new InvocationId("bypassed-payload"),
+            body: {}
+        });
+        const undecoded: readonly unknown[] = [
+            null,
+            { invocation: "bypassed-payload", body: {} },
+            { invocation: new InvocationId("bypassed-payload") },
+            carrier
+        ];
+        for (const payload of undecoded) {
+            expect(() => command.authorize({}, envelope, payload as never)).toThrow(/not decoded/);
+        }
+        expect(backend.calls).toEqual([]);
+    });
 });
+
+function protocolCommand(backend: Backend, name: InvocationCommandName) {
+    for (const command of createInvocationProtocolCommands(backend, callers)) {
+        if (command.command === name) return command;
+    }
+    throw new TypeError(`Unknown invocation command: ${name}`);
+}
 
 interface InvocationObservation {
     readonly command: InvocationCommandName;

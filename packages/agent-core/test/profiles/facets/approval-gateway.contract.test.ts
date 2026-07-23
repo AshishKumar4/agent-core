@@ -1,4 +1,5 @@
-import { Digest, type JsonValue } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
+import { CompatRange, Digest, SemVer, type JsonValue } from "../../../src/core";
 import {
     APPROVAL_GATEWAY_CONTRIBUTIONS,
     APPROVAL_GATEWAY_ISOLATION,
@@ -6,10 +7,20 @@ import {
     APPROVAL_GATEWAY_SURFACE,
     ApprovalGatewayAction,
     ApprovalGatewayBackend,
+    ApprovalGatewayError,
     ApprovalGatewayFacet,
-    type EffectDispatch
+    FacetPackageId,
+    OperationName,
+    ProfileEffectContext,
+    createApprovalGatewayManifest,
+    type EffectDispatch,
+    type FacetManifest,
+    type InternalProfileFacetRuntime,
+    type Operation,
+    type OperationContext
 } from "../../../src/facets";
 import { InvocationId } from "../../../src/interaction-references";
+import { EffectAttemptId } from "../../../src/invocations";
 import { describe, expect, test } from "vitest";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
@@ -81,9 +92,10 @@ describe("Approval gateway protected provider profile", () => {
             name: "applyAction"
         });
         expect(backend.actions).toEqual([{ approved: true }]);
+        expect(backend.dispatchKeys).toEqual(["profile-idempotency-1"]);
     });
 
-    test("rejects noncanonical approved resource identities", () => {
+    test("rejects noncanonical approved resource identities", { tags: "p0" }, () => {
         expect(
             () =>
                 new ApprovalGatewayAction(
@@ -92,7 +104,111 @@ describe("Approval gateway protected provider profile", () => {
                     " account ",
                     {}
                 )
-        ).toThrow(TypeError);
+        ).toThrow("Approved resource must be canonical");
+        expect(
+            () =>
+                new ApprovalGatewayAction(
+                    new InvocationId("empty-resource"),
+                    new Digest("a".repeat(64)),
+                    "",
+                    {}
+                )
+        ).toThrow("Approved resource must be canonical");
+    });
+
+    test("releases the action only to the exactly admitted attempt identity", { tags: "p0" }, () => {
+        const digest = inputDigest("account");
+        const approval = new ApprovalGatewayAction(
+            new InvocationId("admitted"),
+            digest,
+            "account",
+            { approved: true }
+        );
+        expect(
+            approval.actionFor(effectContext(new InvocationId("admitted"), digest), "account")
+        ).toEqual({ approved: true });
+    });
+
+    test("rejects each single divergence from the admitted intent", { tags: "p0" }, () => {
+        const digest = inputDigest("account");
+        const approval = new ApprovalGatewayAction(
+            new InvocationId("admitted"),
+            digest,
+            "account",
+            { approved: true }
+        );
+        const mismatch = expect.objectContaining({
+            name: "ApprovalGatewayError",
+            code: "invocation.invalid",
+            detailCode: "approval.mismatch",
+            message: "Approval does not bind the exact admitted intent"
+        });
+        expect(() =>
+            approval.actionFor(effectContext(new InvocationId("other"), digest), "account")
+        ).toThrow(mismatch);
+        expect(() =>
+            approval.actionFor(
+                effectContext(new InvocationId("admitted"), inputDigest("other")),
+                "account"
+            )
+        ).toThrow(mismatch);
+        expect(() =>
+            approval.actionFor(effectContext(new InvocationId("admitted"), digest), "other")
+        ).toThrow(mismatch);
+    });
+
+    test("rejects an attempt-less context with the typed approval error", { tags: "p0" }, () => {
+        const approval = new ApprovalGatewayAction(
+            new InvocationId("admitted"),
+            inputDigest("account"),
+            "account",
+            {}
+        );
+        const attemptless = new ProfileEffectContext(
+            new InvocationId("admitted"),
+            0,
+            "approval-key",
+            undefined,
+            undefined,
+            undefined
+        );
+        let caught: unknown;
+        try {
+            approval.actionFor(attemptless, "account");
+        } catch (error) {
+            caught = error;
+        }
+        expect(caught).toBeInstanceOf(ApprovalGatewayError);
+        expect(caught).toMatchObject({ detailCode: "approval.mismatch" });
+    });
+
+    test("internal runtime mediates observe and applyAction with the bound approval", { tags: "p0" }, async () => {
+        const backend = new TestGatewayBackend();
+        const { runtime } = recordingRuntime("approval-internal");
+        const digest = inputDigest("internal");
+        const invocation = new InvocationId("internal-invocation");
+        const approval = new ApprovalGatewayAction(invocation, digest, "account", {
+            approved: true
+        });
+        const internal = new ApprovalGatewayFacet(runtime, approval, backend).asInternalRuntime(
+            gatewayManifest()
+        );
+        await internal.start({ signal: new AbortController().signal });
+        expect(internal.active).toBe(true);
+        expect(internal.surface(APPROVAL_GATEWAY_SURFACE.id)?.descriptor).toBe(
+            APPROVAL_GATEWAY_SURFACE
+        );
+
+        const context = internalContext(invocation, digest);
+        await expect(
+            internalOperation(internal, "observe").execute(context, { resource: "account" })
+        ).resolves.toEqual({ resource: "account" });
+        expect(backend.observations).toEqual(["account"]);
+        await expect(
+            internalOperation(internal, "applyAction").execute(context, { resource: "account" })
+        ).resolves.toEqual({ applied: true });
+        expect(backend.actions).toEqual([{ approved: true }]);
+        expect(backend.dispatchKeys).toEqual(["internal-idempotency"]);
     });
 
     test("binds one frozen action to exact admitted Invocation, digest, and resource", async () => {
@@ -161,6 +277,7 @@ describe("Approval gateway protected provider profile", () => {
 class TestGatewayBackend extends ApprovalGatewayBackend {
     public readonly actions: JsonValue[] = [];
     public readonly observations: string[] = [];
+    public readonly dispatchKeys: string[] = [];
 
     public async observe(resource: string): Promise<JsonValue> {
         this.observations.push(resource);
@@ -172,7 +289,7 @@ class TestGatewayBackend extends ApprovalGatewayBackend {
         _resource: string,
         action: JsonValue
     ): Promise<JsonValue> {
-        expect(dispatch.idempotencyKey).toMatch(/^profile-idempotency-\d+$/u);
+        this.dispatchKeys.push(dispatch.idempotencyKey);
         this.actions.push(action);
         return { applied: true };
     }
@@ -184,4 +301,45 @@ class TestGatewayBackend extends ApprovalGatewayBackend {
 
 function inputDigest(resource: string): Digest {
     return Digest.sha256(new TextEncoder().encode(JSON.stringify({ resource })));
+}
+
+function effectContext(invocation: InvocationId, intentDigest: Digest): ProfileEffectContext {
+    return new ProfileEffectContext(
+        invocation,
+        0,
+        "approval-key",
+        new EffectAttemptId("approval-attempt"),
+        0,
+        intentDigest
+    );
+}
+
+function internalContext(invocation: InvocationId, intentDigest: Digest): OperationContext {
+    return Object.freeze({
+        invocation,
+        itemIndex: 0,
+        idempotencyKey: "internal-idempotency",
+        attempt: Object.freeze({
+            id: new EffectAttemptId("internal-attempt"),
+            ordinal: 0,
+            intentDigest
+        }),
+        signal: new AbortController().signal,
+        content: new MemoryContentStore()
+    });
+}
+
+function internalOperation(internal: InternalProfileFacetRuntime, name: string): Operation {
+    const operation = internal.operation(new OperationName(name));
+    if (operation === undefined) throw new TypeError(`Missing internal Operation ${name}`);
+    return operation;
+}
+
+function gatewayManifest(): FacetManifest {
+    return createApprovalGatewayManifest({
+        id: new FacetPackageId("profile.approval-internal"),
+        version: new SemVer("1.0.0"),
+        compat: new CompatRange("^1.0.0", "^1.0.0"),
+        bindings: []
+    });
 }

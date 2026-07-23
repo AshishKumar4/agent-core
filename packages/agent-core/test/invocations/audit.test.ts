@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { RunCommitId } from "../../src/agents";
-import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import { Digest, decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { TenantId } from "../../src/identity";
 import * as invocations from "../../src/invocations";
@@ -12,6 +12,7 @@ import {
     AuditRecordId,
     CorrelationId,
     EffectAttemptId,
+    InvocationError,
     InvocationId,
     ReceiptId,
     RouteProjectionId,
@@ -19,9 +20,11 @@ import {
     WriteRecordId,
     auditEvidenceIdentity,
     validateAuditAppend,
+    validateStoredAuditShape,
     type AuditEvidenceResolver,
     type AuditKind,
     type AuditRootAdmission,
+    type InvocationFailure,
     type WriteAuditOutcome
 } from "../../src/invocations";
 import { EventId } from "../../src/workspaces";
@@ -578,4 +581,329 @@ describe("AuditRecord append validation", () => {
 
         expect(() => validateAuditAppend(record, lookup(record))).toThrow(/append-only/);
     });
+});
+
+const edgeKinds = {
+    invocation: { kind: "invocation", id: new InvocationId("edge-invocation") },
+    approvalPending: { kind: "approval", id: new ApprovalId("edge-approval"), phase: "pending" },
+    approvalApproved: { kind: "approval", id: new ApprovalId("edge-approval"), phase: "approved" },
+    approvalDenied: { kind: "approval", id: new ApprovalId("edge-approval"), phase: "denied" },
+    approvalExpired: { kind: "approval", id: new ApprovalId("edge-approval"), phase: "expired" },
+    approvalConsumed: { kind: "approval", id: new ApprovalId("edge-approval"), phase: "consumed" },
+    attempt: { kind: "attempt", id: new EffectAttemptId("edge-attempt") },
+    receipt: { kind: "receipt", id: new ReceiptId("edge-receipt"), outcome: "indeterminate" },
+    receiptSuperseded: {
+        kind: "receiptSuperseded",
+        previous: new ReceiptId("edge-previous"),
+        next: new ReceiptId("edge-next")
+    },
+    write: { kind: "write", id: new WriteRecordId("edge-write"), outcome: "committed" },
+    event: { kind: "event", id: new EventId("edge-event") },
+    routeReserved: { kind: "routeReserved", id: new RouteReservationId("edge-reservation") },
+    routeProjected: {
+        kind: "routeProjected",
+        projection: new RouteProjectionId("edge-projection"),
+        reservation: new RouteReservationId("edge-projected-reservation")
+    },
+    delivery: { kind: "delivery", reservation: new RouteReservationId("edge-delivery-reservation") },
+    commit: { kind: "commit", id: new RunCommitId("edge-commit") }
+} as const satisfies Record<string, AuditKind>;
+
+type EdgeKindName = keyof typeof edgeKinds;
+
+const permittedEdges: readonly (readonly [EdgeKindName, EdgeKindName])[] = [
+    ["invocation", "approvalPending"],
+    ["invocation", "attempt"],
+    ["invocation", "receipt"],
+    ["invocation", "write"],
+    ["approvalApproved", "attempt"],
+    ["approvalDenied", "receipt"],
+    ["approvalExpired", "receipt"],
+    ["attempt", "receipt"],
+    ["receipt", "receiptSuperseded"],
+    ["receipt", "event"],
+    ["receipt", "commit"],
+    ["receiptSuperseded", "event"],
+    ["receiptSuperseded", "commit"],
+    ["event", "routeReserved"],
+    ["routeProjected", "delivery"],
+    ["delivery", "commit"]
+];
+
+const forbiddenEdges: readonly (readonly [EdgeKindName, EdgeKindName])[] = [
+    ["invocation", "event"],
+    ["invocation", "commit"],
+    ["invocation", "routeReserved"],
+    ["invocation", "delivery"],
+    ["approvalApproved", "receipt"],
+    ["approvalApproved", "event"],
+    ["approvalDenied", "attempt"],
+    ["approvalDenied", "event"],
+    ["approvalExpired", "attempt"],
+    ["approvalPending", "attempt"],
+    ["approvalPending", "receipt"],
+    ["approvalConsumed", "attempt"],
+    ["approvalConsumed", "receipt"],
+    ["attempt", "event"],
+    ["attempt", "commit"],
+    ["receipt", "approvalPending"],
+    ["receipt", "attempt"],
+    ["receipt", "routeReserved"],
+    ["receiptSuperseded", "receipt"],
+    ["receiptSuperseded", "routeReserved"],
+    ["event", "commit"],
+    ["event", "event"],
+    ["routeProjected", "event"],
+    ["routeProjected", "commit"],
+    ["routeReserved", "commit"],
+    ["routeReserved", "event"],
+    ["delivery", "event"],
+    ["delivery", "receipt"],
+    ["write", "event"],
+    ["write", "commit"],
+    ["commit", "event"],
+    ["commit", "commit"]
+];
+
+describe("AuditRecord stored shape relation", () => {
+    test("admits stored invocation, route projection, and rejected write roots", { tags: "p1" }, () => {
+        expect(() =>
+            validateStoredAuditShape(
+                audit({ kind: "invocation", id: new InvocationId("stored-root-invocation") }),
+                lookup()
+            )
+        ).not.toThrow();
+        expect(() => validateStoredAuditShape(audit(edgeKinds.routeProjected), lookup())).not.toThrow();
+        for (const outcome of rejectedWriteOutcomes) {
+            expect(() =>
+                validateStoredAuditShape(
+                    audit({ kind: "write", id: new WriteRecordId(`stored-root-${outcome}`), outcome }),
+                    lookup()
+                )
+            ).not.toThrow();
+        }
+    });
+
+    test.each([
+        [
+            "committed write",
+            { kind: "write", id: new WriteRecordId("stored-root-committed"), outcome: "committed" }
+        ],
+        [
+            "duplicate write",
+            { kind: "write", id: new WriteRecordId("stored-root-duplicate"), outcome: "duplicate" }
+        ],
+        ["event", { kind: "event", id: new EventId("stored-root-event") }],
+        ["delivery", { kind: "delivery", reservation: new RouteReservationId("stored-root-delivery") }],
+        ["attempt", { kind: "attempt", id: new EffectAttemptId("stored-root-attempt") }]
+    ] as const satisfies readonly (readonly [string, AuditKind])[])(
+        "rejects the stored %s root",
+        { tags: "p1" },
+        (_name, kind) => {
+            expect(() => validateStoredAuditShape(audit(kind), lookup())).toThrow(
+                /Stored audit root kind is invalid/
+            );
+        }
+    );
+
+    test.each(permittedEdges)("permits the stored %s -> %s edge", { tags: "p1" }, (causeName, nextName) => {
+        const cause = audit(edgeKinds[causeName]);
+        const next = audit(edgeKinds[nextName], cause.id);
+
+        expect(() => validateStoredAuditShape(next, lookup(cause))).not.toThrow();
+    });
+
+    test.each(forbiddenEdges)("rejects the stored %s -> %s edge", { tags: "p1" }, (causeName, nextName) => {
+        const cause = audit(edgeKinds[causeName]);
+        const next = audit(edgeKinds[nextName], cause.id);
+
+        expect(() => validateStoredAuditShape(next, lookup(cause))).toThrow(/not permitted/);
+    });
+});
+
+describe("AuditRecord root admission", () => {
+    test("requires a projection evidence resolver for route projection roots", { tags: "p0" }, () => {
+        const projection = new RouteProjectionId("admission-projection");
+        const reservation = new RouteReservationId("admission-reservation");
+        const root = audit({ kind: "routeProjected", projection, reservation });
+
+        expect(() =>
+            validateAuditAppend(root, lookup(), { kind: "routeProjection", projection, reservation })
+        ).toThrow(/not an admitted root/);
+    });
+
+    test("restricts route projection admissions to route projection roots", { tags: "p1" }, () => {
+        const root = audit({ kind: "event", id: new EventId("admission-event") });
+
+        expect(() =>
+            validateAuditAppend(root, lookup(), {
+                kind: "routeProjection",
+                projection: new RouteProjectionId("admission-only-projection"),
+                reservation: new RouteReservationId("admission-only-reservation")
+            })
+        ).toThrow(/not an admitted root/);
+    });
+});
+
+const failureCases: readonly (readonly [string, InvocationFailure, RegExp, () => void])[] = [
+    [
+        "appending a duplicate record",
+        "audit.append-conflict",
+        /append-only/,
+        () => {
+            const existing = audit({ kind: "invocation", id: new InvocationId("conflict-invocation") });
+            validateAuditAppend(existing, lookup(existing));
+        }
+    ],
+    [
+        "admitting a caused record as a root",
+        "audit.invalid-root",
+        /invalid for a caused record/,
+        () => {
+            const cause = audit({ kind: "invocation", id: new InvocationId("code-cause") });
+            const next = audit(
+                { kind: "write", id: new WriteRecordId("code-write"), outcome: "rejectedAuthority" },
+                cause.id
+            );
+            validateAuditAppend(next, lookup(cause), { kind: "commandRejection" });
+        }
+    ],
+    [
+        "appending without a stored cause",
+        "audit.missing-cause",
+        /exist before append/,
+        () => {
+            validateAuditAppend(
+                audit(
+                    { kind: "attempt", id: new EffectAttemptId("code-missing-attempt") },
+                    new AuditRecordId("code-missing-cause")
+                ),
+                lookup()
+            );
+        }
+    ],
+    [
+        "breaking cause continuity",
+        "audit.cause-mismatch",
+        /share actor, tenant, and correlation/,
+        () => {
+            const cause = audit({ kind: "invocation", id: new InvocationId("code-scope-cause") });
+            const next = audit(
+                { kind: "attempt", id: new EffectAttemptId("code-scope-attempt") },
+                cause.id,
+                { tenant: new TenantId("code-other-tenant") }
+            );
+            validateAuditAppend(next, lookup(cause));
+        }
+    ],
+    [
+        "storing an unpermitted edge",
+        "audit.evidence-mismatch",
+        /attempt -> attempt is not permitted/,
+        () => {
+            const cause = audit({ kind: "attempt", id: new EffectAttemptId("code-edge-cause") });
+            const next = audit({ kind: "attempt", id: new EffectAttemptId("code-edge-next") }, cause.id);
+            validateStoredAuditShape(next, lookup(cause));
+        }
+    ],
+    [
+        "storing an unsupported root",
+        "audit.invalid-root",
+        /Stored audit root kind is invalid/,
+        () => {
+            validateStoredAuditShape(audit({ kind: "event", id: new EventId("code-root-event") }), lookup());
+        }
+    ],
+    [
+        "appending a non-admitted root",
+        "audit.invalid-root",
+        /not an admitted root/,
+        () => {
+            validateAuditAppend(audit({ kind: "commit", id: new RunCommitId("code-root-commit") }), lookup());
+        }
+    ]
+];
+
+describe("AuditRecord failure codes", () => {
+    test.each(failureCases)("reports %s as %s", { tags: "p2" }, (_scenario, failure, message, run) => {
+        try {
+            run();
+            throw new Error("Expected the audit validation to fail");
+        } catch (error) {
+            expect(error).toBeInstanceOf(InvocationError);
+            expect((error as InvocationError).failure).toBe(failure);
+            expect((error as InvocationError).message).toMatch(message);
+        }
+    });
+});
+
+describe("AuditRecord identity and copies", () => {
+    test("derives the evidence identity from the audit-evidence.v1 domain", { tags: "p1" }, () => {
+        const kind: AuditKind = { kind: "invocation", id: new InvocationId("domain-invocation") };
+        const expected = Digest.sha256(
+            encodeCanonicalJson({
+                domain: "agent-core.audit-evidence.v1",
+                actor: { kind: actor.kind, id: actor.id.value },
+                evidence: { kind: "invocation", id: "domain-invocation" }
+            })
+        );
+
+        expect(auditEvidenceIdentity(actor, kind).equals(expected)).toBe(true);
+    });
+
+    test("copies evidence identifiers into their own reference classes", { tags: "p1" }, () => {
+        const reserved = audit({ kind: "routeReserved", id: new RouteReservationId("copy-reservation") });
+        const commitId = new RunCommitId("copy-commit");
+        const committed = audit({ kind: "commit", id: commitId });
+        const decoded = AuditRecordCodec.decode(
+            wireRecord({ kind: "routeReserved", id: "decoded-reservation" })
+        );
+
+        expect(reserved.kind.kind === "routeReserved" && reserved.kind.id).toBeInstanceOf(
+            RouteReservationId
+        );
+        expect(committed.kind.kind === "commit" && committed.kind.id).toBeInstanceOf(RunCommitId);
+        expect(committed.kind.kind === "commit" && committed.kind.id).not.toBe(commitId);
+        expect(committed.kind.kind === "commit" && commitId.equals(committed.kind.id)).toBe(true);
+        expect(decoded.kind.kind === "routeReserved" && decoded.kind.id).toBeInstanceOf(
+            RouteReservationId
+        );
+    });
+});
+
+describe("AuditRecord codec diagnostics", () => {
+    test.each([
+        ["null evidence", wireRecord(null), /Audit evidence must be an object/],
+        ["numeric evidence", wireRecord(5), /Audit evidence must be an object/],
+        [
+            "non-string cause",
+            wireRecord({ kind: "event", id: "diag-cause" }, { payloadExtra: { cause: false } }),
+            /Audit cause must be a string or null/
+        ],
+        [
+            "numeric id",
+            wireRecord({ kind: "invocation", id: "diag-id" }, { payloadExtra: { id: 1 } }),
+            /id must be a string/
+        ],
+        [
+            "unknown actor kind",
+            wireRecord({ kind: "invocation", id: "diag-actor" }, { actorExtra: { kind: "operator" } }),
+            /Audit actor kind is invalid/
+        ],
+        ["unknown evidence kind", wireRecord({ kind: "mystery", id: "diag-kind" }), /Unknown audit evidence kind mystery/]
+    ] as const)("names the %s decode failure", { tags: "p2" }, (_name, bytes, message) => {
+        expect(() => AuditRecordCodec.decode(bytes)).toThrow(message);
+    });
+
+    test.each(["tenant", "workspace", "run", "environment", "slate"] as const)(
+        "decodes the %s audit actor kind",
+        { tags: "p1" },
+        (kind) => {
+            const decoded = AuditRecordCodec.decode(
+                wireRecord({ kind: "invocation", id: "actor-kind" }, { actorExtra: { kind } })
+            );
+
+            expect(decoded.actor.kind).toBe(kind);
+        }
+    );
 });

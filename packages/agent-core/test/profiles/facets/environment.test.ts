@@ -1,5 +1,5 @@
 import { TurnId, type LeaseToken } from "../../../src/agents";
-import { ContentRef, Digest, Revision, SecretRef } from "../../../src/core";
+import { CompatRange, ContentRef, Digest, Revision, SecretRef, SemVer } from "../../../src/core";
 import {
     EnvironmentController,
     EnvironmentId,
@@ -21,9 +21,12 @@ import {
 } from "../../../src/environments";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import {
+    BindingName,
+    BindingRequirement,
     ENVIRONMENT_EVENTS,
     ENVIRONMENT_CONTROL_CONTRACTS,
     ENVIRONMENT_OPERATIONS,
+    ENVIRONMENT_PROVIDER_BINDING,
     EnvironmentBackend,
     EnvironmentChildBindingPort,
     EnvironmentControllerBackend,
@@ -33,6 +36,9 @@ import {
     EnvironmentIdPort,
     EnvironmentLeasePort,
     EnvironmentSessionBinding,
+    FacetPackageId,
+    OperationName,
+    createEnvironmentManifest,
     type EnvironmentCredentialInput,
     type EnvironmentOpenInput,
     type EnvironmentPreviewInput,
@@ -81,6 +87,17 @@ describe("Environment protected control profile", () => {
             credential: { source: "tenant", provider: "vault", id: "key" },
             request: content("a").value
         });
+        expect(backend.calls).toEqual([
+            "open",
+            "use",
+            "snapshot",
+            "restore",
+            "backup",
+            "restoreFs",
+            "preview",
+            "credential",
+            "close"
+        ]);
     });
 
     test("[P11-ENVIRONMENT-FAIL-CLOSED] denial prevents session opening", async () => {
@@ -94,6 +111,15 @@ describe("Environment protected control profile", () => {
 
     test("[P11-ENVIRONMENT-CHILD-FACETS] validates canonical session bindings and freezes child capabilities", () => {
         expect(() => new EnvironmentSessionBinding(" ", 0, [])).toThrow(TypeError);
+        expect(() => new EnvironmentSessionBinding("", 0, [])).toThrow(
+            "Environment session binding ID must be canonical"
+        );
+        expect(() => new EnvironmentSessionBinding(" padded", 0, [])).toThrow(
+            "Environment session binding ID must be canonical"
+        );
+        expect(() => new EnvironmentSessionBinding("padded ", 0, [])).toThrow(
+            "Environment session binding ID must be canonical"
+        );
         expect(() => new EnvironmentSessionBinding("session", -1, [])).toThrow(TypeError);
         expect(() => new EnvironmentSessionBinding("session", 0, ["env.fs", "env.fs"])).toThrow(
             /unique/u
@@ -156,15 +182,23 @@ describe("Environment protected control profile", () => {
         await expect(
             backend.restore({ environment: "environment-profile", snapshot: "snapshot" })
         ).resolves.toMatchObject({ generation: 0, children: ["env.fs", "env.shell"] });
+        expect(provider.restores.map((restore) => restore?.value)).toEqual([
+            undefined,
+            provider.snapshotContent.value
+        ]);
 
         provider.snapshotResult = ProviderResourceOutcome.indeterminate;
         await expect(
             backend.snapshot({ session: opened.session, snapshot: "pending-snapshot" })
         ).rejects.toMatchObject({
             code: "operation.invalid-output",
-            detailCode: "environment.output"
+            detailCode: "environment.output",
+            message: "Environment snapshot is not ready"
         });
         await backend.close({ session: opened.session });
+        await expect(backend.use({ session: opened.session })).rejects.toThrow(
+            /Environment session/u
+        );
     });
 
     test("round-trips optional restore and child wire data and rejects a preview without a URL", async () => {
@@ -200,8 +234,86 @@ describe("Environment protected control profile", () => {
             )
         ).rejects.toMatchObject({
             code: "operation.invalid-output",
-            detailCode: "environment.output"
+            detailCode: "environment.output",
+            message: "Environment preview exposure is not ready"
         });
+    });
+
+    test(
+        "round-trips control wire inputs and labels malformed fields precisely",
+        { tags: "p2" },
+        () => {
+            const contracts = ENVIRONMENT_CONTROL_CONTRACTS;
+            expect(contracts.use.decodeInput({ session: "wire-session" })).toEqual({
+                session: "wire-session"
+            });
+            expect(
+                contracts.snapshot.decodeInput({ session: "wire-session", snapshot: "wire-snap" })
+            ).toEqual({ session: "wire-session", snapshot: "wire-snap" });
+            expect(
+                contracts.restore.decodeInput({ environment: "wire-env", snapshot: "wire-snap" })
+            ).toEqual({ environment: "wire-env", snapshot: "wire-snap" });
+            expect(
+                contracts.exposePreview.decodeInput({ session: "wire-session", port: 8080 })
+            ).toEqual({ session: "wire-session", port: 8080 });
+            const credentialInput = {
+                session: "wire-session",
+                credential: new SecretRef("tenant", "vault", "key"),
+                request: content("a")
+            };
+            expect(
+                contracts.forwardCredential.decodeInput(
+                    contracts.forwardCredential.encodeInput(credentialInput)
+                )
+            ).toEqual(credentialInput);
+
+            expect(() => contracts.open.decodeInput({ environment: 5 })).toThrow(
+                "Environment ID must be a string"
+            );
+            expect(() =>
+                contracts.use.decodeOutput({ session: 5, generation: 0, children: [] })
+            ).toThrow("Environment session ID must be a string");
+            expect(() =>
+                contracts.snapshot.decodeInput({ session: 5, snapshot: "wire-snap" })
+            ).toThrow("Environment session ID must be a string");
+            expect(() =>
+                contracts.snapshot.decodeInput({ session: "wire-session", snapshot: 5 })
+            ).toThrow("Environment snapshot ID must be a string");
+            expect(() =>
+                contracts.restore.decodeInput({ environment: 5, snapshot: "wire-snap" })
+            ).toThrow("Environment ID must be a string");
+            expect(() =>
+                contracts.restore.decodeInput({ environment: "wire-env", snapshot: 5 })
+            ).toThrow("Environment snapshot ID must be a string");
+            expect(() =>
+                contracts.exposePreview.decodeInput({ session: 5, port: 8080 })
+            ).toThrow("Environment session ID must be a string");
+            expect(() =>
+                contracts.forwardCredential.decodeInput({
+                    session: 5,
+                    credential: { source: "tenant", provider: "vault", id: "key" },
+                    request: content("a").value
+                })
+            ).toThrow("Environment session ID must be a string");
+            expect(() =>
+                contracts.forwardCredential.decodeInput({
+                    session: "wire-session",
+                    credential: { source: "tenant", provider: "vault", id: "key" },
+                    request: 5
+                })
+            ).toThrow("Credential request must be a string");
+        }
+    );
+
+    test("declares an empty manifest-validated internal runtime", { tags: "p1" }, () => {
+        const manifest = createEnvironmentManifest(manifestInit());
+        const internal = new EnvironmentFacet(
+            recordingRuntime("environment-internal").runtime,
+            new TestEnvironmentBackend()
+        ).asInternalRuntime(manifest);
+        expect(internal.manifest).toBe(manifest);
+        expect(internal.operation(new OperationName("open"))).toBeUndefined();
+        expect(internal.children()).toEqual([]);
     });
 });
 
@@ -253,6 +365,21 @@ class TestEnvironmentBackend extends EnvironmentBackend {
 
 function content(character: string): ContentRef {
     return ContentRef.fromDigest(new Digest(character.repeat(64)));
+}
+
+function manifestInit() {
+    return {
+        id: new FacetPackageId("profile.environment"),
+        version: new SemVer("1.0.0"),
+        compat: new CompatRange("^1.0.0", "^1.0.0"),
+        bindings: [
+            new BindingRequirement(
+                new BindingName(ENVIRONMENT_PROVIDER_BINDING),
+                new FacetPackageId(`dependency.${ENVIRONMENT_PROVIDER_BINDING}`),
+                new CompatRange("^1.0.0", "^1.0.0")
+            )
+        ]
+    };
 }
 
 const environmentId = new EnvironmentId("environment-profile");
@@ -331,10 +458,12 @@ class ReadyProvider extends EnvironmentProvider {
     );
     public readonly snapshotContent = content("b");
     public readonly previewUrl = "https://profile-preview.test/";
+    public readonly restores: (ContentRef | undefined)[] = [];
     public snapshotResult = ProviderResourceOutcome.ready(this.snapshotContent);
     readonly #handle: LiveEnvironmentSession = { children: [], release() {} };
 
-    public async openSession(_request: OpenSessionRequest) {
+    public async openSession(request: OpenSessionRequest) {
+        this.restores.push(request.restore);
         return ProviderResourceOutcome.ready(this.#handle);
     }
     public async inspectSession(_request: OpenSessionRequest) {

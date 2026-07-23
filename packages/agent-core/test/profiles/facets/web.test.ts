@@ -1,14 +1,19 @@
 import { describe, expect, test } from "vitest";
-import { Digest } from "../../../src/core";
+import { CompatRange, Digest, SemVer } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
 import {
     EffectDispatch,
     EffectDispatchAttempt,
+    FacetPackageId,
     FixedWindowRatePolicy,
+    OperationName,
     WEB_OPERATION_CONTRACTS,
     WEB_OPERATIONS,
     WebBackend,
     WebFacet,
     WebPolicyError,
+    createWebManifest,
+    type OperationContext,
     type WebHeaders,
     type WebResponse,
     type WebTransportAuthorization,
@@ -16,7 +21,7 @@ import {
     type WebTransportRequest,
     type WebTransportResponse
 } from "../../../src/facets";
-import { EffectAttemptId } from "../../../src/invocations";
+import { EffectAttemptId, InvocationId } from "../../../src/invocations";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
 operationDeclarationEvidence("Web", WEB_OPERATIONS, {
@@ -432,6 +437,223 @@ describe("Web policy backend", () => {
         }
     });
 
+    test("omits absent optional wire fields for fetch and search", { tags: "p1" }, () => {
+        expect(
+            WEB_OPERATION_CONTRACTS.fetch.encodeInput({ url: "https://allowed.test/" })
+        ).toStrictEqual({ url: "https://allowed.test/" });
+        expect(WEB_OPERATION_CONTRACTS.search.encodeInput({ query: "query" })).toStrictEqual({
+            query: "query"
+        });
+        expect(WEB_OPERATION_CONTRACTS.search.decodeInput({ query: "query" })).toStrictEqual({
+            query: "query"
+        });
+    });
+
+    test(
+        "admits a body exactly at the limit and isolates hop bodies from caller and transport mutation",
+        { tags: "p1" },
+        async () => {
+            const sent: number[][] = [];
+            const original = new Uint8Array([1, 2]);
+            const web = createWebBackend({
+                maxRequestBytes: 2,
+                send: async (request) => {
+                    sent.push([...(request.body ?? [])]);
+                    if (sent.length === 1) {
+                        request.body?.fill(9);
+                        original.fill(9);
+                        return response({ redirect: "https://allowed.test/second" });
+                    }
+                    return response();
+                }
+            });
+            await expect(
+                web.fetch({ url: "https://allowed.test/first", body: original }, DISPATCH)
+            ).resolves.toMatchObject({ status: 200 });
+            expect(sent).toEqual([
+                [1, 2],
+                [1, 2]
+            ]);
+        }
+    );
+
+    test(
+        "defaults the method to GET and returns copies of transport response headers and body",
+        { tags: "p1" },
+        async () => {
+            const transportBody = new Uint8Array([5]);
+            const methods: string[] = [];
+            const web = createWebBackend({
+                send: async (request) => {
+                    methods.push(request.method);
+                    return response({ headers: { "x-provider": "1" }, body: transportBody });
+                }
+            });
+            const result = await web.fetch({ url: "https://allowed.test/" }, DISPATCH);
+            expect(result.headers).toEqual({ "x-provider": "1" });
+            transportBody.fill(0);
+            expect([...result.body]).toEqual([5]);
+            await web.fetch({ url: "https://allowed.test/", method: "POST" }, DISPATCH);
+            expect(methods).toEqual(["GET", "POST"]);
+        }
+    );
+
+    test("stops redirect chains exactly at the configured bound", { tags: "p1" }, async () => {
+        let sends = 0;
+        const zeroRedirects = createWebBackend({
+            maxRedirects: 0,
+            send: async () => {
+                sends += 1;
+                return sends === 1 ? response({ redirect: "/next" }) : response();
+            }
+        });
+        await expect(
+            zeroRedirects.fetch({ url: "https://allowed.test/" }, DISPATCH)
+        ).rejects.toMatchObject({ detailCode: "redirect.denied" });
+        expect(sends).toBe(1);
+
+        let hops = 0;
+        const runaway = createWebBackend({
+            maxRedirects: 1,
+            send: async () => {
+                hops += 1;
+                if (hops > 3) throw new TypeError("redirect chain must stop at the bound");
+                return response({ redirect: "/loop" });
+            }
+        });
+        await expect(
+            runaway.fetch({ url: "https://allowed.test/" }, DISPATCH)
+        ).rejects.toMatchObject({ detailCode: "redirect.denied" });
+        expect(hops).toBe(2);
+    });
+
+    test(
+        "allows plain http targets while rejecting either embedded credential field",
+        { tags: "p0" },
+        async () => {
+            const web = createWebBackend({ send: async () => response() });
+            await expect(
+                web.fetch({ url: "http://allowed.test/" }, DISPATCH)
+            ).resolves.toMatchObject({ status: 200 });
+            for (const url of ["https://user@allowed.test/", "https://:pass@allowed.test/"]) {
+                await expect(web.fetch({ url }, DISPATCH)).rejects.toMatchObject({
+                    detailCode: "url.denied"
+                });
+            }
+        }
+    );
+
+    test("encodes the query and limit into the search endpoint", { tags: "p1" }, async () => {
+        const requested: URL[] = [];
+        const web = createWebBackend({
+            send: async (request) => {
+                requested.push(new URL(request.authorization.requestedUrl));
+                return response();
+            }
+        });
+        await web.search("query", 3, DISPATCH);
+        await web.search("query", undefined, DISPATCH);
+        expect(requested.map((url) => url.searchParams.get("limit"))).toEqual(["3", "10"]);
+    });
+
+    test(
+        "readCached admits only canonical keys and preserves cached headers",
+        { tags: "p1" },
+        () => {
+            const reads: string[] = [];
+            const cached: WebResponse = {
+                url: "https://allowed.test/cached",
+                status: 200,
+                headers: { "x-cached": "1" },
+                body: new Uint8Array([7])
+            };
+            const web = createWebBackend({
+                cache: (key) => {
+                    reads.push(key);
+                    return cached;
+                },
+                send: async () => response()
+            });
+            for (const key of ["", " key", "key ", " "]) {
+                expect(() => web.readCached(key)).toThrow(
+                    expect.objectContaining({
+                        detailCode: "cache.invalid",
+                        message: "Web cache key must be canonical"
+                    })
+                );
+            }
+            expect(reads).toEqual([]);
+            expect(web.readCached("hit")).toEqual(cached);
+        }
+    );
+
+    test("counts every request within the active rate window", { tags: "p1" }, () => {
+        const rates = new FixedWindowRatePolicy(3, 5, () => 10);
+        expect([
+            rates.consume("https://three.test"),
+            rates.consume("https://three.test"),
+            rates.consume("https://three.test"),
+            rates.consume("https://three.test")
+        ]).toEqual([true, true, true, false]);
+    });
+
+    test("reports typed policy errors with exact codes and messages", { tags: "p2" }, async () => {
+        const error = new WebPolicyError("rate.exceeded", "example");
+        expect(error.name).toBe("WebPolicyError");
+        expect(error.code).toBe("operation.invalid-input");
+
+        const bounded = createWebBackend({
+            maxRequestBytes: 1,
+            maxResponseBytes: 1,
+            send: async () => response({ body: new Uint8Array([1, 2]) })
+        });
+        await expect(
+            bounded.fetch({ url: "https://allowed.test/", body: new Uint8Array([1, 2]) }, DISPATCH)
+        ).rejects.toMatchObject({ message: "Request body exceeds the configured limit" });
+        await expect(
+            bounded.fetch({ url: "https://allowed.test/" }, DISPATCH)
+        ).rejects.toMatchObject({ message: "Response exceeds the configured limit" });
+        await expect(bounded.fetch({ url: "not-a-url" }, DISPATCH)).rejects.toMatchObject({
+            message: "URL is invalid"
+        });
+        expect(() => bounded.search(" ", 1, DISPATCH)).toThrow("Search query must be nonblank");
+        expect(() => bounded.search("query", 0, DISPATCH)).toThrow(
+            "Search limit must be positive"
+        );
+
+        const rateLimited = createWebBackend({ rate: () => false, send: async () => response() });
+        await expect(
+            rateLimited.fetch({ url: "https://allowed.test/" }, DISPATCH)
+        ).rejects.toMatchObject({ message: "Web rate limit exceeded" });
+        const redirecting = createWebBackend({
+            maxRedirects: 0,
+            send: async () => response({ redirect: "/next" })
+        });
+        await expect(
+            redirecting.fetch({ url: "https://allowed.test/" }, DISPATCH)
+        ).rejects.toMatchObject({ message: "Redirect limit exceeded" });
+    });
+
+    test("labels malformed wire fields precisely", { tags: "p2" }, () => {
+        const { fetch, search } = WEB_OPERATION_CONTRACTS;
+        expect(() => fetch.decodeInput({ url: 5 })).toThrow("Web request URL must be a string");
+        expect(() => fetch.decodeInput({ url: "https://allowed.test/", method: 5 })).toThrow(
+            "Web method must be a string"
+        );
+        expect(() => search.decodeInput({ query: 5 })).toThrow("Web search query must be a string");
+        expect(() => fetch.decodeOutput({ url: 5, status: 200, headers: {}, body: [] })).toThrow(
+            "Web response URL must be a string"
+        );
+        expect(() =>
+            fetch.decodeOutput({
+                url: "https://allowed.test/",
+                status: 200,
+                headers: { "x-a": 5 },
+                body: []
+            })
+        ).toThrow("Web header x-a must be a string");
+    });
+
     test("rejects every malformed transport authorization field", async () => {
         const requested = "https://allowed.test/";
         for (const invalid of [
@@ -449,6 +671,57 @@ describe("Web policy backend", () => {
             });
         }
     });
+});
+
+describe("Web internal runtime", () => {
+    test(
+        "executes fetch, search, and readCached through the manifest-validated runtime",
+        { tags: "p1" },
+        async () => {
+            const cached: WebResponse = {
+                url: "https://allowed.test/cached",
+                status: 200,
+                headers: {},
+                body: new Uint8Array([7])
+            };
+            const backend = createWebBackend({
+                cache: (key) => (key === "hit" ? cached : undefined),
+                send: async () => response()
+            });
+            const manifest = createWebManifest(manifestInit());
+            const internal = new WebFacet(
+                recordingRuntime("web-internal").runtime,
+                backend
+            ).asInternalRuntime(manifest);
+
+            expect(internal.manifest).toBe(manifest);
+            await expect(
+                internal
+                    .operation(new OperationName("fetch"))
+                    ?.execute(operationContext(), { url: "https://allowed.test/page" })
+            ).resolves.toEqual({
+                url: "https://allowed.test/page",
+                status: 200,
+                headers: {},
+                body: []
+            });
+            await expect(
+                internal
+                    .operation(new OperationName("search"))
+                    ?.execute(operationContext(), { query: "query" })
+            ).resolves.toMatchObject({ status: 200 });
+            await expect(
+                internal
+                    .operation(new OperationName("readCached"))
+                    ?.execute(operationContext(), { key: "hit" })
+            ).resolves.toEqual({
+                url: "https://allowed.test/cached",
+                status: 200,
+                headers: {},
+                body: [7]
+            });
+        }
+    );
 });
 
 interface WebOptions {
@@ -518,4 +791,23 @@ function authorization(url: URL): WebTransportAuthorization {
 
 function response(overrides: Partial<WebTransportResponse> = {}): WebTransportResponse {
     return { status: 200, headers: {}, body: new Uint8Array(), ...overrides };
+}
+
+function manifestInit() {
+    return {
+        id: new FacetPackageId("profile.web"),
+        version: new SemVer("1.0.0"),
+        compat: new CompatRange("^1.0.0", "^1.0.0"),
+        bindings: []
+    };
+}
+
+function operationContext(): OperationContext {
+    return {
+        invocation: new InvocationId("web-internal-invocation"),
+        itemIndex: 0,
+        idempotencyKey: "web-internal-idempotency",
+        signal: new AbortController().signal,
+        content: new MemoryContentStore()
+    };
 }

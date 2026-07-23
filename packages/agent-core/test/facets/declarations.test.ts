@@ -36,7 +36,8 @@ import {
     SurfaceDescriptor,
     SurfaceId,
     canonicalFacetData,
-    isFacetData
+    isFacetData,
+    type FacetDataMap
 } from "../../src/facets-public";
 import { FacetRef } from "../../src/facets/id";
 import { BoundOperationRef, FacetOperationRef } from "../../src/facets/operation";
@@ -864,7 +865,437 @@ describe("Declarative facet vocabulary", () => {
         expect(Object.isFrozen(FacetOperationRef.codec)).toBe(true);
         expect(Object.isFrozen(SlotEntry.codec)).toBe(true);
     });
+
+    test(
+        "[facet.command] carries every optional field in canonical data and accepts all trust tiers",
+        { tags: "p1" },
+        () => {
+            const command = new Command({
+                name: "deploy",
+                title: "Deploy",
+                help: "Help text",
+                arguments: objectSchema,
+                operation: new OperationRef("core.deploy:run"),
+                binding: new BindingName("deploy"),
+                mapping: new FieldMapping([new FieldMove("/t", { from: "/s" })]),
+                acceptedTrust: ["external"],
+                completion: new OperationRef("core.deploy:done"),
+                surfaces: [new SlotName("palette")]
+            });
+            expect(command.toData()).toEqual({
+                acceptedTrust: ["external"],
+                arguments: { type: "object" },
+                binding: "deploy",
+                completion: "core.deploy:done",
+                help: "Help text",
+                mapping: [{ from: "/s", to: "/t" }],
+                name: "deploy",
+                operation: "core.deploy:run",
+                surfaces: ["palette"],
+                title: "Deploy"
+            });
+            const decoded = Command.fromData(command.toData());
+            expect(decoded.acceptedTrust).toEqual(["external"]);
+            expect(decoded.toData()).toEqual(command.toData());
+
+            expect(Command.fromData({ ...commandData(), arguments: true }).arguments.document).toBe(
+                true
+            );
+            expect(() => Command.fromData({ ...commandData(), name: 7 })).toThrow(
+                "Command name must be a string"
+            );
+            expect(() => Command.fromData({ ...commandData(), title: 7 })).toThrow(
+                "Command title must be a string"
+            );
+            expect(() => Command.fromData({ ...commandData(), operation: 7 })).toThrow(
+                "Command operation must be a string"
+            );
+            expect(() => Command.fromData({ ...commandData(), binding: 7 })).toThrow(
+                "Command binding must be a string"
+            );
+            expect(() => Command.fromData({ ...commandData(), mapping: 5 })).toThrow(
+                "Command mapping must be an array"
+            );
+            expect(() => Command.fromData({ ...commandData(), arguments: null })).toThrow(
+                "Command arguments schema must be an object or boolean"
+            );
+            expect(() => Command.fromData({ ...commandData(), arguments: [] })).toThrow(
+                "Command arguments schema must be an object or boolean"
+            );
+        }
+    );
+
+    test(
+        "[facet.operation-descriptor] [facet.surface-descriptor] defaults interceptable to false and keeps help in canonical data",
+        { tags: "p1" },
+        () => {
+            const descriptor = new OperationDescriptor(
+                new OperationName("read"),
+                "observe",
+                objectSchema,
+                objectSchema,
+                "Read data."
+            );
+            expect(descriptor.interceptable).toBe(false);
+            expect(descriptor.toData()).toEqual({
+                help: "Read data.",
+                impact: "observe",
+                input: { type: "object" },
+                interceptable: false,
+                name: "read",
+                output: { type: "object" }
+            });
+
+            const surface = new SurfaceDescriptor(new SurfaceId("panel"), "Panel", "Inspect.");
+            expect(surface.toData()).toEqual({ help: "Inspect.", id: "panel", title: "Panel" });
+            expect(() => new SurfaceDescriptor(new SurfaceId("panel"), "Panel", " ")).toThrow(
+                "Surface help must be a nonblank canonical string"
+            );
+
+            const booleanSchemas = OperationDescriptor.fromData({
+                impact: "observe",
+                input: false,
+                interceptable: false,
+                name: "read",
+                output: true
+            });
+            expect(booleanSchemas.input.document).toBe(false);
+            expect(booleanSchemas.output.document).toBe(true);
+            expect(() =>
+                OperationDescriptor.fromData({
+                    impact: "observe",
+                    input: {},
+                    interceptable: false,
+                    name: 7,
+                    output: {}
+                })
+            ).toThrow("Operation name must be a string");
+            expect(() =>
+                OperationDescriptor.fromData({
+                    impact: "observe",
+                    input: null,
+                    interceptable: false,
+                    name: "read",
+                    output: {}
+                })
+            ).toThrow("Operation input schema must be an object or boolean");
+            expect(() =>
+                OperationDescriptor.fromData({
+                    impact: "observe",
+                    input: [],
+                    interceptable: false,
+                    name: "read",
+                    output: {}
+                })
+            ).toThrow("Operation input schema must be an object or boolean");
+            expect(() => SurfaceDescriptor.fromData({ id: 7, title: "Panel" })).toThrow(
+                "Surface ID must be a string"
+            );
+            expect(() => SurfaceDescriptor.fromData({ id: "panel", title: 7 })).toThrow(
+                "Surface title must be a string"
+            );
+        }
+    );
+
+    test(
+        "[facet.contribution] [facet.contributions] orders slots canonically and rejects malformed maps",
+        { tags: "p1" },
+        () => {
+            const contributions = new Contributions([
+                new Contribution(new SlotName("beta"), [1]),
+                new Contribution(new SlotName("alpha"), [2]),
+                new Contribution(new SlotName("gamma"), [3])
+            ]);
+            expect(contributions.entries.map((entry) => entry.slot.value)).toEqual([
+                "alpha",
+                "beta",
+                "gamma"
+            ]);
+            expect(contributions.get(new SlotName("beta"))).toEqual([1]);
+            expect(() => Contribution.fromData({ entries: [1], slot: 7 })).toThrow(
+                "Contribution slot must be a string"
+            );
+            expect(() =>
+                Contributions.decode(
+                    encodeCanonicalJson({
+                        kind: "facet.contributions",
+                        payload: { alpha: 5 },
+                        version: { major: 2, minor: 0 }
+                    })
+                )
+            ).toThrow("Contribution alpha must be an array");
+        }
+    );
+
+    test(
+        "[facet.event-pattern] [facet.event-declaration] [facet.ingress-declaration] validates trust, visibility, and schema boundaries",
+        { tags: "p1" },
+        () => {
+            expect(() => EventPattern.fromData({ acceptedTrust: ["self"], kind: 7 })).toThrow(
+                "Event pattern kind must be a string"
+            );
+            expect(() =>
+                EventPattern.fromData({ acceptedTrust: ["self", "bogus"], kind: "event" })
+            ).toThrow("Trust tier is invalid");
+            expect(
+                () => new EventPattern("event", ["self", "bogus"] as unknown as ["self"])
+            ).toThrow("Trust tiers must contain known values");
+
+            const declaration = EventDeclaration.fromData({
+                description: "An event.",
+                kind: "event",
+                payload: {},
+                visibility: "private"
+            });
+            expect(declaration.visibility).toBe("private");
+            expect(
+                () => new EventDeclaration(new EventKind("event"), " ", objectSchema, "workspace")
+            ).toThrow("Event description must be a nonblank canonical string");
+            expect(() =>
+                EventDeclaration.fromData({
+                    description: "x",
+                    kind: 7,
+                    payload: {},
+                    visibility: "workspace"
+                })
+            ).toThrow("Event kind must be a string");
+            expect(() =>
+                EventDeclaration.fromData({
+                    description: 7,
+                    kind: "event",
+                    payload: {},
+                    visibility: "workspace"
+                })
+            ).toThrow("Event description must be a string");
+            expect(() =>
+                EventDeclaration.fromData({
+                    description: "x",
+                    kind: "event",
+                    payload: null,
+                    visibility: "workspace"
+                })
+            ).toThrow("Event payload schema must be an object or boolean");
+
+            const verification = new IngressVerification(
+                "hmac",
+                new SecretRef("tenant", "vault", "hook")
+            );
+            expect(() => new IngressDeclaration(" ", verification, new ProvenanceMapping([]))).toThrow(
+                "Ingress path must be a nonblank canonical string"
+            );
+            expect(() =>
+                IngressDeclaration.fromData({
+                    path: 7,
+                    provenance: [],
+                    verification: verification.toData()
+                })
+            ).toThrow("Ingress path must be a string");
+        }
+    );
+
+    test(
+        "[facet.field-move] [facet.operation-pattern] [facet.operation-selector] enforces mapping and selector boundaries",
+        { tags: "p1" },
+        () => {
+            expect(() => new FieldMove("/t", { bad: true } as never)).toThrow(
+                "Field move requires exactly one of from or literal"
+            );
+            expect(() => FieldMove.fromData({ literal: null, to: 7 })).toThrow(
+                "Field move target must be a string"
+            );
+            expect(() => FieldMove.fromData({ from: 7, to: "/t" })).toThrow(
+                "Field move source must be a string"
+            );
+            expect(() => FieldMapping.decode(objectPayloadRecord("facet.field-mapping"))).toThrow(
+                "Field mapping must be an array"
+            );
+            expect(() =>
+                PayloadMapping.decode(objectPayloadRecord("facet.payload-mapping"))
+            ).toThrow("Payload mapping must be an array");
+            expect(() =>
+                ProvenanceMapping.decode(objectPayloadRecord("facet.provenance-mapping"))
+            ).toThrow("Provenance mapping must be an array");
+
+            expect(OperationPattern.own().operation).toBe("*");
+            expect(() => OperationPattern.fromData({ operation: 7 })).toThrow(
+                "Operation pattern operation must be a string"
+            );
+            expect(
+                () =>
+                    new OperationSelector([
+                        OperationPattern.own("read.*"),
+                        OperationPattern.own("read.*")
+                    ])
+            ).toThrow("Operation selector patterns must be unique");
+            expect(
+                new OperationSelector([
+                    OperationPattern.own("b*"),
+                    OperationPattern.own("a*")
+                ]).patterns.map((pattern) => pattern.operation)
+            ).toEqual(["a*", "b*"]);
+            expect(() =>
+                OperationSelector.decode(objectPayloadRecord("facet.operation-selector"))
+            ).toThrow("Operation selector must be an array");
+        }
+    );
+
+    test(
+        "[facet.bound-operation-ref] [facet.operation-ref] freezes references and distinguishes unequal parts",
+        { tags: "p1" },
+        () => {
+            const bound = new BoundOperationRef(new BindingName("deploy"), new OperationName("run"));
+            expect(Object.isFrozen(bound)).toBe(true);
+            expect(
+                bound.equals(new BoundOperationRef(new BindingName("deploy"), new OperationName("stop")))
+            ).toBe(false);
+            expect(
+                bound.equals(new BoundOperationRef(new BindingName("other"), new OperationName("run")))
+            ).toBe(false);
+            expect(() => BoundOperationRef.fromData({ binding: 7, operation: "run" })).toThrow(
+                "Operation binding must be a string"
+            );
+            expect(() => BoundOperationRef.fromData({ binding: "deploy", operation: 7 })).toThrow(
+                "Operation name must be a string"
+            );
+
+            const reference = new FacetOperationRef(
+                new FacetRef("workspace:deploy"),
+                new OperationName("run")
+            );
+            expect(Object.isFrozen(reference)).toBe(true);
+            expect(
+                reference.equals(
+                    new FacetOperationRef(new FacetRef("workspace:deploy"), new OperationName("stop"))
+                )
+            ).toBe(false);
+            expect(
+                reference.equals(
+                    new FacetOperationRef(new FacetRef("workspace:other"), new OperationName("run"))
+                )
+            ).toBe(false);
+            expect(() => FacetOperationRef.fromData({ facet: 7, operation: "run" })).toThrow(
+                "Operation Facet reference must be a string"
+            );
+            expect(() =>
+                FacetOperationRef.fromData({ facet: "workspace:deploy", operation: 7 })
+            ).toThrow("Operation name must be a string");
+        }
+    );
+
+    test(
+        "[facet.automation] round-trips every dedupe policy and validates payload fields",
+        { tags: "p1" },
+        () => {
+            for (const dedupe of ["none", "event", "causation", "payload"] as const) {
+                expect(Automation.fromData({ ...automationData(), dedupe }).dedupe).toBe(dedupe);
+            }
+            expect(() => Automation.fromData({ ...automationData(), mapping: 5 })).toThrow(
+                "Automation mapping must be an array"
+            );
+            expect(() => Automation.fromData({ ...automationData(), target: 7 })).toThrow(
+                "Automation target must be a string"
+            );
+            expect(() => Automation.fromData({ ...automationData(), binding: 7 })).toThrow(
+                "Automation binding must be a string"
+            );
+        }
+    );
+
+    test(
+        "[facet.prompt] [facet.prompt-contribution] validates prompt fields and canonical ordering",
+        { tags: "p1" },
+        () => {
+            expect(() => new Prompt("Title", "Body", 1.5)).toThrow(
+                "Prompt priority must be a safe integer"
+            );
+            expect(() => new Prompt(" x", "Body", 1)).toThrow(
+                "Prompt title must be a nonblank canonical string"
+            );
+            expect(() => new Prompt("", "Body", 1)).toThrow(
+                "Prompt title must be a nonblank canonical string"
+            );
+            expect(() => Prompt.fromData({ body: "b", priority: 1, title: 7 })).toThrow(
+                "Prompt title must be a string"
+            );
+            expect(() => Prompt.fromData({ body: 7, priority: 1, title: "t" })).toThrow(
+                "Prompt body must be a string"
+            );
+            // The exact key matters: requireExactFields' default-parameter mutant admits it.
+            expect(() =>
+                Prompt.fromData({ body: "b", priority: 1, title: "t", ["Stryker was here"]: true })
+            ).toThrow("Declaration contains missing or unknown fields");
+
+            expect(PromptContribution.empty().sections).toEqual([]);
+            expect(() =>
+                PromptContribution.decode(objectPayloadRecord("facet.prompt-contribution"))
+            ).toThrow("Prompt contribution must be an array");
+
+            const byPriority = new PromptContribution([
+                new Prompt("a", "x", 2),
+                new Prompt("z", "x", 1)
+            ]);
+            expect(byPriority.sections.map((section) => section.title)).toEqual(["z", "a"]);
+            for (const bodies of [
+                ["a", "z"],
+                ["z", "a"]
+            ] as const) {
+                const contribution = new PromptContribution(
+                    bodies.map((body) => new Prompt("t", body, 1))
+                );
+                expect(contribution.sections.map((section) => section.body)).toEqual(["a", "z"]);
+            }
+        }
+    );
+
+    test(
+        "[facet.interceptor-declaration] [facet.slot-entry] validates priorities and ordinals as safe integers",
+        { tags: "p1" },
+        () => {
+            expect(
+                () => new InterceptorDeclaration(new InterceptorId("x"), "operation.before", 1.5)
+            ).toThrow("Interceptor priority must be a safe integer");
+            expect(() =>
+                InterceptorDeclaration.fromData({
+                    cutPoint: "operation.before",
+                    id: 7,
+                    priority: 0
+                })
+            ).toThrow("Interceptor ID must be a string");
+            expect(() =>
+                SlotEntry.fromData({
+                    contributor: "workspace:facet",
+                    id: "slot:bad",
+                    ordinal: 1.5,
+                    slot: "slot",
+                    value: null
+                })
+            ).toThrow("Slot entry ordinal must be a safe integer");
+        }
+    );
 });
+
+function commandData(): FacetDataMap {
+    return {
+        arguments: {},
+        binding: "run",
+        name: "run",
+        operation: "acme.run:run",
+        surfaces: ["palette"],
+        title: "Run"
+    };
+}
+
+function automationData(): FacetDataMap {
+    return {
+        binding: "deploy",
+        source: { acceptedTrust: ["self"], kind: "event" },
+        target: "core.deploy:run"
+    };
+}
+
+function objectPayloadRecord(kind: string): Uint8Array {
+    return encodeCanonicalJson({ kind, payload: {}, version: { major: 1, minor: 0 } });
+}
 
 function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
     try {

@@ -1,22 +1,33 @@
 import {
+    CompatRange,
     ContentRef,
     Digest,
+    SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
     type JsonValue
 } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
 import {
+    FacetPackageId,
     InMemoryMemoryIndexBackend,
+    InternalProfileFacetRuntime,
     MEMORY_CONTRIBUTIONS,
     MEMORY_OPERATION_CONTRACTS,
     MEMORY_OPERATIONS,
     MEMORY_PROMPT_CONTRIBUTION_DESCRIPTOR,
+    MEMORY_PROMPT_CONTROL,
     MemoryBackend,
     MemoryEntry,
     MemoryFacet,
+    OperationName,
+    createMemoryManifest,
     type MemoryAccessBackend,
-    type MemoryContentBackend
+    type MemoryContentBackend,
+    type MemoryIndexBackend,
+    type OperationContext
 } from "../../../src/facets";
+import { InvocationId } from "../../../src/invocations";
 import { describe, expect, test } from "vitest";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
@@ -232,6 +243,245 @@ describe("Memory backends", () => {
         ])
             expect(() => new MemoryFacet(runtime, backend, bounds)).toThrow(TypeError);
     });
+
+    test("accepts boundary entry times and rejects non-canonical IDs", { tags: "p1" }, () => {
+        const content = new TestContent();
+        const reference = content.add({ text: "boundary" });
+
+        expect(() => new MemoryEntry("", reference, "alice", 1)).toThrow(/canonical/);
+        expect(() => new MemoryEntry(" padded", reference, "alice", 1)).toThrow(/canonical/);
+        expect(new MemoryEntry("id", reference, "alice", 0).createdAt).toBe(0);
+        expect(new MemoryEntry("id", reference, "alice", 5, 5).retainUntil).toBe(5);
+    });
+
+    test("names each malformed wire field and decodes forget output strictly", { tags: "p2" }, () => {
+        const content = new TestContent();
+        const reference = content.add({ text: "wire" });
+        const remember = MEMORY_OPERATION_CONTRACTS.remember;
+        const recall = MEMORY_OPERATION_CONTRACTS.recall;
+
+        expect(() =>
+            remember.decodeInput({ id: 1, content: reference.value, createdAt: 1 })
+        ).toThrow(/Memory ID must be a string/);
+        expect(() => remember.decodeInput({ id: "x", content: 1, createdAt: 1 })).toThrow(
+            /Memory content must be a string/
+        );
+        expect(() => recall.decodeInput({ query: 1 })).toThrow(/Memory query must be a string/);
+        expect(() =>
+            recall.decodeOutput([{ id: 1, content: reference.value, authority: "a", createdAt: 1 }])
+        ).toThrow(/Memory ID must be a string/);
+        expect(() =>
+            recall.decodeOutput([{ id: "x", content: 1, authority: "a", createdAt: 1 }])
+        ).toThrow(/Memory content must be a string/);
+        expect(() =>
+            recall.decodeOutput([{ id: "x", content: reference.value, authority: 1, createdAt: 1 }])
+        ).toThrow(/Memory authority must be a string/);
+        expect(() => MEMORY_PROMPT_CONTROL.decodeOutput({})).toThrow(
+            /Memory prompt contribution must be an array/
+        );
+        expect(MEMORY_OPERATION_CONTRACTS.forget.decodeOutput(true)).toBe(true);
+        expect(MEMORY_OPERATION_CONTRACTS.forget.decodeOutput(false)).toBe(false);
+        expect(MEMORY_OPERATION_CONTRACTS.forget.decodeOutput("yes")).toBe(false);
+    });
+
+    test("raises MemoryError with the shared invalid-input code and exact detail", { tags: "p1" }, () => {
+        const content = new TestContent();
+        const backend = new MemoryBackend(
+            new InMemoryMemoryIndexBackend(),
+            new TestAccess("alice"),
+            content
+        );
+        const reference = content.add({ text: "dup" });
+        backend.remember({ id: "one", content: reference, createdAt: 1 });
+
+        expect(() => backend.remember({ id: "one", content: reference, createdAt: 1 })).toThrow(
+            expect.objectContaining({
+                name: "MemoryError",
+                code: "operation.invalid-input",
+                detailCode: "memory.exists",
+                message: expect.stringMatching(/Memory ID already exists/)
+            })
+        );
+        expect(() => backend.prune(-1)).toThrow(
+            expect.objectContaining({
+                message: expect.stringMatching(/Prune time is invalid/)
+            })
+        );
+        expect(backend.prune(0)).toEqual([]);
+    });
+
+    test("AND-matches every query term with sorted, limited, readable results", { tags: "p1" }, () => {
+        const content = new TestContent();
+        const backend = new MemoryBackend(
+            new InMemoryMemoryIndexBackend(),
+            new TestAccess("alice"),
+            content
+        );
+        backend.remember({ id: "b", content: content.add({ text: "alpha" }), createdAt: 1 });
+        backend.remember({ id: "a", content: content.add({ text: "alpha beta" }), createdAt: 1 });
+        backend.remember({ id: "c", content: content.add({ text: "alpha gamma" }), createdAt: 1 });
+
+        expect(backend.recall({ query: "alpha" }).map((entry) => entry.id)).toEqual(["a", "b", "c"]);
+        expect(backend.recall({ query: " " }).map((entry) => entry.id)).toEqual(["a", "b", "c"]);
+        expect(backend.recall({ query: "alpha beta" }).map((entry) => entry.id)).toEqual(["a"]);
+        expect(backend.recall({ query: "alpha zzz" })).toEqual([]);
+        expect(backend.recall({ query: "zzz" })).toEqual([]);
+        expect(backend.recall({ query: "pha" })).toEqual([]);
+        expect(backend.recall({ query: "alpha", limit: 2 }).map((entry) => entry.id)).toEqual([
+            "a",
+            "b"
+        ]);
+    });
+
+    test("skips index hits without a backing entry", { tags: "p1" }, () => {
+        const content = new TestContent();
+        const backend = new MemoryBackend(
+            new InMemoryMemoryIndexBackend(
+                new Map([["ghost", new Set(["ghost"])]]),
+                new Set(["ghost"])
+            ),
+            new TestAccess("alice"),
+            content
+        );
+
+        expect(backend.recall({ query: "ghost" })).toEqual([]);
+        expect(backend.recall({ query: "" })).toEqual([]);
+    });
+
+    test("matches queries case-insensitively through lowercase folding", { tags: "p1" }, () => {
+        const content = new TestContent();
+        const backend = new MemoryBackend(
+            new InMemoryMemoryIndexBackend(),
+            new TestAccess("alice"),
+            content
+        );
+        backend.remember({ id: "street", content: content.add({ text: "straße" }), createdAt: 1 });
+
+        expect(backend.recall({ query: "Straße" }).map((entry) => entry.id)).toEqual(["street"]);
+        expect(backend.recall({ query: "STRASSE" })).toEqual([]);
+    });
+
+    test("prunes elapsed retention in sorted order and keeps unbounded entries", { tags: "p1" }, () => {
+        const content = new TestContent();
+        const backend = new MemoryBackend(
+            new InMemoryMemoryIndexBackend(),
+            new TestAccess("alice"),
+            content
+        );
+        const empty = content.add({});
+        backend.remember({ id: "b-expired", content: empty, createdAt: 1, retainUntil: 5 });
+        backend.remember({ id: "a-expired", content: empty, createdAt: 1, retainUntil: 5 });
+        backend.remember({ id: "kept", content: empty, createdAt: 1 });
+
+        expect(backend.prune(9)).toEqual(["a-expired", "b-expired"]);
+        expect(backend.recall({ query: "" }).map((entry) => entry.id)).toEqual(["kept"]);
+    });
+
+    test("rebuilds the derived index only on entry changes or explicit rebuild", { tags: "p1" }, () => {
+        const content = new TestContent();
+        const counter = { replaces: 0 };
+        const backend = new MemoryBackend(
+            new CountingIndex(counter, new InMemoryMemoryIndexBackend()),
+            new TestAccess("alice"),
+            content
+        );
+        backend.remember({ id: "one", content: content.add({ text: "alpha" }), createdAt: 1 });
+        expect(counter.replaces).toBe(1);
+
+        expect(backend.prune(100)).toEqual([]);
+        expect(counter.replaces).toBe(1);
+
+        backend.rebuildIndex();
+        expect(counter.replaces).toBe(2);
+        expect(backend.recall({ query: "alpha" }).map((entry) => entry.id)).toEqual(["one"]);
+    });
+
+    test("clamps prompt recall to bounds and spends the exact character budget", { tags: "p1" }, async () => {
+        const content = new TestContent();
+        const backend = new MemoryBackend(
+            new InMemoryMemoryIndexBackend(),
+            new TestAccess("alice"),
+            content
+        );
+        const bodies = ["aa", "bb", "cc"].map((text) => ({ note: "shared", text }));
+        for (const [index, value] of bodies.entries()) {
+            backend.remember({ id: `entry-${index}`, content: content.add(value), createdAt: 1 });
+        }
+        const bodyLength = JSON.stringify(bodies[0]).length;
+        const runtime = recordingRuntime("memory-budget").runtime;
+
+        const clamped = new MemoryFacet(runtime, backend, {
+            maximumEntries: 1,
+            maximumCharacters: bodyLength * 3,
+            priority: 2
+        });
+        expect((await clamped.prompt({ query: "shared", limit: 5 })).sections).toHaveLength(1);
+
+        const exact = new MemoryFacet(runtime, backend, {
+            maximumEntries: 10,
+            maximumCharacters: bodyLength,
+            priority: 2
+        });
+        expect((await exact.prompt({ query: "shared" })).sections).toHaveLength(1);
+
+        const budget = new MemoryFacet(runtime, backend, {
+            maximumEntries: 10,
+            maximumCharacters: bodyLength * 2 + 1,
+            priority: 2
+        });
+        expect((await budget.prompt({ query: "shared" })).sections).toHaveLength(2);
+
+        const zero = new MemoryFacet(runtime, backend, {
+            maximumEntries: 10,
+            maximumCharacters: 0,
+            priority: 0
+        });
+        expect((await zero.prompt({ query: "shared" })).sections).toEqual([]);
+    });
+
+    test("exposes an executable internal runtime for remember, recall, and forget", { tags: "p1" }, async () => {
+        const content = new TestContent();
+        const backend = new MemoryBackend(
+            new InMemoryMemoryIndexBackend(),
+            new TestAccess("alice"),
+            content
+        );
+        const { runtime } = recordingRuntime("memory-internal");
+        const memory = new MemoryFacet(runtime, backend, {
+            maximumEntries: 1,
+            maximumCharacters: 10,
+            priority: 0
+        });
+        const internal = memory.asInternalRuntime(
+            createMemoryManifest({
+                id: new FacetPackageId("profile.memory"),
+                version: new SemVer("1.0.0"),
+                compat: new CompatRange("^1.0.0", "^1.0.0"),
+                bindings: []
+            })
+        );
+        expect(internal).toBeInstanceOf(InternalProfileFacetRuntime);
+
+        const reference = content.add({ text: "internal" });
+        const context: OperationContext = {
+            invocation: new InvocationId("memory-internal-invocation"),
+            itemIndex: 0,
+            idempotencyKey: "memory-internal-idempotency",
+            signal: new AbortController().signal,
+            content: new MemoryContentStore()
+        };
+        await expect(
+            internal
+                .operation(new OperationName("remember"))
+                ?.execute(context, { id: "one", content: reference.value, createdAt: 1 })
+        ).resolves.toMatchObject({ id: "one", authority: "alice" });
+        await expect(
+            internal.operation(new OperationName("recall"))?.execute(context, { query: "internal" })
+        ).resolves.toMatchObject([{ id: "one" }]);
+        await expect(
+            internal.operation(new OperationName("forget"))?.execute(context, { id: "one" })
+        ).resolves.toBe(true);
+    });
 });
 
 class TestAccess implements MemoryAccessBackend {
@@ -247,6 +497,25 @@ class TestAccess implements MemoryAccessBackend {
 
     public canForget(authority: string): boolean {
         return authority === this.current;
+    }
+}
+
+class CountingIndex implements MemoryIndexBackend {
+    public constructor(
+        private readonly counter: { replaces: number },
+        private readonly inner: MemoryIndexBackend
+    ) {}
+
+    public search(query: string): readonly string[] {
+        return this.inner.search(query);
+    }
+
+    public replace(
+        entries: readonly MemoryEntry[],
+        content: MemoryContentBackend
+    ): MemoryIndexBackend {
+        this.counter.replaces += 1;
+        return new CountingIndex(this.counter, this.inner.replace(entries, content));
     }
 }
 
