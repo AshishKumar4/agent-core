@@ -475,6 +475,18 @@ function readonlyDate(value: Date, context: ReadonlyContext): Date {
         deleteProperty: immutableRead,
         get(target, property) {
             if (typeof property === "string" && property.startsWith("set")) return immutableRead;
+            if (property === Symbol.toPrimitive) {
+                // A Proxy cannot carry the Date internal slot, so new Date(view)
+                // falls back to ToPrimitive — and the native default hint stringifies
+                // without milliseconds, silently shifting the instant. Answer the
+                // default hint with the ISO form, which round-trips exactly.
+                return (hint: string) =>
+                    hint === "number"
+                        ? target.getTime()
+                        : hint === "string"
+                          ? target.toString()
+                          : target.toISOString();
+            }
             const member = Reflect.get(target, property, target);
             return typeof member === "function" ? member.bind(target) : member;
         },

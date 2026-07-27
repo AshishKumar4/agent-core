@@ -1134,6 +1134,28 @@ describe("MemoryActorStore isolation", () => {
         expect(state.bytes[0]).toBe(1);
     });
 
+    test("read-view dates copy without losing milliseconds", { tags: "p0" }, () => {
+        interface State {
+            expiresAt: Date;
+        }
+        const store = new MemoryActorStore<State>(
+            { expiresAt: new Date(1_700_000_000_123) },
+            structuredClone
+        );
+
+        store.transaction((transaction) =>
+            store.read(transaction, (view) => {
+                // A Proxy cannot carry the Date internal slot, so copying through
+                // ToPrimitive must still preserve the exact instant: a lease expiry
+                // copied via new Date(...) may never silently lose milliseconds.
+                expect(new Date(view.expiresAt).getTime()).toBe(1_700_000_000_123);
+                expect(view.expiresAt.getTime()).toBe(1_700_000_000_123);
+                expect(Number(view.expiresAt)).toBe(1_700_000_000_123);
+                expect(String(view.expiresAt)).toBe(String(new Date(1_700_000_000_123)));
+            })
+        );
+    });
+
     test("preserves sparse, symbolic, and non-enumerable read state", () => {
         const symbol = Symbol("state");
         const sparse: number[] = [];
