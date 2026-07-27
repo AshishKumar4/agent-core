@@ -354,6 +354,109 @@ describe("materialization.applyLocal protocol command", () => {
     });
 });
 
+test("materialization payload codec names each malformed shape exactly", { tags: "p1" }, () => {
+    const harness = new MaterializationHarness();
+    const backend: MaterializationCommandBackend<object, object> = {
+        loadPlan: () => undefined,
+        loadPlanForApply: () => undefined,
+        currentRevision: () => undefined,
+        permitsApply: () => false,
+        applyLocal: () => new Uint8Array()
+    };
+    const command = new MaterializationApplyLocalCommand(
+        backend,
+        harness.actor,
+        harness.actor,
+        harness.tenant
+    );
+
+    expect(() => command.payload.decode(Uint8Array.of(0xff))).toThrow(
+        "Local materialization payload must be canonical JSON"
+    );
+    expect(() => command.payload.decode(encodeCanonicalJson(null))).toThrow(
+        "Local materialization payload must be an object"
+    );
+    expect(() => command.payload.decode(encodeCanonicalJson([]))).toThrow(
+        "Local materialization payload must be an object"
+    );
+    expect(() => command.payload.decode(encodeCanonicalJson({}))).toThrow(
+        "Local materialization payload contains missing or unknown fields"
+    );
+    expect(() =>
+        command.payload.decode(encodeCanonicalJson({ planId: "0".repeat(64), extra: true }))
+    ).toThrow("Local materialization payload contains missing or unknown fields");
+    expect(() => command.payload.decode(encodeCanonicalJson({ planId: 7 }))).toThrow(
+        "Local materialization plan ID must be a digest"
+    );
+    expect(() => command.payload.decode(encodeCanonicalJson({ planId: "not-a-digest" }))).toThrow(
+        "Local materialization plan ID must be a digest"
+    );
+
+    const digest = new Digest("a".repeat(64));
+    const decoded = command.payload.decode(MaterializationCommandPayload.applyLocal(digest));
+    expect(decoded).toEqual({ planId: digest });
+});
+
+test("materialization canonical targeting is validated per field", { tags: "p1" }, () => {
+    const harness = new MaterializationHarness();
+    const plan = harness.plan();
+    const failureMessage = "Persisted local materialization plan is missing or has a foreign target";
+    const envelope = { caller: { kind: "actor", actor: harness.actor } } as CommandEnvelope;
+    const commandFor = (
+        applyPlan: MaterializationPlan,
+        tenant = harness.tenant
+    ): MaterializationApplyLocalCommand<object, object> =>
+        new MaterializationApplyLocalCommand(
+            {
+                loadPlan: () => applyPlan,
+                loadPlanForApply: () => applyPlan,
+                currentRevision: () => harness.planRevision(),
+                permitsApply: () => true,
+                applyLocal: () => Uint8Array.of(1)
+            },
+            harness.actor,
+            harness.actor,
+            tenant
+        );
+    const payload = { planId: plan.id };
+
+    const valid = commandFor(plan);
+    expect(valid.authorize({}, envelope, payload)).toBe(true);
+    expect(valid.permitsLifecycle({}, envelope, payload)).toBe(true);
+    expect(valid.currentRevision({}, envelope, payload)?.value).toBe(0);
+    expect(valid.execute({}, envelope, payload, MaterializationHarness.now)).toEqual(
+        Uint8Array.of(1)
+    );
+
+    const wrongTarget = commandFor(
+        harness.plan(new ActorRef("tenant", new ActorId("materialization-foreign")))
+    );
+    expect(wrongTarget.permitsLifecycle({}, envelope, payload)).toBe(false);
+    expect(wrongTarget.currentRevision({}, envelope, payload)).toBeUndefined();
+    expect(() => wrongTarget.execute({}, envelope, payload, MaterializationHarness.now)).toThrow(
+        failureMessage
+    );
+
+    const multiActor = commandFor(harness.multiActorPlan(new ActorRef("tenant", new ActorId("m"))));
+    expect(multiActor.permitsLifecycle({}, envelope, payload)).toBe(false);
+    expect(() => multiActor.execute({}, envelope, payload, MaterializationHarness.now)).toThrow(
+        failureMessage
+    );
+
+    const aliasedId = commandFor(plan);
+    const foreignPayload = { planId: new Digest("b".repeat(64)) };
+    expect(aliasedId.permitsLifecycle({}, envelope, foreignPayload)).toBe(false);
+    expect(() =>
+        aliasedId.execute({}, envelope, foreignPayload, MaterializationHarness.now)
+    ).toThrow(failureMessage);
+
+    const foreignTenant = commandFor(plan, new TenantId("materialization-foreign-tenant"));
+    expect(foreignTenant.permitsLifecycle({}, envelope, payload)).toBe(false);
+    expect(() =>
+        foreignTenant.execute({}, envelope, payload, MaterializationHarness.now)
+    ).toThrow(failureMessage);
+});
+
 function forgePlanKind(plan: MaterializationPlan, recordKind: string): MaterializationPlan {
     const actorPlan = plan.actors[0]!;
     const projection = actorPlan.projections[0]!;

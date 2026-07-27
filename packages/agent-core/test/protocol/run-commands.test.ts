@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { RunBranchId, RunCommitId, RunId, TurnId } from "../../src/agents";
 import { Revision } from "../../src/core";
+import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import type { CommandEnvelope, ProtocolValueCodec } from "../../src/protocol";
 import {
     RUN_COMMANDS,
@@ -268,3 +269,81 @@ describe("Run protocol family", () => {
         ).toThrow(/not decoded/);
     });
 });
+
+test("run protocol record references carry their exact kind labels", { tags: "p1" }, () => {
+    expect(() => new RunProtocolRecordRef("spawn", "")).toThrow(
+        "Run protocol spawn record reference must contain between 1 and 256 characters"
+    );
+    expect(() => new RunProtocolRecordRef("inbox", "")).toThrow(
+        "Run protocol inbox record reference must contain between 1 and 256 characters"
+    );
+
+    const commands = createRunProtocolCommands(new TestPort(), owner);
+    const spawn = requireRunCommand(commands, RUN_COMMANDS.spawn);
+    const spawnRequest = spawn.payload.decode(
+        RunCommandPayload.encode({
+            kind: "spawn",
+            run: new RunId("kind-run"),
+            turn: new TurnId("kind-turn"),
+            child: new RunId("kind-child"),
+            reservation: new RunProtocolRecordRef("spawn", "kind-reservation")
+        })
+    );
+    if (spawnRequest.kind !== "spawn") throw new TypeError("Expected a spawn request");
+    expect(spawnRequest.reservation.recordKind).toBe("spawn");
+    expect(spawnRequest.reservation.value).toBe("kind-reservation");
+
+    const deliver = requireRunCommand(commands, RUN_COMMANDS.deliverTurnEvent);
+    const deliverRequest = deliver.payload.decode(
+        RunCommandPayload.encode({
+            kind: "deliverTurnEvent",
+            turn: new TurnId("kind-turn"),
+            entry: new RunProtocolRecordRef("inbox", "kind-entry")
+        })
+    );
+    if (deliverRequest.kind !== "deliverTurnEvent") {
+        throw new TypeError("Expected a delivery request");
+    }
+    expect(deliverRequest.entry.recordKind).toBe("inbox");
+    expect(deliverRequest.entry.value).toBe("kind-entry");
+});
+
+test("run protocol caller policies admit exactly the declared family", { tags: "p0" }, () => {
+    const commands = createRunProtocolCommands(new TestPort(), owner);
+    const create = requireRunCommand(commands, RUN_COMMANDS.create);
+    const merge = requireRunCommand(commands, RUN_COMMANDS.merge);
+    const principal = {
+        kind: "principal" as const,
+        principal: new PrincipalRef(new TenantId("run-tenant"), new PrincipalId("run-principal"))
+    };
+
+    expect(create.caller.admits(principal)).toBe(true);
+    expect(create.caller.admits({ kind: "actor", actor: owner })).toBe(false);
+    expect(merge.caller.admits(principal)).toBe(false);
+    expect(merge.caller.admits({ kind: "actor", actor: owner })).toBe(true);
+});
+
+test("run protocol owners admit Run Actors and boundary expirations", { tags: "p1" }, () => {
+    const runOwner = new ActorRef("run", new ActorId("run-owner"));
+    expect(() => createRunProtocolCommands(new TestPort(), runOwner)).not.toThrow();
+    expect(() =>
+        createRunProtocolCommands(new TestPort(), new ActorRef("slate", new ActorId("slate-owner")))
+    ).toThrow("Run protocol owner must be a Workspace or Run Actor");
+
+    const commands = createRunProtocolCommands(new TestPort(), owner);
+    const claim = requireRunCommand(commands, RUN_COMMANDS.claimTurn);
+    const request = claim.payload.decode(
+        new TextEncoder().encode('{"expiresAt":0,"turn":"epoch-turn"}')
+    );
+    if (request.kind !== "claimTurn") throw new TypeError("Expected a claim request");
+    expect(request.expiresAt.getTime()).toBe(0);
+});
+
+function requireRunCommand(
+    commands: readonly ReturnType<typeof createRunProtocolCommands>[number][],
+    name: string
+): ReturnType<typeof createRunProtocolCommands>[number] {
+    const found = commands.find((candidate) => candidate.command === name);
+    if (found === undefined) throw new TypeError(`Expected registered command ${name}`);
+    return found;
+}

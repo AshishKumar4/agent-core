@@ -1,5 +1,11 @@
 import { expect, test } from "vitest";
-import { ActorId, ActorRef, MemoryActorStore, type SynchronousResultGuard } from "../../src/actors";
+import {
+    ACTOR_STATE_SNAPSHOT,
+    ActorId,
+    ActorRef,
+    MemoryActorStore,
+    type SynchronousResultGuard
+} from "../../src/actors";
 import { TenantId } from "../../src/identity";
 import {
     AuditRecord,
@@ -610,6 +616,177 @@ test.each(["missing-audit", "orphan-write-audit", "missing-cause", "duplicate-li
         expectAgentCoreError(() => persistence.repair(restored), /codec|protocol/);
     }
 );
+
+test("memory snapshot construction rejects malformed snapshot containers", { tags: "p1" }, () => {
+    const malformed = [
+        null,
+        5,
+        "snapshot",
+        { audits: {}, writes: [] },
+        { audits: [], writes: "writes" }
+    ];
+    for (const snapshot of malformed) {
+        const restore = (): unknown =>
+            new MemoryProtocolRecords(snapshot as unknown as MemoryProtocolSnapshot);
+        expectAgentCoreError(restore, "codec.invalid");
+        expect(restore).toThrow("Memory protocol snapshot is malformed");
+    }
+});
+
+test("memory snapshot copies reject each malformed stored record shape", { tags: "p1" }, () => {
+    const records = new MemoryProtocolRecords();
+    const persistence = persistenceForRecords();
+    appendProtocolTestRecords(persistence, records, protocolTestRecords("memory-record-shape"));
+    const snapshot = records.snapshot();
+    const audit = snapshot.audits[0];
+    const write = snapshot.writes[0];
+    if (audit === undefined || write === undefined) {
+        throw new TypeError("Expected seeded snapshot records");
+    }
+
+    const malformedAudits = [
+        null,
+        { ...audit, id: 7 },
+        { ...audit, evidenceIdentity: 7 },
+        { ...audit, evidenceKind: 7 },
+        { ...audit, writeId: "not-a-write-id" },
+        { ...audit, writeOutcome: 7 },
+        { ...audit, bytes: "bytes" }
+    ];
+    for (const corrupt of malformedAudits) {
+        const restore = (): unknown =>
+            new MemoryProtocolRecords({
+                ...snapshot,
+                audits: [corrupt as unknown as MemoryProtocolSnapshot["audits"][number]]
+            });
+        expectAgentCoreError(restore, "codec.invalid");
+        expect(restore).toThrow("Memory protocol snapshot contains a malformed audit record");
+    }
+
+    const malformedWrites = [
+        null,
+        { ...write, id: 7 },
+        { ...write, auditId: "not-an-audit-id" },
+        { ...write, outcome: 7 },
+        { ...write, bytes: "bytes" }
+    ];
+    for (const corrupt of malformedWrites) {
+        const restore = (): unknown =>
+            new MemoryProtocolRecords({
+                ...snapshot,
+                writes: [corrupt as unknown as MemoryProtocolSnapshot["writes"][number]]
+            });
+        expectAgentCoreError(restore, "codec.invalid");
+        expect(restore).toThrow("Memory protocol snapshot contains a malformed write record");
+    }
+});
+
+test("memory snapshot duplicate rejections carry exact diagnostics", { tags: "p2" }, () => {
+    const records = new MemoryProtocolRecords();
+    const persistence = persistenceForRecords();
+    appendProtocolTestRecords(persistence, records, protocolTestRecords("memory-exact-duplicate"));
+    const snapshot = records.snapshot();
+    const audit = snapshot.audits[0];
+    const write = snapshot.writes[0];
+    if (audit === undefined || write === undefined) {
+        throw new TypeError("Expected seeded snapshot records");
+    }
+
+    expect(
+        () => new MemoryProtocolRecords({ ...snapshot, audits: [...snapshot.audits, audit] })
+    ).toThrow("Memory protocol snapshot contains duplicate audit records");
+    expect(
+        () => new MemoryProtocolRecords({ ...snapshot, writes: [...snapshot.writes, write] })
+    ).toThrow("Memory protocol snapshot contains duplicate write records");
+
+    const invocation = new InvocationId("memory-shared-evidence");
+    const sharedEvidence = ["memory-evidence-a", "memory-evidence-b"].map((id) => {
+        const record = new AuditRecord({
+            id: new AuditRecordId(id),
+            actor: new ActorRef("run", new ActorId("memory-evidence-actor")),
+            tenant: new TenantId("memory-evidence-tenant"),
+            correlation: new CorrelationId(id),
+            kind: { kind: "invocation", id: invocation }
+        });
+        return {
+            id: record.id.value,
+            evidenceIdentity: auditEvidenceIdentity(record.actor, record.kind).value,
+            evidenceKind: record.kind.kind,
+            bytes: AuditRecordCodec.encode(record)
+        };
+    });
+    expect(
+        () => new MemoryProtocolRecords({ audits: sharedEvidence, writes: [], identities: [] })
+    ).toThrow("Memory protocol snapshot contains duplicate audit evidence relations");
+});
+
+test("memory insertion append-only guards carry exact diagnostics", { tags: "p0" }, () => {
+    const records = new MemoryProtocolRecords();
+    const persistence = persistenceForRecords();
+    appendProtocolTestRecords(persistence, records, protocolTestRecords("memory-exact-append"));
+    const snapshot = records.snapshot();
+    const audit = snapshot.audits[0];
+    const write = snapshot.writes[0];
+    if (audit === undefined || write === undefined) {
+        throw new TypeError("Expected seeded snapshot records");
+    }
+
+    const reinsertAudit = (): void => records.insertAudit(audit);
+    expectAgentCoreError(reinsertAudit, "protocol.invalid-state");
+    expect(reinsertAudit).toThrow("Audit records are append-only");
+
+    const evidenceConflict = (): void =>
+        records.insertAudit({ ...audit, id: "memory-append-evidence-alias" });
+    expectAgentCoreError(evidenceConflict, "protocol.invalid-state");
+    expect(evidenceConflict).toThrow("Audit evidence relation is append-only");
+
+    const reinsertWrite = (): void => records.insertWrite(write, undefined);
+    expectAgentCoreError(reinsertWrite, "protocol.invalid-state");
+    expect(reinsertWrite).toThrow("Write records are append-only");
+});
+
+test("memory snapshots project exact actor caller identities", { tags: "p1" }, () => {
+    const actor = new ActorRef("workspace", new ActorId("memory-projection-actor"));
+    const records = new MemoryProtocolRecords();
+    const persistence = persistenceForRecords();
+    const expected = protocolTestRecords("memory-projection", { kind: "actor", actor });
+    appendProtocolTestRecords(persistence, records, expected);
+
+    const snapshot = records.snapshot();
+    expect(snapshot.identities).toHaveLength(1);
+    expect(snapshot.identities[0]?.identity).toEqual({
+        caller: { kind: "actor", actorKind: "workspace", id: "memory-projection-actor" },
+        idempotencyKey: expected.identity.idempotencyKey
+    });
+    expect(records[ACTOR_STATE_SNAPSHOT]()).toEqual(snapshot);
+});
+
+test("memory audit projections omit absent write projection fields", { tags: "p2" }, () => {
+    const record = new AuditRecord({
+        id: new AuditRecordId("memory-invocation-projection"),
+        actor: new ActorRef("run", new ActorId("memory-projection-root-actor")),
+        tenant: new TenantId("memory-projection-tenant"),
+        correlation: new CorrelationId("memory-projection-correlation"),
+        kind: { kind: "invocation", id: new InvocationId("memory-projection-invocation") }
+    });
+    const records = new MemoryProtocolRecords({
+        audits: [
+            {
+                id: record.id.value,
+                evidenceIdentity: auditEvidenceIdentity(record.actor, record.kind).value,
+                evidenceKind: record.kind.kind,
+                bytes: AuditRecordCodec.encode(record)
+            }
+        ],
+        writes: [],
+        identities: []
+    });
+
+    const audit = records.snapshot().audits[0];
+    if (audit === undefined) throw new TypeError("Expected the seeded audit projection");
+    expect(Object.hasOwn(audit, "writeId")).toBe(false);
+    expect(Object.hasOwn(audit, "writeOutcome")).toBe(false);
+});
 
 function createMemoryHarness(): ProtocolPersistenceHarness<MemoryState> {
     const clone = (state: MemoryState): MemoryState => ({ protocol: state.protocol.clone() });

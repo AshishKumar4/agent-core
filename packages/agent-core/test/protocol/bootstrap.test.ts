@@ -8,6 +8,7 @@ import { MemoryTenantControlStore } from "../../src/authority";
 import { ContentRef, Digest, Revision, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { PrincipalId, PrincipalRef, RoleName, ScopeRef, TenantId } from "../../src/identity";
+import { AuditRecordCodec } from "../../src/invocations";
 import * as protocol from "../../src/protocol/public";
 import {
     CommandEnvelope,
@@ -639,6 +640,354 @@ describe("tenant.bootstrap concrete compositions", () => {
             })
         ).toThrow(/Tenant Actor/);
     });
+});
+
+test("anchor codec validates each payload field exactly", { tags: "p1" }, () => {
+    const valid = {
+        actorId: actor.id.value,
+        principalId: principalId.value,
+        tenantId: tenantId.value,
+        tenantKind: "organization",
+        trustAnchor: "BAUG"
+    };
+    const decoded = TenantBootstrapAnchorRecord.decode(anchorEnvelope(valid));
+    expect(decoded.tenantKind).toBe("organization");
+    expect(decoded.trustAnchor).toEqual(Uint8Array.of(4, 5, 6));
+    expect(decoded.actorId.value).toBe(actor.id.value);
+    expect(decoded.principalId.value).toBe(principalId.value);
+    expect(decoded.tenantId.value).toBe(tenantId.value);
+
+    const malformed: readonly JsonValue[] = [
+        [],
+        { ...valid, principalId: 3 },
+        { ...valid, tenantId: 3 },
+        { ...valid, trustAnchor: 3 },
+        { ...valid, tenantKind: "bogus" },
+        { ...valid, tenantKind: 3 },
+        { ...valid, extra: true },
+        {
+            actorId: valid.actorId,
+            principalId: valid.principalId,
+            tenantId: valid.tenantId,
+            trustAnchor: valid.trustAnchor
+        }
+    ];
+    for (const payload of malformed) {
+        expect(() => TenantBootstrapAnchorRecord.decode(anchorEnvelope(payload))).toThrow(
+            AgentCoreError
+        );
+    }
+});
+
+test("anchor records detach trust anchor bytes in both directions", { tags: "p1" }, () => {
+    const source = Uint8Array.of(7, 8, 9);
+    const record = new TenantBootstrapAnchorRecord({
+        actorId: actor.id,
+        tenantId,
+        principalId,
+        tenantKind: "personal",
+        trustAnchor: source
+    });
+    source.fill(0);
+    expect(record.trustAnchor).toEqual(Uint8Array.of(7, 8, 9));
+    const exposed = record.trustAnchor;
+    exposed.fill(1);
+    expect(record.trustAnchor).toEqual(Uint8Array.of(7, 8, 9));
+    expect(
+        () => new TenantBootstrapAnchorRecord({ ...anchor, trustAnchor: new Uint8Array() })
+    ).toThrow(TypeError);
+});
+
+test("bootstrap gates require the exact anchor, caller, and eligibility", { tags: "p0" }, () => {
+    const content = new CounterContentStore(() => undefined);
+    let readAnchor: TenantBootstrapAnchor | undefined = anchor;
+    let eligible = true;
+    const store = {
+        anchor: () => readAnchor,
+        anchorInTransaction: () => readAnchor,
+        eligible: () => eligible,
+        currentRevision: () => Revision.initial(),
+        bootstrapTenant: () => undefined
+    };
+    const command = createTenantBootstrapCommand(store, { actor, tenantId });
+    const owner = CommandEnvelopeCodec.decode(envelope(content, { key: "gate-owner" }));
+    const forged = CommandEnvelopeCodec.decode(
+        envelope(content, { key: "gate-forged", caller: forgedCaller })
+    );
+    const actorEnvelope = CommandEnvelopeCodec.decode(
+        envelope(content, { key: "gate-actor", caller: { kind: "actor", actor } })
+    );
+
+    expect(command.authorize(store, owner, {})).toBe(true);
+    expect(command.permitsLifecycle(store, owner, {})).toBe(true);
+    expect(command.currentRevision(store, owner, {})?.value).toBe(0);
+    expect(command.currentLease(store, owner, {}, new Date(1_000))).toBeUndefined();
+    expect(command.authorize(store, forged, {})).toBe(false);
+    expect(command.authorize(store, actorEnvelope, {})).toBe(false);
+
+    eligible = false;
+    expect(command.permitsLifecycle(store, owner, {})).toBe(false);
+    eligible = true;
+
+    readAnchor = { ...anchor, actorId: new ActorId("gate-other-actor") };
+    expect(command.authorize(store, owner, {})).toBe(false);
+    expect(command.permitsLifecycle(store, owner, {})).toBe(false);
+    readAnchor = { ...anchor, tenantId: new TenantId("gate-other-tenant") };
+    expect(command.authorize(store, owner, {})).toBe(false);
+    expect(command.permitsLifecycle(store, owner, {})).toBe(false);
+    readAnchor = { ...anchor, principalId: new PrincipalId("gate-other-owner") };
+    expect(command.authorize(store, owner, {})).toBe(false);
+    readAnchor = undefined;
+    expect(command.authorize(store, owner, {})).toBe(false);
+    expect(command.permitsLifecycle(store, owner, {})).toBe(false);
+    expect(command.currentRevision(store, owner, {})).toBeUndefined();
+});
+
+test("bootstrap execution validates the transactional anchor exactly", { tags: "p0" }, () => {
+    const content = new CounterContentStore(() => undefined);
+    const applied: { tenant: string; revision: number }[] = [];
+    let transactionAnchor: TenantBootstrapAnchor | undefined = anchor;
+    const store = {
+        anchor: (): TenantBootstrapAnchor | undefined => anchor,
+        anchorInTransaction: () => transactionAnchor,
+        eligible: () => true,
+        currentRevision: () => Revision.initial(),
+        bootstrapTenant: (
+            _transaction: unknown,
+            verified: TenantBootstrapAnchorRecord,
+            revision: Revision
+        ) => {
+            applied.push({ tenant: verified.tenantId.value, revision: revision.value });
+        }
+    };
+    const command = createTenantBootstrapCommand(store, { actor, tenantId });
+    const owner = CommandEnvelopeCodec.decode(envelope(content, { key: "execute-owner" }));
+    const at = new Date("2026-07-24T10:00:00.000Z");
+
+    const execution = command.execute(store, owner, {}, at);
+    if (execution instanceof Uint8Array) throw new TypeError("Expected a typed bootstrap reply");
+    expect(execution.reply.owner.equals(caller.principal)).toBe(true);
+    expect(execution.reply.tenant.equals(tenantId)).toBe(true);
+    expect(execution.observation?.at).toEqual(at);
+    expect(applied).toEqual([{ tenant: tenantId.value, revision: 0 }]);
+
+    const payload = tenantBootstrapPayload();
+    const digest = Digest.sha256(payload);
+    const withoutRevision = new CommandEnvelope({
+        command: "tenant.bootstrap",
+        caller,
+        idempotencyKey: "execute-no-revision",
+        payload: ContentRef.fromDigest(digest),
+        payloadDigest: digest
+    });
+    const failures = [
+        withoutRevision,
+        CommandEnvelopeCodec.decode(
+            envelope(content, { key: "execute-forged", caller: forgedCaller })
+        ),
+        CommandEnvelopeCodec.decode(
+            envelope(content, { key: "execute-actor", caller: { kind: "actor", actor } })
+        )
+    ];
+    for (const failing of failures) {
+        try {
+            command.execute(store, failing, {}, at);
+            throw new TypeError("Expected an anchor validation failure");
+        } catch (error) {
+            expect(error).toMatchObject({
+                code: "protocol.invalid-state",
+                message: "Tenant bootstrap anchor disappeared during dispatch"
+            });
+        }
+    }
+    transactionAnchor = { ...anchor, actorId: new ActorId("execute-drifted") };
+    expect(() => command.execute(store, owner, {}, at)).toThrow(
+        "Tenant bootstrap anchor disappeared during dispatch"
+    );
+    expect(applied).toHaveLength(1);
+});
+
+test("bootstrap reply and observation codecs name malformed values exactly", { tags: "p1" }, () => {
+    const store = {
+        anchor: (): TenantBootstrapAnchor | undefined => anchor,
+        anchorInTransaction: (): TenantBootstrapAnchor | undefined => anchor,
+        eligible: () => true,
+        currentRevision: () => Revision.initial(),
+        bootstrapTenant: () => undefined
+    };
+    const command = createTenantBootstrapCommand(store, { actor, tenantId });
+    const replyCodec = command.replyCodec;
+    const observationCodec = command.observationCodec;
+    if (replyCodec === undefined || observationCodec === undefined) {
+        throw new TypeError("Expected typed bootstrap codecs");
+    }
+
+    expect(() => replyCodec.decode(encodeCanonicalJson(null))).toThrow(
+        "Tenant bootstrap reply must be an object"
+    );
+    expect(() =>
+        replyCodec.decode(
+            encodeCanonicalJson({
+                owner: { principal: "p", tenant: "t" },
+                tenant: "x",
+                extra: true
+            })
+        )
+    ).toThrow("Tenant bootstrap reply is malformed");
+    expect(() =>
+        replyCodec.decode(
+            encodeCanonicalJson({ owner: { principal: "p", tenant: "t", extra: 1 }, tenant: "x" })
+        )
+    ).toThrow("Tenant bootstrap owner is malformed");
+    expect(() =>
+        replyCodec.decode(encodeCanonicalJson({ owner: { principal: "p", tenant: "t" }, tenant: "" }))
+    ).toThrow("Tenant bootstrap Tenant must be a non-empty string");
+    expect(() =>
+        replyCodec.decode(encodeCanonicalJson({ owner: { principal: "", tenant: "t" }, tenant: "x" }))
+    ).toThrow("Tenant bootstrap owner must be a non-empty string");
+
+    expect(() => observationCodec.decode(encodeCanonicalJson(null))).toThrow(
+        "Tenant bootstrap observation must be an object"
+    );
+    expect(() => observationCodec.decode(encodeCanonicalJson({ at: "x" }))).toThrow(
+        "Tenant bootstrap observation is malformed"
+    );
+    expect(() =>
+        observationCodec.decode(encodeCanonicalJson({ at: "not-a-date", reply: "AA==" }))
+    ).toThrow("Tenant bootstrap observation time is invalid");
+    expect(() =>
+        observationCodec.decode(
+            encodeCanonicalJson({ at: new Date(1_000).toISOString(), reply: 5 })
+        )
+    ).toThrow("Tenant bootstrap observation reply must be a non-empty string");
+});
+
+test("memory bootstrap restart accepts identical anchors and rejects drift", { tags: "p0" }, () => {
+    const content = new CounterContentStore(() => undefined);
+    const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+    const snapshot = composition.snapshot();
+    expect(() => createMemoryTenantBootstrap({ actor, anchor, content, snapshot })).not.toThrow();
+
+    const drifted: readonly TenantBootstrapAnchor[] = [
+        { ...anchor, actorId: new ActorId("drift-actor") },
+        { ...anchor, tenantId: new TenantId("drift-tenant") },
+        { ...anchor, principalId: new PrincipalId("drift-owner") },
+        { ...anchor, tenantKind: "service" },
+        { ...anchor, trustAnchor: Uint8Array.of(4, 5, 7) },
+        { ...anchor, trustAnchor: Uint8Array.of(4, 5) }
+    ];
+    for (const changed of drifted) {
+        try {
+            createMemoryTenantBootstrap({ actor, anchor: changed, content, snapshot });
+            throw new TypeError("Expected anchor drift rejection");
+        } catch (error) {
+            expect(error).toMatchObject({
+                code: "protocol.invalid-state",
+                message: "Memory Tenant bootstrap anchor changed across restart"
+            });
+        }
+    }
+
+    const defaultKind: TenantBootstrapAnchor = {
+        actorId: actor.id,
+        tenantId,
+        principalId,
+        trustAnchor: Uint8Array.of(9, 9)
+    };
+    const personal = createMemoryTenantBootstrap({
+        actor,
+        anchor: defaultKind,
+        content: new CounterContentStore(() => undefined)
+    });
+    expect(() =>
+        createMemoryTenantBootstrap({
+            actor,
+            anchor: defaultKind,
+            content: new CounterContentStore(() => undefined),
+            snapshot: personal.snapshot()
+        })
+    ).not.toThrow();
+});
+
+test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" }, () => {
+    const content = new CounterContentStore(() => undefined);
+    const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+    const snapshot = composition.snapshot();
+    const malformed = [
+        { version: 1, opaque: snapshot.opaque, extra: true },
+        { version: 2, opaque: snapshot.opaque },
+        { version: 1, opaque: null },
+        { version: 1, opaque: "opaque" }
+    ];
+    for (const candidate of malformed) {
+        try {
+            createMemoryTenantBootstrap({
+                actor,
+                anchor,
+                content,
+                snapshot: candidate as unknown as MemoryTenantBootstrapSnapshot
+            });
+            throw new TypeError("Expected snapshot container rejection");
+        } catch (error) {
+            expect(error).toMatchObject({
+                code: "codec.invalid",
+                message: "Memory Tenant bootstrap snapshot is malformed"
+            });
+        }
+    }
+
+    const opaque = snapshot.opaque as {
+        readonly state: { readonly control: { readonly version: number } };
+    };
+    try {
+        createMemoryTenantBootstrap({
+            actor,
+            anchor,
+            content,
+            snapshot: {
+                version: 1,
+                opaque: {
+                    ...(snapshot.opaque as object),
+                    state: {
+                        ...opaque.state,
+                        control: { ...opaque.state.control, version: 2 }
+                    }
+                }
+            }
+        });
+        throw new TypeError("Expected control snapshot rejection");
+    } catch (error) {
+        expect(error).toMatchObject({ message: "Memory Tenant control snapshot is malformed" });
+    }
+});
+
+test("memory bootstrap records carry typed identifier prefixes", { tags: "p2" }, async () => {
+    const content = new CounterContentStore(() => undefined);
+    const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+
+    const committed = await composition.dispatch(
+        envelope(content, { key: "id-prefixes" }),
+        ownerTransport
+    );
+
+    expect(committed.outcome).toBe("committed");
+    expect(committed.write.id.value).toMatch(/^write-\d+$/u);
+    expect(committed.write.audit.value).toMatch(/^audit-\d+$/u);
+
+    const opaque = composition.snapshot().opaque as {
+        readonly state: {
+            readonly protocol: { snapshot(): { readonly audits: readonly { bytes: Uint8Array }[] } };
+        };
+    };
+    const audits = opaque.state.protocol
+        .snapshot()
+        .audits.map((audit) => AuditRecordCodec.decode(audit.bytes));
+    const root = audits.find((audit) => audit.kind.kind === "invocation");
+    if (root === undefined || root.kind.kind !== "invocation") {
+        throw new TypeError("Expected a bootstrap Invocation root");
+    }
+    expect(root.correlation.value).toMatch(/^correlation-\d+$/u);
+    expect(root.kind.id.value).toMatch(/^invocation-\d+$/u);
 });
 
 interface EnvelopeInit {

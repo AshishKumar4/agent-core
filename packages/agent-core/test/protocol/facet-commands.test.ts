@@ -399,6 +399,99 @@ describe("Facet Slot protocol commands", () => {
     });
 });
 
+test("facet slot reply codec accepts boundary revisions exactly", { tags: "p1" }, () => {
+    const command = new FacetSlotInstallCommand(new Backend(), actor("workspace"));
+    const codec = command.replyCodec;
+
+    expect(codec.decode(codec.encode({ revision: new Revision(0) })).revision.value).toBe(0);
+    expect(() => codec.decode(encodeCanonicalJson(null))).toThrow(
+        "Facet Slot command reply must be an object"
+    );
+    expect(() => codec.decode(encodeCanonicalJson({}))).toThrow(
+        "Facet Slot command reply contains missing or unknown fields"
+    );
+    expect(() => codec.decode(encodeCanonicalJson({ revision: -1 }))).toThrow(
+        "Facet Slot command reply revision is invalid"
+    );
+
+    const declaration = slot();
+    const observationCodec = command.observationCodec;
+    if (observationCodec === undefined) throw new TypeError("Expected an observation codec");
+    expect(observationCodec.encode(declaration)).toEqual(SlotDeclaration.encode(declaration));
+    expect(
+        observationCodec.decode(observationCodec.encode(declaration)).name.equals(declaration.name)
+    ).toBe(true);
+});
+
+test("slot payload codecs name malformed values exactly", { tags: "p1" }, () => {
+    const target = actor("workspace");
+    const install = new FacetSlotInstallCommand(new Backend(), target);
+    const contribute = new FacetSlotContributeCommand(new Backend(), target);
+
+    expect(() => install.payload.decode(encodeCanonicalJson(null))).toThrow(
+        "Slot install payload must be an object"
+    );
+    expect(() => install.payload.decode(encodeCanonicalJson({}))).toThrow(
+        "Slot install payload contains missing or unknown fields"
+    );
+    expect(() => install.payload.decode(encodeCanonicalJson({ record: 1 }))).toThrow(
+        "Slot declaration record must be a string"
+    );
+
+    expect(() => contribute.payload.decode(encodeCanonicalJson(null))).toThrow(
+        "Slot contribution payload must be an object"
+    );
+    expect(() => contribute.payload.decode(encodeCanonicalJson({}))).toThrow(
+        "Slot contribution payload contains missing or unknown fields"
+    );
+    expect(() =>
+        contribute.payload.decode(encodeCanonicalJson({ ordinal: 0, slot: 5, value: null }))
+    ).toThrow("Slot contribution slot must be a string");
+    expect(() =>
+        contribute.payload.decode(
+            encodeCanonicalJson({ ordinal: -1, slot: "dashboard.card", value: null })
+        )
+    ).toThrow("Slot contribution ordinal must be a non-negative safe integer");
+    const boundary = contribute.payload.decode(
+        encodeCanonicalJson({ ordinal: 0, slot: "dashboard.card", value: { title: "Card" } })
+    );
+    expect(boundary.ordinal).toBe(0);
+    expect(boundary.slot.value).toBe("dashboard.card");
+
+    expectAgentCoreError(
+        () =>
+            FacetSlotCommandPayload.contribute({
+                slot: new SlotName("dashboard.card"),
+                ordinal: -1,
+                value: null
+            }),
+        "protocol.invalid-state"
+    );
+});
+
+test("contribution lifecycle admits only the authorized exact entry", { tags: "p0" }, () => {
+    const target = actor("workspace");
+    const backend = new Backend();
+    backend.declaration = slot();
+    const contribute = new FacetSlotContributeCommand(backend, target);
+    const decoded = contribute.payload.decode(
+        FacetSlotCommandPayload.contribute(contribution(entry()))
+    );
+    const commandEnvelope = envelope(contribute.command, target);
+
+    expect(contribute.authorize(backend, commandEnvelope, decoded)).toBe(true);
+    expect(contribute.permitsLifecycle(backend, commandEnvelope, decoded)).toBe(true);
+
+    const sameLength = { slot: decoded.slot, ordinal: decoded.ordinal, value: { title: "Dard" } };
+    expect(contribute.permitsLifecycle(backend, commandEnvelope, sameLength)).toBe(false);
+    const longer = {
+        slot: decoded.slot,
+        ordinal: decoded.ordinal,
+        value: { title: "A longer substituted title" }
+    };
+    expect(contribute.permitsLifecycle(backend, commandEnvelope, longer)).toBe(false);
+});
+
 class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public revision = Revision.initial();
     public declaration: SlotDeclaration | undefined;

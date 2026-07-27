@@ -1,4 +1,9 @@
 import { expect, test } from "vitest";
+import {
+    TransientContentAccess,
+    TransientContentLease,
+    type TransientContentBinding
+} from "../../src/content";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
@@ -266,6 +271,128 @@ test.each(["authUnknown", "contentUnknown"] as const)(
         ).toMatchObject({ outcome: "committed" });
     }
 );
+
+test("detaches the submitted envelope before asynchronous authentication", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const raw = harness.envelope({ key: "detached-ingress", amount: 2 });
+    const ingress = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content: harness.content,
+        authenticator: new EnvelopeZeroingAuthenticator(harness.tenant, harness.caller),
+        leaseForMilliseconds: 60_000,
+        now: () => CounterHarness.now
+    });
+
+    const result = await ingress.accept(raw, raw);
+
+    expect(result).toMatchObject({ kind: "commandOutcome", outcome: "committed" });
+    expect(harness.snapshot().value).toBe(2);
+});
+
+test("the authenticator is not consulted for undecodable envelopes", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    const authenticator = new CountingAuthenticator(harness.tenant, harness.caller);
+    const ingress = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content: harness.content,
+        authenticator,
+        leaseForMilliseconds: 60_000,
+        now: () => CounterHarness.now
+    });
+
+    const result = await ingress.accept(Uint8Array.of(0xff), "valid");
+
+    expect(result).toMatchObject({ kind: "commandOutcome", outcome: "rejectedMalformed" });
+    expect(authenticator.calls).toBe(0);
+});
+
+test("closes the payload lease exactly once after dispatch", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    const content = new ClosableContent();
+    const ingress = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content,
+        authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
+        leaseForMilliseconds: 60_000,
+        now: () => CounterHarness.now
+    });
+    const raw = harness.envelope({ key: "closing-lease", amount: 3 });
+
+    const result = await ingress.accept(raw, "valid", harness.payloadBytes(3));
+
+    expect(result).toMatchObject({ kind: "commandOutcome", outcome: "committed" });
+    expect(content.closes).toBe(1);
+    expect(harness.snapshot().value).toBe(3);
+});
+
+test("submitted digest mismatches never touch transient content", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    const raw = harness.envelope({ key: "submitted-mismatch-content" });
+
+    const result = await harness.dispatch(raw, harness.caller, Uint8Array.of(9));
+
+    expect(result.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot()).toMatchObject({ contentGets: 0, contentPuts: 0 });
+});
+
+class EnvelopeZeroingAuthenticator extends CommandAuthenticator<Uint8Array> {
+    public constructor(
+        tenant: TenantId,
+        private readonly caller: CommandCaller
+    ) {
+        super(tenant);
+    }
+
+    protected async authenticateTransport(transport: Uint8Array): Promise<CommandCaller> {
+        await Promise.resolve();
+        transport.fill(0);
+        return this.caller;
+    }
+}
+
+class CountingAuthenticator extends CommandAuthenticator<string> {
+    public calls = 0;
+
+    public constructor(
+        tenant: TenantId,
+        private readonly caller: CommandCaller
+    ) {
+        super(tenant);
+    }
+
+    protected authenticateTransport(): CommandCaller {
+        this.calls += 1;
+        return this.caller;
+    }
+}
+
+class ClosableContent extends TransientContentAccess {
+    public closes = 0;
+
+    public async acquire(
+        _binding: TransientContentBinding,
+        submitted?: Uint8Array
+    ): Promise<TransientContentLease | undefined> {
+        if (submitted === undefined) return undefined;
+        const bytes = submitted.slice();
+        const closed = (): void => {
+            this.closes += 1;
+        };
+        return new (class extends TransientContentLease {
+            public read(): Uint8Array {
+                return bytes.slice();
+            }
+
+            public matches(): boolean {
+                return true;
+            }
+
+            public async close(): Promise<void> {
+                closed();
+            }
+        })();
+    }
+}
 
 class TokenAuthenticator extends CommandAuthenticator<string> {
     public constructor(

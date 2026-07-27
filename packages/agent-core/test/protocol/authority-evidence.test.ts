@@ -260,6 +260,101 @@ describe("authority protocol evidence", () => {
     });
 });
 
+test("authority protocol replies freeze and reject inexact payload shapes", { tags: "p1" }, () => {
+    const evidence = new AuthorityCheckEvidence(
+        tenant,
+        issuer,
+        checkRequest().digest(),
+        binding.key,
+        binding.generation,
+        "allow",
+        "allowed",
+        [grant],
+        [],
+        path,
+        new Date(5_000)
+    );
+    expect(Object.isFrozen(new AuthorityCheckReply(evidence))).toBe(true);
+
+    const checkEnvelope = (payload: JsonValue): Uint8Array =>
+        encodeCanonicalJson({
+            kind: "protocol.authority-check-reply",
+            version: { major: 1, minor: 0 },
+            payload
+        });
+    const malformed: readonly JsonValue[] = [
+        null,
+        [],
+        {},
+        { wrong: true },
+        { evidence: null, extra: true }
+    ];
+    for (const payload of malformed) {
+        expect(() => AuthorityCheckReply.decode(checkEnvelope(payload))).toThrow(
+            "Authority protocol reply is malformed"
+        );
+    }
+
+    const validationEvidence = new BindingValidationEvidence(
+        tenant,
+        issuer,
+        Digest.sha256(Uint8Array.of(7)),
+        scope,
+        binding.subject,
+        grant,
+        path,
+        new Date(6_000)
+    );
+    expect(Object.isFrozen(new BindingValidationReply(validationEvidence))).toBe(true);
+    expect(() =>
+        BindingValidationReply.decode(
+            encodeCanonicalJson({
+                kind: "protocol.binding-validation-reply",
+                version: { major: 1, minor: 0 },
+                payload: { permit: 1 }
+            })
+        )
+    ).toThrow("Authority protocol reply is malformed");
+});
+
+test("permit issuance codec diagnostics are exact", { tags: "p1" }, () => {
+    const issuanceEnvelope = (payload: JsonValue): Uint8Array =>
+        encodeCanonicalJson({
+            kind: "protocol.authority-permit-issuance-request",
+            version: { major: 1, minor: 0 },
+            payload
+        });
+    const inexact: readonly JsonValue[] = [
+        null,
+        [],
+        {},
+        { expectation: null, expiresAt: 1_000, nonce: "permit", extra: true }
+    ];
+    for (const payload of inexact) {
+        expect(() => AuthorityPermitIssuanceRequest.decode(issuanceEnvelope(payload))).toThrow(
+            "Authority protocol payload is malformed"
+        );
+    }
+    const wrongTypes: readonly JsonValue[] = [
+        { expectation: null, expiresAt: "soon", nonce: "permit" },
+        { expectation: null, expiresAt: 1_000, nonce: 4 }
+    ];
+    for (const payload of wrongTypes) {
+        expect(() => AuthorityPermitIssuanceRequest.decode(issuanceEnvelope(payload))).toThrow(
+            "Authority permit issuance request is malformed"
+        );
+    }
+
+    expect(() => new AuthorityPermitIssuanceRequest({} as never, "", new Date(0))).toThrow(
+        "Authority permit issuance nonce must be canonical and nonblank"
+    );
+    const request = new AuthorityPermitIssuanceRequest({} as never, "permit", new Date(2_000));
+    expect(Object.isFrozen(request)).toBe(true);
+    const exposed = request.expiresAt;
+    exposed.setTime(0);
+    expect(request.expiresAt).toEqual(new Date(2_000));
+});
+
 function checkRequest(): AuthorityCheckRequest {
     const argumentsValue = { channel: "internal" } as const;
     return new AuthorityCheckRequest({

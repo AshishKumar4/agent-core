@@ -25,6 +25,7 @@ import {
     type LeaseToken
 } from "../../src/protocol/envelope";
 import {
+    CommandPayloadMalformedError,
     PayloadLeaseBinding,
     PreparedCommandPayload,
     inspectPreparedCommandPayload,
@@ -698,6 +699,194 @@ describe("WriteRecord codec and invariants", () => {
         expectAgentCoreError(decode, "codec.invalid");
         expect(decode).toThrow("Write idempotency keys require decoded envelope fields");
     });
+});
+
+describe("envelope and write record boundaries", () => {
+    test("accepts boundary-length names, keys, revisions, and epochs", { tags: "p0" }, () => {
+        const boundary = new CommandEnvelope({
+            ...envelopeInit(),
+            command: "c".repeat(256),
+            idempotencyKey: "k".repeat(512),
+            expectedRevision: new Revision(0),
+            lease: { turn: new TurnId("boundary-turn"), holder: principalRef, epoch: 0 }
+        });
+        const decoded = CommandEnvelopeCodec.decode(CommandEnvelopeCodec.encode(boundary));
+
+        expect(decoded.command).toBe("c".repeat(256));
+        expect(decoded.idempotencyKey).toBe("k".repeat(512));
+        expect(decoded.expectedRevision?.value).toBe(0);
+        expect(decoded.lease?.epoch).toBe(0);
+        expect(writeFixture({ idempotencyKey: "k".repeat(512) }).idempotencyKey).toBe(
+            "k".repeat(512)
+        );
+    });
+
+    test("reports missing or unknown envelope fields exactly", { tags: "p1" }, () => {
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                mutateEnvelope((record) => {
+                    delete callerOf(record)["principal"];
+                })
+            )
+        ).toThrow("Command envelope contains missing or unknown fields");
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                mutateEnvelope((record) => {
+                    leaseOf(record)["extra"] = true;
+                })
+            )
+        ).toThrow("Command envelope contains missing or unknown fields");
+    });
+
+    test("rejects wrong-shaped and hidden caller or lease fields exactly", { tags: "p1" }, () => {
+        expect(
+            () =>
+                new CommandEnvelope({
+                    ...envelopeInit(),
+                    caller: { kind: "principal", actor } as unknown as CommandCaller
+                })
+        ).toThrow(new TypeError("Command caller must be a plain object with exact fields"));
+
+        const accessor = vi.fn(() => principalRef);
+        const accessorCaller = Object.defineProperty(
+            { kind: "principal" },
+            "principal",
+            { enumerable: true, get: accessor }
+        ) as unknown as CommandCaller;
+        expect(() => new CommandEnvelope({ ...envelopeInit(), caller: accessorCaller })).toThrow(
+            new TypeError("Command caller must contain enumerable data fields")
+        );
+        expect(accessor).not.toHaveBeenCalled();
+
+        const accessorLease = Object.defineProperty(
+            { turn: new TurnId("hidden-lease-turn"), epoch: 1 },
+            "holder",
+            { enumerable: true, get: () => principalRef }
+        ) as unknown as LeaseToken;
+        expect(() => new CommandEnvelope({ ...envelopeInit(), lease: accessorLease })).toThrow(
+            new TypeError("Lease token must contain enumerable data fields")
+        );
+
+        expect(
+            () =>
+                new CommandEnvelope({
+                    ...envelopeInit(),
+                    caller: {
+                        kind: "actor",
+                        actor: { kind: "run", id: "plain-actor" }
+                    } as unknown as CommandCaller
+                })
+        ).toThrow(new TypeError("Command caller is invalid"));
+    });
+
+    test("detaches exact actor callers into frozen references", { tags: "p0" }, () => {
+        const source: CommandCaller = { kind: "actor", actor };
+        const envelope = new CommandEnvelope({ ...envelopeInit(), caller: source });
+
+        expect(envelope.caller).not.toBe(source);
+        expect(envelope.caller.kind).toBe("actor");
+        if (envelope.caller.kind !== "actor") throw new TypeError("Expected an actor caller");
+        expect(envelope.caller.actor).toBeInstanceOf(ActorRef);
+        expect(envelope.caller.actor.kind).toBe(actor.kind);
+        expect(envelope.caller.actor.id.value).toBe(actor.id.value);
+        expect(Object.isFrozen(envelope.caller)).toBe(true);
+    });
+
+    test("write records reject partial envelope omission exactly", { tags: "p1" }, () => {
+        expect(
+            () =>
+                writeFixture({
+                    outcome: "rejectedAuthentication",
+                    caller: undefined,
+                    command: undefined,
+                    idempotencyKey: undefined
+                })
+        ).toThrow(new TypeError("Only malformed writes may omit decoded envelope fields"));
+        expect(() =>
+            WriteRecordCodec.decode(
+                encodeCanonicalJson({
+                    kind: "write-record",
+                    version: { major: 2, minor: 0 },
+                    payload: null
+                })
+            )
+        ).toThrow("Write record payload must be an object");
+    });
+
+    test("write records detach reply and observation bytes", { tags: "p1" }, () => {
+        const reply = Uint8Array.of(1, 2, 3);
+        const observation = Uint8Array.of(4, 5, 6);
+        const record = writeFixture({ observation });
+        const detached = new WriteRecord({
+            id: new WriteRecordId("codec-detached"),
+            actor,
+            envelopeDigest: digest,
+            caller: principalCaller,
+            command: "codec.detached",
+            idempotencyKey: "codec-detached-key",
+            at: new Date("2026-07-07T12:00:00.000Z"),
+            outcome: "committed",
+            audit: new AuditRecordId("codec-detached-audit"),
+            reply,
+            observation
+        });
+        reply.fill(0);
+        observation.fill(0);
+
+        expect(detached.reply).toEqual(Uint8Array.of(1, 2, 3));
+        expect(detached.observation).toEqual(Uint8Array.of(4, 5, 6));
+        const exposedReply = detached.reply;
+        exposedReply.fill(9);
+        expect(detached.reply).toEqual(Uint8Array.of(1, 2, 3));
+        const exposedObservation = detached.observation;
+        exposedObservation?.fill(9);
+        expect(detached.observation).toEqual(Uint8Array.of(4, 5, 6));
+        expect(record.observation).toEqual(Uint8Array.of(4, 5, 6));
+        expect(writeFixture().observation).toBeUndefined();
+    });
+});
+
+test("prepared payload getters expose exactly the issued state", { tags: "p1" }, () => {
+    const binding = new PayloadLeaseBinding(
+        tenant,
+        actor,
+        digest,
+        ref,
+        digest,
+        new Date("2026-07-07T12:01:00.000Z")
+    );
+    const lease = new CodecContentLease();
+    const leased = issueLeasedCommandPayload(lease, binding);
+    const malformed = issueMalformedCommandPayload("missing");
+
+    expect(leased.lease).toBe(lease);
+    expect(leased.binding).toBe(binding);
+    expect(leased.malformedReason).toBeUndefined();
+    expect(malformed.lease).toBeUndefined();
+    expect(malformed.binding).toBeUndefined();
+    expect(malformed.malformedReason).toBe("missing");
+    expect(new CommandPayloadMalformedError().name).toBe("CommandPayloadMalformedError");
+
+    for (const value of [undefined, null, 42, "prepared", Symbol("prepared"), () => undefined]) {
+        expect(inspectPreparedCommandPayload(value)).toBeUndefined();
+    }
+});
+
+test("authentication matching rejects every non-issued value shape", { tags: "p1" }, async () => {
+    const envelope = envelopeFixture(principalCaller);
+    const envelopeDigest = Digest.sha256(CommandEnvelopeCodec.encode(envelope));
+    const authentication = await new CodecAuthenticator().authenticate(
+        undefined,
+        envelope,
+        envelopeDigest
+    );
+
+    expect(commandAuthenticationMatches(authentication, envelopeDigest, envelope, tenant)).toBe(
+        true
+    );
+    for (const forged of [undefined, null, 42, "authentication", () => undefined]) {
+        expect(commandAuthenticationMatches(forged, envelopeDigest, envelope, tenant)).toBe(false);
+    }
 });
 
 type MutableObject = Record<string, unknown>;

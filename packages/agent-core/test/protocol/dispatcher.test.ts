@@ -289,6 +289,168 @@ test.each([
     expect(() => WriteRecordCodec.decode(malformed)).toThrow(/canonical RFC 4648/);
 });
 
+test("admits envelopes and payloads exactly at their byte limits", { tags: "p0" }, async () => {
+    const probe = new CounterHarness();
+    const probeRaw = probe.envelope({ key: "exact-limits-a" });
+    const payload = probe.payloadBytes();
+    const harness = new CounterHarness({
+        limits: { envelopeBytes: probeRaw.byteLength, payloadBytes: payload.byteLength }
+    });
+
+    const submittedRaw = harness.envelope({ key: "exact-limits-a" });
+    expect(submittedRaw.byteLength).toBe(probeRaw.byteLength);
+    const submitted = await harness.dispatch(submittedRaw, harness.caller, harness.payloadBytes());
+    expect(submitted.outcome).toBe("committed");
+
+    const stored = await harness.dispatch(harness.envelope({ key: "exact-limits-b" }));
+    expect(stored.outcome).toBe("committed");
+    expect(harness.snapshot().value).toBe(2);
+});
+
+test("rejects a lease expiring exactly at the decision time", { tags: "p0" }, async () => {
+    const harness = new CounterHarness({ lease: "required" });
+    const boundary = harness.setLease({ expiresAt: CounterHarness.now });
+
+    expect(
+        (await harness.dispatch(harness.envelope({ key: "lease-boundary", lease: boundary })))
+            .outcome
+    ).toBe("rejectedLease");
+
+    const live = harness.setLease({ expiresAt: new Date(CounterHarness.now.getTime() + 1000) });
+    expect(
+        (await harness.dispatch(harness.envelope({ key: "lease-live", lease: live }))).outcome
+    ).toBe("committed");
+});
+
+test("protocol dependency errors expose canonical own properties", { tags: "p1" }, () => {
+    const unknown = new CommandCommitUnknownError("commit fate unknown", true);
+    expect(unknown.name).toBe("CommandCommitUnknownError");
+    expect(Object.getOwnPropertyDescriptor(unknown, "name")).toMatchObject({
+        configurable: true,
+        value: "CommandCommitUnknownError"
+    });
+    expect(Object.getOwnPropertyDescriptor(unknown, "retrySameKey")).toMatchObject({
+        enumerable: true,
+        value: true
+    });
+    expect(new CommandPreparationUnavailableError().name).toBe(
+        "CommandPreparationUnavailableError"
+    );
+});
+
+test("byte limit validation names the failing limit exactly", { tags: "p1" }, () => {
+    expect(() => new CounterHarness({ limits: { envelopeBytes: 0, payloadBytes: 1024 } })).toThrow(
+        "Command envelope byte limit must be a positive safe integer"
+    );
+    expect(
+        () => new CounterHarness({ limits: { envelopeBytes: 4096, payloadBytes: 1.5 } })
+    ).toThrow("Command payload byte limit must be a positive safe integer");
+});
+
+test("admit detaches the raw envelope before prepared dispatch", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const raw = harness.envelope({ key: "detached-admit", amount: 2 });
+    const envelope = CommandEnvelopeCodec.decode(raw);
+    const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
+        harness.caller,
+        envelope,
+        Digest.sha256(raw)
+    );
+    const admission = await harness.dispatcher.admit(raw, authentication);
+    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+    const binding = new PayloadLeaseBinding(
+        harness.tenant,
+        harness.actor,
+        Digest.sha256(raw),
+        envelope.payload,
+        envelope.payloadDigest,
+        new Date(CounterHarness.now.getTime() + 60_000)
+    );
+    const lease = await harness.content.acquire(binding);
+    if (lease === undefined) throw new TypeError("Expected a payload lease");
+    raw.fill(0);
+
+    const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
+
+    expect(result.outcome).toBe("committed");
+    expect(harness.snapshot().value).toBe(2);
+    await lease.close();
+});
+
+test("typed codec omissions surface exact preparation faults", { tags: "p1" }, async () => {
+    const missingReply = new CounterHarness({ typedExecution: true, includeReplyCodec: false });
+    const replyFailure = await missingReply.accept(
+        missingReply.envelope({ key: "missing-reply-codec-message" })
+    );
+    if (replyFailure.kind !== "preDispatchFailure") {
+        throw new TypeError("Expected a reply codec preparation failure");
+    }
+    expect(replyFailure.cause).toBeInstanceOf(TypeError);
+    expect(replyFailure.cause).toMatchObject({
+        message: "Typed command execution requires a reply codec"
+    });
+
+    const missingObservation = new CounterHarness({
+        typedExecution: true,
+        includeObservationCodec: false
+    });
+    const observationFailure = await missingObservation.accept(
+        missingObservation.envelope({ key: "missing-observation-codec-message" })
+    );
+    if (observationFailure.kind !== "preDispatchFailure") {
+        throw new TypeError("Expected an observation codec preparation failure");
+    }
+    expect(observationFailure.cause).toBeInstanceOf(TypeError);
+    expect(observationFailure.cause).toMatchObject({
+        message: "Typed command observation requires an observation codec"
+    });
+});
+
+test("caller causes attach to committed and duplicate writes", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const cause = harness.seedInvocationCause("direct-cause");
+
+    const committed = await harness.dispatch(
+        harness.envelope({ key: "direct-cause-key", callerCause: cause.id })
+    );
+    const afterCommit = harness.snapshot();
+    expect(committed.outcome).toBe("committed");
+    expect(afterCommit.audits.size).toBe(2);
+    expect(afterCommit.audits.get(committed.write.audit.value)?.cause?.equals(cause.id)).toBe(
+        true
+    );
+
+    const duplicate = await harness.dispatch(
+        harness.envelope({ key: "direct-cause-key", callerCause: cause.id })
+    );
+    const afterDuplicate = harness.snapshot();
+    expect(duplicate.outcome).toBe("duplicate");
+    expect(afterDuplicate.audits.get(duplicate.write.audit.value)?.cause?.equals(cause.id)).toBe(
+        true
+    );
+    expect(afterDuplicate.audits.size).toBe(3);
+});
+
+test("a write-kind caller cause is rejected before mutation", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    const source = await harness.dispatch(harness.envelope({ key: "write-cause-source" }));
+
+    const rejected = await harness.dispatch(
+        harness.envelope({ key: "write-cause-target", callerCause: source.write.audit })
+    );
+
+    expect(rejected.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot().value).toBe(1);
+});
+
+test("optional revision commands admit a supplied matching revision", { tags: "p0" }, async () => {
+    const optional = new CounterHarness({ expectedRevision: "optional" });
+
+    expect(
+        (await optional.dispatch(optional.envelope({ key: "optional-present" }))).outcome
+    ).toBe("committed");
+});
+
 const commandOutcomes: Record<CommandOutcome, true> = {
     committed: true,
     rejectedMalformed: true,
