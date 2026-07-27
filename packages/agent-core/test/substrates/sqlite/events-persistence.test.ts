@@ -237,10 +237,35 @@ test("record reads return defensive byte copies of reused rows", { tags: "p1" },
     expect(records.listRecords("event")[0]?.bytes).toEqual(Uint8Array.of(1, 2, 3));
 });
 
+test("record writes hand the substrate bytes detached from the caller", { tags: "p0" }, () => {
+    const database = new BlobRecordingSqlite();
+    const records = new SqliteWorkspaceEventRecords(database);
+    const bytes = Uint8Array.of(1, 2, 3);
+
+    records.insertRecord({ kind: "event", id: "detached", bytes });
+    const bound = database.lastRecordBlob;
+    bytes.fill(9);
+
+    expect(bound).toEqual(Uint8Array.of(1, 2, 3));
+    expect(records.findRecord("event", "detached")?.bytes).toEqual(Uint8Array.of(1, 2, 3));
+});
+
 function tableSql(database: TestSqlite, table: string): string {
     const sql = database.all("SELECT sql FROM sqlite_master WHERE name = ?", [table])[0]?.["sql"];
     if (typeof sql !== "string") throw new TypeError(`Missing SQLite DDL for ${table}`);
     return sql;
+}
+
+class BlobRecordingSqlite extends TestSqlite {
+    public lastRecordBlob: Uint8Array | undefined;
+
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+        super.run(statement, bindings);
+        if (!statement.includes("INSERT INTO workspace_event_records")) return;
+        for (const binding of bindings) {
+            if (binding instanceof Uint8Array) this.lastRecordBlob = binding;
+        }
+    }
 }
 
 class RecordCachingSqlite extends TestSqlite {

@@ -862,6 +862,115 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
             ownerOrVersion
         );
     });
+
+    test("requires exactly one control marker row bound to the owning Tenant kind", { tags: "p1" }, () => {
+        const ownerOrVersion = expect.objectContaining({
+            name: "AgentCoreError",
+            code: "codec.invalid",
+            message:
+                "Materialization reset required (reset-required): Materialization control schema owner or version is unsupported"
+        });
+
+        const extraRow = new TestSqlite();
+        SqliteMaterializationStore.control(extraRow, tenantActor);
+        extraRow.run("PRAGMA ignore_check_constraints = ON", []);
+        extraRow.run(
+            `INSERT INTO definition_materialization_control_schema (version, owner_kind, owner_id)
+             VALUES (?, ?, ?)`,
+            [2, tenantActor.kind, tenantActor.id.value]
+        );
+        extraRow.run("PRAGMA ignore_check_constraints = OFF", []);
+        expect(() => SqliteMaterializationStore.control(extraRow, tenantActor)).toThrowError(
+            ownerOrVersion
+        );
+        expect(
+            extraRow.all(
+                "SELECT version FROM definition_materialization_control_schema ORDER BY version",
+                []
+            )
+        ).toEqual([{ version: 1 }, { version: 2 }]);
+
+        const foreignKind = new TestSqlite();
+        SqliteMaterializationStore.control(foreignKind, tenantActor);
+        foreignKind.run("PRAGMA ignore_check_constraints = ON", []);
+        foreignKind.run(
+            "UPDATE definition_materialization_control_schema SET owner_kind = 'workspace'",
+            []
+        );
+        foreignKind.run("PRAGMA ignore_check_constraints = OFF", []);
+        expect(() => SqliteMaterializationStore.control(foreignKind, tenantActor)).toThrowError(
+            ownerOrVersion
+        );
+        expect(
+            foreignKind.all(
+                "SELECT owner_kind FROM definition_materialization_control_schema",
+                []
+            )
+        ).toEqual([{ owner_kind: "workspace" }]);
+    });
+
+    test("fails outbox CAS closed for an entry that was never stored", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = SqliteMaterializationStore.control(database, tenantActor);
+        const materializationPlan = plan(1);
+        const rollout = new MaterializationRollout({ plan: materializationPlan });
+        const actorPlan = materializationPlan.actors[0];
+        expect(actorPlan).toBeDefined();
+        if (actorPlan === undefined) return;
+        const entry = MaterializationOutboxEntry.pending(rollout.id, actorPlan);
+
+        expect(
+            store.transaction((transaction) =>
+                store.compareAndSetOutbox(transaction, new Revision(0), entry)
+            )
+        ).toBe(false);
+        expect(database.all("SELECT id FROM definition_materialization_outbox", [])).toEqual([]);
+    });
+
+    test("fails deployment lineage closed when a referenced rollout is missing", { tags: "p0" }, () => {
+        const lineageConflict = expect.objectContaining({
+            name: "AgentCoreError",
+            code: "protocol.revision-conflict",
+            message: "Deployment CAS has a foreign owner or skipped revision"
+        });
+        const database = new TestSqlite();
+        const store = SqliteMaterializationStore.control(database, tenantActor);
+        const rollout = beginRollout(controllerFor(store), plan(1));
+        const pending = store.transaction((transaction) =>
+            store.loadDeployment(transaction, deploymentId)
+        );
+        expect(pending?.pendingRolloutId?.value).toBe(rollout.id.value);
+        if (pending === undefined) return;
+
+        expect(() =>
+            store.transaction((transaction) =>
+                store.compareAndSetDeployment(
+                    transaction,
+                    pending.revision,
+                    pending.compensate(
+                        rollout.id,
+                        digest("absent-compensation"),
+                        pending.nextGeneration
+                    )
+                )
+            )
+        ).toThrowError(lineageConflict);
+
+        database.run("DELETE FROM definition_materialization_rollouts", []);
+        expect(() =>
+            store.transaction((transaction) =>
+                store.compareAndSetDeployment(
+                    transaction,
+                    pending.revision,
+                    pending.complete(rollout.id, rollout.plan.id)
+                )
+            )
+        ).toThrowError(lineageConflict);
+        expect(
+            store.transaction((transaction) => store.loadDeployment(transaction, deploymentId))
+                ?.revision.value
+        ).toBe(pending.revision.value);
+    });
 });
 
 class AttestationDropSqlite extends TestSqlite {

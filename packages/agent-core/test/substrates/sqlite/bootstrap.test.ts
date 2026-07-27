@@ -57,6 +57,17 @@ class StatementFaultSqlite extends TestSqlite {
     }
 }
 
+class ProtocolIdTamperSqlite extends TestSqlite {
+    public nextId: number | undefined;
+
+    public override all(statement: string, bindings: readonly SqliteValue[]) {
+        const rows = super.all(statement, bindings);
+        const forged = this.nextId;
+        if (forged === undefined || !statement.includes("SELECT next_id")) return rows;
+        return rows.map((row) => ({ ...row, next_id: forged }));
+    }
+}
+
 class AnchorVanishSqlite extends TestSqlite {
     #anchorReads = 0;
     public vanishAfter: number | undefined;
@@ -272,6 +283,19 @@ describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
         negative.run("UPDATE tenant_bootstrap_protocol_ids SET next_id = -1 WHERE singleton = 1", []);
         expect(() => bootstrap(negative, content(), false)).toThrow(
             expect.objectContaining(malformed)
+        );
+    });
+
+    test("rejects a fractional persisted protocol ID exactly", { tags: "p0" }, () => {
+        const database = new ProtocolIdTamperSqlite();
+        bootstrap(database, content());
+        database.nextId = 1.5;
+
+        expect(() => bootstrap(database, content(), false)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Tenant bootstrap protocol ID state is malformed"
+            })
         );
     });
 

@@ -487,6 +487,45 @@ export async function expectAgentCoreRejection(
     expect(failure).toMatchObject({ code });
 }
 
+export function expectAgentCoreDiagnostic(
+    operation: () => unknown,
+    code: AgentCoreErrorCode,
+    message: string
+): void {
+    let failure: unknown;
+    try {
+        operation();
+    } catch (error) {
+        failure = error;
+    }
+    assertAgentCoreDiagnostic(failure, code, message);
+}
+
+export async function expectAgentCoreRejectionDiagnostic(
+    operation: Promise<unknown>,
+    code: AgentCoreErrorCode,
+    message: string
+): Promise<void> {
+    let failure: unknown;
+    try {
+        await operation;
+    } catch (error) {
+        failure = error;
+    }
+    assertAgentCoreDiagnostic(failure, code, message);
+}
+
+function assertAgentCoreDiagnostic(
+    failure: unknown,
+    code: AgentCoreErrorCode,
+    message: string
+): void {
+    expect(failure).toBeInstanceOf(AgentCoreError);
+    if (!(failure instanceof AgentCoreError)) return;
+    expect(failure.code).toBe(code);
+    expect(failure.message).toBe(message);
+}
+
 function collect<TTransaction>(
     harness: ContentRetentionHarness<TTransaction>,
     observedAt: Date,

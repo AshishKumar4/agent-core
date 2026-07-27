@@ -12,6 +12,7 @@ import { CapabilitySpec } from "../../../src/facets";
 import {
     GuestTrust,
     GuestTrustId,
+    GuestVerificationScheme,
     Membership,
     MembershipId,
     Principal,
@@ -27,7 +28,9 @@ import {
     Tenant,
     TenantId,
     Workspace,
-    WorkspaceId
+    WorkspaceId,
+    encodeScopeRef,
+    encodeSubjectRef
 } from "../../../src/identity";
 import { TenantBootstrapAnchorRecord } from "../../../src/protocol";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates/sqlite";
@@ -96,6 +99,85 @@ function insertRoleRow(database: TestSqlite, role: Role): void {
         role.name.value,
         Role.encode(role)
     ]);
+}
+
+function insertGuestTrustRow(database: TestSqlite, trust: GuestTrust): void {
+    database.run(
+        `INSERT INTO tenant_guest_trusts (
+            id, host_tenant_id, home_tenant_id, verifier_kind, state, revision, record
+         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+            trust.id.value,
+            trust.hostTenant.value,
+            trust.homeTenant.value,
+            trust.verifier.kind,
+            trust.state,
+            trust.revision.value,
+            GuestTrust.encode(trust)
+        ]
+    );
+}
+
+const guestHomeTenantId = new TenantId("guest-home-tenant");
+const guestPrincipalId = new PrincipalId("guest-principal");
+const guestTrustId = new GuestTrustId("guest-trust");
+const guestCallback = { kind: "callback", endpoint: "https://guest.example/verify" } as const;
+const guestEvidenceDigest = "e".repeat(64);
+const guestVerifiedAt = 1_700_000_000_000;
+const guestExpiresAt = guestVerifiedAt + 3_600_000;
+const hollowRole = new Role(new RoleName("hollow-role"), []);
+
+interface GuestMembershipShape {
+    readonly id: string;
+    readonly state: "active" | "suspended" | "revoked";
+    readonly revision: number;
+    readonly scheme: GuestVerificationScheme;
+    readonly homeTenant: TenantId;
+    readonly trustId: GuestTrustId;
+    readonly trustRevision: number;
+    readonly verified: boolean;
+}
+
+function guestMembership(shape: GuestMembershipShape): Membership {
+    return Membership.decode(
+        encodeCanonicalJson({
+            kind: "identity.membership",
+            payload: {
+                guestVerification: shape.verified
+                    ? {
+                          evidenceDigest: guestEvidenceDigest,
+                          expiresAt: guestExpiresAt,
+                          method: shape.scheme.value,
+                          principal: {
+                              principal: guestPrincipalId.value,
+                              tenant: shape.homeTenant.value
+                          },
+                          trust: shape.trustId.value,
+                          trustRevision: shape.trustRevision,
+                          verifiedAt: guestVerifiedAt
+                      }
+                    : null,
+                id: shape.id,
+                revision: shape.revision,
+                role: hollowRole.name.value,
+                scope: encodeScopeRef(tenantScope),
+                state: shape.state,
+                subject: encodeSubjectRef(
+                    SubjectRef.foreign(shape.homeTenant, guestPrincipalId, shape.scheme)
+                )
+            },
+            version: { major: 1, minor: 0 }
+        })
+    );
+}
+
+function guestClosureDatabase(trust: GuestTrust, membership: Membership): TestSqlite {
+    const database = new TestSqlite();
+    bootstrappedStore(database);
+    insertRoleRow(database, hollowRole);
+    insertGuestTrustRow(database, trust);
+    insertMembershipRow(database, membership);
+    return database;
 }
 
 function hex(bytes: Uint8Array): string {
@@ -374,6 +456,48 @@ describe("SQLite Tenant bootstrap anchor verification", () => {
         expect(Array.from(store.bootstrapAnchor()?.trustAnchor ?? Uint8Array.of())).toEqual([3, 2, 1]);
     });
 
+    test("validates the stored anchor against every projection column", { tags: "p0" }, () => {
+        const drifts: readonly { readonly column: string; readonly value: string }[] = [
+            { column: "actor_id", value: "drifted-actor" },
+            { column: "tenant_id", value: "drifted-tenant" },
+            { column: "principal_id", value: "drifted-owner" },
+            { column: "tenant_kind", value: "service" }
+        ];
+        for (const { column, value } of drifts) {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            expect(store.bootstrapAnchor()?.actorId.equals(anchor.actorId), column).toBe(true);
+            database.run(
+                `UPDATE tenant_bootstrap_anchor SET ${column} = ? WHERE singleton = 1`,
+                [value]
+            );
+            expect(() => store.bootstrapAnchor(), column).toThrow(
+                expect.objectContaining(corrupt)
+            );
+        }
+    });
+
+    test("requires the bootstrap anchor row when sealing the marker", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.run(
+            `CREATE TRIGGER drop_anchor AFTER INSERT ON tenant_scope_epochs
+             BEGIN DELETE FROM tenant_bootstrap_anchor; END`,
+            []
+        );
+        expect(() =>
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()))
+        ).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Bootstrap marker does not match its anchor"
+            })
+        );
+        expect(store.bootstrapAnchor()?.actorId.equals(anchor.actorId)).toBe(true);
+        expect(store.bootstrapMarker()).toBeUndefined();
+        expect(store.isBootstrapEligible()).toBe(true);
+    });
+
     test("requires the bootstrap Tenant row when sealing the marker", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
@@ -463,6 +587,13 @@ describe("SQLite Tenant bootstrap marker projection and read faults", () => {
         const store = bootstrappedStore(database);
         database.tamper = (row) => ({ ...row, record: "not-bytes" });
         expect(() => store.bootstrapMarker()).toThrow(expect.objectContaining(corrupt));
+    });
+
+    test("hands out an immutable decoded bootstrap marker", { tags: "p2" }, () => {
+        const store = bootstrappedStore(new TestSqlite());
+        const marker = store.bootstrapMarker();
+        expect(marker?.tenantId.equals(tenantId)).toBe(true);
+        expect(marker !== undefined && Object.isFrozen(marker)).toBe(true);
     });
 });
 
@@ -776,6 +907,30 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         expect(store.membership(membership.id)?.state).toBe("revoked");
         expect(store.membership(membership.id)?.revision.value).toBe(3);
     });
+
+    test("advances an active Membership across successive active revisions", { tags: "p1" }, () => {
+        const store = bootstrappedStore(new TestSqlite());
+        const member = new Principal(new PrincipalId("renewed-member"), "user", "active");
+        const membership = new Membership(
+            new MembershipId("renewed-membership"),
+            tenantScope,
+            SubjectRef.principal(member.id),
+            hollowRole.name,
+            "active",
+            Revision.initial()
+        );
+        store.transaction((control) => {
+            control.putRole(hollowRole);
+            control.putPrincipal(member);
+            control.putMembership(membership);
+        });
+        store.transaction((control) =>
+            control.putMembership(membership.revise(hollowRole.name, "active"))
+        );
+
+        expect(store.membership(membership.id)?.state).toBe("active");
+        expect(store.membership(membership.id)?.revision.value).toBe(1);
+    });
 });
 
 describe("SQLite Tenant control canonical Scope enforcement", () => {
@@ -940,6 +1095,188 @@ describe("SQLite Tenant control closure integrity", () => {
         expect(() => createSqliteTenantControlStore(trustDatabase)).toThrow(
             expect.objectContaining(corrupt)
         );
+    });
+
+    test("admits exactly one stored Tenant identity row", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        bootstrappedStore(database);
+        database.run(
+            `INSERT INTO tenant_identities (id, kind, status, revision, record)
+             VALUES (?, 'organization', 'active', 0, ?)`,
+            [
+                "second-tenant",
+                Tenant.encode(new Tenant(tenantId, "organization", "active", Revision.initial()))
+            ]
+        );
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining(corrupt)
+        );
+    });
+
+    test("fails closed on non-canonical stored Principal and Role keys", { tags: "p0" }, () => {
+        const principalDatabase = new TestSqlite();
+        bootstrappedStore(principalDatabase);
+        const overlong = "p".repeat(257);
+        const stray = new Principal(new PrincipalId("stray-principal"), "user", "active");
+        principalDatabase.run(
+            "INSERT INTO tenant_principals (id, kind, status, record) VALUES (?, ?, ?, ?)",
+            [overlong, stray.kind, stray.status, Principal.encode(stray)]
+        );
+        expect(() => createSqliteTenantControlStore(principalDatabase)).toThrow(
+            expect.objectContaining(corrupt)
+        );
+
+        const roleDatabase = new TestSqlite();
+        bootstrappedStore(roleDatabase);
+        roleDatabase.run("INSERT INTO tenant_roles (name, record) VALUES (?, ?)", [
+            " padded-role ",
+            Role.encode(hollowRole)
+        ]);
+        expect(() => createSqliteTenantControlStore(roleDatabase)).toThrow(
+            expect.objectContaining(corrupt)
+        );
+    });
+
+    test("fails closed on stored Workspaces owned by another Tenant", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        bootstrappedStore(database);
+        const alien = new Workspace(
+            new WorkspaceId("alien-owned-workspace"),
+            foreignTenantId,
+            undefined,
+            Revision.initial()
+        );
+        database.run(
+            `INSERT INTO tenant_workspaces (id, tenant_id, project_id, revision, record)
+             VALUES (?, ?, ?, ?, ?)`,
+            [alien.id.value, foreignTenantId.value, null, 0, Workspace.encode(alien)]
+        );
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining(corrupt)
+        );
+    });
+
+    test("accepts Team-subject Memberships whose Team is stored", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const store = bootstrappedStore(database);
+        const team = new Team(
+            new TeamId("closure-team"),
+            tenantId,
+            "Closure",
+            [],
+            Revision.initial()
+        );
+        const membership = new Membership(
+            new MembershipId("team-subject-membership"),
+            tenantScope,
+            SubjectRef.team(team.id),
+            hollowRole.name,
+            "active",
+            Revision.initial()
+        );
+        store.transaction((control) => {
+            control.putTeam(team);
+            control.putRole(hollowRole);
+            control.putMembership(membership);
+        });
+
+        const reopened = createSqliteTenantControlStore(database);
+        expect(reopened.membership(membership.id)?.subject.kind).toBe("team");
+    });
+
+    test("verifies stored foreign Memberships against their guest trust", { tags: "p0" }, () => {
+        const activeTrust = new GuestTrust(
+            guestTrustId,
+            tenantId,
+            guestHomeTenantId,
+            guestCallback,
+            "active",
+            Revision.initial()
+        );
+        const revokedTrust = new GuestTrust(
+            guestTrustId,
+            tenantId,
+            guestHomeTenantId,
+            guestCallback,
+            "revoked",
+            new Revision(1)
+        );
+        const verified: GuestMembershipShape = {
+            id: "guest-membership",
+            state: "active",
+            revision: 0,
+            scheme: GuestVerificationScheme.callback,
+            homeTenant: guestHomeTenantId,
+            trustId: guestTrustId,
+            trustRevision: 0,
+            verified: true
+        };
+
+        const accepted = guestClosureDatabase(activeTrust, guestMembership(verified));
+        expect(
+            createSqliteTenantControlStore(accepted).membership(new MembershipId(verified.id))
+                ?.subject.kind
+        ).toBe("foreign");
+
+        const rejected: readonly {
+            readonly reason: string;
+            readonly trust: GuestTrust;
+            readonly shape: GuestMembershipShape;
+        }[] = [
+            { reason: "unverified", trust: activeTrust, shape: { ...verified, verified: false } },
+            {
+                reason: "revoked and unverified",
+                trust: activeTrust,
+                shape: { ...verified, state: "revoked", revision: 1, verified: false }
+            },
+            {
+                reason: "ghost trust",
+                trust: activeTrust,
+                shape: { ...verified, trustId: new GuestTrustId("ghost-trust") }
+            },
+            {
+                reason: "home Tenant drift",
+                trust: activeTrust,
+                shape: { ...verified, homeTenant: new TenantId("other-home-tenant") }
+            },
+            {
+                reason: "stale trust revision",
+                trust: activeTrust,
+                shape: { ...verified, trustRevision: 1 }
+            },
+            {
+                reason: "verification method drift",
+                trust: activeTrust,
+                shape: { ...verified, scheme: GuestVerificationScheme.token }
+            },
+            {
+                reason: "revoked trust",
+                trust: revokedTrust,
+                shape: { ...verified, trustRevision: 1 }
+            }
+        ];
+        for (const { reason, trust, shape } of rejected) {
+            const database = guestClosureDatabase(trust, guestMembership(shape));
+            expect(() => createSqliteTenantControlStore(database), reason).toThrow(
+                expect.objectContaining(corrupt)
+            );
+        }
+
+        const tolerated = guestClosureDatabase(
+            activeTrust,
+            guestMembership({
+                ...verified,
+                id: "suspended-guest-membership",
+                state: "suspended",
+                revision: 1,
+                trustRevision: 4
+            })
+        );
+        expect(
+            createSqliteTenantControlStore(tolerated).membership(
+                new MembershipId("suspended-guest-membership")
+            )?.state
+        ).toBe("suspended");
     });
 
     test("surfaces foreign Membership Scopes as Scope ownership faults", { tags: "p0" }, () => {

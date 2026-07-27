@@ -40,4 +40,28 @@ describe("ContentRef", () => {
             } as Digest)
         ).toThrow(TypeError);
     });
+
+    test("reports address and length rejections verbatim", { tags: "p1" }, () => {
+        for (const value of [DIGEST, `sha256:${DIGEST}z`, `zsha256:${DIGEST}`]) {
+            expectTypeFailure(
+                () => new ContentRef(value),
+                "Content reference must be a SHA-256 content address"
+            );
+        }
+        expectTypeFailure(
+            () => new ContentRef(""),
+            "Content reference must contain between 1 and 256 characters"
+        );
+    });
 });
+
+function expectTypeFailure(action: () => unknown, message: string): void {
+    let thrown: unknown;
+    try {
+        action();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TypeError);
+    expect(thrown).toMatchObject({ message });
+}

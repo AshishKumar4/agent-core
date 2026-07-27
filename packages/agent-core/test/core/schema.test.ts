@@ -4,7 +4,8 @@ import {
     StrictJsonSchemaValidator,
     encodeCanonicalJson,
     strictJsonSchemaValidator,
-    type JsonSchemaValidator
+    type JsonSchemaValidator,
+    type JsonValue
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 
@@ -381,7 +382,177 @@ describe("JSON Schema values", () => {
             "codec.invalid"
         );
     });
+
+    test("[core.json-schema] reports malformed payloads verbatim", { tags: "p1" }, () => {
+        expectCodecFailure(
+            () =>
+                JsonSchema.decode(
+                    encodeCanonicalJson({
+                        kind: "core.json-schema",
+                        payload: { document: {}, extra: true },
+                        version: { major: 1, minor: 0 }
+                    })
+                ),
+            "codec.invalid",
+            "JSON Schema payload is malformed"
+        );
+        for (const payload of [null, "document", ["document"], 1]) {
+            expectCodecFailure(
+                () =>
+                    JsonSchema.decode(
+                        encodeCanonicalJson({
+                            kind: "core.json-schema",
+                            payload,
+                            version: { major: 1, minor: 0 }
+                        })
+                    ),
+                "codec.invalid",
+                "JSON Schema payload is malformed"
+            );
+        }
+        for (const document of [null, 1, "schema", []]) {
+            expectCodecFailure(
+                () =>
+                    JsonSchema.decode(
+                        encodeCanonicalJson({
+                            kind: "core.json-schema",
+                            payload: { document },
+                            version: { major: 1, minor: 0 }
+                        })
+                    ),
+                "codec.invalid",
+                "JSON Schema document must be an object or boolean"
+            );
+        }
+    });
+
+    test("asserts structural support without compiling the schema", { tags: "p1" }, () => {
+        new JsonSchema({ $dynamicRef: "#node" }).assertSupported();
+        new JsonSchema({ type: "string" }).assertSupported();
+        new JsonSchema(true).assertSupported();
+        new JsonSchema({
+            $defs: { name: { type: "string" } },
+            $id: "https://example.com/root.json",
+            $ref: "https://example.com/root.json#/$defs/name"
+        }).assertSupported();
+
+        expectTypeFailure(
+            () => new JsonSchema({ format: "email" }).assertSupported(),
+            "Unsupported JSON Schema format: email"
+        );
+        expectTypeFailure(
+            () =>
+                new JsonSchema({
+                    $schema: "http://json-schema.org/draft-07/schema#"
+                }).assertSupported(),
+            "Only JSON Schema 2020-12 is supported"
+        );
+        expectTypeFailure(
+            () => new JsonSchema({ $async: true }).assertSupported(),
+            "Asynchronous JSON Schema validation is not supported"
+        );
+        expectTypeFailure(
+            () => new JsonSchema({ $recursiveRef: "#" }).assertSupported(),
+            "$recursiveRef is not supported by JSON Schema 2020-12"
+        );
+        expectTypeFailure(
+            () => new JsonSchema({ $ref: "not a url" }).assertSupported(),
+            "Remote JSON Schema reference is not supported: $ref not a url"
+        );
+        expectTypeFailure(
+            () =>
+                new JsonSchema({
+                    $id: "https://example.com/root.json",
+                    $ref: "https://example.com/other.json"
+                }).assertSupported(),
+            "Remote JSON Schema reference is not supported: $ref https://example.com/other.json"
+        );
+        expectTypeFailure(
+            () =>
+                new JsonSchema({
+                    $defs: { name: { type: "string" } },
+                    $id: ["https://example.com/root.json"],
+                    $ref: "https://example.com/root.json#/$defs/name"
+                }).assertSupported(),
+            "Remote JSON Schema reference is not supported: $ref https://example.com/root.json#/$defs/name"
+        );
+        expectTypeFailure(
+            () => new JsonSchema({ $dynamicRef: "https://example.com/dynamic" }).assertSupported(),
+            "Remote JSON Schema reference is not supported: $dynamicRef https://example.com/dynamic"
+        );
+    });
+
+    test("keeps Ajv strict mode enabled for tuple schemas", { tags: "p1" }, () => {
+        let thrown: unknown;
+        try {
+            strictJsonSchemaValidator.validate(
+                { prefixItems: [{ type: "string" }], type: "array" },
+                ["a"]
+            );
+        } catch (error) {
+            thrown = error;
+        }
+
+        expect(thrown).toBeInstanceOf(TypeError);
+        expect((thrown as Error).message).toMatch(
+            /^Unsupported JSON Schema: strict mode: "prefixItems" is 1-tuple/
+        );
+    });
+
+    test("detects length-preserving mutations by an injected validator", { tags: "p0" }, () => {
+        const mutating: JsonSchemaValidator = {
+            validate: (_schema, value) => {
+                (value as { count: number }).count = 2;
+                return true;
+            }
+        };
+        const original = { count: 1 };
+
+        expectTypeFailure(
+            () => JsonSchema.any().accepts(original, mutating),
+            "Injected JSON Schema validators must not mutate input"
+        );
+        expect(original).toEqual({ count: 1 });
+    });
+
+    test("deeply freezes canonical documents nested inside arrays", { tags: "p0" }, () => {
+        const schema = new JsonSchema({ enum: [{ nested: [1] }], type: "object" });
+        const enumeration = (schema.document as { readonly enum: readonly JsonValue[] }).enum;
+
+        expect(enumeration).toHaveLength(1);
+        expect(Object.isFrozen(enumeration)).toBe(true);
+        expect(Object.isFrozen(enumeration[0])).toBe(true);
+        expect(
+            Object.isFrozen((enumeration[0] as { readonly nested: readonly number[] }).nested)
+        ).toBe(true);
+    });
 });
+
+function expectTypeFailure(action: () => unknown, message: string): void {
+    let thrown: unknown;
+    try {
+        action();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TypeError);
+    expect(thrown).toMatchObject({ message });
+}
+
+function expectCodecFailure(
+    action: () => unknown,
+    code: AgentCoreError["code"],
+    message: string
+): void {
+    let thrown: unknown;
+    try {
+        action();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(AgentCoreError);
+    expect(thrown).toMatchObject({ code, message });
+}
 
 function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
     try {

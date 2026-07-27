@@ -359,6 +359,548 @@ test("closed Tenant authority composition rejects a non-Tenant owning Actor", ()
     ).toThrow(/requires a Tenant Actor/);
 });
 
+const otherTenant = new TenantId("authority-command-other-tenant");
+const otherTenantActor = new ActorRef("tenant", new ActorId("authority-command-other-tenant"));
+const otherPrincipal = new PrincipalRef(
+    tenant,
+    new PrincipalId("authority-command-other-principal")
+);
+const otherTenantPrincipal = new PrincipalRef(
+    otherTenant,
+    new PrincipalId("authority-command-principal")
+);
+const otherTenantPath = new PathEpochEvidence([
+    ScopeEpoch.initial(ScopeRef.tenant(otherTenant)),
+    new ScopeEpoch(
+        ScopeRef.workspace(otherTenant, new WorkspaceId("authority-command-workspace")),
+        1
+    )
+]);
+const spoofedCaller: CommandCaller = {
+    kind: "actor",
+    actor: new ActorRef("workspace", new ActorId("authority-command-spoofed"))
+};
+const permissiveBackend: Partial<AuthorityBackend> = {
+    permitPrincipal: (_read, expectation) => expectation.principal,
+    permitsPermit: () => true
+};
+
+async function dispatchFailure(
+    harness: AuthorityCommandHarness,
+    raw: Uint8Array,
+    payload: Uint8Array
+): Promise<unknown> {
+    return harness.dispatch(raw, payload).then(
+        () => undefined,
+        (error: unknown) => error
+    );
+}
+
+describe("closed Tenant authority command gates", () => {
+    test(
+        "binding validation admits only the owning Tenant, its Workspace Actor, and the exact fence",
+        { tags: "p0" },
+        async () => {
+            const harness = createMemoryHarness();
+            const refusals: readonly (readonly [
+                string,
+                BindingValidationRequest,
+                CommandCaller | undefined
+            ])[] = [
+                ["another owning Tenant", bindingRequest({ ownerTenant: otherTenant }), undefined],
+                ["a spoofed Workspace Actor", bindingRequest(), spoofedCaller],
+                ["a stale Workspace fence", bindingRequest({ workspaceFence: 8 }), undefined]
+            ];
+
+            let ordinal = 0;
+            for (const [reason, request, caller] of refusals) {
+                ordinal += 1;
+                const payload = BindingValidationRequest.encode(request);
+                const result = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.validateBinding,
+                        `binding-gate-${ordinal}`,
+                        payload,
+                        caller
+                    ),
+                    payload,
+                    caller
+                );
+                expect(result.outcome, reason).toBe("rejectedAuthority");
+            }
+
+            const admitted = bindingRequest();
+            const admittedPayload = BindingValidationRequest.encode(admitted);
+            const accepted = await harness.dispatch(
+                harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.validateBinding,
+                    "binding-gate-admitted",
+                    admittedPayload
+                ),
+                admittedPayload
+            );
+            expect(accepted.outcome).toBe("committed");
+        }
+    );
+
+    test(
+        "authority check admits only the owning Tenant, exact owner fence, and resolved Principal",
+        { tags: "p0" },
+        async () => {
+            const refusals: readonly (readonly [
+                string,
+                AuthorityCheckRequest,
+                Partial<AuthorityBackend>
+            ])[] = [
+                [
+                    "another owning Tenant",
+                    checkRequest(currentPath(1), principal, { ownerTenant: otherTenant }),
+                    {}
+                ],
+                [
+                    "a stale owner fence",
+                    checkRequest(currentPath(1), principal, { ownerFence: 8 }),
+                    {}
+                ],
+                [
+                    "an unresolved Principal",
+                    checkRequest(currentPath(1), principal),
+                    { checkPrincipal: () => undefined }
+                ],
+                [
+                    "a substituted Principal",
+                    checkRequest(currentPath(1), principal),
+                    { checkPrincipal: () => otherPrincipal }
+                ]
+            ];
+
+            let ordinal = 0;
+            for (const [reason, request, backend] of refusals) {
+                ordinal += 1;
+                const harness = createMemoryHarness(backend);
+                const payload = AuthorityCheckRequest.encode(request);
+                const result = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.check,
+                        `check-gate-${ordinal}`,
+                        payload
+                    ),
+                    payload
+                );
+                expect(result.outcome, reason).toBe("rejectedAuthority");
+                expect(harness.snapshot().checks, reason).toBe(0);
+            }
+        }
+    );
+
+    test(
+        "permit issuance admits only the exact expectation, caller, Principal, and backend permit",
+        { tags: "p0" },
+        async () => {
+            const refusals: readonly (readonly [
+                string,
+                AuthorityPermitIssuanceRequest,
+                Partial<AuthorityBackend>,
+                CommandCaller | undefined
+            ])[] = [
+                [
+                    "an expectation for another Tenant",
+                    permitRequest(otherTenantPath, undefined, {
+                        tenant: otherTenant,
+                        principal: otherTenantPrincipal,
+                        authority: {
+                            kind: "initiator",
+                            principal: otherTenantPrincipal,
+                            binding: bindingName
+                        }
+                    }),
+                    {},
+                    undefined
+                ],
+                [
+                    "an expectation naming another issuing Tenant Actor",
+                    permitRequest(currentPath(1), undefined, { issuer: otherTenantActor }),
+                    {},
+                    undefined
+                ],
+                ["a spoofed source Actor", permitRequest(currentPath(1)), {}, spoofedCaller],
+                [
+                    "an unresolved Principal",
+                    permitRequest(currentPath(1)),
+                    { permitPrincipal: () => undefined },
+                    undefined
+                ],
+                [
+                    "a substituted Principal",
+                    permitRequest(currentPath(1)),
+                    { permitPrincipal: () => otherPrincipal },
+                    undefined
+                ],
+                [
+                    "a backend that refuses the permit",
+                    permitRequest(currentPath(1)),
+                    { permitsPermit: () => false },
+                    undefined
+                ]
+            ];
+
+            let ordinal = 0;
+            for (const [reason, request, backend, caller] of refusals) {
+                ordinal += 1;
+                const harness = createMemoryHarness({ ...permissiveBackend, ...backend });
+                const payload = AuthorityPermitIssuanceRequest.encode(request);
+                const result = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.issuePermit,
+                        `permit-gate-${ordinal}`,
+                        payload,
+                        caller
+                    ),
+                    payload,
+                    caller
+                );
+                expect(result.outcome, reason).toBe("rejectedAuthority");
+                expect(harness.snapshot().permits, reason).toBe(0);
+            }
+
+            const harness = createMemoryHarness(permissiveBackend);
+            const admitted = permitRequest(currentPath(1));
+            const admittedPayload = AuthorityPermitIssuanceRequest.encode(admitted);
+            const accepted = await harness.dispatch(
+                harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    "permit-gate-admitted",
+                    admittedPayload
+                ),
+                admittedPayload
+            );
+            expect(accepted.outcome).toBe("committed");
+        }
+    );
+
+    test(
+        "permit issuance requires the envelope lease to equal the expectation lease exactly",
+        { tags: "p0" },
+        async () => {
+            const expectationLease = { turn: authorityTurn, holder: principal, epoch: 2 };
+            const refusals: readonly (readonly [
+                string,
+                NonNullable<CommandEnvelope["lease"]> | undefined,
+                AuthorityPermitExpectation["lease"]
+            ])[] = [
+                [
+                    "an envelope lease without an expectation lease",
+                    { turn: authorityTurn, holder: principal, epoch: 2 },
+                    undefined
+                ],
+                ["an expectation lease without an envelope lease", undefined, expectationLease],
+                [
+                    "a lease for another Turn",
+                    {
+                        turn: new TurnId("authority-command-other-turn"),
+                        holder: principal,
+                        epoch: 2
+                    },
+                    expectationLease
+                ],
+                [
+                    "a lease held by another Principal",
+                    { turn: authorityTurn, holder: otherPrincipal, epoch: 2 },
+                    expectationLease
+                ],
+                [
+                    "a fenced lease epoch",
+                    { turn: authorityTurn, holder: principal, epoch: 3 },
+                    expectationLease
+                ]
+            ];
+
+            let ordinal = 0;
+            for (const [reason, envelopeLease, lease] of refusals) {
+                ordinal += 1;
+                const harness = createMemoryHarness(permissiveBackend);
+                const request = permitRequest(currentPath(1), lease);
+                const payload = AuthorityPermitIssuanceRequest.encode(request);
+                const result = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.issuePermit,
+                        `permit-lease-${ordinal}`,
+                        payload,
+                        undefined,
+                        envelopeLease
+                    ),
+                    payload
+                );
+                expect(result.outcome, reason).toBe("rejectedAuthority");
+                expect(harness.snapshot().permits, reason).toBe(0);
+            }
+
+            const harness = createMemoryHarness(permissiveBackend);
+            const admitted = permitRequest(currentPath(1), expectationLease);
+            const admittedPayload = AuthorityPermitIssuanceRequest.encode(admitted);
+            const accepted = await harness.dispatch(
+                harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    "permit-lease-admitted",
+                    admittedPayload,
+                    undefined,
+                    expectationLease
+                ),
+                admittedPayload
+            );
+            expect(accepted.outcome).toBe("committed");
+        }
+    );
+
+    test("non-Actor callers are refused before authority evaluation", { tags: "p0" }, async () => {
+        const harness = createMemoryHarness();
+        const caller: CommandCaller = { kind: "principal", principal };
+        const payload = AuthorityCheckRequest.encode(checkRequest(currentPath(1), principal));
+        const result = await harness.dispatch(
+            harness.envelope(TENANT_AUTHORITY_COMMANDS.check, "principal-caller", payload, caller),
+            payload,
+            caller
+        );
+
+        expect(result.outcome).toBe("rejectedAuthentication");
+        expect(harness.snapshot().checks).toBe(0);
+    });
+
+    test("substituted Binding validation evidence fails closed", { tags: "p0" }, async () => {
+        const request = bindingRequest();
+        const substitutions: readonly (readonly [string, BindingValidationEvidence])[] = [
+            [
+                "evidence bound to another request",
+                new BindingValidationEvidence(
+                    tenant,
+                    tenantActor,
+                    digest("substituted-binding-request"),
+                    workspaceScope,
+                    binding.subject,
+                    grant,
+                    currentPath(1),
+                    now
+                )
+            ],
+            [
+                "evidence issued by another Tenant Actor",
+                new BindingValidationEvidence(
+                    tenant,
+                    otherTenantActor,
+                    request.digest(),
+                    workspaceScope,
+                    binding.subject,
+                    grant,
+                    currentPath(1),
+                    now
+                )
+            ],
+            [
+                "evidence stamped at another instant",
+                new BindingValidationEvidence(
+                    tenant,
+                    tenantActor,
+                    request.digest(),
+                    workspaceScope,
+                    binding.subject,
+                    grant,
+                    currentPath(1),
+                    new Date(now.getTime() + 1)
+                )
+            ]
+        ];
+
+        let ordinal = 0;
+        for (const [reason, evidence] of substitutions) {
+            ordinal += 1;
+            const harness = createMemoryHarness({ validateBinding: () => evidence });
+            const payload = BindingValidationRequest.encode(request);
+            const error = await dispatchFailure(
+                harness,
+                harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.validateBinding,
+                    `binding-evidence-${ordinal}`,
+                    payload
+                ),
+                payload
+            );
+            expect(error, reason).toBeInstanceOf(TypeError);
+            expect(error, reason).toMatchObject({
+                message: "Binding validation returned substituted evidence"
+            });
+            expect(harness.snapshot(), reason).toMatchObject({ writes: 0, audits: 0 });
+        }
+    });
+
+    test("substituted authority check evidence fails closed", { tags: "p0" }, async () => {
+        const request = checkRequest(currentPath(1), principal);
+        const substitutions: readonly (readonly [string, AuthorityCheckEvidence])[] = [
+            [
+                "evidence bound to another request",
+                checkEvidenceWith({ requestDigest: digest("substituted-check-request") })
+            ],
+            [
+                "evidence issued by another Tenant Actor",
+                checkEvidenceWith({ requestDigest: request.digest(), issuer: otherTenantActor })
+            ],
+            [
+                "evidence stamped at another instant",
+                checkEvidenceWith({
+                    requestDigest: request.digest(),
+                    checkedAt: new Date(now.getTime() + 1)
+                })
+            ],
+            [
+                "evidence issued under another Tenant",
+                checkEvidenceWith({
+                    requestDigest: request.digest(),
+                    issuerTenant: otherTenant,
+                    pathEpochs: otherTenantPath
+                })
+            ]
+        ];
+
+        let ordinal = 0;
+        for (const [reason, evidence] of substitutions) {
+            ordinal += 1;
+            const harness = createMemoryHarness({ check: () => evidence });
+            const payload = AuthorityCheckRequest.encode(request);
+            const error = await dispatchFailure(
+                harness,
+                harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.check,
+                    `check-evidence-${ordinal}`,
+                    payload
+                ),
+                payload
+            );
+            expect(error, reason).toBeInstanceOf(TypeError);
+            expect(error, reason).toMatchObject({
+                message: "Authority check returned substituted evidence"
+            });
+            expect(harness.snapshot(), reason).toMatchObject({ writes: 0, audits: 0 });
+        }
+    });
+
+    test("a substituted issued permit fails closed", { tags: "p0" }, async () => {
+        const substitutions: readonly (readonly [string, AuthorityBackend["issuePermit"]])[] = [
+            [
+                "a substituted expectation",
+                (_state, request, at) =>
+                    new AuthorityPermit({
+                        ...request.expectation,
+                        attemptOrdinal: 1,
+                        nonce: request.nonce,
+                        issuedAt: at,
+                        expiresAt: request.expiresAt
+                    })
+            ],
+            [
+                "a substituted issuer",
+                (_state, request, at) =>
+                    new AuthorityPermit({
+                        ...request.expectation,
+                        issuer: otherTenantActor,
+                        nonce: request.nonce,
+                        issuedAt: at,
+                        expiresAt: request.expiresAt
+                    })
+            ],
+            [
+                "a substituted nonce",
+                (_state, request, at) =>
+                    new AuthorityPermit({
+                        ...request.expectation,
+                        nonce: `${request.nonce}-substituted`,
+                        issuedAt: at,
+                        expiresAt: request.expiresAt
+                    })
+            ],
+            [
+                "a substituted issuance instant",
+                (_state, request, at) =>
+                    new AuthorityPermit({
+                        ...request.expectation,
+                        nonce: request.nonce,
+                        issuedAt: new Date(at.getTime() - 1),
+                        expiresAt: request.expiresAt
+                    })
+            ],
+            [
+                "a substituted expiry",
+                (_state, request, at) =>
+                    new AuthorityPermit({
+                        ...request.expectation,
+                        nonce: request.nonce,
+                        issuedAt: at,
+                        expiresAt: new Date(request.expiresAt.getTime() + 1)
+                    })
+            ]
+        ];
+
+        let ordinal = 0;
+        for (const [reason, issuePermit] of substitutions) {
+            ordinal += 1;
+            const harness = createMemoryHarness({ ...permissiveBackend, issuePermit });
+            const payload = AuthorityPermitIssuanceRequest.encode(permitRequest(currentPath(1)));
+            const error = await dispatchFailure(
+                harness,
+                harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    `permit-evidence-${ordinal}`,
+                    payload
+                ),
+                payload
+            );
+            expect(error, reason).toBeInstanceOf(TypeError);
+            expect(error, reason).toMatchObject({
+                message: "Authority permit issuer returned substituted evidence"
+            });
+            expect(harness.snapshot(), reason).toMatchObject({ writes: 0, audits: 0 });
+        }
+    });
+
+    test(
+        "the composition ingress leases command payloads on the supplied clock",
+        { tags: "p1" },
+        async () => {
+            const future = new Date("2199-01-01T00:00:00.000Z");
+            const harness = createMemoryHarness({}, future);
+            const request = checkRequest(currentPath(1), principal);
+            const payload = AuthorityCheckRequest.encode(request);
+            const result = await harness.dispatch(
+                harness.envelope(TENANT_AUTHORITY_COMMANDS.check, "future-clock", payload),
+                payload
+            );
+
+            expect(result.outcome).toBe("committed");
+            expect(AuthorityCheckReply.decode(result.reply).evidence.checkedAt).toEqual(future);
+        }
+    );
+});
+
+function checkEvidenceWith(init: {
+    readonly requestDigest: Digest;
+    readonly issuer?: ActorRef;
+    readonly checkedAt?: Date;
+    readonly issuerTenant?: TenantId;
+    readonly pathEpochs?: PathEpochEvidence;
+}): AuthorityCheckEvidence {
+    return new AuthorityCheckEvidence(
+        init.issuerTenant ?? tenant,
+        init.issuer ?? tenantActor,
+        init.requestDigest,
+        binding.key,
+        binding.generation,
+        "allow",
+        "allowed",
+        [grant],
+        [],
+        init.pathEpochs ?? currentPath(1),
+        init.checkedAt ?? now
+    );
+}
+
 interface MemoryAuthorityState {
     records: MemoryProtocolRecords;
     nextId: number;
@@ -369,7 +911,12 @@ interface MemoryAuthorityState {
     checks: number;
 }
 
-function createMemoryHarness(): AuthorityCommandHarness {
+type AuthorityBackend = TenantAuthorityCommandBackend<MemoryAuthorityState, AuthorityCommandRead>;
+
+function createMemoryHarness(
+    overrides: Partial<AuthorityBackend> = {},
+    clock: Date = now
+): AuthorityCommandHarness {
     const store = new MemoryActorStore<MemoryAuthorityState>(
         {
             records: new MemoryProtocolRecords(),
@@ -387,9 +934,13 @@ function createMemoryHarness(): AuthorityCommandHarness {
         new MemoryProtocolPersistence<MemoryAuthorityState>((state) => state.records),
         () => failWrite
     );
-    const backend = memoryBackend();
-    const composition = createComposition(store, persistence, backend, (transaction) =>
-        nextMemoryId(transaction)
+    const backend = memoryBackend(overrides);
+    const composition = createComposition(
+        store,
+        persistence,
+        backend,
+        (transaction) => nextMemoryId(transaction),
+        clock
     );
 
     return createHarness(
@@ -410,10 +961,7 @@ function createMemoryHarness(): AuthorityCommandHarness {
     );
 }
 
-function memoryBackend(): TenantAuthorityCommandBackend<
-    MemoryAuthorityState,
-    AuthorityCommandRead
-> {
+function memoryBackend(overrides: Partial<AuthorityBackend> = {}): AuthorityBackend {
     return {
         ...readBackend,
         validateBinding: (_state, request, at) => validationEvidence(request, at),
@@ -426,7 +974,8 @@ function memoryBackend(): TenantAuthorityCommandBackend<
             const permit = permitFor(request, at);
             state.permits[request.nonce] = AuthorityPermit.encode(permit);
             return permit;
-        }
+        },
+        ...overrides
     };
 }
 
@@ -539,7 +1088,8 @@ function createComposition<Transaction, ReadTransaction>(
     store: ActorLocalStore<Transaction, ReadTransaction>,
     persistence: ProtocolPersistence<Transaction>,
     backend: TenantAuthorityCommandBackend<Transaction, AuthorityCommandRead>,
-    nextId: (transaction: Transaction) => number
+    nextId: (transaction: Transaction) => number,
+    clock: Date = now
 ): ClosedTenantAuthorityComposition<
     Transaction,
     AuthorityCommandRead,
@@ -567,7 +1117,7 @@ function createComposition<Transaction, ReadTransaction>(
         content: new CounterContentStore(() => undefined),
         authenticator: new CounterAuthenticator(tenant),
         leaseForMilliseconds: 60_000,
-        now: () => now
+        now: () => clock
     });
 }
 
@@ -634,7 +1184,9 @@ class FailingProtocolPersistence<Transaction> implements ProtocolPersistence<Tra
     }
 }
 
-function bindingRequest(): BindingValidationRequest {
+function bindingRequest(
+    overrides: Partial<ConstructorParameters<typeof BindingValidationRequest>[0]> = {}
+): BindingValidationRequest {
     return new BindingValidationRequest({
         ownerTenant: tenant,
         workspaceActor: sourceActor,
@@ -644,13 +1196,15 @@ function bindingRequest(): BindingValidationRequest {
         name: bindingName,
         grantId: grant,
         facet,
-        nonce: "binding-validation"
+        nonce: "binding-validation",
+        ...overrides
     });
 }
 
 function checkRequest(
     path: PathEpochEvidence,
-    selectedPrincipal: PrincipalRef
+    selectedPrincipal: PrincipalRef,
+    overrides: Partial<ConstructorParameters<typeof AuthorityCheckRequest>[0]> = {}
 ): AuthorityCheckRequest {
     const argumentsValue = { channel: "internal" } as const;
     return new AuthorityCheckRequest({
@@ -670,13 +1224,15 @@ function checkRequest(
         invocationDigest: digest("authority-command-invocation"),
         itemIndex: 0,
         attemptOrdinal: 0,
-        nonce: "authority-check"
+        nonce: "authority-check",
+        ...overrides
     });
 }
 
 function permitRequest(
     path: PathEpochEvidence,
-    lease?: AuthorityPermitExpectation["lease"]
+    lease?: AuthorityPermitExpectation["lease"],
+    overrides: Partial<ConstructorParameters<typeof AuthorityPermitExpectation>[0]> = {}
 ): AuthorityPermitIssuanceRequest {
     const invocation = new AuthorityInvocationId("authority-command-permit-invocation");
     const itemKey = "authority-command-item";
@@ -715,7 +1271,8 @@ function permitRequest(
         intentDigest: digest("authority-command-intent"),
         pathEpochs: path,
         authority: { kind: "initiator", principal, binding: bindingName },
-        ...(lease === undefined ? {} : { lease })
+        ...(lease === undefined ? {} : { lease }),
+        ...overrides
     });
     return new AuthorityPermitIssuanceRequest(
         expectation,

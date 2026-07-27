@@ -238,6 +238,79 @@ describe("SQLite Binding store exact failure and persistence behavior", () => {
         );
     });
 
+    test("rejects a row fetched for another Binding key", { tags: "p0" }, () => {
+        const database = new ProjectionTamperSqlite();
+        const store = new SqliteBindingStore(database, scope);
+        const sibling = Binding.active(
+            scope,
+            subject,
+            domain,
+            new BindingName("news"),
+            binding.grantId,
+            binding.facet
+        );
+        store.save(binding);
+        store.save(sibling);
+        database.redirectTo = sibling.key;
+
+        expect(() => store.load(binding.key)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Stored Workspace Binding is malformed"
+            })
+        );
+    });
+
+    test("rejects a key column that drifts from the Binding it stores", { tags: "p0" }, () => {
+        const database = new ProjectionTamperSqlite();
+        const store = new SqliteBindingStore(database, scope);
+        store.save(binding);
+        database.replacement = ["binding_key", "drifted-key"];
+
+        expect(() => store.load(binding.key)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Stored Workspace Binding is malformed"
+            })
+        );
+    });
+
+    test("fails closed on a text column that is not a string", { tags: "p1" }, () => {
+        const database = new ProjectionTamperSqlite();
+        const store = new SqliteBindingStore(database, scope);
+        store.save(binding);
+        database.replacement = ["scope_key", null];
+
+        expect(() => store.load(binding.key)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Stored Workspace Binding is malformed"
+            })
+        );
+    });
+
+    test("persists a replacement that encodes to the previous byte length", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteBindingStore(database, scope);
+        const replacement = binding.replace(new GrantId("grand"), binding.facet);
+        expect(Binding.encode(replacement).byteLength).toBe(Binding.encode(binding).byteLength);
+        store.save(binding);
+        store.save(replacement);
+
+        const loaded = store.load(binding.key);
+        expect(loaded?.grantId.value).toBe("grand");
+        expect(loaded?.generation).toBe(1);
+        expect(loaded?.revision.value).toBe(1);
+        const rows = database.all(
+            "SELECT grant_id, generation, revision FROM workspace_bindings",
+            []
+        );
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.["grant_id"]).toBe("grand");
+        expect(rows[0]?.["generation"]).toBe(1);
+        expect(rows[0]?.["revision"]).toBe(1);
+    });
+
     test("wraps raw read faults as the exact Binding read failure", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = new SqliteBindingStore(database, scope);
@@ -251,6 +324,24 @@ describe("SQLite Binding store exact failure and persistence behavior", () => {
         );
     });
 });
+
+class ProjectionTamperSqlite extends TestSqlite {
+    public redirectTo: string | undefined;
+    public replacement: readonly [string, SqliteValue] | undefined;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const redirectTo = this.redirectTo;
+        const rows = super.all(
+            statement,
+            redirectTo !== undefined && statement.includes("WHERE binding_key = ?")
+                ? [redirectTo]
+                : bindings
+        );
+        const replacement = this.replacement;
+        if (replacement === undefined) return rows;
+        return rows.map((row) => ({ ...row, [replacement[0]]: replacement[1] }));
+    }
+}
 
 class TamperedRecordSqlite extends TestSqlite {
     public tampered = false;

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { Revision } from "../../../src/core";
-import { MetadataSnapshot } from "../../../src/definition";
+import {
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    Revision,
+    type JsonValue
+} from "../../../src/core";
+import { MetadataSnapshot, PackageLock } from "../../../src/definition";
 import { SqlitePackageStore, type SqliteRow, type SqliteValue } from "../../../src/substrates";
 import { TestSqlite } from "../../helpers/sqlite";
 import { digestOf, packageLock, packageRelease } from "../../definition/package-store-contract";
@@ -12,6 +17,29 @@ class RowTamperSqlite extends TestSqlite {
         const rows = super.all(statement, bindings);
         return this.tamper === undefined ? rows : this.tamper(statement, rows);
     }
+}
+
+function isJsonObject(value: JsonValue | undefined): value is { readonly [key: string]: JsonValue } {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Canonical JSON fixes object key order but not array order, so a record whose
+ * payload array is permuted decodes to an identical value from different bytes.
+ */
+function permutedRecord(record: Uint8Array, field: string): Uint8Array {
+    const envelope = decodeCanonicalJson(record);
+    if (!isJsonObject(envelope)) throw new TypeError("Record envelope must be an object");
+    const payload = envelope["payload"];
+    if (!isJsonObject(payload)) throw new TypeError("Record payload must be an object");
+    const entries = payload[field];
+    if (!Array.isArray(entries) || entries.length < 2) {
+        throw new TypeError(`Record payload ${field} must hold at least two entries`);
+    }
+    return encodeCanonicalJson({
+        ...envelope,
+        payload: { ...payload, [field]: [...entries].reverse() }
+    });
 }
 
 describe("SQLite package store exact failure and projection behavior", () => {
@@ -200,5 +228,59 @@ describe("SQLite package store exact failure and projection behavior", () => {
                 message: "Stored package record bytes are malformed"
             })
         );
+    });
+
+    test("a stored snapshot whose bytes differ under one digest is immutable", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqlitePackageStore(database);
+        const snapshot = new MetadataSnapshot({
+            revision: new Revision(3),
+            releases: [packageRelease("alpha", "1.0.0"), packageRelease("beta", "1.0.0")]
+        });
+        const permuted = permutedRecord(MetadataSnapshot.encode(snapshot), "releases");
+        expect(permuted).not.toEqual(MetadataSnapshot.encode(snapshot));
+        expect(MetadataSnapshot.decode(permuted).digest).toEqual(snapshot.digest);
+        database.run(
+            "INSERT INTO definition_metadata_snapshots (digest, revision, record) VALUES (?, ?, ?)",
+            [snapshot.digest.value, snapshot.revision.value, permuted]
+        );
+
+        expect(() => store.addSnapshot(snapshot)).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: `Metadata snapshot ${snapshot.digest.value} is immutable`
+            })
+        );
+        expect(database.all("SELECT record FROM definition_metadata_snapshots", [])).toEqual([
+            { record: permuted }
+        ]);
+    });
+
+    test("a stored lock whose bytes differ under one digest is immutable", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqlitePackageStore(database);
+        const lock = packageLock(digestOf("lock-snapshot"), 2, [
+            packageRelease("alpha", "1.0.0"),
+            packageRelease("beta", "1.0.0")
+        ]);
+        const permuted = permutedRecord(PackageLock.encode(lock), "packages");
+        expect(permuted).not.toEqual(PackageLock.encode(lock));
+        expect(PackageLock.decode(permuted).digest).toEqual(lock.digest);
+        database.run(
+            `INSERT INTO definition_package_locks (
+                lock_digest, snapshot_digest, snapshot_revision, record
+             ) VALUES (?, ?, ?, ?)`,
+            [lock.digest.value, lock.snapshotDigest.value, lock.snapshotRevision.value, permuted]
+        );
+
+        expect(() => store.addLock(lock)).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: `Package lock ${lock.digest.value} is immutable`
+            })
+        );
+        expect(database.all("SELECT record FROM definition_package_locks", [])).toEqual([
+            { record: permuted }
+        ]);
     });
 });

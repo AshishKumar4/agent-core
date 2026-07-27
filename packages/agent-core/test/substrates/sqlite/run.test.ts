@@ -1450,7 +1450,121 @@ describe("SQLite Run storage exact projections", () => {
         const second = storage.transaction((tx) => storage.get(tx, "commit", "alias"));
         expect(Array.from(second?.bytes ?? [])).toEqual([7, 8, 9]);
     });
+
+    it("insert and replace hand the substrate detached record bytes", { tags: "p0" }, () => {
+        const database = new BlobRecordingSqlite();
+        const storage = new SqliteRunStorage(database, owner);
+        const inserted: SqliteStoredRunRecord = {
+            kind: "commit",
+            key: "detached",
+            revision: 0,
+            bytes: Uint8Array.of(1, 2, 3)
+        };
+        const stored = (): readonly number[] =>
+            Array.from(
+                storage.transaction((tx) => storage.get(tx, "commit", "detached"))?.bytes ?? []
+            );
+        storage.transaction((tx) => storage.insert(tx, inserted));
+        const insertedBlob = database.lastRecordBlob;
+        inserted.bytes.fill(9);
+        expect(Array.from(insertedBlob ?? [])).toEqual([1, 2, 3]);
+        expect(stored()).toEqual([1, 2, 3]);
+
+        const replaced: SqliteStoredRunRecord = {
+            kind: "commit",
+            key: "detached",
+            revision: 1,
+            bytes: Uint8Array.of(4, 5, 6)
+        };
+        storage.transaction((tx) => storage.replace(tx, replaced, 0));
+        const replacedBlob = database.lastRecordBlob;
+        replaced.bytes.fill(9);
+        expect(Array.from(replacedBlob ?? [])).toEqual([4, 5, 6]);
+        expect(stored()).toEqual([4, 5, 6]);
+    });
+
+    it("schema validation compares object type and normalized SQL apart", { tags: "p0" }, () => {
+        const database = new MutatingSqlite(new TestSqlite());
+        new SqliteRunStorage(database, owner);
+        database.mutate = (statement, rows) =>
+            statement.includes("FROM sqlite_schema")
+                ? rows.map((value) => ({
+                      ...value,
+                      type: value["type"] === "table" ? "index" : "table"
+                  }))
+                : rows;
+        expectExactFailure(
+            () => new SqliteRunStorage(database, owner),
+            "codec.invalid",
+            "Run storage object agent_run_commit_parent_reverse does not match its exact schema"
+        );
+    });
+
+    it("schema comparison collapses whitespace runs, not token spacing", { tags: "p1" }, () => {
+        const rewrites: readonly ((value: string) => string)[] = [
+            (value) => `   ${value}\n  `,
+            (value) => value.replaceAll(/\s+/gu, " ")
+        ];
+        for (const rewrite of rewrites) {
+            const database = new MutatingSqlite(new TestSqlite());
+            new SqliteRunStorage(database, owner);
+            database.mutate = (statement, rows) =>
+                statement.includes("FROM sqlite_schema")
+                    ? rows.map((value) => ({ ...value, sql: rewrite(requiredSql(value)) }))
+                    : rows;
+            const reopened = new SqliteRunStorage(database, owner);
+            expect(reopened.transaction((tx) => reopened.list(tx, "commit"))).toEqual([]);
+        }
+
+        const squeezed = new MutatingSqlite(new TestSqlite());
+        new SqliteRunStorage(squeezed, owner);
+        squeezed.mutate = (statement, rows) =>
+            statement.includes("FROM sqlite_schema")
+                ? rows.map((value) => ({
+                      ...value,
+                      sql: requiredSql(value).replaceAll(" >= ", ">=")
+                  }))
+                : rows;
+        expectExactFailure(
+            () => new SqliteRunStorage(squeezed, owner),
+            "codec.invalid",
+            "Run storage object agent_run_records does not match its exact schema"
+        );
+    });
+
+    it("reports a non-text record projection column as an invalid column", { tags: "p1" }, () => {
+        const database = new MutatingSqlite(new TestSqlite());
+        const storage = new SqliteRunStorage(database, owner);
+        storage.transaction((tx) => storage.insert(tx, row("typed", 0)));
+        database.mutate = (statement, rows) =>
+            statement.includes("WHERE kind = ? AND record_key = ?")
+                ? rows.map((value) => ({ ...value, kind: 7 }))
+                : rows;
+        expectExactFailure(
+            () => storage.transaction((tx) => storage.get(tx, "commit", "typed")),
+            "codec.invalid",
+            "SQLite kind is invalid"
+        );
+    });
 });
+
+class BlobRecordingSqlite extends TestSqlite {
+    public lastRecordBlob: Uint8Array | undefined;
+
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+        super.run(statement, bindings);
+        if (!statement.includes("agent_run_records")) return;
+        for (const binding of bindings) {
+            if (binding instanceof Uint8Array) this.lastRecordBlob = binding;
+        }
+    }
+}
+
+function requiredSql(value: SqliteRow): string {
+    const sql = value["sql"];
+    if (typeof sql !== "string") throw new TypeError("Expected SQLite schema DDL text");
+    return sql;
+}
 
 function expectExactFailure(
     operation: () => unknown,

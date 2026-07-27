@@ -248,6 +248,29 @@ describe("SQLite protocol persistence exact schema and projection behavior", () 
         );
     });
 
+    test("a protocol table absent from the driver table list is not STRICT", { tags: "p1" }, () => {
+        const database = new RowTamperSqlite();
+        new SqliteProtocolPersistence(database);
+        database.tamper = (statement, rows) =>
+            statement === "PRAGMA table_list"
+                ? rows.filter((row) => row["name"] !== "protocol_write_records")
+                : rows;
+
+        expect(() => new SqliteProtocolPersistence(database)).toThrow(
+            corruptProtocol("SQLite protocol table is not STRICT: protocol_write_records")
+        );
+    });
+
+    test("an identity projection probe returning no row fails closed", { tags: "p0" }, () => {
+        const database = new RowTamperSqlite();
+        seededPersistence(database, "sqlite-projection-probe");
+        database.tamper = (statement, rows) => (statement.includes("AS mismatched") ? [] : rows);
+
+        expect(() => new SqliteProtocolPersistence(database)).toThrow(
+            corruptProtocol("SQLite protocol identity view projection is invalid")
+        );
+    });
+
     test("surfaces the identity-index rebuild fault message verbatim", { tags: "p1" }, () => {
         const database = new IndexRebuildFaultSqlite();
         new SqliteProtocolPersistence(database);

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef, type SynchronousResultGuard } from "../../../src/actors";
-import { ContentOwnerEdge, type ContentCollectionCandidate } from "../../../src/content";
+import {
+    ContentOwnerEdge,
+    TransientContentLeaseState,
+    type ContentCollectionCandidate
+} from "../../../src/content";
 import { ContentRef, Digest } from "../../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../../src/errors";
 import { TenantId } from "../../../src/identity";
@@ -41,6 +45,28 @@ class InterceptingSqlite extends TransactionalSqlite {
         ..._guard: SynchronousResultGuard<Result>
     ): Result {
         return this.inner.transaction(operation, ...([] as SynchronousResultGuard<Result>));
+    }
+}
+
+/** Models a driver that reuses one row buffer for repeated reads of the same blob. */
+class SharedBlobRowSqlite extends TestSqlite {
+    readonly #rows = new Map<string, readonly SqliteRow[]>();
+
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const key = bindings[0];
+        if (!statement.includes("FROM content_blobs WHERE ref") || typeof key !== "string") {
+            return super.all(statement, bindings);
+        }
+        const cached = this.#rows.get(key);
+        if (cached !== undefined) return cached;
+        const rows = super.all(statement, bindings);
+        this.#rows.set(key, rows);
+        return rows;
+    }
+
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+        this.#rows.clear();
+        super.run(statement, bindings);
     }
 }
 
@@ -314,6 +340,106 @@ describe("SQLite content retention state validation", () => {
         );
     });
 
+    test("rejects owner edges bound to a foreign Tenant", { tags: "p1" }, async () => {
+        const { database, store, tenant, actor, retention } = harness();
+        const stored = await store.put(encode("foreign-edge"));
+        const foreignEdge = new ContentOwnerEdge(
+            new TenantId("tenant-b"),
+            actor,
+            "foreign-edge",
+            stored.ref
+        );
+        database.run(
+            `INSERT INTO content_owner_edges
+                (owner_key, tenant, actor_kind, actor_id, ref, record)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+                "foreign-edge",
+                "tenant-b",
+                actor.kind,
+                actor.id.value,
+                stored.ref.value,
+                ContentOwnerEdge.encode(foreignEdge)
+            ]
+        );
+        database.run(
+            `INSERT INTO content_relations
+                (ref, tenant, actor_kind, actor_id, unowned_since)
+             VALUES (?, ?, ?, ?, NULL)`,
+            [stored.ref.value, tenant.value, actor.kind, actor.id.value]
+        );
+
+        expectExactError(
+            () => collectAll(database, retention, at(20)),
+            "codec.invalid",
+            "Stored content retention state is malformed"
+        );
+    });
+
+    test("rejects transient leases bound to a foreign Tenant", { tags: "p1" }, async () => {
+        const { database, actor, retention, access } = harness();
+        const binding = bindingFor("foreign-lease", "foreign-lease-envelope", at(30));
+        await access.acquire(binding, encode("foreign-lease"));
+        const foreignLease = new TransientContentLeaseState(
+            new TenantId("tenant-b"),
+            actor,
+            binding.envelopeDigest,
+            binding.ref,
+            binding.digest,
+            at(10),
+            at(30)
+        );
+        database.run("UPDATE content_transient_leases SET tenant = ?, record = ?", [
+            "tenant-b",
+            TransientContentLeaseState.encode(foreignLease)
+        ]);
+
+        expectExactError(
+            () => collectAll(database, retention, at(20)),
+            "codec.invalid",
+            "Stored content retention state is malformed"
+        );
+    });
+
+    test("wraps a driver read fault raised while decoding a lease", { tags: "p1" }, async () => {
+        const database = new InterceptingSqlite();
+        const store = new SqliteContentStore(database);
+        const owner = contentOwner();
+        const retention = store.retention(owner.tenant, owner.actor);
+        const access = store.transient(owner.tenant, owner.actor, () => at(10));
+        await access.acquire(
+            bindingFor("lease-fault", "lease-fault-envelope", at(30)),
+            encode("lease-fault")
+        );
+        let reads = 0;
+        database.mutateRows = (statement, rows) => {
+            if (!statement.includes("FROM content_blobs WHERE ref")) return rows;
+            reads += 1;
+            if (reads === 2) throw new Error("disk I/O error");
+            return rows;
+        };
+
+        expectExactError(
+            () => collectAll(database, retention, at(20)),
+            "codec.invalid",
+            "Stored transient content lease is malformed"
+        );
+    });
+
+    test("names owned edges whose content vanished exactly", { tags: "p1" }, async () => {
+        const { database, store, tenant, actor, retention } = harness();
+        const stored = await store.put(encode("owned-blob-gone"));
+        const edge = new ContentOwnerEdge(tenant, actor, "owned-blob-gone", stored.ref);
+        database.transaction(() => retention.retain(database, edge, at(10)));
+        database.run("DELETE FROM content_blobs", []);
+
+        expectExactError(
+            () => collectAll(database, retention, at(20)),
+            "codec.invalid",
+            "Owned content relation is malformed"
+        );
+    });
+
     test("accepts zero-timestamp retention boundaries", { tags: "p2" }, async () => {
         const context = harness();
         const stored = await context.store.put(encode("zero-boundary"));
@@ -487,6 +613,42 @@ describe("SQLite content retention collection gating", () => {
             await expect(store.stat(trigger.ref)).resolves.toBeUndefined();
         }
     );
+
+    test("skips a candidate whose relation vanished after approval", { tags: "p1" }, async () => {
+        const { database, store, tenant, actor, retention } = harness();
+        const first = await store.put(encode("vanish-alpha"));
+        const second = await store.put(encode("vanish-beta"));
+        const [leader, straggler] =
+            first.ref.value < second.ref.value ? [first, second] : [second, first];
+        const leaderEdge = new ContentOwnerEdge(tenant, actor, "vanish-leader", leader.ref);
+        const stragglerEdge = new ContentOwnerEdge(tenant, actor, "vanish-straggler", straggler.ref);
+        database.transaction(() => {
+            retention.retain(database, leaderEdge, at(10));
+            retention.retain(database, stragglerEdge, at(10));
+            retention.release(database, leaderEdge, at(20));
+            retention.release(database, stragglerEdge, at(20));
+        });
+
+        const refs = database.transaction(() =>
+            retention.collect(
+                database,
+                {
+                    allowsCollection(transaction, candidate): boolean {
+                        if (candidate.stat.ref.equals(leader.ref)) {
+                            transaction.run("DELETE FROM content_relations WHERE ref = ?", [
+                                straggler.ref.value
+                            ]);
+                        }
+                        return true;
+                    }
+                },
+                at(30)
+            )
+        );
+
+        expect(refs).toEqual([leader.ref]);
+        await expect(store.stat(straggler.ref)).resolves.toBeDefined();
+    });
 });
 
 describe("SQLite content retention boundaries", () => {
@@ -532,6 +694,58 @@ describe("SQLite content retention boundaries", () => {
             )
         );
         expect(unownedSince(database, first.ref)).toBe(25);
+    });
+
+    test("leaves the persisted boundary untouched on reclose", { tags: "p1" }, async () => {
+        let now = at(20);
+        const { database, tenant, actor, retention, access } = harness(() => now);
+        const binding = bindingFor("reclose", "reclose-envelope", at(30));
+        const lease = await access.acquire(binding, encode("reclose"));
+        expect(lease).toBeDefined();
+        if (lease === undefined) throw new TypeError("Expected an acquired lease");
+        await lease.close();
+        expect(unownedSince(database, binding.ref)).toBe(20);
+
+        const edge = new ContentOwnerEdge(tenant, actor, "reclose", binding.ref);
+        database.transaction(() => {
+            retention.retain(database, edge, at(25));
+            retention.release(database, edge, at(5));
+        });
+        expect(unownedSince(database, binding.ref)).toBe(5);
+
+        now = at(40);
+        await lease.close();
+        expect(unownedSince(database, binding.ref)).toBe(5);
+    });
+
+    test("fails closed when an owned relation is reported unowned", { tags: "p0" }, async () => {
+        const database = new InterceptingSqlite();
+        const store = new SqliteContentStore(database);
+        const owner = contentOwner();
+        const retention = store.retention(owner.tenant, owner.actor);
+        const access = store.transient(owner.tenant, owner.actor, () => at(20));
+        const stored = await store.put(encode("owned-lease"));
+        const edge = new ContentOwnerEdge(owner.tenant, owner.actor, "owned-lease", stored.ref);
+        database.transaction(() => retention.retain(database, edge, at(10)));
+        const lease = await access.acquire(
+            bindingFor("owned-lease", "owned-lease-envelope", at(30)),
+            encode("owned-lease")
+        );
+        expect(lease).toBeDefined();
+        if (lease === undefined) throw new TypeError("Expected an acquired lease");
+        let hidden = false;
+        database.afterRun = (statement) => {
+            if (statement.includes("UPDATE content_transient_leases SET")) hidden = true;
+        };
+        database.mutateRows = (statement, rows) =>
+            hidden && statement.includes("FROM content_owner_edges WHERE ref") ? [] : rows;
+
+        await expectExactRejection(
+            lease.close(),
+            "codec.invalid",
+            "Unowned content has an owned relation"
+        );
+        expect(unownedSince(database, stored.ref)).toBeNull();
     });
 
     test(
@@ -689,6 +903,52 @@ describe("SQLite transient lease contract", () => {
             "protocol.invalid-state",
             "SQLite content storage is bound to a different Actor or Tenant"
         );
+    });
+
+    test("rejects lease handles carrying a foreign Tenant or Actor", { tags: "p0" }, async () => {
+        const { database, tenant, actor, access } = harness();
+        const binding = bindingFor("foreign-handle", "foreign-handle-envelope", at(30));
+        const lease = await access.acquire(binding, encode("foreign-handle"));
+        expect(lease?.read()).toEqual(encode("foreign-handle"));
+        const handle = (handleTenant: TenantId, handleActor: ActorRef): TransientContentLeaseState =>
+            new TransientContentLeaseState(
+                handleTenant,
+                handleActor,
+                binding.envelopeDigest,
+                binding.ref,
+                binding.digest,
+                at(10),
+                at(30)
+            );
+
+        for (const expected of [
+            handle(new TenantId("tenant-b"), actor),
+            handle(tenant, new ActorRef("workspace", new ActorId("actor-b")))
+        ]) {
+            expectExactError(
+                () => database.transaction(() => access.readInTransaction(database, expected)),
+                "protocol.invalid-state",
+                "Transient content lease handle refers to a replaced generation"
+            );
+        }
+    });
+
+    test("hands lease reads a detached copy of the stored bytes", { tags: "p0" }, async () => {
+        const database = new SharedBlobRowSqlite();
+        const store = new SqliteContentStore(database);
+        const owner = contentOwner();
+        const access = store.transient(owner.tenant, owner.actor, () => at(10));
+        const lease = await access.acquire(
+            bindingFor("detached-read", "detached-read-envelope", at(30)),
+            encode("detached-read")
+        );
+        expect(lease).toBeDefined();
+        if (lease === undefined) throw new TypeError("Expected an acquired lease");
+
+        const first = lease.read();
+        expect(first).toEqual(encode("detached-read"));
+        first.fill(0);
+        expect(lease.read()).toEqual(encode("detached-read"));
     });
 
     test("reports the exact missing transient lease row", { tags: "p1" }, async () => {

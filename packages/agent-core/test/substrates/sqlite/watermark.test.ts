@@ -212,6 +212,54 @@ describe("SQLite watermark store exact failure and persistence behavior", () => 
         );
     });
 
+    test("rejects a row fetched for another watermark key", { tags: "p0" }, () => {
+        const database = new ProjectionTamperSqlite();
+        const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
+        const sibling = InvalidationWatermark.empty(
+            tenant,
+            owner,
+            new PrincipalRef(tenant, new PrincipalId("principal-watermark-sibling"))
+        );
+        store.save(watermark);
+        store.save(sibling);
+        database.redirectTo = watermarkKey(sibling);
+
+        expect(() => store.load(key)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Stored invalidation watermark is malformed"
+            })
+        );
+    });
+
+    test("rejects a key column that drifts from the watermark it stores", { tags: "p0" }, () => {
+        const database = new ProjectionTamperSqlite();
+        const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
+        store.save(watermark);
+        database.replacement = ["watermark_key", "drifted-key"];
+
+        expect(() => store.load(key)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Stored invalidation watermark is malformed"
+            })
+        );
+    });
+
+    test("fails closed on a text column that is not a string", { tags: "p1" }, () => {
+        const database = new ProjectionTamperSqlite();
+        const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
+        store.save(watermark);
+        database.replacement = ["owner_tenant_id", null];
+
+        expect(() => store.load(key)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Stored invalidation watermark is malformed"
+            })
+        );
+    });
+
     test("wraps raw read faults as the exact watermark read failure", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
@@ -232,6 +280,24 @@ class FailingSchemaSqlite extends TestSqlite {
             throw new TypeError("injected schema fault");
         }
         super.run(statement, bindings);
+    }
+}
+
+class ProjectionTamperSqlite extends TestSqlite {
+    public redirectTo: string | undefined;
+    public replacement: readonly [string, SqliteValue] | undefined;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const redirectTo = this.redirectTo;
+        const rows = super.all(
+            statement,
+            redirectTo !== undefined && statement.includes("WHERE watermark_key = ?")
+                ? [redirectTo]
+                : bindings
+        );
+        const replacement = this.replacement;
+        if (replacement === undefined) return rows;
+        return rows.map((row) => ({ ...row, [replacement[0]]: replacement[1] }));
     }
 }
 

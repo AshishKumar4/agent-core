@@ -32,6 +32,47 @@ describe("SQLite Actor store", () => {
         ]);
     });
 
+    test("a bound store fences a rebind after its identity row is erased", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteActorStore(database);
+        store.bindActor(actor);
+        database.run("DELETE FROM actor_identity", []);
+
+        expect(() => store.bindActor(foreignActor)).toThrow(isolationError);
+        expect(database.all("SELECT actor_kind, actor_id FROM actor_identity", [])).toEqual([]);
+    });
+
+    test("an Actor bound inside a transaction fences later binds", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteActorStore(database);
+
+        expect(() =>
+            store.transaction((transaction) => {
+                store.bindActor(actor);
+                transaction.run("DELETE FROM actor_identity", []);
+                store.bindActor(foreignActor);
+                return undefined;
+            })
+        ).toThrow(isolationError);
+        expect(database.all("SELECT actor_kind, actor_id FROM actor_identity", [])).toEqual([]);
+    });
+
+    test("recovery state on an unbound store reports the isolation error", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteActorStore(database);
+
+        expect(() =>
+            store.transaction((transaction) => {
+                store.saveRecoveryState(transaction, ActorRecoveryState.initial(actor));
+                return undefined;
+            })
+        ).toThrow(isolationError);
+        expect(() =>
+            store.transaction((transaction) => store.loadRecoveryState(transaction, actor))
+        ).toThrow(isolationError);
+        expect(database.all("SELECT actor_kind FROM actor_recovery_state", [])).toEqual([]);
+    });
+
     test("fails closed when identity persistence is silently dropped", { tags: "p0" }, () => {
         const store = new SqliteActorStore(new DroppedIdentitySqlite());
 

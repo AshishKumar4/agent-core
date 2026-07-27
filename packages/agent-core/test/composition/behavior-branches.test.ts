@@ -54,7 +54,12 @@ import {
     type InvocationLedger,
     type InvocationPersistence
 } from "../../src/invocations";
-import { InvocationId, RouteReservationId } from "../../src/interaction-references";
+import {
+    InvocationId,
+    RouteProjectionId,
+    RouteReservationId
+} from "../../src/interaction-references";
+import { EventId, RouteReservation, SubscriptionId } from "../../src/workspaces";
 import {
     authenticatedProjectionFixture,
     content,
@@ -77,6 +82,7 @@ describe("W9 composition behavior branches", () => {
         for (const substitution of [
             "invocation",
             "route",
+            "routeAbsent",
             "projection",
             "auditCause",
             "auditKind",
@@ -136,6 +142,60 @@ describe("W9 composition behavior branches", () => {
         expect(harness.preparations).toBe(1);
     });
 
+    test(
+        "a delegated route pinning no Principal still binds every other routed identity",
+        { tags: "p0" },
+        () => {
+            const projectionContent = content("projection-delegated");
+            const bridgeAudit = new AuditRecordId("delegated-bridge-audit");
+            const reservation = new RouteReservation({
+                id: new RouteReservationId("reservation-delegated"),
+                invocation: new InvocationId("invocation-delegated"),
+                event: new EventId("event-delegated"),
+                sourceAuditCause: new AuditRecordId("audit-event-delegated"),
+                sourceActor: new ActorRef("workspace", new ActorId("delegated-source")),
+                targetActor: new ActorRef("workspace", new ActorId("delegated-target")),
+                tenants: { kind: "same", tenant },
+                subscription: new SubscriptionId("subscription-delegated"),
+                dedupeKey: "event:event-delegated",
+                operation: new OperationRef("facet.test:consume"),
+                authority: { kind: "delegated", binding: new BindingName("binding.route") },
+                projection: new RouteProjectionId("projection-delegated"),
+                projectionRef: projectionContent.ref,
+                projectionDigest: projectionContent.digest,
+                trust: "authenticated"
+            });
+            const projection = projectionFixture(reservation);
+            const harness = routedAdmissionHarness((payload) => ({
+                invocation: routedPrepared(
+                    payload.reservation.invocation,
+                    payload.reservation.id,
+                    payload.projection.digest,
+                    payload.bridgeAudit,
+                    { changed: false },
+                    {
+                        operation: payload.reservation.operation.value,
+                        actor: payload.reservation.targetActor,
+                        binding: payload.reservation.authority.binding.value,
+                        tenant: tenant.value,
+                        principal: "delegated-unpinned-principal"
+                    }
+                ),
+                audit: auditRecord(payload.bridgeAudit, undefined, {
+                    kind: "routeProjected",
+                    projection: payload.projection.id,
+                    reservation: payload.reservation.id
+                })
+            }));
+
+            expect(reservation.initiator).toBeUndefined();
+            expect(
+                harness.port.admit(harness.state, { reservation, projection, bridgeAudit })
+            ).toEqual({ kind: "accepted", invocation: reservation.invocation });
+            expect(harness.preparations).toBe(1);
+        }
+    );
+
     test("builds the target-local audit chain and fails closed when reservation evidence is absent", () => {
         const event = eventFixture("composed-audit");
         const reservation = reservationFixture("composed-audit");
@@ -184,12 +244,25 @@ describe("W9 composition behavior branches", () => {
         routeEvidence = undefined as never;
         expect(() =>
             port.appendReservation({}, reservation, new AuditRecordId("missing-route"))
-        ).toThrow(/unavailable/);
+        ).toThrow(
+            new AgentCoreError(
+                "invocation.invalid",
+                "Route reservation audit evidence is unavailable"
+            )
+        );
         routeEvidence = event;
         causeEvidence = undefined;
-        expect(() =>
-            port.appendReservation({}, reservation, new AuditRecordId("missing-cause"))
-        ).toThrow(/unavailable/);
+        let missingCause: unknown;
+        try {
+            port.appendReservation({}, reservation, new AuditRecordId("missing-cause"));
+        } catch (error) {
+            missingCause = error;
+        }
+        expect(missingCause).toBeInstanceOf(AgentCoreError);
+        expect(missingCause).toMatchObject({
+            code: "invocation.invalid",
+            message: "Route reservation audit evidence is unavailable"
+        });
     });
 
     test("maps Run inbox conflicts, duplicates, lease rejection, and lifecycle rejection", () => {
@@ -267,6 +340,10 @@ describe("W9 composition behavior branches", () => {
         expect(port.append({}, reference, token)).toEqual({ kind: "duplicate" });
         existing = inboxEntry(reference, "substituted-persisted");
         expect(port.append({}, reference, token)).toEqual({ kind: "rejected", reason: "conflict" });
+        // Same encoded byte length, differing content: only an exact byte-for-byte comparison
+        // separates a replay from a substituted entry.
+        existing = inboxEntry(reference, "expecteD");
+        expect(port.append({}, reference, token)).toEqual({ kind: "rejected", reason: "conflict" });
 
         existing = undefined;
         failure = new AgentCoreError("lease.invalid", "stale lease");
@@ -299,7 +376,8 @@ describe("W9 composition behavior branches", () => {
         await runtime.activate({} as Blueprint);
         expect(runtime.host).toBeDefined();
         await expect(runtime.activate({} as Blueprint)).rejects.toMatchObject({
-            code: "facet.inactive"
+            code: "facet.inactive",
+            message: "Package Facet runtime is already active"
         });
         await runtime[Symbol.asyncDispose]();
         expect(runtime.host).toBeUndefined();
@@ -336,6 +414,20 @@ describe("W9 composition behavior branches", () => {
         await failedCleanup.activate({} as Blueprint);
         await expect(failedCleanup.dispose()).rejects.toThrow(/Facet stop hook/);
         await expect(failedCleanup.dispose()).resolves.toBeUndefined();
+
+        // A module cleanup failure alone still surfaces: it is the only recorded failure.
+        const moduleCleanupFailure = new TypeError("module cleanup failed alone");
+        const failedModuleCleanup = new PackageFacetRuntime(
+            loaderReturning(
+                loadedBlueprint(manifest, async () => {
+                    throw moduleCleanupFailure;
+                })
+            ),
+            { roots: () => [new LifecycleFacet(manifest, undefined)] }
+        );
+        await failedModuleCleanup.activate({} as Blueprint);
+        await expect(failedModuleCleanup.dispose()).rejects.toBe(moduleCleanupFailure);
+        await expect(failedModuleCleanup.dispose()).resolves.toBeUndefined();
     });
 
     test("treats slot installation and contribution as byte-stable append-only provenance", () => {
@@ -378,27 +470,41 @@ describe("W9 composition behavior branches", () => {
 
         installation = undefined;
         expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
-            /provenance changed/
+            new AgentCoreError(
+                "authority.denied",
+                "Slot contributor installation provenance changed before apply"
+            )
         );
         installation = new PackageInstallationRef(
             new FacetRef("workspace:substituted"),
             packageFacet
         );
         expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
-            /provenance changed/
+            new AgentCoreError(
+                "authority.denied",
+                "Slot contributor installation provenance changed before apply"
+            )
         );
         installation = expectedInstallation;
         contributionAllowed = false;
         expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
-            /Current authority/
+            new AgentCoreError(
+                "authority.denied",
+                "Current authority does not admit the Slot contributor"
+            )
         );
         contributionAllowed = true;
         expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
-            /is not installed/
+            new AgentCoreError("facet.inactive", `Slot ${declaration.name.value} is not installed`)
         );
         expect(backend.install(state, declaration)).toBe(true);
         expect(backend.install(state, declaration)).toBe(false);
-        expect(() => backend.install(state, conflictingDeclaration)).toThrow(/conflicts/);
+        expect(() => backend.install(state, conflictingDeclaration)).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                "Slot declaration conflicts with installed provenance"
+            )
+        );
         const invalidEntry = SlotEntry.create(
             declaration.name,
             entry.contributor.value,
@@ -406,7 +512,10 @@ describe("W9 composition behavior branches", () => {
             "invalid"
         );
         expect(() => backend.applyContribution(state, {} as never, {}, invalidEntry)).toThrow(
-            /does not match/
+            new AgentCoreError(
+                "operation.invalid-input",
+                `Slot entry ${invalidEntry.id.value} does not match the entry schema`
+            )
         );
         const appliedEntry = SlotEntry.create(declaration.name, entry.contributor.value, 2, {
             applied: true
@@ -418,8 +527,15 @@ describe("W9 composition behavior branches", () => {
             entry.id.value,
             SlotEntry.create(declaration.name, "workspace:substituted", 0, { value: 2 })
         );
-        expect(() => backend.contribute(state, entry)).toThrow(/conflicts/);
-        expect(() => backend.advanceRevision(state, new Revision(1))).toThrow(/changed/);
+        expect(() => backend.contribute(state, entry)).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                "Slot contribution conflicts with authenticated installation provenance"
+            )
+        );
+        expect(() => backend.advanceRevision(state, new Revision(1))).toThrow(
+            new AgentCoreError("protocol.revision-conflict", "Slot revision changed")
+        );
         expect(backend.advanceRevision(state, Revision.initial()).value).toBe(1);
         expect(backend.currentRevision(state).value).toBe(1);
         expect(backend.permitsInstall(state, declaration)).toBe(true);
@@ -468,6 +584,18 @@ describe("W9 composition behavior branches", () => {
         delegate.mockReturnValue(false);
         expect(spawn.verify({}, {} as never)).toBe(false);
         expect(attenuation).toHaveBeenCalledOnce();
+
+        // administer and forcedCancellation are optional on the source: a source that omits
+        // them reports no evidence rather than faulting.
+        const partial = new CanonicalRunEvidencePort({
+            receipt: () => undefined,
+            delivery: () => undefined,
+            control: () => undefined,
+            synthesis: () => undefined
+        });
+        expect(partial.administer({}, {} as never, {} as never)).toBeUndefined();
+        expect(partial.forcedCancellation({}, {} as never, {} as never)).toBeUndefined();
+
         expect(calls).toEqual([
             "receipt",
             "delivery",
@@ -595,6 +723,7 @@ function routedEvidence(
     substitution?:
         | "invocation"
         | "route"
+        | "routeAbsent"
         | "projection"
         | "auditCause"
         | "auditKind"
@@ -620,12 +749,20 @@ function routedEvidence(
     if (initiator === undefined) {
         throw new Error("Routed admission fixture requires an authenticated initiator");
     }
+    const routeValue =
+        substitution === "routeAbsent"
+            ? undefined
+            : substitution === "route"
+              ? new RouteReservationId("substituted-route")
+              : input.reservation.id;
     const invocation = routedPrepared(
         id,
-        substitution === "route"
-            ? new RouteReservationId("substituted-route")
-            : input.reservation.id,
-        substitution === "projection" ? new Digest("f".repeat(64)) : input.projection.digest,
+        routeValue,
+        routeValue === undefined
+            ? undefined
+            : substitution === "projection"
+              ? new Digest("f".repeat(64))
+              : input.projection.digest,
         substitution === "auditCause" ? new AuditRecordId("substituted-audit") : input.bridgeAudit,
         payload,
         {
@@ -670,8 +807,8 @@ function routedEvidence(
 
 function routedPrepared(
     id: InvocationId,
-    route: RouteReservationId,
-    projectionDigest: Digest,
+    route: RouteReservationId | undefined,
+    projectionDigest: Digest | undefined,
     auditCause: AuditRecordId,
     payload: Record<string, boolean>,
     identity: {
@@ -694,8 +831,8 @@ function routedPrepared(
                 principal: identity.principal
             }),
             pathEpochs: `epochs:${id.value}`,
-            route,
-            projectionDigest,
+            ...(route === undefined ? {} : { route }),
+            ...(projectionDigest === undefined ? {} : { projectionDigest }),
             auditCause,
             idempotencySeed: `seed:${id.value}`
         },

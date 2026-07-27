@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+    hasSameSqliteProvenance,
     inheritSqliteProvenance,
     type ReadableSqlite
 } from "../../../src/substrates/sqlite/sqlite";
@@ -15,4 +16,18 @@ test("rejects SQLite provenance transfer involving uninitialized capabilities", 
     expect(() => inheritSqliteProvenance(database, forged)).toThrowError(
         new TypeError("SQLite provenance requires initialized capabilities")
     );
+});
+
+test("shares SQLite provenance only across inherited capabilities", { tags: "p0" }, () => {
+    const database = new TestSqlite();
+    const unrelated = new TestSqlite();
+    const forged = Object.create(null) as ReadableSqlite;
+
+    expect(hasSameSqliteProvenance(database, database)).toBe(true);
+    expect(hasSameSqliteProvenance(database, unrelated)).toBe(false);
+    expect(hasSameSqliteProvenance(forged, forged)).toBe(false);
+    expect(hasSameSqliteProvenance(forged, database)).toBe(false);
+
+    inheritSqliteProvenance(unrelated, database);
+    expect(hasSameSqliteProvenance(database, unrelated)).toBe(true);
 });

@@ -1458,6 +1458,55 @@ describe("SQLite authority adapter mutation gates", () => {
         ).toBe(true);
     });
 
+    test("grant read-back rejects a same-length record substitution", { tags: "p0" }, () => {
+        const database = new SwappedRecordSqlite();
+        initializeSqliteAuthoritySchema(database);
+        const variant = new Grant(
+            grant.id,
+            scope,
+            SubjectRef.principal(ownerId),
+            "allow",
+            new CapabilitySpec({ facetPattern: "*", impacts: ["execute"] }),
+            { kind: "direct" }
+        );
+        expect(Grant.encode(variant).byteLength).toBe(Grant.encode(grant).byteLength);
+        database.swapped = Grant.encode(variant);
+
+        expectExactFailure(
+            () => saveSqliteGrant(database, grant),
+            "protocol.revision-conflict",
+            "Grant changed concurrently"
+        );
+    });
+
+    test("grant rows fail closed on an absent nullable text column", { tags: "p1" }, () => {
+        const database = new StubSqlite({
+            id: grant.id.value,
+            scope_key: scopeKey(grant.scope),
+            subject_key: subjectKey(grant.subject),
+            effect: grant.effect,
+            state: grant.state.name,
+            record: Grant.encode(grant)
+        });
+
+        expectExactFailure(
+            () => loadSqliteGrant(database, grant.id),
+            "codec.invalid",
+            corruptMessage
+        );
+    });
+
+    test("epoch rows must match the queried Scope when self-consistent", { tags: "p0" }, () => {
+        const foreignEpoch = new ScopeEpoch(foreignScope, 1);
+        const database = new StubSqlite({
+            scope_key: scopeKey(foreignScope),
+            epoch: foreignEpoch.epoch,
+            record: ScopeEpoch.encode(foreignEpoch)
+        });
+
+        expectExactFailure(() => loadSqliteEpoch(database, scope), "codec.invalid", corruptMessage);
+    });
+
     test("read and write failures carry their exact taxonomy", { tags: "p1" }, () => {
         const failingWrite = new StubSqlite();
         failingWrite.failRuns = true;
@@ -1475,6 +1524,17 @@ describe("SQLite authority adapter mutation gates", () => {
         );
     });
 });
+
+class SwappedRecordSqlite extends TestSqlite {
+    public swapped: Uint8Array | undefined;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        const swapped = this.swapped;
+        if (swapped === undefined || !statement.includes("FROM tenant_grants")) return rows;
+        return rows.map((row) => ({ ...row, record: swapped }));
+    }
+}
 
 class TamperedSqlite extends TransactionalSqlite {
     readonly #database = new TestSqlite();

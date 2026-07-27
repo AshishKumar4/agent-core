@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { JsonValue } from "../../src/core";
 import { DetachedJsonPatchEngine } from "../../src/composition/json-patch";
+import { AgentCoreError } from "../../src/errors";
 
 describe("detached RFC 6902 composition", () => {
     test("applies every standard operation with JSON Pointer escaping", () => {
@@ -59,6 +60,43 @@ describe("detached RFC 6902 composition", () => {
             new DetachedJsonPatchEngine().apply({ value: "original" }, [operation])
         ).toThrow(expect.objectContaining({ code: "codec.invalid" }));
     });
+
+    test(
+        "rejects malformed and inapplicable patches with the exact typed error",
+        { tags: "p1" },
+        () => {
+            const engine = new DetachedJsonPatchEngine();
+            const cases: readonly {
+                readonly document: JsonValue;
+                readonly patch: readonly JsonValue[];
+            }[] = [
+                { document: { value: "original" }, patch: [{ op: "unknown", path: "/value" }] },
+                {
+                    document: { value: "original" },
+                    patch: [{ op: "test", path: "/value", value: "forged" }]
+                },
+                { document: {}, patch: [{ op: "add", path: "/__proto__/polluted", value: true }] },
+                // A falsy document is validated structurally only, so an inapplicable
+                // operation can only surface from the application step.
+                { document: null, patch: [{ op: "remove", path: "/missing" }] },
+                { document: null, patch: [{ op: "move", from: "/a", path: "/b" }] }
+            ];
+
+            for (const { document, patch } of cases) {
+                let failure: unknown;
+                try {
+                    engine.apply(document, patch);
+                } catch (error) {
+                    failure = error;
+                }
+                expect(failure, JSON.stringify(patch)).toBeInstanceOf(AgentCoreError);
+                expect(failure, JSON.stringify(patch)).toMatchObject({
+                    code: "codec.invalid",
+                    message: "Invalid RFC 6902 patch"
+                });
+            }
+        }
+    );
 
     test("rejects prototype modification without polluting global objects", () => {
         const patch: readonly JsonValue[] = [

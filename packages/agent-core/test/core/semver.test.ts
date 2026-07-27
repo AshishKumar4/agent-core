@@ -119,7 +119,92 @@ describe("SemVer", () => {
             "codec.unknown-major"
         );
     });
+
+    test("reports every version construction failure verbatim", { tags: "p1" }, () => {
+        const components = "Semantic version requires major, minor, and patch components";
+
+        expectTypeFailure(() => new SemVer("nope"), "Semantic version must follow SemVer 2.0.0");
+        expectTypeFailure(() => new SemVer(1, undefined as unknown as number, 3), components);
+        expectTypeFailure(() => new SemVer(1, 2, undefined as unknown as number), components);
+        expectTypeFailure(
+            () => new SemVer(-1, 0, 0),
+            "Semantic version major must be a non-negative safe integer"
+        );
+        expectTypeFailure(
+            () => new SemVer(1.5, 0, 0),
+            "Semantic version major must be a non-negative safe integer"
+        );
+        expectTypeFailure(
+            () => new SemVer(0, -1, 0),
+            "Semantic version minor must be a non-negative safe integer"
+        );
+        expectTypeFailure(
+            () => new SemVer(0, 0, 1.5),
+            "Semantic version patch must be a non-negative safe integer"
+        );
+        expect(new SemVer(0, 0, 0).toString()).toBe("0.0.0");
+    });
+
+    test("[core.semver] reports malformed payloads verbatim", { tags: "p1" }, () => {
+        for (const payload of [null, { value: 1 }, { extra: true, value: "1.2.3" }, ["1.2.3"]]) {
+            expectCodecFailure(
+                () =>
+                    SemVer.decode(
+                        encodeCanonicalJson({
+                            kind: "core.semver",
+                            payload,
+                            version: { major: 1, minor: 0 }
+                        })
+                    ),
+                "codec.invalid",
+                "Semantic version payload is malformed"
+            );
+        }
+    });
+
+    test("classifies prerelease identifiers by their whole text", { tags: "p1" }, () => {
+        for (const [left, right, expected] of [
+            ["1.0.0-b1", "1.0.0-a2", 1],
+            ["1.0.0-a2", "1.0.0-b1", -1],
+            ["1.0.0-0a", "1.0.0-11", 1],
+            ["1.0.0-11", "1.0.0-0a", -1],
+            ["1.0.0-0b", "1.0.0-1a", -1],
+            ["1.0.0-1a", "1.0.0-0b", 1],
+            ["1.0.0-12", "1.0.0-a", -1],
+            ["1.0.0-a", "1.0.0-12", 1],
+            ["1.0.0-9", "1.0.0--a", -1],
+            ["1.0.0--a", "1.0.0-9", 1]
+        ] as const) {
+            expect(Math.sign(new SemVer(left).compare(new SemVer(right)))).toBe(expected);
+        }
+    });
 });
+
+function expectTypeFailure(action: () => unknown, message: string): void {
+    let thrown: unknown;
+    try {
+        action();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TypeError);
+    expect(thrown).toMatchObject({ message });
+}
+
+function expectCodecFailure(
+    action: () => unknown,
+    code: AgentCoreError["code"],
+    message: string
+): void {
+    let thrown: unknown;
+    try {
+        action();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(AgentCoreError);
+    expect(thrown).toMatchObject({ code, message });
+}
 
 function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
     let failure: unknown;

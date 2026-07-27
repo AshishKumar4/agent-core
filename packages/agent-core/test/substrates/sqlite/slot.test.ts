@@ -239,7 +239,174 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
             })
         );
     });
+
+    test("accepts schema DDL surrounded by whitespace", { tags: "p1" }, () => {
+        const database = new SchemaTamperSqlite();
+        new SqliteWorkspaceSlotStore(owner, database);
+        database.rewrite = (value) => `   ${value}\n  `;
+
+        const reopened = new SqliteWorkspaceSlotStore(owner, database);
+        expect(reopened.revision().value).toBe(0);
+    });
+
+    test("rejects schema DDL that drops a structural comma", { tags: "p1" }, () => {
+        const database = new SchemaTamperSqlite();
+        new SqliteWorkspaceSlotStore(owner, database);
+        database.rewrite = (value) =>
+            value.replace("CHECK (singleton = 1),", "CHECK (singleton = 1)");
+
+        expect(() => new SqliteWorkspaceSlotStore(owner, database)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "SQLite Slot schema object facet_slot_schema is malformed"
+            })
+        );
+    });
+
+    test("rejects a declaration row substituted for another Slot", { tags: "p0" }, () => {
+        const database = new RowRedirectSqlite();
+        const store = new SqliteWorkspaceSlotStore(owner, database);
+        store.install(slot());
+        store.install(neighbouringSlot());
+        database.redirect = {
+            fragment: "FROM facet_slots WHERE name = ?",
+            binding: "dashboard.panel"
+        };
+
+        expect(() => store.slot(slotName)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "SQLite Slot declaration projection does not match codec bytes"
+            })
+        );
+    });
+
+    test("rejects an entry row substituted for another entry", { tags: "p0" }, () => {
+        const database = new RowRedirectSqlite();
+        const store = new SqliteWorkspaceSlotStore(owner, database);
+        store.install(slot());
+        const first = entry("workspace:first", 1, { title: "First" });
+        const second = entry("workspace:second", 2, { title: "Second" });
+        store.contribute(first);
+        store.contribute(second);
+        database.redirect = {
+            fragment: "FROM facet_slot_entries WHERE id = ?",
+            binding: second.id.value
+        };
+
+        expect(() =>
+            store.transaction((transaction) => store.loadEntry(transaction, first.id))
+        ).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "SQLite Slot entry projection does not match codec bytes"
+            })
+        );
+    });
+
+    test("fails closed when an inserted declaration is unreadable", { tags: "p0" }, () => {
+        const database = new SlotVanishSqlite();
+        const store = new SqliteWorkspaceSlotStore(owner, database);
+        database.vanish = true;
+
+        expect(() => store.install(slot())).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Slot declaration dashboard.card is immutable"
+            })
+        );
+        database.vanish = false;
+        expect(store.revision().value).toBe(0);
+        expect(store.slot(slotName)).toBeUndefined();
+    });
+
+    test("rejects a foreign transaction handle inside its own transaction", { tags: "p0" }, () => {
+        const foreign = new TestSqlite();
+        new SqliteWorkspaceSlotStore(new WorkspaceId("slot-foreign-owner"), foreign);
+        const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
+
+        expect(() => store.transaction(() => store.loadRevision(foreign))).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "SQLite Slot access requires its owning transaction"
+            })
+        );
+    });
+
+    test("compares every declaration byte at equal encoded length", { tags: "p0" }, () => {
+        const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
+        store.install(slot());
+        const renamed = new SlotDeclaration(
+            slotName,
+            new JsonSchema({
+                type: "object",
+                required: ["titel"],
+                properties: { titel: { type: "string" } },
+                additionalProperties: false
+            }),
+            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+        );
+        expect(SlotDeclaration.encode(renamed).byteLength).toBe(
+            SlotDeclaration.encode(slot()).byteLength
+        );
+
+        expect(() => store.install(renamed)).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Slot declaration dashboard.card is immutable"
+            })
+        );
+        expect(store.revision().value).toBe(1);
+        expect(store.slot(slotName)?.entrySchema.accepts({ title: "kept" })).toBe(true);
+    });
 });
+
+function neighbouringSlot(): SlotDeclaration {
+    return new SlotDeclaration(
+        new SlotName("dashboard.panel"),
+        new JsonSchema({
+            type: "object",
+            required: ["title"],
+            properties: { title: { type: "string" } },
+            additionalProperties: false
+        }),
+        new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+    );
+}
+
+class SchemaTamperSqlite extends TestSqlite {
+    public rewrite: ((value: string) => string) | undefined;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        const rewrite = this.rewrite;
+        if (rewrite === undefined || !statement.includes("FROM sqlite_master")) return rows;
+        return rows.map((row) => {
+            const sql = row["sql"];
+            return typeof sql === "string" ? { ...row, sql: rewrite(sql) } : row;
+        });
+    }
+}
+
+class RowRedirectSqlite extends TestSqlite {
+    public redirect: { readonly fragment: string; readonly binding: SqliteValue } | undefined;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const redirect = this.redirect;
+        return redirect === undefined || !statement.includes(redirect.fragment)
+            ? super.all(statement, bindings)
+            : super.all(statement, [redirect.binding]);
+    }
+}
+
+class SlotVanishSqlite extends TestSqlite {
+    public vanish = false;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        if (this.vanish && statement.includes("FROM facet_slots WHERE name = ?")) return [];
+        return super.all(statement, bindings);
+    }
+}
 
 class MarkerTamperSqlite extends TestSqlite {
     public marker: SqliteRow | "missing" | undefined;

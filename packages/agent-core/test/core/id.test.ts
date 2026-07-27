@@ -51,4 +51,37 @@ describe("TextId", () => {
         expect(id.equals(new SecondId("id"))).toBe(false);
         expect(id.equals(new FirstChildId("id"))).toBe(false);
     });
+
+    test("admits the exact maximum length and names the identifier", { tags: "p1" }, () => {
+        const longest = "x".repeat(256);
+
+        expect(new FirstId(longest).value).toBe(longest);
+        expectTypeFailure(
+            () => new FirstId("x".repeat(257)),
+            "First ID must contain between 1 and 256 characters"
+        );
+        expectTypeFailure(
+            () => new SecondId(""),
+            "Second ID must contain between 1 and 256 characters"
+        );
+    });
+
+    test("rejects absent comparands without probing brand slots", { tags: "p1" }, () => {
+        const id = new FirstId("id");
+
+        expect(id.equals(undefined as unknown as TextId)).toBe(false);
+        expect(id.equals("id" as unknown as TextId)).toBe(false);
+        expect(id.equals(1 as unknown as TextId)).toBe(false);
+    });
 });
+
+function expectTypeFailure(action: () => unknown, message: string): void {
+    let thrown: unknown;
+    try {
+        action();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TypeError);
+    expect(thrown).toMatchObject({ message });
+}

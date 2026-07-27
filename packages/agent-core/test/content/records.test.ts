@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { MediaHint } from "../../src/content/media";
+import { ByteRange } from "../../src/content/range";
 import {
     ContentOwnerEdge,
     requireCollectionTime,
@@ -20,6 +21,7 @@ import {
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
+import { expectAgentCoreDiagnostic } from "./retention-contract";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const digest = Digest.sha256(encode("record"));
@@ -44,6 +46,14 @@ function jsonObject(value: JsonValue): JsonObject {
 
 function envelope(bytes: Uint8Array): JsonObject {
     return jsonObject(decodeCanonicalJson(bytes));
+}
+
+function member(value: JsonObject, key: string): JsonObject {
+    const nested = value[key];
+    if (nested === undefined) {
+        throw new TypeError(`Expected JSON member ${key}`);
+    }
+    return jsonObject(nested);
 }
 
 function withPayload(bytes: Uint8Array, payload: JsonValue): Uint8Array {
@@ -338,5 +348,133 @@ describe("content value contracts", () => {
         expect(() => state.close(new Date(9))).toThrow(TypeError);
         expect(() => state.isActive(new Date(-1))).toThrow(TypeError);
         expect(() => state.matches({ ...binding, expiresAt: new Date(-1) })).toThrow(TypeError);
+    });
+});
+
+describe("content record diagnostics", () => {
+    const statBytes = ContentStat.encode(new ContentStat(ref, digest, 6, new MediaHint("plain")));
+    const ownerEdge = new ContentOwnerEdge(tenant, actor, "record:owner", ref);
+    const edgeBytes = ContentOwnerEdge.encode(ownerEdge);
+    const leaseBytes = TransientContentLeaseState.encode(
+        new TransientContentLeaseState(
+            tenant,
+            actor,
+            Digest.sha256(encode("diagnostic-envelope")),
+            ref,
+            digest,
+            new Date(10),
+            new Date(30)
+        )
+    );
+
+    test("names the malformed-payload diagnostic for every rejected field", { tags: "p1" }, () => {
+        const statPayload = member(envelope(statBytes), "payload");
+        const edgePayload = member(envelope(edgeBytes), "payload");
+        const edgeActor = member(edgePayload, "actor");
+        const leasePayload = member(envelope(leaseBytes), "payload");
+        const leaseActor = member(leasePayload, "actor");
+        const cases: readonly {
+            readonly decode: (bytes: Uint8Array) => unknown;
+            readonly bytes: Uint8Array;
+            readonly message: string;
+            readonly payloads: readonly JsonValue[];
+        }[] = [
+            {
+                decode: ContentStat.decode,
+                bytes: statBytes,
+                message: "Content stat payload is malformed",
+                payloads: [
+                    null,
+                    { ...statPayload, digest: 1 },
+                    { ...statPayload, ref: 1 },
+                    { ...statPayload, size: "6" }
+                ]
+            },
+            {
+                decode: ContentOwnerEdge.decode,
+                bytes: edgeBytes,
+                message: "Content owner edge payload is malformed",
+                payloads: [
+                    null,
+                    { ...edgePayload, actor: { ...edgeActor, id: 1 } },
+                    { ...edgePayload, actor: { ...edgeActor, kind: "unknown" } },
+                    { ...edgePayload, ownerKey: 1 },
+                    { ...edgePayload, ref: 1 },
+                    { ...edgePayload, tenant: 1 }
+                ]
+            },
+            {
+                decode: TransientContentLeaseState.decode,
+                bytes: leaseBytes,
+                message: "Transient content lease payload is malformed",
+                payloads: [
+                    null,
+                    { ...leasePayload, actor: { ...leaseActor, id: 1 } },
+                    { ...leasePayload, actor: { ...leaseActor, kind: "unknown" } },
+                    { ...leasePayload, acquiredAt: "10" },
+                    { ...leasePayload, closedAt: false },
+                    { ...leasePayload, digest: 1 },
+                    { ...leasePayload, envelopeDigest: 1 },
+                    { ...leasePayload, expiresAt: "30" },
+                    { ...leasePayload, ref: 1 },
+                    { ...leasePayload, tenant: 1 }
+                ]
+            }
+        ];
+
+        for (const codec of cases) {
+            for (const payload of codec.payloads) {
+                expectAgentCoreDiagnostic(
+                    () => codec.decode(withPayload(codec.bytes, payload)),
+                    "codec.invalid",
+                    codec.message
+                );
+            }
+        }
+    });
+
+    test("admits owner keys and media types at their exact maximum", { tags: "p2" }, () => {
+        const ownerKey = "x".repeat(512);
+        const mediaType = "x".repeat(255);
+
+        expect(new ContentOwnerEdge(tenant, actor, ownerKey, ref).ownerKey).toBe(ownerKey);
+        expect(new MediaHint(mediaType).mediaType).toBe(mediaType);
+        expect(() => new ContentOwnerEdge(tenant, actor, `${ownerKey}x`, ref)).toThrow(TypeError);
+        expect(() => new MediaHint(`${mediaType}x`)).toThrow(TypeError);
+    });
+
+    test("separates owner edge identity on every field", { tags: "p1" }, () => {
+        const otherDigest = Digest.sha256(encode("other-record"));
+        const differing: readonly ContentOwnerEdge[] = [
+            new ContentOwnerEdge(new TenantId("tenant-other"), actor, "record:owner", ref),
+            new ContentOwnerEdge(
+                tenant,
+                new ActorRef("workspace", new ActorId("actor-other")),
+                "record:owner",
+                ref
+            ),
+            new ContentOwnerEdge(tenant, actor, "record:other", ref),
+            new ContentOwnerEdge(tenant, actor, "record:owner", ContentRef.fromDigest(otherDigest))
+        ];
+
+        expect(ownerEdge.equals(new ContentOwnerEdge(tenant, actor, "record:owner", ref))).toBe(
+            true
+        );
+        for (const other of differing) {
+            expect(ownerEdge.equals(other)).toBe(false);
+            expect(other.equals(ownerEdge)).toBe(false);
+        }
+    });
+
+    test("names the out-of-bounds byte range diagnostic exactly", { tags: "p2" }, () => {
+        const bytes = encode("abc");
+        for (const range of [ByteRange.from(4), ByteRange.slice(2, 2), ByteRange.slice(0, 4)]) {
+            expectAgentCoreDiagnostic(
+                () => range.read(bytes),
+                "content.invalid-range",
+                "Byte range exceeds content bounds"
+            );
+        }
+        expect(ByteRange.slice(0, 3).read(bytes)).toEqual(bytes);
     });
 });

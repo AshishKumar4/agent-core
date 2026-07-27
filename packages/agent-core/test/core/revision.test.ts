@@ -37,6 +37,24 @@ describe("Revision", () => {
         expect(Revision.initial().equals(counterfeit)).toBe(false);
         expect(Revision.initial().equals(null as unknown as Revision)).toBe(false);
     });
+
+    test("recognizes only brands minted by the exact Revision class", { tags: "p0" }, () => {
+        class DerivedRevision extends Revision {}
+
+        expect(Revision.isExact(Revision.initial())).toBe(true);
+        expect(Revision.isExact(new Revision(7))).toBe(true);
+        expect(Revision.isExact(new DerivedRevision(1))).toBe(false);
+        expect(Revision.isExact(Object.create(Revision.prototype))).toBe(false);
+        expect(Revision.isExact({ value: 0 })).toBe(false);
+        expect(Revision.isExact(null)).toBe(false);
+        expect(Revision.isExact(0)).toBe(false);
+    });
+
+    test("rejects absent comparands without probing brand slots", { tags: "p1" }, () => {
+        expect(Revision.initial().equals(undefined as unknown as Revision)).toBe(false);
+        expect(Revision.initial().equals(1 as unknown as Revision)).toBe(false);
+        expect(Revision.initial().equals("0" as unknown as Revision)).toBe(false);
+    });
 });
 
 function expectOperationalError(action: () => unknown, code: AgentCoreError["code"]): void {

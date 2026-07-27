@@ -13,11 +13,20 @@ import {
     at,
     bindingFor,
     contentOwner,
+    expectAgentCoreDiagnostic,
     expectAgentCoreError,
-    expectAgentCoreRejection
+    expectAgentCoreRejection,
+    expectAgentCoreRejectionDiagnostic
 } from "./retention-contract";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
+
+function defined<Value>(value: Value | undefined): Value {
+    if (value === undefined) {
+        throw new TypeError("Expected a defined value");
+    }
+    return value;
+}
 
 async function populatedSnapshot(): Promise<MemoryContentSnapshot> {
     const store = new MemoryContentStore();
@@ -200,6 +209,181 @@ describe("MemoryContentStore snapshot validation", () => {
         expect(clone.snapshot()).toEqual(restored.snapshot());
         expect(clone.snapshot()).not.toBe(restored.snapshot());
     });
+
+    test("names every snapshot restoration diagnostic exactly", { tags: "p0" }, async () => {
+        const snapshot = await populatedSnapshot();
+        const owner = contentOwner();
+        const row = defined(snapshot.content[0]);
+        const edgeBytes = defined(snapshot.edges[0]);
+        const relation = defined(snapshot.relations[0]);
+        const leaseBytes = defined(snapshot.leases[0]);
+        const storedLease = TransientContentLeaseState.decode(leaseBytes);
+        const foreignEdge = new ContentOwnerEdge(
+            new TenantId("foreign-tenant"),
+            owner.actor,
+            "foreign-edge",
+            new ContentRef(relation.ref)
+        );
+        const foreignLease = new TransientContentLeaseState(
+            new TenantId("foreign-tenant"),
+            storedLease.actor,
+            storedLease.envelopeDigest,
+            storedLease.ref,
+            storedLease.digest,
+            storedLease.acquiredAt,
+            storedLease.expiresAt
+        );
+        const cases: readonly {
+            readonly corruption: MemoryContentSnapshot;
+            readonly message: string;
+        }[] = [
+            {
+                corruption: { ...snapshot, version: 2 } as unknown as MemoryContentSnapshot,
+                message: "Memory content snapshot is malformed"
+            },
+            {
+                corruption: { ...snapshot, content: [row, row] },
+                message: "Duplicate content snapshot row"
+            },
+            {
+                corruption: { ...snapshot, content: [{ ...row, ref: "bad" }] },
+                message: "Memory content snapshot is malformed"
+            },
+            {
+                corruption: { ...snapshot, content: [{ ...row, bytes: encode("tampered") }] },
+                message: "Stored content or retention state is malformed"
+            },
+            {
+                corruption: { ...snapshot, edges: ["not-bytes" as unknown as Uint8Array] },
+                message: "Malformed owner edge snapshot"
+            },
+            {
+                corruption: { ...snapshot, edges: [edgeBytes, edgeBytes] },
+                message: "Duplicate owner edge snapshot"
+            },
+            {
+                corruption: { ...snapshot, edges: [ContentOwnerEdge.encode(foreignEdge)] },
+                message: "Stored content state has foreign Actor or Tenant ownership"
+            },
+            {
+                corruption: { ...snapshot, relations: [{ ...relation, unownedSince: -1 }] },
+                message: "Malformed content relation snapshot"
+            },
+            {
+                corruption: { ...snapshot, relations: [relation, relation] },
+                message: "Malformed content relation snapshot"
+            },
+            {
+                corruption: { ...snapshot, leases: ["not-bytes" as unknown as Uint8Array] },
+                message: "Malformed lease snapshot"
+            },
+            {
+                corruption: { ...snapshot, leases: [leaseBytes, leaseBytes] },
+                message: "Duplicate lease snapshot"
+            },
+            {
+                corruption: {
+                    ...snapshot,
+                    leases: [TransientContentLeaseState.encode(foreignLease)]
+                },
+                message: "Stored content state has foreign Actor or Tenant ownership"
+            }
+        ];
+
+        for (const entry of cases) {
+            expectAgentCoreDiagnostic(
+                () => MemoryContentStore.restore(entry.corruption),
+                "codec.invalid",
+                entry.message
+            );
+        }
+
+        for (const restore of [
+            () =>
+                MemoryContentRetentionState.restore(
+                    new TenantId("foreign-tenant"),
+                    owner.actor,
+                    snapshot
+                ),
+            () =>
+                MemoryContentRetentionState.restore(
+                    owner.tenant,
+                    owner.actor,
+                    new MemoryContentStore().snapshot()
+                )
+        ]) {
+            expectAgentCoreDiagnostic(
+                restore,
+                "codec.invalid",
+                "Memory content snapshot belongs to a different Actor or Tenant"
+            );
+        }
+    });
+
+    test("names every restored-state validation diagnostic exactly", { tags: "p0" }, async () => {
+        const snapshot = await populatedSnapshot();
+        const leaseSnapshot = await leaseOnlySnapshot();
+        const owner = contentOwner();
+        const relation = defined(snapshot.relations[0]);
+        const missingRef = ContentRef.fromDigest(Digest.sha256(encode("missing-owned-content")));
+        const orphanEdge = new ContentOwnerEdge(
+            owner.tenant,
+            owner.actor,
+            "orphan-owner",
+            missingRef
+        );
+        const unboundStore = new MemoryContentStore();
+        const unboundPut = await unboundStore.put(encode("unbound-relation"));
+        const unbound = unboundStore.snapshot();
+
+        expectAgentCoreDiagnostic(
+            () =>
+                MemoryContentStore.restore({
+                    ...snapshot,
+                    relations: [{ ...relation, unownedSince: 10 }]
+                }),
+            "codec.invalid",
+            "Owned content relation is malformed"
+        );
+        expectAgentCoreDiagnostic(
+            () =>
+                MemoryContentStore.restore({
+                    ...snapshot,
+                    content: [],
+                    edges: [ContentOwnerEdge.encode(orphanEdge)],
+                    relations: [{ ref: missingRef.value, unownedSince: null }],
+                    leases: []
+                }),
+            "codec.invalid",
+            "Owned content relation is malformed"
+        );
+        expectAgentCoreDiagnostic(
+            () =>
+                MemoryContentStore.restore({
+                    ...snapshot,
+                    content: [],
+                    edges: [],
+                    relations: [{ ref: missingRef.value, unownedSince: 10 }],
+                    leases: []
+                }),
+            "codec.invalid",
+            "Content relation is malformed"
+        );
+        expectAgentCoreDiagnostic(
+            () => MemoryContentStore.restore({ ...leaseSnapshot, relations: [] }),
+            "codec.invalid",
+            "Transient content lease storage is malformed"
+        );
+        expectAgentCoreDiagnostic(
+            () =>
+                MemoryContentStore.restore({
+                    ...unbound,
+                    relations: [{ ref: unboundPut.ref.value, unownedSince: 10 }]
+                }),
+            "protocol.invalid-state",
+            "Memory content storage is not bound to an Actor and Tenant"
+        );
+    });
 });
 
 describe("MemoryContentStore transaction and lease isolation", () => {
@@ -285,6 +469,119 @@ describe("MemoryContentStore transaction and lease isolation", () => {
             retention.collect(transaction, { allowsCollection: () => true }, at(30))
         );
         expectAgentCoreError(() => lease!.read(), "codec.invalid");
+    });
+
+    test("names every transaction and retention diagnostic exactly", { tags: "p1" }, async () => {
+        const owner = contentOwner();
+        const store = new MemoryContentStore();
+        const foreignStore = new MemoryContentStore();
+        const retention = store.retention(owner.tenant, owner.actor);
+        const foreignRetention = foreignStore.retention(owner.tenant, owner.actor);
+        const stored = await store.put(encode("diagnostics"));
+        const edge = new ContentOwnerEdge(owner.tenant, owner.actor, "diagnostics", stored.ref);
+        const missingRef = ContentRef.fromDigest(Digest.sha256(encode("diagnostics-missing")));
+
+        expectAgentCoreDiagnostic(
+            () => new MemoryContentStore().transaction(() => undefined),
+            "protocol.invalid-state",
+            "Memory content storage is not bound to an Actor and Tenant"
+        );
+        expectAgentCoreDiagnostic(
+            () => store.retention(new TenantId("foreign-tenant"), owner.actor),
+            "protocol.invalid-state",
+            "Memory content storage is bound to a different Actor or Tenant"
+        );
+
+        let captured: MemoryContentRetentionState | undefined;
+        store.transaction((transaction) => {
+            captured = transaction;
+            expectAgentCoreDiagnostic(
+                () => store.transaction(() => undefined),
+                "protocol.invalid-state",
+                "Nested Memory content transactions are not supported"
+            );
+            expectAgentCoreDiagnostic(
+                () =>
+                    foreignRetention.collect(transaction, { allowsCollection: () => true }, at(10)),
+                "protocol.invalid-state",
+                "Memory content transaction belongs to a different store"
+            );
+            retention.retain(transaction, edge, at(10));
+            expectAgentCoreDiagnostic(
+                () =>
+                    retention.retain(
+                        transaction,
+                        new ContentOwnerEdge(owner.tenant, owner.actor, "diagnostics", missingRef),
+                        at(11)
+                    ),
+                "protocol.invalid-state",
+                "Content owner key is already retained: diagnostics"
+            );
+            expectAgentCoreDiagnostic(
+                () =>
+                    retention.retain(
+                        transaction,
+                        new ContentOwnerEdge(
+                            owner.tenant,
+                            owner.actor,
+                            "diagnostics-missing",
+                            missingRef
+                        ),
+                        at(12)
+                    ),
+                "content.not-found",
+                `Content not found: ${missingRef.value}`
+            );
+        });
+        expectAgentCoreDiagnostic(
+            () => defined(captured).snapshot(),
+            "actor.closed",
+            "Memory content transaction is no longer active"
+        );
+
+        const access = store.transient(owner.tenant, owner.actor, () => at(10));
+        const binding = bindingFor("diagnostic-lease", "diagnostic-lease", at(50));
+        await expectAgentCoreRejectionDiagnostic(
+            access.acquire(
+                { ...binding, tenant: new TenantId("foreign-tenant") },
+                encode("diagnostic-lease")
+            ),
+            "protocol.invalid-state",
+            "Transient content binding belongs to a different Tenant"
+        );
+        await expectAgentCoreRejectionDiagnostic(
+            access.acquire(
+                { ...binding, actor: new ActorRef("workspace", new ActorId("foreign-actor")) },
+                encode("diagnostic-lease")
+            ),
+            "protocol.invalid-state",
+            "Transient content binding belongs to a different Actor"
+        );
+
+        const lease = defined(await access.acquire(binding, encode("diagnostic-lease")));
+        const conflicting = Digest.sha256(encode("diagnostic-conflict"));
+        await expectAgentCoreRejectionDiagnostic(
+            access.acquire(
+                { ...binding, ref: ContentRef.fromDigest(conflicting), digest: conflicting },
+                encode("diagnostic-conflict")
+            ),
+            "protocol.invalid-state",
+            "Active transient lease key is bound to different content"
+        );
+
+        store.transaction((transaction) =>
+            retention.collect(transaction, { allowsCollection: () => true }, at(60))
+        );
+        expectAgentCoreDiagnostic(
+            () => lease.read(),
+            "codec.invalid",
+            "Transient content lease is missing"
+        );
+        await expectAgentCoreRejectionDiagnostic(
+            store.get(binding.ref),
+            "content.not-found",
+            `Content not found: ${binding.ref.value}`
+        );
     });
 
     test("uses the default observation clock for transient acquisition", async () => {

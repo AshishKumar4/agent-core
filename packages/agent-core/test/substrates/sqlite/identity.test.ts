@@ -20,7 +20,11 @@ import {
     Workspace,
     WorkspaceId
 } from "../../../src/identity";
-import { SqliteIdentityReader, type SqliteValue } from "../../../src/substrates/sqlite";
+import {
+    SqliteIdentityReader,
+    type SqliteRow,
+    type SqliteValue
+} from "../../../src/substrates/sqlite";
 import {
     initializeSqliteIdentitySchema,
     sqliteScopeKey,
@@ -290,10 +294,69 @@ describe("SQLite identity reader", () => {
             })
         );
     });
+
+    test("rejects a key column that drifts from the record it stores", { tags: "p0" }, () => {
+        const keyDriftCases: readonly KeyDriftCase[] = [
+            { title: "tenant", column: "id", load: (reader) => reader.loadTenant(tenantAId) },
+            { title: "team", column: "id", load: (reader) => reader.loadTeam(teamId) },
+            { title: "project", column: "id", load: (reader) => reader.loadProject(projectId) },
+            {
+                title: "workspace",
+                column: "id",
+                load: (reader) => reader.loadWorkspace(workspaceId)
+            },
+            {
+                title: "guest trust",
+                column: "id",
+                load: (reader) => reader.loadGuestTrust(trustId)
+            },
+            { title: "role", column: "name", load: (reader) => reader.loadRole(roleName) },
+            {
+                title: "membership",
+                column: "id",
+                load: (reader) => reader.loadMembership(membershipId)
+            }
+        ];
+
+        for (const item of keyDriftCases) {
+            const database = seed(new TamperedProjectionSqlite());
+            const reader = new SqliteIdentityReader(database);
+            expect(item.load(reader), item.title).toBeDefined();
+            database.replacement = [item.column, "drifted-key"];
+            expect(() => item.load(reader), item.title).toThrow(corruptRecord);
+        }
+    });
+
+    test("fails closed on a text column that is not a string", { tags: "p1" }, () => {
+        const database = seed(new TamperedProjectionSqlite());
+        database.replacement = ["kind", null];
+
+        expect(() => new SqliteIdentityReader(database).loadTenant(tenantAId)).toThrow(
+            corruptRecord
+        );
+    });
+
+    test("fails closed on an absent nullable text column", { tags: "p1" }, () => {
+        const database = seed(new TamperedProjectionSqlite());
+        database.dropped = "project_id";
+
+        expect(() => new SqliteIdentityReader(database).loadWorkspace(workspaceId)).toThrow(
+            corruptRecord
+        );
+    });
 });
 
+interface KeyDriftCase {
+    readonly title: string;
+    readonly column: string;
+    readonly load: (reader: SqliteIdentityReader) => unknown;
+}
+
 function seededDatabase(): TestSqlite {
-    const database = new TestSqlite();
+    return seed(new TestSqlite());
+}
+
+function seed<Database extends TestSqlite>(database: Database): Database {
     initializeSqliteIdentitySchema(database);
     database.run(
         `INSERT INTO tenant_identities (id, kind, status, revision, record)
@@ -360,6 +423,24 @@ function seededDatabase(): TestSqlite {
         ]
     );
     return database;
+}
+
+class TamperedProjectionSqlite extends TestSqlite {
+    public replacement: readonly [string, SqliteValue] | undefined;
+    public dropped: string | undefined;
+
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        const replacement = this.replacement;
+        const dropped = this.dropped;
+        if (replacement === undefined && dropped === undefined) return rows;
+        return rows.map((row) => {
+            const kept: SqliteRow = Object.fromEntries(
+                Object.entries(row).filter(([column]) => column !== dropped)
+            );
+            return replacement === undefined ? kept : { ...kept, [replacement[0]]: replacement[1] };
+        });
+    }
 }
 
 class SchemaFaultSqlite extends TestSqlite {

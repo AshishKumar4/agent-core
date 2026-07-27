@@ -1,11 +1,18 @@
 import { describe, expect, test } from "vitest";
-import { ActorFence, ActorId, ActorRecoveryState, ActorRef } from "../../src/actors";
+import {
+    ActorFence,
+    ActorId,
+    ActorRecoveryState,
+    ActorRef,
+    type ActorKind
+} from "../../src/actors";
 import { ActorId as CanonicalActorId } from "../../src/actors/id";
 import { encodeCanonicalJson, type JsonValue, TextId } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 
 const actorId = new ActorId("actor-codec");
 const actor = new ActorRef("run", actorId);
+const ACTOR_KINDS: readonly ActorKind[] = ["tenant", "workspace", "run", "environment", "slate"];
 
 class WrongActorId extends TextId {
     public constructor(value: string) {
@@ -109,6 +116,104 @@ describe("ActorRecoveryState codec", () => {
         expectOperationalError(() => exhaustedRecoveries.recover(), "actor.closed");
         expect(() => new ActorFence(actor, -1)).toThrow(/non-negative safe integer/);
     });
+
+    test("names the exhausted counter when a fence cannot advance", { tags: "p1" }, () => {
+        const exhaustedEpoch = new ActorRecoveryState(actor, Number.MAX_SAFE_INTEGER, 1);
+        const exhaustedRecoveries = new ActorRecoveryState(actor, 0, Number.MAX_SAFE_INTEGER);
+
+        expectNamedFailure(
+            () => exhaustedEpoch.advance(),
+            "actor.closed",
+            "Actor fence epoch is exhausted"
+        );
+        expectNamedFailure(
+            () => exhaustedEpoch.recover(),
+            "actor.closed",
+            "Actor fence epoch is exhausted"
+        );
+        expectNamedFailure(
+            () => exhaustedRecoveries.recover(),
+            "actor.closed",
+            "Actor recovery count is exhausted"
+        );
+    });
+
+    test("round-trips recovery state for every Actor kind", { tags: "p0" }, () => {
+        for (const kind of ACTOR_KINDS) {
+            const ref = new ActorRef(kind, new ActorId(`actor-${kind}`));
+            const decoded = ActorRecoveryState.decode(
+                ActorRecoveryState.encode(new ActorRecoveryState(ref, 3, 2))
+            );
+
+            expect(decoded.actor.kind).toBe(kind);
+            expect(decoded.actor.id.value).toBe(`actor-${kind}`);
+            expect(decoded.epoch).toBe(3);
+            expect(decoded.recoveries).toBe(2);
+            expect(decoded.fence.matches(ref, 3)).toBe(true);
+            expect(decoded.fence.matches(ref, 4)).toBe(false);
+        }
+    });
+
+    test("rejects recovery payloads whose Actor record is not exact", { tags: "p0" }, () => {
+        const hostile: readonly unknown[] = [
+            null,
+            [],
+            "payload",
+            { actor: { kind: "run", id: "actor-codec", extra: 1 }, epoch: 7, recoveries: 3 },
+            { actor: { kind: "run" }, epoch: 7, recoveries: 3 },
+            { actor: { id: "actor-codec" }, epoch: 7, recoveries: 3 },
+            { actor: {}, epoch: 7, recoveries: 3 },
+            { actor: { kind: "run", id: 5 }, epoch: 7, recoveries: 3 },
+            { actor: { kind: "", id: "actor-codec" }, epoch: 7, recoveries: 3 },
+            { actor: "run", epoch: 7, recoveries: 3 },
+            { actor: { kind: "run", id: "actor-codec" }, epoch: 7 },
+            { actor: { kind: "run", id: "actor-codec" }, epoch: -1, recoveries: 3 },
+            { actor: { kind: "run", id: "actor-codec" }, epoch: 7, recoveries: 0 }
+        ];
+
+        for (const payload of hostile) {
+            expectNamedFailure(
+                () => ActorRecoveryState.codec.decode(envelope(payload)),
+                "codec.invalid",
+                "Actor recovery state payload is malformed"
+            );
+        }
+    });
+});
+
+describe("Actor identity", () => {
+    test("names Actor IDs in their own validation failures", { tags: "p1" }, () => {
+        expect(() => new ActorId("")).toThrow("Actor ID must contain between 1 and 256 characters");
+        expect(() => new ActorId("x".repeat(257))).toThrow(
+            "Actor ID must contain between 1 and 256 characters"
+        );
+        expect(new ActorId("x".repeat(256)).value).toHaveLength(256);
+    });
+
+    test("requires exact ActorId instances and closed Actor kinds", { tags: "p1" }, () => {
+        const message = "Actor reference requires a valid kind and exact Actor ID";
+        const impostors: readonly unknown[] = [
+            actorId.value,
+            null,
+            undefined,
+            { value: actorId.value },
+            new WrongActorId(actorId.value),
+            new DerivedActorId(actorId.value),
+            Object.create(ActorId.prototype) as object
+        ];
+
+        for (const kind of ACTOR_KINDS) {
+            const ref = new ActorRef(kind, new ActorId(`actor-${kind}`));
+            expect(ref.kind).toBe(kind);
+            expect(ref.equals(new ActorRef(kind, new ActorId(`actor-${kind}`)))).toBe(true);
+        }
+        for (const impostor of impostors) {
+            expect(() => Reflect.construct(ActorRef, ["run", impostor])).toThrow(message);
+        }
+        for (const kind of ["", "Run", "tenants", 5, null, undefined]) {
+            expect(() => Reflect.construct(ActorRef, [kind, actorId])).toThrow(message);
+        }
+    });
 });
 
 function envelope(payload: unknown): Uint8Array {
@@ -128,6 +233,23 @@ function expectOperationalError(action: () => unknown, code: AgentCoreError["cod
         expect(error).not.toBeInstanceOf(TypeError);
         expect((error as AgentCoreError).code).toBe(code);
     }
+}
+
+function expectNamedFailure(
+    action: () => unknown,
+    code: AgentCoreError["code"],
+    message: string
+): void {
+    try {
+        action();
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        expect(error).not.toBeInstanceOf(TypeError);
+        expect((error as AgentCoreError).code).toBe(code);
+        expect((error as AgentCoreError).message).toBe(message);
+        return;
+    }
+    throw new TypeError(`Expected an operational failure: ${code} ${message}`);
 }
 
 function malformedError(): AgentCoreError {

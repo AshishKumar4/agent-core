@@ -698,7 +698,57 @@ describe("SqliteInvocationMediationPersistence conflict and corruption taxonomy"
         ).toBe(true);
         expect(persistence.audit(database, record.id)?.id.equals(record.id)).toBe(true);
     });
+
+    test("rejects a replay revision row whose identity column disagrees", { tags: "p0" }, () => {
+        const database = new ReplayColumnTamperSqlite();
+        const persistence = new SqliteInvocationMediationPersistence(
+            database,
+            new SqliteProtocolPersistence(database)
+        );
+        const reserved = replay("sqlite-identity-column");
+        database.transaction(() => persistence.appendReplay(database, reserved));
+        expect(persistence.replayById(database, reserved.id)?.revision.value).toBe(0);
+
+        database.revisionIdentity = new Digest("d".repeat(64)).value;
+        expectExactError(
+            () => persistence.replayById(database, reserved.id),
+            "codec.invalid",
+            "Stored invocation mediation projection is corrupt"
+        );
+    });
+
+    test("rejects a non-text replay identity projection", { tags: "p1" }, () => {
+        const database = new ReplayColumnTamperSqlite();
+        const persistence = new SqliteInvocationMediationPersistence(
+            database,
+            new SqliteProtocolPersistence(database)
+        );
+        const reserved = replay("sqlite-identity-text");
+        database.transaction(() => persistence.appendReplay(database, reserved));
+
+        database.reservationIdentity = 7;
+        expectExactError(
+            () => persistence.replay(database, reserved.scope, reserved.requestKey),
+            "codec.invalid",
+            "Stored invocation mediation projection is corrupt"
+        );
+    });
 });
+
+class ReplayColumnTamperSqlite extends TestSqlite {
+    public revisionIdentity: SqliteValue | undefined;
+    public reservationIdentity: SqliteValue | undefined;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        const forged = statement.includes("FROM invocation_mediated_replay_revisions")
+            ? this.revisionIdentity
+            : statement.includes("FROM invocation_mediated_replay_identities")
+              ? this.reservationIdentity
+              : undefined;
+        return forged === undefined ? rows : rows.map((row) => ({ ...row, replay_id: forged }));
+    }
+}
 
 class RedirectingOutboxSqlite extends TestSqlite {
     public redirect: string | undefined;

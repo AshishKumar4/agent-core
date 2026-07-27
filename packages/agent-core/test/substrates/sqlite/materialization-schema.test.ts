@@ -21,6 +21,7 @@ import {
 } from "../../../src/definition";
 import { TenantId } from "../../../src/identity";
 import { SqliteMaterializationStore } from "../../../src/substrates";
+import type { SqliteRow, SqliteValue } from "../../../src/substrates";
 import { TestSqlite } from "../../helpers/sqlite";
 import { actorRef, digestOf } from "../../definition/materialization-store-contract";
 
@@ -542,7 +543,149 @@ describe("SQLite materialization schema", () => {
             })
         );
     });
+
+    test("compares marked schema SQL under exact whitespace normalization", { tags: "p1" }, () => {
+        const padded = new TestSqlite();
+        const paddedActor = actorRef("normalize-padded");
+        new SqliteMaterializationStore(padded, paddedActor);
+        recreateTable(padded, "definition_blueprints", (sql) => `${sql}   `);
+        expect(() => new SqliteMaterializationStore(padded, paddedActor)).not.toThrow();
+
+        const collapsed = new TestSqlite();
+        const collapsedActor = actorRef("normalize-collapsed");
+        new SqliteMaterializationStore(collapsed, collapsedActor);
+        recreateTable(collapsed, "definition_blueprints", (sql) => sql.replaceAll(/\s+/gu, " "));
+        expect(() => new SqliteMaterializationStore(collapsed, collapsedActor)).not.toThrow();
+
+        const stripped = new TestSqlite();
+        const strippedActor = actorRef("normalize-stripped");
+        new SqliteMaterializationStore(stripped, strippedActor);
+        recreateTable(stripped, "definition_blueprints", (sql) => sql.replaceAll("> 0", ">0"));
+        expect(() => new SqliteMaterializationStore(stripped, strippedActor)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): the marked definition materialization table definition_blueprints is malformed"
+            })
+        );
+    });
+
+    test("requires exactly one schema marker row without rewriting the extra one", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const actor = actorRef("marker-duplicate");
+        new SqliteMaterializationStore(database, actor);
+        database.run("PRAGMA ignore_check_constraints = ON", []);
+        database.run(
+            `INSERT INTO definition_materialization_schema (version, owner_kind, owner_id)
+             VALUES (?, ?, ?)`,
+            [3, actor.kind, actor.id.value]
+        );
+        database.run("PRAGMA ignore_check_constraints = OFF", []);
+
+        expect(() => new SqliteMaterializationStore(database, actor)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): the definition materialization schema version is unsupported"
+            })
+        );
+        expect(
+            database.all(
+                "SELECT version FROM definition_materialization_schema ORDER BY version",
+                []
+            )
+        ).toEqual([{ version: 2 }, { version: 3 }]);
+    });
+
+    test("names the marker as malformed when its row cannot be read", { tags: "p1" }, () => {
+        const database = new MarkerReadFaultSqlite();
+        const actor = actorRef("marker-unreadable");
+        new SqliteMaterializationStore(database, actor);
+        database.fault = true;
+
+        expect(() => new SqliteMaterializationStore(database, actor)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): the definition materialization schema marker is malformed"
+            })
+        );
+    });
+
+    test("scopes legacy composition detection to tables only", { tags: "p2" }, () => {
+        const database = new TestSqlite();
+        const actor = actorRef("legacy-scope");
+        new SqliteMaterializationStore(database, actor);
+        database.run("CREATE TABLE bystander (sentinel TEXT)", []);
+        database.run("CREATE INDEX composition_slot_bystander ON bystander (sentinel)", []);
+        database.run(
+            `CREATE TRIGGER composition_slot_bystander_trigger AFTER INSERT ON bystander
+             BEGIN SELECT 1; END`,
+            []
+        );
+
+        expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
+    });
+
+    test("rejects a sqlite_master sql column that is neither text nor null", { tags: "p1" }, () => {
+        const database = new SchemaRowFaultSqlite();
+        const actor = actorRef("sql-projection");
+        new SqliteMaterializationStore(database, actor);
+        database.rows = database
+            .all(
+                `SELECT name, type, tbl_name, sql FROM sqlite_master
+                 WHERE type IN ('table', 'index', 'trigger')`,
+                []
+            )
+            .map((row) => (row["name"] === "definition_blueprints" ? { ...row, sql: 1 } : row));
+
+        expect(() => new SqliteMaterializationStore(database, actor)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored materialization sql projection is malformed"
+            })
+        );
+    });
 });
+
+class MarkerReadFaultSqlite extends TestSqlite {
+    public fault = false;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        if (
+            this.fault &&
+            /FROM definition_materialization_schema ORDER BY version/u.test(statement)
+        ) {
+            throw new TypeError("Materialization schema marker is unreadable");
+        }
+        return super.all(statement, bindings);
+    }
+}
+
+class SchemaRowFaultSqlite extends TestSqlite {
+    public rows: readonly SqliteRow[] | undefined;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        return this.rows !== undefined && /FROM sqlite_master/u.test(statement)
+            ? this.rows
+            : super.all(statement, bindings);
+    }
+}
+
+function recreateTable(
+    database: TestSqlite,
+    table: string,
+    edit: (sql: string) => string
+): void {
+    const sql = database.all("SELECT sql FROM sqlite_master WHERE name = ?", [table])[0]?.["sql"];
+    if (typeof sql !== "string") throw new TypeError(`Missing SQL for ${table}`);
+    database.run(`DROP TABLE ${table}`, []);
+    database.run(edit(sql), []);
+}
 
 function supportedPlan(actor: ReturnType<typeof actorRef>, seed: string): MaterializationPlan {
     const origin = managedOrigin(seed);

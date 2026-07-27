@@ -61,6 +61,13 @@ describe("Slate profile composition", () => {
         await expect(backend.rollback({ slate: "slate", deployment: "deployment" })).rejects.toBe(
             stopped
         );
+        await expect(
+            backend.rollback({
+                slate: "slate",
+                deployment: "deployment",
+                expectedActiveDeployment: "expected-deployment"
+            })
+        ).rejects.toBe(stopped);
 
         expect(
             calls.map((call) => [
@@ -75,7 +82,8 @@ describe("Slate profile composition", () => {
             ["fork", "version", "workspace"],
             ["publish", "version", source],
             ["deploy", "publication", "production", "dispatch-mapping-key"],
-            ["rollback", "slate", "deployment", undefined]
+            ["rollback", "slate", "deployment", undefined],
+            ["rollback", "slate", "deployment", "expected-deployment"]
         ]);
     });
 

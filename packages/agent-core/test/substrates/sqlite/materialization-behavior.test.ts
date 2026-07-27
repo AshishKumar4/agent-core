@@ -563,7 +563,586 @@ describe("SQLite materialization store durability and ownership behavior", () =>
                 .map((value) => `${value.meta.name}@${value.meta.version.toString()}`)
         ).toEqual(["alpha@1.0.0", "alpha@2.0.0", "zeta@1.0.0"]);
     });
+
+    test("orders Blueprints canonically whatever order the database returns", { tags: "p1" }, () => {
+        const database = new ListRowsSqlite();
+        const store = new SqliteMaterializationStore(database, actorRef("blueprint-order"));
+        store.addBlueprint(blueprint("beta", "1.0.0", { tier: "beta-one" }));
+        store.addBlueprint(blueprint("alpha", "2.0.0", { tier: "alpha-two" }));
+        store.addBlueprint(blueprint("alpha", "1.0.0", { tier: "alpha-one" }));
+        database.table = "definition_blueprints";
+
+        for (const order of permutations(3)) {
+            database.order = order;
+            expect(
+                store
+                    .listBlueprints()
+                    .map((value) => `${value.meta.name}@${value.meta.version.toString()}`)
+            ).toEqual(["alpha@1.0.0", "alpha@2.0.0", "beta@1.0.0"]);
+        }
+    });
+
+    test("orders plans and generations canonically whatever order the database returns", { tags: "p1" }, () => {
+        const database = new ListRowsSqlite();
+        const actor = actorRef("listing-order");
+        const store = new SqliteMaterializationStore(database, actor);
+        const fixtures = [1, 2, 3].map((generation) =>
+            materializationState(actor, generation, `listing-order-${generation}`)
+        );
+        for (const fixture of fixtures) {
+            store.addPlan(fixture.plan);
+            installGeneration(store, fixture);
+        }
+        const expectedPlans = fixtures.map((fixture) => fixture.plan.id.value).sort();
+        const expectedGenerations = fixtures
+            .map((fixture) => fixture.materialization.generation.id.value)
+            .sort();
+
+        database.table = "definition_materialization_plans";
+        for (const order of permutations(3)) {
+            database.order = order;
+            expect(store.listPlans().map((plan) => plan.id.value)).toEqual(expectedPlans);
+        }
+
+        database.table = "definition_materialization_generations";
+        for (const order of permutations(3)) {
+            database.order = order;
+            expect(store.listGenerations().map((generation) => generation.id.value)).toEqual(
+                expectedGenerations
+            );
+        }
+    });
+
+    test("orders managed state by generation then logical key whatever order the database returns", { tags: "p1" }, () => {
+        const database = new ListRowsSqlite();
+        const actor = actorRef("managed-order");
+        const store = new SqliteMaterializationStore(database, actor);
+        const closures = [
+            twoRecordClosure(actor, 1, "managed-order-one", ["slot:a", "slot:c"]),
+            twoRecordClosure(actor, 2, "managed-order-two", ["slot:b", "slot:d"])
+        ];
+        for (const closure of closures) {
+            store.transaction((transaction) => {
+                for (const record of closure.records) {
+                    store.insertManagedState(transaction, record);
+                }
+                store.insertGeneration(transaction, closure.generation);
+            });
+        }
+        const expected = closures
+            .flatMap((closure) => closure.records)
+            .map((record) => `${record.generationId.value} ${record.logicalKey}`)
+            .sort();
+        database.table = "definition_managed_state";
+
+        for (const order of permutations(4)) {
+            database.order = order;
+            expect(
+                store
+                    .listManagedState()
+                    .map((record) => `${record.generationId.value} ${record.logicalKey}`)
+            ).toEqual(expected);
+        }
+    });
+
+    test("orders generation pointers by Actor then deployment for two live deployments", { tags: "p0" }, () => {
+        const database = new ListRowsSqlite();
+        const actor = actorRef("pointer-order");
+        const store = new SqliteMaterializationStore(database, actor);
+        const alternateId = DeploymentId.derive(tenantId, new DeploymentKey("alternate"));
+        const first = materializationState(actor, 1, "pointer-order-one");
+        const second = materializationState(
+            actor,
+            1,
+            "pointer-order-two",
+            "slot:pointer-order-two",
+            "pointer-order-two",
+            "alternate"
+        );
+        installGeneration(store, first);
+        installGeneration(store, second);
+        store.transaction((transaction) => {
+            expect(
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    undefined,
+                    MaterializationGenerationPointer.initial(
+                        actor,
+                        deploymentId,
+                        first.materialization.generation.id
+                    )
+                )
+            ).toBe(true);
+            expect(
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    alternateId,
+                    undefined,
+                    MaterializationGenerationPointer.initial(
+                        actor,
+                        alternateId,
+                        second.materialization.generation.id
+                    )
+                )
+            ).toBe(true);
+        });
+        const expected = [deploymentId.value, alternateId.value].sort();
+        database.table = "definition_materialization_pointers";
+
+        for (const order of permutations(2)) {
+            database.order = order;
+            expect(
+                store.listGenerationPointers().map((pointer) => pointer.deploymentId.value)
+            ).toEqual(expected);
+        }
+    });
+
+    test("reports repeated stored rows as a duplicate immutable key", { tags: "p1" }, () => {
+        const database = new ListRowsSqlite();
+        const store = new SqliteMaterializationStore(database, actorRef("duplicate-rows"));
+        store.addBlueprint(blueprint("solo", "1.0.0", { tier: "solo" }));
+        database.table = "definition_blueprints";
+        database.order = [0, 0];
+
+        expect(() => store.listBlueprints()).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored Blueprints contain a duplicate immutable key"
+            })
+        );
+    });
+
+    test("rejects a generation closure whose managed state repeats one logical key", { tags: "p1" }, () => {
+        const database = new ListRowsSqlite();
+        const actor = actorRef("closure-duplicate");
+        const store = new SqliteMaterializationStore(database, actor);
+        const closure = twoRecordClosure(actor, 1, "closure-duplicate", ["slot:a", "slot:b"]);
+        store.transaction((transaction) => {
+            for (const record of closure.records) store.insertManagedState(transaction, record);
+            store.insertGeneration(transaction, closure.generation);
+        });
+        database.table = "definition_managed_state";
+        database.order = [0, 0];
+
+        expect(() => store.getGeneration(closure.generation.id)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Materialization generation contains conflicting logical keys"
+            })
+        );
+    });
+
+    test("rejects managed state whose Actor differs from its own generation", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const owner = actorRef("closure-owner");
+        const store = new SqliteMaterializationStore(database, owner);
+        const fixture = materializationState(owner, 1, "closure-owner");
+        const actorPlan = fixture.plan.actors[0];
+        expect(actorPlan).toBeDefined();
+        if (actorPlan === undefined) return;
+        const projection = actorPlan.projections[0];
+        expect(projection).toBeDefined();
+        if (projection === undefined) return;
+        const generationId = fixture.materialization.generation.id;
+        const foreignRecord = ManagedStateRecord.fromProjection(
+            actorRef("closure-intruder", "workspace"),
+            actorPlan.origin,
+            generationId,
+            projection
+        );
+        const generation = new MaterializationGeneration({
+            actor: owner,
+            origin: actorPlan.origin,
+            actorPlanId: actorPlan.id,
+            managedRecordIds: [foreignRecord.id]
+        });
+        expect(generation.id.equals(generationId)).toBe(true);
+        insertManagedStateRow(database, foreignRecord);
+        insertGenerationRow(database, generation);
+
+        expect(() => store.getGeneration(generationId)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Managed state does not belong to its generation"
+            })
+        );
+        expect(database.all("SELECT actor_id FROM definition_managed_state", [])).toEqual([
+            { actor_id: "closure-intruder" }
+        ]);
+    });
+
+    test("rejects a foreign generation with an empty closure on restart", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const owner = actorRef("empty-closure-owner");
+        new SqliteMaterializationStore(database, owner);
+        const foreign = actorRef("empty-closure-intruder", "workspace");
+        const actorPlan = materializationState(foreign, 1, "empty-closure").plan.actors[0];
+        expect(actorPlan).toBeDefined();
+        if (actorPlan === undefined) return;
+        insertGenerationRow(
+            database,
+            new MaterializationGeneration({
+                actor: foreign,
+                origin: actorPlan.origin,
+                actorPlanId: actorPlan.id,
+                managedRecordIds: []
+            })
+        );
+
+        expect(() => new SqliteMaterializationStore(database, owner)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.invalid-state",
+                message: "Stored materialization generation belongs to a different Actor"
+            })
+        );
+        expect(
+            database.all("SELECT actor_id FROM definition_materialization_generations", [])
+        ).toEqual([{ actor_id: "empty-closure-intruder" }]);
+    });
+
+    test("rejects a drifted generation-pointer projection on restart", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const actor = actorRef("pointer-restart");
+        const store = new SqliteMaterializationStore(database, actor);
+        const fixture = materializationState(actor, 1, "pointer-restart");
+        installGeneration(store, fixture);
+        store.transaction((transaction) => {
+            expect(
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    undefined,
+                    MaterializationGenerationPointer.initial(
+                        actor,
+                        deploymentId,
+                        fixture.materialization.generation.id
+                    )
+                )
+            ).toBe(true);
+        });
+        const drifted = digestOf("pointer-restart-drift").value;
+        database.run("UPDATE definition_materialization_pointers SET generation_id = ?", [drifted]);
+
+        expect(() => new SqliteMaterializationStore(database, actor)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored generation-pointer projection does not match codec bytes"
+            })
+        );
+        expect(
+            database.all("SELECT generation_id FROM definition_materialization_pointers", [])
+        ).toEqual([{ generation_id: drifted }]);
+    });
+
+    test("rejects stored rows returned under a different immutable key", { tags: "p1" }, () => {
+        const database = new SubstituteRowSqlite();
+        const actor = actorRef("key-substitution");
+        const store = new SqliteMaterializationStore(database, actor);
+        const first = materializationState(actor, 1, "substitution-one");
+        const second = materializationState(actor, 2, "substitution-two");
+        store.addPlan(first.plan);
+        store.addPlan(second.plan);
+        installGeneration(store, first);
+        installGeneration(store, second);
+        const firstRecord = first.materialization.records[0];
+        const secondRecord = second.materialization.records[0];
+        expect(firstRecord).toBeDefined();
+        expect(secondRecord).toBeDefined();
+        if (firstRecord === undefined || secondRecord === undefined) return;
+        const planRows = database.all(
+            `SELECT id, blueprint_digest, package_lock_digest, config_digest, generation, record
+             FROM definition_materialization_plans WHERE id = ?`,
+            [second.plan.id.value]
+        );
+        const generationRows = database.all(
+            `SELECT id, actor_kind, actor_id, blueprint_digest, package_lock_digest,
+                    config_digest, generation, record
+             FROM definition_materialization_generations WHERE id = ?`,
+            [second.materialization.generation.id.value]
+        );
+        const stateRows = database.all(
+            `SELECT id, generation_id, actor_kind, actor_id, logical_key,
+                    record_kind, desired_digest, record
+             FROM definition_managed_state WHERE id = ?`,
+            [secondRecord.id.value]
+        );
+
+        database.rows = planRows;
+        database.pattern = /FROM definition_materialization_plans WHERE id = \?/u;
+        expect(() => store.getPlan(first.plan.id)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored materialization-plan key does not match codec bytes"
+            })
+        );
+
+        database.rows = generationRows;
+        database.pattern = /FROM definition_materialization_generations WHERE id = \?/u;
+        expect(() => store.getGeneration(first.materialization.generation.id)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored generation key does not match codec bytes"
+            })
+        );
+
+        database.rows = stateRows;
+        database.pattern = /FROM definition_managed_state WHERE id = \?/u;
+        expect(() => store.getManagedState(firstRecord.id)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored managed-state key does not match codec bytes"
+            })
+        );
+    });
+
+    test("rejects a generation pointer row returned for a different deployment", { tags: "p0" }, () => {
+        const database = new SubstituteRowSqlite();
+        const actor = actorRef("pointer-substitution");
+        const store = new SqliteMaterializationStore(database, actor);
+        const alternateId = DeploymentId.derive(tenantId, new DeploymentKey("alternate"));
+        const first = materializationState(actor, 1, "pointer-substitution-one");
+        const second = materializationState(
+            actor,
+            1,
+            "pointer-substitution-two",
+            "slot:pointer-substitution-two",
+            "pointer-substitution-two",
+            "alternate"
+        );
+        installGeneration(store, first);
+        installGeneration(store, second);
+        store.transaction((transaction) => {
+            for (const [target, fixture] of [
+                [deploymentId, first],
+                [alternateId, second]
+            ] as const) {
+                expect(
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        target,
+                        undefined,
+                        MaterializationGenerationPointer.initial(
+                            actor,
+                            target,
+                            fixture.materialization.generation.id
+                        )
+                    )
+                ).toBe(true);
+            }
+        });
+        const alternateRows = database.all(
+            `SELECT actor_kind, actor_id, deployment_id, generation_id, revision, record
+             FROM definition_materialization_pointers
+             WHERE actor_kind = ? AND actor_id = ? AND deployment_id = ?`,
+            [actor.kind, actor.id.value, alternateId.value]
+        );
+
+        database.rows = alternateRows;
+        database.pattern = /FROM definition_materialization_pointers\s+WHERE actor_kind/u;
+        expect(() => store.getGenerationPointer(actor, deploymentId)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored generation pointer key does not match codec bytes"
+            })
+        );
+    });
+
+    test("rejects Blueprint rows returned for a different name or version", { tags: "p1" }, () => {
+        const database = new SubstituteRowSqlite();
+        const store = new SqliteMaterializationStore(database, actorRef("blueprint-substitution"));
+        store.addBlueprint(blueprint("alpha", "1.0.0", { tier: "alpha-one" }));
+        store.addBlueprint(blueprint("alpha", "2.0.0", { tier: "alpha-two" }));
+        store.addBlueprint(blueprint("beta", "1.0.0", { tier: "beta-one" }));
+        const corruption = expect.objectContaining({
+            name: "AgentCoreError",
+            code: "codec.invalid",
+            message: "Stored Blueprint key or projection does not match codec bytes"
+        });
+        const otherName = blueprintRows(database, "beta", "1.0.0");
+        const otherVersion = blueprintRows(database, "alpha", "2.0.0");
+        database.pattern = /FROM definition_blueprints\s+WHERE name = \? AND version = \?/u;
+
+        for (const rows of [otherName, otherVersion]) {
+            database.rows = rows;
+            expect(() => store.getBlueprint("alpha", new SemVer("1.0.0"))).toThrowError(corruption);
+        }
+    });
+
+    test("rejects raw column values whose SQLite type is malformed", { tags: "p1" }, () => {
+        const database = new SubstituteRowSqlite();
+        const actor = actorRef("raw-column-types");
+        const store = new SqliteMaterializationStore(database, actor);
+        const fixture = materializationState(actor, 1, "raw-column-types");
+        installGeneration(store, fixture);
+        store.addBlueprint(blueprint("alpha", "1.0.0", { tier: "alpha" }));
+        store.transaction((transaction) => {
+            expect(
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    undefined,
+                    MaterializationGenerationPointer.initial(
+                        actor,
+                        deploymentId,
+                        fixture.materialization.generation.id
+                    )
+                )
+            ).toBe(true);
+        });
+        const pointerRows = database.all(
+            `SELECT actor_kind, actor_id, deployment_id, generation_id, revision, record
+             FROM definition_materialization_pointers
+             WHERE actor_kind = ? AND actor_id = ? AND deployment_id = ?`,
+            [actor.kind, actor.id.value, deploymentId.value]
+        );
+
+        database.rows = blueprintRows(database, "alpha", "1.0.0").map((row) => ({
+            ...row,
+            name: 1
+        }));
+        database.pattern = /FROM definition_blueprints\s+WHERE name = \? AND version = \?/u;
+        expect(() => store.getBlueprint("alpha", new SemVer("1.0.0"))).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored materialization name projection is malformed"
+            })
+        );
+
+        database.rows = pointerRows.map((row) => ({ ...row, revision: 1.5 }));
+        database.pattern = /FROM definition_materialization_pointers\s+WHERE actor_kind/u;
+        expect(() => store.getGenerationPointer(actor, deploymentId)).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Stored materialization revision projection is malformed"
+            })
+        );
+    });
+
+    test("rejects a pointer CAS read-back that returns a truncated record prefix", { tags: "p0" }, () => {
+        const database = new TruncatedCasSqlite();
+        const actor = actorRef("pointer-truncated");
+        const store = new SqliteMaterializationStore(database, actor);
+        const fixture = materializationState(actor, 1, "pointer-truncated");
+        installGeneration(store, fixture);
+        database.truncate = true;
+
+        expect(() =>
+            store.transaction((transaction) =>
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    undefined,
+                    MaterializationGenerationPointer.initial(
+                        actor,
+                        deploymentId,
+                        fixture.materialization.generation.id
+                    )
+                )
+            )
+        ).toThrowError(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Generation pointer CAS returned malformed state"
+            })
+        );
+        database.truncate = false;
+        expect(store.getGenerationPointer(actor, deploymentId)).toBeUndefined();
+        expect(database.all("SELECT actor_id FROM definition_materialization_pointers", [])).toEqual(
+            []
+        );
+    });
 });
+
+class ListRowsSqlite extends TestSqlite {
+    public table = "";
+    public order: readonly number[] = [];
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        if (
+            this.table === "" ||
+            this.order.length === 0 ||
+            !statement.includes(`FROM ${this.table}`) ||
+            !statement.includes("ORDER BY") ||
+            !this.order.every((index) => index < rows.length)
+        ) {
+            return rows;
+        }
+        return this.order.map((index) => rows[index]!);
+    }
+}
+
+class SubstituteRowSqlite extends TestSqlite {
+    public pattern: RegExp | undefined;
+    public rows: readonly SqliteRow[] = [];
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        return this.pattern?.test(statement) === true
+            ? this.rows
+            : super.all(statement, bindings);
+    }
+}
+
+class TruncatedCasSqlite extends TestSqlite {
+    public truncate = false;
+
+    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        if (!this.truncate || !/INTO definition_materialization_pointers/u.test(statement)) {
+            return rows;
+        }
+        return rows.map((row) => {
+            const record = row["record"];
+            return record instanceof Uint8Array ? { ...row, record: record.slice(0, 4) } : row;
+        });
+    }
+}
+
+function permutations(count: number): readonly (readonly number[])[] {
+    const result: number[][] = [];
+    const walk = (used: readonly number[]): void => {
+        if (used.length === count) {
+            result.push([...used]);
+            return;
+        }
+        for (let index = 0; index < count; index += 1) {
+            if (!used.includes(index)) walk([...used, index]);
+        }
+    };
+    walk([]);
+    return result;
+}
+
+function blueprintRows(
+    database: TestSqlite,
+    name: string,
+    version: string
+): readonly SqliteRow[] {
+    return database.all(
+        `SELECT name, version, digest, record FROM definition_blueprints
+         WHERE name = ? AND version = ?`,
+        [name, version]
+    );
+}
 
 class PointerReadbackFaultSqlite extends TestSqlite {
     #armed = false;

@@ -28,4 +28,25 @@ describe("Digest", () => {
         expect(() => new Digest(ABC_SHA256, "sha512" as DigestAlgorithm)).toThrow(TypeError);
         expect(() => Digest.sha256("abc" as unknown as Uint8Array)).toThrow(TypeError);
     });
+
+    test("anchors the hexadecimal pattern at both ends", { tags: "p0" }, () => {
+        for (const value of [`z${ABC_SHA256}`, `${ABC_SHA256}z`, ` ${ABC_SHA256}`]) {
+            expectTypeFailure(
+                () => new Digest(value),
+                "Digest must be a lowercase SHA-256 hexadecimal value"
+            );
+        }
+        expectTypeFailure(() => new Digest(""), "Digest must contain between 1 and 256 characters");
+    });
 });
+
+function expectTypeFailure(action: () => unknown, message: string): void {
+    let thrown: unknown;
+    try {
+        action();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TypeError);
+    expect(thrown).toMatchObject({ message });
+}

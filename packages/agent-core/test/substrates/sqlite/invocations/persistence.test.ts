@@ -473,6 +473,38 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
         expect(caught).toBeNull();
     });
 
+    test("rethrows non-object substrate failures without inspecting them", { tags: "p1" }, () => {
+        const database = new FaultingSqlite();
+        const persistence = createSqliteInvocationPersistence(database);
+        const torn: unknown = undefined;
+        database.fault = () => {
+            throw torn;
+        };
+        let caught: unknown = "unset";
+        try {
+            persistence.insertPrepared(database, prepared("sqlite-undefined-failure"));
+        } catch (error) {
+            caught = error;
+        }
+        expect(caught).toBeUndefined();
+    });
+
+    test("keeps substrate failures with a non-text message unclassified", { tags: "p1" }, () => {
+        const database = new FaultingSqlite();
+        const persistence = createSqliteInvocationPersistence(database);
+        const torn: unknown = { message: ["unique constraint"] };
+        database.fault = () => {
+            throw torn;
+        };
+        let caught: unknown = "unset";
+        try {
+            persistence.insertPrepared(database, prepared("sqlite-nontext-message"));
+        } catch (error) {
+            caught = error;
+        }
+        expect(caught).toBe(torn);
+    });
+
     test(
         "rethrows substrate AgentCoreErrors ahead of constraint classification",
         { tags: "p1" },
