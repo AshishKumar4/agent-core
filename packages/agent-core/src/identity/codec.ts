@@ -1,11 +1,5 @@
 import { AgentCoreError } from "../errors";
-import {
-    Revision,
-    decodeCanonicalJson,
-    encodeCanonicalJson,
-    hasExactJsonKeys,
-    type JsonValue
-} from "../core";
+import { Revision, hasExactJsonKeys, type JsonValue } from "../core";
 
 export type IdentityData = JsonValue;
 export type IdentityDataMap = { readonly [key: string]: IdentityData };
@@ -44,30 +38,10 @@ export function requireIdentityRevision(
     return new Revision(value);
 }
 
-export function canonicalIdentityData(value: IdentityData): IdentityData {
-    return freezeIdentityData(decodeCanonicalJson(encodeCanonicalJson(value)));
-}
-
 export function compareIdentityText(left: string, right: string): number {
     return left < right ? -1 : left > right ? 1 : 0;
 }
 
 export function invalid(message: string): AgentCoreError {
     return new AgentCoreError("codec.invalid", message);
-}
-
-function freezeIdentityData(value: IdentityData): IdentityData {
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            freezeIdentityData(entry);
-        }
-        return Object.freeze(value);
-    }
-    if (value !== null && typeof value === "object") {
-        for (const entry of Object.values(value)) {
-            freezeIdentityData(entry);
-        }
-        return Object.freeze(value);
-    }
-    return value;
 }
