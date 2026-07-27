@@ -725,8 +725,11 @@ function forEachOwnedChild(value: object, inspect: (child: unknown) => void): vo
     }
     for (const property of Reflect.ownKeys(value)) {
         const descriptor = Object.getOwnPropertyDescriptor(value, property);
-        if (descriptor !== undefined && "value" in descriptor && property !== ACTOR_STATE_SNAPSHOT)
-            inspect(descriptor.value);
+        if (descriptor === undefined || !("value" in descriptor)) continue;
+        // The snapshot key is exempt only when it holds the method it names, whose
+        // result is inspected above. A non-callable value there is ordinary state.
+        if (property === ACTOR_STATE_SNAPSHOT && typeof owned === "function") continue;
+        inspect(descriptor.value);
     }
 }
 

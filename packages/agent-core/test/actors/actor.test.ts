@@ -8,9 +8,11 @@ import {
     ActorRef,
     createActorContext,
     isActorActivationStore,
+    requireSynchronousResult,
     type ActorActivationStore,
     type ActorCloneOwnedState,
     type ActorContext,
+    type ActorKind,
     type ActorStartOperation,
     type ActorStore,
     ActorFence,
@@ -36,6 +38,11 @@ class TestSqlite extends BaseTestSqlite {
 
 const ACTOR_ID = new ActorId("actor-counter");
 const ACTOR_REF = new ActorRef("run", ACTOR_ID);
+const OTHER_ACTOR_REF = new ActorRef("workspace", new ActorId("actor-other"));
+const ACTOR_KINDS: readonly ActorKind[] = ["tenant", "workspace", "run", "environment", "slate"];
+const IMMUTABLE_READ_MESSAGE = "Actor read views are immutable";
+const MALFORMED_SNAPSHOT_MESSAGE = "Memory Actor snapshot is malformed";
+const ASYNCHRONOUS_RESULT_MESSAGE = "Actor transaction callbacks must be synchronous";
 
 interface CounterOperations<TTransaction> {
     initialize(transaction: TTransaction): void;
@@ -865,6 +872,50 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
+    test("walks a non-callable snapshot-key value as ordinary state", { tags: "p0" }, () => {
+        // The snapshot key names a method the store calls to obtain owned state.
+        // Any non-callable value under that key is ordinary state: it must face the
+        // same ownership and detachment walk as every other property, or forbidden
+        // state hides behind the key.
+        const preserveKeys = <State extends object>(source: State): State => {
+            const copy = {} as Record<PropertyKey, unknown>;
+            for (const key of Reflect.ownKeys(source)) {
+                copy[key] = (source as Record<PropertyKey, unknown>)[key];
+            }
+            return copy as State;
+        };
+
+        expect(
+            () => new MemoryActorStore({ [ACTOR_STATE_SNAPSHOT]: { fn: () => 1 } }, preserveKeys)
+        ).toThrow(/cannot contain functions/);
+
+        expect(
+            () =>
+                new MemoryActorStore(
+                    { [ACTOR_STATE_SNAPSHOT]: { buffer: new SharedArrayBuffer(8) } },
+                    preserveKeys
+                )
+        ).toThrow(/cannot contain shared memory/);
+
+        expect(
+            () =>
+                new MemoryActorStore(
+                    {
+                        [ACTOR_STATE_SNAPSHOT]: Object.defineProperty({}, "reader", {
+                            enumerable: true,
+                            get: () => 1
+                        })
+                    },
+                    preserveKeys
+                )
+        ).toThrow(/cannot contain accessor properties/);
+
+        const shared = { value: 1 };
+        expect(
+            () => new MemoryActorStore({ [ACTOR_STATE_SNAPSHOT]: shared }, preserveKeys)
+        ).toThrow(/detach all mutable state/);
+    });
+
     test("does not exempt extensible TextId subclass state from clone ownership", () => {
         class ExtensibleId extends TextId {
             public constructor(
@@ -1654,6 +1705,775 @@ describe("SqliteActorStore recovery storage", () => {
     });
 });
 
+describe("MemoryActorStore readonly view members", () => {
+    test("denies every Map and Set mutator through a read view", { tags: "p0" }, () => {
+        interface State {
+            map: Map<string, { value: number }>;
+            set: Set<string>;
+        }
+        const store = new MemoryActorStore<State>(
+            { map: new Map([["key", { value: 1 }]]), set: new Set(["one"]) },
+            structuredClone
+        );
+        const mapMutators = ["clear", "delete", "forEach", "set", "valueOf"];
+        const setMutators = ["add", "clear", "delete", "forEach", "valueOf"];
+
+        store.transaction((transaction) =>
+            store.read(transaction, (view) => {
+                for (const mutator of mapMutators) expectDeniedMember(view.map, mutator);
+                for (const mutator of setMutators) expectDeniedMember(view.set, mutator);
+
+                expect(view.map.has("key")).toBe(true);
+                expect(view.map.get("key")?.value).toBe(1);
+                expect(view.map.size).toBe(1);
+                expect([...view.map.keys()]).toEqual(["key"]);
+                expect(view.set.has("one")).toBe(true);
+                expect(view.set.size).toBe(1);
+                expect([...view.set.values()]).toEqual(["one"]);
+            })
+        );
+
+        expect(store.snapshot().state.map.get("key")?.value).toBe(1);
+        expect(store.snapshot().state.set.has("one")).toBe(true);
+    });
+
+    test("denies typed array and DataView mutators through a read view", { tags: "p0" }, () => {
+        interface State {
+            bytes: Uint8Array;
+            words: Uint16Array;
+            data: DataView;
+        }
+        const store = new MemoryActorStore<State>(
+            {
+                bytes: Uint8Array.of(1, 2, 3),
+                words: Uint16Array.of(7, 8, 9),
+                data: new DataView(Uint8Array.of(4, 5, 6).buffer)
+            },
+            structuredClone
+        );
+        const viewMutators = [
+            "copyWithin",
+            "fill",
+            "reverse",
+            "set",
+            "sort",
+            "subarray",
+            "valueOf"
+        ];
+        const dataMutators = [
+            "setInt8",
+            "setUint8",
+            "setInt16",
+            "setUint16",
+            "setFloat32",
+            "setFloat64",
+            "valueOf",
+            "toString"
+        ];
+
+        store.transaction((transaction) =>
+            store.read(transaction, (view) => {
+                for (const mutator of viewMutators) expectDeniedMember(view.bytes, mutator);
+                for (const mutator of dataMutators) expectDeniedMember(view.data, mutator);
+                expectDeniedMember(view.bytes, Symbol.iterator);
+
+                expect(view.bytes.at(1)).toBe(2);
+                expect(view.bytes.indexOf(3)).toBe(2);
+                expect(view.bytes.includes(1)).toBe(true);
+                expect(view.bytes.join("-")).toBe("1-2-3");
+                expect(view.bytes.toString()).toBe("1,2,3");
+                expect(view.bytes.slice(1)).toEqual(Uint8Array.of(2, 3));
+                expect([...view.bytes.values()]).toEqual([1, 2, 3]);
+                expect(view.bytes.length).toBe(3);
+                expect(view.bytes.byteLength).toBe(3);
+
+                expect(view.words.length).toBe(3);
+                expect(view.words.at(2)).toBe(9);
+                expect(view.words.byteLength).toBe(6);
+
+                expect(view.data.getUint8(0)).toBe(4);
+                expect(view.data.getUint16(1)).toBe(0x0506);
+                expect(view.data.byteLength).toBe(3);
+
+                expect(view.bytes.buffer.byteLength).toBe(3);
+                expect(() => view.bytes.buffer.valueOf()).toThrow(IMMUTABLE_READ_MESSAGE);
+                expect(new Uint8Array(view.bytes.buffer.slice(0))).toEqual(Uint8Array.of(1, 2, 3));
+            })
+        );
+    });
+
+    test("exposes data members and denies behavior through read views", { tags: "p0" }, () => {
+        class ReadBox implements ActorCloneOwnedState {
+            public readonly length = 3;
+
+            public constructor(public readonly nested: { value: number }) {
+                Object.freeze(this);
+            }
+
+            public get doubled(): number {
+                return this.nested.value * 2;
+            }
+
+            public describe(): string {
+                return `box:${this.nested.value}`;
+            }
+
+            public [ACTOR_STATE_SNAPSHOT](): unknown {
+                return { nested: this.nested };
+            }
+        }
+        class ReadId extends TextId {
+            public constructor(
+                value: string,
+                public readonly metadata: { value: number }
+            ) {
+                super(value, "Read ID");
+            }
+
+            public get label(): string {
+                return `id:${this.value}`;
+            }
+        }
+        interface State {
+            box: ReadBox;
+            id: ReadId;
+            items: number[];
+            plain: { value: number };
+            when: Date;
+        }
+        const store = new MemoryActorStore<State>(
+            {
+                box: new ReadBox({ value: 1 }),
+                id: new ReadId("read-id", { value: 5 }),
+                items: [1, 2, 3],
+                plain: { value: 7 },
+                when: new Date(1_000)
+            },
+            (state) => ({
+                box: new ReadBox({ ...state.box.nested }),
+                id: new ReadId(state.id.value, { ...state.id.metadata }),
+                items: state.items.slice(),
+                plain: { ...state.plain },
+                when: new Date(state.when.getTime())
+            })
+        );
+
+        store.transaction((transaction) =>
+            store.read(transaction, (view) => {
+                expect(view.box).toBeInstanceOf(ReadBox);
+                expect(view.box.nested.value).toBe(1);
+                expect(view.box.length).toBe(3);
+                expect(() => view.box.describe()).toThrow(IMMUTABLE_READ_MESSAGE);
+                expect(() => view.box.doubled).toThrow(IMMUTABLE_READ_MESSAGE);
+                expect(readMember(view.box, "missing")).toBeUndefined();
+
+                expect(view.id.value).toBe("read-id");
+                expect(view.id.toString()).toBe("read-id");
+                expect(view.id.equals(new ReadId("read-id", { value: 5 }))).toBe(true);
+                expect(view.id.metadata.value).toBe(5);
+                expect(() => view.id.label).toThrow(IMMUTABLE_READ_MESSAGE);
+                expect(readMember(view.id, "missing")).toBeUndefined();
+
+                expect(Array.isArray(view.items)).toBe(true);
+                expect(view.items.length).toBe(3);
+                expect(view.items.indexOf(2)).toBe(1);
+
+                expect(view.plain.value).toBe(7);
+                expect(view.plain.toString()).toBe("[object Object]");
+                expect(() => readMember(view.plain, "__proto__")).toThrow(IMMUTABLE_READ_MESSAGE);
+
+                expect(view.when.getTime()).toBe(1_000);
+                expect(readMember(view.when, "missing")).toBeUndefined();
+            })
+        );
+    });
+});
+
+describe("MemoryActorStore snapshot and transaction guards", () => {
+    test("rejects every malformed Memory Actor snapshot shape", { tags: "p0" }, () => {
+        const hostile: readonly unknown[] = [
+            null,
+            undefined,
+            5,
+            "snapshot",
+            Object.assign(() => undefined, {
+                version: 1,
+                state: { value: 0 },
+                actor: null,
+                recoveryState: null
+            }),
+            {},
+            { version: 1, state: { value: 0 }, actor: null },
+            { version: 1, state: { value: 0 }, actor: null, recoveryState: null, extra: 1 },
+            { version: 2, state: { value: 0 }, actor: null, recoveryState: null },
+            { version: 1, state: null, actor: null, recoveryState: null },
+            { version: 1, state: 5, actor: null, recoveryState: null },
+            { version: 1, state: { value: 0 }, actor: null, recoveryState: "bytes" },
+            { version: 1, state: { value: 0 }, actor: "run", recoveryState: null },
+            { version: 1, state: { value: 0 }, actor: [], recoveryState: null },
+            { version: 1, state: { value: 0 }, actor: {}, recoveryState: null },
+            { version: 1, state: { value: 0 }, actor: { kind: "run" }, recoveryState: null },
+            { version: 1, state: { value: 0 }, actor: { id: "actor" }, recoveryState: null },
+            {
+                version: 1,
+                state: { value: 0 },
+                actor: { kind: "run", id: "actor", extra: 1 },
+                recoveryState: null
+            },
+            { version: 1, state: { value: 0 }, actor: { kind: "run", id: 5 }, recoveryState: null }
+        ];
+
+        for (const snapshot of hostile) {
+            expectOperationalFailure(
+                () =>
+                    Reflect.apply(MemoryActorStore.restore, MemoryActorStore, [
+                        snapshot,
+                        structuredClone
+                    ]),
+                "codec.invalid",
+                MALFORMED_SNAPSHOT_MESSAGE
+            );
+        }
+    });
+
+    test("restores snapshots for every Actor kind and rejects the rest", { tags: "p0" }, () => {
+        for (const kind of ACTOR_KINDS) {
+            const restored = MemoryActorStore.restore<{ value: number }>(
+                {
+                    version: 1,
+                    state: { value: 1 },
+                    actor: { kind, id: `actor-${kind}` },
+                    recoveryState: null
+                },
+                structuredClone
+            );
+
+            expect(restored.snapshot().actor).toEqual({ kind, id: `actor-${kind}` });
+        }
+
+        for (const kind of ["", "Run", "tenants", "unknown", 5, null]) {
+            expectOperationalFailure(
+                () =>
+                    Reflect.apply(MemoryActorStore.restore, MemoryActorStore, [
+                        {
+                            version: 1,
+                            state: { value: 1 },
+                            actor: { kind, id: "actor" },
+                            recoveryState: null
+                        },
+                        structuredClone
+                    ]),
+                "codec.invalid",
+                MALFORMED_SNAPSHOT_MESSAGE
+            );
+        }
+    });
+
+    test("names every corrupt Actor recovery snapshot failure", { tags: "p0" }, () => {
+        const other = new ActorRef("run", new ActorId("other-snapshot-actor"));
+        const bytes = ActorRecoveryState.codec.encode(ActorRecoveryState.initial(other));
+
+        expectOperationalFailure(
+            () =>
+                MemoryActorStore.restore(
+                    { version: 1, state: { value: 0 }, actor: null, recoveryState: bytes },
+                    structuredClone
+                ),
+            "codec.invalid",
+            "Unbound Actor snapshots cannot contain recovery state"
+        );
+        expectOperationalFailure(
+            () =>
+                MemoryActorStore.restore(
+                    {
+                        version: 1,
+                        state: { value: 0 },
+                        actor: { kind: ACTOR_REF.kind, id: ACTOR_REF.id.value },
+                        recoveryState: bytes
+                    },
+                    structuredClone
+                ),
+            "codec.invalid",
+            "Actor snapshot recovery state belongs to a different Actor"
+        );
+
+        const missing = MemoryActorStore.restore<{ starts: number }>(
+            {
+                version: 1,
+                state: { starts: 0 },
+                actor: { kind: ACTOR_REF.kind, id: ACTOR_REF.id.value },
+                recoveryState: null
+            },
+            structuredClone
+        );
+        expectOperationalFailure(
+            () =>
+                new StartActor({ actor: ACTOR_REF, store: missing }, (transaction) => {
+                    transaction.starts += 1;
+                }),
+            "codec.invalid",
+            "Existing Actor storage is missing recovery state"
+        );
+    });
+
+    test("binds Memory reads and recovery state to the active transaction", { tags: "p0" }, () => {
+        const store = new MemoryActorStore<{ value: number }>({ value: 1 }, structuredClone);
+        const foreign = { value: 1 };
+        store.bindActor(ACTOR_REF);
+
+        store.transaction((transaction) => {
+            expectOperationalFailure(
+                () => store.read(foreign, (view) => view.value),
+                "actor.stale-callback",
+                "Actor reads require the active transaction"
+            );
+            expectOperationalFailure(
+                () => store.loadRecoveryState(foreign, ACTOR_REF),
+                "actor.stale-callback",
+                "Actor recovery state requires an active transaction"
+            );
+            expectOperationalFailure(
+                () => store.saveRecoveryState(foreign, ActorRecoveryState.initial(ACTOR_REF)),
+                "actor.stale-callback",
+                "Actor recovery state requires an active transaction"
+            );
+            expect(store.read(transaction, (view) => view.value)).toBe(1);
+        });
+
+        expectOperationalFailure(
+            () => store.read(foreign, (view) => view.value),
+            "actor.stale-callback",
+            "Actor reads require the active transaction"
+        );
+
+        const unbound = new MemoryActorStore<{ value: number }>({ value: 1 }, structuredClone);
+        unbound.transaction((transaction) => {
+            expectOperationalFailure(
+                () => unbound.loadRecoveryState(transaction, ACTOR_REF),
+                "actor.stale-callback",
+                "Actor recovery state requires an active transaction"
+            );
+        });
+    });
+
+    test("rejects a second Actor identity bound inside a transaction", { tags: "p0" }, () => {
+        const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
+
+        store.transaction(() => {
+            store.bindActor(ACTOR_REF);
+            expectOperationalFailure(
+                () => store.bindActor(OTHER_ACTOR_REF),
+                "protocol.invalid-state",
+                "An ActorStore cannot be shared by different Actors"
+            );
+        });
+
+        expect(store.snapshot().actor).toEqual({ kind: ACTOR_REF.kind, id: ACTOR_REF.id.value });
+    });
+
+    test("expires escaped transaction scopes with a named error", { tags: "p0" }, () => {
+        const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
+        let escaped: { value: number } | undefined;
+
+        store.transaction((transaction) => {
+            escaped = transaction;
+            transaction.value = 1;
+        });
+
+        const expired = escaped;
+        if (expired === undefined) throw new TypeError("Transaction did not capture its scope");
+        expectOperationalFailure(
+            () => expired.value,
+            "actor.closed",
+            "Actor transaction is no longer active"
+        );
+        expectOperationalFailure(
+            () => {
+                expired.value = 2;
+            },
+            "actor.closed",
+            "Actor transaction is no longer active"
+        );
+        expect(store.snapshot().state.value).toBe(1);
+    });
+
+    test("requires initial and recovered activation states", { tags: "p1" }, () => {
+        expect(() => ActorActivation.created(new ActorRecoveryState(ACTOR_REF, 1, 1))).toThrow(
+            "Created Actor activation requires initial recovery state"
+        );
+        expect(() => ActorActivation.created(new ActorRecoveryState(ACTOR_REF, 0, 2))).toThrow(
+            "Created Actor activation requires initial recovery state"
+        );
+        expect(() => ActorActivation.recovered(ActorRecoveryState.initial(ACTOR_REF))).toThrow(
+            "Recovered Actor activation requires recovered state"
+        );
+        expect(ActorActivation.created(ActorRecoveryState.initial(ACTOR_REF)).kind).toBe("created");
+        expect(ActorActivation.recovered(new ActorRecoveryState(ACTOR_REF, 1, 2)).kind).toBe(
+            "recovered"
+        );
+    });
+
+    test("rejects thenable and unstable transaction results", { tags: "p0" }, () => {
+        let caught = 0;
+        class ObservedPromise<T> extends Promise<T> {
+            public override catch<TResult = never>(
+                onRejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null
+            ): Promise<T | TResult> {
+                caught += 1;
+                return super.catch(onRejected);
+            }
+        }
+        const observed = ObservedPromise.resolve(1);
+        expect(observed).toBeInstanceOf(Promise);
+        expect(() => requireSynchronousResult(observed)).toThrow(ASYNCHRONOUS_RESULT_MESSAGE);
+        expect(caught).toBe(1);
+
+        // oxlint-disable unicorn/no-thenable -- the guard under test rejects exactly these shapes
+        const asynchronous: readonly unknown[] = [
+            Promise.resolve(1),
+            { then: noop },
+            { then: 1 },
+            Object.assign(() => undefined, { then: noop }),
+            Object.create({ then: noop }) as object,
+            new Proxy({}, {})
+        ];
+        // oxlint-enable unicorn/no-thenable
+        for (const value of asynchronous) {
+            expect(() => requireSynchronousResult(value)).toThrow(ASYNCHRONOUS_RESULT_MESSAGE);
+        }
+
+        const synchronous: readonly unknown[] = [
+            null,
+            undefined,
+            0,
+            "sync",
+            false,
+            {},
+            [],
+            noop,
+            new Date(0)
+        ];
+        for (const value of synchronous) {
+            expect(requireSynchronousResult(value)).toBe(value);
+        }
+    });
+});
+
+describe("MemoryActorStore ownership walk", () => {
+    test("detects clone aliases behind every owned child edge", { tags: "p0" }, () => {
+        const alias = "Memory Actor clones must detach all mutable state";
+        const entry = { value: 1 };
+        const key = { id: 1 };
+
+        expect(
+            () =>
+                new MemoryActorStore({ map: new Map([["key", entry]]) }, (source) => ({
+                    map: new Map(source.map)
+                }))
+        ).toThrow(alias);
+        expect(
+            () =>
+                new MemoryActorStore({ map: new Map([[key, "entry"]]) }, (source) => ({
+                    map: new Map(source.map)
+                }))
+        ).toThrow(alias);
+        expect(
+            () =>
+                new MemoryActorStore({ set: new Set([entry]) }, (source) => ({
+                    set: new Set(source.set)
+                }))
+        ).toThrow(alias);
+        expect(
+            () =>
+                new MemoryActorStore({ bytes: Uint8Array.of(1, 2, 3) }, (source) => ({
+                    bytes: new Uint8Array(source.bytes.buffer)
+                }))
+        ).toThrow(alias);
+    });
+
+    test("detects aliases reachable only through clone-owned snapshots", { tags: "p0" }, () => {
+        class PrivateBox implements ActorCloneOwnedState {
+            readonly #nested: { value: number };
+
+            public constructor(nested: { value: number }) {
+                this.#nested = nested;
+                Object.freeze(this);
+            }
+
+            public alias(): PrivateBox {
+                return new PrivateBox(this.#nested);
+            }
+
+            public detached(): PrivateBox {
+                return new PrivateBox({ ...this.#nested });
+            }
+
+            public value(): number {
+                return this.#nested.value;
+            }
+
+            public [ACTOR_STATE_SNAPSHOT](): unknown {
+                return this.#nested;
+            }
+        }
+
+        expect(
+            () =>
+                new MemoryActorStore({ box: new PrivateBox({ value: 1 }) }, (source) => ({
+                    box: source.box.alias()
+                }))
+        ).toThrow("Memory Actor clones must detach all mutable state");
+
+        const store = new MemoryActorStore({ box: new PrivateBox({ value: 1 }) }, (source) => ({
+            box: source.box.detached()
+        }));
+        expect(store.snapshot().state.box.value()).toBe(1);
+    });
+
+    test("keeps clone-owned snapshot members out of the state graph", { tags: "p0" }, () => {
+        interface State {
+            readonly value: number;
+            [ACTOR_STATE_SNAPSHOT](): unknown;
+        }
+        const owned = (): unknown => ({ tracked: true });
+        const store = new MemoryActorStore<State>(
+            { value: 1, [ACTOR_STATE_SNAPSHOT]: owned },
+            (state) => ({ value: state.value, [ACTOR_STATE_SNAPSHOT]: owned })
+        );
+
+        expect(store.snapshot().state.value).toBe(1);
+        store.transaction((transaction) =>
+            store.read(transaction, (view) => {
+                expect(view.value).toBe(1);
+                expectDeniedMember(view, ACTOR_STATE_SNAPSHOT);
+            })
+        );
+    });
+
+    test("requires custom state objects to be frozen and clone-owned", { tags: "p0" }, () => {
+        const message = "Memory Actor custom state objects must be frozen and clone-owned";
+        class FrozenBox {
+            public constructor(public readonly value: number) {
+                Object.freeze(this);
+            }
+        }
+        class UnfrozenBox implements ActorCloneOwnedState {
+            public constructor(public readonly nested: { value: number }) {}
+
+            public [ACTOR_STATE_SNAPSHOT](): unknown {
+                return { nested: this.nested };
+            }
+        }
+
+        expect(
+            () =>
+                new MemoryActorStore({ box: new FrozenBox(1) }, (source) => ({
+                    box: new FrozenBox(source.box.value)
+                }))
+        ).toThrow(message);
+        expect(
+            () =>
+                new MemoryActorStore({ box: new UnfrozenBox({ value: 1 }) }, (source) => ({
+                    box: new UnfrozenBox({ ...source.box.nested })
+                }))
+        ).toThrow(message);
+    });
+
+    test(
+        "accepts null-prototype state objects without an ownership contract",
+        { tags: "p1" },
+        () => {
+            const bare = (value: number): { value: number } => {
+                const object = Object.create(null) as { value: number };
+                object.value = value;
+                return object;
+            };
+            const store = new MemoryActorStore({ bare: bare(1) }, (source) => ({
+                bare: bare(source.bare.value)
+            }));
+
+            expect(store.snapshot().state.bare.value).toBe(1);
+            store.transaction((transaction) =>
+                store.read(transaction, (view) => {
+                    expect(view.bare.value).toBe(1);
+                })
+            );
+        }
+    );
+
+    test("rejects state the store cannot prove it owns", { tags: "p0" }, () => {
+        const accessor = { visible: 1 };
+        Object.defineProperty(accessor, "hidden", { get: () => ({ value: 1 }) });
+
+        expect(() => new MemoryActorStore(accessor, (source) => ({ ...source }))).toThrow(
+            "Memory Actor state cannot contain accessor properties"
+        );
+        expect(() => new MemoryActorStore({ callback: noop }, (source) => ({ ...source }))).toThrow(
+            "Memory Actor state cannot contain functions"
+        );
+        expect(() => new MemoryActorStore({ value: 1 }, () => null as never)).toThrow(
+            "Memory Actor clones must return an object"
+        );
+        expect(() => new MemoryActorStore({ value: 1 }, () => 5 as never)).toThrow(
+            "Memory Actor clones must return an object"
+        );
+        if (typeof SharedArrayBuffer === "undefined") return;
+        expect(
+            () =>
+                new MemoryActorStore(
+                    { bytes: new Uint8Array(new SharedArrayBuffer(1)) },
+                    (source) => structuredClone(source)
+                )
+        ).toThrow("Memory Actor state cannot contain shared memory");
+        expect(
+            () => new MemoryActorStore({ buffer: new SharedArrayBuffer(1) }, (source) => source)
+        ).toThrow("Memory Actor state cannot contain shared memory");
+    });
+});
+
+describe("Actor mailbox admission and commit poisoning", () => {
+    test("rejects commands without entering the mailbox once closing", { tags: "p1" }, async () => {
+        const harness = createMemoryHarness();
+        const order: string[] = [];
+        const closing = harness.actor.close().then(() => {
+            order.push("close");
+        });
+        const command = harness.actor.increment();
+        const settled = command.catch(() => {
+            order.push("command");
+        });
+
+        await Promise.all([closing, settled]);
+
+        expect(order).toEqual(["command", "close"]);
+        await expect(command).rejects.toSatisfy(isOperationalError("actor.closed"));
+        await expect(command).rejects.toThrow("Actor is closed");
+    });
+
+    test("closes a poisoned Actor without re-entering the mailbox", { tags: "p1" }, async () => {
+        const harness = createMemoryHarness();
+        harness.failNextCommitUnknown();
+
+        await expect(harness.actor.increment()).rejects.toBeInstanceOf(ActorCommitUnknownError);
+        await expect(harness.actor.currentFence()).rejects.toThrow("Actor is closed");
+
+        let settled = false;
+        const closing = harness.actor.close().then(() => {
+            settled = true;
+        });
+        await Promise.resolve();
+
+        expect(settled).toBe(true);
+        await closing;
+    });
+
+    test("advances the durable fence exactly once when closing", { tags: "p1" }, async () => {
+        const harness = createMemoryHarness();
+        const fence = await harness.actor.currentFence();
+
+        await expect(harness.actor.close()).resolves.toBeUndefined();
+
+        expect(harness.recovery()?.epoch).toBe(fence.epoch + 1);
+    });
+
+    test("propagates non-stale faults raised while closing", { tags: "p1" }, async () => {
+        const harness = createMemoryHarness();
+        harness.failNextCommitWith(new TypeError("Injected close failure"));
+
+        await expect(harness.actor.close()).rejects.toThrow("Injected close failure");
+    });
+
+    test(
+        "keeps the incarnation open when a store refuses before its callback",
+        { tags: "p1" },
+        async () => {
+            interface State {
+                value: number;
+                initializations: number;
+            }
+            const memory = new MemoryActorStore<State>(
+                { value: 0, initializations: 0 },
+                structuredClone
+            );
+            const refusing = new RefusingActorStore(memory);
+            const actor = new CounterActor<State>(
+                { actor: ACTOR_REF, store: refusing },
+                {
+                    initialize: (transaction) => {
+                        transaction.initializations += 1;
+                    },
+                    increment: (transaction) => {
+                        transaction.value += 1;
+                        return transaction.value;
+                    },
+                    value: () => memory.snapshot().state.value,
+                    initializations: () => memory.snapshot().state.initializations
+                }
+            );
+            refusing.refuseNextTransaction();
+
+            await expect(actor.increment()).rejects.toBeInstanceOf(ActorCommitUnknownError);
+            await expect(actor.increment()).resolves.toBe(1);
+        }
+    );
+
+    test("poisons an incarnation only for trusted commit uncertainty", { tags: "p0" }, async () => {
+        expect(new ActorCommitUnknownError().message).toBe(
+            "The Actor transaction commit result is unknown"
+        );
+
+        const poisoned = createMemoryHarness();
+        poisoned.failNextCommitUnknown();
+        await expect(poisoned.actor.increment()).rejects.toBeInstanceOf(ActorCommitUnknownError);
+        await expect(poisoned.actor.increment()).rejects.toSatisfy(
+            isOperationalError("actor.closed")
+        );
+
+        const harness = createMemoryHarness();
+        const lookalike = new AgentCoreError("actor.closed", "Forged unknown commit");
+        harness.failNextCommitWith(lookalike);
+        await expect(harness.actor.increment()).rejects.toBe(lookalike);
+        await expect(harness.actor.increment()).resolves.toBe(2);
+        await expect(harness.actor.failAfterIncrement()).rejects.toThrow(
+            "Injected transaction fault"
+        );
+        await expect(harness.actor.forgeCommitUnknown()).rejects.toThrow(
+            "Commit uncertainty cannot originate inside an Actor transaction"
+        );
+        await expect(harness.actor.increment()).resolves.toBe(3);
+    });
+
+    test("refuses unfenced commands from a superseded incarnation", { tags: "p0" }, async () => {
+        const harness = createMemoryHarness();
+        const stale = await harness.actor.currentFence();
+        const restarted = harness.restart();
+
+        expect((await restarted.currentFence()).epoch).toBe(stale.epoch + 1);
+        await expect(harness.actor.increment()).rejects.toThrow("Actor command fence is stale");
+        await expect(harness.actor.currentFence()).rejects.toThrow("Actor command fence is stale");
+        expect(harness.value()).toBe(0);
+    });
+
+    test("requires atomic activation storage that exposes a callable hook", { tags: "p1" }, () => {
+        const memory = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
+        const nonActivating = new NonActivatingActorStore(memory);
+        const forged = new ForgedActivationActorStore(memory);
+
+        expect(isActorActivationStore(memory)).toBe(true);
+        expect(isActorActivationStore(nonActivating)).toBe(false);
+        expect(isActorActivationStore(forged)).toBe(false);
+        expect(() => createActorContext(ACTOR_REF, nonActivating)).toThrow(
+            "Actor context requires atomic activation storage"
+        );
+        expect(() => createActorContext(ACTOR_REF, forged)).toThrow(
+            "Actor context requires atomic activation storage"
+        );
+        expect(() => Reflect.apply(createActorContext, undefined, [{}, memory])).toThrow(
+            "Actor context requires an ActorRef"
+        );
+    });
+});
+
 function createMemoryHarness(): ActorHarness {
     interface State {
         value: number;
@@ -1812,6 +2632,77 @@ class FaultingActorStore<TTransaction> implements ActorActivationStore<TTransact
     }
 }
 
+class RefusingActorStore<TTransaction> implements ActorActivationStore<TTransaction> {
+    #refusals = 0;
+
+    public constructor(private readonly store: ActorActivationStore<TTransaction>) {}
+
+    public refuseNextTransaction(): void {
+        this.#refusals = 1;
+    }
+
+    public activateActor(
+        actor: ActorRef,
+        start: ActorStartOperation<TTransaction>
+    ): ActorRecoveryState {
+        return this.store.activateActor(actor, start);
+    }
+
+    public bindActor(actor: ActorRef): void {
+        this.store.bindActor(actor);
+    }
+
+    public transaction<TResult>(
+        operation: TransactionOperation<TTransaction, TResult>,
+        ...guard: SynchronousResultGuard<TResult>
+    ): TResult {
+        if (this.#refusals > 0) {
+            this.#refusals -= 1;
+            throw new ActorCommitUnknownError("Refused before the transaction callback ran");
+        }
+        return this.store.transaction(operation, ...guard);
+    }
+
+    public loadRecoveryState(
+        transaction: TTransaction,
+        actor: ActorRef
+    ): ActorRecoveryState | undefined {
+        return this.store.loadRecoveryState(transaction, actor);
+    }
+
+    public saveRecoveryState(transaction: TTransaction, state: ActorRecoveryState): void {
+        this.store.saveRecoveryState(transaction, state);
+    }
+}
+
+class ForgedActivationActorStore<TTransaction extends object> implements ActorStore<TTransaction> {
+    public readonly activateActor = 42;
+
+    public constructor(private readonly store: MemoryActorStore<TTransaction>) {}
+
+    public bindActor(actor: ActorRef): void {
+        this.store.bindActor(actor);
+    }
+
+    public transaction<TResult>(
+        operation: TransactionOperation<TTransaction, TResult>,
+        ...guard: SynchronousResultGuard<TResult>
+    ): TResult {
+        return this.store.transaction(operation, ...guard);
+    }
+
+    public loadRecoveryState(
+        transaction: TTransaction,
+        actor: ActorRef
+    ): ActorRecoveryState | undefined {
+        return this.store.loadRecoveryState(transaction, actor);
+    }
+
+    public saveRecoveryState(transaction: TTransaction, state: ActorRecoveryState): void {
+        this.store.saveRecoveryState(transaction, state);
+    }
+}
+
 class NonActivatingActorStore<TTransaction extends object> implements ActorStore<TTransaction> {
     public constructor(private readonly store: MemoryActorStore<TTransaction>) {}
 
@@ -1878,6 +2769,33 @@ function throwsOperationalError(code: AgentCoreError["code"]): (action: () => un
             return true;
         }
     };
+}
+
+function readMember(owner: object, property: PropertyKey): unknown {
+    return Reflect.get(owner, property);
+}
+
+function expectDeniedMember(owner: object, property: PropertyKey): void {
+    const member = readMember(owner, property);
+    expect(typeof member).toBe("function");
+    expect(() => (member as () => unknown)()).toThrow(IMMUTABLE_READ_MESSAGE);
+}
+
+function expectOperationalFailure(
+    action: () => unknown,
+    code: AgentCoreError["code"],
+    message: string
+): void {
+    try {
+        action();
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        expect(error).not.toBeInstanceOf(TypeError);
+        expect((error as AgentCoreError).code).toBe(code);
+        expect((error as AgentCoreError).message).toBe(message);
+        return;
+    }
+    throw new TypeError(`Expected an operational failure: ${code} ${message}`);
 }
 
 function isOperationalError(code: AgentCoreError["code"]): (error: unknown) => boolean {
