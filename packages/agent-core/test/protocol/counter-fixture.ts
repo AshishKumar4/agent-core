@@ -855,6 +855,24 @@ export class CounterHarness implements CounterFixture {
         return token;
     }
 
+    // CurrentLease admits an absent holder or expiry; only the memory state can store one.
+    public setPartialLease(omit: {
+        readonly holder?: boolean;
+        readonly expiresAt?: boolean;
+    }): LeaseToken {
+        const token = this.setLease();
+        this.store.transaction((transaction) => {
+            const lease = transaction.lease;
+            if (lease === undefined) throw new TypeError("Expected a stored counter lease");
+            transaction.lease = {
+                ...lease,
+                ...(omit.holder === true ? { holderTenant: undefined, holder: undefined } : {}),
+                ...(omit.expiresAt === true ? { expiresAt: undefined } : {})
+            };
+        });
+        return token;
+    }
+
     public setAuthorized(authorized: boolean): void {
         this.store.transaction((transaction) => {
             transaction.authorized = authorized;

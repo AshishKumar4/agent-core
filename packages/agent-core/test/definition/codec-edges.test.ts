@@ -1,7 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { MediaHint } from "../../src/content";
-import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
+import {
+    CompatRange,
+    ContentRef,
+    Digest,
+    JsonSchema,
+    Revision,
+    SemVer,
+    type JsonValue
+} from "../../src/core";
 import {
     ActorPlan,
     DeploymentId,
@@ -203,6 +211,25 @@ describe("definition codec adversarial edges", () => {
         expect(() => ManagedOrigin.fromData("payload")).toThrow(
             "Managed origin must be an object"
         );
+    });
+
+    test("rejects every malformed managed origin generation shape", { tags: "p1" }, () => {
+        const data = new ManagedOrigin(originInit()).toData() as object;
+        const malformed: readonly JsonValue[] = [
+            -1,
+            -0.5,
+            1.5,
+            "3",
+            true,
+            null,
+            Number.MAX_SAFE_INTEGER + 2
+        ];
+        for (const generation of malformed) {
+            expect(() => ManagedOrigin.fromData({ ...data, generation })).toThrow(
+                "Managed origin generation must be a non-negative safe integer"
+            );
+        }
+        expect(ManagedOrigin.fromData({ ...data, generation: 0 }).generation).toBe(0);
     });
 
     test("freezes package pins and names malformed pin and lock fields", { tags: "p2" }, () => {

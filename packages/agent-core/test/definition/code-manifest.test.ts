@@ -343,6 +343,22 @@ describe("PackageCodeManifest", () => {
         ).toThrow(/requires modules and entrypoints/);
     });
 
+    test("rejects compatibility dates whose year does not round-trip", { tags: "p1" }, () => {
+        const build = (compatibilityDate: string): PackageCodeManifest =>
+            new PackageCodeManifest({
+                compatibilityDate,
+                modules: [module("./main.js", "main")],
+                entrypoints: [entry("facet", "./main.js")]
+            });
+        for (const shifted of ["0001-01-01", "0050-01-01", "0099-12-31"]) {
+            expect(() => build(shifted)).toThrow(
+                "Package code compatibility date must be a valid calendar date"
+            );
+        }
+        expect(build("2024-02-29").compatibilityDate).toBe("2024-02-29");
+        expect(build("2026-12-31").compatibilityDate).toBe("2026-12-31");
+    });
+
     test("names each decoded field subject and rejects nonobject payloads", { tags: "p2" }, () => {
         const validModule = {
             content: ContentRef.fromDigest(digest("main")).value,

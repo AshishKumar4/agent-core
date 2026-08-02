@@ -6,6 +6,7 @@ import {
     ClaimWorkerId,
     EffectAttempt,
     EffectAttemptId,
+    InvocationError,
     ItemClaim,
     ItemClaimId,
     MemoryInvocationPersistence,
@@ -16,10 +17,13 @@ import {
     InvocationContinuation,
     type InvocationMemoryState
 } from "../../src/invocations";
+import { AgentCoreError } from "../../src/errors";
+import { PrincipalId } from "../../src/identity";
 import { expect, test } from "vitest";
 import {
     admissionFor,
     attemptCodec,
+    claimCodec,
     createLedger,
     invocationCodecs,
     prepared,
@@ -27,6 +31,19 @@ import {
     type InvocationHarness
 } from "./fixture";
 import { invocationLedgerContract } from "./ledger-contract";
+
+function rejects<Failure>(
+    operation: () => unknown,
+    kind: abstract new (...args: never[]) => Failure
+): Failure {
+    try {
+        operation();
+    } catch (error) {
+        if (error instanceof kind) return error;
+        throw error;
+    }
+    throw new Error("Expected the memory persistence to reject the operation");
+}
 
 class MemoryHarness implements InvocationHarness<InvocationMemoryState> {
     public readonly persistence = new MemoryInvocationPersistence(invocationCodecs);
@@ -362,3 +379,382 @@ test("[C13-ADV-RECEIPT-FAILED] [invocation-persistence] memory fails closed on s
         expect(() => corrupt(createInvocationMemoryState())).toThrow(/index|codec/i);
     }
 });
+
+test(
+    "[invocation-persistence] memory Approval revision reads fail closed on id and revision drift",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-approval-revision");
+        const approval = Approval.pending(
+            new ApprovalId("memory-approval-revision-a"),
+            invocation.header.id,
+            invocation.intentDigest,
+            new Date(1000)
+        );
+        const other = Approval.pending(
+            new ApprovalId("memory-approval-revision-b"),
+            invocation.header.id,
+            invocation.intentDigest,
+            new Date(1000)
+        );
+
+        const revisionDrift = createInvocationMemoryState();
+        revisionDrift.approvals.set(
+            `${approval.id.value}\u00005`,
+            invocationCodecs.approval.encode(approval)
+        );
+        const substitutedId = createInvocationMemoryState();
+        substitutedId.approvals.set(
+            `${approval.id.value}\u00000`,
+            invocationCodecs.approval.encode(other)
+        );
+
+        const cases: readonly (readonly [InvocationMemoryState, number])[] = [
+            [revisionDrift, 5],
+            [substitutedId, 0]
+        ];
+        for (const [state, revision] of cases) {
+            const error = rejects(
+                () => persistence.approvalRevision(state, approval.id, revision),
+                AgentCoreError
+            );
+            expect(error.code).toBe("codec.invalid");
+        }
+        expect(
+            persistence.approvalRevision(createInvocationMemoryState(), approval.id, 0)
+        ).toBeUndefined();
+    }
+);
+
+test(
+    "[invocation-persistence] memory reads the latest Approval revision from any map order",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-approval-order");
+        const pending = Approval.pending(
+            new ApprovalId("memory-approval-order-a"),
+            invocation.header.id,
+            invocation.intentDigest,
+            new Date(1000)
+        );
+        const approved = pending.approve(
+            new PrincipalId("memory-approval-order-principal"),
+            new Date(2000)
+        );
+        expect(approved.revision.value).toBe(1);
+        const key = (revision: number): string => `${pending.id.value}\u0000${revision}`;
+
+        const ascending = createInvocationMemoryState();
+        ascending.approvals.set(key(0), invocationCodecs.approval.encode(pending));
+        ascending.approvals.set(key(1), invocationCodecs.approval.encode(approved));
+        const descending = createInvocationMemoryState();
+        descending.approvals.set(key(1), invocationCodecs.approval.encode(approved));
+        descending.approvals.set(key(0), invocationCodecs.approval.encode(pending));
+
+        for (const state of [ascending, descending]) {
+            const latest = persistence.approval(state, pending.id);
+            expect(latest?.revision.value).toBe(1);
+            expect(latest?.state.kind).toBe("approved");
+        }
+    }
+);
+
+test(
+    "[invocation-persistence] memory EffectAttempt indexes fail closed on size, key, and claim drift",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-attempt-index");
+        const attempt = new EffectAttempt<string, string>(
+            new EffectAttemptId("memory-attempt-index-attempt"),
+            invocation.header.id,
+            0,
+            0,
+            new ItemClaimId("memory-attempt-index-claim"),
+            undefined,
+            admissionFor(invocation.header.id.value, 0, 0),
+            new Date(1000),
+            invocation.item(0).idempotencyKey,
+            new AuditRecordId("memory-attempt-index-audit")
+        );
+
+        const extraProjection = createInvocationMemoryState();
+        extraProjection.attempts.set(attempt.id.value, attemptCodec.encode(attempt));
+        extraProjection.attemptByClaim.set(attempt.claim.value, attempt.id.value);
+        extraProjection.attemptByClaim.set("memory-attempt-index-ghost", attempt.id.value);
+
+        const substitutedKey = createInvocationMemoryState();
+        substitutedKey.attempts.set("memory-attempt-index-other", attemptCodec.encode(attempt));
+        substitutedKey.attemptByClaim.set(attempt.claim.value, "memory-attempt-index-other");
+
+        const misprojectedClaim = createInvocationMemoryState();
+        misprojectedClaim.attempts.set(attempt.id.value, attemptCodec.encode(attempt));
+        misprojectedClaim.attemptByClaim.set("memory-attempt-index-other-claim", attempt.id.value);
+
+        for (const state of [extraProjection, substitutedKey, misprojectedClaim]) {
+            const error = rejects(() => persistence.attempt(state, attempt.id), AgentCoreError);
+            expect(error.code).toBe("codec.invalid");
+            expect(error.message).toMatch(/index does not match codec bytes/);
+        }
+    }
+);
+
+test(
+    "[invocation-persistence] memory claim lookup fails closed on an unprojected EffectAttempt",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-attempt-scan");
+        const attempt = new EffectAttempt<string, string>(
+            new EffectAttemptId("memory-attempt-scan-attempt"),
+            invocation.header.id,
+            0,
+            0,
+            new ItemClaimId("memory-attempt-scan-claim"),
+            undefined,
+            admissionFor(invocation.header.id.value, 0, 0),
+            new Date(1000),
+            invocation.item(0).idempotencyKey,
+            new AuditRecordId("memory-attempt-scan-audit")
+        );
+
+        const orphaned = createInvocationMemoryState();
+        orphaned.attempts.set(attempt.id.value, attemptCodec.encode(attempt));
+        const error = rejects(
+            () => persistence.attemptForClaim(orphaned, attempt.claim),
+            AgentCoreError
+        );
+        expect(error.code).toBe("codec.invalid");
+        expect(
+            persistence.attemptForClaim(createInvocationMemoryState(), attempt.claim)
+        ).toBeUndefined();
+    }
+);
+
+test(
+    "[invocation-persistence] memory orders item EffectAttempts by ordinal from either append order",
+    { tags: "p1" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-attempt-ordinal");
+        const attemptAt = (ordinal: number): EffectAttempt<string, string> =>
+            new EffectAttempt<string, string>(
+                new EffectAttemptId(`memory-attempt-ordinal-${ordinal}`),
+                invocation.header.id,
+                0,
+                ordinal,
+                new ItemClaimId(`memory-attempt-ordinal-claim-${ordinal}`),
+                undefined,
+                admissionFor(invocation.header.id.value, 0, ordinal),
+                new Date(1000 + ordinal),
+                invocation.item(0).idempotencyKey,
+                new AuditRecordId(`memory-attempt-ordinal-audit-${ordinal}`)
+            );
+
+        for (const appendOrder of [
+            [0, 1],
+            [1, 0]
+        ]) {
+            const state = createInvocationMemoryState();
+            for (const ordinal of appendOrder) persistence.appendAttempt(state, attemptAt(ordinal));
+            expect(
+                persistence
+                    .attemptsForItem(state, invocation.header.id, 0)
+                    .map((attempt) => attempt.ordinal)
+            ).toEqual([0, 1]);
+        }
+    }
+);
+
+test(
+    "[invocation-persistence] memory item Receipts exclude EffectAttempts of other items",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-receipt-scope", [
+            { value: "first" },
+            { value: "second" }
+        ]);
+        const state = createInvocationMemoryState();
+        for (const itemIndex of [0, 1]) {
+            persistence.appendAttempt(
+                state,
+                new EffectAttempt<string, string>(
+                    new EffectAttemptId(`memory-receipt-scope-attempt-${itemIndex}`),
+                    invocation.header.id,
+                    itemIndex,
+                    0,
+                    new ItemClaimId(`memory-receipt-scope-claim-${itemIndex}`),
+                    undefined,
+                    admissionFor(invocation.header.id.value, itemIndex, 0),
+                    new Date(1000 + itemIndex),
+                    invocation.item(itemIndex).idempotencyKey,
+                    new AuditRecordId(`memory-receipt-scope-audit-${itemIndex}`)
+                )
+            );
+        }
+        persistence.appendReceipt(
+            state,
+            new PreEffectReceipt(
+                new ReceiptId("memory-receipt-scope-pre-effect"),
+                invocation.header.id,
+                0,
+                "deniedPreEffect",
+                new Date(2000),
+                "denied"
+            )
+        );
+        persistence.appendReceipt(
+            state,
+            new AttemptReceipt(
+                new ReceiptId("memory-receipt-scope-foreign"),
+                new EffectAttemptId("memory-receipt-scope-attempt-1"),
+                "failed",
+                undefined,
+                new Date(3000),
+                undefined
+            )
+        );
+
+        expect(
+            persistence
+                .receiptsForItem(state, invocation.header.id, 0)
+                .map((receipt) => receipt.id.value)
+        ).toEqual(["memory-receipt-scope-pre-effect"]);
+        expect(
+            persistence
+                .receiptsForItem(state, invocation.header.id, 1)
+                .map((receipt) => receipt.id.value)
+        ).toEqual(["memory-receipt-scope-foreign"]);
+    }
+);
+
+test(
+    "[invocation-persistence] memory claim order rejects duplicate and dangling entries",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-claim-order");
+        const claimAt = (suffix: string): ItemClaim<string> =>
+            new ItemClaim<string>(
+                new ItemClaimId(`memory-claim-order-${suffix}`),
+                invocation.header.id,
+                0,
+                0,
+                {
+                    kind: "system",
+                    actor: invocation.header.actor,
+                    worker: new ClaimWorkerId(`memory-claim-order-worker-${suffix}`)
+                },
+                new Date(5000)
+            );
+
+        const duplicated = createInvocationMemoryState();
+        for (const suffix of ["a", "b"]) {
+            const claim = claimAt(suffix);
+            duplicated.claims.set(claim.id.value, claimCodec.encode(claim));
+        }
+        duplicated.claimOrder.push("memory-claim-order-a", "memory-claim-order-a");
+
+        const dangling = createInvocationMemoryState();
+        const present = claimAt("a");
+        dangling.claims.set(present.id.value, claimCodec.encode(present));
+        dangling.claimOrder.push("memory-claim-order-absent");
+
+        for (const state of [duplicated, dangling]) {
+            const error = rejects(
+                () => persistence.claimsForItem(state, invocation.header.id, 0),
+                AgentCoreError
+            );
+            expect(error.code).toBe("codec.invalid");
+            expect(error.message).toMatch(/order is corrupt/);
+        }
+    }
+);
+
+test(
+    "[invocation-persistence] memory append-only guards report the duplicate-record failure",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-duplicate-failure");
+        const state = createInvocationMemoryState();
+        persistence.insertPrepared(state, invocation);
+        persistence.appendApproval(
+            state,
+            Approval.pending(
+                new ApprovalId("memory-duplicate-failure-approval-a"),
+                invocation.header.id,
+                invocation.intentDigest,
+                new Date(1000)
+            )
+        );
+        const attemptFor = (
+            suffix: string,
+            ordinal: number,
+            claim: string
+        ): EffectAttempt<string, string> =>
+            new EffectAttempt<string, string>(
+                new EffectAttemptId(`memory-duplicate-failure-attempt-${suffix}`),
+                invocation.header.id,
+                0,
+                ordinal,
+                new ItemClaimId(claim),
+                undefined,
+                admissionFor(invocation.header.id.value, 0, ordinal),
+                new Date(2000),
+                invocation.item(0).idempotencyKey,
+                new AuditRecordId(`memory-duplicate-failure-audit-${suffix}`)
+            );
+        persistence.appendAttempt(state, attemptFor("a", 0, "memory-duplicate-failure-claim"));
+
+        const duplicates: readonly (() => unknown)[] = [
+            () => persistence.insertPrepared(state, invocation),
+            () =>
+                persistence.appendApproval(
+                    state,
+                    Approval.pending(
+                        new ApprovalId("memory-duplicate-failure-approval-b"),
+                        invocation.header.id,
+                        invocation.intentDigest,
+                        new Date(1000)
+                    )
+                ),
+            () =>
+                persistence.appendAttempt(
+                    state,
+                    attemptFor("b", 1, "memory-duplicate-failure-claim")
+                ),
+            () =>
+                persistence.appendAttempt(
+                    state,
+                    attemptFor("c", 0, "memory-duplicate-failure-claim-c")
+                )
+        ];
+        for (const duplicate of duplicates) {
+            expect(rejects(duplicate, InvocationError).failure).toBe("store.duplicate-record");
+        }
+    }
+);
+
+test(
+    "[invocation-persistence] cloned memory state does not alias durable record bytes",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-clone-aliasing");
+        const state = createInvocationMemoryState();
+        persistence.insertPrepared(state, invocation);
+
+        const clone = cloneInvocationMemoryState(state);
+        const bytes = clone.prepared.get(invocation.header.id.value);
+        if (bytes === undefined) throw new Error("Cloned state must carry the prepared bytes");
+        bytes.fill(0);
+
+        expect(persistence.prepared(state, invocation.header.id)?.header.id.value).toBe(
+            invocation.header.id.value
+        );
+    }
+);

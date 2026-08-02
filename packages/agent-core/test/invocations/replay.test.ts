@@ -88,6 +88,20 @@ describe("W6 mediated replay record", () => {
         );
     });
 
+    test("names the replay execution kind before decoding its digest", { tags: "p2" }, () => {
+        const bytes = MediatedReplayRecord.encode(
+            MediatedReplayRecord.reserve(replayReservation("execution-order"))
+        );
+
+        expect(() =>
+            MediatedReplayRecord.decode(
+                mutateRecord(bytes, (payload) => {
+                    payload["execution"] = { digest: 42, kind: "substituted" };
+                })
+            )
+        ).toThrow(/Replay execution identity kind is invalid/);
+    });
+
     test("rejects effect transitions for out-of-range items", { tags: "p1" }, () => {
         const prepared = MediatedReplayRecord.reserve(
             replayReservation("out-of-range")

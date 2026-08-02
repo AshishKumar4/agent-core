@@ -54,6 +54,19 @@ describe("Operation pin placement and decoding", () => {
         expect(decoded.placement.selected).toBe(pin.placement.selected);
     });
 
+    test("rejects a placement admitted by only some of the four sets", { tags: "p1" }, () => {
+        expect(
+            () =>
+                new InvocationPlacementPin({
+                    manifest: ["provider"],
+                    policy: ["provider"],
+                    substrate: ["bundled"],
+                    trust: ["bundled"],
+                    selected: "provider"
+                })
+        ).toThrow(/^Selected placement must occur in every admissible set$/);
+    });
+
     test("rejects non-boolean approval requirements at decode time", { tags: "p2" }, () => {
         const data = requireObject(operationPin("approval-pin").toData(), "Operation pin");
         expect(() => OperationPin.fromData({ ...data, approvalRequired: 1 })).toThrow(

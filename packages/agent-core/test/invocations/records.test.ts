@@ -900,6 +900,63 @@ describe("Invocation evidence records", () => {
         expect(decoded.firstItemKey).toBe("agent-core.item.v1:continuation");
     });
 
+    test("rejects a stored expired Approval that has no expiry deadline", { tags: "p1" }, () => {
+        const id = new ApprovalId("expired-open");
+        const invocation = new InvocationId("expired-open-invocation");
+        const digest = Digest.sha256(new TextEncoder().encode("expired-open"));
+
+        expect(
+            () =>
+                new Approval(id, invocation, digest, time(1), undefined, new Revision(1), {
+                    kind: "expired",
+                    at: time(5)
+                })
+        ).toThrow(/Expired Approval must be its first transition at or after expiry/);
+    });
+
+    test("copies each Approval state into exactly the fields that state carries", { tags: "p1" }, () => {
+        const principal = new PrincipalId("state-shape-principal");
+        const pending = approval("state-shape", time(10));
+        const approved = pending.approve(principal, time(2));
+        const denied = approval("state-shape-denied", time(10)).deny(principal, time(2), "no");
+        const expired = approval("state-shape-expired", time(5)).expire(time(5));
+        const consumed = approved.consume(new EffectAttemptId("state-shape-attempt"), time(3));
+
+        expect(Object.keys(pending.state)).toEqual(["kind"]);
+        expect(Object.keys(approved.state).sort()).toEqual(["at", "by", "kind"]);
+        expect(Object.keys(denied.state).sort()).toEqual(["at", "by", "kind", "reason"]);
+        expect(Object.keys(expired.state).sort()).toEqual(["at", "kind"]);
+        expect(Object.keys(consumed.state).sort()).toEqual([
+            "approvedAt",
+            "at",
+            "by",
+            "firstAttempt",
+            "kind"
+        ]);
+    });
+
+    test("rejects a pre-effect Receipt outcome before reading the rest of the payload", { tags: "p2" }, () => {
+        const envelope = (overrides: Record<string, unknown>) =>
+            encodeCanonicalJson({
+                kind: "invocation.receipt",
+                version: { major: 1, minor: 0 },
+                payload: {
+                    id: "diagnostic-receipt",
+                    invocation: "diagnostic-invocation",
+                    itemIndex: 0,
+                    outcome: "deniedPreEffect",
+                    reason: "reason",
+                    recordedAt: time(1).toISOString(),
+                    variant: "preEffect",
+                    ...overrides
+                } as never
+            });
+
+        expect(() =>
+            Receipt.decode(envelope({ outcome: "succeeded", recordedAt: "not-a-date" }))
+        ).toThrow(/record: Pre-effect Receipt outcome is invalid$/);
+    });
+
     test("derives a batch outcome only from one complete Receipt slot per item", { tags: "p1" }, () => {
         const success = attempted("slot-success", "succeeded");
         expect(deriveBatchOutcome(2, [success, undefined])).toBeUndefined();

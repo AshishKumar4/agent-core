@@ -813,6 +813,150 @@ describe("envelope and write record boundaries", () => {
         ).toThrow("Write record payload must be an object");
     });
 
+    test("envelope decoding rejects non-object containers exactly", { tags: "p1" }, () => {
+        for (const value of [null, [], "caller", 1, true] as const) {
+            expect(() =>
+                CommandEnvelopeCodec.decode(
+                    mutateEnvelope((record) => {
+                        payloadOf(record)["caller"] = value;
+                    })
+                )
+            ).toThrow("Command caller must be an object");
+        }
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                mutateEnvelope((record) => {
+                    callerOf(record)["principal"] = null;
+                })
+            )
+        ).toThrow("Command caller principal must be an object");
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                mutateEnvelope((record) => {
+                    leaseOf(record)["holder"] = [];
+                })
+            )
+        ).toThrow("Lease holder must be an object");
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                encodeCanonicalJson({
+                    kind: "command-envelope",
+                    version: { major: 1, minor: 0 },
+                    payload: "envelope"
+                })
+            )
+        ).toThrow("Command envelope payload must be an object");
+    });
+
+    test("envelope construction rejects null caller and lease containers", { tags: "p1" }, () => {
+        expect(
+            () => new CommandEnvelope({ ...envelopeInit(), caller: null as unknown as CommandCaller })
+        ).toThrow(new TypeError("Command caller must be a plain object with exact fields"));
+        expect(
+            () => new CommandEnvelope({ ...envelopeInit(), lease: null as unknown as LeaseToken })
+        ).toThrow(new TypeError("Lease token must be a plain object with exact fields"));
+    });
+
+    test("envelope decoding reports exact field type diagnostics", { tags: "p1" }, () => {
+        const stringFields = ["command", "idempotencyKey", "payload", "payloadDigest"] as const;
+        for (const field of stringFields) {
+            expect(() =>
+                CommandEnvelopeCodec.decode(
+                    mutateEnvelope((record) => {
+                        payloadOf(record)[field] = 1;
+                    })
+                )
+            ).toThrow(`${field} must be a string`);
+        }
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                mutateEnvelope((record) => {
+                    payloadOf(record)["callerCause"] = 1;
+                })
+            )
+        ).toThrow("callerCause must be a string");
+
+        for (const revision of [1.5, -1, "3", true] as const) {
+            expect(() =>
+                CommandEnvelopeCodec.decode(
+                    mutateEnvelope((record) => {
+                        payloadOf(record)["expectedRevision"] = revision;
+                    })
+                )
+            ).toThrow("expectedRevision must be a non-negative safe integer");
+        }
+        for (const epoch of [1.5, -1, "2"] as const) {
+            expect(() =>
+                CommandEnvelopeCodec.decode(
+                    mutateEnvelope((record) => {
+                        leaseOf(record)["epoch"] = epoch;
+                    })
+                )
+            ).toThrow("epoch must be a non-negative safe integer");
+        }
+    });
+
+    test("envelope decoding rejects unknown caller and Actor kinds exactly", { tags: "p1" }, () => {
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                mutateEnvelope((record) => {
+                    callerOf(record)["kind"] = "system";
+                })
+            )
+        ).toThrow("Command caller kind is invalid");
+        expect(() =>
+            CommandEnvelopeCodec.decode(
+                mutateEnvelope((record) => {
+                    payloadOf(record)["caller"] = {
+                        kind: "actor",
+                        actor: { kind: "principal", id: "codec-actor" }
+                    };
+                })
+            )
+        ).toThrow("Command caller actor kind is invalid");
+    });
+
+    test("write records report exact envelope-field diagnostics", { tags: "p1" }, () => {
+        expect(() => writeFixture({ command: undefined })).toThrow(
+            new TypeError("Only malformed writes may omit decoded envelope fields")
+        );
+        expect(() => writeFixture({ caller: undefined })).toThrow(
+            new TypeError("Only malformed writes may omit decoded envelope fields")
+        );
+        expect(() => writeFixture({ outcome: "rejectedMalformed", caller: undefined })).toThrow(
+            new TypeError("Write idempotency keys require decoded envelope fields")
+        );
+        expect(() => writeFixture({ outcome: "rejectedMalformed", command: undefined })).toThrow(
+            new TypeError("Write idempotency keys require decoded envelope fields")
+        );
+    });
+
+    test("write record decoding reports exact payload diagnostics", { tags: "p1" }, () => {
+        expect(() =>
+            WriteRecordCodec.decode(
+                encodeCanonicalJson({
+                    kind: "write-record",
+                    version: { major: 2, minor: 0 },
+                    payload: "record"
+                })
+            )
+        ).toThrow("Write record payload must be an object");
+        expect(() =>
+            WriteRecordCodec.decode(
+                mutateWriteRecord((record) => {
+                    payloadOf(record)["id"] = 1;
+                })
+            )
+        ).toThrow("id must be a string");
+        expect(() =>
+            WriteRecordCodec.decode(
+                mutateWriteRecord((record) => {
+                    actorOf(record)["kind"] = "principal";
+                })
+            )
+        ).toThrow("Write record actor kind is invalid");
+    });
+
     test("write records detach reply and observation bytes", { tags: "p1" }, () => {
         const reply = Uint8Array.of(1, 2, 3);
         const observation = Uint8Array.of(4, 5, 6);
@@ -920,6 +1064,12 @@ function envelopeFixture(caller: CommandCaller = principalCaller): CommandEnvelo
 
 function mutateEnvelope(mutate: (record: MutableObject) => void): Uint8Array {
     const record = mutableRecord(CommandEnvelopeCodec.encode(envelopeFixture()));
+    mutate(record);
+    return encodeCanonicalJson(record as JsonValue);
+}
+
+function mutateWriteRecord(mutate: (record: MutableObject) => void): Uint8Array {
+    const record = mutableRecord(WriteRecordCodec.encode(writeFixture()));
     mutate(record);
     return encodeCanonicalJson(record as JsonValue);
 }

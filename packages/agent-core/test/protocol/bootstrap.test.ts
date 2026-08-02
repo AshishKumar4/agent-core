@@ -34,6 +34,7 @@ import {
 } from "../../src/substrates";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
 import { CounterContentStore } from "./counter-fixture";
+import { expectAgentCoreError } from "./error-assertion";
 
 const actor = new ActorRef("tenant", new ActorId("bootstrap-actor"));
 const tenantId = new TenantId("bootstrap-tenant");
@@ -874,7 +875,8 @@ test("memory bootstrap restart accepts identical anchors and rejects drift", { t
         { ...anchor, principalId: new PrincipalId("drift-owner") },
         { ...anchor, tenantKind: "service" },
         { ...anchor, trustAnchor: Uint8Array.of(4, 5, 7) },
-        { ...anchor, trustAnchor: Uint8Array.of(4, 5) }
+        { ...anchor, trustAnchor: Uint8Array.of(4, 5) },
+        { ...anchor, trustAnchor: Uint8Array.of(4, 5, 6, 7) }
     ];
     for (const changed of drifted) {
         try {
@@ -988,6 +990,175 @@ test("memory bootstrap records carry typed identifier prefixes", { tags: "p2" },
     }
     expect(root.correlation.value).toMatch(/^correlation-\d+$/u);
     expect(root.kind.id.value).toMatch(/^invocation-\d+$/u);
+});
+
+test("anchor codec names each malformed payload container and field", { tags: "p1" }, () => {
+    const valid = {
+        actorId: actor.id.value,
+        principalId: principalId.value,
+        tenantId: tenantId.value,
+        tenantKind: "personal",
+        trustAnchor: "BAUG"
+    };
+    const malformed: readonly JsonValue[] = [
+        null,
+        [],
+        "anchor",
+        5,
+        true,
+        { ...valid, actorId: 3 },
+        { ...valid, principalId: 3 },
+        { ...valid, tenantId: 3 },
+        { ...valid, trustAnchor: 3 },
+        { ...valid, tenantKind: "bogus" }
+    ];
+
+    for (const payload of malformed) {
+        expect(() => TenantBootstrapAnchorRecord.decode(anchorEnvelope(payload))).toThrow(
+            "Tenant bootstrap anchor payload is malformed"
+        );
+    }
+});
+
+test("bootstrap command construction and payload codec fail closed exactly", { tags: "p1" }, () => {
+    const store = {
+        anchor: (): TenantBootstrapAnchor | undefined => anchor,
+        anchorInTransaction: (): TenantBootstrapAnchor | undefined => anchor,
+        eligible: () => true,
+        currentRevision: () => Revision.initial(),
+        bootstrapTenant: () => undefined
+    };
+    const nonTenant = (): unknown =>
+        createTenantBootstrapCommand(store, {
+            actor: new ActorRef("run", new ActorId("bootstrap-run")),
+            tenantId
+        });
+    expectAgentCoreError(nonTenant, "protocol.invalid-state");
+    expect(nonTenant).toThrow("Tenant bootstrap must target a Tenant Actor");
+
+    const command = createTenantBootstrapCommand(store, { actor, tenantId });
+    const malformed: readonly JsonValue[] = [null, [], "payload", 5, { extra: true }];
+    for (const payload of malformed) {
+        const decode = (): unknown => command.payload.decode(encodeCanonicalJson(payload));
+        expectAgentCoreError(decode, "protocol.invalid-envelope");
+        expect(decode).toThrow("Tenant bootstrap payload must be an empty object");
+    }
+    expect(command.payload.decode(tenantBootstrapPayload())).toEqual({});
+});
+
+test("bootstrap typed codecs reject non-object containers exactly", { tags: "p1" }, () => {
+    const store = {
+        anchor: (): TenantBootstrapAnchor | undefined => anchor,
+        anchorInTransaction: (): TenantBootstrapAnchor | undefined => anchor,
+        eligible: () => true,
+        currentRevision: () => Revision.initial(),
+        bootstrapTenant: () => undefined
+    };
+    const command = createTenantBootstrapCommand(store, { actor, tenantId });
+    const replyCodec = command.replyCodec;
+    const observationCodec = command.observationCodec;
+    if (replyCodec === undefined || observationCodec === undefined) {
+        throw new TypeError("Expected typed bootstrap codecs");
+    }
+
+    for (const value of ["reply", 5, true, []] as const) {
+        expect(() => replyCodec.decode(encodeCanonicalJson(value))).toThrow(
+            "Tenant bootstrap reply must be an object"
+        );
+        expect(() => observationCodec.decode(encodeCanonicalJson(value))).toThrow(
+            "Tenant bootstrap observation must be an object"
+        );
+    }
+    expect(() =>
+        replyCodec.decode(encodeCanonicalJson({ owner: "owner", tenant: "bootstrap-tenant" }))
+    ).toThrow("Tenant bootstrap owner must be an object");
+    expect(() => observationCodec.decode(encodeCanonicalJson({ at: 5, reply: "AA==" }))).toThrow(
+        "Tenant bootstrap observation time must be a non-empty string"
+    );
+});
+
+test("memory bootstrap names every snapshot rejection exactly", { tags: "p1" }, () => {
+    const content = new CounterContentStore(() => undefined);
+    const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+    const snapshot = composition.snapshot();
+    const opaque = snapshot.opaque as {
+        readonly state: { readonly protocol: unknown; readonly nextId: number };
+    };
+    const restore =
+        (value: unknown) =>
+        (): unknown =>
+            createMemoryTenantBootstrap({
+                actor,
+                anchor,
+                content,
+                snapshot: value as MemoryTenantBootstrapSnapshot
+            });
+
+    const actorEnvelope = restore({
+        version: 1,
+        opaque: { ...(snapshot.opaque as object), version: 2 }
+    });
+    expectAgentCoreError(actorEnvelope, "codec.invalid");
+    expect(actorEnvelope).toThrow("Memory Actor snapshot is malformed");
+
+    const negativeId = restore({
+        version: 1,
+        opaque: {
+            ...(snapshot.opaque as object),
+            state: { ...opaque.state, nextId: -1 }
+        }
+    });
+    expectAgentCoreError(negativeId, "codec.invalid");
+    expect(negativeId).toThrow("Memory Tenant bootstrap snapshot is malformed");
+
+    const unclonableProtocol = restore({
+        version: 1,
+        opaque: {
+            ...(snapshot.opaque as object),
+            state: { ...opaque.state, protocol: {} }
+        }
+    });
+    expectAgentCoreError(unclonableProtocol, "codec.invalid");
+    expect(unclonableProtocol).toThrow("Memory Tenant bootstrap snapshot is malformed");
+});
+
+test("memory bootstrap wraps non-protocol composition failures", { tags: "p1" }, () => {
+    const compose = (): unknown =>
+        createMemoryTenantBootstrapComposition({
+            actor,
+            anchor,
+            content: new CounterContentStore(() => undefined),
+            authenticator: {} as unknown as CommandAuthenticator<symbol>
+        });
+
+    expectAgentCoreError(compose, "protocol.invalid-state");
+    expect(compose).toThrow("Tenant bootstrap Actor state is invalid");
+});
+
+test("memory bootstrap protocol identifiers are exhaustible exactly", { tags: "p1" }, async () => {
+    const content = new CounterContentStore(() => undefined);
+    const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+    const snapshot = composition.snapshot();
+    const opaque = snapshot.opaque as { readonly state: { readonly nextId: number } };
+    const exhausted = createMemoryTenantBootstrap({
+        actor,
+        anchor,
+        content,
+        snapshot: {
+            version: 1,
+            opaque: {
+                ...(snapshot.opaque as object),
+                state: { ...opaque.state, nextId: Number.MAX_SAFE_INTEGER }
+            }
+        }
+    });
+
+    await expect(
+        exhausted.dispatch(envelope(content, { key: "exhausted-exact" }), ownerTransport)
+    ).rejects.toMatchObject({
+        code: "protocol.invalid-state",
+        message: "Memory bootstrap protocol ID is exhausted"
+    });
 });
 
 interface EnvelopeInit {

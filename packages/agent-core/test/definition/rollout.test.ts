@@ -1050,7 +1050,114 @@ describe("materialization rollout mutation boundaries", () => {
             )
         ).toThrow(/Materialization rollout plans belong to different deployments/);
     });
+
+    test("requires exact active-plan continuity across deployment transitions", { tags: "p0" }, () => {
+        const initial = DeploymentRecord.initial(tenantId, deploymentKey);
+        const forgedActive = new DeploymentRecord(
+            deploymentId,
+            tenantId,
+            deploymentKey,
+            digest("forged-active"),
+            digest("pending"),
+            2,
+            new Revision(1)
+        );
+        expect(isLegalDeploymentTransition(initial, forgedActive)).toBe(false);
+
+        const active = new DeploymentRecord(
+            deploymentId,
+            tenantId,
+            deploymentKey,
+            digest("active"),
+            undefined,
+            2,
+            new Revision(2)
+        );
+        const begun = new DeploymentRecord(
+            deploymentId,
+            tenantId,
+            deploymentKey,
+            digest("active"),
+            digest("pending"),
+            3,
+            new Revision(3)
+        );
+        const dropped = new DeploymentRecord(
+            deploymentId,
+            tenantId,
+            deploymentKey,
+            undefined,
+            digest("pending"),
+            3,
+            new Revision(3)
+        );
+        expect(isLegalDeploymentTransition(active, begun)).toBe(true);
+        expect(isLegalDeploymentTransition(active, dropped)).toBe(false);
+    });
+
+    test("completes a pending rollout whose plan already matches the active plan", { tags: "p0" }, () => {
+        const rollout = new MaterializationRollout({ plan: plan(1, ["a"]) });
+        const store = new MemoryMaterializationControlStore(
+            acknowledgedControlSnapshot(
+                new DeploymentRecord(
+                    deploymentId,
+                    tenantId,
+                    deploymentKey,
+                    rollout.plan.id,
+                    rollout.id,
+                    2,
+                    new Revision(1)
+                ),
+                rollout
+            )
+        );
+
+        const completed = controllerFor(store).complete(rollout.id);
+
+        expect(completed.pendingRolloutId).toBeUndefined();
+        expect(completed.activePlanId?.equals(rollout.plan.id)).toBe(true);
+        expect(completed.revision.value).toBe(2);
+    });
+
+    test("refuses to complete a rollout its deployment never began", { tags: "p0" }, () => {
+        const rollout = new MaterializationRollout({ plan: plan(1, ["a"]) });
+        const store = new MemoryMaterializationControlStore(
+            acknowledgedControlSnapshot(DeploymentRecord.initial(tenantId, deploymentKey), rollout)
+        );
+
+        expect(() => controllerFor(store).complete(rollout.id)).toThrow(
+            "Deployment completion does not match its pending rollout"
+        );
+    });
+
+    test("names a non-object control payload exactly", { tags: "p2" }, () => {
+        expect(() => MaterializationRollout.fromData(null)).toThrow(
+            "Materialization rollout must be an object"
+        );
+        expect(() => MaterializationOutboxEntry.fromData(null)).toThrow(
+            "Materialization outbox must be an object"
+        );
+        expect(() => DeploymentRecord.fromData(null)).toThrow("Deployment must be an object");
+    });
 });
+
+function acknowledgedControlSnapshot(
+    deployment: DeploymentRecord,
+    rollout: MaterializationRollout
+): MemoryMaterializationControlSnapshot {
+    return {
+        attestations: [ValidationAttestation.encode(validationAttestation(rollout.plan.generation))],
+        deployments: [DeploymentRecord.encode(deployment)],
+        rollouts: [MaterializationRollout.encode(rollout)],
+        outbox: rollout.plan.actors.map((actorPlan) =>
+            MaterializationOutboxEntry.encode(
+                MaterializationOutboxEntry.pending(rollout.id, actorPlan).acknowledge(
+                    digest(`reply:${actorPlan.actor.id.value}`)
+                )
+            )
+        )
+    };
+}
 
 function rolloutContract<Transaction>(
     name: string,

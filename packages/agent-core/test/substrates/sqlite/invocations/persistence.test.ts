@@ -96,7 +96,7 @@ function verifyPreparedContract<Transaction>(
     });
 }
 
-invocationLedgerContract("sqlite", () => new SqliteHarness());
+invocationLedgerContract("sqlite", () => new SqliteHarness(), "excluded");
 
 describe("SqliteInvocationPersistence transaction scope", () => {
     test("[C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation", () => {

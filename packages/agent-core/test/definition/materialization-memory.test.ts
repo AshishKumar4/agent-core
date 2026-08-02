@@ -14,7 +14,8 @@ import {
 import {
     Blueprint,
     MaterializationGenerationId,
-    MaterializationGenerationPointer
+    MaterializationGenerationPointer,
+    MaterializationPlan
 } from "../../src/definition";
 import { SqliteMaterializationStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
@@ -509,6 +510,42 @@ describe("MemoryMaterializationStore persistence", () => {
         );
     });
 
+    test(
+        "keeps a stored materialization plan immutable against a byte-divergent rewrite",
+        { tags: "p0" },
+        () => {
+            const owner = actorRef("plan-bytes");
+            const fixture = materializationStateWithKeys(owner, 1, "plan-bytes", [
+                "slot:aa",
+                "slot:zz"
+            ]);
+            const divergent = reorderedProjectionPlanBytes(fixture.plan);
+            expect(divergent).not.toEqual(MaterializationPlan.encode(fixture.plan));
+
+            const store = new MemoryMaterializationStore(owner, {
+                blueprints: [],
+                plans: [
+                    {
+                        id: fixture.plan.id.value,
+                        blueprintDigest: fixture.plan.blueprintDigest.value,
+                        packageLockDigest: fixture.plan.packageLockDigest.value,
+                        configDigest: fixture.plan.configDigest.value,
+                        generation: fixture.plan.generation,
+                        bytes: divergent
+                    }
+                ],
+                generations: [],
+                managedState: [],
+                pointers: []
+            });
+
+            expect(() => store.addPlan(fixture.plan)).toThrow(
+                `Materialization plan ${fixture.plan.id.value} is immutable`
+            );
+            expect(store.snapshot().plans.map((row) => row.bytes)).toEqual([divergent]);
+        }
+    );
+
     test("rejects malformed snapshot bytes and duplicate pointer keys", () => {
         const snapshot = completeSnapshot();
         expect(
@@ -556,6 +593,28 @@ describe("MemoryMaterializationStore persistence", () => {
         expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow();
     });
 });
+
+function reorderedProjectionPlanBytes(plan: MaterializationPlan): Uint8Array {
+    return encodeCanonicalJson({
+        kind: MaterializationPlan.codec.kind,
+        version: {
+            major: MaterializationPlan.codec.version.major,
+            minor: MaterializationPlan.codec.version.minor
+        },
+        payload: {
+            actors: plan.actors.map((actorPlan) => ({
+                actor: { id: actorPlan.actor.id.value, kind: actorPlan.actor.kind },
+                id: actorPlan.id.value,
+                origin: actorPlan.origin.toData(),
+                projections: [...actorPlan.projections]
+                    .reverse()
+                    .map((projection) => projection.toData())
+            })),
+            id: plan.id.value,
+            origin: plan.origin.toData()
+        }
+    });
+}
 
 function completeSnapshot(): MemoryMaterializationSnapshot {
     const actor = actorRef("workspace");

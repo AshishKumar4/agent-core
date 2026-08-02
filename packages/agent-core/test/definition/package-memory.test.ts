@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { Revision } from "../../src/core";
+import { Revision, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { MemoryPackageStore, type MemoryPackageSnapshot } from "../../src/definition/memory";
 import { PackageLock } from "../../src/definition/package-lock";
 import { PackageId } from "../../src/definition/id";
@@ -139,6 +139,52 @@ describe("MemoryPackageStore persistence", () => {
                 })
         ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
     });
+
+    test(
+        "keeps a stored metadata snapshot and package lock immutable against byte-divergent rewrites",
+        { tags: "p0" },
+        () => {
+            const alpha = packageRelease("alpha", "1.0.0");
+            const zeta = packageRelease("zeta", "2.0.0");
+            const metadata = new MetadataSnapshot({
+                revision: new Revision(4),
+                releases: [alpha]
+            });
+            const lock = packageLock(metadata.digest, 4, [alpha, zeta]);
+            const snapshotBytes = duplicatedReleaseSnapshotBytes(metadata);
+            const lockBytes = reorderedLockBytes(lock);
+            expect(snapshotBytes).not.toEqual(MetadataSnapshot.encode(metadata));
+            expect(lockBytes).not.toEqual(PackageLock.encode(lock));
+
+            const store = new MemoryPackageStore({
+                releases: [],
+                snapshots: [
+                    {
+                        digest: metadata.digest.value,
+                        revision: metadata.revision.value,
+                        bytes: snapshotBytes
+                    }
+                ],
+                locks: [
+                    {
+                        lockDigest: lock.digest.value,
+                        snapshotDigest: lock.snapshotDigest.value,
+                        snapshotRevision: lock.snapshotRevision.value,
+                        bytes: lockBytes
+                    }
+                ]
+            });
+
+            expect(() => store.addSnapshot(metadata)).toThrow(
+                `Metadata snapshot ${metadata.digest.value} is immutable`
+            );
+            expect(() => store.addLock(lock)).toThrow(
+                `Package lock ${lock.digest.value} is immutable`
+            );
+            expect(store.snapshot().snapshots.map((row) => row.bytes)).toEqual([snapshotBytes]);
+            expect(store.snapshot().locks.map((row) => row.bytes)).toEqual([lockBytes]);
+        }
+    );
 
     test("names malformed snapshot field types exactly", { tags: "p2" }, () => {
         const snapshot = releaseSnapshot();
@@ -297,6 +343,38 @@ describe("MemoryPackageStore persistence", () => {
         ).toThrow(/lock revision is malformed/);
     });
 });
+
+function duplicatedReleaseSnapshotBytes(snapshot: MetadataSnapshot): Uint8Array {
+    return recordEnvelope(MetadataSnapshot.codec, {
+        digest: snapshot.digest.value,
+        releases: [...snapshot.releases, ...snapshot.releases].map((release) => release.toData()),
+        revision: snapshot.revision.value
+    });
+}
+
+function reorderedLockBytes(lock: PackageLock): Uint8Array {
+    return recordEnvelope(PackageLock.codec, {
+        packages: [...lock.packages].reverse().map((pin) => pin.toData()),
+        roots: [...lock.roots].reverse().map((root) => root.toData()),
+        snapshotDigest: lock.snapshotDigest.value,
+        snapshotRevision: lock.snapshotRevision.value,
+        target: lock.target.toData()
+    });
+}
+
+function recordEnvelope(
+    codec: {
+        readonly kind: string;
+        readonly version: { readonly major: number; readonly minor: number };
+    },
+    payload: JsonValue
+): Uint8Array {
+    return encodeCanonicalJson({
+        kind: codec.kind,
+        version: { major: codec.version.major, minor: codec.version.minor },
+        payload
+    });
+}
 
 function releaseSnapshot(): MemoryPackageSnapshot {
     const store = new MemoryPackageStore();

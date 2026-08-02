@@ -2,21 +2,49 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { ActorCommitUnknownError } from "../../src/actors";
-import { Digest, encodeBase64 } from "../../src/core";
+import {
+    ActorCommitUnknownError,
+    ActorId,
+    ActorRef,
+    MemoryActorStore
+} from "../../src/actors";
+import {
+    ContentRef,
+    Digest,
+    decodeCanonicalJson,
+    encodeBase64,
+    encodeCanonicalJson
+} from "../../src/core";
+import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
+import { CommandAuthenticator } from "../../src/protocol/authentication";
 import {
     CommandCommitUnknownError,
-    CommandPreparationUnavailableError
+    CommandDispatcher,
+    CommandPreparationUnavailableError,
+    type CommandDispatcherInit,
+    type ProtocolPersistence
 } from "../../src/protocol/dispatcher";
-import { CommandEnvelopeCodec } from "../../src/protocol/envelope";
+import {
+    CommandEnvelope,
+    CommandEnvelopeCodec,
+    type CommandCaller
+} from "../../src/protocol/envelope";
+import { MemoryProtocolPersistence, MemoryProtocolRecords } from "../../src/protocol/memory";
 import {
     CommandPayloadMalformedError,
     PayloadLeaseBinding,
     issueLeasedCommandPayload
 } from "../../src/protocol/payload";
+import { CommandCallerPolicy } from "../../src/protocol/policy";
+import type { ProtocolCommand } from "../../src/protocol/registration";
 import { WriteRecordCodec, type CommandOutcome } from "../../src/protocol/write";
 import { FileSqlite } from "../helpers/sqlite";
-import { CounterAuthenticator, CounterHarness } from "./counter-fixture";
+import {
+    CounterAuthenticator,
+    CounterContentStore,
+    CounterHarness,
+    CounterIds
+} from "./counter-fixture";
 import { counterDispatcherContract } from "./dispatcher-contract";
 import { expectAgentCoreErrorValue } from "./error-assertion";
 import { SqliteCounterHarness } from "./sqlite-counter-fixture";
@@ -450,6 +478,412 @@ test("optional revision commands admit a supplied matching revision", { tags: "p
         (await optional.dispatch(optional.envelope({ key: "optional-present" }))).outcome
     ).toBe("committed");
 });
+
+test("rejects an envelope beyond the configured byte limit", { tags: "p0" }, async () => {
+    const harness = new CounterHarness({ limits: { envelopeBytes: 32, payloadBytes: 1024 } });
+
+    const result = await harness.dispatch(harness.envelope({ key: "oversized-envelope" }));
+
+    expect(result.outcome).toBe("rejectedMalformed");
+    expect(result.write.command).toBeUndefined();
+    expect(result.write.caller).toBeUndefined();
+    expect(harness.snapshot().value).toBe(0);
+});
+
+test("rejects a leased payload beyond the configured byte limit", { tags: "p0" }, async () => {
+    const harness = new CounterHarness({ limits: { envelopeBytes: 4096, payloadBytes: 4 } });
+
+    const result = await harness.dispatch(harness.envelope({ key: "oversized-payload" }));
+
+    expect(result.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot()).toMatchObject({ value: 0, contentGets: 1 });
+});
+
+test("rejects leased payload bytes that do not hash to the envelope digest", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const raw = harness.envelope({ key: "substituted-payload", amount: 2 });
+    harness.installPayload(
+        CommandEnvelopeCodec.decode(raw).payload.value,
+        harness.payloadBytes(9)
+    );
+
+    const result = await harness.dispatch(raw);
+
+    expect(result.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot().value).toBe(0);
+});
+
+test("rejects a payload reference that disagrees with the payload digest", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const payload = harness.payloadBytes(3);
+    const payloadDigest = Digest.sha256(payload);
+    const reference = ContentRef.fromDigest(Digest.sha256(harness.payloadBytes(4)));
+    const raw = CommandEnvelopeCodec.encode(
+        new CommandEnvelope({
+            command: "counter.increment",
+            caller: harness.caller,
+            idempotencyKey: "reference-mismatch",
+            expectedRevision: harness.snapshot().revision,
+            payload: reference,
+            payloadDigest
+        })
+    );
+    harness.installPayload(reference.value, payload);
+    const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
+        harness.caller,
+        CommandEnvelopeCodec.decode(raw),
+        Digest.sha256(raw)
+    );
+    const admission = await harness.dispatcher.admit(raw, authentication);
+    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+    const binding = new PayloadLeaseBinding(
+        harness.tenant,
+        harness.actor,
+        Digest.sha256(raw),
+        reference,
+        payloadDigest,
+        new Date(CounterHarness.now.getTime() + 60_000)
+    );
+    const lease = await harness.content.acquire(binding);
+    if (lease === undefined) throw new TypeError("Expected a payload lease");
+
+    const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
+
+    expect(result.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot().value).toBe(0);
+    await lease.close();
+});
+
+test("unregistered commands reserve their identity without a caller cause", { tags: "p0" }, async () => {
+    const harness = new CounterHarness({ commandName: "counter.other" });
+    const cause = harness.seedInvocationCause("unregistered-cause");
+
+    const rejected = await harness.dispatch(
+        harness.envelope({ key: "unregistered", callerCause: cause.id })
+    );
+    expect(rejected.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot().audits.get(rejected.write.audit.value)?.cause).toBeUndefined();
+
+    const replay = await harness.dispatch(
+        harness.envelope({ key: "unregistered", callerCause: cause.id })
+    );
+    expect(replay.outcome).toBe("duplicate");
+    expect(replay.write.duplicateOf?.equals(rejected.write.id)).toBe(true);
+});
+
+test("malformed payloads keep exactly their own caller cause", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const cause = harness.seedInvocationCause("malformed-payload-cause");
+
+    const caused = harness.envelope({ key: "malformed-caused", callerCause: cause.id });
+    harness.removePayload(CommandEnvelopeCodec.decode(caused).payload.value);
+    const withCause = await harness.dispatch(caused);
+    expect(withCause.outcome).toBe("rejectedMalformed");
+    expect(
+        harness.snapshot().audits.get(withCause.write.audit.value)?.cause?.equals(cause.id)
+    ).toBe(true);
+
+    const bare = harness.envelope({ key: "malformed-bare" });
+    harness.removePayload(CommandEnvelopeCodec.decode(bare).payload.value);
+    const withoutCause = await harness.dispatch(bare);
+    expect(withoutCause.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot().audits.get(withoutCause.write.audit.value)?.cause).toBeUndefined();
+});
+
+test("rejected outcomes reply with their canonical outcome document", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    harness.setAuthorized(false);
+
+    const result = await harness.dispatch(harness.envelope({ key: "rejected-reply" }));
+
+    expect(result.outcome).toBe("rejectedAuthority");
+    expect(decodeCanonicalJson(result.reply)).toEqual({ outcome: "rejectedAuthority" });
+    expect(decodeCanonicalJson(result.write.reply)).toEqual({ outcome: "rejectedAuthority" });
+});
+
+test("typed executions attach caller causes with and without observations", { tags: "p0" }, async () => {
+    const observed = new CounterHarness({ typedExecution: true });
+    const observedCause = observed.seedInvocationCause("typed-observed-cause");
+    const withObservation = await observed.dispatch(
+        observed.envelope({ key: "typed-observed", callerCause: observedCause.id })
+    );
+    expect(withObservation.outcome).toBe("committed");
+    expect(withObservation.observation).toBeDefined();
+    expect(
+        observed.snapshot().audits.get(withObservation.write.audit.value)?.cause?.equals(
+            observedCause.id
+        )
+    ).toBe(true);
+
+    const plain = new CounterHarness({ typedExecution: true, typedObservation: false });
+    const plainCause = plain.seedInvocationCause("typed-plain-cause");
+    const withoutObservation = await plain.dispatch(
+        plain.envelope({ key: "typed-plain", callerCause: plainCause.id })
+    );
+    expect(withoutObservation.outcome).toBe("committed");
+    expect(withoutObservation.observation).toBeUndefined();
+    expect(
+        plain.snapshot().audits.get(withoutObservation.write.audit.value)?.cause?.equals(
+            plainCause.id
+        )
+    ).toBe(true);
+});
+
+test("a cause-free rejected write audit cannot become a caller cause", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    harness.setAuthorized(false);
+    const source = await harness.dispatch(harness.envelope({ key: "rejected-cause-source" }));
+    expect(source.outcome).toBe("rejectedAuthority");
+    expect(harness.snapshot().audits.get(source.write.audit.value)?.cause).toBeUndefined();
+    harness.setAuthorized(true);
+
+    const result = await harness.dispatch(
+        harness.envelope({ key: "rejected-cause-target", callerCause: source.write.audit })
+    );
+
+    expect(result.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot().value).toBe(0);
+});
+
+test("leases without a current holder, expiry, or record are fenced", { tags: "p0" }, async () => {
+    const holderless = new CounterHarness({ lease: "required" });
+    const holderlessToken = holderless.setPartialLease({ holder: true });
+    expect(
+        (
+            await holderless.dispatch(
+                holderless.envelope({ key: "lease-holderless", lease: holderlessToken })
+            )
+        ).outcome
+    ).toBe("rejectedLease");
+
+    const expiryless = new CounterHarness({ lease: "required" });
+    const expirylessToken = expiryless.setPartialLease({ expiresAt: true });
+    expect(
+        (
+            await expiryless.dispatch(
+                expiryless.envelope({ key: "lease-expiryless", lease: expirylessToken })
+            )
+        ).outcome
+    ).toBe("rejectedLease");
+
+    const unheld = new CounterHarness({ lease: "required" });
+    const foreignToken = new CounterHarness({ lease: "required" }).setLease();
+    expect(
+        (await unheld.dispatch(unheld.envelope({ key: "lease-unheld", lease: foreignToken })))
+            .outcome
+    ).toBe("rejectedLease");
+});
+
+test("forged commit uncertainty inside a transaction is refused exactly", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    harness.setFault("forgedUnknown");
+
+    const result = await harness.accept(harness.envelope({ key: "forged-unknown" }));
+
+    expect(result).toMatchObject({
+        kind: "preDispatchFailure",
+        phase: "dispatch",
+        commit: "rolledBack"
+    });
+    if (result.kind !== "preDispatchFailure") throw new TypeError("Expected a forged failure");
+    expectAgentCoreErrorValue(result.cause, "protocol.invalid-state");
+    expect(result.cause).toMatchObject({
+        message: "Commit uncertainty cannot originate inside an Actor transaction"
+    });
+});
+
+test("protocol persistence repair runs on Actor activation", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const committed = await harness.dispatch(harness.envelope({ key: "repair-on-activation" }));
+    harness.corruptRemoveAudit(committed.write.audit);
+
+    expect(() => harness.restart()).toThrow("Write record points to a missing audit record");
+});
+
+test("dispatchers admit a persistence without a repair hook", { tags: "p1" }, async () => {
+    const records = new MemoryProtocolRecords();
+    const adapter = new MemoryProtocolPersistence<ProbeState>((state) => state.records);
+    const withoutRepair: ProtocolPersistence<ProbeState> = {
+        findWrite: (transaction, identity) => adapter.findWrite(transaction, identity),
+        findAudit: (transaction, id) => adapter.findAudit(transaction, id),
+        appendAudit: (transaction, record, context) =>
+            adapter.appendAudit(transaction, record, context),
+        appendWrite: (transaction, record) => adapter.appendWrite(transaction, record)
+    };
+    const dispatcher = new CommandDispatcher(
+        probeDispatcherInit({ records, persistence: withoutRepair })
+    );
+
+    const admission = await dispatcher.admit(Uint8Array.of(0xff), undefined);
+
+    expect(admission.kind).toBe("completed");
+    if (admission.kind !== "completed") throw new TypeError("Expected a completed admission");
+    expect(admission.result.outcome).toBe("rejectedMalformed");
+});
+
+test("dispatchers require an Actor activation store exactly", { tags: "p0" }, () => {
+    const invalidStores: readonly unknown[] = [
+        null,
+        undefined,
+        "store",
+        42,
+        {},
+        { activateActor: 1 }
+    ];
+
+    for (const store of invalidStores) {
+        expect(
+            () =>
+                new CommandDispatcher(
+                    probeDispatcherInit({
+                        records: new MemoryProtocolRecords(),
+                        store: store as unknown as MemoryActorStore<ProbeState>
+                    })
+                )
+        ).toThrow(new TypeError("Command dispatcher requires an Actor activation store"));
+    }
+});
+
+test("typed executions must be objects that carry a reply", { tags: "p1" }, async () => {
+    for (const execution of [null, 42] as const) {
+        const records = new MemoryProtocolRecords();
+        const dispatcher = new CommandDispatcher(
+            probeDispatcherInit({ records, execution: execution as unknown as Uint8Array })
+        );
+        const content = new CounterContentStore(() => undefined);
+        const payload = encodeCanonicalJson({ probe: true });
+        const payloadDigest = Digest.sha256(payload);
+        const reference = ContentRef.fromDigest(payloadDigest);
+        content.install(reference.value, payload);
+        const raw = CommandEnvelopeCodec.encode(
+            new CommandEnvelope({
+                command: "probe.command",
+                caller: probeCaller,
+                idempotencyKey: `probe-${String(execution)}`,
+                payload: reference,
+                payloadDigest
+            })
+        );
+        const authentication = await new ProbeAuthenticator().authenticate(
+            probeCaller,
+            CommandEnvelopeCodec.decode(raw),
+            Digest.sha256(raw)
+        );
+        const admission = await dispatcher.admit(raw, authentication);
+        if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+        const binding = new PayloadLeaseBinding(
+            probeTenant,
+            probeActor,
+            Digest.sha256(raw),
+            reference,
+            payloadDigest,
+            new Date(CounterHarness.now.getTime() + 60_000)
+        );
+        const lease = await content.acquire(binding);
+        if (lease === undefined) throw new TypeError("Expected a payload lease");
+
+        await expect(
+            admission.dispatch(issueLeasedCommandPayload(lease, binding))
+        ).rejects.toThrow(new TypeError("Typed command execution requires a reply codec"));
+        await lease.close();
+    }
+});
+
+interface ProbeState {
+    records: MemoryProtocolRecords;
+    nextId: number;
+}
+
+interface ProbeRead {
+    readonly ready: boolean;
+}
+
+const probeActor = new ActorRef("run", new ActorId("probe-actor"));
+const probeTenant = new TenantId("probe-tenant");
+const probeCaller: CommandCaller = {
+    kind: "principal",
+    principal: new PrincipalRef(probeTenant, new PrincipalId("probe-principal"))
+};
+
+class ProbeAuthenticator extends CommandAuthenticator<CommandCaller> {
+    public constructor() {
+        super(probeTenant);
+    }
+
+    protected authenticateTransport(caller: CommandCaller): CommandCaller {
+        return caller;
+    }
+}
+
+class ProbeCommand implements ProtocolCommand<ProbeState, ProbeRead> {
+    public readonly command = "probe.command";
+    public readonly caller = CommandCallerPolicy.principal();
+    public readonly expectedRevision = "forbidden" as const;
+    public readonly lease = "forbidden" as const;
+    public readonly payload = { decode: (bytes: Uint8Array): unknown => decodeCanonicalJson(bytes) };
+    public readonly replyCodec = {
+        encode: (reply: Uint8Array): Uint8Array => reply.slice(),
+        decode: (bytes: Uint8Array): Uint8Array => bytes.slice()
+    };
+
+    public constructor(private readonly execution: Uint8Array) {}
+
+    public authorize(): boolean {
+        return true;
+    }
+
+    public permitsLifecycle(): boolean {
+        return true;
+    }
+
+    public currentRevision(): undefined {
+        return undefined;
+    }
+
+    public currentLease(): undefined {
+        return undefined;
+    }
+
+    public execute(): Uint8Array {
+        return this.execution;
+    }
+}
+
+function probeDispatcherInit(init: {
+    readonly records: MemoryProtocolRecords;
+    readonly store?: MemoryActorStore<ProbeState>;
+    readonly persistence?: ProtocolPersistence<ProbeState>;
+    readonly execution?: Uint8Array;
+}): CommandDispatcherInit<ProbeState, ProbeRead> {
+    const state: ProbeState = { records: init.records, nextId: 0 };
+    return {
+        store:
+            "store" in init
+                ? (init.store as MemoryActorStore<ProbeState>)
+                : new MemoryActorStore<ProbeState>(state, (value) => ({
+                      records: value.records.clone(),
+                      nextId: value.nextId
+                  })),
+        persistence:
+            init.persistence ?? new MemoryProtocolPersistence<ProbeState>((value) => value.records),
+        ids: new CounterIds<ProbeState>((transaction, prefix) => {
+            transaction.nextId += 1;
+            return `${prefix}-${transaction.nextId}`;
+        }),
+        actor: probeActor,
+        tenant: probeTenant,
+        readOnly: () => Object.freeze({ ready: true }),
+        commands: [
+            new ProbeCommand(
+                "execution" in init
+                    ? (init.execution as Uint8Array)
+                    : encodeCanonicalJson({ probe: "reply" })
+            )
+        ],
+        limits: { envelopeBytes: 4096, payloadBytes: 1024 },
+        now: () => CounterHarness.now
+    };
+}
 
 const commandOutcomes: Record<CommandOutcome, true> = {
     committed: true,

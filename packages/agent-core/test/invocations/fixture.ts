@@ -93,8 +93,10 @@ export class TestInvocationLedger<Transaction> extends InvocationLedger<
 }
 
 export function createLedger<Transaction>(
-    persistence: TestPersistence<Transaction>
+    persistence: TestPersistence<Transaction>,
+    options: { readonly timeAdmits?: (time: Date) => boolean } = {}
 ): TestInvocationLedger<Transaction> {
+    const timeAdmits = options.timeAdmits ?? ((time: Date) => Number.isFinite(time.getTime()));
     return new TestInvocationLedger(
         persistence,
         referenceCodec,
@@ -109,7 +111,7 @@ export function createLedger<Transaction>(
         },
         {
             admits(_transaction, time): boolean {
-                return Number.isFinite(time.getTime());
+                return timeAdmits(time);
             }
         },
         {

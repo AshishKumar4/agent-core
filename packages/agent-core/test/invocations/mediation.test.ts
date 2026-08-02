@@ -1430,6 +1430,44 @@ describe("W6 invocation publication outbox", () => {
             message: expect.stringMatching(/publication state is invalid/u)
         });
     });
+
+    test(
+        "rejects decoded states that are neither pending nor fully acknowledged",
+        { tags: "p0" },
+        () => {
+            const published = InvocationPublicationOutbox.pending(observation("publication-state"))
+                .commitAppended(new Date(7))
+                .eventPublished(new Date(9));
+            const bytes = InvocationPublicationOutbox.encode(published);
+            const corruptions: readonly ((state: { [key: string]: JsonValue }) => void)[] = [
+                (state) => {
+                    state["kind"] = "acknowledged";
+                },
+                (state) => {
+                    state["eventPublishedAt"] = null;
+                }
+            ];
+
+            for (const corrupt of corruptions) {
+                let failure: unknown;
+                try {
+                    InvocationPublicationOutbox.decode(
+                        mutateRecord(bytes, (payload) => {
+                            const state = payload["state"] as { [key: string]: JsonValue };
+                            corrupt(state);
+                        })
+                    );
+                } catch (error) {
+                    failure = error;
+                }
+                expect(failure).toMatchObject({
+                    code: "invocation.invalid",
+                    failure: "state.invalid-transition",
+                    message: expect.stringMatching(/publication state is invalid/u)
+                });
+            }
+        }
+    );
 });
 
 describe("W6 invocation publication drainer", () => {

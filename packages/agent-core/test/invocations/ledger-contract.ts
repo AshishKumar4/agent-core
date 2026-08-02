@@ -41,7 +41,11 @@ import {
 
 export function invocationLedgerContract<Transaction>(
     name: string,
-    create: () => InvocationHarness<Transaction>
+    create: () => InvocationHarness<Transaction>,
+    // How the backend upholds receipt-lineage integrity: memory stores whatever it
+    // is handed and the ledger reports the corruption at read; SQLite's constraints
+    // exclude the corrupt append outright. Both make a broken lineage unobservable.
+    corruptLineage: "reported" | "excluded" = "reported"
 ): void {
     describe(`[invocation-persistence] InvocationLedger (${name})`, () => {
         const harnesses = new Set<InvocationHarness<Transaction>>();
@@ -4069,7 +4073,659 @@ export function invocationLedgerContract<Transaction>(
                 }
             }
         );
+
+        test(
+            "[invocation.audit] refuses a routeProjected AuditRecord for an unrouted preparation",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const evidence = new ContractEvidence<Transaction>();
+                const invocation = prepared("audit-local-routed");
+                const projected = auditRecord(
+                    invocation.header.auditCause.value,
+                    invocation.header.actor,
+                    {
+                        kind: "routeProjected",
+                        projection: new RouteProjectionId("projection:audit-local-routed"),
+                        reservation: new RouteReservationId("route:audit-local-routed")
+                    }
+                );
+                evidence.seed(projected);
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.requirePreparedAudit(
+                                transaction,
+                                invocation,
+                                projected,
+                                evidence
+                            )
+                        ),
+                    /Preparation AuditRecord does not bind the PreparedInvocation/
+                );
+            }
+        );
+
+        test(
+            "[invocation.audit] refuses a caused preparation AuditRecord that otherwise binds",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const evidence = new ContractEvidence<Transaction>();
+                const invocation = routedPrepared("audit-caused-root");
+                const projection = new RouteProjectionId("projection:audit-caused-root");
+                const reservation = new RouteReservationId("route:audit-caused-root");
+                const caused = auditRecord(
+                    invocation.header.auditCause.value,
+                    invocation.header.actor,
+                    { kind: "routeProjected", projection, reservation },
+                    new AuditRecordId("audit:audit-caused-root:cause")
+                );
+                evidence.seed(caused);
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.requirePreparedAudit(
+                                transaction,
+                                invocation,
+                                caused,
+                                evidence
+                            )
+                        ),
+                    /Preparation AuditRecord does not bind the PreparedInvocation/
+                );
+
+                const bound = auditRecord(
+                    invocation.header.auditCause.value,
+                    invocation.header.actor,
+                    { kind: "routeProjected", projection, reservation }
+                );
+                evidence.seed(bound);
+                harness.transaction((transaction) =>
+                    harness.ledger.requirePreparedAudit(transaction, invocation, bound, evidence)
+                );
+            }
+        );
+
+        test(
+            "[invocation.effect-attempt] names the unauthorized EffectAttempt in AuthorityAdmission denials",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("authority-message", {}, { lease: "lease:1" });
+                const claim = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:authority-message",
+                    "worker:authority-message",
+                    time(10)
+                );
+                const attempt = new EffectAttempt<string, string>(
+                    new EffectAttemptId("attempt:authority-message"),
+                    invocation.header.id,
+                    0,
+                    0,
+                    claim.id,
+                    "lease:1",
+                    admissionFor("substituted", 0, 0),
+                    time(2),
+                    invocation.item(0).idempotencyKey,
+                    new AuditRecordId("audit:authority-message")
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.admitAttempt(transaction, attempt, time(2))
+                        ),
+                    /AuthorityAdmission does not authorize this exact EffectAttempt/
+                );
+            }
+        );
+
+        test(
+            "[invocation.audit] refuses receipt evidence whose attempt AuditRecord is not an attempt",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const evidence = new ContractEvidence<Transaction>();
+                const setup = auditedAttempt(harness, evidence, "receipt-audit-kind");
+                const receipt = new AttemptReceipt(
+                    new ReceiptId("receipt:receipt-audit-kind"),
+                    setup.attempt.id,
+                    "failed",
+                    undefined,
+                    time(3),
+                    undefined
+                );
+                const projected = auditRecord(
+                    "audit:receipt-audit-kind:projected",
+                    setup.invocation.header.actor,
+                    {
+                        kind: "routeProjected",
+                        projection: new RouteProjectionId("projection:receipt-audit-kind"),
+                        reservation: new RouteReservationId("route:receipt-audit-kind")
+                    }
+                );
+                evidence.seed(projected);
+                const receiptAudit = auditRecord(
+                    "audit:receipt-audit-kind:receipt",
+                    setup.invocation.header.actor,
+                    { kind: "receipt", id: receipt.id, outcome: "failed" },
+                    projected.id
+                );
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordAttemptReceiptWithAudit(
+                                transaction,
+                                receipt,
+                                projected,
+                                receiptAudit,
+                                InvocationPublicationOutbox.pending({
+                                    invocation: setup.invocation.header.id,
+                                    receipt: receipt.id,
+                                    audit: receiptAudit.id
+                                }),
+                                evidence
+                            )
+                        ),
+                    /Receipt AuditRecord or publication does not bind the attempted effect/
+                );
+            }
+        );
+
+        test(
+            "[invocation.audit] refuses receipt evidence whose attempt AuditRecord names no cause",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const evidence = new ContractEvidence<Transaction>();
+                const setup = auditedAttempt(harness, evidence, "receipt-audit-cause");
+                const receipt = new AttemptReceipt(
+                    new ReceiptId("receipt:receipt-audit-cause"),
+                    setup.attempt.id,
+                    "failed",
+                    undefined,
+                    time(3),
+                    undefined
+                );
+                const rootless = auditRecord(
+                    "audit:receipt-audit-cause:attempt",
+                    setup.invocation.header.actor,
+                    { kind: "attempt", id: setup.attempt.id }
+                );
+                evidence.seed(rootless);
+                const receiptAudit = auditRecord(
+                    "audit:receipt-audit-cause:receipt",
+                    setup.invocation.header.actor,
+                    { kind: "receipt", id: receipt.id, outcome: "failed" },
+                    rootless.id
+                );
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordAttemptReceiptWithAudit(
+                                transaction,
+                                receipt,
+                                rootless,
+                                receiptAudit,
+                                InvocationPublicationOutbox.pending({
+                                    invocation: setup.invocation.header.id,
+                                    receipt: receipt.id,
+                                    audit: receiptAudit.id
+                                }),
+                                evidence
+                            )
+                        ),
+                    /Receipt AuditRecord or publication does not bind the attempted effect/
+                );
+            }
+        );
+
+        test(
+            "[invocation.continuation] rejects a continuation whose first claim holds another item",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared(
+                    "continuation-claim-item",
+                    [{ item: 0 }, { item: 1 }, { item: 2 }],
+                    { lease: "lease:1" }
+                );
+                const firstClaim = executorClaim(
+                    invocation.header.id,
+                    1,
+                    0,
+                    "claim:continuation-claim-item:first",
+                    "worker:first",
+                    time(10)
+                );
+                const firstAttempt = new EffectAttempt<string, string>(
+                    new EffectAttemptId("attempt:continuation-claim-item:first"),
+                    invocation.header.id,
+                    0,
+                    0,
+                    firstClaim.id,
+                    "lease:1",
+                    admissionFor(invocation.header.id.value, 0, 0),
+                    time(2),
+                    invocation.item(0).idempotencyKey,
+                    new AuditRecordId("audit:continuation-claim-item:first")
+                );
+                const pending = Approval.pending(
+                    new ApprovalId("approval:continuation-claim-item"),
+                    invocation.header.id,
+                    invocation.intentDigest,
+                    time(1),
+                    time(20)
+                );
+                const approved = pending.approve(new PrincipalId("approver"), time(2));
+                const secondClaim = executorClaim(
+                    invocation.header.id,
+                    2,
+                    0,
+                    "claim:continuation-claim-item:second",
+                    "worker:second",
+                    time(10)
+                );
+                const secondAttempt = effectAttempt(
+                    invocation,
+                    secondClaim,
+                    "attempt:continuation-claim-item:second",
+                    time(4)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.persistence.appendApproval(transaction, pending);
+                    harness.persistence.appendApproval(transaction, approved);
+                    harness.persistence.appendApproval(
+                        transaction,
+                        approved.consume(firstAttempt.id, time(3))
+                    );
+                    harness.persistence.appendClaim(transaction, firstClaim);
+                    harness.persistence.appendAttempt(transaction, firstAttempt);
+                    harness.persistence.insertContinuation(
+                        transaction,
+                        new InvocationContinuation<string>(
+                            invocation.header.id,
+                            invocation.intentDigest,
+                            pending.id,
+                            firstAttempt.id,
+                            0,
+                            0,
+                            firstClaim.id,
+                            firstClaim.owner,
+                            invocation.item(0).idempotencyKey,
+                            time(3)
+                        )
+                    );
+                    harness.ledger.claimItem(transaction, secondClaim, time(3));
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.admitAttempt(transaction, secondAttempt, time(4))
+                        ),
+                    /InvocationContinuation first EffectAttempt identity is invalid/
+                );
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.persistence.attempt(transaction, secondAttempt.id)
+                    )
+                ).toBeUndefined();
+            }
+        );
+
+        test(
+            "[invocation.continuation] rejects a system continuation owner that names another Actor",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("continuation-owner-actor", [
+                    { item: 0 },
+                    { item: 1 }
+                ]);
+                const firstClaim = systemClaim(
+                    invocation,
+                    0,
+                    0,
+                    "claim:continuation-owner-actor:first",
+                    "worker:first",
+                    time(10)
+                );
+                const firstAttempt = systemAttempt(
+                    invocation,
+                    firstClaim,
+                    "attempt:continuation-owner-actor:first",
+                    time(2)
+                );
+                const pending = Approval.pending(
+                    new ApprovalId("approval:continuation-owner-actor"),
+                    invocation.header.id,
+                    invocation.intentDigest,
+                    time(1),
+                    time(20)
+                );
+                const approved = pending.approve(new PrincipalId("approver"), time(2));
+                const secondClaim = systemClaim(
+                    invocation,
+                    1,
+                    0,
+                    "claim:continuation-owner-actor:second",
+                    "worker:second",
+                    time(10)
+                );
+                const secondAttempt = systemAttempt(
+                    invocation,
+                    secondClaim,
+                    "attempt:continuation-owner-actor:second",
+                    time(4)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.persistence.appendApproval(transaction, pending);
+                    harness.persistence.appendApproval(transaction, approved);
+                    harness.persistence.appendApproval(
+                        transaction,
+                        approved.consume(firstAttempt.id, time(3))
+                    );
+                    harness.persistence.appendClaim(transaction, firstClaim);
+                    harness.persistence.appendAttempt(transaction, firstAttempt);
+                    harness.persistence.insertContinuation(
+                        transaction,
+                        new InvocationContinuation<string>(
+                            invocation.header.id,
+                            invocation.intentDigest,
+                            pending.id,
+                            firstAttempt.id,
+                            0,
+                            0,
+                            firstClaim.id,
+                            {
+                                kind: "system",
+                                actor: new ActorRef(
+                                    "run",
+                                    new ActorId("actor:continuation-owner-actor:foreign")
+                                ),
+                                worker: new ClaimWorkerId("worker:first")
+                            },
+                            invocation.item(0).idempotencyKey,
+                            time(3)
+                        )
+                    );
+                    harness.ledger.claimItem(transaction, secondClaim, time(3));
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.admitAttempt(transaction, secondAttempt, time(4))
+                        ),
+                    /InvocationContinuation first EffectAttempt identity is invalid/
+                );
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.persistence.attempt(transaction, secondAttempt.id)
+                    )
+                ).toBeUndefined();
+            }
+        );
+
+        test(
+            "[invocation.receipt] names the initial AttemptReceipt lineage rule it enforces",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const invocation = prepared("initial-receipt-message", {}, { lease: "lease:1" });
+                const claim = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:initial-receipt-message",
+                    "worker:initial-receipt-message",
+                    time(10)
+                );
+                const attempt = effectAttempt(
+                    invocation,
+                    claim,
+                    "attempt:initial-receipt-message",
+                    time(2)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                    harness.ledger.admitAttempt(transaction, attempt, time(2));
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordAttemptReceipt(
+                                transaction,
+                                new AttemptReceipt(
+                                    new ReceiptId("receipt:initial-receipt-message"),
+                                    attempt.id,
+                                    "failed",
+                                    new ReceiptId("receipt:initial-receipt-message:previous"),
+                                    time(3),
+                                    undefined
+                                )
+                            )
+                        ),
+                    /Initial AttemptReceipt cannot name previous/
+                );
+            }
+        );
+
+        test(
+            "[invocation.receipt] names the unreceipted EffectAttempt requirement it enforces",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const invocation = prepared("unreceipted-message", {}, { lease: "lease:1" });
+                const claim = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:unreceipted-message",
+                    "worker:unreceipted-message",
+                    time(10)
+                );
+                const attempt = effectAttempt(invocation, claim, "attempt:unreceipted-message", time(2));
+                const recorded = new AttemptReceipt(
+                    new ReceiptId("receipt:unreceipted-message"),
+                    attempt.id,
+                    "failed",
+                    undefined,
+                    time(3),
+                    undefined
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                    harness.ledger.admitAttempt(transaction, attempt, time(2));
+                });
+                const rejected: readonly AttemptReceipt[] = [
+                    new AttemptReceipt(
+                        new ReceiptId("receipt:unreceipted-message:ghost"),
+                        new EffectAttemptId("attempt:unreceipted-message:ghost"),
+                        "failed",
+                        undefined,
+                        time(3),
+                        undefined
+                    ),
+                    new AttemptReceipt(
+                        new ReceiptId("receipt:unreceipted-message:repeat"),
+                        attempt.id,
+                        "failed",
+                        undefined,
+                        time(4),
+                        undefined
+                    )
+                ];
+                harness.transaction((transaction) =>
+                    harness.ledger.recordAttemptReceipt(transaction, recorded)
+                );
+                for (const receipt of rejected) {
+                    expectAgentCoreError(
+                        () =>
+                            harness.transaction((transaction) =>
+                                harness.ledger.recordAttemptReceipt(transaction, receipt)
+                            ),
+                        /AttemptReceipt requires one existing unreceipted EffectAttempt/
+                    );
+                }
+            }
+        );
+
+        test(
+            "[invocation.receipt] reports a missing predecessor before counting lineage heads",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const lineage = attemptLineage(harness, "lineage-missing");
+                harness.transaction((transaction) => {
+                    harness.persistence.appendReceipt(
+                        transaction,
+                        lineageReceipt("lineage-missing:head", lineage.attempt.id, undefined)
+                    );
+                    harness.persistence.appendReceipt(
+                        transaction,
+                        lineageReceipt(
+                            "lineage-missing:orphan",
+                            lineage.attempt.id,
+                            new ReceiptId("receipt:lineage-missing:absent")
+                        )
+                    );
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.currentReceipt(
+                                transaction,
+                                lineage.invocation.header.id,
+                                0
+                            )
+                        ),
+                    /Attempt Receipt history has a missing predecessor/
+                );
+            }
+        );
+
+        test(
+            "[invocation.receipt] never yields an attempt Receipt history with two current heads",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const lineage = attemptLineage(harness, "lineage-heads");
+                const appendSecondHead = (): void =>
+                    harness.transaction((transaction) => {
+                        harness.persistence.appendReceipt(
+                            transaction,
+                            lineageReceipt("lineage-heads:first", lineage.attempt.id, undefined)
+                        );
+                        harness.persistence.appendReceipt(
+                            transaction,
+                            lineageReceipt("lineage-heads:second", lineage.attempt.id, undefined)
+                        );
+                    });
+                if (corruptLineage === "excluded") {
+                    expectAgentCoreError(appendSecondHead, /append conflicted/);
+                    return;
+                }
+                appendSecondHead();
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.currentReceipt(
+                                transaction,
+                                lineage.invocation.header.id,
+                                0
+                            )
+                        ),
+                    /Attempt Receipt history does not have one current head/
+                );
+            }
+        );
+
+        test(
+            "[invocation.receipt] never yields a Receipt lineage containing a cycle",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const lineage = attemptLineage(harness, "lineage-cycle");
+                const left = new ReceiptId("receipt:lineage-cycle:left");
+                const right = new ReceiptId("receipt:lineage-cycle:right");
+                const appendCycle = (): void =>
+                    harness.transaction((transaction) => {
+                        harness.persistence.appendReceipt(
+                            transaction,
+                            lineageReceipt("lineage-cycle:head", lineage.attempt.id, left)
+                        );
+                        harness.persistence.appendReceipt(
+                            transaction,
+                            new AttemptReceipt(left, lineage.attempt.id, "failed", right, time(4), undefined)
+                        );
+                        harness.persistence.appendReceipt(
+                            transaction,
+                            new AttemptReceipt(right, lineage.attempt.id, "failed", left, time(5), undefined)
+                        );
+                    });
+                if (corruptLineage === "excluded") {
+                    expectAgentCoreError(appendCycle, /append conflicted/);
+                    return;
+                }
+                appendCycle();
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.currentReceipt(
+                                transaction,
+                                lineage.invocation.header.id,
+                                0
+                            )
+                        ),
+                    /Attempt Receipt history contains a cycle/
+                );
+            }
+        );
     });
+}
+
+function attemptLineage<Transaction>(
+    harness: InvocationHarness<Transaction>,
+    id: string
+): {
+    readonly invocation: PreparedInvocation<string, string, string, string>;
+    readonly attempt: EffectAttempt<string, string>;
+} {
+    const invocation = prepared(id, {}, { lease: "lease:1" });
+    const claim = executorClaim(invocation.header.id, 0, 0, `claim:${id}`, `worker:${id}`, time(10));
+    const attempt = effectAttempt(invocation, claim, `attempt:${id}`, time(2));
+    harness.transaction((transaction) => {
+        harness.ledger.prepare(transaction, invocation);
+        harness.ledger.claimItem(transaction, claim, time(1));
+        harness.ledger.admitAttempt(transaction, attempt, time(2));
+    });
+    return { invocation, attempt };
+}
+
+function lineageReceipt(
+    id: string,
+    attempt: EffectAttemptId,
+    previous: ReceiptId | undefined
+): AttemptReceipt {
+    return new AttemptReceipt(
+        new ReceiptId(`receipt:${id}`),
+        attempt,
+        "failed",
+        previous,
+        time(3),
+        undefined
+    );
 }
 
 function executorClaim(

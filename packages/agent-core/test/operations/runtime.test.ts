@@ -194,6 +194,82 @@ describe("Facet runtime", () => {
         expect(validated.surface(descriptor.id)?.descriptor.id.equals(descriptor.id)).toBe(true);
     });
 
+    test("rejects two runtime Facets that present the same pinned manifest", { tags: "p1" }, () => {
+        const shared = manifest("acme.shared", []);
+        expect(() =>
+            new FacetCorrespondenceValidator().validate(
+                [shared],
+                [new TestFacet("workspace:first", shared), new TestFacet("workspace:second", shared)]
+            )
+        ).toThrowError(
+            expect.objectContaining({
+                code: "facet.inactive",
+                message: "Runtime contains duplicate Facet manifest acme.shared@1.0.0"
+            })
+        );
+    });
+
+    test("names the kind of contribution that has no runtime implementation", { tags: "p1" }, () => {
+        const surfaceDescriptor = new SurfaceDescriptor(new SurfaceId("dashboard"), "Dashboard");
+        const guard = new InterceptorDeclaration(
+            new InterceptorId("guard"),
+            "operation.before",
+            OperationSelector.own(),
+            1
+        );
+        const cases = [
+            [manifest("acme.no-operation", [operationDescriptor("run")]), "Operation run"],
+            [manifest("acme.no-surface", [], [], [surfaceDescriptor]), "Surface dashboard"],
+            [manifest("acme.no-interceptor", [], [guard]), "Interceptor guard"]
+        ] as const;
+        for (const [pinned, subject] of cases) {
+            expect(() =>
+                new FacetCorrespondenceValidator().validate(
+                    [pinned],
+                    [new TestFacet("workspace:absent", pinned)]
+                )
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "facet.inactive",
+                    message: `${subject} has no runtime implementation`
+                })
+            );
+        }
+    });
+
+    test("rejects a runtime declaration that differs from its pinned bytes at a single position", { tags: "p0" }, () => {
+        const declared = new OperationDescriptor(
+            new OperationName("run"),
+            "observe",
+            objectSchema,
+            objectSchema,
+            "aa"
+        );
+        const implemented = new OperationDescriptor(
+            new OperationName("run"),
+            "observe",
+            objectSchema,
+            objectSchema,
+            "ab"
+        );
+        expect(OperationDescriptor.encode(implemented).byteLength).toBe(
+            OperationDescriptor.encode(declared).byteLength
+        );
+        const pinned = manifest("acme.drifted", [declared]);
+        const facet = new TestFacet(
+            "workspace:drifted",
+            pinned,
+            [],
+            new Map([["run", new TestOperation(implemented, async (input) => input)]])
+        );
+        expect(() => new FacetCorrespondenceValidator().validate([pinned], [facet])).toThrowError(
+            expect.objectContaining({
+                code: "facet.inactive",
+                message: "Operation run does not match its declaration"
+            })
+        );
+    });
+
     test("disposes an inactive host and continues stopping after a hook failure", async () => {
         const inactiveHost = new FacetRuntimeHost([], []);
         expect(inactiveHost.active).toBe(false);

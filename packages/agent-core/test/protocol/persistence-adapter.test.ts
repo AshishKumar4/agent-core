@@ -541,6 +541,58 @@ test("identity projections compare every structural field", { tags: "p0" }, () =
     ).toBe(false);
 });
 
+test("duplicate lineage must name an identity-reserving original", { tags: "p0" }, () => {
+    const persistence = new StoragePersistence();
+    const records = new MemoryProtocolRecords();
+    const original = protocolTestRecords("adapter-chain-original");
+    const first = protocolTestRecords("adapter-chain-first", undefined, {
+        outcome: "duplicate",
+        duplicateOf: original.write.id,
+        key: original.identity.idempotencyKey,
+        reply: original.write.reply
+    });
+    const second = protocolTestRecords("adapter-chain-second", undefined, {
+        outcome: "duplicate",
+        duplicateOf: first.write.id,
+        key: original.identity.idempotencyKey,
+        reply: original.write.reply
+    });
+    appendProtocolTestRecords(persistence, records, original);
+    appendProtocolTestRecords(persistence, records, first);
+    const snapshot = records.snapshot();
+    const chained = new MemoryProtocolRecords({
+        audits: [...snapshot.audits, storedAudit(second.root), storedAudit(second.audit)],
+        writes: [...snapshot.writes, storedWrite(second.write)],
+        identities: snapshot.identities
+    });
+
+    const read = (): unknown => persistence.findWriteById(chained, second.write.id);
+    expectAgentCoreError(read, "protocol.invalid-state");
+    expect(read).toThrow("Duplicate write does not name a valid original write");
+    expect(() => persistence.repair(chained)).toThrow(
+        "Duplicate write does not name a valid original write"
+    );
+});
+
+test("stored audit write projections must match their codec bytes", { tags: "p1" }, () => {
+    const records = new MemoryProtocolRecords();
+    const persistence = new StoragePersistence();
+    const expected = protocolTestRecords("adapter-projection");
+    appendProtocolTestRecords(persistence, records, expected);
+    const phantom = new (class extends FacadeStorage {
+        public override findAudit(id: string): StoredProtocolAudit | undefined {
+            const stored = super.findAudit(id);
+            return stored === undefined || stored.evidenceKind !== "invocation"
+                ? stored
+                : { ...stored, writeId: new WriteRecordId("adapter-projection-phantom") };
+        }
+    })(records);
+
+    const read = (): unknown => persistence.findAudit(phantom, expected.root.id);
+    expectAgentCoreError(read, "codec.invalid");
+    expect(read).toThrow("Stored audit key or projection does not match its codec bytes");
+});
+
 function causeFreeWriteRecords(
     prefix: string,
     outcome: "committed" | "rejectedMalformed"

@@ -340,6 +340,30 @@ describe("deterministic package resolution", () => {
         ).toThrow("Package dependency cycle: m -> z -> m");
     });
 
+    test("reports each cycle rotation exactly once", { tags: "p1" }, () => {
+        const self = metadata([release("self", "1.0.0", [dependency("self", "*")])]);
+        expect(() => resolvePackageLock(self, [dependency("self", "*")])).toThrow(
+            /^Package dependency cycle: self -> self$/
+        );
+
+        const pair = metadata([
+            release("b", "1.0.0", [dependency("z", "*")]),
+            release("z", "1.0.0", [dependency("b", "*")])
+        ]);
+        expect(() => resolvePackageLock(pair, [dependency("b", "*")])).toThrow(
+            /^Package dependency cycle: b -> z -> b$/
+        );
+
+        const triple = metadata([
+            release("a", "1.0.0", [dependency("m", "*")]),
+            release("m", "1.0.0", [dependency("z", "*")]),
+            release("z", "1.0.0", [dependency("a", "*")])
+        ]);
+        expect(() => resolvePackageLock(triple, [dependency("a", "*")])).toThrow(
+            /^Package dependency cycle: a -> m -> z -> a$/
+        );
+    });
+
     test("resolves multi-dependency graphs without reporting spurious cycles", { tags: "p1" }, () => {
         const snapshot = metadata([
             release("a", "1.0.0", [dependency("b", "*"), dependency("c", "*")]),

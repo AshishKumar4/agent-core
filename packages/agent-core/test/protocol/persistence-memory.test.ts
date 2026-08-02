@@ -623,7 +623,8 @@ test("memory snapshot construction rejects malformed snapshot containers", { tag
         5,
         "snapshot",
         { audits: {}, writes: [] },
-        { audits: [], writes: "writes" }
+        { audits: [], writes: "writes" },
+        Object.assign(() => undefined, { audits: [], writes: [] })
     ];
     for (const snapshot of malformed) {
         const restore = (): unknown =>
@@ -646,6 +647,7 @@ test("memory snapshot copies reject each malformed stored record shape", { tags:
 
     const malformedAudits = [
         null,
+        Object.assign(() => undefined, audit),
         { ...audit, id: 7 },
         { ...audit, evidenceIdentity: 7 },
         { ...audit, evidenceKind: 7 },
@@ -665,6 +667,7 @@ test("memory snapshot copies reject each malformed stored record shape", { tags:
 
     const malformedWrites = [
         null,
+        Object.assign(() => undefined, write),
         { ...write, id: 7 },
         { ...write, auditId: "not-an-audit-id" },
         { ...write, outcome: 7 },

@@ -871,6 +871,19 @@ describe("AuditRecord identity and copies", () => {
             RouteReservationId
         );
     });
+
+    test("narrows attempt evidence to the exact EffectAttemptId class", { tags: "p0" }, () => {
+        class DerivedAttemptId extends EffectAttemptId {}
+        const derived = new DerivedAttemptId("narrowed-attempt");
+        const record = audit({ kind: "attempt", id: derived });
+
+        expect(record.kind.kind === "attempt" && record.kind.id.constructor).toBe(EffectAttemptId);
+        expect(record.kind.kind === "attempt" && record.kind.id).not.toBe(derived);
+        expect(
+            record.kind.kind === "attempt" &&
+                new EffectAttemptId("narrowed-attempt").equals(record.kind.id)
+        ).toBe(true);
+    });
 });
 
 describe("AuditRecord codec diagnostics", () => {

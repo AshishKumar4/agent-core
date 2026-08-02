@@ -450,6 +450,64 @@ describe("Blueprint loader byte custody and placement selection", () => {
         ]);
     });
 
+    test("selects each module's placement from its own Package alone", { tags: "p0" }, async () => {
+        const alpha = releaseWithContent(
+            "alpha",
+            [{ specifier: "./alpha.js", source: "export const alpha = 1;" }],
+            [{ facet: "shared.facet", isolation: "dynamic", module: "./alpha.js" }]
+        );
+        const beta = releaseWithContent(
+            "beta",
+            [{ specifier: "./beta.js", source: "export const beta = 1;" }],
+            [{ facet: "shared.facet", isolation: "provider", module: "./beta.js" }]
+        );
+        const snapshot = new MetadataSnapshot({
+            revision: new Revision(1),
+            releases: [alpha.release, beta.release]
+        });
+        const roots = [
+            new PackageDependency(alpha.release.id, "1.0.0"),
+            new PackageDependency(beta.release.id, "1.0.0")
+        ];
+        const selected: [string, string][] = [];
+        const loader = new BlueprintLoader({
+            lock: resolvePackageLock(snapshot, roots, target),
+            releases: [alpha.release, beta.release],
+            target,
+            placement: allModePlacement(),
+            content: { get: contentStore([...alpha.content, ...beta.content]) },
+            inspector: new (class extends PackageModuleInspector {
+                public async imports(module: PackageCodeModule) {
+                    return module.imports;
+                }
+            })(),
+            evaluator: new (class extends PackageModuleEvaluator<string> {
+                public async evaluate(module: VerifiedPackageModule) {
+                    selected.push([module.module.specifier, module.selected]);
+                    return module.module.specifier;
+                }
+                public dispose() {}
+            })(),
+            correspondence: new (class extends PackageCorrespondencePort<string> {
+                public async validate() {}
+            })()
+        });
+        const source = new Blueprint({
+            meta: { name: "shared", version: new SemVer("1.0.0") },
+            packages: roots.map((request) => new PackageInstall({ request })),
+            policies: PolicySet.empty(),
+            agents: []
+        });
+
+        const loaded = await loader.load(source);
+        await loaded.dispose();
+
+        expect(selected).toEqual([
+            ["./alpha.js", "dynamic"],
+            ["./beta.js", "provider"]
+        ]);
+    });
+
     test("propagates correspondence failure after disposing evaluated modules", { tags: "p1" }, async () => {
         const fixture = packageFixture();
         const disposed: string[] = [];

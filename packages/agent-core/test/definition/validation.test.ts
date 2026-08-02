@@ -997,6 +997,85 @@ describe("Blueprint validation", () => {
             })
         ).toThrow(/Declaration contains missing or unknown fields/);
     });
+
+    test("orders validated placements by Package, Facet, then Facet version", { tags: "p1" }, () => {
+        const alpha = releaseWith("alpha", [facetManifest("alpha.z", "2.0.0")], "alpha-code");
+        const beta = releaseWith(
+            "beta",
+            [facetManifest("beta.a", "1.0.0"), facetManifest("beta.b", "3.0.0")],
+            "beta-code"
+        );
+
+        const validated = validateBlueprint(
+            blueprint([install("beta", "^1"), install("alpha", "^1")]),
+            { lock: packageLock([beta, alpha]), releases: [beta, alpha], schemaValidator }
+        );
+
+        expect(
+            validated.placements.map((placement) => [
+                placement.packageId,
+                placement.facetId,
+                placement.facetVersion
+            ])
+        ).toEqual([
+            ["alpha", "alpha.z", "2.0.0"],
+            ["beta", "beta.a", "1.0.0"],
+            ["beta", "beta.b", "3.0.0"]
+        ]);
+    });
+
+    test("orders declarations by contributor ahead of contribution index", { tags: "p1" }, () => {
+        const entries = new SlotDeclaration(
+            new SlotName("shared.entries"),
+            new JsonSchema({ type: "object" }),
+            new SlotAuthorityPolicy(["installed"], ["scope.read"])
+        );
+        const apkg = releaseWith(
+            "apkg",
+            [
+                facetManifest(
+                    "a.facet",
+                    "1.0.0",
+                    new Contributions([
+                        new Contribution(new SlotName("shared.entries"), [
+                            { n: "a0" },
+                            { n: "a1" }
+                        ])
+                    ])
+                )
+            ],
+            "apkg-code"
+        );
+        const zpkg = releaseWith(
+            "zpkg",
+            [
+                facetManifest(
+                    "z.facet",
+                    "1.0.0",
+                    new Contributions([
+                        new Contribution(new SlotName("shared.entries"), [{ n: "z0" }])
+                    ])
+                )
+            ],
+            "zpkg-code"
+        );
+
+        const validated = validateBlueprint(
+            blueprint([install("apkg", "^1"), install("zpkg", "^1")], { slots: [entries] }),
+            { lock: packageLock([apkg, zpkg]), releases: [apkg, zpkg], schemaValidator }
+        );
+
+        expect(
+            validated.declarations.map((declaration) => [
+                declaration.contributor,
+                declaration.index
+            ])
+        ).toEqual([
+            ["a.facet", 0],
+            ["a.facet", 1],
+            ["z.facet", 0]
+        ]);
+    });
 });
 
 interface ReleaseOverrides {
