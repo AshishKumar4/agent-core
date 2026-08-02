@@ -158,6 +158,12 @@ export type {
     PreparedPayload,
     UnpreparedPayload
 } from "./prepared";
+export { AlarmReconciliationDriver } from "./reconciliation-driver";
+export type {
+    IndeterminateAttemptSource,
+    ReconciliationSchedulePort,
+    ReconciliationSweepReport
+} from "./reconciliation-driver";
 export { AttemptReceipt, PreEffectReceipt, Receipt, ReceiptCodec } from "./receipt";
 export type { AttemptReceiptOutcome, PreEffectReceiptOutcome } from "./receipt";
 export { InvocationReconciler } from "./reconciliation";
