@@ -7,43 +7,63 @@
             "owner": "W2",
             "specAnchor": "C13-ADV-DELAYED-WATERMARK",
             "specTextSha256": "sha256:bff616f1a46d0290893b91a6f3ccfd685e0368e1f34fd48cfcf52102f098b9c4",
-            "status": "planned",
+            "status": "verified",
             "prerequisites": [],
-            "sourceSymbols": [],
-            "testSelectors": [],
-            "checkerInvariants": [],
-            "remainingEvidence": [
-                "Add an adversarial direct-call test that advances a relevant path epoch while invalidation delivery is delayed and proves authorization ends at the first delivered, mediated-observed, or immutable-deadline cutoff"
-            ]
+            "sourceSymbols": [
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
+            ],
+            "testSelectors": [
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-DELAYED-WATERMARK] a relevant epoch advance with delayed delivery keeps direct calls inside the bounded window and denies mediated calls",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-DELAYED-WATERMARK] a relevant epoch advance with delayed delivery keeps direct calls inside the bounded window and denies mediated calls"
+            ],
+            "checkerInvariants": [
+                "ACQ-IMPORT",
+                "ACQ-TEST"
+            ],
+            "remainingEvidence": []
         },
         {
             "id": "C13-ADV-IMMUTABLE-DEADLINE",
             "owner": "W2",
             "specAnchor": "C13-ADV-IMMUTABLE-DEADLINE",
             "specTextSha256": "sha256:322a8a45587b927defe0fe6cf530b096ca40611e8fbe65cc61fe1bccee7e0202",
-            "status": "planned",
+            "status": "verified",
             "prerequisites": [],
-            "sourceSymbols": [],
-            "testSelectors": [],
-            "checkerInvariants": [],
-            "remainingEvidence": [
-                "Implement authoritative resolution issuance that derives resolutionDeadline as the minimum of the original exact lease expiry and resolvedAt plus the finite direct-revocation window, then add renewal adversarial evidence proving the deadline never extends"
-            ]
+            "sourceSymbols": [
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
+            ],
+            "testSelectors": [
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-IMMUTABLE-DEADLINE] lease renewal cannot extend an existing resolution deadline",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-IMMUTABLE-DEADLINE] lease renewal cannot extend an existing resolution deadline"
+            ],
+            "checkerInvariants": [
+                "ACQ-IMPORT",
+                "ACQ-TEST"
+            ],
+            "remainingEvidence": []
         },
         {
             "id": "C13-ADV-MEDIATED-STALE",
             "owner": "W2",
             "specAnchor": "C13-ADV-MEDIATED-STALE",
             "specTextSha256": "sha256:96bdcfef71d88dbf656a603915c7887f5ce724d075a27d1a3aef59f0ccdd6ebb",
-            "status": "planned",
+            "status": "verified",
             "prerequisites": [],
-            "sourceSymbols": [],
-            "testSelectors": [],
-            "checkerInvariants": [],
-            "remainingEvidence": [
-                "Provide a production mediated authority state adapter that atomically joins the current path into the shared holder watermark, invalidates the cached resolution, and records deniedPreEffect plus its AuditRecord without an EffectAttempt",
-                "Add an adversarial test through the production mediated gateway for a stale epoch observation, including transaction rollback and retry behavior"
-            ]
+            "sourceSymbols": [
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
+            ],
+            "testSelectors": [
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence"
+            ],
+            "checkerInvariants": [
+                "ACQ-IMPORT",
+                "ACQ-TEST"
+            ],
+            "remainingEvidence": []
         },
         {
             "id": "C13-ADV-NEW-DENY",
@@ -145,33 +165,44 @@
             "owner": "W2",
             "specAnchor": "C13-AUTH-DIRECT-DEADLINE",
             "specTextSha256": "sha256:fe7420c20fc9a051555c0461bd6fa81fb890c1d5198a1de56acd25a1feddee52",
-            "status": "implemented",
+            "status": "verified",
             "prerequisites": [],
             "sourceSymbols": [
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect"
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
-            "testSelectors": [],
-            "checkerInvariants": [],
-            "remainingEvidence": [
-                "Implement one authoritative resolution issuer that derives the immutable deadline from the original exact lease expiry and the finite policy window; the direct authorizer currently only validates a supplied deadline",
-                "Add public gateway tests proving strict deadline cutoff and that lease renewal cannot extend an existing resolution deadline"
-            ]
+            "testSelectors": [
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it"
+            ],
+            "checkerInvariants": [
+                "ACQ-IMPORT",
+                "ACQ-TEST"
+            ],
+            "remainingEvidence": []
         },
         {
             "id": "C13-AUTH-DIRECT-LEASE",
             "owner": "W2",
             "specAnchor": "C13-AUTH-DIRECT-LEASE",
             "specTextSha256": "sha256:97bee9bbac899542139125fffc7be358834f86265def339785ebf64059157b90",
-            "status": "implemented",
+            "status": "verified",
             "prerequisites": [],
             "sourceSymbols": [
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect"
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
-            "testSelectors": [],
-            "checkerInvariants": [],
-            "remainingEvidence": [
-                "Add integrated public gateway tests proving direct admission rejects each wrong Turn, holder, and epoch against the exact current LeaseToken"
-            ]
+            "testSelectors": [
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-LEASE] rejects direct admission for a wrong Turn, holder, or epoch",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-LEASE] rejects direct admission for a wrong Turn, holder, or epoch"
+            ],
+            "checkerInvariants": [
+                "ACQ-IMPORT",
+                "ACQ-TEST"
+            ],
+            "remainingEvidence": []
         },
         {
             "id": "C13-AUTH-DIRECT-SUBJECT",
@@ -197,23 +228,24 @@
             "owner": "W2",
             "specAnchor": "C13-AUTH-DIRECT-WATERMARK",
             "specTextSha256": "sha256:d118a9a907abe5aee3076d3abed2cfeaa800843a4f81dd06178d4335393ada6e",
-            "status": "implemented",
+            "status": "verified",
             "prerequisites": [],
             "sourceSymbols": [
                 "src/authority/epoch.ts#InvalidationWatermark",
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect"
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
             "testSelectors": [
-                "test/authority/hard-gates.test.ts#Binding and epoch hard gates enforces exact path and watermark invariants"
+                "test/authority/hard-gates.test.ts#Binding and epoch hard gates enforces exact path and watermark invariants",
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not"
             ],
             "checkerInvariants": [
                 "ACQ-IMPORT",
                 "ACQ-TEST"
             ],
-            "remainingEvidence": [
-                "Implement and wire one production per-holder watermark source shared by invalidation delivery and mediated stale observation",
-                "Add integrated direct gateway tests proving a relevant delivered or observed higher epoch ends authorization while equal or lower watermarks do not"
-            ]
+            "remainingEvidence": []
         },
         {
             "id": "C13-AUTH-EPOCH-ADVANCEMENT",
@@ -297,25 +329,26 @@
             "owner": "W2",
             "specAnchor": "C13-AUTH-MEDIATED-STALE",
             "specTextSha256": "sha256:83b9f393db4e29ca47fa6611d447de3e3d56bce41d61e811766877fd3392345e",
-            "status": "implemented",
+            "status": "verified",
             "prerequisites": [],
             "sourceSymbols": [
                 "src/authority/runtime.ts#TenantAuthorityRuntime.check",
                 "src/authority/watermark-store.ts#InvalidationWatermarkStore",
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeMediated"
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/composition/authority.ts#TenantOperationAuthority.authorizeMediated",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
             "testSelectors": [
                 "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence",
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
                 "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (\u00a73.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
             ],
             "checkerInvariants": [
                 "ACQ-IMPORT",
                 "ACQ-TEST"
             ],
-            "remainingEvidence": [
-                "Provide a production OperationAuthorityStatePort implementation; the composition test currently supplies a test-only state adapter",
-                "Prove watermark join, cached-resolution invalidation, denied Receipt, AuditRecord, and absence of EffectAttempt commit in one Actor-local transaction against the production memory and SQLite stores"
-            ]
+            "remainingEvidence": []
         },
         {
             "id": "C13-AUTH-PATH-EVIDENCE",
@@ -438,23 +471,23 @@
             "owner": "W2",
             "specAnchor": "C13-AUTH-WATERMARK-MONOTONE",
             "specTextSha256": "sha256:8c0d8a7eeb9c01fddc4bc381e967c40bfcc1918bf421676f242c6dbe9684d061",
-            "status": "implemented",
+            "status": "verified",
             "prerequisites": [],
             "sourceSymbols": [
                 "src/authority/epoch.ts#InvalidationWatermark",
-                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore"
+                "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
+                "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
             "testSelectors": [
-                "test/authority/model.test.ts#authority value records [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically"
+                "test/authority/model.test.ts#authority value records [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
+                "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark",
+                "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark"
             ],
             "checkerInvariants": [
                 "ACQ-IMPORT",
                 "ACQ-TEST"
             ],
-            "remainingEvidence": [
-                "Wire invalidation delivery and the first mediated stale observation to one durable per-holder watermark store",
-                "Add contract evidence that exercises monotonic delivery and observation through production memory and SQLite authority adapters rather than only value-object joins"
-            ]
+            "remainingEvidence": []
         }
     ]
 }

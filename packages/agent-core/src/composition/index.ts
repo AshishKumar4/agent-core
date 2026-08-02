@@ -69,6 +69,8 @@ export type {
     CanonicalSpawnEvidenceSource
 } from "./run-evidence";
 export { DurableRunAdmissionPort } from "./run-admission";
+export { ActorAuthorityState } from "./authority-state";
+export type { ActorAuthorityHost } from "./authority-state";
 export { SlateRuntimeBackend } from "./slate-profile";
 export type { SlateRuntimePort } from "./slate-profile";
 export { assembleSingleTenantPolicy, TenantMultiplicityPolicy } from "./single-tenant";

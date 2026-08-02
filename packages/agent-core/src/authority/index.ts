@@ -20,6 +20,7 @@ export type {
 } from "./service";
 export { scopeKey, subjectKey } from "./reference";
 export { watermarkKey } from "./watermark-store";
+export { MemoryInvalidationWatermarkStore } from "./watermark-store";
 export type { InvalidationWatermarkStore } from "./watermark-store";
 export { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
 export type {
