@@ -1,14 +1,22 @@
 import { AgentCoreError, ContentRef, Digest, RouteReservationId, TenantId } from "@agent-core/core";
 import { ActorId, ActorRef } from "@agent-core/core/actors";
 import { ProviderDescriptor, ProviderId } from "@agent-core/core/environment-provider";
-import { SqliteActorStore, SqliteContentStore } from "@agent-core/core/substrates/sqlite";
+import {
+    SqliteActorStore,
+    SqliteAuthorityPermitStore,
+    SqliteContentStore
+} from "@agent-core/core/substrates/sqlite";
+import { AuthorityPermit, AuthorityPermitExpectation } from "@agent-core/core/authority";
 import { DurableObject } from "cloudflare:workers";
 import {
     AlarmOutboxReconciler,
     AtLeastOnceQueueAdapter,
     CloudflareSqlite,
     DurableObjectEnvironmentProvider,
+    DurableObjectPermitAdmission,
+    DurableObjectPermitRecordSource,
     DurableObjectSlateProvider,
+    PermitIssuerDurableObjectHost,
     DynamicWorkerLoaderAdapter,
     SqliteApplicationMigrator,
     SqliteReconciliationOutbox,
@@ -223,6 +231,99 @@ export class EnvironmentProviderDurableObject extends DurableObject<TestEnvironm
 
     public fetch(): Response {
         return new Response("environment-provider");
+    }
+}
+
+export const PERMIT_TENANT_ACTOR = new ActorRef("tenant", new ActorId("permit-tenant"));
+export const PERMIT_TARGET_ACTOR = new ActorRef("run", new ActorId("permit-target"));
+
+export class PermitTenantDurableObject extends DurableObject<TestEnvironment> {
+    readonly #host: PermitIssuerDurableObjectHost<unknown>;
+    public readonly permits: SqliteAuthorityPermitStore;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        this.permits = new SqliteAuthorityPermitStore(
+            new CloudflareSqlite(state.storage, errors),
+            PERMIT_TENANT_ACTOR
+        );
+        this.#host = new PermitIssuerDurableObjectHost(this.permits);
+    }
+
+    public issuePermit(bytes: Uint8Array): void {
+        const permit = AuthorityPermit.decode(bytes);
+        this.permits.transaction((transaction) => {
+            this.permits.issue(transaction, permit);
+        });
+    }
+
+    public issuedPermitRecord(nonce: string): Uint8Array | undefined {
+        return this.#host.issuedPermitRecord(nonce);
+    }
+
+    public fetch(): Response {
+        return new Response("permit-tenant");
+    }
+}
+
+export class PermitTargetDurableObject extends DurableObject<TestEnvironment> {
+    readonly #sqlite: CloudflareSqlite;
+    readonly #admission: DurableObjectPermitAdmission<unknown>;
+    #expected: AuthorityPermitExpectation | undefined;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        this.#sqlite = new CloudflareSqlite(state.storage, errors);
+        this.#sqlite.transaction(() =>
+            this.#sqlite.run(
+                `CREATE TABLE IF NOT EXISTS effect_attempts (
+                    nonce TEXT PRIMARY KEY,
+                    admitted_at TEXT NOT NULL
+                ) STRICT`,
+                []
+            )
+        );
+        const store = new SqliteAuthorityPermitStore(this.#sqlite, PERMIT_TARGET_ACTOR);
+        this.#admission = new DurableObjectPermitAdmission(
+            store,
+            new DurableObjectPermitRecordSource(
+                environment.PERMIT_TENANTS,
+                PERMIT_TENANT_ACTOR,
+                errors
+            )
+        );
+    }
+
+    public seedExpectation(bytes: Uint8Array): void {
+        // Stands in for the target's persisted invocation, reservation, and claim
+        // state: admission validates against this local record, never permit fields.
+        this.#expected = AuthorityPermit.decode(bytes).expectation;
+    }
+
+    public async admitPermit(
+        bytes: Uint8Array,
+        at: number,
+        failAppend = false
+    ): Promise<string> {
+        if (this.#expected === undefined) throw new Error("Expectation was not seeded");
+        const permit = AuthorityPermit.decode(bytes);
+        await this.#admission.admit(permit, this.#expected, new Date(at), () => {
+            if (failAppend) throw new Error("Injected effect-append failure");
+            this.#sqlite.run(
+                "INSERT INTO effect_attempts (nonce, admitted_at) VALUES (?, ?)",
+                [permit.nonce, new Date(at).toISOString()]
+            );
+        });
+        return permit.nonce;
+    }
+
+    public effectAttemptCount(): number {
+        const rows = this.#sqlite.all("SELECT nonce FROM effect_attempts", []);
+        return rows.length;
+    }
+
+    public fetch(): Response {
+        return new Response("permit-target");
     }
 }
 

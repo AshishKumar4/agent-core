@@ -7,34 +7,49 @@
             "owner": "W8",
             "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
             "specTextSha256": "sha256:53f5e9fc29614895da006f4b4532a4bff19a1dc8e02f12788f34583473cc31dd",
-            "status": "planned",
+            "status": "verified",
             "prerequisites": [
                 "C13-AUTH-MEDIATED-ADMISSION"
             ],
-            "sourceSymbols": [],
-            "testSelectors": [],
-            "checkerInvariants": [],
-            "remainingEvidence": [
-                "Implement authenticated Tenant-to-target Durable Object transport that establishes the permit issuer and source independently of caller-supplied permit fields",
-                "Add adversarial Cloudflare runtime evidence that substitution of every bound field is rejected before any EffectAttempt"
-            ]
+            "sourceSymbols": [
+                "cloudflare/src/authority-permit-transport.ts#DurableObjectPermitRecordSource",
+                "cloudflare/src/authority-permit-transport.ts#PermitIssuerDurableObjectHost"
+            ],
+            "testSelectors": [
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] never consults a foreign issuer's store, even for a matching expectation",
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects a permit that was never issued by the Tenant object",
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt"
+            ],
+            "checkerInvariants": [
+                "ACQ-IMPORT",
+                "ACQ-TEST"
+            ],
+            "remainingEvidence": []
         },
         {
             "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
             "owner": "W8",
             "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
             "specTextSha256": "sha256:53f5e9fc29614895da006f4b4532a4bff19a1dc8e02f12788f34583473cc31dd",
-            "status": "planned",
+            "status": "verified",
             "prerequisites": [
                 "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING"
             ],
-            "sourceSymbols": [],
-            "testSelectors": [],
-            "checkerInvariants": [],
-            "remainingEvidence": [
-                "Implement target-owned admission that exact-matches the persisted invocation, reservation epoch, local claim, package pin, target fence and domain, validity window, and authenticated issuer and source before nonce consumption",
-                "Add Cloudflare Durable Object SQLite restart, replay, rollback, expiry, stale-local-state, and post-issuance-watermark evidence for nonce consumption atomic with EffectAttempt admission"
-            ]
+            "sourceSymbols": [
+                "cloudflare/src/authority-permit-transport.ts#DurableObjectPermitAdmission"
+            ],
+            "testSelectors": [
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt",
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] consumes a valid issued permit regardless of newer post-issuance watermark",
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] keeps the consumed nonce across a real instance restart",
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] rejects an expired permit before any EffectAttempt",
+                "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] rolls back the nonce when the EffectAttempt append fails"
+            ],
+            "checkerInvariants": [
+                "ACQ-IMPORT",
+                "ACQ-TEST"
+            ],
+            "remainingEvidence": []
         },
         {
             "id": "C13-ENVIRONMENT-DISPOSE-CLOSE",

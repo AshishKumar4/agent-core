@@ -8,7 +8,9 @@
     "bindings": [
       { "name": "ACTORS", "class_name": "TestActorDurableObject" },
       { "name": "ENVIRONMENTS", "class_name": "EnvironmentProviderDurableObject" },
-      { "name": "SLATES", "class_name": "SlateProviderDurableObject" }
+      { "name": "SLATES", "class_name": "SlateProviderDurableObject" },
+      { "name": "PERMIT_TENANTS", "class_name": "PermitTenantDurableObject" },
+      { "name": "PERMIT_TARGETS", "class_name": "PermitTargetDurableObject" }
     ]
   },
   "migrations": [
@@ -17,7 +19,11 @@
       "tag": "v2",
       "new_sqlite_classes": ["EnvironmentProviderDurableObject"]
     },
-    { "tag": "v3", "new_sqlite_classes": ["SlateProviderDurableObject"] }
+    { "tag": "v3", "new_sqlite_classes": ["SlateProviderDurableObject"] },
+    {
+      "tag": "v4",
+      "new_sqlite_classes": ["PermitTenantDurableObject", "PermitTargetDurableObject"]
+    }
   ],
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],
   "queues": {
