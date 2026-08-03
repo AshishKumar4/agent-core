@@ -4,6 +4,7 @@ import * as invocations from "../../src/invocations";
 describe("invocation context barrel", () => {
     test("exports the complete W6 runtime API", () => {
         expect(Object.keys(invocations).sort()).toEqual([
+            "AlarmReconciliationDriver",
             "Approval",
             "ApprovalCodec",
             "ApprovalId",

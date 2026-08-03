@@ -1,5 +1,6 @@
 export const INVOCATION_CONTEXT_EXPORTS = Object.freeze({
     runtime: Object.freeze([
+        "AlarmReconciliationDriver",
         "Approval",
         "ApprovalCodec",
         "ApprovalId",
