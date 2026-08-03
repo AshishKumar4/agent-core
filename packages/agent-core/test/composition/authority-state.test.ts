@@ -44,7 +44,7 @@ import {
 import { AuditRecordId, CorrelationId, InvocationId } from "../../src/interaction-references";
 import { ReceiptId } from "../../src/invocation-references";
 import { TurnId, TurnLease, type LeaseToken } from "../../src/agents";
-import { SqliteInvalidationWatermarkStore } from "../../src/substrates/sqlite/watermark";
+import { SqliteInvalidationWatermarkStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 
 const tenant = new TenantId("authority-state-tenant");

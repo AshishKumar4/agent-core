@@ -169,7 +169,6 @@
             "prerequisites": [],
             "sourceSymbols": [
                 "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect",
                 "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
             "testSelectors": [
@@ -191,7 +190,6 @@
             "prerequisites": [],
             "sourceSymbols": [
                 "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect",
                 "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
             "testSelectors": [
@@ -233,7 +231,6 @@
             "sourceSymbols": [
                 "src/authority/epoch.ts#InvalidationWatermark",
                 "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeDirect",
                 "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
             "testSelectors": [
@@ -335,7 +332,6 @@
                 "src/authority/runtime.ts#TenantAuthorityRuntime.check",
                 "src/authority/watermark-store.ts#InvalidationWatermarkStore",
                 "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
-                "src/composition/authority.ts#TenantOperationAuthority.authorizeMediated",
                 "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
             ],
             "testSelectors": [

@@ -242,6 +242,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
 
     test("reports building incomplete and rejects final incomplete", async () => {
         const fixture = await ledgerFixture(true);
+        await planOneRequirement(fixture);
         const building = runFixture(fixture);
         expect(building.status, building.stderr).toBe(0);
         await writeFile(
@@ -399,6 +400,49 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(result.stderr).toContain("test did not pass");
     });
 });
+
+/**
+ * Demote one leaf requirement to planned so the fixture exercises incompleteness
+ * regardless of how complete the real conformance tree is. A leaf is chosen so no
+ * verified requirement is left depending on an unverified prerequisite.
+ */
+async function planOneRequirement(root: string): Promise<void> {
+    const indexPath = resolve(root, "conformance/index.json");
+    const index = JSON.parse(await readFile(indexPath, "utf8")) as { fragments: string[] };
+    const fragments = await Promise.all(
+        index.fragments.map(async (name) => ({
+            name,
+            document: JSON.parse(
+                await readFile(resolve(root, "conformance", name), "utf8")
+            ) as { requirements: Record<string, unknown>[] }
+        }))
+    );
+    const prerequisites = new Set(
+        fragments.flatMap(({ document }) =>
+            document.requirements.flatMap((requirement) => requirement["prerequisites"] as string[])
+        )
+    );
+    for (const { name, document } of fragments) {
+        const leaf = document.requirements.find(
+            (requirement) =>
+                requirement["status"] === "verified" &&
+                !prerequisites.has(requirement["id"] as string)
+        );
+        if (leaf === undefined) continue;
+        leaf["status"] = "planned";
+        leaf["sourceSymbols"] = [];
+        leaf["testSelectors"] = [];
+        leaf["checkerInvariants"] = [];
+        leaf["remainingEvidence"] = ["Fixture demotes this requirement to exercise incompleteness"];
+        await writeFile(
+            resolve(root, "conformance", name),
+            `${JSON.stringify(document, null, 4)}\n`,
+            "utf8"
+        );
+        return;
+    }
+    throw new TypeError("Ledger fixture found no leaf requirement to demote");
+}
 
 async function ledgerFixture(preserveActiveFragments = false): Promise<string> {
     const root = await mkdtemp(resolve(tmpdir(), "agent-core-ledger-"));
