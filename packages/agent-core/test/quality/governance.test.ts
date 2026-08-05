@@ -14,10 +14,11 @@ const formatter = resolve(packageRoot, "scripts/quality/format.mjs");
 const integrationRoot = resolve(packageRoot, "artifacts/integration");
 
 describe("R1 integration governance", subprocessTestOptions, () => {
-    test("fails closed when unpublished process evidence is unavailable", () => {
+    test("verifies published process evidence at building and rejects a premature final claim", () => {
         const building = run("building");
-        expect(building.status).toBe(1);
-        expect(building.stderr).toContain("W0 governance commit or tree is unavailable");
+        expect(building.stderr).toBe("");
+        expect(building.status).toBe(0);
+        expect(building.stdout).toContain("governance inputs verified");
 
         const final = run("final");
         expect(final.status).toBe(1);

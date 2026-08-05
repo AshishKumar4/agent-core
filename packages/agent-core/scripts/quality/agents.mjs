@@ -15,7 +15,13 @@ const vocabulary = await readCanonicalJson(resolve(artifactRoot, "quality/rules.
 const compliance = await readCanonicalJson(resolve(artifactRoot, "quality/agents-compliance.json"));
 const expected = new Set(vocabulary.rules.map((rule) => rule.id));
 const actual = new Set();
-const executed = await executedTestSelectors();
+// Compliance rules cite quality-harness tests, which execute in their own
+// suite beside the product report.
+const executed = await executedTestSelectors([
+    resolve(reportRoot, "tests/vitest.json"),
+    resolve(reportRoot, "tests/quality.json"),
+    resolve(reportRoot, "tests/governance.json")
+]);
 for (const rule of compliance.rules) {
     if (actual.has(rule.id)) throw new TypeError(`Duplicate AGENTS compliance rule ${rule.id}`);
     actual.add(rule.id);

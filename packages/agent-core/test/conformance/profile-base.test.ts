@@ -48,7 +48,7 @@ const profiles = [
 ] as const;
 
 describe("Profile base conformance", () => {
-    test("[C13-OWNERSHIP-MAP] covers every tracked path without depending on candidate worktree authorization", { tags: "p2" }, async () => {
+    test("[C13-OWNERSHIP-MAP] covers every tracked path without depending on candidate worktree authorization", { tags: "p1" }, async () => {
         await expect(validateCompleteOwnership()).resolves.toBeGreaterThan(200);
     });
 
@@ -75,7 +75,7 @@ describe("Profile base conformance", () => {
         expect(SINGLE_TENANT_EVENTS).toEqual([]);
     });
 
-    test("[P11-BASE-EVIDENCE] keeps implementation status out of executable profile contracts", { tags: "p2" }, () => {
+    test("[P11-BASE-EVIDENCE] keeps implementation status out of executable profile contracts", { tags: "p1" }, () => {
         for (const [contributions, operations] of profiles) {
             for (const operation of operations) {
                 const data = operation.toData() as Record<string, unknown>;
@@ -89,7 +89,7 @@ describe("Profile base conformance", () => {
         }
     });
 
-    test("[P11-BASE-TESTS] gives every verified profile atom unique executable evidence", { tags: "p2" }, async () => {
+    test("[P11-BASE-TESTS] gives every verified profile atom unique executable evidence", { tags: "p1" }, async () => {
         const fragment = JSON.parse(
             await readFile(
                 new URL("../../artifacts/conformance/profiles-cloudflare.json", import.meta.url),

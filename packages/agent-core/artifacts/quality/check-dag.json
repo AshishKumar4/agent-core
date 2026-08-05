@@ -62,6 +62,8 @@
             "quality-tests"
         ],
         "agents": [
+            "governance-tests",
+            "quality-tests",
             "tests"
         ],
         "invariants": [

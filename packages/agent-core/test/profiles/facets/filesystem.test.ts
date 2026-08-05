@@ -214,7 +214,7 @@ describe("Filesystem backend invariants", () => {
         expect([...filesystem.read("/tree/file")]).toEqual([1]);
     });
 
-    test("[P11-FILESYSTEM-RANGES] rejects malformed ranges, paging, write modes, and node-kind conflicts", { tags: "p2" }, () => {
+    test("[P11-FILESYSTEM-RANGES] rejects malformed ranges, paging, write modes, and node-kind conflicts", { tags: "p1" }, () => {
         expect(() => new MemoryFilesystemBackend(-1)).toThrow(TypeError);
         const filesystem = new MemoryFilesystemBackend();
         filesystem.mkdir("/docs");

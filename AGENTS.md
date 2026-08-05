@@ -324,3 +324,5 @@ operation("note.share", "Share a note.", "mutate", new ShareNoteHandler(store))
 The store (`NoteStore`) is an **interface** with a memory reference implementation used
 by tests and a substrate implementation under `src/substrates/`; the handler depends on
 the interface, never on a concrete backend.
+
+**Live Substrate Evidence:** Consent-gated substrate conformance atoms are verified only against the real deployed substrate; committed live evidence must be hash-bound to the exact current sources and fully passing, never substituted with a local emulation.

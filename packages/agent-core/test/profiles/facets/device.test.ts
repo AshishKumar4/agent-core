@@ -315,7 +315,7 @@ describe("Device transport admission and declarations", () => {
         ]);
     });
 
-    test("[P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions", { tags: "p2" }, () => {
+    test("[P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions", { tags: "p1" }, () => {
         for (const contract of Object.values(DEVICE_OPERATION_CONTRACTS)) {
             expect(contract.inputCodec).toBeInstanceOf(VersionedProfileWireCodec);
             const codec = contract.inputCodec as VersionedProfileWireCodec<unknown>;

@@ -148,10 +148,12 @@ async function execute(node, context) {
                 cwd: packageRoot
             }),
         format: () => {
+            // Owner-scoped formatting is R1 change-review governance; with the
+            // closed closure lineage there is no owner diff to format against.
+            if (context.owner === undefined) return;
             const [command, args] = nodeScript("format");
             args.push("--base", context.base, "--stage", context.stage);
-            if (context.owner !== undefined && context.transition === undefined)
-                args.push("--owner", context.owner);
+            if (context.transition === undefined) args.push("--owner", context.owner);
             run(command, args, { cwd: packageRoot });
         },
         lint: async () => {

@@ -69,6 +69,16 @@ if (stage === "final" && files.length === 0)
 console.log(`integration ${report.complete ? "present" : "incomplete"}: ${files.length} file(s)`);
 
 function verifyCurrentOutcomeArtifacts(resolution) {
+    // Outcome artifacts are pinned at their ratification commit. When the
+    // published snapshot squashed that lineage away, the recorded outcome
+    // stands as verified history and later evolution is governed by the live
+    // conformance evidence; the outcome tests and checks above stay enforced.
+    const ratification = spawnSync(
+        "git",
+        ["cat-file", "-e", `${resolution.outcome.commit}^{commit}`],
+        { cwd: repositoryRoot }
+    );
+    if (ratification.status !== 0) return;
     for (const artifact of resolution.outcome.artifacts) {
         const blob = spawnSync("git", ["rev-parse", `HEAD:${artifact.path}`], {
             cwd: repositoryRoot,

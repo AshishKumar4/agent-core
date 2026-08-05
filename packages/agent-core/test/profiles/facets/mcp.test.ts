@@ -150,7 +150,7 @@ describe("MCP normative discovery", () => {
         ).toThrow(expect.objectContaining({ detailCode: "schema.invalid" }));
     });
 
-    test("[P11-MCP-REVISION] enforces the edition's exact protocol revision", { tags: "p2" }, () => {
+    test("[P11-MCP-REVISION] enforces the edition's exact protocol revision", { tags: "p1" }, () => {
         expect(MCP_PROTOCOL_REVISION).toBe("2025-11-25");
         expect(() =>
             createDiscovery().discover({

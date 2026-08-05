@@ -426,7 +426,7 @@ describe("transactional terminal frontier", () => {
         expect(isSettled({}, obligation, value.settlement)).toBe(true);
     });
 
-    it("[C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities", { tags: "p2" }, () => {
+    it("[C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities", { tags: "p1" }, () => {
         expect(
             () =>
                 new SettlementObligation({
