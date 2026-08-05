@@ -40,14 +40,14 @@
         "checks": [],
         "artifacts": [
           {
-            "path": "packages/agent-core-cloudflare/src/authority-permit.ts",
-            "blob": "0e247f6350b2d1ce63c4305f951c33617092a923",
-            "sha256": "fe9abfe1b82e7ed82a5db0e454cfbd33bb3d3d676ef8b3750a898a89386f4701"
+            "path": "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+            "blob": "e8f704453063f807aaac7254bbf40daefe938947",
+            "sha256": "30b2ed3ac21a2118b6334cfa28d9e5512764737630a390dd78f5c05ec97bc773"
           },
           {
-            "path": "packages/agent-core-cloudflare/test/authority-permit.test.ts",
-            "blob": "06722c4173ae6da6313d2196f7883b3c73956259",
-            "sha256": "c09bfba736df9c0c793654a4eebdf3ffee696cac0b0c75e0a1c8a4ea63f50241"
+            "path": "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
+            "blob": "e997d5ca563b4f11503436c7cd92e78a002bc77f",
+            "sha256": "b08ea5d338cc9ca76c53d2b58a55bfef72db74552ed149b548af85a7673bf535"
           },
           {
             "path": "packages/agent-core/src/agents/runs/pins.ts",
@@ -129,8 +129,8 @@
             "treatment": "accepted",
             "rationale": "All seven accepted normative decisions are bound to canonical implementation and direct conformance tests. Atomic obligation artifacts/requests/W8/normative-clarifications.md::decision::environment-pin-identity is explicitly classified.",
             "artifactPaths": [
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/src/agents/runs/pins.ts",
               "packages/agent-core/src/facets/device/facet.ts",
               "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -164,8 +164,8 @@
             "treatment": "accepted",
             "rationale": "All seven accepted normative decisions are bound to canonical implementation and direct conformance tests. Atomic obligation artifacts/requests/W8/normative-clarifications.md::decision::filesystem-mutation-evidence-and-readonly-wrappers is explicitly classified.",
             "artifactPaths": [
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/src/agents/runs/pins.ts",
               "packages/agent-core/src/facets/device/facet.ts",
               "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -201,8 +201,8 @@
             "treatment": "accepted",
             "rationale": "All seven accepted normative decisions are bound to canonical implementation and direct conformance tests. Atomic obligation artifacts/requests/W8/normative-clarifications.md::decision::source-event-audit-causality is explicitly classified.",
             "artifactPaths": [
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/src/agents/runs/pins.ts",
               "packages/agent-core/src/facets/device/facet.ts",
               "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -236,8 +236,8 @@
             "treatment": "accepted",
             "rationale": "All seven accepted normative decisions are bound to canonical implementation and direct conformance tests. Atomic obligation artifacts/requests/W8/normative-clarifications.md::decision::mcp-reproducibility is explicitly classified.",
             "artifactPaths": [
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/src/agents/runs/pins.ts",
               "packages/agent-core/src/facets/device/facet.ts",
               "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -271,8 +271,8 @@
             "treatment": "accepted",
             "rationale": "All seven accepted normative decisions are bound to canonical implementation and direct conformance tests. Atomic obligation artifacts/requests/W8/normative-clarifications.md::decision::device-consent-admission is explicitly classified.",
             "artifactPaths": [
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/src/agents/runs/pins.ts",
               "packages/agent-core/src/facets/device/facet.ts",
               "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -309,8 +309,8 @@
             "treatment": "accepted",
             "rationale": "All seven accepted normative decisions are bound to canonical implementation and direct conformance tests. Atomic obligation artifacts/requests/W8/normative-clarifications.md::decision::slate-rollback is explicitly classified.",
             "artifactPaths": [
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/src/agents/runs/pins.ts",
               "packages/agent-core/src/facets/device/facet.ts",
               "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -344,8 +344,8 @@
             "treatment": "accepted",
             "rationale": "All seven accepted normative decisions are bound to canonical implementation and direct conformance tests. Atomic obligation artifacts/requests/W8/normative-clarifications.md::decision::cloudflare-mediated-authority-linearization is explicitly classified.",
             "artifactPaths": [
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/src/agents/runs/pins.ts",
               "packages/agent-core/src/facets/device/facet.ts",
               "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -448,14 +448,14 @@
             "sha256": "f7095442845a3bc4687e2dc694dcbfb872235970636201fef364ffa7c2dab918"
           },
           {
-            "path": "packages/agent-core-cloudflare/src/authority-permit.ts",
-            "blob": "0e247f6350b2d1ce63c4305f951c33617092a923",
-            "sha256": "fe9abfe1b82e7ed82a5db0e454cfbd33bb3d3d676ef8b3750a898a89386f4701"
+            "path": "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+            "blob": "e8f704453063f807aaac7254bbf40daefe938947",
+            "sha256": "30b2ed3ac21a2118b6334cfa28d9e5512764737630a390dd78f5c05ec97bc773"
           },
           {
-            "path": "packages/agent-core-cloudflare/test/authority-permit.test.ts",
-            "blob": "06722c4173ae6da6313d2196f7883b3c73956259",
-            "sha256": "c09bfba736df9c0c793654a4eebdf3ffee696cac0b0c75e0a1c8a4ea63f50241"
+            "path": "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
+            "blob": "e997d5ca563b4f11503436c7cd92e78a002bc77f",
+            "sha256": "b08ea5d338cc9ca76c53d2b58a55bfef72db74552ed149b548af85a7673bf535"
           },
           {
             "path": "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
@@ -503,8 +503,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W0-DEPENDENCIES is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -531,8 +531,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W0-QUALITY-REGISTRY is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -559,8 +559,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W0-EXPORTS is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -587,8 +587,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W3-PROFILE-RUNTIME is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -615,8 +615,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W2-WORKSPACE-ID is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -643,8 +643,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W2-AUTHORITY is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -671,8 +671,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W5-RUN is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -699,8 +699,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W6-INVOCATION is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -727,8 +727,8 @@
             "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W7-EVENT is explicitly classified.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
-              "packages/agent-core-cloudflare/src/authority-permit.ts",
-              "packages/agent-core-cloudflare/test/authority-permit.test.ts",
+              "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
+              "packages/agent-core-cloudflare/test/cloudflare/authority-permit.test.ts",
               "packages/agent-core/artifacts/conformance/profiles-cloudflare.json",
               "packages/agent-core/src/composition/invocation.ts",
               "packages/agent-core/src/facets/profile-runtime/contract.ts",
