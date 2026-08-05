@@ -91,7 +91,7 @@ describe("content record codecs", () => {
         }
     ];
 
-    test("[content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds", () => {
+    test("[content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds", { tags: "p1" }, () => {
         for (const codec of codecs) {
             const decoded = codec.decode(codec.bytes);
             const encoded =
@@ -106,7 +106,7 @@ describe("content record codecs", () => {
     });
 
     for (const codec of codecs) {
-        test(`${codec.name} rejects every malformed envelope and version class`, () => {
+        test(`${codec.name} rejects every malformed envelope and version class`, { tags: "p1" }, () => {
             const valid = envelope(codec.bytes);
             const malformed: readonly JsonValue[] = [
                 null,
@@ -152,7 +152,7 @@ describe("content record codecs", () => {
         });
     }
 
-    test("content stat rejects every malformed field and invalid value", () => {
+    test("content stat rejects every malformed field and invalid value", { tags: "p1" }, () => {
         const bytes = ContentStat.encode(stat);
         const payload = jsonObject(envelope(bytes)["payload"]!);
         const malformed: readonly JsonValue[] = [
@@ -185,7 +185,7 @@ describe("content record codecs", () => {
         expect(withoutHint.hint).toBeUndefined();
     });
 
-    test("owner edge rejects every malformed field and invalid value", () => {
+    test("owner edge rejects every malformed field and invalid value", { tags: "p1" }, () => {
         const bytes = ContentOwnerEdge.encode(edge);
         const payload = jsonObject(envelope(bytes)["payload"]!);
         const actorPayload = jsonObject(payload["actor"]!);
@@ -225,7 +225,7 @@ describe("content record codecs", () => {
         }
     });
 
-    test("transient lease rejects every malformed field and invalid value", () => {
+    test("transient lease rejects every malformed field and invalid value", { tags: "p1" }, () => {
         const bytes = TransientContentLeaseState.encode(lease);
         const payload = jsonObject(envelope(bytes)["payload"]!);
         const actorPayload = jsonObject(payload["actor"]!);
@@ -275,7 +275,7 @@ describe("content record codecs", () => {
 });
 
 describe("content value contracts", () => {
-    test("preserves programmer TypeError for invalid media, stat, owner, and time values", () => {
+    test("preserves programmer TypeError for invalid media, stat, owner, and time values", { tags: "p2" }, () => {
         expect(() => new MediaHint(" ")).toThrow(TypeError);
         expect(() => new MediaHint("x".repeat(256))).toThrow(TypeError);
         expect(() => new ContentStat(ref, digest, -1)).toThrow(TypeError);
@@ -296,7 +296,7 @@ describe("content value contracts", () => {
         expect(requireOperationTime(new Date(12))).not.toBe(requireOperationTime(new Date(12)));
     });
 
-    test("models active, released, expired, and idempotently closed lease orders", () => {
+    test("models active, released, expired, and idempotently closed lease orders", { tags: "p1" }, () => {
         const state = new TransientContentLeaseState(
             tenant,
             actor,

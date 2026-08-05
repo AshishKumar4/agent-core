@@ -61,7 +61,7 @@ class ConformanceIntentAuthenticator extends EventIntentAuthenticator {
     }
 }
 
-test("duplicate route storage identity is rejected", () => {
+test("duplicate route storage identity is rejected", { tags: "p0" }, () => {
     const records = new MemoryWorkspaceRecords();
     records.insertUnique({ namespace: "route", key: "same", recordKey: "first" });
     expect(() =>
@@ -69,7 +69,7 @@ test("duplicate route storage identity is rejected", () => {
     ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
 });
 
-test("[C13-ADV-FORGED-INITIATOR] provenance Principal cannot be forged", () => {
+test("[C13-ADV-FORGED-INITIATOR] provenance Principal cannot be forged", { tags: "p0" }, () => {
     const event = eventFixture("forged-initiator");
     expect(
         () =>
@@ -90,7 +90,7 @@ test("[C13-ADV-FORGED-INITIATOR] provenance Principal cannot be forged", () => {
     ).toThrow(/exact provenance Principal|substitute/);
 });
 
-test("caller tier is absent from authenticated origin data", () => {
+test("caller tier is absent from authenticated origin data", { tags: "p0" }, () => {
     expect(
         Object.keys(
             new EventProvenance({
@@ -101,13 +101,13 @@ test("caller tier is absent from authenticated origin data", () => {
     ).not.toContain("trust");
 });
 
-test("[C13-ADV-OMITTED-TRUST-SET] accepted trust set cannot be empty", () => {
+test("[C13-ADV-OMITTED-TRUST-SET] accepted trust set cannot be empty", { tags: "p0" }, () => {
     expect(() => new EventPattern("task.*", [] as unknown as ["owner"])).toThrow(
         /must not be empty|known values/
     );
 });
 
-test("[C13-ADV-SUBSTITUTED-INITIATOR] routed initiator remains exact", () => {
+test("[C13-ADV-SUBSTITUTED-INITIATOR] routed initiator remains exact", { tags: "p0" }, () => {
     const route = reservationFixture("exact-initiator");
     expect(route.initiator?.equals(principal)).toBe(true);
     expect(route.authority.kind).toBe("initiator");
@@ -120,7 +120,7 @@ test("[C13-ADV-SUBSTITUTED-INITIATOR] routed initiator remains exact", () => {
     ).toThrow(/source Tenant/);
 });
 
-test("[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge", () => {
+test("[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge", { tags: "p0" }, () => {
     const reservation = reservationFixture("unverified-projection");
     const projection = projectionFixture(reservation);
     expect(() =>
@@ -130,7 +130,7 @@ test("[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge",
     ).toThrow(expect.objectContaining({ code: "authority.denied" }));
 });
 
-test("[C13-ROUTE-PROJECTION-DIGEST] projection binds exact content digest", () => {
+test("[C13-ROUTE-PROJECTION-DIGEST] projection binds exact content digest", { tags: "p0" }, () => {
     const reservation = reservationFixture("projection-digest");
     expect(
         () =>
@@ -143,35 +143,35 @@ test("[C13-ROUTE-PROJECTION-DIGEST] projection binds exact content digest", () =
     ).toThrow(/reference and digest must match/);
 });
 
-test("[C13-ROUTE-SOURCE-EVENT] reservation identifies its exact Event", () => {
+test("[C13-ROUTE-SOURCE-EVENT] reservation identifies its exact Event", { tags: "p1" }, () => {
     const route = reservationFixture("source-event");
     expect(route.event.equals(new EventId("event-source-event"))).toBe(true);
 });
 
-test("[C13-ROUTE-SOURCE-OWNED] reservation preserves source ownership", () => {
+test("[C13-ROUTE-SOURCE-OWNED] reservation preserves source ownership", { tags: "p1" }, () => {
     expect(reservationFixture("source-owned").sourceActor.equals(sourceActor)).toBe(true);
 });
 
-test("[C13-ROUTE-STABLE-INVOCATION] reservation codec preserves InvocationId", () => {
+test("[C13-ROUTE-STABLE-INVOCATION] reservation codec preserves InvocationId", { tags: "p1" }, () => {
     const route = reservationFixture("stable-invocation");
     expect(
         RouteReservation.decode(RouteReservation.encode(route)).invocation.equals(route.invocation)
     ).toBe(true);
 });
 
-test("[C13-ROUTE-TENANT-RELATION] reservation preserves tenant relation", () => {
+test("[C13-ROUTE-TENANT-RELATION] reservation preserves tenant relation", { tags: "p0" }, () => {
     const route = reservationFixture("tenant-relation");
     expect(route.tenants.kind).toBe("same");
     if (route.tenants.kind === "same") expect(route.tenants.tenant.equals(tenant)).toBe(true);
 });
 
-test("[C13-SUBSCRIPTION-ACCEPTED-TIERS] matching is categorical", () => {
+test("[C13-SUBSCRIPTION-ACCEPTED-TIERS] matching is categorical", { tags: "p0" }, () => {
     const event = eventFixture("categorical");
     expect(eventMatches(new EventPattern("task.*", ["authenticated"]), event)).toBe(true);
     expect(eventMatches(new EventPattern("task.*", ["owner"]), event)).toBe(false);
 });
 
-test("[C13-TRUST-ASSERTION-REJECTION] trust derives from host facts only", () => {
+test("[C13-TRUST-ASSERTION-REJECTION] trust derives from host facts only", { tags: "p0" }, () => {
     expect(
         deriveEventTrust({
             authenticatedPrincipal: principal,
@@ -182,7 +182,7 @@ test("[C13-TRUST-ASSERTION-REJECTION] trust derives from host facts only", () =>
     ).toBe("authenticated");
 });
 
-test("[C13-TRUST-HOST-DERIVED] exact lease-backed host emission derives self", () => {
+test("[C13-TRUST-HOST-DERIVED] exact lease-backed host emission derives self", { tags: "p0" }, () => {
     expect(
         deriveEventTrust({
             authenticatedPrincipal: principal,
@@ -193,7 +193,7 @@ test("[C13-TRUST-HOST-DERIVED] exact lease-backed host emission derives self", (
     ).toBe("self");
 });
 
-test("[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event intent", () => {
+test("[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event intent", { tags: "p0" }, () => {
     const intent = eventIntentFixture("verified-ingress");
     const authenticator = new ConformanceIntentAuthenticator();
     const evidence = authenticator.evidence(intent);
@@ -231,12 +231,12 @@ test("[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event in
     ).toThrow(expect.objectContaining({ code: "authority.denied" }));
 });
 
-test("ViewDelta revision continues its base", () => {
+test("ViewDelta revision continues its base", { tags: "p1" }, () => {
     const view = viewFixture(0, "conformance-replay");
     expect(viewDeltaFixture(view).baseRevision.equals(view.revision)).toBe(true);
 });
 
-test("[C13-VIEW-NO-LIVE-STATE] View rejects live non-JSON state", () => {
+test("[C13-VIEW-NO-LIVE-STATE] View rejects live non-JSON state", { tags: "p1" }, () => {
     expect(
         () =>
             new View({
@@ -249,7 +249,7 @@ test("[C13-VIEW-NO-LIVE-STATE] View rejects live non-JSON state", () => {
     ).toThrow();
 });
 
-test("conformance fixtures retain canonical route identity types", () => {
+test("conformance fixtures retain canonical route identity types", { tags: "p2" }, () => {
     const projection = content("identity-types");
     const route = new RouteReservation({
         id: new RouteReservationId("identity-route"),

@@ -55,7 +55,7 @@ const args = { value: true } as const;
 const argsDigest = Digest.sha256(encodeCanonicalJson(args));
 
 describe("TenantAuthorityRuntime hard gates", () => {
-    test("requires a Tenant issuer and canonical request Tenant", () => {
+    test("requires a Tenant issuer and canonical request Tenant", { tags: "p0" }, () => {
         expect(() => new TenantAuthorityRuntime(new FakeAuthorityStore(), owner)).toThrow(
             AgentCoreError
         );
@@ -79,7 +79,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         ).toThrow(AgentCoreError);
     });
 
-    test("rejects missing, deny, revoked, unreachable, and invalid-lineage backing Grants", () => {
+    test("rejects missing, deny, revoked, unreachable, and invalid-lineage backing Grants", { tags: "p0" }, () => {
         const store = new FakeAuthorityStore();
         const runtime = new TenantAuthorityRuntime(store, issuer);
         expect(() =>
@@ -120,7 +120,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         ).toThrow(AgentCoreError);
     });
 
-    test("returns closed denial reasons for local principal and Binding failures", () => {
+    test("returns closed denial reasons for local principal and Binding failures", { tags: "p0" }, () => {
         const store = new FakeAuthorityStore();
         const allow = directGrant("allow");
         store.grantRecords.push(allow);
@@ -161,7 +161,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         );
     });
 
-    test("checks Team closure and rejects foreign identity substitution", () => {
+    test("checks Team closure and rejects foreign identity substitution", { tags: "p0" }, () => {
         const store = new FakeAuthorityStore();
         store.principalRecord = new Principal(principalId, "user", "active");
         const team = new Team(
@@ -193,7 +193,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         expect(runtime.check(foreignRequest, new Date(10)).reason).toBe("missingPrincipal");
     });
 
-    test("[C13-AUTH-GUEST-ELEVATION] enforces guest proof, current trust, and elevation", () => {
+    test("[C13-AUTH-GUEST-ELEVATION] enforces guest proof, current trust, and elevation", { tags: "p0" }, () => {
         const store = new FakeAuthorityStore();
         const home = new TenantId("runtime-hard-home");
         const guest = new PrincipalId("runtime-hard-guest");
@@ -269,7 +269,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         ).toBe("guestVerificationExpired");
     });
 
-    test("fails closed for every malformed delegation lineage branch", () => {
+    test("fails closed for every malformed delegation lineage branch", { tags: "p0" }, () => {
         for (const malformed of [
             "revoked",
             "cycle",
@@ -367,7 +367,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         ).toBe("revokedGrant");
     });
 
-    test("rejects every guest-origin and trust mismatch branch", () => {
+    test("rejects every guest-origin and trust mismatch branch", { tags: "p0" }, () => {
         const home = new TenantId("branch-home");
         const guest = new PrincipalId("branch-guest");
         const subject = SubjectRef.foreign(home, guest, GuestVerificationScheme.callback);
@@ -454,7 +454,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         }
     });
 
-    test("excludes expired guest allows from successful evidence", () => {
+    test("excludes expired guest allows from successful evidence", { tags: "p0" }, () => {
         const store = new FakeAuthorityStore();
         const home = new TenantId("matched-home");
         const guest = new PrincipalId("matched-guest");

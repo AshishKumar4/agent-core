@@ -92,12 +92,12 @@ function row(key: string, revision: number | null = null): SqliteStoredRunRecord
 }
 
 describe("SQLite Run storage", () => {
-    it("[run-storage-port] memory and SQLite satisfy one shared transaction and record contract", () => {
+    it("[run-storage-port] memory and SQLite satisfy one shared transaction and record contract", { tags: "p1" }, () => {
         assertStorageContract(new MemoryRunStorage());
         assertStorageContract(new SqliteRunStorage(new TestSqlite(), owner));
     });
 
-    it("[MIGRATE-RUN-PINS] survives SQLite close and reopen with old and new Turn pins", () => {
+    it("[MIGRATE-RUN-PINS] survives SQLite close and reopen with old and new Turn pins", { tags: "p0" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "run-migration-sqlite-"));
         const path = join(directory, "migration.sqlite");
         try {
@@ -183,7 +183,7 @@ describe("SQLite Run storage", () => {
         }
     });
 
-    it("binds a strict closed schema to one Run-owning Actor", () => {
+    it("binds a strict closed schema to one Run-owning Actor", { tags: "p0" }, () => {
         const database = new TestSqlite();
         new SqliteRunStorage(database, owner);
         const objects = database
@@ -207,7 +207,7 @@ describe("SQLite Run storage", () => {
         ).toThrow(/Workspace/);
     });
 
-    it("round-trips detached bytes and enforces revision CAS", () => {
+    it("round-trips detached bytes and enforces revision CAS", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const storage = new SqliteRunStorage(database, owner);
         const candidate = row("commit-1", 0);
@@ -241,7 +241,7 @@ describe("SQLite Run storage", () => {
         ).toThrow(/revision/);
     });
 
-    it("preserves ordered parent edges and adapter recreation", () => {
+    it("preserves ordered parent edges and adapter recreation", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const storage = new SqliteRunStorage(database, owner);
         storage.transaction((tx) => {
@@ -264,7 +264,7 @@ describe("SQLite Run storage", () => {
         ).toThrow(/immutable/);
     });
 
-    it("rolls back records and edges together", () => {
+    it("rolls back records and edges together", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const storage = new SqliteRunStorage(database, owner);
         const repository = new RunRepository(storage);
@@ -314,7 +314,7 @@ describe("SQLite Run storage", () => {
         ).toBeUndefined();
     });
 
-    it("fails closed for unmarked protected state", () => {
+    it("fails closed for unmarked protected state", { tags: "p0" }, () => {
         const database = new TestSqlite();
         database.run("CREATE TABLE agent_run_unmarked (id TEXT) STRICT", []);
         expect(() => new SqliteRunStorage(database, owner)).toThrow(/Unmarked/);
@@ -325,7 +325,7 @@ describe("SQLite Run storage", () => {
         expect(rows).toHaveLength(1);
     });
 
-    it("rejects malformed records, kinds, and parent projections with codec.invalid", () => {
+    it("rejects malformed records, kinds, and parent projections with codec.invalid", { tags: "p1" }, () => {
         const storage = new SqliteRunStorage(new TestSqlite(), owner);
         const malformed = [
             row(""),
@@ -349,7 +349,7 @@ describe("SQLite Run storage", () => {
         }
     });
 
-    it("rejects incomplete, extra, and empty-marker schemas", () => {
+    it("rejects incomplete, extra, and empty-marker schemas", { tags: "p0" }, () => {
         const incomplete = new TestSqlite();
         incomplete.run(
             `CREATE TABLE agent_run_storage_schema (
@@ -376,7 +376,7 @@ describe("SQLite Run storage", () => {
         expect(() => new SqliteRunStorage(emptyMarker, owner)).toThrow(/version or owner/);
     });
 
-    it("rejects same-named unconstrained replacement objects", () => {
+    it("rejects same-named unconstrained replacement objects", { tags: "p0" }, () => {
         const database = new TestSqlite();
         database.run(
             "CREATE TABLE agent_run_storage_schema (version INTEGER, owner_kind TEXT, owner_id TEXT)",
@@ -401,7 +401,7 @@ describe("SQLite Run storage", () => {
         expect(() => new SqliteRunStorage(database, owner)).toThrow(/exact schema/);
     });
 
-    it("rejects duplicated and corrupt rows returned by the SQLite substrate", () => {
+    it("rejects duplicated and corrupt rows returned by the SQLite substrate", { tags: "p0" }, () => {
         const base = new TestSqlite();
         const database = new MutatingSqlite(base);
         const storage = new SqliteRunStorage(database, owner);
@@ -421,7 +421,7 @@ describe("SQLite Run storage", () => {
         expect(() => storage.transaction((tx) => storage.list(tx, "commit"))).toThrow(/record_key/);
     });
 
-    it("[run.forced-turn-cancellation] survives file-backed close and reopen with owner and bytes intact", () => {
+    it("[run.forced-turn-cancellation] survives file-backed close and reopen with owner and bytes intact", { tags: "p0" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "w5-run-sqlite-"));
         const path = join(directory, "run.sqlite");
         try {
@@ -479,19 +479,19 @@ describe("SQLite Run storage", () => {
         }
     });
 
-    it("[C13-RUN-ADMISSION-REGISTRY] memory and SQLite durably reserve, complete, close, restart, and reject stale epoch and CAS", () => {
+    it("[C13-RUN-ADMISSION-REGISTRY] memory and SQLite durably reserve, complete, close, restart, and reject stale epoch and CAS", { tags: "p0" }, () => {
         assertAcrossRunStorages(assertAdmissionRegistryBehavior);
     });
 
-    it("[C13-RUN-FORCED-CANCELLATION] memory and SQLite require exact administer evidence and CAS before persisting a sibling fence across restart", () => {
+    it("[C13-RUN-FORCED-CANCELLATION] memory and SQLite require exact administer evidence and CAS before persisting a sibling fence across restart", { tags: "p0" }, () => {
         assertAcrossRunStorages(assertForcedCancellationBehavior);
     });
 
-    it("[C13-RUN-PINS-IMMUTABLE] memory and SQLite preserve immutable lifetime pins across caller mutation and restart", () => {
+    it("[C13-RUN-PINS-IMMUTABLE] memory and SQLite preserve immutable lifetime pins across caller mutation and restart", { tags: "p0" }, () => {
         assertAcrossRunStorages(assertRunPinsImmutabilityBehavior);
     });
 
-    it("[C13-TURN-CHECKPOINT-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS", () => {
+    it("[C13-TURN-CHECKPOINT-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS", { tags: "p0" }, () => {
         assertAcrossRunStorages(assertCheckpointWriterBehavior);
     });
 
@@ -503,7 +503,7 @@ describe("SQLite Run storage", () => {
         }
     );
 
-    it("[C13-TURN-TERMINAL-RESULT-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse", () => {
+    it("[C13-TURN-TERMINAL-RESULT-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse", { tags: "p0" }, () => {
         assertAcrossRunStorages(assertTerminalResultWriterBehavior);
     });
 });

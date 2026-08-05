@@ -40,7 +40,7 @@ const DISPATCH = new EffectDispatch(
 );
 
 describe("Web protected facade", () => {
-    test("[P11-WEB-FETCH] routes fetch and search through invoke", async () => {
+    test("[P11-WEB-FETCH] routes fetch and search through invoke", { tags: "p1" }, async () => {
         const requests: WebTransportRequest[] = [];
         const backend = createWebBackend({
             send: async (request) => {
@@ -60,7 +60,7 @@ describe("Web protected facade", () => {
         );
     });
 
-    test("denial happens before URL policy or transport", async () => {
+    test("denial happens before URL policy or transport", { tags: "p0" }, async () => {
         let sends = 0;
         const backend = createWebBackend({
             send: async () => {
@@ -75,7 +75,7 @@ describe("Web protected facade", () => {
         expect(sends).toBe(0);
     });
 
-    test("[P11-WEB-CACHED] reads cached responses with observe impact and never reaches transport", async () => {
+    test("[P11-WEB-CACHED] reads cached responses with observe impact and never reaches transport", { tags: "p1" }, async () => {
         let sends = 0;
         const cached: WebResponse = {
             url: "https://allowed.test/cached",
@@ -104,7 +104,7 @@ describe("Web protected facade", () => {
         expect(sends).toBe(0);
     });
 
-    test("[P11-WEB-DISPATCH] delivers the canonical effect identity derived from the mediated context to transport", async () => {
+    test("[P11-WEB-DISPATCH] delivers the canonical effect identity derived from the mediated context to transport", { tags: "p0" }, async () => {
         const dispatched: EffectDispatch[] = [];
         const backend = createWebBackend({
             send: async (_request, _limits, dispatch) => {
@@ -127,7 +127,7 @@ describe("Web protected facade", () => {
         expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
     });
 
-    test("[P11-WEB-CRASH-RETRY] a crash-after-send retry reuses the idempotency key so the provider dedups instead of re-sending", async () => {
+    test("[P11-WEB-CRASH-RETRY] a crash-after-send retry reuses the idempotency key so the provider dedups instead of re-sending", { tags: "p0" }, async () => {
         const transport = new DedupWebTransport();
         const backend = createWebBackend({
             send: (request, limits, dispatch) => transport.send(request, limits, dispatch)
@@ -153,7 +153,7 @@ describe("Web protected facade", () => {
 });
 
 describe("Web policy backend", () => {
-    test("[P11-WEB-SEARCH] mediates search with externalSend impact before transport", async () => {
+    test("[P11-WEB-SEARCH] mediates search with externalSend impact before transport", { tags: "p1" }, async () => {
         const requests: WebTransportRequest[] = [];
         const { runtime, admission } = recordingRuntime("web-search");
         const web = new WebFacet(
@@ -172,7 +172,7 @@ describe("Web policy backend", () => {
         expect(requests).toHaveLength(1);
     });
 
-    test("[P11-WEB-URL-SAFETY] rejects unsafe and disallowed URLs before transport", async () => {
+    test("[P11-WEB-URL-SAFETY] rejects unsafe and disallowed URLs before transport", { tags: "p0" }, async () => {
         let sends = 0;
         const web = createWebBackend({
             authorize: (url) => {
@@ -198,7 +198,7 @@ describe("Web policy backend", () => {
         expect(sends).toBe(0);
     });
 
-    test("[P11-WEB-CREDENTIAL-POLICY] rejects caller credentials before transport", async () => {
+    test("[P11-WEB-CREDENTIAL-POLICY] rejects caller credentials before transport", { tags: "p0" }, async () => {
         let sends = 0;
         const web = createWebBackend({
             send: async () => {
@@ -215,7 +215,7 @@ describe("Web policy backend", () => {
         expect(sends).toBe(0);
     });
 
-    test("[P11-WEB-CREDENTIAL-ATTACHMENT] attaches policy credentials only to the authorized target", async () => {
+    test("[P11-WEB-CREDENTIAL-ATTACHMENT] attaches policy credentials only to the authorized target", { tags: "p0" }, async () => {
         const requests: WebTransportRequest[] = [];
         const web = createWebBackend({
             credentials: (url) => ({ authorization: `policy-${url.hostname}` }),
@@ -234,7 +234,7 @@ describe("Web policy backend", () => {
         });
     });
 
-    test("[P11-WEB-LIMIT-POLICY] enforces request and rate limits before transport", async () => {
+    test("[P11-WEB-LIMIT-POLICY] enforces request and rate limits before transport", { tags: "p1" }, async () => {
         let sends = 0;
         const oversized = createWebBackend({
             maxRequestBytes: 1,
@@ -264,7 +264,7 @@ describe("Web policy backend", () => {
         expect(sends).toBe(0);
     });
 
-    test("[P11-WEB-BLOCK] rejects an oversized response instead of returning truncated bytes", async () => {
+    test("[P11-WEB-BLOCK] rejects an oversized response instead of returning truncated bytes", { tags: "p1" }, async () => {
         const web = createWebBackend({
             maxResponseBytes: 1,
             send: async () => response({ body: new Uint8Array([1, 2]) })
@@ -274,7 +274,7 @@ describe("Web policy backend", () => {
         });
     });
 
-    test("[P11-WEB-SEARCH] round-trips request and search wire options", () => {
+    test("[P11-WEB-SEARCH] round-trips request and search wire options", { tags: "p1" }, () => {
         const request = {
             url: "https://allowed.test/",
             method: "POST",
@@ -299,7 +299,7 @@ describe("Web policy backend", () => {
         ).toThrow(TypeError);
     });
 
-    test("[P11-WEB-DISALLOWED] denies disallowed and credential-bearing requests before transport", async () => {
+    test("[P11-WEB-DISALLOWED] denies disallowed and credential-bearing requests before transport", { tags: "p0" }, async () => {
         let sends = 0;
         const web = createWebBackend({
             authorize: (url) => {
@@ -324,7 +324,7 @@ describe("Web policy backend", () => {
         expect(sends).toBe(0);
     });
 
-    test("[P11-WEB-BOUNDS] rechecks redirects and enforces response/rate bounds", async () => {
+    test("[P11-WEB-BOUNDS] rechecks redirects and enforces response/rate bounds", { tags: "p0" }, async () => {
         const requests: WebTransportRequest[] = [];
         let permits = 2;
         const web = createWebBackend({
@@ -353,7 +353,7 @@ describe("Web policy backend", () => {
         });
     });
 
-    test("[P11-WEB-BOUNDS] delivers one canonical effect identity across every redirect hop", async () => {
+    test("[P11-WEB-BOUNDS] delivers one canonical effect identity across every redirect hop", { tags: "p0" }, async () => {
         const dispatched: EffectDispatch[] = [];
         let permits = 2;
         const web = createWebBackend({
@@ -369,7 +369,7 @@ describe("Web policy backend", () => {
         expect(dispatched).toEqual([DISPATCH, DISPATCH]);
     });
 
-    test("enforces fixed per-origin windows", () => {
+    test("enforces fixed per-origin windows", { tags: "p1" }, () => {
         let now = 10;
         const rates = new FixedWindowRatePolicy(1, 5, () => now);
         expect(rates.consume("https://one.test")).toBe(true);
@@ -381,7 +381,7 @@ describe("Web policy backend", () => {
         expect(twoRequests.consume("https://two.test")).toBe(true);
     });
 
-    test("enforces request, response, redirect, search, URL, and configuration bounds", async () => {
+    test("enforces request, response, redirect, search, URL, and configuration bounds", { tags: "p2" }, async () => {
         expect(() =>
             createWebBackend({ send: async () => response(), maxResponseBytes: -1 })
         ).toThrow(TypeError);
@@ -654,7 +654,7 @@ describe("Web policy backend", () => {
         ).toThrow("Web header x-a must be a string");
     });
 
-    test("rejects every malformed transport authorization field", async () => {
+    test("rejects every malformed transport authorization field", { tags: "p2" }, async () => {
         const requested = "https://allowed.test/";
         for (const invalid of [
             { requestedUrl: "https://other.test/", resolvedTarget: "target", token: {} },

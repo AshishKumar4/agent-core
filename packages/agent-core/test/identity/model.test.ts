@@ -81,7 +81,7 @@ describe("identity codecs", () => {
     ] as const;
 
     test.each(records)(
-        "[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.role] [identity.membership] round-trips frozen $name records",
+        "[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.role] [identity.membership] round-trips frozen $name records", { tags: "p1" },
         ({ codec, value }) => {
             const decoded = codec.decode(codec.encode(value as never));
 
@@ -90,7 +90,7 @@ describe("identity codecs", () => {
         }
     );
 
-    test.each(records)("rejects unknown $name payload fields", ({ codec, value }) => {
+    test.each(records)("rejects unknown $name payload fields", { tags: "p1" }, ({ codec, value }) => {
         const envelope = requireObject(decodeCanonicalJson(codec.encode(value as never)));
         const payload = requireObject(envelope["payload"]!);
 
@@ -106,7 +106,7 @@ describe("identity codecs", () => {
         );
     });
 
-    test.each(records)("rejects unknown $name codec majors", ({ codec, value }) => {
+    test.each(records)("rejects unknown $name codec majors", { tags: "p2" }, ({ codec, value }) => {
         const envelope = requireObject(decodeCanonicalJson(codec.encode(value as never)));
 
         expectCodecError(
@@ -121,7 +121,7 @@ describe("identity codecs", () => {
         );
     });
 
-    test("keeps revisions explicit and immutable", () => {
+    test("keeps revisions explicit and immutable", { tags: "p0" }, () => {
         const membership = records[5].value;
         const suspended = membership.suspend();
         const revoked = suspended.revoke();
@@ -135,7 +135,7 @@ describe("identity codecs", () => {
 });
 
 describe("scope and subject references", () => {
-    test("admits only the fixed Tenant to optional Project to Workspace paths", () => {
+    test("admits only the fixed Tenant to optional Project to Workspace paths", { tags: "p0" }, () => {
         const tenant = ScopeRef.tenant(tenantId);
         const project = ScopeRef.project(tenantId, projectId);
         const directWorkspace = ScopeRef.workspace(tenantId, workspaceId);
@@ -169,7 +169,7 @@ describe("scope and subject references", () => {
         ).toThrow(/unknown fields/);
     });
 
-    test("round-trips Principal, Team, and verified foreign subjects", () => {
+    test("round-trips Principal, Team, and verified foreign subjects", { tags: "p1" }, () => {
         const subjects = [
             SubjectRef.principal(principalId),
             SubjectRef.team(teamId),
@@ -195,7 +195,7 @@ describe("scope and subject references", () => {
         ).toThrow(/verification scheme/);
     });
 
-    test("fixes exactly the three guest verification schemes", () => {
+    test("fixes exactly the three guest verification schemes", { tags: "p1" }, () => {
         expect([
             GuestVerificationScheme.token.value,
             GuestVerificationScheme.callback.value,
@@ -205,7 +205,7 @@ describe("scope and subject references", () => {
 });
 
 describe("roles", () => {
-    test("defines owner, editor, and reader as declarative allow rules", () => {
+    test("defines owner, editor, and reader as declarative allow rules", { tags: "p1" }, () => {
         expect(BUILT_IN_ROLES.map((role) => role.name.value)).toEqual([
             "owner",
             "editor",
@@ -232,7 +232,7 @@ describe("roles", () => {
         expect("permits" in OWNER_ROLE).toBe(false);
     });
 
-    test("preserves declaration order through the Role codec", () => {
+    test("preserves declaration order through the Role codec", { tags: "p1" }, () => {
         const role = new Role(new RoleName("ordered"), [
             new RoleRule("deny", capability("secrets.*", ["observe"])),
             new RoleRule("allow", capability("*", ["observe"]))
@@ -246,7 +246,7 @@ describe("roles", () => {
         ]);
     });
 
-    test("does not retain legacy admin or member aliases", () => {
+    test("does not retain legacy admin or member aliases", { tags: "p2" }, () => {
         expect(findBuiltInRole("admin")).toBeUndefined();
         expect(findBuiltInRole("member")).toBeUndefined();
         expect(findBuiltInRole(new RoleName("owner"))).toBe(OWNER_ROLE);

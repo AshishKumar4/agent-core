@@ -50,7 +50,7 @@ const anchor = {
 };
 
 describe("AuthorityMutationService hard gates", () => {
-    test("[C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors", () => {
+    test("[C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors", { tags: "p0" }, () => {
         const { store, service } = fixture(false);
         const principal = new Principal(new PrincipalId("new-principal"), "user", "active");
         expect(service.createPrincipal(principal)).toBe(principal);
@@ -159,7 +159,7 @@ describe("AuthorityMutationService hard gates", () => {
         expect(store.workspace(workspace.id)?.projectId?.equals(project.id)).toBe(true);
     });
 
-    test("covers guest trust and Role lifecycle errors", () => {
+    test("covers guest trust and Role lifecycle errors", { tags: "p0" }, () => {
         const { service } = fixture();
         const home = new TenantId("guest-home");
         const trust = guestTrust("trust", home);
@@ -202,7 +202,7 @@ describe("AuthorityMutationService hard gates", () => {
         );
     });
 
-    test("covers Membership admission and transition errors", () => {
+    test("covers Membership admission and transition errors", { tags: "p0" }, () => {
         const { store, service } = fixture();
         const reader = role("hard-reader");
         service.createRole(reader);
@@ -404,7 +404,7 @@ describe("AuthorityMutationService hard gates", () => {
         expect(store.membership(member.id)?.state).toBe("revoked");
     });
 
-    test("covers verified guest admission failures", () => {
+    test("covers verified guest admission failures", { tags: "p0" }, () => {
         const { service } = fixture();
         const home = new TenantId("verified-home");
         const guest = new PrincipalId("verified-guest");
@@ -452,7 +452,7 @@ describe("AuthorityMutationService hard gates", () => {
         expect(service.assignGuestMembership(membership, proof, new Date(150)).isActive).toBe(true);
     });
 
-    test("[C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors", () => {
+    test("[C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors", { tags: "p0" }, () => {
         const { service } = fixture();
         expectAgentError(
             () =>
@@ -560,7 +560,7 @@ describe("AuthorityMutationService hard gates", () => {
 });
 
 describe("MemoryTenantControlStore operational taxonomy", () => {
-    test("uses AgentCoreError for transaction and write-state failures", () => {
+    test("uses AgentCoreError for transaction and write-state failures", { tags: "p0" }, () => {
         const { store } = fixture();
         expectAgentError(
             () =>
@@ -583,7 +583,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
         );
     });
 
-    test("keeps bootstrap failures attributable", () => {
+    test("keeps bootstrap failures attributable", { tags: "p0" }, () => {
         expectAgentError(
             () =>
                 createTenantControlBootstrapPlan(
@@ -598,7 +598,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
         );
     });
 
-    test("enforces every direct memory writer invariant", () => {
+    test("enforces every direct memory writer invariant", { tags: "p0" }, () => {
         const { store, service } = fixture();
         expectAgentError(
             () =>
@@ -862,7 +862,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
         store.transaction((candidate) => candidate.putEpoch(candidate.epoch(workspaceScope)));
     });
 
-    test("rejects constituent bootstrap-plan substitution", () => {
+    test("rejects constituent bootstrap-plan substitution", { tags: "p0" }, () => {
         const fresh = MemoryTenantControlStore.create(anchor);
         const plan = createTenantControlBootstrapPlan(anchor, Revision.initial());
         expectAgentError(

@@ -44,7 +44,7 @@ const actor = new ActorRef("workspace", new ActorId("workspace"));
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
 
 describe("definition codec adversarial edges", () => {
-    test("rejects malformed origins Actor plans and materialization plans", () => {
+    test("rejects malformed origins Actor plans and materialization plans", { tags: "p1" }, () => {
         const materializationOrigin = origin(1);
         expect(() => ManagedOrigin.fromData(null)).toThrow(/object/);
         expect(() =>
@@ -83,7 +83,7 @@ describe("definition codec adversarial edges", () => {
         ).toThrow(/required|missing/);
     });
 
-    test("rejects forged managed resource generation and pointer identities", () => {
+    test("rejects forged managed resource generation and pointer identities", { tags: "p0" }, () => {
         const plan = actorPlan(origin(1));
         const generation = MaterializationGeneration.fromActorPlan(plan);
         const record = ManagedStateRecord.fromProjection(
@@ -278,7 +278,7 @@ describe("definition codec adversarial edges", () => {
         }
     });
 
-    test("rejects malformed Package locks releases and snapshots", () => {
+    test("rejects malformed Package locks releases and snapshots", { tags: "p1" }, () => {
         const lock = new PackageLock({
             target,
             roots: [],

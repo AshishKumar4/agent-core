@@ -36,7 +36,7 @@ afterAll(() => {
 });
 
 describe("enforcement tier agrees with the verified model", () => {
-    test("tier agreement over the full (impact, session, placement) domain", async () => {
+    test("tier agreement over the full (impact, session, placement) domain", { tags: "p0" }, async () => {
         for (const impact of IMPACTS) {
             for (const sessionScoped of [true, false]) {
                 for (const placement of MODES) {
@@ -74,7 +74,7 @@ describe("enforcement tier agrees with the verified model", () => {
 describe("placement selection agrees with the verified model", () => {
     const modeSubset = fc.uniqueArray(fc.constantFrom(...MODES), { minLength: 0, maxLength: 3 });
 
-    test("selection agreement over random four-source intersections", async () => {
+    test("selection agreement over random four-source intersections", { tags: "p1" }, async () => {
         await fc.assert(
             fc.asyncProperty(
                 modeSubset,

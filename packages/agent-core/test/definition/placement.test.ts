@@ -13,7 +13,7 @@ import {
 } from "../../src/definition/placement";
 
 describe("four-set placement", () => {
-    test("[C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations", () => {
+    test("[C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations", { tags: "p1" }, () => {
         let combinations = 0;
         for (let manifest = 0; manifest < 8; manifest += 1) {
             for (let policy = 0; policy < 8; policy += 1) {
@@ -52,7 +52,7 @@ describe("four-set placement", () => {
         expect(combinations).toBe(8 ** 4);
     });
 
-    test("[C13-PLACEMENT-EMPTY] reports every empty source and a disjoint intersection as typed unavailability", () => {
+    test("[C13-PLACEMENT-EMPTY] reports every empty source and a disjoint intersection as typed unavailability", { tags: "p1" }, () => {
         for (const source of ["manifest", "policy", "substrate", "trust"] as const) {
             expectPlacementUnavailable(
                 () =>
@@ -75,7 +75,7 @@ describe("four-set placement", () => {
         );
     });
 
-    test("rejects duplicate and unknown modes instead of silently changing a source set", () => {
+    test("rejects duplicate and unknown modes instead of silently changing a source set", { tags: "p1" }, () => {
         for (const source of ["manifest", "policy", "substrate", "trust"] as const) {
             expect(
                 () =>
@@ -99,7 +99,7 @@ describe("four-set placement", () => {
         ).toThrow(/unknown/);
     });
 
-    test("[C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages", () => {
+    test("[C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages", { tags: "p0" }, () => {
         expect(trustPlacementModes(true)).toEqual(["dynamic", "provider", "bundled"]);
         expect(trustPlacementModes(false)).toEqual(["dynamic", "provider"]);
         expect(trustPlacementModes(false)).not.toContain("bundled");
@@ -107,7 +107,7 @@ describe("four-set placement", () => {
 });
 
 describe("placement policy declaration", () => {
-    test("[definition.placement-policy] canonicalizes immutable modes and round-trips its strict codec", () => {
+    test("[definition.placement-policy] canonicalizes immutable modes and round-trips its strict codec", { tags: "p0" }, () => {
         const allowed: IsolationMode[] = ["bundled", "dynamic"];
         const policy = new PlacementPolicy(allowed);
         allowed.pop();
@@ -119,7 +119,7 @@ describe("placement policy declaration", () => {
         expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
     });
 
-    test("[C13-ADV-EMPTY-PLACEMENT] rejects empty, duplicate, unknown, and unknown codec fields", () => {
+    test("[C13-ADV-EMPTY-PLACEMENT] rejects empty, duplicate, unknown, and unknown codec fields", { tags: "p1" }, () => {
         expectPlacementUnavailable(() => new PlacementPolicy([]));
         expect(() => new PlacementPolicy(["dynamic", "dynamic"])).toThrow(/unique/);
         expect(() => new PlacementPolicy(["other" as IsolationMode])).toThrow(/unknown/);

@@ -30,7 +30,7 @@ operationDeclarationEvidence("Approval gateway", APPROVAL_GATEWAY_OPERATIONS, {
 });
 
 describe("Approval gateway protected provider profile", () => {
-    test("[P11-APPROVAL-GATEWAY-OBSERVE] mediates observe with observe impact and returns the authorized resource", async () => {
+    test("[P11-APPROVAL-GATEWAY-OBSERVE] mediates observe with observe impact and returns the authorized resource", { tags: "p1" }, async () => {
         const backend = new TestGatewayBackend();
         const { runtime, admission } = recordingRuntime("approval-observe");
         const facet = new ApprovalGatewayFacet(
@@ -52,7 +52,7 @@ describe("Approval gateway protected provider profile", () => {
         ]);
     });
 
-    test("[P11-APPROVAL-GATEWAY-READS] denies an observation before the provider read", async () => {
+    test("[P11-APPROVAL-GATEWAY-READS] denies an observation before the provider read", { tags: "p0" }, async () => {
         const backend = new TestGatewayBackend();
         const facet = new ApprovalGatewayFacet(
             denyingRuntime("approval-read").runtime,
@@ -71,7 +71,7 @@ describe("Approval gateway protected provider profile", () => {
         expect(backend.observations).toEqual([]);
     });
 
-    test("[P11-APPROVAL-GATEWAY-PROVIDER] accesses the provider resource only inside admitted execution", async () => {
+    test("[P11-APPROVAL-GATEWAY-PROVIDER] accesses the provider resource only inside admitted execution", { tags: "p0" }, async () => {
         const backend = new TestGatewayBackend();
         const { runtime, admission } = recordingRuntime("approval-provider");
         const invocation = new InvocationId("profile-invocation-1");
@@ -211,7 +211,7 @@ describe("Approval gateway protected provider profile", () => {
         expect(backend.dispatchKeys).toEqual(["internal-idempotency"]);
     });
 
-    test("binds one frozen action to exact admitted Invocation, digest, and resource", async () => {
+    test("binds one frozen action to exact admitted Invocation, digest, and resource", { tags: "p0" }, async () => {
         const backend = new TestGatewayBackend();
         const { runtime, admission } = recordingRuntime("approval");
         const continuation = new ApprovalGatewayAction(
@@ -232,7 +232,7 @@ describe("Approval gateway protected provider profile", () => {
         expect(backend.actions).toEqual([{ wholeIntent: true }]);
     });
 
-    test("[P11-APPROVAL-GATEWAY-CREDENTIAL] rejects mismatched digest or resource before credential effects", async () => {
+    test("[P11-APPROVAL-GATEWAY-CREDENTIAL] rejects mismatched digest or resource before credential effects", { tags: "p0" }, async () => {
         const backend = new TestGatewayBackend();
         const { runtime } = recordingRuntime("approval");
         const continuation = new ApprovalGatewayAction(
@@ -248,7 +248,7 @@ describe("Approval gateway protected provider profile", () => {
         expect(backend.actions).toEqual([]);
     });
 
-    test("[P11-APPROVAL-GATEWAY-APPLY] protected admission denial prevents approval action access", async () => {
+    test("[P11-APPROVAL-GATEWAY-APPLY] protected admission denial prevents approval action access", { tags: "p0" }, async () => {
         const denied = denyingRuntime("approval");
         const continuation = new ApprovalGatewayAction(
             new InvocationId("denied-invocation"),
@@ -264,7 +264,7 @@ describe("Approval gateway protected provider profile", () => {
         expect(backend.actions).toEqual([]);
     });
 
-    test("[P11-APPROVAL-GATEWAY-SURFACE] declares provider isolation, approval Surface, and exact contributions", () => {
+    test("[P11-APPROVAL-GATEWAY-SURFACE] declares provider isolation, approval Surface, and exact contributions", { tags: "p1" }, () => {
         expect(APPROVAL_GATEWAY_ISOLATION).toEqual(["provider"]);
         expect(APPROVAL_GATEWAY_SURFACE.id.value).toBe("approval.gateway");
         expect(APPROVAL_GATEWAY_CONTRIBUTIONS.entries.map((entry) => entry.slot.value)).toEqual([

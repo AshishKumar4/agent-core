@@ -53,14 +53,14 @@ function assertRecord<Value extends object>(type: StaticCodec<Value>, value: Val
 }
 
 describe("uniform durable record contract", () => {
-    it("[agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records", () => {
+    it("[agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records", { tags: "p1" }, () => {
         const source = sourceRecords();
         assertRecord(AgentRevisionRecord, source.agent);
         assertRecord(AgentPolicyRevisionRecord, source.policy);
         assertRecord(ModelPolicyRevisionRecord, source.model);
     });
 
-    it("[run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record", () => {
+    it("[run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record", { tags: "p1" }, () => {
         const base = genesis();
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
         const turn = new Turn({
@@ -149,7 +149,7 @@ describe("uniform durable record contract", () => {
         expect((turn.toData() as { lease: unknown }).lease).toEqual(TurnLease.toData(turn.lease));
     });
 
-    it("defensively copies arrays, nested evidence, tokens, and dates", () => {
+    it("defensively copies arrays, nested evidence, tokens, and dates", { tags: "p1" }, () => {
         const packages = [...pins().packages];
         const value = new RunPins({ ...pins(), packages });
         packages.pop();
@@ -196,7 +196,7 @@ describe("uniform durable record contract", () => {
 });
 
 describe("record data shape helpers", () => {
-    it("accepts valid values and rejects every malformed category", () => {
+    it("accepts valid values and rejects every malformed category", { tags: "p2" }, () => {
         expect(requireObject({}, "object")).toEqual({});
         for (const value of [null, [], "string"] as const) {
             expect(() => requireObject(value as never, "object")).toThrow(TypeError);
@@ -222,7 +222,7 @@ describe("record data shape helpers", () => {
 });
 
 describe("constituent shape validation", () => {
-    it("rejects malformed placement sets", () => {
+    it("rejects malformed placement sets", { tags: "p2" }, () => {
         const valid = {
             facet: new FacetRef("core:facet"),
             policy: ["dynamic"] as const,
@@ -251,7 +251,7 @@ describe("constituent shape validation", () => {
         );
     });
 
-    it("rejects malformed spawn reservations", () => {
+    it("rejects malformed spawn reservations", { tags: "p2" }, () => {
         const base = [
             ids.run,
             ids.turn,
@@ -351,7 +351,7 @@ describe("constituent shape validation", () => {
 });
 
 describe("Run lifecycle record errors", () => {
-    it("separates constructor shape errors from operational transition errors", () => {
+    it("separates constructor shape errors from operational transition errors", { tags: "p2" }, () => {
         const terminal = new TerminalSnapshot(
             ids.run,
             ids.turn,
@@ -401,7 +401,7 @@ describe("Run lifecycle record errors", () => {
         ).toThrow(/blank/);
     });
 
-    it("reports revision exhaustion with closed domain errors", () => {
+    it("reports revision exhaustion with closed domain errors", { tags: "p2" }, () => {
         const run = new Run({
             id: ids.run,
             agent: ids.agent,

@@ -48,11 +48,11 @@ const profiles = [
 ] as const;
 
 describe("Profile base conformance", () => {
-    test("[C13-OWNERSHIP-MAP] covers every tracked path without depending on candidate worktree authorization", async () => {
+    test("[C13-OWNERSHIP-MAP] covers every tracked path without depending on candidate worktree authorization", { tags: "p2" }, async () => {
         await expect(validateCompleteOwnership()).resolves.toBeGreaterThan(200);
     });
 
-    test("[P11-BASE-COMPOSITION] composes every profile exclusively from standard contribution and Operation primitives", () => {
+    test("[P11-BASE-COMPOSITION] composes every profile exclusively from standard contribution and Operation primitives", { tags: "p1" }, () => {
         for (const [contributions, operations] of profiles) {
             expect(contributions).toBeInstanceOf(Contributions);
             expect(operations.every((operation) => operation instanceof OperationDescriptor)).toBe(
@@ -64,7 +64,7 @@ describe("Profile base conformance", () => {
         }
     });
 
-    test("[P11-BASE-CONTRACT] exposes closed executable Operation schemas and explicit empty Event contracts", () => {
+    test("[P11-BASE-CONTRACT] exposes closed executable Operation schemas and explicit empty Event contracts", { tags: "p1" }, () => {
         for (const [, operations] of profiles) {
             for (const operation of operations) {
                 operation.input.assertValid();
@@ -75,7 +75,7 @@ describe("Profile base conformance", () => {
         expect(SINGLE_TENANT_EVENTS).toEqual([]);
     });
 
-    test("[P11-BASE-EVIDENCE] keeps implementation status out of executable profile contracts", () => {
+    test("[P11-BASE-EVIDENCE] keeps implementation status out of executable profile contracts", { tags: "p2" }, () => {
         for (const [contributions, operations] of profiles) {
             for (const operation of operations) {
                 const data = operation.toData() as Record<string, unknown>;
@@ -89,7 +89,7 @@ describe("Profile base conformance", () => {
         }
     });
 
-    test("[P11-BASE-TESTS] gives every verified profile atom unique executable evidence", async () => {
+    test("[P11-BASE-TESTS] gives every verified profile atom unique executable evidence", { tags: "p2" }, async () => {
         const fragment = JSON.parse(
             await readFile(
                 new URL("../../artifacts/conformance/profiles-cloudflare.json", import.meta.url),

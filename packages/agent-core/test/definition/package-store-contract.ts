@@ -21,7 +21,7 @@ const compatibilityTarget = new PlatformCompatibility({
 
 export function packageStoreContract(name: string, create: () => PackageStore): void {
     describe(`${name} PackageStore contract`, () => {
-        test("adds and gets an exact package release synchronously", () => {
+        test("adds and gets an exact package release synchronously", { tags: "p1" }, () => {
             const store = create();
             const release = packageRelease("package", "1.2.3+build");
 
@@ -35,7 +35,7 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             expect(store.get(new PackageId("missing"), release.version)).toBeUndefined();
         });
 
-        test("lists all or one package in canonical key order", () => {
+        test("lists all or one package in canonical key order", { tags: "p1" }, () => {
             const store = create();
             const releases = [
                 packageRelease("zeta", "1.0.0"),
@@ -65,7 +65,7 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             expect(Object.isFrozen(all)).toBe(true);
         });
 
-        test("makes an equal release replay idempotent", () => {
+        test("makes an equal release replay idempotent", { tags: "p0" }, () => {
             const store = create();
             const release = packageRelease("same", "1.0.0");
             const replay = PackageRelease.decode(PackageRelease.encode(release));
@@ -75,7 +75,7 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             expect(store.list()).toHaveLength(1);
         });
 
-        test("rejects a different release under an immutable full-version key", () => {
+        test("rejects a different release under an immutable full-version key", { tags: "p0" }, () => {
             const store = create();
             const original = packageRelease("same", "1.0.0");
             const conflict = packageRelease("same", "1.0.0", digestOf("different-code"));
@@ -88,7 +88,7 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             expect(store.list()).toHaveLength(1);
         });
 
-        test("persists exact metadata snapshots", () => {
+        test("persists exact metadata snapshots", { tags: "p1" }, () => {
             const store = create();
             const snapshot = new MetadataSnapshot({
                 revision: new Revision(7),
@@ -143,7 +143,7 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             ]);
         });
 
-        test("persists package locks by canonical lock digest", () => {
+        test("persists package locks by canonical lock digest", { tags: "p1" }, () => {
             const store = create();
             const digest = digestOf("snapshot");
             const lock = packageLock(digest, 7, [
@@ -159,7 +159,7 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             expect(store.getLock(digestOf("missing"))).toBeUndefined();
         });
 
-        test("makes equal lock replay idempotent and stores multiple locks per snapshot", () => {
+        test("makes equal lock replay idempotent and stores multiple locks per snapshot", { tags: "p0" }, () => {
             const store = create();
             const digest = digestOf("snapshot");
             const original = packageLock(digest, 3, [packageRelease("root", "1.0.0")]);

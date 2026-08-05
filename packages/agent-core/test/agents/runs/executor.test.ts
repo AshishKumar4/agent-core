@@ -81,7 +81,7 @@ function context(signal: AbortSignal): TurnContext {
 }
 
 describe("TurnExecutor seam", () => {
-    it("passes immutable Turn context and provider-neutral handles", async () => {
+    it("passes immutable Turn context and provider-neutral handles", { tags: "p1" }, async () => {
         const executor = new Executor();
         const turn = context(new AbortController().signal);
         await expect(executor.execute(turn)).resolves.toEqual({
@@ -99,7 +99,7 @@ describe("TurnExecutor seam", () => {
         );
     });
 
-    it("exposes cancellation between executor steps", async () => {
+    it("exposes cancellation between executor steps", { tags: "p1" }, async () => {
         const controller = new AbortController();
         controller.abort();
         await expect(new Executor().execute(context(controller.signal))).resolves.toEqual({

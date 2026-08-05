@@ -44,7 +44,7 @@ const path = new PathEpochEvidence([
 ]);
 
 describe("authority protocol evidence", () => {
-    test("[authority.check-request] [authority.check-evidence] [protocol.authority-check-reply] round-trips complete check identity without accepting altered arguments", () => {
+    test("[authority.check-request] [authority.check-evidence] [protocol.authority-check-reply] round-trips complete check identity without accepting altered arguments", { tags: "p1" }, () => {
         const request = checkRequest();
         const codec = new AuthorityCheckPayloadCodec();
         const decoded = codec.decode(codec.encode(request));
@@ -90,7 +90,7 @@ describe("authority protocol evidence", () => {
         ).toThrow(/digest/);
     });
 
-    test("[authority.binding-validation-request] [authority.binding-validation-evidence] [protocol.binding-validation-reply] round-trips Binding validation request and source-bound evidence", () => {
+    test("[authority.binding-validation-request] [authority.binding-validation-evidence] [protocol.binding-validation-reply] round-trips Binding validation request and source-bound evidence", { tags: "p1" }, () => {
         const request = new BindingValidationRequest({
             ownerTenant: tenant,
             workspaceActor: actor,
@@ -143,7 +143,7 @@ describe("authority protocol evidence", () => {
         );
     });
 
-    test("[C13-AUTH-PATH-ORDER] rejects evidence with inconsistent issuer, path, reason, or matched Grants", () => {
+    test("[C13-AUTH-PATH-ORDER] rejects evidence with inconsistent issuer, path, reason, or matched Grants", { tags: "p0" }, () => {
         const request = checkRequest();
         expect(
             () =>
@@ -195,7 +195,7 @@ describe("authority protocol evidence", () => {
         ).toThrow(/cannot carry matched Grants/);
     });
 
-    test("rejects protocol reply envelopes with extra fields", () => {
+    test("rejects protocol reply envelopes with extra fields", { tags: "p1" }, () => {
         const evidence = new AuthorityCheckEvidence(
             tenant,
             issuer,
@@ -225,7 +225,7 @@ describe("authority protocol evidence", () => {
         ).toThrow(AgentCoreError);
     });
 
-    test("rejects malformed permit issuance identity, expiry, and payload shapes", () => {
+    test("rejects malformed permit issuance identity, expiry, and payload shapes", { tags: "p1" }, () => {
         expect(
             () => new AuthorityPermitIssuanceRequest({} as never, " noncanonical ", new Date(1_000))
         ).toThrow(/nonce/);

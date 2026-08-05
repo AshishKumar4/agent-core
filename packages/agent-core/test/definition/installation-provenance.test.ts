@@ -12,7 +12,7 @@ import {
 import { TenantId } from "../../src/identity";
 
 describe("Package installation contribution provenance", () => {
-    test("derives the contributor from authenticated materialization state", () => {
+    test("derives the contributor from authenticated materialization state", { tags: "p1" }, () => {
         const authenticated = installation("workspace:installed.facet");
         const port = new TestInstallationPort(authenticated);
         const supplied = { contributor: new FacetRef("workspace:payload.facet") };
@@ -29,12 +29,12 @@ describe("Package installation contribution provenance", () => {
         expect(reference?.packageFacet).toBe(authenticated.packageFacet);
     });
 
-    test("fails closed when authenticated installation provenance is absent", () => {
+    test("fails closed when authenticated installation provenance is absent", { tags: "p0" }, () => {
         expect(new TestInstallationPort(undefined).reference({}, {})).toBeUndefined();
         expect(new TestInstallationPort(undefined).prepareContribution({}, {})).toBeUndefined();
     });
 
-    test("rejects noncanonical authenticated installation evidence", () => {
+    test("rejects noncanonical authenticated installation evidence", { tags: "p0" }, () => {
         const authenticated = installation("workspace:installed.facet");
         const forged = {
             ...authenticated,
@@ -134,7 +134,7 @@ describe("Package installation contribution provenance", () => {
         }
     });
 
-    test("rejects a provenance swap between authorization and apply", () => {
+    test("rejects a provenance swap between authorization and apply", { tags: "p0" }, () => {
         const port = new TestInstallationPort(installation("workspace:installed.facet"));
         const prepared = port.prepareContribution({}, {})!;
         port.installation = installation("workspace:substituted.facet");

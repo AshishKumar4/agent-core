@@ -3,7 +3,7 @@ import { CompatRange, encodeCanonicalJson } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 
 describe("CompatRange", () => {
-    test("[core.compat-range] models independent spec and host ranges through its codec", () => {
+    test("[core.compat-range] models independent spec and host ranges through its codec", { tags: "p1" }, () => {
         const range = new CompatRange("^1.4.0", ">=2 <4");
 
         expect(range).toEqual({ spec: "^1.4.0", host: ">=2 <4" });
@@ -11,7 +11,7 @@ describe("CompatRange", () => {
         expect(CompatRange.any()).toEqual({ spec: "*", host: "*" });
     });
 
-    test("is runtime immutable", () => {
+    test("is runtime immutable", { tags: "p0" }, () => {
         const range = new CompatRange("*", "*");
 
         expect(Object.isFrozen(range)).toBe(true);
@@ -21,7 +21,7 @@ describe("CompatRange", () => {
         }).toThrow(TypeError);
     });
 
-    test("rejects blank, padded, non-string, invalid Unicode, and unknown fields", () => {
+    test("rejects blank, padded, non-string, invalid Unicode, and unknown fields", { tags: "p2" }, () => {
         expect(() => new CompatRange("", "*")).toThrow(TypeError);
         expect(() => new CompatRange("*", " ^1")).toThrow(TypeError);
         expect(() => new CompatRange(null as unknown as string, "*")).toThrow(TypeError);

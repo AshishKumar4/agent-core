@@ -62,7 +62,7 @@ function cancellation(turn: Turn, sequence = 0): TurnInboxEntry {
 }
 
 describe("W5 adversarial invariants", () => {
-    it("[C13-ADV-INCOMPLETE-PACKAGE-CLOSURE] rejects genesis when the authoritative Package closure is incomplete", () => {
+    it("[C13-ADV-INCOMPLETE-PACKAGE-CLOSURE] rejects genesis when the authoritative Package closure is incomplete", { tags: "p0" }, () => {
         const value = harness();
         value.sources.acceptsClosure = false;
         expect(() => value.runtime.createRun(genesis())).toThrow(/source revisions/);
@@ -71,7 +71,7 @@ describe("W5 adversarial invariants", () => {
         ).toBeUndefined();
     });
 
-    it("returns false for missing ancestry endpoints", () => {
+    it("returns false for missing ancestry endpoints", { tags: "p1" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         expect(
@@ -86,7 +86,7 @@ describe("W5 adversarial invariants", () => {
         ).toBe(false);
     });
 
-    it("composes transaction-scoped genesis with outer rollback and rejects nesting", () => {
+    it("composes transaction-scoped genesis with outer rollback and rejects nesting", { tags: "p0" }, () => {
         const value = harness();
         expect(() =>
             value.repository.transaction((tx) => {
@@ -102,7 +102,7 @@ describe("W5 adversarial invariants", () => {
         ).toThrow(/Nested/);
     });
 
-    it("[C13-TURN-EFFECT-ATTEMPT-WRITER] rejects nonfresh ordinary Turn genesis", () => {
+    it("[C13-TURN-EFFECT-ATTEMPT-WRITER] rejects nonfresh ordinary Turn genesis", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
@@ -124,7 +124,7 @@ describe("W5 adversarial invariants", () => {
         ).toThrow(/genesis/);
     });
 
-    it("[C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit", () => {
+    it("[C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit", { tags: "p0" }, () => {
         const value = runningHarness();
         const otherId = new TurnId("turn-other");
         const otherPlacement = new TurnPlacementSnapshot(otherId, pins(), []);
@@ -182,7 +182,7 @@ describe("W5 adversarial invariants", () => {
         expect(other.status.kind).toBe("running");
     });
 
-    it("atomically records displaced-token cancellation on reclaim", () => {
+    it("atomically records displaced-token cancellation on reclaim", { tags: "p0" }, () => {
         const value = runningHarness();
         const entry = cancellation(value.running);
         const reclaimed = value.runtime.reclaimTurn(
@@ -200,7 +200,7 @@ describe("W5 adversarial invariants", () => {
         ).toEqual([entry]);
     });
 
-    it("atomically commits held cancellation result, inbox event, and fence", () => {
+    it("atomically commits held cancellation result, inbox event, and fence", { tags: "p0" }, () => {
         const value = runningHarness();
         const result = new RunCommit({
             id: new RunCommitId("cancelled-result"),
@@ -235,7 +235,7 @@ describe("W5 adversarial invariants", () => {
         ).toHaveLength(1);
     });
 
-    it("times out only an expired held Turn and records its exact displaced token", () => {
+    it("times out only an expired held Turn and records its exact displaced token", { tags: "p0" }, () => {
         const value = runningHarness();
         expect(() =>
             value.runtime.timeoutTurn(
@@ -255,7 +255,7 @@ describe("W5 adversarial invariants", () => {
         expect(timedOut.lease.epoch).toBe(2);
     });
 
-    it("rejects reserved cancellation through generic delivery", () => {
+    it("rejects reserved cancellation through generic delivery", { tags: "p1" }, () => {
         const value = runningHarness();
         expect(() =>
             value.runtime.deliverEvent(
@@ -271,7 +271,7 @@ describe("W5 adversarial invariants", () => {
         ).toEqual([]);
     });
 
-    it("delivers an ordinary event at the next durable inbox sequence", () => {
+    it("delivers an ordinary event at the next durable inbox sequence", { tags: "p1" }, () => {
         const value = runningHarness();
         const entry = new TurnInboxEntry(
             new TurnInboxEntryId("ordinary-event"),
@@ -296,7 +296,7 @@ describe("W5 adversarial invariants", () => {
         ).toEqual(entry);
     });
 
-    it("[C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease", () => {
+    it("[C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease", { tags: "p0" }, () => {
         const value = runningHarness();
         const undo = new RunCommit({
             id: new RunCommitId("undo-live"),
@@ -350,7 +350,7 @@ describe("W5 adversarial invariants", () => {
         ).toThrow(/fenced/);
     });
 
-    it("[MIGRATE-RUN-PINS] rejects an invalid target pin snapshot without partial persistence", () => {
+    it("[MIGRATE-RUN-PINS] rejects an invalid target pin snapshot without partial persistence", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const migration = new RunCommit({
@@ -402,7 +402,7 @@ describe("W5 adversarial invariants", () => {
         ).toBeUndefined();
     });
 
-    it("[C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent", () => {
+    it("[C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const migration = new RunCommit({
@@ -460,7 +460,7 @@ describe("W5 adversarial invariants", () => {
         ).toBeUndefined();
     });
 
-    it("persists a verified explicit migration snapshot and commit", () => {
+    it("persists a verified explicit migration snapshot and commit", { tags: "p1" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const admission = value.runtime.reserveRunObligation(ids.run, {
@@ -500,7 +500,7 @@ describe("W5 adversarial invariants", () => {
         expect(value.runtime.acceptsRunAdmission(admission)).toBe(true);
     });
 
-    it("[C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart", () => {
+    it("[C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const oldBranch = new RunBranch(
@@ -685,7 +685,7 @@ describe("W5 adversarial invariants", () => {
         ).toBe(true);
     });
 
-    it("[C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization", () => {
+    it("[C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization", { tags: "p0" }, () => {
         const value = runningHarness();
         const evidenceId = new RunCommitId("captured-evidence");
         const controlId = new RunCommitId("captured-control");
@@ -781,7 +781,7 @@ describe("W5 adversarial invariants", () => {
         ).toThrow(/captured/);
     });
 
-    it("[C13-RUN-BINARY-TREE-MERGE] rejects arbitrary merge picks and tree sides", () => {
+    it("[C13-RUN-BINARY-TREE-MERGE] rejects arbitrary merge picks and tree sides", { tags: "p0" }, () => {
         expect(
             () =>
                 new RunCommit({
@@ -809,7 +809,7 @@ describe("W5 adversarial invariants", () => {
         ).toThrow(/parent/);
     });
 
-    it("requires symmetric optional Turn attribution in evidence", () => {
+    it("requires symmetric optional Turn attribution in evidence", { tags: "p1" }, () => {
         const value = harness();
         const commit = new RunCommit({
             id: new RunCommitId("attribution"),
@@ -838,7 +838,7 @@ describe("W5 adversarial invariants", () => {
         ).toThrow(/evidence/);
     });
 
-    it("permits unary commits to carry an independent tree checkpoint", () => {
+    it("permits unary commits to carry an independent tree checkpoint", { tags: "p1" }, () => {
         const token = { turn: ids.turn, holder: ids.holder, epoch: 1 };
         const commit = new RunCommit({
             id: new RunCommitId("tree-message"),
@@ -859,7 +859,7 @@ describe("W5 adversarial invariants", () => {
         ).toBe(true);
     });
 
-    it("rejects corrupted keys and parent projections after restore", () => {
+    it("rejects corrupted keys and parent projections after restore", { tags: "p0" }, () => {
         const value = runningHarness();
         const commit = new RunCommit({
             id: new RunCommitId("projection-commit"),

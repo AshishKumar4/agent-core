@@ -174,7 +174,7 @@ type HarnessFactory = () => ActorHarness;
 
 function actorStoreContract(name: string, create: HarnessFactory): void {
     describe(`${name} ActorStore contract`, () => {
-        test("runs an asynchronous mailbox outside synchronous transactions", async () => {
+        test("runs an asynchronous mailbox outside synchronous transactions", { tags: "p1" }, async () => {
             const harness = create();
 
             expect(harness.actor.id).toBe(ACTOR_ID);
@@ -191,7 +191,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.initializations()).toBe(1);
         });
 
-        test("[actor.recovery-state] recovers durable fencing state before a restarted actor serves", async () => {
+        test("[actor.recovery-state] recovers durable fencing state before a restarted actor serves", { tags: "p0" }, async () => {
             const harness = create();
             const firstFence = await harness.actor.currentFence();
 
@@ -208,7 +208,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             );
         });
 
-        test("rejects a fence that becomes stale while queued", async () => {
+        test("rejects a fence that becomes stale while queued", { tags: "p0" }, async () => {
             const harness = create();
             const stale = await harness.actor.currentFence();
             const rotating = harness.actor.rotateFence();
@@ -220,7 +220,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.value()).toBe(0);
         });
 
-        test("commits recovery before rolling a failed mutation back", async () => {
+        test("commits recovery before rolling a failed mutation back", { tags: "p0" }, async () => {
             const harness = create();
 
             await expect(harness.actor.failAfterIncrement()).rejects.toThrow(
@@ -235,7 +235,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.recoveries).toBe(1);
         });
 
-        test("rejects runtime thenables and rolls their transaction back", async () => {
+        test("rejects runtime thenables and rolls their transaction back", { tags: "p0" }, async () => {
             const harness = create();
 
             await expect(harness.actor.returnThenable()).rejects.toThrow(
@@ -246,7 +246,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.recoveries).toBe(1);
         });
 
-        test("rejects unstable thenable objects before committing state", async () => {
+        test("rejects unstable thenable objects before committing state", { tags: "p0" }, async () => {
             const harness = create();
 
             await expect(harness.actor.returnStatefulThenableAfterIncrement()).rejects.toThrow(
@@ -257,7 +257,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.recoveries).toBe(1);
         });
 
-        test("revokes an escaped Promise transaction before continuation", async () => {
+        test("revokes an escaped Promise transaction before continuation", { tags: "p0" }, async () => {
             const harness = create();
             const escaped = harness.actor.escapePromise();
 
@@ -271,7 +271,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.recoveries).toBe(1);
         });
 
-        test("[C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence", async () => {
+        test("[C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence", { tags: "p0" }, async () => {
             const harness = create();
             const fence = await harness.actor.currentFence();
             const accepted = harness.actor.increment();
@@ -287,7 +287,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.epoch).toBe(fence.epoch + 1);
         });
 
-        test("orders commands, fence reads, rotation, and close in one mailbox", async () => {
+        test("orders commands, fence reads, rotation, and close in one mailbox", { tags: "p1" }, async () => {
             const harness = create();
             const initial = await harness.actor.currentFence();
             const increment = harness.actor.increment();
@@ -304,7 +304,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.epoch).toBe(initial.epoch + 2);
         });
 
-        test("fails closed after an unknown commit and recovers on a new incarnation", async () => {
+        test("fails closed after an unknown commit and recovers on a new incarnation", { tags: "p0" }, async () => {
             const harness = create();
             expect(ActorCommitUnknownError.codeDependency).toEqual({
                 requested: "actor.commit-unknown",
@@ -339,7 +339,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             await expect(restarted.increment()).resolves.toBe(2);
         });
 
-        test("keeps an unknown close commit poisoned after FIFO prior work", async () => {
+        test("keeps an unknown close commit poisoned after FIFO prior work", { tags: "p0" }, async () => {
             const harness = create();
             const previousFence = await harness.actor.currentFence();
             harness.failCommitUnknownAfter(2);
@@ -359,7 +359,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             await expect(restarted.increment()).resolves.toBe(2);
         });
 
-        test("finishes a queued close after prior work poisons the incarnation", async () => {
+        test("finishes a queued close after prior work poisons the incarnation", { tags: "p1" }, async () => {
             const harness = create();
             const previousFence = await harness.actor.currentFence();
             harness.failNextCommitUnknown();
@@ -372,7 +372,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.epoch).toBe(previousFence.epoch);
         });
 
-        test("poisons trusted commit-unknown subclasses before queued commands", async () => {
+        test("poisons trusted commit-unknown subclasses before queued commands", { tags: "p0" }, async () => {
             const harness = create();
             class ProtocolCommitUnknownError extends ActorCommitUnknownError {}
             harness.failNextCommitWith(new ProtocolCommitUnknownError());
@@ -384,7 +384,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.value()).toBe(1);
         });
 
-        test("does not let lookalike errors forge poisoning", async () => {
+        test("does not let lookalike errors forge poisoning", { tags: "p0" }, async () => {
             const harness = create();
 
             const lookalike = new AgentCoreError("actor.closed", "Forged unknown commit");
@@ -398,7 +398,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             await expect(harness.actor.increment()).resolves.toBe(4);
         });
 
-        test("does not trust commit uncertainty thrown by a command callback", async () => {
+        test("does not trust commit uncertainty thrown by a command callback", { tags: "p0" }, async () => {
             const harness = create();
 
             await expect(harness.actor.forgeCommitUnknown()).rejects.toEqual(
@@ -410,7 +410,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             await expect(harness.actor.increment()).resolves.toBe(1);
         });
 
-        test("closes a stale incarnation without advancing the current incarnation", async () => {
+        test("closes a stale incarnation without advancing the current incarnation", { tags: "p0" }, async () => {
             const harness = create();
             const restarted = harness.restart();
             const current = await restarted.currentFence();
@@ -427,7 +427,7 @@ actorStoreContract("Memory", createMemoryHarness);
 actorStoreContract("SQLite", createSqliteHarness);
 
 describe("MemoryActorStore isolation", () => {
-    test("reports created and recovered activation without virtual construction", () => {
+    test("reports created and recovered activation without virtual construction", { tags: "p1" }, () => {
         const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
         const activations: ActorActivation[] = [];
         const start: ActorStartOperation<{ starts: number }> = (transaction, activation) => {
@@ -450,7 +450,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("validates and narrows generic Actor stores without casts", () => {
+    test("validates and narrows generic Actor stores without casts", { tags: "p1" }, () => {
         const atomic = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
         const generic: ActorStore<{ value: number }> = atomic;
         const nonAtomic = new NonActivatingActorStore<{ value: number }>(
@@ -474,7 +474,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rolls back Actor identity, recovery, and state when eager start fails", () => {
+    test("rolls back Actor identity, recovery, and state when eager start fails", { tags: "p0" }, () => {
         interface State {
             starts: number;
         }
@@ -507,7 +507,7 @@ describe("MemoryActorStore isolation", () => {
         });
     });
 
-    test("rejects a runtime thenable from eager start and rolls activation back", () => {
+    test("rejects a runtime thenable from eager start and rolls activation back", { tags: "p0" }, () => {
         const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
         const thenableStart = (transaction: { starts: number }) => {
             transaction.starts += 1;
@@ -529,7 +529,7 @@ describe("MemoryActorStore isolation", () => {
         });
     });
 
-    test("fails closed when an existing Actor identity has no recovery state", () => {
+    test("fails closed when an existing Actor identity has no recovery state", { tags: "p0" }, () => {
         const store = MemoryActorStore.restore<{ starts: number }>(
             {
                 version: 1,
@@ -549,7 +549,7 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.starts).toBe(0);
     });
 
-    test("rejects sharing one store across different Actor identities", () => {
+    test("rejects sharing one store across different Actor identities", { tags: "p0" }, () => {
         const store = new MemoryActorStore({ value: 0 }, structuredClone);
         store.bindActor(new ActorRef("run", new ActorId("actor-one")));
 
@@ -558,7 +558,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("treats Actor kind as part of storage identity", () => {
+    test("treats Actor kind as part of storage identity", { tags: "p0" }, () => {
         const id = new ActorId("same-id");
         const store = new MemoryActorStore({ value: 0 }, structuredClone);
         store.bindActor(new ActorRef("run", id));
@@ -568,7 +568,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rejects clone functions that retain mutable state aliases", () => {
+    test("rejects clone functions that retain mutable state aliases", { tags: "p0" }, () => {
         const initial = { nested: { value: 1 } };
 
         expect(() => new MemoryActorStore(initial, (value) => value)).toThrow(
@@ -579,13 +579,13 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rejects clone functions that do not return owned object state", () => {
+    test("rejects clone functions that do not return owned object state", { tags: "p0" }, () => {
         expect(() => new MemoryActorStore({ value: 1 }, () => null as never)).toThrow(
             /clones must return an object/
         );
     });
 
-    test("rejects nested transactions and recovery access outside its Actor scope", () => {
+    test("rejects nested transactions and recovery access outside its Actor scope", { tags: "p0" }, () => {
         const store = new MemoryActorStore({ value: 0 }, structuredClone);
         const other = new ActorRef("run", new ActorId("other-memory-actor"));
         store.bindActor(ACTOR_REF);
@@ -603,7 +603,7 @@ describe("MemoryActorStore isolation", () => {
         });
     });
 
-    test("commits a detached draft that cannot be changed through nested references", () => {
+    test("commits a detached draft that cannot be changed through nested references", { tags: "p0" }, () => {
         interface State {
             readonly nested: { value: number };
         }
@@ -625,7 +625,7 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.nested.value).toBe(1);
     });
 
-    test("expires an escaped write transaction with a typed capability error", () => {
+    test("expires an escaped write transaction with a typed capability error", { tags: "p0" }, () => {
         const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
         let escaped: { value: number } | undefined;
 
@@ -642,7 +642,7 @@ describe("MemoryActorStore isolation", () => {
     });
 
     test.each(["commit", "rollback"] as const)(
-        "expires every reflective transaction capability after %s",
+        "expires every reflective transaction capability after %s", { tags: "p0" },
         (outcome) => {
             const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
             let escaped: object | undefined;
@@ -666,7 +666,7 @@ describe("MemoryActorStore isolation", () => {
         }
     );
 
-    test("discards captured nested draft references after rollback", () => {
+    test("discards captured nested draft references after rollback", { tags: "p0" }, () => {
         const store = new MemoryActorStore<{ nested: { value: number } }>(
             { nested: { value: 0 } },
             structuredClone
@@ -688,7 +688,7 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.nested.value).toBe(0);
     });
 
-    test("exposes detached immutable reads only inside the active transaction", () => {
+    test("exposes detached immutable reads only inside the active transaction", { tags: "p0" }, () => {
         interface State {
             nested: { value: number };
         }
@@ -716,7 +716,7 @@ describe("MemoryActorStore isolation", () => {
         }).toSatisfy(throwsOperationalError("protocol.invalid-state"));
     });
 
-    test("snapshots and restores detached Actor identity and recovery bytes", () => {
+    test("snapshots and restores detached Actor identity and recovery bytes", { tags: "p0" }, () => {
         interface State {
             nested: { value: number };
         }
@@ -743,7 +743,7 @@ describe("MemoryActorStore isolation", () => {
         ).toBe(0);
     });
 
-    test("restores a valid unbound snapshot without inventing Actor recovery", () => {
+    test("restores a valid unbound snapshot without inventing Actor recovery", { tags: "p0" }, () => {
         const restored = MemoryActorStore.restore(
             {
                 version: 1,
@@ -762,7 +762,7 @@ describe("MemoryActorStore isolation", () => {
         });
     });
 
-    test("fails closed on malformed, future-major, and mismatched recovery snapshots", () => {
+    test("fails closed on malformed, future-major, and mismatched recovery snapshots", { tags: "p0" }, () => {
         const actorId = new ActorId("snapshot-actor");
         const actor = new ActorRef("run", actorId);
         const snapshot = (recoveryState: Uint8Array) => ({
@@ -814,7 +814,7 @@ describe("MemoryActorStore isolation", () => {
         ).toSatisfy(throwsOperationalError("codec.invalid"));
     });
 
-    test("rejects shared-memory state that cannot be detached", () => {
+    test("rejects shared-memory state that cannot be detached", { tags: "p0" }, () => {
         if (typeof SharedArrayBuffer === "undefined") return;
         const bytes = new Uint8Array(new SharedArrayBuffer(1));
 
@@ -834,7 +834,7 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/cannot contain shared memory/);
     });
 
-    test("traverses symbol and non-enumerable owned properties", () => {
+    test("traverses symbol and non-enumerable owned properties", { tags: "p0" }, () => {
         if (typeof SharedArrayBuffer === "undefined") return;
         const symbol = Symbol("hidden-shared-memory");
         const state = { visible: 1 } as { visible: number; [symbol]?: Uint8Array };
@@ -854,7 +854,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rejects aliases retained through symbol and non-enumerable properties", () => {
+    test("rejects aliases retained through symbol and non-enumerable properties", { tags: "p0" }, () => {
         const symbol = Symbol("hidden-alias");
         const nested = { value: 1 };
         const state = { visible: 1 } as { visible: number; [symbol]?: typeof nested };
@@ -916,7 +916,7 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
-    test("does not exempt extensible TextId subclass state from clone ownership", () => {
+    test("does not exempt extensible TextId subclass state from clone ownership", { tags: "p0" }, () => {
         class ExtensibleId extends TextId {
             public constructor(
                 value: string,
@@ -936,7 +936,7 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
-    test("does not treat an extensible TextId itself as an immutable leaf", () => {
+    test("does not treat an extensible TextId itself as an immutable leaf", { tags: "p0" }, () => {
         class ExtensibleId extends TextId {
             public constructor(value: string) {
                 super(value, "Extensible ID");
@@ -949,7 +949,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("certifies only exact Revision instances as immutable leaves", () => {
+    test("certifies only exact Revision instances as immutable leaves", { tags: "p0" }, () => {
         class RevisionWithPrivateState extends Revision {
             readonly #metadata = { value: 1 };
 
@@ -976,7 +976,7 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
-    test("traverses attached string, symbol, and non-enumerable TextId metadata", () => {
+    test("traverses attached string, symbol, and non-enumerable TextId metadata", { tags: "p0" }, () => {
         class ExtensibleId extends TextId {
             public constructor(value: string) {
                 super(value, "Extensible ID");
@@ -1005,7 +1005,7 @@ describe("MemoryActorStore isolation", () => {
         }
     });
 
-    test("traverses mutable metadata held by a frozen TextId subclass", () => {
+    test("traverses mutable metadata held by a frozen TextId subclass", { tags: "p0" }, () => {
         class FrozenMetadataId extends TextId {
             public constructor(
                 value: string,
@@ -1026,7 +1026,7 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
-    test("detaches frozen TextIds with private, symbol, and non-enumerable state", () => {
+    test("detaches frozen TextIds with private, symbol, and non-enumerable state", { tags: "p0" }, () => {
         const symbol = Symbol("private-id-symbol");
         class FrozenPrivateId extends TextId {
             readonly #privateMetadata: { value: number };
@@ -1101,7 +1101,7 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.id.values()).toEqual([1, 2, 3]);
     });
 
-    test("accepts detached extensible TextIds and protects their read metadata", () => {
+    test("accepts detached extensible TextIds and protects their read metadata", { tags: "p1" }, () => {
         class ExtensibleId extends TextId {
             public constructor(
                 value: string,
@@ -1130,14 +1130,14 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.id.metadata.value).toBe(1);
     });
 
-    test("freezes ActorId only after TextId initialization", () => {
+    test("freezes ActorId only after TextId initialization", { tags: "p1" }, () => {
         const id = new ActorId("frozen-actor-id");
 
         expect(Object.isFrozen(id)).toBe(true);
         expect(() => Object.defineProperty(id, "metadata", { value: {} })).toThrow(TypeError);
     });
 
-    test("rejects accessor and function state that cannot prove ownership", () => {
+    test("rejects accessor and function state that cannot prove ownership", { tags: "p0" }, () => {
         const accessor = { visible: 1 };
         Object.defineProperty(accessor, "hidden", { get: () => ({ value: 1 }) });
 
@@ -1149,7 +1149,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("makes cyclic collections, dates, and typed views immutable during reads", () => {
+    test("makes cyclic collections, dates, and typed views immutable during reads", { tags: "p0" }, () => {
         interface State {
             map: Map<string, { value: number }>;
             set: Set<string>;
@@ -1207,7 +1207,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("preserves sparse, symbolic, and non-enumerable read state", () => {
+    test("preserves sparse, symbolic, and non-enumerable read state", { tags: "p1" }, () => {
         const symbol = Symbol("state");
         const sparse: number[] = [];
         sparse.length = 5;
@@ -1235,7 +1235,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("preserves typed view offsets and shared backing in immutable reads", () => {
+    test("preserves typed view offsets and shared backing in immutable reads", { tags: "p1" }, () => {
         const buffer = new ArrayBuffer(8);
         const initial = {
             first: new Uint8Array(buffer, 1, 4),
@@ -1256,7 +1256,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("permits value reads across immutable built-in wrappers", () => {
+    test("permits value reads across immutable built-in wrappers", { tags: "p1" }, () => {
         const buffer = Uint8Array.of(1, 2, 3).buffer;
         const initial = {
             id: new ActorId("read-id"),
@@ -1292,7 +1292,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rejects mutable custom class instances without an ownership contract", () => {
+    test("rejects mutable custom class instances without an ownership contract", { tags: "p0" }, () => {
         class MutableBox {
             public constructor(public value: number) {}
             public increment(): void {
@@ -1310,7 +1310,7 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("detaches clone-owned custom class data from immutable reads", () => {
+    test("detaches clone-owned custom class data from immutable reads", { tags: "p0" }, () => {
         class CloneOwnedBox implements ActorCloneOwnedState {
             public constructor(public readonly nested: { value: number }) {
                 Object.freeze(this);
@@ -1350,7 +1350,7 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.box.nested.value).toBe(1);
     });
 
-    test("restored Actors advance recovery once and reject the prior fence", async () => {
+    test("restored Actors advance recovery once and reject the prior fence", { tags: "p0" }, async () => {
         interface State {
             value: number;
             initializations: number;
@@ -1386,7 +1386,7 @@ describe("MemoryActorStore isolation", () => {
 });
 
 describe("SqliteActorStore recovery storage", () => {
-    test("fences two live incarnations using separate stores on one database", async () => {
+    test("fences two live incarnations using separate stores on one database", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const activations: ActorActivation[] = [];
         const first = new StartActor(
@@ -1412,7 +1412,7 @@ describe("SqliteActorStore recovery storage", () => {
         expect(activations.map((value) => value.recovery.epoch)).toEqual([0, 1]);
     });
 
-    test("rolls back SQLite identity, recovery, and state when eager start fails", () => {
+    test("rolls back SQLite identity, recovery, and state when eager start fails", { tags: "p0" }, () => {
         const database = new TestSqlite();
         database.run("CREATE TABLE start_counter (value INTEGER NOT NULL)", []);
         database.run("INSERT INTO start_counter (value) VALUES (0)", []);
@@ -1431,7 +1431,7 @@ describe("SqliteActorStore recovery storage", () => {
         expect(database.all("SELECT value FROM start_counter", [])[0]?.["value"]).toBe(0);
     });
 
-    test("fails closed when a SQLite Actor identity has no recovery state", () => {
+    test("fails closed when a SQLite Actor identity has no recovery state", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteActorStore(database);
         store.bindActor(ACTOR_REF);
@@ -1441,7 +1441,7 @@ describe("SqliteActorStore recovery storage", () => {
         );
     });
 
-    test("does not recreate a deleted recovery row under an existing identity", () => {
+    test("does not recreate a deleted recovery row under an existing identity", { tags: "p0" }, () => {
         const database = new TestSqlite();
         new StartActor({ actor: ACTOR_REF, store: new SqliteActorStore(database) }, noop);
         database.run("DELETE FROM actor_recovery_state WHERE actor_kind = ? AND actor_id = ?", [
@@ -1462,7 +1462,7 @@ describe("SqliteActorStore recovery storage", () => {
         expect(database.all("SELECT * FROM actor_recovery_state", [])).toEqual([]);
     });
 
-    test("fails closed when SQLite recovery state has no Actor identity", () => {
+    test("fails closed when SQLite recovery state has no Actor identity", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteActorStore(database);
         database.run(
@@ -1481,7 +1481,7 @@ describe("SqliteActorStore recovery storage", () => {
         expect(database.all("SELECT * FROM actor_identity", [])).toEqual([]);
     });
 
-    test("binds reads and recovery operations to its exact active transaction", () => {
+    test("binds reads and recovery operations to its exact active transaction", { tags: "p0" }, () => {
         const firstDatabase = new TestSqlite();
         const secondDatabase = new TestSqlite();
         const first = new SqliteActorStore(firstDatabase);
@@ -1505,7 +1505,7 @@ describe("SqliteActorStore recovery storage", () => {
         ).toSatisfy(throwsOperationalError("actor.stale-callback"));
     });
 
-    test("rejects nested Actor transactions across stores sharing one database", () => {
+    test("rejects nested Actor transactions across stores sharing one database", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const first = new SqliteActorStore(database);
         const second = new SqliteActorStore(database);
@@ -1519,7 +1519,7 @@ describe("SqliteActorStore recovery storage", () => {
         });
     });
 
-    test("rejects nested SQLite scope transactions and expires escaped scopes", () => {
+    test("rejects nested SQLite scope transactions and expires escaped scopes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteActorStore(database);
         store.bindActor(ACTOR_REF);
@@ -1547,7 +1547,7 @@ describe("SqliteActorStore recovery storage", () => {
         );
     });
 
-    test("rejects mutation statements from SQLite read scopes", () => {
+    test("rejects mutation statements from SQLite read scopes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         database.run("CREATE TABLE read_guard (value INTEGER NOT NULL)", []);
         database.run("INSERT INTO read_guard (value) VALUES (1)", []);
@@ -1575,7 +1575,7 @@ describe("SqliteActorStore recovery storage", () => {
         expect(database.all("SELECT value FROM read_guard", [])[0]?.["value"]).toBe(1);
     });
 
-    test("rejects malformed codec bytes", () => {
+    test("rejects malformed codec bytes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteActorStore(database);
         store.bindActor(ACTOR_REF);
@@ -1593,7 +1593,7 @@ describe("SqliteActorStore recovery storage", () => {
         );
     });
 
-    test("rejects unknown-major codec bytes", () => {
+    test("rejects unknown-major codec bytes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteActorStore(database);
         store.bindActor(ACTOR_REF);
@@ -1617,7 +1617,7 @@ describe("SqliteActorStore recovery storage", () => {
         ).toSatisfy(throwsOperationalError("codec.unknown-major"));
     });
 
-    test("rejects recovery rows stored under a different Actor key", () => {
+    test("rejects recovery rows stored under a different Actor key", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteActorStore(database);
         const other = new ActorRef("run", new ActorId("other-sqlite-actor"));
@@ -1637,7 +1637,7 @@ describe("SqliteActorStore recovery storage", () => {
         ).toSatisfy(throwsOperationalError("codec.invalid"));
     });
 
-    test("rejects non-byte recovery state storage", () => {
+    test("rejects non-byte recovery state storage", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteActorStore(database);
         store.bindActor(ACTOR_REF);
@@ -1652,7 +1652,7 @@ describe("SqliteActorStore recovery storage", () => {
         ).toSatisfy(throwsOperationalError("codec.invalid"));
     });
 
-    test("rejects Actor identity changes inside and beside an active transaction", () => {
+    test("rejects Actor identity changes inside and beside an active transaction", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const first = new SqliteActorStore(database);
         const second = new SqliteActorStore(database);
@@ -1672,7 +1672,7 @@ describe("SqliteActorStore recovery storage", () => {
         });
     });
 
-    test("does not repair an incompatible pre-existing Actor schema", () => {
+    test("does not repair an incompatible pre-existing Actor schema", { tags: "p0" }, () => {
         const database = new TestSqlite();
         database.run("CREATE TABLE actor_identity (singleton INTEGER PRIMARY KEY)", []);
         const store = new SqliteActorStore(database);
@@ -1681,7 +1681,7 @@ describe("SqliteActorStore recovery storage", () => {
         expect(database.all("SELECT singleton FROM actor_identity", [])).toEqual([]);
     });
 
-    test("binds a SQLite database to exactly one Actor identity", () => {
+    test("binds a SQLite database to exactly one Actor identity", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const first = new SqliteActorStore(database);
         const second = new SqliteActorStore(database);
@@ -1692,7 +1692,7 @@ describe("SqliteActorStore recovery storage", () => {
         ).toSatisfy(throwsOperationalError("protocol.invalid-state"));
     });
 
-    test("rejects a different Actor kind with the same SQLite Actor ID", () => {
+    test("rejects a different Actor kind with the same SQLite Actor ID", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const first = new SqliteActorStore(database);
         const second = new SqliteActorStore(database);

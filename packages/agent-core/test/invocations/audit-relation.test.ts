@@ -25,7 +25,7 @@ import {
 } from "../../src/invocations";
 
 describe("complete local AuditKind relation", () => {
-    test("[C13-AUDIT-RECEIPT-OUTCOMES] admits the exact routed approval, effect, Receipt, Event, route, and commit graph", () => {
+    test("[C13-AUDIT-RECEIPT-OUTCOMES] admits the exact routed approval, effect, Receipt, Event, route, and commit graph", { tags: "p1" }, () => {
         const graph = fixture();
         const records = new Map<string, AuditRecord>();
         const lookup: AuditRecordLookup = { get: (id) => records.get(id.value) };
@@ -58,7 +58,7 @@ describe("complete local AuditKind relation", () => {
         expect(records.size).toBe(14);
     });
 
-    test("[C13-AUDIT-SETTLED-OBLIGATION] admits only evidence-backed route projection roots", () => {
+    test("[C13-AUDIT-SETTLED-OBLIGATION] admits only evidence-backed route projection roots", { tags: "p0" }, () => {
         const graph = fixture();
         const lookup: AuditRecordLookup = { get: () => undefined };
         const eventRoot = record("event-root", { kind: "event", id: graph.eventId });
@@ -89,7 +89,7 @@ describe("complete local AuditKind relation", () => {
         ).toThrow(/not an admitted root/);
     });
 
-    test("[C13-PREPARED-NO-TURN-AUDIT] requires exact Write evidence when an evidence resolver is supplied", () => {
+    test("[C13-PREPARED-NO-TURN-AUDIT] requires exact Write evidence when an evidence resolver is supplied", { tags: "p1" }, () => {
         const graph = fixture();
         const invocation = record("write-invocation", {
             kind: "invocation",
@@ -122,7 +122,7 @@ describe("complete local AuditKind relation", () => {
         ).not.toThrow();
     });
 
-    test("[C13-AUDIT-SYSTEM-WRITER] admits direct, denied, expired, and Receipt-caused local edges", () => {
+    test("[C13-AUDIT-SYSTEM-WRITER] admits direct, denied, expired, and Receipt-caused local edges", { tags: "p1" }, () => {
         const graph = fixture();
         const invocationId = new InvocationId("local-edge-invocation");
         const attemptId = new EffectAttemptId("local-edge-attempt");
@@ -232,7 +232,7 @@ describe("complete local AuditKind relation", () => {
         expect(records.size).toBe(10);
     });
 
-    test("[C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge", () => {
+    test("[C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge", { tags: "p0" }, () => {
         const graph = fixture();
         const noEvidence = emptyEvidence();
         expect(() =>
@@ -278,7 +278,7 @@ describe("complete local AuditKind relation", () => {
         ).toThrow(/not permitted/);
     });
 
-    test("rejects malformed audit codec vocabularies and fields", () => {
+    test("rejects malformed audit codec vocabularies and fields", { tags: "p2" }, () => {
         const payload = (evidence: unknown, overrides: Record<string, unknown> = {}) =>
             encodeCanonicalJson({
                 kind: "audit-record",
@@ -311,7 +311,7 @@ describe("complete local AuditKind relation", () => {
         for (const bytes of rejects) expect(() => AuditRecord.decode(bytes)).toThrow();
     });
 
-    test("[C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence", () => {
+    test("[C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence", { tags: "p0" }, () => {
         const graph = fixture();
         const lookup: AuditRecordLookup = {
             get: (id) => (id.equals(graph.projected.id) ? graph.projected : undefined)
@@ -326,7 +326,7 @@ describe("complete local AuditKind relation", () => {
         );
     });
 
-    test("[C13-AUDIT-ROUTE-BRIDGE] rejects Invocation roots nested below the route projection bridge", () => {
+    test("[C13-AUDIT-ROUTE-BRIDGE] rejects Invocation roots nested below the route projection bridge", { tags: "p1" }, () => {
         const graph = fixture();
         expect(() =>
             record(

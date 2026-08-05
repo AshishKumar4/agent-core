@@ -18,7 +18,7 @@ import {
 } from "../definition/materialization-harness";
 
 describe("materialization.applyLocal protocol command", () => {
-    test("rolls back failed asynchronous Actor activation", () => {
+    test("rolls back failed asynchronous Actor activation", { tags: "p0" }, () => {
         const actor = new ActorRef("tenant", new ActorId("materialization-target"));
         const store = new MaterializationHarnessStore(actor);
         expect(() => store.activateActor(actor, (() => Promise.resolve()) as never)).toThrow(
@@ -30,6 +30,7 @@ describe("materialization.applyLocal protocol command", () => {
 
     test.each<FakeRunUsage>(["nonempty", "unknown"])(
         "applies a persisted plan without consulting %s Run usage",
+        { tags: "p1" },
         async (runUsage) => {
             const harness = new MaterializationHarness();
             const initial = await harness.dispatch(
@@ -57,7 +58,7 @@ describe("materialization.applyLocal protocol command", () => {
         }
     );
 
-    test("admits only the exact target Actor caller", async () => {
+    test("admits only the exact target Actor caller", { tags: "p0" }, async () => {
         const harness = new MaterializationHarness();
         const plan = harness.plan();
         const callers = [
@@ -87,7 +88,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.applyCount).toBe(0);
     });
 
-    test("requires the target plan revision and forbids a supplied lease", async () => {
+    test("requires the target plan revision and forbids a supplied lease", { tags: "p1" }, async () => {
         const harness = new MaterializationHarness();
         const plan = harness.plan();
         const stale = await harness.dispatch(
@@ -119,7 +120,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.applyCount).toBe(0);
     });
 
-    test("rejects persisted plans for a wrong target or multiple Actors", async () => {
+    test("rejects persisted plans for a wrong target or multiple Actors", { tags: "p0" }, async () => {
         const harness = new MaterializationHarness();
         const other = new ActorRef("tenant", new ActorId("other-tenant"));
         const wrongTarget = await harness.dispatch(
@@ -144,7 +145,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.applyCount).toBe(0);
     });
 
-    test("rejects a plan digest that was not persisted by the host", async () => {
+    test("rejects a plan digest that was not persisted by the host", { tags: "p0" }, async () => {
         const harness = new MaterializationHarness();
         const missing = Digest.sha256(new TextEncoder().encode("missing-plan"));
 
@@ -156,7 +157,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.applyCount).toBe(0);
     });
 
-    test("rejects replay of an old generation after a newer plan is active", async () => {
+    test("rejects replay of an old generation after a newer plan is active", { tags: "p0" }, async () => {
         const harness = new MaterializationHarness();
         const oldPlan = harness.plan(harness.actor, [projection("old")], 1);
         const nextPlan = harness.plan(harness.actor, [projection("next")], 2);
@@ -187,7 +188,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.applyCount).toBe(2);
     });
 
-    test("rejects an unsupported persisted plan at lifecycle before materialization", async () => {
+    test("rejects an unsupported persisted plan at lifecycle before materialization", { tags: "p1" }, async () => {
         const harness = new MaterializationHarness();
         const plan = harness.plan();
         const unsupported = forgePlanKind(plan, "facet.slot-entry");
@@ -207,7 +208,7 @@ describe("materialization.applyLocal protocol command", () => {
         );
     });
 
-    test("rechecks support during execute and rolls the command transaction back", async () => {
+    test("rechecks support during execute and rolls the command transaction back", { tags: "p1" }, async () => {
         const harness = new MaterializationHarness();
         const plan = harness.plan();
         const raw = harness.envelope(plan, { key: "unsupported-execute" });
@@ -222,7 +223,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.records.snapshot().writes).toEqual([]);
     });
 
-    test("rejects a supported execute-time plan substituted under the authorized ID", async () => {
+    test("rejects a supported execute-time plan substituted under the authorized ID", { tags: "p0" }, async () => {
         const harness = new MaterializationHarness();
         const authorized = harness.plan(harness.actor, [projection("authorized")], 1);
         const raw = harness.envelope(authorized, { key: "supported-substitution" });
@@ -242,7 +243,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.records.snapshot().writes).toEqual([]);
     });
 
-    test("rejects a second envelope prepared against absent pointer state", async () => {
+    test("rejects a second envelope prepared against absent pointer state", { tags: "p1" }, async () => {
         const harness = new MaterializationHarness();
         const first = harness.envelope(harness.plan(harness.actor, [projection("first")], 1), {
             key: "prepared-first"
@@ -256,7 +257,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.managedLogicalKeys()).toEqual(["first"]);
     });
 
-    test("replays duplicates before reading mutable plan state", async () => {
+    test("replays duplicates before reading mutable plan state", { tags: "p0" }, async () => {
         const harness = new MaterializationHarness();
         const raw = harness.envelope(harness.plan(), { key: "same-plan" });
         const committed = await harness.dispatch(raw);
@@ -271,7 +272,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.applyCount).toBe(1);
     });
 
-    test("rolls back a failed local apply and permits the same-key retry", async () => {
+    test("rolls back a failed local apply and permits the same-key retry", { tags: "p1" }, async () => {
         const harness = new MaterializationHarness();
         const plan = harness.plan(harness.actor, [projection("rolled-back-resource")]);
         const raw = harness.envelope(plan, { key: "faulted-plan" });
@@ -289,7 +290,7 @@ describe("materialization.applyLocal protocol command", () => {
         expect(harness.store.state.applyCount).toBe(1);
     });
 
-    test("payload helper emits a command payload accepted by the strict codec", async () => {
+    test("payload helper emits a command payload accepted by the strict codec", { tags: "p1" }, async () => {
         const harness = new MaterializationHarness();
         const plan = harness.plan();
         harness.persistPlan(plan);
@@ -303,7 +304,7 @@ describe("materialization.applyLocal protocol command", () => {
     });
 
     test.each([null, "string", [], {}, { planId: 7 }, { planId: "0".repeat(64), extra: true }])(
-        "rejects malformed materialization payload %j before command gates",
+        "rejects malformed materialization payload %j before command gates", { tags: "p2" },
         async (payload) => {
             const harness = new MaterializationHarness();
             const result = await harness.dispatch(
@@ -314,7 +315,7 @@ describe("materialization.applyLocal protocol command", () => {
         }
     );
 
-    test("fails closed when direct command gates cannot load their exact plan", () => {
+    test("fails closed when direct command gates cannot load their exact plan", { tags: "p0" }, () => {
         const target = new ActorRef("workspace", new ActorId("target"));
         const controller = new ActorRef("tenant", new ActorId("tenant"));
         const backend: MaterializationCommandBackend<object, object> = {

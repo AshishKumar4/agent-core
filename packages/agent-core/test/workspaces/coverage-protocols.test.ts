@@ -282,7 +282,7 @@ class ConfigurableInvocations implements InvocationAdmissionPort<State> {
 }
 
 describe("policy branch coverage", () => {
-    test("derives every trust tier and rejects every partial elevation", () => {
+    test("derives every trust tier and rejects every partial elevation", { tags: "p0" }, () => {
         expect(
             deriveEventTrust({
                 principalOwnsScope: false,
@@ -342,7 +342,7 @@ describe("policy branch coverage", () => {
         ).toEqual({ tier: "external" });
     });
 
-    test("distinguishes exact and wildcard kind, facet, actor, and trust matching", () => {
+    test("distinguishes exact and wildcard kind, facet, actor, and trust matching", { tags: "p1" }, () => {
         const facet = eventFixture("policy-facet", { kind: "task.created" });
         const actor = eventFixture("policy-actor", { source: "actor" });
         expect(eventMatches(new EventPattern("task.created", ["authenticated"]), facet)).toBe(true);
@@ -365,7 +365,7 @@ describe("policy branch coverage", () => {
         expect(trustAccepted(["owner", "self"], "external")).toBe(false);
     });
 
-    test("derives all dedupe modes and rejects unstable inputs", () => {
+    test("derives all dedupe modes and rejects unstable inputs", { tags: "p0" }, () => {
         const cause = new EventId("event-policy-cause");
         const event = eventFixture("policy-dedupe", { causation: cause });
         expect(routeDedupeKey("event", event)).toBe(`event:${event.id.value}`);
@@ -380,7 +380,7 @@ describe("policy branch coverage", () => {
         }
     });
 
-    test("maps roots, objects, arrays, append, replace, escapes, and prototype names", () => {
+    test("maps roots, objects, arrays, append, replace, escapes, and prototype names", { tags: "p1" }, () => {
         const source = JSON.parse(
             '{"items":[{"name":"first"},{"name":"second"}],"a/b":{"~name":7},"constructor":"safe"}'
         ) as JsonValue;
@@ -428,7 +428,7 @@ describe("policy branch coverage", () => {
         ).toEqual({ rows: [["nested"]] });
     });
 
-    test("rejects overlap, malformed pointers, missing values, sparse arrays, and scalar traversal", () => {
+    test("rejects overlap, malformed pointers, missing values, sparse arrays, and scalar traversal", { tags: "p2" }, () => {
         for (const moves of [
             [new FieldMove("/x", { literal: 1 }), new FieldMove("/x", { literal: 2 })],
             [new FieldMove("/x", { literal: 1 }), new FieldMove("/x/y", { literal: 2 })],
@@ -504,7 +504,7 @@ describe("policy branch coverage", () => {
         ).toThrow(/toData|invalid escape/);
     });
 
-    test("rejects a child write after an adversarial move replaces the root with a scalar", () => {
+    test("rejects a child write after an adversarial move replaces the root with a scalar", { tags: "p1" }, () => {
         let reads = 0;
         const first = {
             get to(): string {
@@ -535,7 +535,7 @@ describe("policy branch coverage", () => {
 });
 
 describe("route records and authentication", () => {
-    test("validates reservation invariants and round-trips authority, tenant, trust, and initiator variants", () => {
+    test("validates reservation invariants and round-trips authority, tenant, trust, and initiator variants", { tags: "p1" }, () => {
         const reservation = reservationFixture("route-invariants");
         const different = content("different-route-content");
         expect(
@@ -586,7 +586,7 @@ describe("route records and authentication", () => {
         }
     });
 
-    test("rejects malformed reservation authority, tenant relation, and trust codecs", () => {
+    test("rejects malformed reservation authority, tenant relation, and trust codecs", { tags: "p2" }, () => {
         const reservation = reservationFixture("route-codec-invalid");
         expect(() =>
             RouteReservation.decode(
@@ -632,7 +632,7 @@ describe("route records and authentication", () => {
         ).toThrow(/fields/);
     });
 
-    test("validates projection content, codec authentication markers, and one-time authentication", () => {
+    test("validates projection content, codec authentication markers, and one-time authentication", { tags: "p0" }, () => {
         const reservation = reservationFixture("projection-codec");
         const projection = projectionFixture(reservation);
         expect(
@@ -671,7 +671,7 @@ describe("route records and authentication", () => {
         ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
     });
 
-    test("authenticates only exact envelopes and rejects source assertions, bad evidence, and forgeries", () => {
+    test("authenticates only exact envelopes and rejects source assertions, bad evidence, and forgeries", { tags: "p0" }, () => {
         const reservation = reservationFixture("projection-auth");
         const projection = projectionFixture(reservation);
         const envelope = { reservation, projection };
@@ -711,7 +711,7 @@ describe("route records and authentication", () => {
         expect(() => new Constructor(Symbol("forged"), envelope)).toThrow(/host-only/);
     });
 
-    test("rejects each projection envelope identity or content mismatch", () => {
+    test("rejects each projection envelope identity or content mismatch", { tags: "p0" }, () => {
         const reservation = reservationFixture("projection-mismatch");
         const projection = projectionFixture(reservation);
         const otherReservation = reservationFixture("projection-other");
@@ -736,7 +736,7 @@ describe("route records and authentication", () => {
         }
     });
 
-    test("covers delivered and rejected states, reasons, equality, constructors, and codecs", () => {
+    test("covers delivered and rejected states, reasons, equality, constructors, and codecs", { tags: "p1" }, () => {
         const reservation = reservationFixture("delivery");
         const delivered = RouteDeliveryState.delivered();
         const rejected = RouteDeliveryState.rejected("authority denied");
@@ -783,7 +783,7 @@ describe("route records and authentication", () => {
 });
 
 describe("source protocol adversarial coverage", () => {
-    test("[C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents", () => {
+    test("[C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents", { tags: "p0" }, () => {
         const setup = sourceSetup("snapshot-options");
         const lease = leaseToken("snapshot-options");
         const cause = new EventId("event-snapshot-cause");
@@ -847,7 +847,7 @@ describe("source protocol adversarial coverage", () => {
         ).toThrow(/accepting Actor/);
     });
 
-    test("[C13-TRUST-ASSERTION-REJECTION] rejects structurally forged intent trust", () => {
+    test("[C13-TRUST-ASSERTION-REJECTION] rejects structurally forged intent trust", { tags: "p0" }, () => {
         const setup = sourceSetup("forged-intent-trust");
         expect(() =>
             setup.protocol.snapshot(setup.state, {
@@ -856,7 +856,7 @@ describe("source protocol adversarial coverage", () => {
         ).toThrow(expect.objectContaining({ code: "authority.denied" }));
     });
 
-    test("prepares only matches, uses logical keys for no-dedupe, and rejects foreign snapshots", async () => {
+    test("prepares only matches, uses logical keys for no-dedupe, and rejects foreign snapshots", { tags: "p1" }, async () => {
         const setup = sourceSetup(
             "prepare-none",
             subscriptionFixture("prepare-none", { dedupe: "none" })
@@ -915,7 +915,7 @@ describe("source protocol adversarial coverage", () => {
         ]);
     });
 
-    test("[C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity", async () => {
+    test("[C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity", { tags: "p0" }, async () => {
         const setup = sourceSetup("event-replay");
         const snapshot = setup.protocol.snapshot(
             setup.state,
@@ -986,7 +986,7 @@ describe("source protocol adversarial coverage", () => {
         expect(externalResult.reservations[0]?.initiator).toBeUndefined();
     });
 
-    test("rejects an idempotency replay whose authenticated provenance changed", async () => {
+    test("rejects an idempotency replay whose authenticated provenance changed", { tags: "p0" }, async () => {
         const setup = sourceSetup("provenance-conflict");
         const original = draft("provenance-conflict");
         setup.protocol.commit(
@@ -1009,7 +1009,7 @@ describe("source protocol adversarial coverage", () => {
         );
     });
 
-    test("replays an Event safely after its retention index cache is lost", async () => {
+    test("replays an Event safely after its retention index cache is lost", { tags: "p0" }, async () => {
         const setup = sourceSetup("retention-cache-loss");
         const snapshot = setup.protocol.snapshot(
             setup.state,
@@ -1031,7 +1031,7 @@ describe("source protocol adversarial coverage", () => {
         ]);
     });
 
-    test("discards a prepared source route when its dedupe reservation wins the commit race", async () => {
+    test("discards a prepared source route when its dedupe reservation wins the commit race", { tags: "p0" }, async () => {
         const setup = sourceSetup("source-route-race");
         const snapshot = setup.protocol.snapshot(
             setup.state,
@@ -1049,7 +1049,7 @@ describe("source protocol adversarial coverage", () => {
         ]);
     });
 
-    test("[C13-ROUTE-SOURCE-OWNED] source protocol owns the committed reservation", async () => {
+    test("[C13-ROUTE-SOURCE-OWNED] source protocol owns the committed reservation", { tags: "p1" }, async () => {
         const setup = sourceSetup("source-owned-proof");
         const prepared = await setup.protocol.prepare(
             setup.protocol.snapshot(setup.state, authenticateIntent(draft("source-owned-proof")))
@@ -1059,7 +1059,7 @@ describe("source protocol adversarial coverage", () => {
         expect(reservation.targetActor.equals(targetActor)).toBe(true);
     });
 
-    test("[C13-ROUTE-SOURCE-EVENT] committed reservation cites the authenticated Event", async () => {
+    test("[C13-ROUTE-SOURCE-EVENT] committed reservation cites the authenticated Event", { tags: "p1" }, async () => {
         const setup = sourceSetup("source-event-proof");
         const intent = authenticateIntent(draft("source-event-proof"));
         const prepared = await setup.protocol.prepare(setup.protocol.snapshot(setup.state, intent));
@@ -1067,7 +1067,7 @@ describe("source protocol adversarial coverage", () => {
         expect(result.reservations[0]?.event.equals(intent.intent.id)).toBe(true);
     });
 
-    test("[C13-ROUTE-AUDIT-CAUSE] committed reservation cites its preexisting source Event audit", async () => {
+    test("[C13-ROUTE-AUDIT-CAUSE] committed reservation cites its preexisting source Event audit", { tags: "p1" }, async () => {
         const setup = sourceSetup("source-audit-cause-proof");
         const prepared = await setup.protocol.prepare(
             setup.protocol.snapshot(
@@ -1092,7 +1092,7 @@ describe("source protocol adversarial coverage", () => {
         expect(reservationAudit.reservation).toBe(reservation);
     });
 
-    test("[C13-ROUTE-STABLE-INVOCATION] duplicate commit preserves InvocationId", async () => {
+    test("[C13-ROUTE-STABLE-INVOCATION] duplicate commit preserves InvocationId", { tags: "p0" }, async () => {
         const setup = sourceSetup("stable-invocation-proof");
         const prepared = await setup.protocol.prepare(
             setup.protocol.snapshot(
@@ -1106,7 +1106,7 @@ describe("source protocol adversarial coverage", () => {
         expect(duplicate.invocation.equals(first.invocation)).toBe(true);
     });
 
-    test("[C13-ROUTE-TENANT-RELATION] source protocol preserves admitted tenant relation", async () => {
+    test("[C13-ROUTE-TENANT-RELATION] source protocol preserves admitted tenant relation", { tags: "p0" }, async () => {
         const setup = sourceSetup("tenant-relation-proof");
         const prepared = await setup.protocol.prepare(
             setup.protocol.snapshot(setup.state, authenticateIntent(draft("tenant-relation-proof")))
@@ -1116,7 +1116,7 @@ describe("source protocol adversarial coverage", () => {
         if (relation.kind === "same") expect(relation.tenant.equals(tenant)).toBe(true);
     });
 
-    test("rejects foreign preparations, stale subscriptions, and each trust change", async () => {
+    test("rejects foreign preparations, stale subscriptions, and each trust change", { tags: "p0" }, async () => {
         const first = sourceSetup("foreign-first");
         const second = sourceSetup("foreign-second");
         const prepared = await first.protocol.prepare(
@@ -1175,7 +1175,7 @@ describe("source protocol adversarial coverage", () => {
         }
     });
 
-    test("rejects event and projection retention failures and ownership mismatch", async () => {
+    test("rejects event and projection retention failures and ownership mismatch", { tags: "p0" }, async () => {
         const notDurable = sourceSetup("event-not-durable");
         const prepared = await notDurable.protocol.prepare(
             notDurable.protocol.snapshot(
@@ -1256,7 +1256,7 @@ describe("source protocol adversarial coverage", () => {
         ).toThrow(/another Actor or record/);
     });
 
-    test("rejects source authority, target, tenant, and operation changes", async () => {
+    test("rejects source authority, target, tenant, and operation changes", { tags: "p0" }, async () => {
         const rejected = sourceSetup("route-rejected");
         const rejectedSnapshot = rejected.protocol.snapshot(
             rejected.state,
@@ -1324,7 +1324,7 @@ describe("source protocol adversarial coverage", () => {
         ).toThrow(/target changed/);
     });
 
-    test("[C13-ROUTE-CROSS-TENANT-BINDING] accepts an unchanged cross-tenant route and detects every cross relation change", async () => {
+    test("[C13-ROUTE-CROSS-TENANT-BINDING] accepts an unchanged cross-tenant route and detects every cross relation change", { tags: "p0" }, async () => {
         const sourceTenant = tenant;
         const destination = new TenantId("tenant-destination");
         const authority = new BindingName("binding.cross-tenant");
@@ -1375,7 +1375,7 @@ describe("source protocol adversarial coverage", () => {
 });
 
 describe("target protocol and port outcomes", () => {
-    test("rejects structural authentication and projections for another actor", () => {
+    test("rejects structural authentication and projections for another actor", { tags: "p0" }, () => {
         const setup = targetSetup();
         const admission = authenticatedAdmission("target-structural");
         expect(() =>
@@ -1391,7 +1391,7 @@ describe("target protocol and port outcomes", () => {
         expect(() => setup.protocol.admit(setup.state, wrong)).toThrow(/another Actor/);
     });
 
-    test("rejects nondurable retention and every retention ownership mismatch", () => {
+    test("rejects nondurable retention and every retention ownership mismatch", { tags: "p0" }, () => {
         const notDurable = targetSetup();
         notDurable.retention.durable = false;
         expect(() =>
@@ -1440,7 +1440,7 @@ describe("target protocol and port outcomes", () => {
         }
     });
 
-    test("uses the target tenant for cross-tenant admissions", () => {
+    test("uses the target tenant for cross-tenant admissions", { tags: "p0" }, () => {
         const reservation = crossReservation("target-cross");
         const destination =
             reservation.tenants.kind === "cross" ? reservation.tenants.target : tenant;
@@ -1456,7 +1456,7 @@ describe("target protocol and port outcomes", () => {
         ).toBe("delivered");
     });
 
-    test("records authority and invocation acceptance or every rejection reason", () => {
+    test("records authority and invocation acceptance or every rejection reason", { tags: "p1" }, () => {
         const accepted = targetSetup();
         expect(
             accepted.protocol.admit(accepted.state, authenticatedAdmission("target-accepted")).state
@@ -1481,7 +1481,7 @@ describe("target protocol and port outcomes", () => {
         ).toMatchObject({ kind: "rejected", reason: "invocation denied" });
     });
 
-    test("rejects invocation substitution and returns exact terminal duplicates", () => {
+    test("rejects invocation substitution and returns exact terminal duplicates", { tags: "p0" }, () => {
         const substitution = targetSetup();
         substitution.invocations.decision = {
             kind: "accepted",
@@ -1501,7 +1501,7 @@ describe("target protocol and port outcomes", () => {
         expect(replay.state.audit).toEqual(["projection", "delivery"]);
     });
 
-    test("rejects replay when delivery lacks a projection or projection bytes conflict", () => {
+    test("rejects replay when delivery lacks a projection or projection bytes conflict", { tags: "p0" }, () => {
         const missing = targetSetup();
         const missingAdmission = authenticatedAdmission("target-missing-projection");
         expect(() =>
@@ -1561,7 +1561,7 @@ describe("target protocol and port outcomes", () => {
 });
 
 describe("inbox protocol outcomes", () => {
-    test("returns appended and duplicate and maps all rejection reasons", () => {
+    test("returns appended and duplicate and maps all rejection reasons", { tags: "p1" }, () => {
         const turn = new TurnId("turn-inbox-coverage");
         const lease: LeaseToken = { turn, holder: principal, epoch: 7 };
         const reference = inboxFixture("coverage", 0, 7, turn);
@@ -1579,7 +1579,7 @@ describe("inbox protocol outcomes", () => {
         }
     });
 
-    test("rejects reference turn and epoch mismatches before calling the run port", () => {
+    test("rejects reference turn and epoch mismatches before calling the run port", { tags: "p0" }, () => {
         const turn = new TurnId("turn-inbox-exact");
         const lease: LeaseToken = { turn, holder: principal, epoch: 3 };
         const runs = new FixedInbox({ kind: "appended" });

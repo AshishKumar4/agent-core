@@ -52,11 +52,11 @@ import { SqliteCounterHarness } from "./sqlite-counter-fixture";
 counterDispatcherContract("memory", (options) => new CounterHarness(options));
 counterDispatcherContract("SQLite", (options) => new SqliteCounterHarness(options));
 
-test("rejects a local store without Actor activation capability", () => {
+test("rejects a local store without Actor activation capability", { tags: "p0" }, () => {
     expect(() => new CounterHarness({ activatingStore: false })).toThrow(TypeError);
 });
 
-test("protocol dependency errors retain stable defaults", () => {
+test("protocol dependency errors retain stable defaults", { tags: "p1" }, () => {
     expect(new CommandCommitUnknownError()).toMatchObject({
         code: "actor.closed",
         retrySameKey: false,
@@ -73,7 +73,7 @@ test("protocol dependency errors retain stable defaults", () => {
     });
 });
 
-test("canonical unknown commit poisons direct and already queued dispatcher work", async () => {
+test("canonical unknown commit poisons direct and already queued dispatcher work", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
     const raw = harness.envelope({ key: "direct-queued-unknown" });
     const envelope = CommandEnvelopeCodec.decode(raw);
@@ -126,7 +126,7 @@ test("canonical unknown commit poisons direct and already queued dispatcher work
     await Promise.all(leases.map((lease) => lease?.close()));
 });
 
-test("[C13-PROTOCOL-DUPLICATE] rejects a forged prepared payload without running command mutation", async () => {
+test("[C13-PROTOCOL-DUPLICATE] rejects a forged prepared payload without running command mutation", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
     const raw = harness.envelope({ key: "forged-prepared-payload" });
     const envelope = CommandEnvelopeCodec.decode(raw);
@@ -147,18 +147,18 @@ test("[C13-PROTOCOL-DUPLICATE] rejects a forged prepared payload without running
 test.each([
     ["empty", { commandName: "" }],
     ["duplicate", { duplicateCommand: true }]
-] as const)("rejects %s registered command names", (_case, options) => {
+] as const)("rejects %s registered command names", { tags: "p1" }, (_case, options) => {
     expect(() => new CounterHarness(options)).toThrow("non-empty and unique");
 });
 
 test.each([
     ["envelope", { envelopeBytes: 0, payloadBytes: 1024 }],
     ["payload", { envelopeBytes: 4096, payloadBytes: 1.5 }]
-] as const)("rejects invalid %s byte limits", (_case, limits) => {
+] as const)("rejects invalid %s byte limits", { tags: "p1" }, (_case, limits) => {
     expect(() => new CounterHarness({ limits })).toThrow("positive safe integer");
 });
 
-test("supports the default clock and rolls back an invalid injected timestamp", async () => {
+test("supports the default clock and rolls back an invalid injected timestamp", { tags: "p1" }, async () => {
     const defaultClock = new CounterHarness({ useDefaultNow: true });
     expect(
         (await defaultClock.dispatch(defaultClock.envelope({ key: "default-clock" }))).outcome
@@ -177,7 +177,7 @@ test("supports the default clock and rolls back an invalid injected timestamp", 
     }
 });
 
-test("fails closed when an appended invocation audit is unreadable", async () => {
+test("fails closed when an appended invocation audit is unreadable", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
     harness.setFault("unreadableInvocationAudit");
 
@@ -194,7 +194,7 @@ test("fails closed when an appended invocation audit is unreadable", async () =>
     expect(harness.snapshot()).toMatchObject({ value: 0, writes: [] });
 });
 
-test("[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes", async () => {
+test("[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes", { tags: "p1" }, async () => {
     const memory = new CounterHarness();
     const sqlite = new SqliteCounterHarness();
     const memoryRaw = memory.envelope({ key: "parity", amount: 4 });
@@ -210,7 +210,7 @@ test("[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory 
     expect(sqlite.snapshot()).toEqual(memory.snapshot());
 });
 
-test("SQLite restart fences a callback prepared by the prior dispatcher", async () => {
+test("SQLite restart fences a callback prepared by the prior dispatcher", { tags: "p0" }, async () => {
     const original = new SqliteCounterHarness();
     const raw = original.envelope({ key: "stale-prepared" });
     const barrier = original.pauseNextPayloadGet();
@@ -228,7 +228,7 @@ test("SQLite restart fences a callback prepared by the prior dispatcher", async 
     expect(stale.cause).toMatchObject({ code: "actor.stale-callback" });
 });
 
-test("SQLite restart fences the prior dispatcher even when its first command rolls back", async () => {
+test("SQLite restart fences the prior dispatcher even when its first command rolls back", { tags: "p0" }, async () => {
     const original = new SqliteCounterHarness();
     await original.dispatch(original.envelope({ key: "before-restart" }));
     original.setFault("writeRecord");
@@ -252,7 +252,7 @@ test("SQLite restart fences the prior dispatcher even when its first command rol
     expect(stale.cause).toMatchObject({ code: "actor.stale-callback" });
 });
 
-test("file-backed SQLite reconciles unknown acknowledgement after full composition restart", async () => {
+test("file-backed SQLite reconciles unknown acknowledgement after full composition restart", { tags: "p0" }, async () => {
     const directory = mkdtempSync(join(tmpdir(), "agent-core-dispatcher-restart-"));
     const path = join(directory, "dispatcher.sqlite");
     let database: FileSqlite | undefined;
@@ -305,7 +305,7 @@ test("file-backed SQLite reconciles unknown acknowledgement after full compositi
 test.each([
     ["invalid padding", "A==="],
     ["non-canonical trailing bits", "AB=="]
-])("rejects %s in persisted reply base64", async (_case, reply) => {
+])("rejects %s in persisted reply base64", { tags: "p0" }, async (_case, reply) => {
     const harness = new CounterHarness();
     const write = (await harness.dispatch(harness.envelope())).write;
     const encoded = new TextDecoder().decode(WriteRecordCodec.encode(write));

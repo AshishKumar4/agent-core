@@ -53,13 +53,13 @@ class FixtureCodec extends RecordCodec<FixtureRecord> {
 const codec = new FixtureCodec();
 
 describe("Canonical codecs", () => {
-    test("orders object keys recursively and deterministically", () => {
+    test("orders object keys recursively and deterministically", { tags: "p0" }, () => {
         const encoded = encodeCanonicalJson({ z: 1, nested: { y: 2, a: 3 }, a: 4 });
 
         expect(new TextDecoder().decode(encoded)).toBe('{"a":4,"nested":{"a":3,"y":2},"z":1}');
     });
 
-    test("orders composed and decomposed Unicode keys by UTF-16 code units", () => {
+    test("orders composed and decomposed Unicode keys by UTF-16 code units", { tags: "p0" }, () => {
         const composed = "\u00e9";
         const decomposed = "e\u0301";
         const encoded = encodeCanonicalJson({ [composed]: 1, [decomposed]: 2 });
@@ -69,7 +69,7 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("rejects hostile, cyclic, and non-plain runtime values before encoding", () => {
+    test("rejects hostile, cyclic, and non-plain runtime values before encoding", { tags: "p0" }, () => {
         const sparse: JsonValue[] = ["present"];
         sparse.length = 2;
         const extended = ["present"] as JsonValue[] & { extra?: boolean };
@@ -104,7 +104,7 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("rejects values that become hostile after validation", () => {
+    test("rejects values that become hostile after validation", { tags: "p0" }, () => {
         let ownKeysCalls = 0;
         const throwing = new Proxy(
             { value: 1 },
@@ -128,14 +128,14 @@ describe("Canonical codecs", () => {
         expectCodecError(() => encodeCanonicalJson(nonfinite), "codec.invalid");
     });
 
-    test("rejects lone Unicode surrogates in values and keys", () => {
+    test("rejects lone Unicode surrogates in values and keys", { tags: "p0" }, () => {
         for (const value of ["\ud800", "\ud800a", "\udc00", { "\ud800": "invalid" }]) {
             expectCodecError(() => encodeCanonicalJson(value), "codec.invalid");
         }
         expect(() => encodeCanonicalJson("\ud83d\ude00")).not.toThrow();
     });
 
-    test("rejects JSON bytes that are valid but not canonical", () => {
+    test("rejects JSON bytes that are valid but not canonical", { tags: "p0" }, () => {
         for (const source of [
             ' {"a":1}',
             '{"b":2,"a":1}',
@@ -158,7 +158,7 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("accepts repeated acyclic plain values", () => {
+    test("accepts repeated acyclic plain values", { tags: "p1" }, () => {
         const shared = { value: "shared" };
 
         expect(new TextDecoder().decode(encodeCanonicalJson({ left: shared, right: shared }))).toBe(
@@ -166,7 +166,7 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("checks exact fields by own property rather than the prototype chain", () => {
+    test("checks exact fields by own property rather than the prototype chain", { tags: "p0" }, () => {
         const hostile = Object.assign(Object.create({ expected: true }), { extra: true }) as {
             readonly [key: string]: JsonValue;
         };
@@ -175,7 +175,7 @@ describe("Canonical codecs", () => {
         expect(hasExactJsonKeys(hostile, ["expected"])).toBe(false);
     });
 
-    test("rejects throwing proxies and accessor-backed array entries as JSON", () => {
+    test("rejects throwing proxies and accessor-backed array entries as JSON", { tags: "p0" }, () => {
         const throwing = new Proxy(
             {},
             {
@@ -194,7 +194,7 @@ describe("Canonical codecs", () => {
         expect(encodeCanonicalJson.bind(undefined, accessor)).toThrow(AgentCoreError);
     });
 
-    test("uses canonical padded RFC 4648 base64", () => {
+    test("uses canonical padded RFC 4648 base64", { tags: "p0" }, () => {
         expect(encodeBase64(new Uint8Array())).toBe("");
         expect(encodeBase64(new TextEncoder().encode("f"))).toBe("Zg==");
         expect(encodeBase64(new TextEncoder().encode("fo"))).toBe("Zm8=");
@@ -202,7 +202,7 @@ describe("Canonical codecs", () => {
         expect(new TextDecoder().decode(decodeBase64("Zm9vYmFy"))).toBe("foobar");
     });
 
-    test("rejects noncanonical and malformed base64 without coercion", () => {
+    test("rejects noncanonical and malformed base64 without coercion", { tags: "p0" }, () => {
         for (const value of ["Zg", "Zg=", "Zg===", "Zg==\n", "-w==", "AB==", "AAB="]) {
             expect(() => decodeBase64(value)).toThrow(TypeError);
         }
@@ -223,7 +223,7 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("still rejects invalid base64 digits if runtime validation is compromised", () => {
+    test("still rejects invalid base64 digits if runtime validation is compromised", { tags: "p1" }, () => {
         const regexTest = vi.spyOn(RegExp.prototype, "test").mockReturnValue(true);
         try {
             expect(() => decodeBase64("!!!!")).toThrow(TypeError);
@@ -232,7 +232,7 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("detaches and freezes codec metadata", () => {
+    test("detaches and freezes codec metadata", { tags: "p0" }, () => {
         const metadata = { major: 1, minor: 1 };
         const detached = new FixtureCodec(metadata);
         metadata.major = 9;
@@ -251,7 +251,7 @@ describe("Canonical codecs", () => {
         expect(detached.kind).toBe("test.fixture");
     });
 
-    test("decodes and upcasts an older minor in the same major", () => {
+    test("decodes and upcasts an older minor in the same major", { tags: "p2" }, () => {
         const older = encodeCanonicalJson({
             kind: "test.fixture",
             payload: { label: "legacy" },
@@ -267,7 +267,7 @@ describe("Canonical codecs", () => {
         });
     });
 
-    test("rejects malformed data with a typed codec error", () => {
+    test("rejects malformed data with a typed codec error", { tags: "p1" }, () => {
         expectCodecError(() => codec.decode(new TextEncoder().encode("{")), "codec.invalid");
         expectCodecError(
             () => codec.decode(encodeCanonicalJson({ kind: "test.fixture" })),
@@ -300,14 +300,14 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("wraps expected payload TypeErrors as codec failures", () => {
+    test("wraps expected payload TypeErrors as codec failures", { tags: "p1" }, () => {
         const rejecting = new RejectingFixtureCodec(new TypeError("typed failure"));
         const encoded = rejectingRecord();
 
         expectCodecError(() => rejecting.decode(encoded), "codec.invalid");
     });
 
-    test("rethrows unexpected payload decoder exceptions unchanged", () => {
+    test("rethrows unexpected payload decoder exceptions unchanged", { tags: "p1" }, () => {
         for (const failure of [new RangeError("programmer failure"), "string failure"]) {
             const rejecting = new RejectingFixtureCodec(failure);
             let thrown: unknown;
@@ -341,7 +341,7 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("rejects future minor versions and unknown envelope fields", () => {
+    test("rejects future minor versions and unknown envelope fields", { tags: "p2" }, () => {
         const futureMinor = encodeCanonicalJson({
             kind: "test.fixture",
             payload: { enabled: true, label: "future" },
@@ -364,7 +364,7 @@ describe("Canonical codecs", () => {
         expectCodecError(() => codec.decode(extraVersionField), "codec.invalid");
     });
 
-    test("rejects negative decoded versions as malformed", () => {
+    test("rejects negative decoded versions as malformed", { tags: "p2" }, () => {
         for (const version of [
             { major: -1, minor: 0 },
             { major: 1, minor: -1 }
@@ -379,7 +379,7 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("rejects invalid codec metadata at construction", () => {
+    test("rejects invalid codec metadata at construction", { tags: "p2" }, () => {
         for (const version of [
             { major: -1, minor: 0 },
             { major: 1, minor: 0.5 },

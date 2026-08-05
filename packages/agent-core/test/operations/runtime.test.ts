@@ -76,7 +76,7 @@ import {
 const objectSchema = new JsonSchema({ type: "object" });
 
 describe("Facet runtime", () => {
-    test("rejects correspondence failures before lifecycle code runs", async () => {
+    test("rejects correspondence failures before lifecycle code runs", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run");
         const expected = manifest("acme.runtime", [descriptor]);
         const start = vi.fn(async () => {});
@@ -89,7 +89,7 @@ describe("Facet runtime", () => {
         expect(start).not.toHaveBeenCalled();
     });
 
-    test("starts parent before child once and disposes child before parent", async () => {
+    test("starts parent before child once and disposes child before parent", { tags: "p1" }, async () => {
         const order: string[] = [];
         const childManifest = manifest("acme.child", []);
         const child = new TestFacet(
@@ -129,7 +129,7 @@ describe("Facet runtime", () => {
         expect(host.facets()).toEqual([]);
     });
 
-    test("rejects cycles, duplicate references, and descriptor mismatch", () => {
+    test("rejects cycles, duplicate references, and descriptor mismatch", { tags: "p1" }, () => {
         const descriptor = operationDescriptor("run");
         const expected = manifest("acme.runtime", [descriptor]);
         const wrong = new TestOperation(
@@ -174,7 +174,7 @@ describe("Facet runtime", () => {
         ).toThrow(/more than once/);
     });
 
-    test("validates Surface declarations against runtime implementations", () => {
+    test("validates Surface declarations against runtime implementations", { tags: "p1" }, () => {
         const descriptor = new SurfaceDescriptor(new SurfaceId("dashboard"), "Dashboard");
         const expected = manifest("acme.surface", [], [], [descriptor]);
         const facet = new TestFacet(
@@ -270,7 +270,7 @@ describe("Facet runtime", () => {
         );
     });
 
-    test("disposes an inactive host and continues stopping after a hook failure", async () => {
+    test("disposes an inactive host and continues stopping after a hook failure", { tags: "p1" }, async () => {
         const inactiveHost = new FacetRuntimeHost([], []);
         expect(inactiveHost.active).toBe(false);
         expect(inactiveHost.facet(facetRef("workspace:missing"))).toBeUndefined();
@@ -318,7 +318,7 @@ describe("Facet runtime", () => {
         expect(stopped).toEqual(["second"]);
     });
 
-    test("rolls back already-started Facets after a later start hook fails", async () => {
+    test("rolls back already-started Facets after a later start hook fails", { tags: "p1" }, async () => {
         const order: string[] = [];
         const firstManifest = manifest("acme.first", []);
         const secondManifest = manifest("acme.second", []);
@@ -353,7 +353,7 @@ describe("Facet runtime", () => {
         await host.dispose();
     });
 
-    test("rejects every malformed runtime forest and duplicate declaration shape", () => {
+    test("rejects every malformed runtime forest and duplicate declaration shape", { tags: "p2" }, () => {
         const validator = new FacetCorrespondenceValidator();
         const emptyManifest = manifest("acme.empty", []);
         const empty = new TestFacet("workspace:empty", emptyManifest);
@@ -410,7 +410,7 @@ describe("Facet runtime", () => {
         ).toThrow(/no runtime implementation/);
     });
 
-    test("cancels startup immediately and retries failed cleanup before disposal", async () => {
+    test("cancels startup immediately and retries failed cleanup before disposal", { tags: "p1" }, async () => {
         const cancellationManifest = manifest("acme.cancel", []);
         let started!: () => void;
         let reentrantDisposal: Promise<void> | undefined;
@@ -470,7 +470,7 @@ describe("Facet runtime", () => {
         await cleanup.dispose();
     });
 
-    test("uses idempotent runtime leases and fences rollback cleanup failures", async () => {
+    test("uses idempotent runtime leases and fences rollback cleanup failures", { tags: "p0" }, async () => {
         const leaseManifest = manifest("acme.lease", []);
         const leaseFacet = new TestFacet("workspace:lease", leaseManifest);
         const leaseHost = new FacetRuntimeHost([leaseManifest], [leaseFacet]);
@@ -517,7 +517,7 @@ describe("Facet runtime", () => {
 });
 
 describe("Protected Operation gateway", () => {
-    test("executes direct only after synchronous authorization and rejects hidden handlers", async () => {
+    test("executes direct only after synchronous authorization and rejects hidden handlers", { tags: "p0" }, async () => {
         const events: string[] = [];
         const descriptor = operationDescriptor("run");
         const runtime = new TestOperation(descriptor, async (input) => {
@@ -566,7 +566,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("dispatches only through implementation identities captured before start", async () => {
+    test("dispatches only through implementation identities captured before start", { tags: "p0" }, async () => {
         const calls: string[] = [];
         const descriptor = operationDescriptor("run");
         const implementation = new TestOperation(descriptor, async (input) => {
@@ -613,7 +613,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("[C13-ADV-POST-PREPARATION-INTERCEPTOR] routes mediated effects through the invocation port with frozen interceptor traces", async () => {
+    test("[C13-ADV-POST-PREPARATION-INTERCEPTOR] routes mediated effects through the invocation port with frozen interceptor traces", { tags: "p0" }, async () => {
         const events: string[] = [];
         const descriptor = operationDescriptor("run", "mutate", true);
         const runtime = new TestOperation(descriptor, async (input) => {
@@ -684,7 +684,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("rejects invalid command arguments and missing mapping sources", () => {
+    test("rejects invalid command arguments and missing mapping sources", { tags: "p1" }, () => {
         const passthrough = new Command({
             name: "run",
             title: "Run",
@@ -713,7 +713,7 @@ describe("Protected Operation gateway", () => {
         expect(() => runtime.bind(mapped, {})).toThrow(/source/);
     });
 
-    test("applies root, literal, nested, and array command mappings strictly", () => {
+    test("applies root, literal, nested, and array command mappings strictly", { tags: "p1" }, () => {
         const runtime = new CommandRuntime();
         const command = (moves: readonly FieldMove[]) =>
             new Command({
@@ -767,7 +767,7 @@ describe("Protected Operation gateway", () => {
         expect((Object.prototype as { readonly polluted?: unknown }).polluted).toBeUndefined();
     });
 
-    test("[C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked", async () => {
+    test("[C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked", { tags: "p1" }, async () => {
         const descriptor = mappedOperationDescriptor();
         const runtime = new CommandRuntime();
         const command = mappedCommand();
@@ -802,7 +802,7 @@ describe("Protected Operation gateway", () => {
         expect(events.records).toHaveLength(1);
     });
 
-    test("[C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command", () => {
+    test("[C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command", { tags: "p1" }, () => {
         const runtime = new CommandRuntime();
         const descriptor = mappedOperationDescriptor();
         const invalid = mappedCommand({
@@ -838,7 +838,7 @@ describe("Protected Operation gateway", () => {
         ).toThrow(/literal/);
     });
 
-    test("[C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically", () => {
+    test("[C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically", { tags: "p1" }, () => {
         const runtime = new CommandRuntime();
         const descriptor = mappedOperationDescriptor();
         const first = mappedCommand();
@@ -865,7 +865,7 @@ describe("Protected Operation gateway", () => {
         ).toBe("other");
     });
 
-    test("[C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults", () => {
+    test("[C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults", { tags: "p1" }, () => {
         const runtime = new CommandRuntime();
         const command = mappedCommand();
         const installed = runtime.install({
@@ -886,7 +886,7 @@ describe("Protected Operation gateway", () => {
         expect(installed.subscription.binding.equals(command.binding)).toBe(true);
     });
 
-    test("[C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion", async () => {
+    test("[C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion", { tags: "p1" }, async () => {
         const descriptor = mappedOperationDescriptor();
         const runtime = new CommandRuntime();
         const command = mappedCommand();
@@ -922,7 +922,7 @@ describe("Protected Operation gateway", () => {
         ]);
     });
 
-    test("submits one homogeneous mediated batch and invalidates resolutions on host disposal", async () => {
+    test("submits one homogeneous mediated batch and invalidates resolutions on host disposal", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run", "mutate");
         const runtime = new TestOperation(descriptor, async (input) => input);
         const facetManifest = manifest("acme.runtime", [descriptor]);
@@ -971,7 +971,7 @@ describe("Protected Operation gateway", () => {
         resolved[Symbol.dispose]();
     });
 
-    test("fails closed when a synchronous interceptor returns a Promise", async () => {
+    test("fails closed when a synchronous interceptor returns a Promise", { tags: "p1" }, async () => {
         const execute = vi.fn(async (input: FacetData) => input);
         const descriptor = operationDescriptor("run");
         const declaration = new InterceptorDeclaration(
@@ -1013,7 +1013,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("surfaces an interceptor veto as a typed scoped denial", async () => {
+    test("surfaces an interceptor veto as a typed scoped denial", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run");
         const declaration = new InterceptorDeclaration(
             new InterceptorId("veto"),
@@ -1057,7 +1057,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("denies cross-Facet interception without explicit authority", async () => {
+    test("denies cross-Facet interception without explicit authority", { tags: "p0" }, async () => {
         const descriptor = operationDescriptor("run", "observe", true);
         const targetManifest = manifest("acme.target", [descriptor]);
         const target = new TestFacet(
@@ -1106,7 +1106,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("fails closed on invalid schemas, denied direct admission, and malformed mediation output", async () => {
+    test("fails closed on invalid schemas, denied direct admission, and malformed mediation output", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run", "mutate");
         const facetManifest = manifest("acme.runtime", [descriptor]);
         const facet = new TestFacet(
@@ -1173,7 +1173,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("drains in-flight execution before stopping and releasing authority", async () => {
+    test("drains in-flight execution before stopping and releasing authority", { tags: "p1" }, async () => {
         const events: string[] = [];
         let complete!: () => void;
         let started!: () => void;
@@ -1248,7 +1248,7 @@ describe("Protected Operation gateway", () => {
         expect(events.indexOf("release")).toBeLessThan(events.indexOf("stop"));
     });
 
-    test("covers direct batches, inactive resolution, disposal idempotency, and invalid interceptor rewrites", async () => {
+    test("covers direct batches, inactive resolution, disposal idempotency, and invalid interceptor rewrites", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run", "observe", true);
         const before = new InterceptorDeclaration(
             new InterceptorId("before"),
@@ -1348,7 +1348,7 @@ describe("Protected Operation gateway", () => {
         });
     });
 
-    test("fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items", async () => {
+    test("fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run", "mutate", false);
         const invalid = new InterceptorDeclaration(
             new InterceptorId("invalid"),
@@ -1444,7 +1444,7 @@ describe("Protected Operation gateway", () => {
         await crossHost.dispose();
     });
 
-    test("binds payload shape into direct and mediated identities and returns replay without rerunning interceptors", async () => {
+    test("binds payload shape into direct and mediated identities and returns replay without rerunning interceptors", { tags: "p0" }, async () => {
         let interceptions = 0;
         let executions = 0;
         const descriptor = operationDescriptor("run", "mutate");
@@ -1540,7 +1540,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("[C13-INTERCEPTOR-ATTRIBUTION] persists attributable pre-preparation rewrite evidence", async () => {
+    test("[C13-INTERCEPTOR-ATTRIBUTION] persists attributable pre-preparation rewrite evidence", { tags: "p1" }, async () => {
         const before = new InterceptorDeclaration(
             new InterceptorId("attribute"),
             "operation.before",
@@ -1628,7 +1628,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("[C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor", async () => {
+    test("[C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor", { tags: "p0" }, async () => {
         let interceptions = 0;
         let executions = 0;
         const declaration = new InterceptorDeclaration(
@@ -1693,7 +1693,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("[C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either", async () => {
+    test("[C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either", { tags: "p0" }, async () => {
         let beforeCalls = 0;
         let afterCalls = 0;
         let executions = 0;
@@ -1791,7 +1791,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("[C13-INTERCEPTOR-SELF-SCOPE] defaults an omitted selector to only the contributing Facet", async () => {
+    test("[C13-INTERCEPTOR-SELF-SCOPE] defaults an omitted selector to only the contributing Facet", { tags: "p1" }, async () => {
         let calls = 0;
         const declaration = new InterceptorDeclaration(
             new InterceptorId("self-only"),
@@ -1868,7 +1868,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("authorizes the current caller before returning replay evidence", async () => {
+    test("authorizes the current caller before returning replay evidence", { tags: "p0" }, async () => {
         const descriptor = operationDescriptor("run", "mutate");
         const facetManifest = manifest("acme.runtime", [descriptor]);
         const facet = new TestFacet(
@@ -1903,7 +1903,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("wraps unknown handler failures and preserves typed failures", async () => {
+    test("wraps unknown handler failures and preserves typed failures", { tags: "p1" }, async () => {
         let failure: unknown = new Error("secret plugin error");
         const descriptor = operationDescriptor("run");
         const facetManifest = manifest("acme.runtime", [descriptor]);
@@ -1950,7 +1950,7 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("orders same-priority interceptors deterministically and applies authorized wildcard targets", async () => {
+    test("orders same-priority interceptors deterministically and applies authorized wildcard targets", { tags: "p1" }, async () => {
         const calls: string[] = [];
         const descriptor = operationDescriptor("run", "observe", true);
         const ownB = new InterceptorDeclaration(

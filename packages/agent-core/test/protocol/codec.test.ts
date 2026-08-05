@@ -46,7 +46,7 @@ const digest = Digest.sha256(new TextEncoder().encode("codec-payload"));
 const ref = ContentRef.fromDigest(digest);
 
 describe("CommandEnvelope codec", () => {
-    test("[C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind", () => {
+    test("[C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind", { tags: "p1" }, () => {
         const minimal = new CommandEnvelope({
             command: "codec.minimal",
             caller: principalCaller,
@@ -235,7 +235,7 @@ describe("CommandEnvelope codec", () => {
                 payloadOf(record)["payloadDigest"] = 1;
             }
         ]
-    ])("rejects a %s", (_case, mutate) => {
+    ])("rejects a %s", { tags: "p1" }, (_case, mutate) => {
         expect(() => CommandEnvelopeCodec.decode(mutateEnvelope(mutate))).toThrow();
     });
 
@@ -250,13 +250,13 @@ describe("CommandEnvelope codec", () => {
             "long key",
             () => new CommandEnvelope({ ...envelopeInit(), idempotencyKey: "x".repeat(513) })
         ]
-    ])("rejects %s at construction", (_case, construct) => {
+    ])("rejects %s at construction", { tags: "p1" }, (_case, construct) => {
         expect(construct).toThrow(TypeError);
     });
 });
 
 describe("protocol callers and authentication", () => {
-    test("compares only exact principal and Actor identities", () => {
+    test("compares only exact principal and Actor identities", { tags: "p0" }, () => {
         const matchingActor: CommandCaller = { kind: "actor", actor };
         expect(commandCallersEqual(principalCaller, principalCaller)).toBe(true);
         expect(commandCallersEqual(principalCaller, matchingActor)).toBe(false);
@@ -270,14 +270,14 @@ describe("protocol callers and authentication", () => {
         ).toBe(false);
     });
 
-    test("does not allow callers to issue transport authentication", () => {
+    test("does not allow callers to issue transport authentication", { tags: "p0" }, () => {
         expectAgentCoreError(
             () => new CommandAuthentication(Symbol("forged"), digest, principalCaller, tenant),
             "protocol.invalid-envelope"
         );
     });
 
-    test("validates issued authentication before invoking token behavior", async () => {
+    test("validates issued authentication before invoking token behavior", { tags: "p0" }, async () => {
         const envelope = envelopeFixture(principalCaller);
         const envelopeDigest = Digest.sha256(CommandEnvelopeCodec.encode(envelope));
         const authentication = await new CodecAuthenticator().authenticate(
@@ -316,7 +316,7 @@ describe("protocol callers and authentication", () => {
         expectAgentCoreError(() => new ForgedAuthentication(), "protocol.invalid-envelope");
     });
 
-    test("admits only the configured caller family", () => {
+    test("admits only the configured caller family", { tags: "p0" }, () => {
         const actorCaller: CommandCaller = { kind: "actor", actor };
         expect(CommandCallerPolicy.principal().admits(principalCaller)).toBe(true);
         expect(CommandCallerPolicy.principal().admits(actorCaller)).toBe(false);
@@ -325,7 +325,7 @@ describe("protocol callers and authentication", () => {
         expect(CommandCallerPolicy.actor("workspace").admits(actorCaller)).toBe(false);
     });
 
-    test("envelopes deeply detach and freeze authenticated caller and lease state", () => {
+    test("envelopes deeply detach and freeze authenticated caller and lease state", { tags: "p0" }, () => {
         const mutable: { kind: "principal"; principal: PrincipalRef } = {
             kind: "principal",
             principal: principalRef
@@ -361,7 +361,7 @@ describe("protocol callers and authentication", () => {
         expect(Object.isFrozen(write.caller)).toBe(true);
     });
 
-    test("requires exact plain runtime fields for callers and leases", () => {
+    test("requires exact plain runtime fields for callers and leases", { tags: "p1" }, () => {
         expect(
             () =>
                 new CommandEnvelope({
@@ -399,7 +399,7 @@ describe("protocol callers and authentication", () => {
         ).toThrow(TypeError);
     });
 
-    test("rejects exact-shape callers with invalid identity values", () => {
+    test("rejects exact-shape callers with invalid identity values", { tags: "p1" }, () => {
         const invalidCaller = {
             kind: "principal",
             principal: { value: principal.value }
@@ -410,7 +410,7 @@ describe("protocol callers and authentication", () => {
         );
     });
 
-    test("rejects exact-shape leases with invalid values", () => {
+    test("rejects exact-shape leases with invalid values", { tags: "p1" }, () => {
         const validLease = envelopeInit().lease!;
         const invalidLeases = [
             { ...validLease, turn: { value: validLease.turn.value } as TurnId },
@@ -436,7 +436,7 @@ describe("protocol callers and authentication", () => {
         }
     });
 
-    test("rejects non-plain caller and lease values", () => {
+    test("rejects non-plain caller and lease values", { tags: "p1" }, () => {
         const caller = Object.assign(Object.create(null), principalCaller) as CommandCaller;
         const lease = Object.assign(Object.create(null), envelopeInit().lease) as LeaseToken;
 
@@ -448,7 +448,7 @@ describe("protocol callers and authentication", () => {
         );
     });
 
-    test("rejects non-enumerable and accessor caller fields without invoking accessors", () => {
+    test("rejects non-enumerable and accessor caller fields without invoking accessors", { tags: "p1" }, () => {
         const accessor = vi.fn(() => "principal");
         const hiddenKind = Object.defineProperty({ principal: principalRef }, "kind", {
             enumerable: false,
@@ -469,7 +469,7 @@ describe("protocol callers and authentication", () => {
 });
 
 describe("payload preparation values", () => {
-    test("defensively copies expiry and compares every binding field", () => {
+    test("defensively copies expiry and compares every binding field", { tags: "p1" }, () => {
         const expiresAt = new Date("2026-07-07T12:01:00.000Z");
         const binding = new PayloadLeaseBinding(tenant, actor, digest, ref, digest, expiresAt);
         expiresAt.setTime(0);
@@ -483,7 +483,7 @@ describe("payload preparation values", () => {
         ).toThrow("expiry must be valid");
     });
 
-    test("issues nominal leased and malformed preparation variants", () => {
+    test("issues nominal leased and malformed preparation variants", { tags: "p1" }, () => {
         const binding = new PayloadLeaseBinding(
             tenant,
             actor,
@@ -505,7 +505,7 @@ describe("payload preparation values", () => {
         ).toBeUndefined();
     });
 
-    test("rejects forged prepared payloads without invoking attacker properties", () => {
+    test("rejects forged prepared payloads without invoking attacker properties", { tags: "p0" }, () => {
         const lookalike = new Proxy(
             {},
             {
@@ -530,7 +530,7 @@ describe("payload preparation values", () => {
 });
 
 describe("WriteRecord codec and invariants", () => {
-    test("rejects the incompatible baseline v1 record major", () => {
+    test("rejects the incompatible baseline v1 record major", { tags: "p2" }, () => {
         const record = mutableRecord(
             WriteRecordCodec.encode(
                 writeFixture({
@@ -641,13 +641,13 @@ describe("WriteRecord codec and invariants", () => {
                 payloadOf(record)["id"] = 1;
             }
         ]
-    ])("rejects a %s", (_case, mutate) => {
+    ])("rejects a %s", { tags: "p1" }, (_case, mutate) => {
         const record = mutableRecord(WriteRecordCodec.encode(writeFixture()));
         mutate(record);
         expect(() => WriteRecordCodec.decode(encodeCanonicalJson(record as JsonValue))).toThrow();
     });
 
-    test("[write-record] round-trips every Actor kind", () => {
+    test("[write-record] round-trips every Actor kind", { tags: "p1" }, () => {
         for (const kind of ["tenant", "workspace", "run", "environment", "slate"] as const) {
             const record = writeFixture({
                 actor: new ActorRef(kind, new ActorId(`write-${kind}`))
@@ -679,11 +679,11 @@ describe("WriteRecord codec and invariants", () => {
                     observation: Uint8Array.of(1)
                 })
         ]
-    ])("rejects %s", (_case, construct) => {
+    ])("rejects %s", { tags: "p1" }, (_case, construct) => {
         expect(construct).toThrow();
     });
 
-    test("rejects a malformed write identity without its command", () => {
+    test("rejects a malformed write identity without its command", { tags: "p1" }, () => {
         const record = mutableRecord(
             WriteRecordCodec.encode(
                 writeFixture({

@@ -53,7 +53,7 @@ function protocolReadCannotWrite(database: ReadableSqlite): void {
     database.run("DELETE FROM records", []);
 }
 
-test("rejects all asynchronous callback result types at compile time", () => {
+test("rejects all asynchronous callback result types at compile time", { tags: "p2" }, () => {
     expect(TypedActor.prototype.promiseCallbackMustFail).toBeTypeOf("function");
     expect(TypedActor.prototype.customThenableCallbackMustFail).toBeTypeOf("function");
     expect(TypedActor.prototype.unionCallbackMustFail).toBeTypeOf("function");

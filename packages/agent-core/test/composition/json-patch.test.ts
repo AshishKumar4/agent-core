@@ -4,7 +4,7 @@ import { DetachedJsonPatchEngine } from "../../src/composition/json-patch";
 import { AgentCoreError } from "../../src/errors";
 
 describe("detached RFC 6902 composition", () => {
-    test("applies every standard operation with JSON Pointer escaping", () => {
+    test("applies every standard operation with JSON Pointer escaping", { tags: "p1" }, () => {
         const engine = new DetachedJsonPatchEngine();
         const document = {
             list: ["first", "second"],
@@ -27,7 +27,7 @@ describe("detached RFC 6902 composition", () => {
         });
     });
 
-    test("keeps the source document and operations detached", () => {
+    test("keeps the source document and operations detached", { tags: "p1" }, () => {
         const engine = new DetachedJsonPatchEngine();
         const document = Object.freeze({
             nested: Object.freeze({ value: "original" }),
@@ -55,7 +55,7 @@ describe("detached RFC 6902 composition", () => {
         [{ op: "remove", path: "/missing" }],
         [{ op: "test", path: "/value", value: "forged" }],
         [{ op: "move", from: "/value", path: "/value/child" }]
-    ] as const)("rejects malformed or inapplicable patch %#", (operation) => {
+    ] as const)("rejects malformed or inapplicable patch %#", { tags: "p2" }, (operation) => {
         expect(() =>
             new DetachedJsonPatchEngine().apply({ value: "original" }, [operation])
         ).toThrow(expect.objectContaining({ code: "codec.invalid" }));
@@ -98,7 +98,7 @@ describe("detached RFC 6902 composition", () => {
         }
     );
 
-    test("rejects prototype modification without polluting global objects", () => {
+    test("rejects prototype modification without polluting global objects", { tags: "p0" }, () => {
         const patch: readonly JsonValue[] = [
             { op: "add", path: "/__proto__/polluted", value: true }
         ];

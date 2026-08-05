@@ -203,7 +203,7 @@ function expectCodecError(bytes: Uint8Array, code: AgentCoreErrorCode): void {
 }
 
 describe("AuditRecord codec", () => {
-    test.each(codecKinds)("round-trips the complete %s vocabulary", (_name, kind) => {
+    test.each(codecKinds)("round-trips the complete %s vocabulary", { tags: "p1" }, (_name, kind) => {
         const encoded = AuditRecordCodec.encode(audit(kind));
         const decoded = AuditRecordCodec.decode(encoded);
 
@@ -211,7 +211,7 @@ describe("AuditRecord codec", () => {
         expect(decoded.kind.kind).toBe(kind.kind);
     });
 
-    test("uses v1.0 and the renamed attempt and projection identifiers", () => {
+    test("uses v1.0 and the renamed attempt and projection identifiers", { tags: "p2" }, () => {
         const envelope = decodeCanonicalJson(AuditRecordCodec.encode(audit(codecKinds[0]![1])));
         const decodedAttempt = AuditRecordCodec.decode(
             wireRecord({ kind: "attempt", id: "renamed-attempt" })
@@ -238,7 +238,7 @@ describe("AuditRecord codec", () => {
         expect(invocations).not.toHaveProperty("DeliveryId");
     });
 
-    test("encodes delivery with only its reservation", () => {
+    test("encodes delivery with only its reservation", { tags: "p1" }, () => {
         const encoded = decodeCanonicalJson(
             AuditRecordCodec.encode(
                 audit({
@@ -258,7 +258,7 @@ describe("AuditRecord codec", () => {
         );
     });
 
-    test("rejects the pre-public delivery id shape", () => {
+    test("rejects the pre-public delivery id shape", { tags: "p2" }, () => {
         expectCodecError(
             wireRecord({
                 kind: "delivery",
@@ -269,7 +269,7 @@ describe("AuditRecord codec", () => {
         );
     });
 
-    test("rejects caused Invocation records in constructors and codec data", () => {
+    test("rejects caused Invocation records in constructors and codec data", { tags: "p1" }, () => {
         expect(() =>
             audit(
                 { kind: "invocation", id: new InvocationId("caused-invocation") },
@@ -293,7 +293,7 @@ describe("AuditRecord codec", () => {
         );
     });
 
-    test("copies and freezes immutable AuditRecord data", () => {
+    test("copies and freezes immutable AuditRecord data", { tags: "p0" }, () => {
         const mutableKind = {
             kind: "write" as const,
             id: new WriteRecordId("immutable-write"),
@@ -354,11 +354,11 @@ describe("AuditRecord codec", () => {
             )
         ],
         ["evidence", wireRecord({ kind: "invocation", id: "invocation", unknown: true })]
-    ] as const)("rejects unknown %s fields", (_name, bytes) => {
+    ] as const)("rejects unknown %s fields", { tags: "p1" }, (_name, bytes) => {
         expectCodecError(bytes, "codec.invalid");
     });
 
-    test("rejects future minors and unknown majors", () => {
+    test("rejects future minors and unknown majors", { tags: "p2" }, () => {
         expectCodecError(
             wireRecord(
                 { kind: "invocation", id: "future-minor" },
@@ -375,13 +375,13 @@ describe("AuditRecord codec", () => {
         );
     });
 
-    test("rejects evidence outside the closed vocabulary", () => {
+    test("rejects evidence outside the closed vocabulary", { tags: "p1" }, () => {
         expectCodecError(wireRecord({ kind: "unknown", id: "unknown" }), "codec.invalid");
     });
 });
 
 describe("AuditRecord append validation", () => {
-    test("derives one canonical actor-owned identity for complete audit evidence", () => {
+    test("derives one canonical actor-owned identity for complete audit evidence", { tags: "p1" }, () => {
         const kind = {
             kind: "receipt" as const,
             id: new ReceiptId("identity-receipt"),
@@ -408,7 +408,7 @@ describe("AuditRecord append validation", () => {
         ).toBe(false);
     });
 
-    test("[C13-AUDIT-APPEND-ONLY] admits ordinary invocation roots", () => {
+    test("[C13-AUDIT-APPEND-ONLY] admits ordinary invocation roots", { tags: "p1" }, () => {
         expect(() =>
             validateAuditAppend(
                 audit({ kind: "invocation", id: new InvocationId("root-invocation") }),
@@ -418,7 +418,7 @@ describe("AuditRecord append validation", () => {
     });
 
     test.each(rejectedWriteOutcomes)(
-        "admits cause-free %s only with command rejection admission",
+        "admits cause-free %s only with command rejection admission", { tags: "p1" },
         (outcome) => {
             const record = audit({
                 kind: "write",
@@ -432,13 +432,13 @@ describe("AuditRecord append validation", () => {
         }
     );
 
-    test.each(unsupportedRoots)("rejects unsupported root %s", (_name, kind, admission) => {
+    test.each(unsupportedRoots)("rejects unsupported root %s", { tags: "p1" }, (_name, kind, admission) => {
         expect(() => validateAuditAppend(audit(kind), lookup(), admission)).toThrow(
             /not an admitted root/
         );
     });
 
-    test.each(writeOutcomes)("permits the substantiated invocation -> %s write edge", (outcome) => {
+    test.each(writeOutcomes)("permits the substantiated invocation -> %s write edge", { tags: "p1" }, (outcome) => {
         const invocationId = new InvocationId(`cause-${outcome}`);
         const writeId = new WriteRecordId(`caused-${outcome}`);
         const cause = audit({ kind: "invocation", id: invocationId });
@@ -469,14 +469,14 @@ describe("AuditRecord append validation", () => {
                 )
                 .map(([nextName, nextKind]) => [causeName, nextName, causeKind, nextKind] as const)
         )
-    )("rejects unsupported %s -> %s causality", (_causeName, _nextName, causeKind, nextKind) => {
+    )("rejects unsupported %s -> %s causality", { tags: "p1" }, (_causeName, _nextName, causeKind, nextKind) => {
         const cause = audit(causeKind);
         expect(() => validateAuditAppend(audit(nextKind, cause.id), lookup(cause))).toThrow(
             /not permitted|cannot have a cause/
         );
     });
 
-    test("[C13-AUDIT-PREEXISTING-CAUSE] requires a preexisting cause", () => {
+    test("[C13-AUDIT-PREEXISTING-CAUSE] requires a preexisting cause", { tags: "p0" }, () => {
         const next = audit(
             {
                 kind: "write",
@@ -489,7 +489,7 @@ describe("AuditRecord append validation", () => {
         expect(() => validateAuditAppend(next, lookup())).toThrow(/exist before append/);
     });
 
-    test("[C13-ADV-NONPREEXISTING-AUDIT] rejects an audit edge whose cause has not been appended", () => {
+    test("[C13-ADV-NONPREEXISTING-AUDIT] rejects an audit edge whose cause has not been appended", { tags: "p0" }, () => {
         const next = audit(
             { kind: "attempt", id: new EffectAttemptId("nonpreexisting-attempt") },
             new AuditRecordId("nonpreexisting-cause")
@@ -498,7 +498,7 @@ describe("AuditRecord append validation", () => {
         expect(() => validateAuditAppend(next, lookup())).toThrow(/exist before append/);
     });
 
-    test("[C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT] rejects a direct cross-Actor audit cause", () => {
+    test("[C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT] rejects a direct cross-Actor audit cause", { tags: "p0" }, () => {
         const cause = audit({
             kind: "invocation",
             id: new InvocationId("cross-actor-invocation")
@@ -543,7 +543,7 @@ describe("AuditRecord append validation", () => {
                 correlation: new CorrelationId("other-correlation")
             }
         ]
-    ] as const)("requires exact %s continuity", (_name, init) => {
+    ] as const)("requires exact %s continuity", { tags: "p0" }, (_name, init) => {
         const cause = audit({ kind: "invocation", id: new InvocationId("scope-cause") });
         const next = audit(
             {
@@ -560,7 +560,7 @@ describe("AuditRecord append validation", () => {
         );
     });
 
-    test("[C13-ADV-RECEIPT-AGGREGATE] rejects root admission on a caused record", () => {
+    test("[C13-ADV-RECEIPT-AGGREGATE] rejects root admission on a caused record", { tags: "p1" }, () => {
         const cause = audit({ kind: "invocation", id: new InvocationId("marked-cause") });
         const next = audit(
             {
@@ -576,7 +576,7 @@ describe("AuditRecord append validation", () => {
         ).toThrow(/invalid for a caused record/);
     });
 
-    test("[audit-record] preserves append-only records", () => {
+    test("[audit-record] preserves append-only records", { tags: "p0" }, () => {
         const record = audit({ kind: "invocation", id: new InvocationId("existing-invocation") });
 
         expect(() => validateAuditAppend(record, lookup(record))).toThrow(/append-only/);

@@ -10,13 +10,13 @@ import {
 import { AgentCoreError } from "../../src/errors";
 
 describe("JSON Schema values", () => {
-    test("[json-schema-validator] strict memory reference enforces the shared validation contract", () => {
+    test("[json-schema-validator] strict memory reference enforces the shared validation contract", { tags: "p1" }, () => {
         const validator = new StrictJsonSchemaValidator();
         expect(validator.validate({ type: "integer" }, 1)).toBe(true);
         expect(validator.validate({ type: "integer" }, "1")).toBe(false);
     });
 
-    test("stores a deeply frozen canonical copy", () => {
+    test("stores a deeply frozen canonical copy", { tags: "p0" }, () => {
         const source = {
             required: ["name"],
             properties: { name: { type: "string" } },
@@ -38,7 +38,7 @@ describe("JSON Schema values", () => {
         );
     });
 
-    test("supports boolean schemas and an injectable validator seam", () => {
+    test("supports boolean schemas and an injectable validator seam", { tags: "p1" }, () => {
         const validate = vi.fn((schema, value) => schema === true && value === "accepted");
         const validator: JsonSchemaValidator = { validate };
         const schema = new JsonSchema(true);
@@ -48,7 +48,7 @@ describe("JSON Schema values", () => {
         expect(validate).toHaveBeenCalledWith(true, "accepted");
     });
 
-    test("rejects noncanonical input before calling the validator seam", () => {
+    test("rejects noncanonical input before calling the validator seam", { tags: "p0" }, () => {
         const validator: JsonSchemaValidator = { validate: vi.fn(() => true) };
         const schema = JsonSchema.any();
 
@@ -57,7 +57,7 @@ describe("JSON Schema values", () => {
         expect(validator.validate).not.toHaveBeenCalled();
     });
 
-    test("does not let an injected validator loosen strict production validation", () => {
+    test("does not let an injected validator loosen strict production validation", { tags: "p0" }, () => {
         const permissive: JsonSchemaValidator = { validate: vi.fn(() => true) };
 
         expect(new JsonSchema({ type: "integer" }).accepts("1", permissive)).toBe(false);
@@ -87,7 +87,7 @@ describe("JSON Schema values", () => {
         expect(original).toEqual({});
     });
 
-    test("rejects non-JSON and cyclic schema documents", () => {
+    test("rejects non-JSON and cyclic schema documents", { tags: "p1" }, () => {
         const cycle: { self?: unknown } = {};
         cycle.self = cycle;
         const accessor = Object.defineProperty({}, "type", {
@@ -104,7 +104,7 @@ describe("JSON Schema values", () => {
         expect(() => new JsonSchema(Object.create({ type: "string" }) as never)).toThrow(TypeError);
     });
 
-    test("validates draft 2020-12 synchronously without coercion or defaults", () => {
+    test("validates draft 2020-12 synchronously without coercion or defaults", { tags: "p1" }, () => {
         const validator = new StrictJsonSchemaValidator();
         const value: { count: string; added?: string } = { count: "1" };
         const before = structuredClone(value);
@@ -139,7 +139,7 @@ describe("JSON Schema values", () => {
         new JsonSchema({ type: "string" }).assertValid();
     });
 
-    test("supports uri format without warnings and rejects unknown formats", () => {
+    test("supports uri format without warnings and rejects unknown formats", { tags: "p1" }, () => {
         const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         const schema = new JsonSchema({ format: "uri", type: "string" });
 
@@ -152,7 +152,7 @@ describe("JSON Schema values", () => {
         warning.mockRestore();
     });
 
-    test("rejects remote references and non-2020 dialects deterministically", () => {
+    test("rejects remote references and non-2020 dialects deterministically", { tags: "p0" }, () => {
         expect(() =>
             strictJsonSchemaValidator.validate(
                 {
@@ -206,7 +206,7 @@ describe("JSON Schema values", () => {
         ).toThrow(/Remote JSON Schema reference.*\$dynamicRef/);
     });
 
-    test("checks unsupported behavior in every schema-bearing keyword shape", () => {
+    test("checks unsupported behavior in every schema-bearing keyword shape", { tags: "p2" }, () => {
         expect(() =>
             strictJsonSchemaValidator.validate(
                 {
@@ -241,7 +241,7 @@ describe("JSON Schema values", () => {
         ).toThrow(/Unsupported JSON Schema/);
     });
 
-    test("does not interpret const and annotation data as nested schemas", () => {
+    test("does not interpret const and annotation data as nested schemas", { tags: "p1" }, () => {
         expect(
             strictJsonSchemaValidator.validate(
                 {
@@ -260,7 +260,7 @@ describe("JSON Schema values", () => {
         ).toBe(true);
     });
 
-    test("rejects asynchronous validation and inherited required properties", () => {
+    test("rejects asynchronous validation and inherited required properties", { tags: "p1" }, () => {
         expect(() =>
             strictJsonSchemaValidator.validate(
                 {
@@ -315,7 +315,7 @@ describe("JSON Schema values", () => {
         }
     });
 
-    test("uses immutable schema snapshots without cross-schema id retention", () => {
+    test("uses immutable schema snapshots without cross-schema id retention", { tags: "p0" }, () => {
         const mutable: { type: string } = { type: "string" };
         expect(strictJsonSchemaValidator.validate(mutable, "value")).toBe(true);
         mutable.type = "number";
@@ -340,7 +340,7 @@ describe("JSON Schema values", () => {
         ).toBe(true);
     });
 
-    test("enforces RFC 3986 uri syntax", () => {
+    test("enforces RFC 3986 uri syntax", { tags: "p2" }, () => {
         for (const invalid of [
             "https://example.com/a b",
             "https://éxample.com/",
@@ -353,7 +353,7 @@ describe("JSON Schema values", () => {
         }
     });
 
-    test("[core.json-schema] round-trips canonical bytes and rejects unknown fields", () => {
+    test("[core.json-schema] round-trips canonical bytes and rejects unknown fields", { tags: "p0" }, () => {
         const schema = new JsonSchema({ type: "string", minLength: 1 });
         const encoded = JsonSchema.encode(schema);
 

@@ -25,7 +25,7 @@ const policyInit = {
 };
 
 describe("Single-tenant policy assembly", () => {
-    test("[P11-SINGLE-TENANT-POLICY] admits the initial Tenant and denies creating a second Tenant", () => {
+    test("[P11-SINGLE-TENANT-POLICY] admits the initial Tenant and denies creating a second Tenant", { tags: "p0" }, () => {
         const { assembly, bindings, control } = createAssembly();
         expect(assembly.policy.mode).toBe("single-tenant");
         expect(assembly.policy.canCreateTenant(0)).toBe(true);
@@ -36,7 +36,7 @@ describe("Single-tenant policy assembly", () => {
         );
     });
 
-    test("[P11-SINGLE-TENANT-PRINCIPAL] persists exactly the one anchored Principal", () => {
+    test("[P11-SINGLE-TENANT-PRINCIPAL] persists exactly the one anchored Principal", { tags: "p1" }, () => {
         const { control } = createAssembly();
         const principals = control
             .identitySnapshot()
@@ -44,7 +44,7 @@ describe("Single-tenant policy assembly", () => {
         expect(principals.map((record) => record.id)).toEqual([anchor.principalId.value]);
     });
 
-    test("[P11-SINGLE-TENANT-TENANT] persists exactly the one personal Tenant", () => {
+    test("[P11-SINGLE-TENANT-TENANT] persists exactly the one personal Tenant", { tags: "p1" }, () => {
         const { control } = createAssembly();
         const tenants = control
             .identitySnapshot()
@@ -53,7 +53,7 @@ describe("Single-tenant policy assembly", () => {
         expect(control.tenant(anchor.tenantId)?.kind).toBe("personal");
     });
 
-    test("[P11-SINGLE-TENANT-OWNER] materializes an active owner Membership for the Principal", () => {
+    test("[P11-SINGLE-TENANT-OWNER] materializes an active owner Membership for the Principal", { tags: "p1" }, () => {
         const { assembly, control } = createAssembly();
         const membership = control.membership(assembly.ownerMembership.id);
         expect(membership).toMatchObject({ state: "active" });
@@ -61,7 +61,7 @@ describe("Single-tenant policy assembly", () => {
         expect(membership?.subject).toEqual(assembly.ownerMembership.subject);
     });
 
-    test("[P11-SINGLE-TENANT-RECORDS] restores ordinary Grant and Binding records from durable snapshots", () => {
+    test("[P11-SINGLE-TENANT-RECORDS] restores ordinary Grant and Binding records from durable snapshots", { tags: "p1" }, () => {
         const { assembly, control, bindings } = createAssembly();
         const restartedControl = MemoryTenantControlStore.restore(control.snapshot());
         const restartedBindings = new MemoryBindingStore(workspaceScope, bindings.snapshot());
@@ -74,7 +74,7 @@ describe("Single-tenant policy assembly", () => {
         ).toBe(true);
     });
 
-    test("[P11-SINGLE-TENANT-PROMOTION] changes only Tenant multiplicity policy", () => {
+    test("[P11-SINGLE-TENANT-PROMOTION] changes only Tenant multiplicity policy", { tags: "p1" }, () => {
         const { assembly, control, bindings } = createAssembly();
         const authorityBefore = control.snapshot();
         const bindingsBefore = bindings.snapshot();
@@ -87,7 +87,7 @@ describe("Single-tenant policy assembly", () => {
         expect(bindings.snapshot()).toEqual(bindingsBefore);
     });
 
-    test("[P11-SINGLE-TENANT-ASSEMBLY] assembles a personal assistant from ordinary policy records", () => {
+    test("[P11-SINGLE-TENANT-ASSEMBLY] assembles a personal assistant from ordinary policy records", { tags: "p1" }, () => {
         const { assembly } = createAssembly();
         expect(assembly.workspace.tenantId.equals(assembly.tenant.id)).toBe(true);
         expect(assembly.binding.scope.equals(assembly.workspace.scope)).toBe(true);

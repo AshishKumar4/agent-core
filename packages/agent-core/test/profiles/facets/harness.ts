@@ -247,7 +247,7 @@ export function operationDeclarationEvidence(
     expected: Readonly<Record<string, OperationDescriptor["impact"]>>
 ): void {
     describe(`${profile} operation declaration evidence`, () => {
-        test("declares exact names, impacts, valid schemas, and immutable descriptors", () => {
+        test("declares exact names, impacts, valid schemas, and immutable descriptors", { tags: "p1" }, () => {
             expect(
                 Object.fromEntries(
                     operations.map((operation) => [operation.name.value, operation.impact])
@@ -268,7 +268,7 @@ export function filesystemReaderBackendEvidence(
     create: () => { readonly reader: FilesystemReaderBackend; readonly seed: FilesystemBackend }
 ): void {
     describe(`${implementation} filesystem reader backend evidence`, () => {
-        test("reads byte ranges and returns stat-inclusive sorted pages", () => {
+        test("reads byte ranges and returns stat-inclusive sorted pages", { tags: "p1" }, () => {
             const { reader, seed } = create();
             seed.mkdir("/docs");
             seed.write("/docs/b", new Uint8Array([1, 2, 3, 4]));
@@ -287,7 +287,7 @@ export function mutableFilesystemBackendEvidence(
     create: () => FilesystemBackend
 ): void {
     describe(`${implementation} mutable filesystem backend evidence`, () => {
-        test("honors write modes, atomic validation, and move semantics", () => {
+        test("honors write modes, atomic validation, and move semantics", { tags: "p1" }, () => {
             const filesystem = create();
             filesystem.mkdir("/a");
             filesystem.write("/a/file", new Uint8Array([1]), "create");

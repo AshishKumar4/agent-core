@@ -62,7 +62,7 @@ function expectCorrupt(snapshot: MemoryContentSnapshot): void {
 }
 
 describe("MemoryContentStore snapshot validation", () => {
-    test("rejects malformed snapshot roots and bindings", () => {
+    test("rejects malformed snapshot roots and bindings", { tags: "p0" }, () => {
         const malformed: readonly unknown[] = [
             null,
             {},
@@ -89,7 +89,7 @@ describe("MemoryContentStore snapshot validation", () => {
         expect(MemoryContentStore.restore(unbound).snapshot()).toEqual(unbound);
     });
 
-    test("rejects duplicate, malformed, and cryptographically inconsistent content rows", async () => {
+    test("rejects duplicate, malformed, and cryptographically inconsistent content rows", { tags: "p0" }, async () => {
         const snapshot = await populatedSnapshot();
         const row = snapshot.content[0]!;
         const otherDigest = Digest.sha256(encode("other-snapshot-content"));
@@ -111,7 +111,7 @@ describe("MemoryContentStore snapshot validation", () => {
         });
     });
 
-    test("rejects malformed, duplicate, foreign, and inconsistent owner relations", async () => {
+    test("rejects malformed, duplicate, foreign, and inconsistent owner relations", { tags: "p0" }, async () => {
         const snapshot = await populatedSnapshot();
         const edgeBytes = snapshot.edges[0]!;
         const relation = snapshot.relations[0]!;
@@ -141,7 +141,7 @@ describe("MemoryContentStore snapshot validation", () => {
         for (const corruption of corruptions) expectCorrupt(corruption);
     });
 
-    test("rejects malformed, duplicate, foreign, and disconnected lease records", async () => {
+    test("rejects malformed, duplicate, foreign, and disconnected lease records", { tags: "p0" }, async () => {
         const snapshot = await leaseOnlySnapshot();
         const leaseBytes = snapshot.leases[0]!;
         const decoded = TransientContentLeaseState.decode(leaseBytes);
@@ -182,7 +182,7 @@ describe("MemoryContentStore snapshot validation", () => {
         for (const corruption of corruptions) expectCorrupt(corruption);
     });
 
-    test("enforces snapshot owner binding and supports detached state clones", async () => {
+    test("enforces snapshot owner binding and supports detached state clones", { tags: "p0" }, async () => {
         const snapshot = await populatedSnapshot();
         const owner = contentOwner();
         expectAgentCoreError(
@@ -387,7 +387,7 @@ describe("MemoryContentStore snapshot validation", () => {
 });
 
 describe("MemoryContentStore transaction and lease isolation", () => {
-    test("requires binding, rejects nesting and foreign transactions, and expires callbacks", async () => {
+    test("requires binding, rejects nesting and foreign transactions, and expires callbacks", { tags: "p0" }, async () => {
         const unbound = new MemoryContentStore();
         expectAgentCoreError(() => unbound.transaction(() => undefined), "protocol.invalid-state");
 
@@ -424,7 +424,7 @@ describe("MemoryContentStore transaction and lease isolation", () => {
         first.transaction((transaction) => firstRetention.retain(transaction, edge, at(10)));
     });
 
-    test("rolls back asynchronous transaction results and leaves captured state inactive", () => {
+    test("rolls back asynchronous transaction results and leaves captured state inactive", { tags: "p0" }, () => {
         const store = new MemoryContentStore();
         const owner = contentOwner();
         store.retention(owner.tenant, owner.actor);
@@ -441,7 +441,7 @@ describe("MemoryContentStore transaction and lease isolation", () => {
         expectAgentCoreError(() => captured!.snapshot(), "actor.closed");
     });
 
-    test("handles missing bytes, immutable lease-key collision, collection, and stale handles", async () => {
+    test("handles missing bytes, immutable lease-key collision, collection, and stale handles", { tags: "p1" }, async () => {
         const store = new MemoryContentStore();
         const owner = contentOwner();
         const retention = store.retention(owner.tenant, owner.actor);
@@ -584,7 +584,7 @@ describe("MemoryContentStore transaction and lease isolation", () => {
         );
     });
 
-    test("uses the default observation clock for transient acquisition", async () => {
+    test("uses the default observation clock for transient acquisition", { tags: "p1" }, async () => {
         const store = new MemoryContentStore();
         const owner = contentOwner();
         store.retention(owner.tenant, owner.actor);

@@ -79,7 +79,7 @@ const factories: readonly [string, HarnessFactory][] = [
 ];
 
 describe("workspace storage parity", () => {
-    test("memory and SQLite expose the same complete record/index/pointer trace", () => {
+    test("memory and SQLite expose the same complete record/index/pointer trace", { tags: "p1" }, () => {
         const memoryStorage = createMemoryHarness();
         const sqliteStorage = createSqliteHarness();
         const memoryPersistence = createMemoryHarness();
@@ -109,7 +109,7 @@ describe("workspace storage parity", () => {
         }
     });
 
-    test.each(factories)("%s rolls back every Event write boundary", (_name, create) => {
+    test.each(factories)("%s rolls back every Event write boundary", { tags: "p0" }, (_name, create) => {
         for (const boundary of [1, 2, 3]) {
             const harness = create();
             const event = eventFixture(`event-boundary-${boundary}`);
@@ -130,7 +130,7 @@ describe("workspace storage parity", () => {
         }
     });
 
-    test.each(factories)("%s rolls back every View delta write boundary", (_name, create) => {
+    test.each(factories)("%s rolls back every View delta write boundary", { tags: "p0" }, (_name, create) => {
         for (const boundary of [1, 2, 3]) {
             const harness = create();
             const initial = viewFixture(0, `delta-boundary-${boundary}`);
@@ -163,6 +163,7 @@ describe("workspace storage parity", () => {
 
     test.each(factories)(
         "%s reconciles a committed write after an unknown acknowledgement and restart",
+        { tags: "p0" },
         (_name, create) => {
             const harness = create();
             const event = eventFixture("unknown-ack-storage");
@@ -192,7 +193,7 @@ describe("workspace storage parity", () => {
 });
 
 describe.each(factories)("%s persistence corruption coverage", (_name, create) => {
-    test("covers orphan listing, sort callbacks, multi-delta ordering, and every CAS operand", () => {
+    test("covers orphan listing, sort callbacks, multi-delta ordering, and every CAS operand", { tags: "p1" }, () => {
         const harness = create();
         harness.transaction((storage) => {
             const orphan = subscriptionFixture(`orphan-${_name}`);
@@ -258,7 +259,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
         harness.dispose();
     });
 
-    test("rejects every missing authoritative index and pointer target", () => {
+    test("rejects every missing authoritative index and pointer target", { tags: "p0" }, () => {
         const harness = create();
         harness.transaction((storage) => {
             storage.insertUnique({
@@ -331,7 +332,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
         harness.dispose();
     });
 
-    test("rejects every secondary index and pointer that names an unrelated valid record", () => {
+    test("rejects every secondary index and pointer that names an unrelated valid record", { tags: "p0" }, () => {
         const harness = create();
         harness.transaction((storage) => {
             const event = eventFixture("corrupt-index");
@@ -443,7 +444,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
         harness.dispose();
     });
 
-    test("rejects codec identity mismatches for every durable workspace record", () => {
+    test("rejects codec identity mismatches for every durable workspace record", { tags: "p0" }, () => {
         const harness = create();
         harness.transaction((storage) => {
             const event = eventFixture("codec-identity");
@@ -533,7 +534,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
         harness.dispose();
     });
 
-    test("rejects a mismatched ContentRetention codec identity during compaction", () => {
+    test("rejects a mismatched ContentRetention codec identity during compaction", { tags: "p0" }, () => {
         const harness = create();
         harness.transaction((storage) => {
             const initial = viewFixture(0, "retention-codec-identity");
@@ -568,7 +569,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
 });
 
 describe("memory workspace record coverage", () => {
-    test("snapshots are detached, restartable, and schema-versioned", () => {
+    test("snapshots are detached, restartable, and schema-versioned", { tags: "p0" }, () => {
         const bytes = Uint8Array.of(1, 2, 3);
         const records = new MemoryWorkspaceRecords();
         records.insertRecord(stored("event", "b", bytes));
@@ -607,7 +608,7 @@ describe("memory workspace record coverage", () => {
         ).toThrow(/version is unsupported/);
     });
 
-    test("covers duplicate, conflict, empty, compacted delete, and missing-map paths", () => {
+    test("covers duplicate, conflict, empty, compacted delete, and missing-map paths", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         expect(records.findRecord("event", "missing")).toBeUndefined();
         expect(records.findUnique("missing", "key")).toBeUndefined();
@@ -669,7 +670,7 @@ describe("memory workspace record coverage", () => {
 });
 
 describe("SQLite workspace record coverage", () => {
-    test("covers all record kinds, detached bytes, compacted deletes, and absent indexes", () => {
+    test("covers all record kinds, detached bytes, compacted deletes, and absent indexes", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const records = new SqliteWorkspaceEventRecords(database);
         const kinds: readonly WorkspaceRecordKind[] = [
@@ -707,7 +708,7 @@ describe("SQLite workspace record coverage", () => {
         expect(records.findPointer("missing", "key")).toBeUndefined();
     });
 
-    test("covers pointer insert, update, conflicts, and insert/update race postconditions", () => {
+    test("covers pointer insert, update, conflicts, and insert/update race postconditions", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const records = new SqliteWorkspaceEventRecords(database);
         expect(() =>
@@ -780,7 +781,7 @@ describe("SQLite workspace record coverage", () => {
         ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
     });
 
-    test("maps record and unique constraint races to exact duplicate codes", () => {
+    test("maps record and unique constraint races to exact duplicate codes", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const records = new SqliteWorkspaceEventRecords(database);
         database.run(
@@ -809,7 +810,7 @@ describe("SQLite workspace record coverage", () => {
         ).toBe("protocol.duplicate");
     });
 
-    test("rejects missing and incompatible schemas", () => {
+    test("rejects missing and incompatible schemas", { tags: "p1" }, () => {
         expect(() => new SqliteWorkspaceEventRecords(new MissingSchemaSqlite())).toThrow(
             /Missing SQLite schema/
         );
@@ -823,7 +824,7 @@ describe("SQLite workspace record coverage", () => {
         );
     });
 
-    test("rejects malformed SQLite record, unique, and pointer rows", () => {
+    test("rejects malformed SQLite record, unique, and pointer rows", { tags: "p1" }, () => {
         const database = new RowMutatingSqlite();
         const records = new SqliteWorkspaceEventRecords(database);
         records.insertRecord(stored("event", "event", Uint8Array.of(1)));
@@ -858,7 +859,7 @@ describe("SQLite workspace record coverage", () => {
         );
     });
 
-    test("survives a detached file-backed close and reopen", () => {
+    test("survives a detached file-backed close and reopen", { tags: "p0" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "agent-core-storage-coverage-"));
         const path = join(directory, "workspace.sqlite");
         let database: FileSqlite | undefined;
@@ -894,7 +895,7 @@ describe("SQLite workspace record coverage", () => {
 });
 
 describe.each(factories)("%s View replay and retention coverage", (_name, create) => {
-    test("replays restart/unknown-ack, current, ahead, and absent-surface paths", () => {
+    test("replays restart/unknown-ack, current, ahead, and absent-surface paths", { tags: "p1" }, () => {
         const harness = create();
         const patches = new DeterministicJsonPatchEngine();
         const protocol = new ViewReplayProtocol(harness.persistence, patches, sourceActor, tenant);
@@ -929,7 +930,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
         harness.dispose();
     });
 
-    test("falls back for missing bases, delta gaps, final revision gaps, and final byte mismatches", () => {
+    test("falls back for missing bases, delta gaps, final revision gaps, and final byte mismatches", { tags: "p1" }, () => {
         const scenarios = [
             "missing-base",
             "delta-gap",
@@ -959,7 +960,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
         }
     });
 
-    test("validates compaction floors and releases exact obsolete View and delta retentions", () => {
+    test("validates compaction floors and releases exact obsolete View and delta retentions", { tags: "p0" }, () => {
         const released: ContentRetentionReference[] = [];
         const harness = create({ released });
         const protocol = new ViewReplayProtocol(
@@ -1032,7 +1033,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
         harness.dispose();
     });
 
-    test("[C13-ADV-MISSING-CROSS-TENANT-BINDING] rejects retention verification, owner, tenant, binding, and exact-coverage failures", () => {
+    test("[C13-ADV-MISSING-CROSS-TENANT-BINDING] rejects retention verification, owner, tenant, binding, and exact-coverage failures", { tags: "p0" }, () => {
         const unverified = create({ verify: () => false });
         const event = eventFixture(`unverified-${_name}`);
         expect(() =>
@@ -1114,7 +1115,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
         missing.dispose();
     });
 
-    test("requires exact View and delta retention ownership across every field", () => {
+    test("requires exact View and delta retention ownership across every field", { tags: "p0" }, () => {
         const retained = content(`owner-content-${_name}`);
         for (const violation of ["actor", "tenant", "kind", "record"] as const) {
             const harness = create();
@@ -1210,7 +1211,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
 });
 
 describe("stored codec corruption coverage", () => {
-    test("rejects malformed metadata, bytes, and wrong decoded record classes", () => {
+    test("rejects malformed metadata, bytes, and wrong decoded record classes", { tags: "p1" }, () => {
         const event = eventFixture("malformed-storage");
         const records = new MemoryWorkspaceRecords();
         records.insertRecord(stored("event", event.id.value, Event.codec.encode(event)));
@@ -1249,7 +1250,7 @@ describe("stored codec corruption coverage", () => {
         wrongClass.mockRestore();
     });
 
-    test("rejects wrong decoded classes for every non-Event durable record kind", () => {
+    test("rejects wrong decoded classes for every non-Event durable record kind", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = newPersistence();
         const event = eventFixture("wrong-class-value");

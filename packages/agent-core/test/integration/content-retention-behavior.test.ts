@@ -9,7 +9,7 @@ import { at, contentOwner, expectAgentCoreError } from "../content/retention-con
 const bytes = new TextEncoder().encode("retained-across-restart");
 
 describe("memory content retention behavior", () => {
-    test("restores ownership after restart and rolls release plus collection back atomically", async () => {
+    test("restores ownership after restart and rolls release plus collection back atomically", { tags: "p0" }, async () => {
         const owner = contentOwner();
         const first = new MemoryContentStore();
         const firstRetention = first.retention(owner.tenant, owner.actor);
@@ -40,7 +40,7 @@ describe("memory content retention behavior", () => {
         });
     });
 
-    test("rejects a snapshot that retains an owner edge after cached content bytes are lost", async () => {
+    test("rejects a snapshot that retains an owner edge after cached content bytes are lost", { tags: "p0" }, async () => {
         const owner = contentOwner();
         const store = new MemoryContentStore();
         const retention = store.retention(owner.tenant, owner.actor);

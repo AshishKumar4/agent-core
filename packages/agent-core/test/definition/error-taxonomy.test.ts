@@ -19,7 +19,7 @@ import { TenantId } from "../../src/identity";
 const packageRoot = resolve(import.meta.dirname, "../..");
 
 describe("W4 error taxonomy", () => {
-    test("classifies every W4 throw site without bare errors", () => {
+    test("classifies every W4 throw site without bare errors", { tags: "p2", timeout: 120_000 }, () => {
         const result = spawnSync(
             process.execPath,
             [resolve(packageRoot, "artifacts/quality/check-w4-error-taxonomy.mjs")],
@@ -43,9 +43,9 @@ describe("W4 error taxonomy", () => {
             "protocol.invalid-state": 71,
             "protocol.revision-conflict": 17
         });
-    }, 120_000);
+    });
 
-    test("uses closed codes for unavailable pins and invalid evidence", () => {
+    test("uses closed codes for unavailable pins and invalid evidence", { tags: "p2" }, () => {
         const port = new FailClosedRunPinsReservationPort<undefined>();
         expectOperational(() => port.reserve(), "protocol.invalid-state");
         expectOperational(
@@ -93,7 +93,7 @@ describe("W4 error taxonomy", () => {
         "test/definition/fixtures/taxonomy-shadow.ts",
         "test/definition/fixtures/taxonomy-shadow-type-error.ts",
         "test/definition/fixtures/taxonomy-type-error.ts"
-    ])("rejects adversarial unclassified fixture %s", { timeout: 15_000 }, (fixture) => {
+    ])("rejects adversarial unclassified fixture %s", { tags: "p2", timeout: 15_000 }, (fixture) => {
         const result = spawnSync(
             process.execPath,
             [resolve(packageRoot, "artifacts/quality/check-w4-error-taxonomy.mjs")],

@@ -219,7 +219,12 @@ function requireExactLaneKeys(lanes) {
 
 function isTestDeclaration(expression) {
     if (ts.isIdentifier(expression))
-        return expression.text === "test" || expression.text === "it" || expression.text === "describe";
+        return (
+            expression.text === "test" || expression.text === "it" || expression.text === "describe"
+        );
+    // test.each(table)("title", options, fn) declares its options on the outer
+    // call, whose callee is the inner test.each(...) call.
+    if (ts.isCallExpression(expression)) return isTestDeclaration(expression.expression);
     if (!ts.isPropertyAccessExpression(expression)) return false;
     return isTestDeclaration(expression.expression);
 }

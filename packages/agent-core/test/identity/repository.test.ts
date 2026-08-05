@@ -78,7 +78,7 @@ const records = Object.freeze({
 });
 
 describe("MemoryIdentityRepository", () => {
-    test("is a synchronous read-only view over detached codec bytes", () => {
+    test("is a synchronous read-only view over detached codec bytes", { tags: "p1" }, () => {
         const source = identitySnapshot();
         const repository: IdentityRepository = new MemoryIdentityRepository(source);
         source.records[0]!.bytes.fill(0);
@@ -94,7 +94,7 @@ describe("MemoryIdentityRepository", () => {
         expect("saveMembership" in repository).toBe(false);
     });
 
-    test("[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.workspace] [identity.role] [identity.membership] [identity.guest-trust] restores every identity kind and returns a detached versioned snapshot", () => {
+    test("[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.workspace] [identity.role] [identity.membership] [identity.guest-trust] restores every identity kind and returns a detached versioned snapshot", { tags: "p1" }, () => {
         const repository = new MemoryIdentityRepository(identitySnapshot());
         const snapshot = repository.snapshot();
         const restarted = new MemoryIdentityRepository(snapshot);
@@ -114,7 +114,7 @@ describe("MemoryIdentityRepository", () => {
         expect(repository.loadTenant(tenantId)?.status).toBe("active");
     });
 
-    test("strictly rejects malformed snapshots and codec-key disagreement", () => {
+    test("strictly rejects malformed snapshots and codec-key disagreement", { tags: "p0" }, () => {
         const snapshot = identitySnapshot();
         expect(
             () =>

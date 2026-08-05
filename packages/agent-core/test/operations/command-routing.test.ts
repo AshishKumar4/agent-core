@@ -116,14 +116,14 @@ function routedSubscription(installed: InstalledCommand): Subscription {
 }
 
 describe("Command invocation routing", () => {
-    test("routes an invocation only when the derived Subscription accepts the Event trust", async () => {
+    test("routes an invocation only when the derived Subscription accepts the Event trust", { tags: "p0" }, async () => {
         const installed = install(["owner"]);
         expect(await reservationCount(installed, "owner", "cmd-owner")).toBe(1);
         expect(await reservationCount(installed, "authenticated", "cmd-authenticated")).toBe(0);
         expect(await reservationCount(installed, "external", "cmd-external")).toBe(0);
     });
 
-    test("routes exactly one reservation per invocation and dedupes a redelivered Event", async () => {
+    test("routes exactly one reservation per invocation and dedupes a redelivered Event", { tags: "p0" }, async () => {
         const installed = install(["owner", "authenticated", "self"]);
         const harness = createHarness();
         harness.transaction((state) =>

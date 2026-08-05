@@ -86,7 +86,7 @@ const tenant = new TenantId("profile-conformance-tenant");
 const principal = new PrincipalRef(tenant, new PrincipalId("profile-conformance-agent"));
 
 describe("Exact profile runtime conformance", () => {
-    test("[P11-BASE-NAMES] executes a platform alias without changing impact or invariants", async () => {
+    test("[P11-BASE-NAMES] executes a platform alias without changing impact or invariants", { tags: "p1" }, async () => {
         const canonical = FILESYSTEM_OPERATION_CONTRACTS.read;
         const aliased = canonical.alias("platform.readFile");
         const fixture = profileFixture("base-alias", aliased.descriptor);
@@ -104,7 +104,7 @@ describe("Exact profile runtime conformance", () => {
         expect(currentReceipt(fixture)).toMatchObject({ outcome: "succeeded" });
     });
 
-    test("[P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart", async () => {
+    test("[P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart", { tags: "p1" }, async () => {
         const fixture = approvalFixture("approval-continuation");
         await expect(fixture.facet.applyAction({ resource: "account" })).resolves.toEqual({
             applied: true
@@ -125,7 +125,7 @@ describe("Exact profile runtime conformance", () => {
         expect(fixture.backend.actions).toEqual([{ approved: true }]);
     });
 
-    test("[P11-APPROVAL-GATEWAY-MATCH] rejects an action not matching the approved PreparedInvocation and continuation", async () => {
+    test("[P11-APPROVAL-GATEWAY-MATCH] rejects an action not matching the approved PreparedInvocation and continuation", { tags: "p0" }, async () => {
         const fixture = approvalFixture("approval-match", "other");
         await expect(fixture.facet.applyAction({ resource: "account" })).rejects.toMatchObject({
             code: "invocation.invalid"
@@ -141,7 +141,7 @@ describe("Exact profile runtime conformance", () => {
         expect(fixture.backend.actions).toEqual([]);
     });
 
-    test("[C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt", async () => {
+    test("[C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt", { tags: "p1" }, async () => {
         const fixture = taskEventFixture("source-event-causality");
         await fixture.task.submitAction({ taskId: new TaskId("task"), action: { complete: true } });
 
@@ -153,7 +153,7 @@ describe("Exact profile runtime conformance", () => {
         expect(evidence.receiptAudit.kind).toMatchObject({ kind: "receipt", outcome: "succeeded" });
     });
 
-    test("[P11-TASK-EVENT] replays one mediated task source Event across profile and SQLite restart", async () => {
+    test("[P11-TASK-EVENT] replays one mediated task source Event across profile and SQLite restart", { tags: "p1" }, async () => {
         const fixture = taskEventFixture("task-event");
         const input = { taskId: new TaskId("task"), action: { complete: true } };
         await fixture.task.submitAction(input);
@@ -174,7 +174,7 @@ describe("Exact profile runtime conformance", () => {
         ).toHaveLength(1);
     });
 
-    test("[P11-DEVICE-COMMAND-EVENTS] persists invoked and completed Events with the command Receipt cause", async () => {
+    test("[P11-DEVICE-COMMAND-EVENTS] persists invoked and completed Events with the command Receipt cause", { tags: "p1" }, async () => {
         const fixture = deviceFixture("device-command-events");
         await fixture.device.command(commandInput());
         fixture.profile.harness.transactions.restart();
@@ -194,7 +194,7 @@ describe("Exact profile runtime conformance", () => {
         expect(fixture.transportCalls).toBe(1);
     });
 
-    test("[P11-DEVICE-TYPED-SURFACE] validates and executes the Surface command's typed Operation", async () => {
+    test("[P11-DEVICE-TYPED-SURFACE] validates and executes the Surface command's typed Operation", { tags: "p1" }, async () => {
         const fixture = deviceFixture("device-typed-surface");
         expect(DEVICE_COMMAND_SURFACE.id.value).toBe("device.commands");
         expect(DEVICE_COMMANDS.find((command) => command.name === "camera")?.arguments).toBe(
@@ -208,7 +208,7 @@ describe("Exact profile runtime conformance", () => {
         expect(fixture.transportCalls).toBe(1);
     });
 
-    test("[P11-SELF-RECEIPTS] persists and replays the canonical Self Operation Receipt", async () => {
+    test("[P11-SELF-RECEIPTS] persists and replays the canonical Self Operation Receipt", { tags: "p0" }, async () => {
         const dependency = new MemorySelfDependency();
         const fixture = selfFixture(
             "self-receipts",
@@ -223,7 +223,7 @@ describe("Exact profile runtime conformance", () => {
         expect(dependency.calls).toEqual(["checkpoint"]);
     });
 
-    test("[P11-SELF-AUDIT] persists exact Invocation-to-Attempt-to-Receipt audit edges", async () => {
+    test("[P11-SELF-AUDIT] persists exact Invocation-to-Attempt-to-Receipt audit edges", { tags: "p1" }, async () => {
         const fixture = selfFixture("self-audit", SELF_OPERATION_CONTRACTS.checkpoint.descriptor);
         await new SelfFacet(fixture.runtime, new MemorySelfDependency()).checkpoint({
             checkpoint: { value: 1 }
@@ -256,7 +256,7 @@ describe("Exact profile runtime conformance", () => {
         expect(receipt?.cause?.equals(attempt!.id)).toBe(true);
     });
 
-    test("[P11-SELF-LEASE] denies every Self Operation under a stale exact-Turn lease before EffectAttempt", async () => {
+    test("[P11-SELF-LEASE] denies every Self Operation under a stale exact-Turn lease before EffectAttempt", { tags: "p0" }, async () => {
         const turn = new TurnId("self-lease-turn");
         const holder = new PrincipalRef(tenant, new PrincipalId("self-lease-holder"));
         const live = TurnLease.unclaimed(turn).claim(holder, new Date(1), new Date(100));
@@ -291,7 +291,7 @@ describe("Exact profile runtime conformance", () => {
         }
     });
 
-    test("[P11-SELF-ATTENUATION] creates a child Run under a durably attenuated Grant", async () => {
+    test("[P11-SELF-ATTENUATION] creates a child Run under a durably attenuated Grant", { tags: "p0" }, async () => {
         const dependency = new AttenuatingSelfDependency(false);
         const fixture = selfFixture("self-attenuation", SELF_OPERATION_CONTRACTS.spawn.descriptor);
         await new SelfFacet(fixture.runtime, dependency).spawn({
@@ -311,7 +311,7 @@ describe("Exact profile runtime conformance", () => {
         ).toBe(true);
     });
 
-    test("[P11-SELF-NO-WIDENING] rejects a spawned child authority outside the parent closure", async () => {
+    test("[P11-SELF-NO-WIDENING] rejects a spawned child authority outside the parent closure", { tags: "p0" }, async () => {
         const dependency = new AttenuatingSelfDependency(true);
         const fixture = selfFixture("self-no-widening", SELF_OPERATION_CONTRACTS.spawn.descriptor);
         await expect(

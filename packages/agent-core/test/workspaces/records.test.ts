@@ -50,7 +50,7 @@ describe("workspace durable records", () => {
         ["ContentRetentionReference", ContentRetentionReference.codec, retention]
     ] as const;
 
-    test.each(records)("round-trips %s through canonical codec bytes", (_name, codec, record) => {
+    test.each(records)("round-trips %s through canonical codec bytes", { tags: "p1" }, (_name, codec, record) => {
         const recordCodec = codec as {
             encode(value: unknown): Uint8Array;
             decode(bytes: Uint8Array): unknown;
@@ -62,7 +62,7 @@ describe("workspace durable records", () => {
         expect(Object.isFrozen(decoded)).toBe(true);
     });
 
-    test.each(records)("rejects an unknown major for %s", (_name, codec, record) => {
+    test.each(records)("rejects an unknown major for %s", { tags: "p2" }, (_name, codec, record) => {
         const recordCodec = codec as {
             encode(value: unknown): Uint8Array;
             decode(bytes: Uint8Array): unknown;
@@ -77,7 +77,7 @@ describe("workspace durable records", () => {
         ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
     });
 
-    test("defensively copies and deeply freezes mutable record inputs", () => {
+    test("defensively copies and deeply freezes mutable record inputs", { tags: "p1" }, () => {
         const claims = { nested: { role: "operator" }, groups: ["alpha"] };
         const provenance = new EventProvenance({
             verification: EventVerification.verified(),
@@ -157,7 +157,7 @@ describe("workspace durable records", () => {
 });
 
 describe("event policy", () => {
-    test("derives host trust only from the complete host-and-lease fact set", () => {
+    test("derives host trust only from the complete host-and-lease fact set", { tags: "p0" }, () => {
         expect(
             deriveEventTrust({
                 authenticatedPrincipal: principal,
@@ -184,7 +184,7 @@ describe("event policy", () => {
         ).toThrow(/host emission under a valid Turn lease/);
     });
 
-    test("derives owner, authenticated, and external trust without elevation", () => {
+    test("derives owner, authenticated, and external trust without elevation", { tags: "p0" }, () => {
         expect(
             deriveEventTrust({
                 authenticatedPrincipal: principal,
@@ -217,7 +217,7 @@ describe("event policy", () => {
         ).toEqual({ tier: "external" });
     });
 
-    test("matches exact and categorical kind/source patterns plus accepted trust", () => {
+    test("matches exact and categorical kind/source patterns plus accepted trust", { tags: "p1" }, () => {
         const facetEvent = eventFixture("pattern", { kind: "task.created" });
         expect(eventMatches(subscriptionFixture("pattern").source, facetEvent)).toBe(true);
         expect(
@@ -241,7 +241,7 @@ describe("event policy", () => {
         ).toBe(false);
     });
 
-    test("maps root, arrays, escaped tokens, and literals without aliasing source data", () => {
+    test("maps root, arrays, escaped tokens, and literals without aliasing source data", { tags: "p1" }, () => {
         const source = { payload: { values: ["first", "second"] }, "a/b": { "~key": 3 } };
         const root = applyPayloadMapping(
             new PayloadMapping([new FieldMove("", { from: "/payload" })]),
@@ -267,7 +267,7 @@ describe("event policy", () => {
         });
     });
 
-    test("rejects missing source pointers and overlapping targets", () => {
+    test("rejects missing source pointers and overlapping targets", { tags: "p2" }, () => {
         expect(() =>
             applyPayloadMapping(
                 new PayloadMapping([new FieldMove("/value", { from: "/missing" })]),
@@ -288,7 +288,7 @@ describe("event policy", () => {
         }
     });
 
-    test("rejects overlapping mapping targets when constructing a durable Subscription", () => {
+    test("rejects overlapping mapping targets when constructing a durable Subscription", { tags: "p1" }, () => {
         expect(() =>
             subscriptionFixture("overlap-install", {
                 mapping: new PayloadMapping([
@@ -299,7 +299,7 @@ describe("event policy", () => {
         ).toThrow(/duplicate or overlap/);
     });
 
-    test("treats prototype names as inert own JSON keys", () => {
+    test("treats prototype names as inert own JSON keys", { tags: "p1" }, () => {
         delete (Object.prototype as { polluted?: unknown }).polluted;
         try {
             const mapped = applyPayloadMapping(
@@ -324,7 +324,7 @@ describe("event policy", () => {
         }
     });
 
-    test("derives all four stable dedupe policies", () => {
+    test("derives all four stable dedupe policies", { tags: "p0" }, () => {
         const cause = eventFixture("dedupe-cause").id;
         const event = eventFixture("dedupe", { causation: cause });
         expect(routeDedupeKey("event", event)).toBe(`event:${event.id.value}`);

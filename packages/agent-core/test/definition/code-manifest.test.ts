@@ -11,7 +11,7 @@ import { FacetPackageId } from "../../src/facets";
 const encoder = new TextEncoder();
 
 describe("PackageCodeManifest", () => {
-    test("[definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure", () => {
+    test("[definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure", { tags: "p0" }, () => {
         const main = module("./main.js", "main", ["./dependency.js"]);
         const dependency = module("./dependency.js", "dependency");
         const entrypoint = entry("facet", "./main.js");
@@ -40,7 +40,7 @@ describe("PackageCodeManifest", () => {
         ).toEqual(PackageCodeManifest.encode(first));
     });
 
-    test("rejects missing imports entrypoints orphan modules and forged digests", () => {
+    test("rejects missing imports entrypoints orphan modules and forged digests", { tags: "p0" }, () => {
         const entrypoint = entry("facet", "./main.js");
         expect(
             () =>
@@ -85,7 +85,7 @@ describe("PackageCodeManifest", () => {
         ).toThrow(/requires modules and entrypoints/);
     });
 
-    test("rejects duplicate identities and noncanonical module syntax", () => {
+    test("rejects duplicate identities and noncanonical module syntax", { tags: "p1" }, () => {
         const main = module("./main.js", "main");
         const entrypoint = entry("facet", "./main.js");
         expect(
@@ -141,7 +141,7 @@ describe("PackageCodeManifest", () => {
         ).toThrow(/valid calendar date/);
     });
 
-    test("binds media and compatibility date into the derived code digest", () => {
+    test("binds media and compatibility date into the derived code digest", { tags: "p0" }, () => {
         const main = module("./main.js", "main");
         const entrypoint = entry("facet", "./main.js");
         const baseline = new PackageCodeManifest({
@@ -170,7 +170,7 @@ describe("PackageCodeManifest", () => {
         expect(changedDate.digest.equals(baseline.digest)).toBe(false);
     });
 
-    test("strictly decodes constituent data and supports exact module lookup", () => {
+    test("strictly decodes constituent data and supports exact module lookup", { tags: "p1" }, () => {
         const manifest = new PackageCodeManifest({
             compatibilityDate: "2026-07-10",
             modules: [module("./main.js", "main")],

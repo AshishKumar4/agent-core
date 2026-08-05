@@ -66,7 +66,7 @@ class MemoryHarness implements InvocationHarness<InvocationMemoryState> {
 
 invocationLedgerContract("memory", () => new MemoryHarness());
 
-test("[C13-ADV-UNCHANGED-RECOVERY-OWNER] [invocation-persistence] memory rejects duplicate durable identities", () => {
+test("[C13-ADV-UNCHANGED-RECOVERY-OWNER] [invocation-persistence] memory rejects duplicate durable identities", { tags: "p0" }, () => {
     const state = createInvocationMemoryState();
     const persistence = new MemoryInvocationPersistence(invocationCodecs);
     const invocation = prepared("memory-duplicates");
@@ -142,7 +142,7 @@ test("[C13-ADV-UNCHANGED-RECOVERY-OWNER] [invocation-persistence] memory rejects
     expect(persistence.receipt(state, new ReceiptId("missing"))).toBeUndefined();
 });
 
-test("[C13-ATTEMPT-ORDINAL-AFTER-FAILURE] [invocation-persistence] memory rejects valid-byte index substitution", () => {
+test("[C13-ATTEMPT-ORDINAL-AFTER-FAILURE] [invocation-persistence] memory rejects valid-byte index substitution", { tags: "p0" }, () => {
     const state = createInvocationMemoryState();
     const persistence = new MemoryInvocationPersistence(invocationCodecs);
     const left = prepared("memory-index-left");
@@ -151,7 +151,7 @@ test("[C13-ATTEMPT-ORDINAL-AFTER-FAILURE] [invocation-persistence] memory reject
     expect(() => persistence.prepared(state, left.header.id)).toThrow(/index/);
 });
 
-test("[invocation-persistence] memory rejects corrupt order and reverse indexes", () => {
+test("[invocation-persistence] memory rejects corrupt order and reverse indexes", { tags: "p0" }, () => {
     const state = createInvocationMemoryState();
     const persistence = new MemoryInvocationPersistence(invocationCodecs);
     const invocation = prepared("memory-indexes");
@@ -199,7 +199,7 @@ test("[invocation-persistence] memory rejects corrupt order and reverse indexes"
     expect(() => persistence.receipt(fresh, receipt.id)).toThrow(/order/);
 });
 
-test("[C13-EFFECT-SUPERSEDING-RECEIPT] [invocation-persistence] ledger rejects missing and cyclic Receipt predecessors", () => {
+test("[C13-EFFECT-SUPERSEDING-RECEIPT] [invocation-persistence] ledger rejects missing and cyclic Receipt predecessors", { tags: "p0" }, () => {
     const make = () => {
         const state = createInvocationMemoryState();
         const persistence = new MemoryInvocationPersistence(invocationCodecs);
@@ -276,7 +276,7 @@ test("[C13-EFFECT-SUPERSEDING-RECEIPT] [invocation-persistence] ledger rejects m
     ).toThrow(/disconnected lineage/);
 });
 
-test("[C13-ADV-RECEIPT-FAILED] [invocation-persistence] memory fails closed on substituted durable record identities", () => {
+test("[C13-ADV-RECEIPT-FAILED] [invocation-persistence] memory fails closed on substituted durable record identities", { tags: "p0" }, () => {
     const invocation = prepared("memory-substitution");
     const other = prepared("memory-substitution-other");
     const approval = Approval.pending(

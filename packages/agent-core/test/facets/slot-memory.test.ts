@@ -16,7 +16,7 @@ import {
 workspaceSlotStoreContract("Memory", (owner) => new MemoryWorkspaceSlotStore(owner));
 
 describe("MemoryWorkspaceSlotStore snapshots", () => {
-    test("[C13-FACET-CONTRIBUTION-MATERIALIZATION] supports idempotent high-level install and contribution operations", () => {
+    test("[C13-FACET-CONTRIBUTION-MATERIALIZATION] supports idempotent high-level install and contribution operations", { tags: "p1" }, () => {
         const store = new MemoryWorkspaceSlotStore(new WorkspaceId("workspace"));
         const declaration = slot();
         const candidate = entry("workspace:facet", 1, { title: "Card" });
@@ -47,7 +47,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         expect(() => store.transaction(() => store.transaction(() => true))).toThrow(/Nested/);
     });
 
-    test("restores detached state and rejects owner/key corruption", () => {
+    test("restores detached state and rejects owner/key corruption", { tags: "p0" }, () => {
         const owner = new WorkspaceId("workspace");
         const store = new MemoryWorkspaceSlotStore(owner);
         install(store, slot());
@@ -81,7 +81,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         ).toThrow(/duplicate/);
     });
 
-    test("[C13-FACET-SLOT-VISIBILITY] binds SlotCatalog to an authenticated Workspace viewer and filters every entry", async () => {
+    test("[C13-FACET-SLOT-VISIBILITY] binds SlotCatalog to an authenticated Workspace viewer and filters every entry", { tags: "p0" }, async () => {
         const owner = new WorkspaceId("workspace");
         const store = new MemoryWorkspaceSlotStore(owner);
         const declaration = slot();
@@ -122,7 +122,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         ).toThrow(/authenticated viewer/);
     });
 
-    test("[C13-INTERCEPTOR-THROW-BLOCK] rejects malformed snapshots, immutable origins, and out-of-transaction access with typed errors", async () => {
+    test("[C13-INTERCEPTOR-THROW-BLOCK] rejects malformed snapshots, immutable origins, and out-of-transaction access with typed errors", { tags: "p0" }, async () => {
         const owner = new WorkspaceId("workspace");
         const store = new MemoryWorkspaceSlotStore(owner);
         const declaration = slot();
@@ -203,7 +203,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         );
     });
 
-    test("[C13-INTERCEPTOR-ORDER] validates every committed map edge and deterministic snapshot ordering", async () => {
+    test("[C13-INTERCEPTOR-ORDER] validates every committed map edge and deterministic snapshot ordering", { tags: "p1" }, async () => {
         const owner = new WorkspaceId("workspace");
         const store = new MemoryWorkspaceSlotStore(owner);
         const alpha = new SlotDeclaration(
@@ -256,7 +256,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         expect(typeof store.transaction(() => () => true)).toBe("function");
     });
 
-    test("rejects orphaned, schema-invalid, and duplicate-origin snapshots", () => {
+    test("rejects orphaned, schema-invalid, and duplicate-origin snapshots", { tags: "p0" }, () => {
         const owner = new WorkspaceId("workspace");
         const declaration = slot();
         const valid = entry("workspace:facet", 1, { title: "Valid" });
@@ -292,7 +292,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         ).toThrow(/origin/);
     });
 
-    test("[C13-INTERCEPTOR-CROSS-FACET] rejects cross-workspace restore, non-Promise thenables, and duplicate draft origins", () => {
+    test("[C13-INTERCEPTOR-CROSS-FACET] rejects cross-workspace restore, non-Promise thenables, and duplicate draft origins", { tags: "p0" }, () => {
         const owner = new WorkspaceId("workspace");
         const store = new MemoryWorkspaceSlotStore(owner);
         const declaration = slot();

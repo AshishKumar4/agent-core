@@ -48,14 +48,14 @@ contentRetentionContract("SQLite", () => {
 });
 
 describe("SqliteContentStore", () => {
-    test("does not expose transient hold or GC methods", () => {
+    test("does not expose transient hold or GC methods", { tags: "p0" }, () => {
         expect(SqliteContentStore.prototype).not.toHaveProperty("putHeld");
         expect(SqliteContentStore.prototype).not.toHaveProperty("getHeld");
         expect(SqliteContentStore.prototype).not.toHaveProperty("release");
         expect(SqliteContentStore.prototype).not.toHaveProperty("reap");
     });
 
-    test("[C13-CONTENT-RESOLUTION] resolves content and retention edges after an adapter restart", async () => {
+    test("[C13-CONTENT-RESOLUTION] resolves content and retention edges after an adapter restart", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const owner = contentOwner();
         const first = new SqliteContentStore(database);
@@ -83,7 +83,7 @@ describe("SqliteContentStore", () => {
         expect(collected).toEqual([stored.ref]);
     });
 
-    test("rejects a corrupt row on a content-address conflict", async () => {
+    test("rejects a corrupt row on a content-address conflict", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const store = new SqliteContentStore(database);
         const bytes = encode("conflict");
@@ -92,7 +92,7 @@ describe("SqliteContentStore", () => {
         await expectAgentCoreRejection(store.put(bytes), "codec.invalid");
     });
 
-    test("uses strict tables for blobs and retention", () => {
+    test("uses strict tables for blobs and retention", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = new SqliteContentStore(database);
         const owner = contentOwner();
@@ -107,7 +107,7 @@ describe("SqliteContentStore", () => {
         for (const row of rows) expect(row["sql"]).toEqual(expect.stringMatching(/STRICT$/));
     });
 
-    test("detects persisted owner-edge corruption before GC or mutation", async () => {
+    test("detects persisted owner-edge corruption before GC or mutation", { tags: "p0" }, async () => {
         const corruptions: readonly ((database: TestSqlite) => void)[] = [
             (database) =>
                 database.run("UPDATE content_owner_edges SET ref = ?", [
@@ -140,7 +140,7 @@ describe("SqliteContentStore", () => {
         }
     });
 
-    test("fails closed on malformed lease and unowned relation rows", async () => {
+    test("fails closed on malformed lease and unowned relation rows", { tags: "p0" }, async () => {
         const corruptions: readonly ((database: TestSqlite) => void)[] = [
             (database) =>
                 database.run("UPDATE content_transient_leases SET record = ?", [
@@ -169,7 +169,7 @@ describe("SqliteContentStore", () => {
         }
     });
 
-    test("rolls back transient bytes, relation, and lease together", async () => {
+    test("rolls back transient bytes, relation, and lease together", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -189,7 +189,7 @@ describe("SqliteContentStore", () => {
         await expect(access.acquire(binding, encode("atomic sqlite"))).resolves.toBeDefined();
     });
 
-    test("reacquires an expired same-envelope lease after adapter restart", async () => {
+    test("reacquires an expired same-envelope lease after adapter restart", { tags: "p1" }, async () => {
         const database = new TestSqlite();
         const owner = contentOwner();
         const first = new SqliteContentStore(database);
@@ -208,7 +208,7 @@ describe("SqliteContentStore", () => {
         expect(replacement?.matches(replacementBinding, at(59))).toBe(true);
     });
 
-    test("accepts root and live same-provenance Actor transactions but rejects stale scopes", async () => {
+    test("accepts root and live same-provenance Actor transactions but rejects stale scopes", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -249,7 +249,7 @@ describe("SqliteContentStore", () => {
         );
     });
 
-    test("rejects same-identity transactions from another SQLite capability", async () => {
+    test("rejects same-identity transactions from another SQLite capability", { tags: "p0" }, async () => {
         const owner = contentOwner();
         const firstDatabase = new TestSqlite();
         const secondDatabase = new TestSqlite();
@@ -280,7 +280,7 @@ describe("SqliteContentStore", () => {
         );
     });
 
-    test("validates ref, digest, size, and recomputed bytes on every read", async () => {
+    test("validates ref, digest, size, and recomputed bytes on every read", { tags: "p0" }, async () => {
         const corruptions: readonly {
             readonly corrupt: (database: TestSqlite, ref: ContentRef) => ContentRef;
             readonly name: string;

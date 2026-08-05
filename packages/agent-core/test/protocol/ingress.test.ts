@@ -20,7 +20,7 @@ import { CommandIngress } from "../../src/protocol/ingress";
 import { CounterHarness } from "./counter-fixture";
 import { expectAgentCoreErrorValue } from "./error-assertion";
 
-test("CommandIngress owns the raw envelope before asynchronous preparation", async () => {
+test("CommandIngress owns the raw envelope before asynchronous preparation", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
     const raw = harness.envelope({ key: "copied-envelope", amount: 2 });
     const barrier = harness.pauseNextPayloadGet();
@@ -35,7 +35,7 @@ test("CommandIngress owns the raw envelope before asynchronous preparation", asy
     expect(harness.snapshot().value).toBe(2);
 });
 
-test("[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministic malformed evidence", async () => {
+test("[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministic malformed evidence", { tags: "p1" }, async () => {
     const harness = new CounterHarness();
     const payload = new Uint8Array(1025);
     const digest = Digest.sha256(payload);
@@ -61,7 +61,7 @@ test("[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministi
     });
 });
 
-test("injected transport authentication cannot forge the envelope caller", async () => {
+test("injected transport authentication cannot forge the envelope caller", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
     const ingress = new CommandIngress({
         dispatcher: harness.dispatcher,
@@ -80,7 +80,7 @@ test("injected transport authentication cannot forge the envelope caller", async
     expect(harness.snapshot()).toMatchObject({ value: 1, contentGets: 1 });
 });
 
-test("transport authentication absence and faults remain typed pre-dispatch outcomes", async () => {
+test("transport authentication absence and faults remain typed pre-dispatch outcomes", { tags: "p1" }, async () => {
     const harness = new CounterHarness();
     const raw = harness.envelope({ key: "transport-faults" });
     const absent = new CommandIngress({
@@ -109,7 +109,7 @@ test("transport authentication absence and faults remain typed pre-dispatch outc
     });
 });
 
-test("authentications retain the issued caller instead of a mutable transport object", async () => {
+test("authentications retain the issued caller instead of a mutable transport object", { tags: "p0" }, async () => {
     const tenant = new TenantId("issued-tenant");
     const caller: { kind: "principal"; principal: PrincipalRef } = {
         kind: "principal",
@@ -140,7 +140,7 @@ test("authentications retain the issued caller instead of a mutable transport ob
     ).toBe(false);
 });
 
-test("forged heldContentVerifier cannot replace transport authentication", () => {
+test("forged heldContentVerifier cannot replace transport authentication", { tags: "p0" }, () => {
     const harness = new CounterHarness();
     Object.defineProperty(harness.dispatcher, "heldContentVerifier", {
         value: harness.content
@@ -156,7 +156,7 @@ test("forged heldContentVerifier cannot replace transport authentication", () =>
     expect(() => new CommandIngress(forgedInit)).toThrow(/requires a transport authenticator/);
 });
 
-test("exact authentication precedes unknown-command malformed and replay", async () => {
+test("exact authentication precedes unknown-command malformed and replay", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
     const payload = harness.payloadBytes();
     const digest = Digest.sha256(payload);
@@ -195,7 +195,7 @@ test("exact authentication precedes unknown-command malformed and replay", async
     });
 });
 
-test("reference mismatch is rejected without touching transient content", async () => {
+test("reference mismatch is rejected without touching transient content", { tags: "p1" }, async () => {
     const harness = new CounterHarness();
     const payload = harness.payloadBytes();
     const payloadDigest = Digest.sha256(payload);
@@ -215,7 +215,7 @@ test("reference mismatch is rejected without touching transient content", async 
 });
 
 test.each([undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
-    "rejects invalid payload lease duration %s",
+    "rejects invalid payload lease duration %s", { tags: "p1" },
     (leaseForMilliseconds) => {
         const harness = new CounterHarness();
         expect(
@@ -230,7 +230,7 @@ test.each([undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
     }
 );
 
-test("rejects unsafe lease expiry", async () => {
+test("rejects unsafe lease expiry", { tags: "p1" }, async () => {
     const harness = new CounterHarness();
     const ingress = new CommandIngress({
         dispatcher: harness.dispatcher,
@@ -252,7 +252,7 @@ test("rejects unsafe lease expiry", async () => {
 });
 
 test.each(["authUnknown", "contentUnknown"] as const)(
-    "%s before command transaction remains notAttempted and does not poison Actor",
+    "%s before command transaction remains notAttempted and does not poison Actor", { tags: "p0" },
     async (fault) => {
         const harness = new CounterHarness();
         harness.setFault(fault);

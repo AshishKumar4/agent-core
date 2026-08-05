@@ -15,7 +15,7 @@ import { AuditRecordId, ReceiptId } from "../../src/invocations";
 const encoder = new TextEncoder();
 
 describe("RunPins integration ports", () => {
-    test("fails closed when W5 reservation and migration evidence is unavailable", () => {
+    test("fails closed when W5 reservation and migration evidence is unavailable", { tags: "p0" }, () => {
         const port: RunPinsReservationPort<undefined> = new FailClosedRunPinsReservationPort();
         const pins = definitionPins();
         const holder = new ActorRef("run", new ActorId("run"));

@@ -90,7 +90,7 @@ const placement = new (class extends PlacementSourcePort {
 })();
 
 describe("Blueprint validation", () => {
-    test("uses strict production validation by default, including uri formats", () => {
+    test("uses strict production validation by default, including uri formats", { tags: "p1" }, () => {
         const release = packageRelease("remote-api", {
             configSchema: new JsonSchema({
                 additionalProperties: false,
@@ -117,7 +117,7 @@ describe("Blueprint validation", () => {
         ).not.toThrow();
     });
 
-    test("rejects remote package schema references before materialization", () => {
+    test("rejects remote package schema references before materialization", { tags: "p0" }, () => {
         const release = packageRelease("remote-ref", {
             configSchema: new JsonSchema({ $ref: "https://example.com/config.schema.json" })
         });
@@ -130,7 +130,7 @@ describe("Blueprint validation", () => {
         ).toThrow(/Remote JSON Schema reference/);
     });
 
-    test("validates config against exact locked metadata before loading code", () => {
+    test("validates config against exact locked metadata before loading code", { tags: "p0" }, () => {
         const release = packageRelease("acme.deploy", {
             configSchema: new JsonSchema({
                 properties: { token: SECRET_REF_SCHEMA.document },
@@ -171,7 +171,7 @@ describe("Blueprint validation", () => {
         expect(Object.keys(result)).not.toContain("loader");
     });
 
-    test("[C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata", () => {
+    test("[C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata", { tags: "p0" }, () => {
         const dependency = packageRelease("dep");
         const root = packageRelease("root", {
             dependencies: [new PackageDependency(new PackageId("dep"), "^1")]
@@ -211,7 +211,7 @@ describe("Blueprint validation", () => {
         ).toThrow(/deterministic resolution/);
     });
 
-    test("re-resolves exact snapshot metadata to reject cycles and prerelease bypasses", () => {
+    test("re-resolves exact snapshot metadata to reject cycles and prerelease bypasses", { tags: "p0" }, () => {
         const cyclicRoot = packageRelease("root", {
             dependencies: [new PackageDependency(new PackageId("dep"), "*")]
         });
@@ -239,7 +239,7 @@ describe("Blueprint validation", () => {
         ).toThrow(/No version/);
     });
 
-    test("rejects a lock whose bytes differ from deterministic resolution", () => {
+    test("rejects a lock whose bytes differ from deterministic resolution", { tags: "p0" }, () => {
         const lower = packageRelease("app", { version: "1.0.0" });
         const higher = packageRelease("app", { version: "2.0.0" });
         const snapshot = new MetadataSnapshot({
@@ -265,7 +265,7 @@ describe("Blueprint validation", () => {
         ).toThrow(/deterministic resolution/);
     });
 
-    test("validates slot declarations, contribution schemas, and declaration targets", () => {
+    test("validates slot declarations, contribution schemas, and declaration targets", { tags: "p1" }, () => {
         const cardSlot = new SlotDeclaration(
             new SlotName("dashboard.card"),
             new JsonSchema({
@@ -318,7 +318,7 @@ describe("Blueprint validation", () => {
         ).toThrow(/does not match slot dashboard.card/);
     });
 
-    test("keeps unsupported executable-shaped contributions as inert declarations", () => {
+    test("keeps unsupported executable-shaped contributions as inert declarations", { tags: "p1" }, () => {
         const futureSlot = new SlotDeclaration(
             new SlotName("future.executors"),
             new JsonSchema({
@@ -350,7 +350,7 @@ describe("Blueprint validation", () => {
         expect(Object.isFrozen(result.declarations)).toBe(true);
     });
 
-    test("[C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code", () => {
+    test("[C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code", { tags: "p0" }, () => {
         const objectSchema = new JsonSchema({ type: "object" });
         const move = new FieldMove("", { from: "" });
         const command = new Command({
@@ -465,7 +465,7 @@ describe("Blueprint validation", () => {
         }
     });
 
-    test("requires owner-published codecs for nonempty foreign declarations", () => {
+    test("requires owner-published codecs for nonempty foreign declarations", { tags: "p1" }, () => {
         const release = packageRelease("agents");
         const source = new Blueprint({
             meta: { name: "test", version: new SemVer("1.0.0") },
@@ -491,7 +491,7 @@ describe("Blueprint validation", () => {
         ).not.toThrow();
     });
 
-    test("rejects noncanonical owner declarations and nonpreferred placement claims", () => {
+    test("rejects noncanonical owner declarations and nonpreferred placement claims", { tags: "p1" }, () => {
         const release = packageRelease("owner-codec");
         const source = new Blueprint({
             meta: { name: "test", version: new SemVer("1.0.0") },
@@ -559,7 +559,7 @@ describe("Blueprint validation", () => {
         ).toThrow(/compatibility target/);
     });
 
-    test("rejects duplicate and core slot declarations plus unknown command surfaces", () => {
+    test("rejects duplicate and core slot declarations plus unknown command surfaces", { tags: "p1" }, () => {
         const slot = new SlotDeclaration(
             new SlotName("duplicate.slot"),
             new JsonSchema({ type: "object" }),
@@ -623,7 +623,7 @@ describe("Blueprint validation", () => {
         ).toThrow(/undeclared surface slot/);
     });
 
-    test("validates every optional Blueprint declaration through its owner codec", () => {
+    test("validates every optional Blueprint declaration through its owner codec", { tags: "p1" }, () => {
         const release = packageRelease("all-declarations");
         const source = new Blueprint({
             meta: { name: "all", version: new SemVer("1.0.0") },
@@ -651,7 +651,7 @@ describe("Blueprint validation", () => {
         ).toHaveLength(1);
     });
 
-    test("derives deterministic validated bytes from Blueprint and exact lock", () => {
+    test("derives deterministic validated bytes from Blueprint and exact lock", { tags: "p0" }, () => {
         const alpha = packageRelease("alpha");
         const zeta = packageRelease("zeta");
         const lock = packageLock([zeta, alpha]);

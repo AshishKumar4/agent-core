@@ -42,7 +42,7 @@ const durableTypes = [
 ] as const;
 
 describe("W5 ownership isolation", () => {
-    it("maps every durable W5 codec to exactly one owner and store", () => {
+    it("maps every durable W5 codec to exactly one owner and store", { tags: "p2" }, () => {
         const artifact = JSON.parse(
             readFileSync(
                 resolve(process.cwd(), "artifacts/integration/request-archive/W5/ownership.json"),
@@ -60,7 +60,7 @@ describe("W5 ownership isolation", () => {
         }
     });
 
-    it("keeps mutable source records out of Run storage", async () => {
+    it("keeps mutable source records out of Run storage", { tags: "p2" }, async () => {
         const { RUN_RECORD_KINDS } = await import("../../../src/agents/runs/store");
         expect(RUN_RECORD_KINDS).not.toContain("agent-revision");
         expect(RUN_RECORD_KINDS).not.toContain("policy-revision");

@@ -118,7 +118,7 @@ describe("Slate records", () => {
         }
     ] as const;
 
-    test.each(records)("$name round-trips a strict codec 1.0 record", ({ codec, record }) => {
+    test.each(records)("$name round-trips a strict codec 1.0 record", { tags: "p1" }, ({ codec, record }) => {
         const bytes = codec.encode(record as never);
         const envelope = object(decodeCanonicalJson(bytes));
 
@@ -127,7 +127,7 @@ describe("Slate records", () => {
         expect(Object.isFrozen(codec.decode(bytes))).toBe(true);
     });
 
-    test.each(records)("$name rejects unknown codec majors", ({ codec, record }) => {
+    test.each(records)("$name rejects unknown codec majors", { tags: "p1" }, ({ codec, record }) => {
         const envelope = object(decodeCanonicalJson(codec.encode(record as never)));
         const future = encodeCanonicalJson({ ...envelope, version: { major: 2, minor: 0 } });
 
@@ -136,7 +136,7 @@ describe("Slate records", () => {
         );
     });
 
-    test("rejects unknown payload fields and invalid cross-field shapes", () => {
+    test("rejects unknown payload fields and invalid cross-field shapes", { tags: "p1" }, () => {
         const envelope = object(
             decodeCanonicalJson(Slate.encode(Slate.initial(slateId, workspace, source)))
         );
@@ -178,7 +178,7 @@ describe("Slate records", () => {
         ).toThrow(TypeError);
     });
 
-    test("rejects primitive, mistyped, negative, and malformed Slate codec states", () => {
+    test("rejects primitive, mistyped, negative, and malformed Slate codec states", { tags: "p1" }, () => {
         const slate = Slate.initial(slateId, workspace, source);
         const envelope = object(decodeCanonicalJson(Slate.encode(slate)));
         const payload = object(envelope["payload"]);
@@ -194,7 +194,7 @@ describe("Slate records", () => {
         }
     });
 
-    test("rejects malformed identities for every Slate durable record", () => {
+    test("rejects malformed identities for every Slate durable record", { tags: "p1" }, () => {
         expect(
             () =>
                 new Slate({
@@ -289,7 +289,7 @@ describe("Slate records", () => {
         ).toThrow(TypeError);
     });
 
-    test("rejects non-string deployment targets in codec data", () => {
+    test("rejects non-string deployment targets in codec data", { tags: "p1" }, () => {
         const deployment = records[3].record as SlateDeployment;
         const envelope = object(decodeCanonicalJson(SlateDeployment.encode(deployment)));
         const payload = object(envelope["payload"]);
@@ -303,7 +303,7 @@ describe("Slate records", () => {
         ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
     });
 
-    test("round-trips optional version ancestry and clears an active deployment", () => {
+    test("round-trips optional version ancestry and clears an active deployment", { tags: "p1" }, () => {
         const child = new SlateVersion(
             new SlateVersionId("version-child"),
             workspace,
@@ -319,7 +319,7 @@ describe("Slate records", () => {
         expect(active.selectDeployment(undefined).activeDeploymentId).toBeUndefined();
     });
 
-    test("uses ContentRef values for every source and materialization", () => {
+    test("uses ContentRef values for every source and materialization", { tags: "p1" }, () => {
         const version = records[1].record as SlateVersion;
         const publication = records[2].record as SlatePublication;
         const deployment = records[3].record as SlateDeployment;
@@ -337,7 +337,7 @@ describe("Slate records", () => {
         expect(preview.exposureId).toBeInstanceOf(PortExposureId);
     });
 
-    test("canonical intents reject unknown fields and unbranded identifiers", () => {
+    test("canonical intents reject unknown fields and unbranded identifiers", { tags: "p1" }, () => {
         const request = freezeSlateInvocationRequest({
             operation: "deploy",
             impact: "externalSend",
@@ -443,7 +443,7 @@ describe("Slate records", () => {
         );
     });
 
-    test("codes Slate operation failures while constructors remain TypeError", () => {
+    test("codes Slate operation failures while constructors remain TypeError", { tags: "p1" }, () => {
         const slate = Slate.initial(slateId, workspace, source);
         expect(() => slate.update(source)).toThrow(
             new AgentCoreError("operation.invalid-input", "Slate update must change its source")
@@ -477,7 +477,7 @@ describe("Slate records", () => {
         );
     });
 
-    test("validates and freezes Slate effect context identity", () => {
+    test("validates and freezes Slate effect context identity", { tags: "p0" }, () => {
         const invocationId = new InvocationId("invocation-effect-context");
         const context = new SlateEffectContext(invocationId, 2, 3, "item-key");
         const retry = new SlateEffectContext(invocationId, 2, 4, "item-key");

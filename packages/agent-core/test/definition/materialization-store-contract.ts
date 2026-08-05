@@ -34,7 +34,7 @@ export function materializationStoreContract<TTransaction>(
     create: (owner: ActorRef) => MaterializationStoreContract<TTransaction>
 ): void {
     describe(`${name} MaterializationStore contract`, () => {
-        test("returns undefined for every absent immutable record and deployment pointer", () => {
+        test("returns undefined for every absent immutable record and deployment pointer", { tags: "p1" }, () => {
             const actor = actorRef("empty");
             const store = create(actor);
             expect(store.getBlueprint("missing", new SemVer("1.0.0"))).toBeUndefined();
@@ -48,7 +48,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.getGenerationPointer(actor, deploymentId)).toBeUndefined();
         });
 
-        test("stores codec records synchronously and lists every record deterministically", () => {
+        test("stores codec records synchronously and lists every record deterministically", { tags: "p1" }, () => {
             const workspace = actorRef("z-workspace");
             const store = create(workspace);
             const zetaBlueprint = blueprint("zeta", "1.0.0", { tier: "zeta" });
@@ -332,7 +332,7 @@ export function materializationStoreContract<TTransaction>(
             ).toThrow(/strictly increase/);
         });
 
-        test("makes equal immutable record replay idempotent", () => {
+        test("makes equal immutable record replay idempotent", { tags: "p0" }, () => {
             const actor = actorRef("workspace");
             const store = create(actor);
             const candidateBlueprint = blueprint("platform", "1.0.0", { tier: "mediated" });
@@ -351,7 +351,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toHaveLength(1);
         });
 
-        test("rejects immutable key conflicts and rolls their partial state back", () => {
+        test("rejects immutable key conflicts and rolls their partial state back", { tags: "p0" }, () => {
             const actor = actorRef("workspace");
             const store = create(actor);
             const original = blueprint("platform", "1.0.0", { value: "original" });
@@ -380,7 +380,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toHaveLength(1);
         });
 
-        test("uses exact revision CAS and requires a new higher generation for rollback", () => {
+        test("uses exact revision CAS and requires a new higher generation for rollback", { tags: "p0" }, () => {
             const actor = actorRef("workspace");
             const store = create(actor);
             const first = materializationState(actor, 1, "first");
@@ -476,7 +476,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toHaveLength(3);
         });
 
-        test("rolls back a failed transaction and exposes no destructive lifecycle API", () => {
+        test("rolls back a failed transaction and exposes no destructive lifecycle API", { tags: "p0" }, () => {
             const actor = actorRef("workspace");
             const store = create(actor);
             const state = materializationState(actor, 1, "rollback");
@@ -498,7 +498,7 @@ export function materializationStoreContract<TTransaction>(
             }
         });
 
-        test("rejects pointers with foreign Actors, missing generations, or skipped revisions", () => {
+        test("rejects pointers with foreign Actors, missing generations, or skipped revisions", { tags: "p0" }, () => {
             const actor = actorRef("workspace");
             const store = create(actor);
             const foreign = actorRef("foreign");
@@ -555,7 +555,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listGenerationPointers()).toEqual([]);
         });
 
-        test("rejects plans and records for a foreign Actor", () => {
+        test("rejects plans and records for a foreign Actor", { tags: "p0" }, () => {
             const owner = actorRef("owner");
             const foreign = actorRef("foreign");
             const store = create(owner);
@@ -570,7 +570,7 @@ export function materializationStoreContract<TTransaction>(
             );
         });
 
-        test("rejects unsupported managed state at insertion boundaries", () => {
+        test("rejects unsupported managed state at insertion boundaries", { tags: "p1" }, () => {
             const actor = actorRef("owner");
             const store = create(actor);
             const fixture = materializationState(actor, 1, "unsupported");
@@ -590,7 +590,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toEqual([]);
         });
 
-        test("checks canonical codec ownership before persisting hostile objects", () => {
+        test("checks canonical codec ownership before persisting hostile objects", { tags: "p0" }, () => {
             const owner = actorRef("owner");
             const foreign = actorRef("foreign");
             const store = create(owner);
@@ -622,7 +622,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listGenerations()).toEqual([]);
         });
 
-        test("rejects conflicting logical keys within one generation", () => {
+        test("rejects conflicting logical keys within one generation", { tags: "p0" }, () => {
             const actor = actorRef("owner");
             const store = create(actor);
             const fixture = materializationState(actor, 1, "first", "policy:shared");
@@ -645,7 +645,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toEqual([]);
         });
 
-        test("rolls back standalone managed state without its generation", () => {
+        test("rolls back standalone managed state without its generation", { tags: "p0" }, () => {
             const actor = actorRef("owner");
             const store = create(actor);
             const record = materializationState(actor, 1, "orphan").materialization.records[0]!;
@@ -654,7 +654,7 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toEqual([]);
         });
 
-        test("canonicalizes standalone managed state exactly once before closure validation", () => {
+        test("canonicalizes standalone managed state exactly once before closure validation", { tags: "p1" }, () => {
             const actor = actorRef("owner");
             const store = create(actor);
             const installed = materializationState(actor, 1, "installed");
@@ -681,6 +681,7 @@ export function materializationStoreContract<TTransaction>(
 
         test.each(["tenant", "workspace", "run", "environment", "slate"] as const)(
             "opens Actor-local materialization persistence for %s owners",
+            { tags: "p1" },
             (kind) => {
                 const actor = new ActorRef(kind, new ActorId(`${kind}-owner`));
                 const store = create(actor);

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { SecretRef } from "../../src/core";
 
 describe("SecretRef", () => {
-    test("validates and compares structured references", () => {
+    test("validates and compares structured references", { tags: "p1" }, () => {
         const ref = new SecretRef("tenant", "vault", "credentials/service");
 
         expect(ref).toEqual({
@@ -14,7 +14,7 @@ describe("SecretRef", () => {
         expect(ref.equals(new SecretRef("tenant", "vault", "credentials/other"))).toBe(false);
     });
 
-    test("is runtime immutable", () => {
+    test("is runtime immutable", { tags: "p0" }, () => {
         const ref = new SecretRef("tenant", "vault", "id");
 
         expect(Object.isFrozen(ref)).toBe(true);
@@ -24,7 +24,7 @@ describe("SecretRef", () => {
         expect(ref.id).toBe("id");
     });
 
-    test("rejects blank, oversized, non-string, and invalid Unicode components", () => {
+    test("rejects blank, oversized, non-string, and invalid Unicode components", { tags: "p2" }, () => {
         for (const value of ["", "   ", "x".repeat(2049), "\ud800", null, 1]) {
             expect(() => new SecretRef(value as string, "vault", "id")).toThrow(TypeError);
             expect(() => new SecretRef("tenant", value as string, "id")).toThrow(TypeError);

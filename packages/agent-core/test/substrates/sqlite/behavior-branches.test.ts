@@ -57,7 +57,7 @@ const anchor = {
 };
 
 describe("SQLite Tenant control behavior branches", () => {
-    test("[authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract", () => {
+    test("[authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract", { tags: "p1" }, () => {
         const memory = MemoryTenantControlStore.create(anchor);
         memory.bootstrapTenant(anchor, Revision.initial());
         const stores = [memory, bootstrappedTenant(new TestSqlite())];
@@ -73,7 +73,7 @@ describe("SQLite Tenant control behavior branches", () => {
         }
     });
 
-    test("persists a complete topology and lifecycle closure across adapter restart", () => {
+    test("persists a complete topology and lifecycle closure across adapter restart", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = bootstrappedTenant(database);
         const principal = new Principal(new PrincipalId("member"), "user", "active");
@@ -140,7 +140,7 @@ describe("SQLite Tenant control behavior branches", () => {
         expect(restarted.guestTrust(trust.id)?.revision.value).toBe(1);
     });
 
-    test("rolls back earlier valid writes when a later topology write is foreign", () => {
+    test("rolls back earlier valid writes when a later topology write is foreign", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = bootstrappedTenant(database);
         const transient = new PrincipalId("rolled-back-principal");
@@ -164,7 +164,7 @@ describe("SQLite Tenant control behavior branches", () => {
         expect(store.team(new TeamId("foreign-team"))).toBeUndefined();
     });
 
-    test("rejects immutable, skipped-revision, and noncanonical topology conflicts", () => {
+    test("rejects immutable, skipped-revision, and noncanonical topology conflicts", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = bootstrappedTenant(database);
         const principal = new Principal(new PrincipalId("stable-principal"), "user", "active");
@@ -216,7 +216,7 @@ describe("SQLite Tenant control behavior branches", () => {
         expect(store.project(project.id)?.revision.value).toBe(0);
     });
 
-    test("fails closed when marker codec bytes or the bootstrap closure are lost", () => {
+    test("fails closed when marker codec bytes or the bootstrap closure are lost", { tags: "p0" }, () => {
         const markerDatabase = new TestSqlite();
         bootstrappedTenant(markerDatabase);
         markerDatabase.run("UPDATE tenant_bootstrap_marker SET record = ?", [Uint8Array.of(0)]);
@@ -236,6 +236,7 @@ describe("SQLite Tenant control behavior branches", () => {
 describe("SQLite materialization CAS behavior", () => {
     test.each(["zero", "multiple", "malformed"] as const)(
         "treats %s RETURNING rows as an exact CAS outcome and rolls back rejected writes",
+        { tags: "p0" },
         (fault) => {
             const database = new PointerCardinalitySqlite();
             const actor = actorRef(`pointer-${fault}`);
@@ -286,7 +287,7 @@ describe("SQLite materialization CAS behavior", () => {
 });
 
 describe("SQLite package, bootstrap, and Slot failure behavior", () => {
-    test("keeps the first package release when the immutable version key conflicts", () => {
+    test("keeps the first package release when the immutable version key conflicts", { tags: "p0" }, () => {
         const store = new SqlitePackageStore(new TestSqlite());
         const original = packageRelease("immutable", "1.0.0");
         const conflict = packageRelease("immutable", "1.0.0", new Digest("1".repeat(64)));
@@ -296,7 +297,7 @@ describe("SQLite package, bootstrap, and Slot failure behavior", () => {
         expect(store.get(original.id, original.version)).toEqual(original);
     });
 
-    test("translates a malformed bootstrap ID schema without replacing it", () => {
+    test("translates a malformed bootstrap ID schema without replacing it", { tags: "p1" }, () => {
         const database = new TestSqlite();
         database.run(
             "CREATE TABLE tenant_bootstrap_protocol_ids (singleton INTEGER PRIMARY KEY) STRICT",
@@ -323,7 +324,7 @@ describe("SQLite package, bootstrap, and Slot failure behavior", () => {
         ).not.toContain("next_id");
     });
 
-    test("fails closed on missing Slot revision, ignored CAS, and declaration projection drift", () => {
+    test("fails closed on missing Slot revision, ignored CAS, and declaration projection drift", { tags: "p0" }, () => {
         const missingDatabase = new TestSqlite();
         const owner = new WorkspaceId("slot-owner");
         const missing = new SqliteWorkspaceSlotStore(owner, missingDatabase);

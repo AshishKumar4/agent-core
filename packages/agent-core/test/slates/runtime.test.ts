@@ -37,7 +37,7 @@ import {
 import { WorkspaceId } from "../../src/workspaces";
 
 describe("SlateRuntime", () => {
-    test("[P11-SLATE-SPECIFICATION] executes the complete section 4.6 source, version, fork, and publication contract", async () => {
+    test("[P11-SLATE-SPECIFICATION] executes the complete section 4.6 source, version, fork, and publication contract", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("intent");
         const slate = await fixture.runtime.create(fixture.workspace, ref("draft-one"));
         const updated = await fixture.runtime.update(slate.id, ref("draft-two"));
@@ -65,7 +65,7 @@ describe("SlateRuntime", () => {
         );
     });
 
-    test("replays a reused external effect identity instead of deploying twice", async () => {
+    test("replays a reused external effect identity instead of deploying twice", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("external-idempotency");
         const { publication } = await publishedSlate(fixture);
         const first = await fixture.runtime.deploy(publication.id, "production", "external-stable");
@@ -92,7 +92,7 @@ describe("SlateRuntime", () => {
         expect(fixture.provider.deployRequests).toHaveLength(1);
     });
 
-    test("[P11-SLATE-MEDIATED-DEPLOY] passes the same frozen deployment intent through prepare, invoke, and reconcile", async () => {
+    test("[P11-SLATE-MEDIATED-DEPLOY] passes the same frozen deployment intent through prepare, invoke, and reconcile", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("deploy-reconcile");
         const { publication } = await publishedSlate(fixture);
         fixture.invocations.invokeOutcomes.push("indeterminate");
@@ -127,7 +127,7 @@ describe("SlateRuntime", () => {
         expect(reconciledRequest.idempotencyKey).toBe(invokedRequest.idempotencyKey);
     });
 
-    test("guards delayed deployment activation with the frozen expected pointer", async () => {
+    test("guards delayed deployment activation with the frozen expected pointer", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("race");
         const { slate, publication } = await publishedSlate(fixture);
         const firstEffect = deferred<SlateProviderDeployment>();
@@ -153,7 +153,7 @@ describe("SlateRuntime", () => {
         ).toBe(true);
     });
 
-    test("reconciles an indeterminate resource from its original reservation", async () => {
+    test("reconciles an indeterminate resource from its original reservation", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("resource-reconcile");
         const { publication } = await publishedSlate(fixture);
         const deployed = await fixture.runtime.deploy(publication.id, "production", "external-4");
@@ -194,7 +194,7 @@ describe("SlateRuntime", () => {
         ).toBe(true);
     });
 
-    test("persists validated exact preview capability and exposure references", async () => {
+    test("persists validated exact preview capability and exposure references", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("preview");
         const slate = await fixture.runtime.create(fixture.workspace, ref("working"));
         const version = await fixture.runtime.commit(slate.id);
@@ -219,7 +219,7 @@ describe("SlateRuntime", () => {
     test.each([
         ["stale", "environment.stale-session"],
         ["invalid", "environment.invalid-session"]
-    ] as const)("denies %s preview references before persistence", async (_name, code) => {
+    ] as const)("denies %s preview references before persistence", { tags: "p1" }, async (_name, code) => {
         const fixture = runtimeFixture(`preview-${code}`);
         const slate = await fixture.runtime.create(fixture.workspace, ref("working"));
         fixture.previews.denial = new AgentCoreError(code, "preview denied");
@@ -237,7 +237,7 @@ describe("SlateRuntime", () => {
         ).toBe(false);
     });
 
-    test("[P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls", async () => {
+    test("[P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("rollback");
         const { slate, publication } = await publishedSlate(fixture);
         const first = await fixture.runtime.deploy(publication.id, "first", "external-5");
@@ -255,7 +255,7 @@ describe("SlateRuntime", () => {
         expect(fixture.invocations.prepared).toHaveLength(prepared);
     });
 
-    test("rejects stale mutations and preserves only the concurrent winner", async () => {
+    test("rejects stale mutations and preserves only the concurrent winner", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("stale-update");
         const slate = await fixture.runtime.create(fixture.workspace, ref("initial"));
         fixture.mutations.beforeMutation = (request) => {
@@ -282,7 +282,7 @@ describe("SlateRuntime", () => {
         );
     });
 
-    test("rejects cross-Slate previews and stale or cross-Slate rollbacks", async () => {
+    test("rejects cross-Slate previews and stale or cross-Slate rollbacks", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("rollback-validation");
         const { slate, publication } = await publishedSlate(fixture);
         const other = await fixture.runtime.create(fixture.workspace, ref("other"));
@@ -325,7 +325,7 @@ describe("SlateRuntime", () => {
         ).toBe(true);
     });
 
-    test("rejects unknown reconciliation IDs and malformed mediated results", async () => {
+    test("rejects unknown reconciliation IDs and malformed mediated results", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("malformed-results");
         const { publication } = await publishedSlate(fixture);
         await expect(
@@ -376,7 +376,7 @@ describe("SlateRuntime", () => {
         );
     });
 
-    test("codes missing Slate operation targets", async () => {
+    test("codes missing Slate operation targets", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("missing-targets");
         await expect(fixture.runtime.commit(new SlateId("slate-missing"))).rejects.toEqual(
             new AgentCoreError("operation.invalid-input", "Slate slate-missing is unknown")
@@ -412,7 +412,7 @@ describe("SlateRuntime", () => {
         );
     });
 
-    test("codes colliding runtime allocations as duplicates", async () => {
+    test("codes colliding runtime allocations as duplicates", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("duplicate");
         await fixture.runtime.create(fixture.workspace, ref("first"));
         const colliding = new SlateRuntime(
@@ -429,7 +429,7 @@ describe("SlateRuntime", () => {
         );
     });
 
-    test("[P11-SLATE-SOURCE] preserves content-addressed source and immutable version lineage", async () => {
+    test("[P11-SLATE-SOURCE] preserves content-addressed source and immutable version lineage", { tags: "p0" }, async () => {
         expect(() => new MemorySlateIdSource(" ")).toThrow(TypeError);
         const fixture = runtimeFixture("completed-replay");
         const slate = await fixture.runtime.create(fixture.workspace, ref("first"));
@@ -460,7 +460,7 @@ describe("SlateRuntime", () => {
         expect(fixture.store.getSlate(fork.id)?.forkedFrom).toEqual(fork.forkedFrom);
     });
 
-    test("retains failed deployment and resource reservations for deterministic replay", async () => {
+    test("retains failed deployment and resource reservations for deterministic replay", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("failed-effects");
         const { publication } = await publishedSlate(fixture);
         fixture.invocations.invokeOutcomes.push("failed");
@@ -493,7 +493,7 @@ describe("SlateRuntime", () => {
         expect(fixture.store.getResource(failedResource.resourceId)).toBeUndefined();
     });
 
-    test("advances retry ordinal without changing the invocation item key", async () => {
+    test("advances retry ordinal without changing the invocation item key", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("retry-ordinal");
         const { publication } = await publishedSlate(fixture);
         fixture.invocations.invokeOutcomes.push("failed");
@@ -513,7 +513,7 @@ describe("SlateRuntime", () => {
         expect(request.idempotencyKey).toBe(itemKey);
     });
 
-    test("rejects missing, changed-key, and wrong-Invocation effect contexts", async () => {
+    test("rejects missing, changed-key, and wrong-Invocation effect contexts", { tags: "p0" }, async () => {
         const missing = runtimeFixture("missing-context");
         const { publication: missingPublication } = await publishedSlate(missing);
         missing.invocations.nextContextOverride = null;
@@ -568,7 +568,7 @@ describe("SlateRuntime", () => {
         expect(changed.provider.reconcileDeploymentRequests).toHaveLength(0);
     });
 
-    test("reports every Slate head CAS loser without replacing the concurrent winner", async () => {
+    test("reports every Slate head CAS loser without replacing the concurrent winner", { tags: "p0" }, async () => {
         const update = runtimeFixture("cas-update", new RejectingSlateStore());
         const updateSlate = await update.runtime.create(update.workspace, ref("initial"));
         (update.store as RejectingSlateStore).rejectNextCas = true;
@@ -614,7 +614,7 @@ describe("SlateRuntime", () => {
         ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
     });
 
-    test("retains effect reservations when deployment and resource providers fail", async () => {
+    test("retains effect reservations when deployment and resource providers fail", { tags: "p0" }, async () => {
         const deployment = runtimeFixture("provider-deployment-failure");
         const { publication } = await publishedSlate(deployment);
         deployment.provider.throwDeployment = true;
@@ -640,7 +640,7 @@ describe("SlateRuntime", () => {
         expect(resource.store.snapshot().resources).toHaveLength(0);
     });
 
-    test("rejects malformed resource output and stale preview persistence", async () => {
+    test("rejects malformed resource output and stale preview persistence", { tags: "p1" }, async () => {
         const resource = runtimeFixture("malformed-resource");
         const { publication } = await publishedSlate(resource);
         const deployed = await resource.runtime.deploy(publication.id, "production", "external-22");
@@ -667,7 +667,7 @@ describe("SlateRuntime", () => {
         expect(preview.store.listPreviews(slate.id)).toEqual([]);
     });
 
-    test("rejects colliding fork IDs and all malformed invocation result shapes", async () => {
+    test("rejects colliding fork IDs and all malformed invocation result shapes", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("fork-duplicate");
         const { version, publication } = await publishedSlate(fixture);
         await fixture.runtime.create(fixture.workspace, ref("collision"));

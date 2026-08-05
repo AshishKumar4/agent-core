@@ -64,7 +64,7 @@ function mutateTableRows(
 }
 
 describe("SQLite content row validation", () => {
-    test("rejects every malformed selected blob column as operational corruption", async () => {
+    test("rejects every malformed selected blob column as operational corruption", { tags: "p1" }, async () => {
         const corruptions: readonly [column: string, value: SqliteValue][] = [
             ["ref", 1],
             ["digest", 1],
@@ -83,7 +83,7 @@ describe("SQLite content row validation", () => {
         }
     });
 
-    test("returns exact stat shape with and without media and rejects malformed media", async () => {
+    test("returns exact stat shape with and without media and rejects malformed media", { tags: "p1" }, async () => {
         const database = new InterceptingSqlite();
         const store = new SqliteContentStore(database);
         const stored = await store.put(encode("stat-shape"));
@@ -97,7 +97,7 @@ describe("SQLite content row validation", () => {
         await expectAgentCoreRejection(store.stat(stored.ref), "codec.invalid");
     });
 
-    test("rolls back a blob when post-insert verification cannot observe it", async () => {
+    test("rolls back a blob when post-insert verification cannot observe it", { tags: "p0" }, async () => {
         const database = new InterceptingSqlite();
         const store = new SqliteContentStore(database);
         let hide = false;
@@ -111,7 +111,7 @@ describe("SQLite content row validation", () => {
         expect(database.inner.all("SELECT * FROM content_blobs", [])).toEqual([]);
     });
 
-    test("rejects incompatible pre-existing content schema without partial writes", async () => {
+    test("rejects incompatible pre-existing content schema without partial writes", { tags: "p1" }, async () => {
         const database = new TestSqlite();
         database.run("CREATE TABLE content_blobs (ref TEXT PRIMARY KEY) STRICT", []);
         const store = new SqliteContentStore(database);
@@ -121,7 +121,7 @@ describe("SQLite content row validation", () => {
 });
 
 describe("SQLite retention row validation", () => {
-    test("classifies missing and malformed storage bindings", () => {
+    test("classifies missing and malformed storage bindings", { tags: "p1" }, () => {
         const owner = contentOwner();
         const missingDatabase = new TestSqlite();
         const missingStore = new SqliteContentStore(missingDatabase);
@@ -149,7 +149,7 @@ describe("SQLite retention row validation", () => {
         );
     });
 
-    test("propagates an active SQLite driver TypeError from the binding read", () => {
+    test("propagates an active SQLite driver TypeError from the binding read", { tags: "p1" }, () => {
         const database = new InterceptingSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -172,7 +172,7 @@ describe("SQLite retention row validation", () => {
         expect(failure).toBeInstanceOf(TypeError);
     });
 
-    test("rejects every owner-edge metadata mismatch and selected column type", async () => {
+    test("rejects every owner-edge metadata mismatch and selected column type", { tags: "p1" }, async () => {
         const mismatchUpdates: readonly [column: string, value: SqliteValue][] = [
             ["owner_key", "different-owner"],
             ["tenant", "different-tenant"],
@@ -222,7 +222,7 @@ describe("SQLite retention row validation", () => {
         }
     });
 
-    test("rejects every relation ownership mismatch and malformed nullable timestamp", async () => {
+    test("rejects every relation ownership mismatch and malformed nullable timestamp", { tags: "p1" }, async () => {
         const metadata: readonly [column: string, value: SqliteValue][] = [
             ["tenant", "different-tenant"],
             ["actor_kind", "run"],
@@ -273,7 +273,7 @@ describe("SQLite retention row validation", () => {
         }
     });
 
-    test("rejects every transient lease metadata mismatch and selected column type", async () => {
+    test("rejects every transient lease metadata mismatch and selected column type", { tags: "p1" }, async () => {
         const updates: readonly [column: string, value: SqliteValue][] = [
             ["lease_key", "0".repeat(64)],
             ["tenant", "different-tenant"],
@@ -343,7 +343,7 @@ describe("SQLite retention row validation", () => {
         }
     });
 
-    test("fails closed for missing related blobs, relations, and invalid unowned deadlines", async () => {
+    test("fails closed for missing related blobs, relations, and invalid unowned deadlines", { tags: "p0" }, async () => {
         const cases: readonly ((database: TestSqlite) => void)[] = [
             (database) => database.run("DELETE FROM content_blobs", []),
             (database) => database.run("DELETE FROM content_relations", []),
@@ -371,7 +371,7 @@ describe("SQLite retention row validation", () => {
         }
     });
 
-    test("rejects immutable lease collision, missing bytes, foreign bindings, and bound owner reuse", async () => {
+    test("rejects immutable lease collision, missing bytes, foreign bindings, and bound owner reuse", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -418,7 +418,7 @@ describe("SQLite retention row validation", () => {
         );
     });
 
-    test("rolls back edge, lease, close, and collection when SQLite faults after mutation", async () => {
+    test("rolls back edge, lease, close, and collection when SQLite faults after mutation", { tags: "p0" }, async () => {
         const scenarios: readonly {
             readonly pattern: string;
             prepare(
@@ -484,7 +484,7 @@ describe("SQLite retention row validation", () => {
         }
     });
 
-    test("rolls back post-insert owner verification failure", async () => {
+    test("rolls back post-insert owner verification failure", { tags: "p0" }, async () => {
         const database = new InterceptingSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -509,7 +509,7 @@ describe("SQLite retention row validation", () => {
         expect(database.inner.all("SELECT * FROM content_owner_edges", [])).toEqual([]);
     });
 
-    test("rolls back a transient lease whose inserted content cannot be verified", async () => {
+    test("rolls back a transient lease whose inserted content cannot be verified", { tags: "p0" }, async () => {
         const database = new InterceptingSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -538,7 +538,7 @@ describe("SQLite retention row validation", () => {
         expect(database.inner.all("SELECT * FROM content_transient_leases", [])).toEqual([]);
     });
 
-    test("detects leased content disappearing after lease validation", async () => {
+    test("detects leased content disappearing after lease validation", { tags: "p1" }, async () => {
         const database = new InterceptingSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -554,7 +554,7 @@ describe("SQLite retention row validation", () => {
         expectAgentCoreError(() => lease!.read(), "codec.invalid");
     });
 
-    test("uses the default observation clock for transient acquisition", async () => {
+    test("uses the default observation clock for transient acquisition", { tags: "p1" }, async () => {
         const database = new TestSqlite();
         const owner = contentOwner();
         const store = new SqliteContentStore(database);
@@ -571,7 +571,7 @@ describe("SQLite retention row validation", () => {
 });
 
 describe("SQLite content restart", () => {
-    test("restores blob, owner, relation, and lease state after a file-backed restart", async () => {
+    test("restores blob, owner, relation, and lease state after a file-backed restart", { tags: "p0" }, async () => {
         const directory = mkdtempSync(join(tmpdir(), "agent-core-content-"));
         const path = join(directory, "content.sqlite");
         const owner = contentOwner();

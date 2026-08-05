@@ -49,7 +49,7 @@ const argumentsValue = { folder: "inbox" } as const;
 const argumentsDigest = Digest.sha256(encodeCanonicalJson(argumentsValue));
 
 describe("Tenant authority runtime", () => {
-    test("persists immutable Tenant Project and Workspace topology", () => {
+    test("persists immutable Tenant Project and Workspace topology", { tags: "p0" }, () => {
         const { store, service } = fixture();
         const project = new Project(
             new ProjectId("runtime-project"),
@@ -76,7 +76,7 @@ describe("Tenant authority runtime", () => {
         expect(renamed.revision.value).toBe(1);
     });
 
-    test("[C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny", () => {
+    test("[C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny", { tags: "p0" }, () => {
         const { store, service, runtime } = fixture();
         const allow = grant("allow", SubjectRef.principal(principalId), "allow");
         service.createGrant(allow);
@@ -117,7 +117,7 @@ describe("Tenant authority runtime", () => {
         expect(store.grants()).toHaveLength(3);
     });
 
-    test("[C13-AUTH-DIRECT-SUBJECT] unions direct and Team subjects without allowing unrelated principals", () => {
+    test("[C13-AUTH-DIRECT-SUBJECT] unions direct and Team subjects without allowing unrelated principals", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
         const team = new Team(
             new TeamId("team"),
@@ -156,7 +156,7 @@ describe("Tenant authority runtime", () => {
         expect(runtime.check(wrong, new Date(2_001)).reason).toBe("missingPrincipal");
     });
 
-    test("returns current path evidence and detects stale evidence", () => {
+    test("returns current path evidence and detects stale evidence", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
         const allow = grant("allow-stale", SubjectRef.principal(principalId), "allow");
         service.createGrant(allow);
@@ -186,7 +186,7 @@ describe("Tenant authority runtime", () => {
         expect(stale.pathEpochs.equals(initial.pathEpochs)).toBe(false);
     });
 
-    test("fails closed for inactive Bindings, missing Grants, and inactive Principals", () => {
+    test("fails closed for inactive Bindings, missing Grants, and inactive Principals", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
         const allow = grant("denial-allow", SubjectRef.principal(principalId), "allow");
         service.createGrant(allow);
@@ -244,7 +244,7 @@ describe("Tenant authority runtime", () => {
         ).toBe("inactivePrincipal");
     });
 
-    test("[C13-ADV-REVOKED-ALLOW] rejects a revoked backing allow Grant", () => {
+    test("[C13-ADV-REVOKED-ALLOW] rejects a revoked backing allow Grant", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
         const backing = grant("revoked-backing", SubjectRef.principal(principalId), "allow");
         const pathSource = grant("path-source", SubjectRef.principal(principalId), "allow");
@@ -288,7 +288,7 @@ describe("Tenant authority runtime", () => {
 });
 
 describe("verified guest lifecycle", () => {
-    test("materializes attenuated guest Grants and revokes them when trust is revoked", () => {
+    test("materializes attenuated guest Grants and revokes them when trust is revoked", { tags: "p0" }, () => {
         const { store, service, runtime } = fixture();
         const home = new TenantId("guest-home");
         const guest = new PrincipalId("guest-principal");
@@ -435,7 +435,7 @@ describe("verified guest lifecycle", () => {
         ).toBe(true);
     });
 
-    test("rejects verification issued in the future without persisting guest state", () => {
+    test("rejects verification issued in the future without persisting guest state", { tags: "p0" }, () => {
         const { store, service } = fixture();
         const home = new TenantId("future-home");
         const guest = new PrincipalId("future-guest");
@@ -494,7 +494,7 @@ describe("verified guest lifecycle", () => {
 });
 
 describe("canonical authority keys", () => {
-    test("does not collide at component boundaries", () => {
+    test("does not collide at component boundaries", { tags: "p0" }, () => {
         expect(authorityKey("binding", ["a:b", "c"])).not.toBe(
             authorityKey("binding", ["a", "b:c"])
         );

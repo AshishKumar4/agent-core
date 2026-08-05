@@ -45,7 +45,7 @@ const tenantId = new TenantId("tenant");
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 describe("same-Actor additive materialization", () => {
-    test("keeps direct local mutation machinery out of the definition barrel", () => {
+    test("keeps direct local mutation machinery out of the definition barrel", { tags: "p2" }, () => {
         expect("LocalMaterializationStore" in Definition).toBe(false);
         expect("LocalMaterializer" in Definition).toBe(false);
         expect("materializeActorPlan" in Definition).toBe(false);
@@ -62,7 +62,7 @@ describe("same-Actor additive materialization", () => {
         ).toThrow(/different Actor/);
     });
 
-    test("[definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] derives stable IDs and strictly round-trips generation state codecs", () => {
+    test("[definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] derives stable IDs and strictly round-trips generation state codecs", { tags: "p1" }, () => {
         const actor = actorRef("workspace-a");
         const first = actorPlan(actor, origin(1, "config-a"), [
             projection("slot:z", { value: 2 }),
@@ -151,7 +151,7 @@ describe("same-Actor additive materialization", () => {
         ).toThrow(/Unsupported materialization record kind/);
     });
 
-    test("applies reordered plans once and makes an equal replay a no-op", () => {
+    test("applies reordered plans once and makes an equal replay a no-op", { tags: "p0" }, () => {
         const actor = actorRef("workspace-a");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -190,7 +190,7 @@ describe("same-Actor additive materialization", () => {
         expect(snapshot.transactionCount).toBe(2);
     });
 
-    test("journals a new origin when unchanged desired state is re-materialized", () => {
+    test("journals a new origin when unchanged desired state is re-materialized", { tags: "p1" }, () => {
         const actor = actorRef("workspace-origin-noop");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -206,7 +206,7 @@ describe("same-Actor additive materialization", () => {
         expect(result.pointer.revision.value).toBe(1);
     });
 
-    test("rejects immutable generation conflicts without retaining partial records", () => {
+    test("rejects immutable generation conflicts without retaining partial records", { tags: "p0" }, () => {
         const actor = actorRef("workspace-a");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -230,7 +230,7 @@ describe("same-Actor additive materialization", () => {
         expect(after.pointer?.generationId.value).toBe(before.pointer?.generationId.value);
     });
 
-    test("moves only the active pointer and leaves old generations and state untouched", () => {
+    test("moves only the active pointer and leaves old generations and state untouched", { tags: "p0" }, () => {
         const actor = actorRef("workspace-a");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -251,7 +251,7 @@ describe("same-Actor additive materialization", () => {
         expect(snapshot.deletedRecords).toBe(0);
     });
 
-    test("does not query existing Runs or require a current-generation fallback", () => {
+    test("does not query existing Runs or require a current-generation fallback", { tags: "p1" }, () => {
         const actor = actorRef("workspace-a");
         const store = new MemoryMaterializationStore(actor, ["existing-run", "pinned-run"]);
         const materializer = localMaterializer(actor, store);
@@ -267,7 +267,7 @@ describe("same-Actor additive materialization", () => {
         });
     });
 
-    test("rejects foreign targets and multi-Actor plans before writing", () => {
+    test("rejects foreign targets and multi-Actor plans before writing", { tags: "p0" }, () => {
         const owner = actorRef("workspace-a");
         const foreign = actorRef("workspace-b");
         const store = new MemoryMaterializationStore(owner);
@@ -304,7 +304,7 @@ describe("same-Actor additive materialization", () => {
         "facet.slot-entry",
         "authority.grant",
         "identity.role"
-    ])("rechecks unsupported %s projections before opening a transaction", (recordKind) => {
+    ])("rechecks unsupported %s projections before opening a transaction", { tags: "p1" }, (recordKind) => {
         const actor = actorRef("tenant-a", "tenant");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -318,7 +318,7 @@ describe("same-Actor additive materialization", () => {
         expectEmpty(store);
     });
 
-    test("rejects stale generation replay and requires a higher generation for rollback", () => {
+    test("rejects stale generation replay and requires a higher generation for rollback", { tags: "p0" }, () => {
         const actor = actorRef("workspace-a");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -340,7 +340,7 @@ describe("same-Actor additive materialization", () => {
         ).toBe(true);
     });
 
-    test("rolls back local writes when managed insertion or pointer CAS fails", () => {
+    test("rolls back local writes when managed insertion or pointer CAS fails", { tags: "p0" }, () => {
         const workspace = actorRef("workspace-a");
         const insertFault = new MemoryMaterializationStore(workspace);
         insertFault.failManagedInsert = true;
@@ -361,7 +361,7 @@ describe("same-Actor additive materialization", () => {
         expectEmpty(casFault);
     });
 
-    test("reconciles create update and remove with one stable managed resource identity", () => {
+    test("reconciles create update and remove with one stable managed resource identity", { tags: "p1" }, () => {
         const actor = actorRef("workspace-reconcile");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -383,7 +383,7 @@ describe("same-Actor additive materialization", () => {
         expect(removed.pointer.revision.value).toBe(created.pointer.revision.value + 2);
     });
 
-    test("rejects drift and rolls owner state back with journal state", () => {
+    test("rejects drift and rolls owner state back with journal state", { tags: "p0" }, () => {
         const actor = actorRef("workspace-drift");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -411,7 +411,7 @@ describe("same-Actor additive materialization", () => {
         expect(store.snapshot().resources[0]!.desiredDigest.equals(activeDigest)).toBe(true);
     });
 
-    test("fails closed on unknown RunPins evidence without advancing local state", () => {
+    test("fails closed on unknown RunPins evidence without advancing local state", { tags: "p0" }, () => {
         const actor = actorRef("workspace-pinned");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);
@@ -436,7 +436,7 @@ describe("same-Actor additive materialization", () => {
         });
     });
 
-    test("rejects foreign active generations and corrupt post-CAS pointer reads atomically", () => {
+    test("rejects foreign active generations and corrupt post-CAS pointer reads atomically", { tags: "p0" }, () => {
         const actor = actorRef("workspace-hostile-store");
         const foreign = new MemoryMaterializationStore(actor);
         const foreignMaterializer = localMaterializer(actor, foreign);
@@ -559,7 +559,7 @@ describe("same-Actor additive materialization", () => {
         ).toThrow("Materialization generation pointer belongs to a different Actor");
     });
 
-    test("reuses an equal immutable journal closure when activation was not yet pointed", () => {
+    test("reuses an equal immutable journal closure when activation was not yet pointed", { tags: "p1" }, () => {
         const actor = actorRef("workspace-recovered-journal");
         const store = new MemoryMaterializationStore(actor);
         const plan = actorPlan(actor, origin(1, "recovered"), [

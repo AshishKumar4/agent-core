@@ -40,7 +40,7 @@ const actor = new ActorRef("tenant", new ActorId("tenant"));
 const deploymentId = DeploymentId.derive(new TenantId("tenant"), new DeploymentKey("platform"));
 
 describe("MaterializationStore hostile adapter boundaries", () => {
-    test("rejects aliased plan generation managed-state and pointer rows", () => {
+    test("rejects aliased plan generation managed-state and pointer rows", { tags: "p0" }, () => {
         const store = hostileStore();
         store.alias = true;
         expect(() => store.getPlan(digest("alias-plan"))).toThrow(/key does not match/);
@@ -56,7 +56,7 @@ describe("MaterializationStore hostile adapter boundaries", () => {
         ).toThrow(/key does not match/);
     });
 
-    test("detects pointer adapter CAS refusal and missing persisted state", () => {
+    test("detects pointer adapter CAS refusal and missing persisted state", { tags: "p0" }, () => {
         for (const fault of ["refuse", "drop"] as const) {
             const store = hostileStore(false);
             const fixture = materializationState(actor, 1, fault);
@@ -82,7 +82,7 @@ describe("MaterializationStore hostile adapter boundaries", () => {
         }
     });
 
-    test("rejects malformed adapter bytes and duplicate list keys", () => {
+    test("rejects malformed adapter bytes and duplicate list keys", { tags: "p0" }, () => {
         const store = hostileStore();
         store.rows.blueprints[0] = { ...store.rows.blueprints[0]!, bytes: "bad" as never };
         expect(() => store.listBlueprints()).toThrow(/bytes are malformed/);

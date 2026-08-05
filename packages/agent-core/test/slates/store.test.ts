@@ -30,7 +30,7 @@ import {
 import { WorkspaceId } from "../../src/workspaces";
 
 describe("MemorySlateStore", () => {
-    test("[P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes", () => {
+    test("[P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes", { tags: "p0" }, () => {
         const store = new MemorySlateStore();
         const slate = Slate.initial(
             new SlateId("slate-history"),
@@ -69,7 +69,7 @@ describe("MemorySlateStore", () => {
         expect(store.getSlate(slate.id)?.revision.value).toBe(3);
     });
 
-    test("enforces CAS and immutable record replay", () => {
+    test("enforces CAS and immutable record replay", { tags: "p0" }, () => {
         const store = new MemorySlateStore();
         const slate = Slate.initial(
             new SlateId("slate-cas"),
@@ -99,7 +99,7 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("rejects projection corruption and non-contiguous replay snapshots", () => {
+    test("rejects projection corruption and non-contiguous replay snapshots", { tags: "p0" }, () => {
         const store = new MemorySlateStore();
         const slate = Slate.initial(
             new SlateId("slate-corrupt"),
@@ -135,7 +135,7 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("commits synchronous transactions atomically and rolls back failed or async drafts", async () => {
+    test("commits synchronous transactions atomically and rolls back failed or async drafts", { tags: "p0" }, async () => {
         const store = new MemorySlateStore();
         const slate = Slate.initial(
             new SlateId("slate-transaction"),
@@ -190,7 +190,7 @@ describe("MemorySlateStore", () => {
         expect(store.getSlate(slate.id)?.headVersionId?.equals(committedVersion.id)).toBe(true);
     });
 
-    test("lists and clones a complete owned Slate graph without leaking mutable storage", () => {
+    test("lists and clones a complete owned Slate graph without leaking mutable storage", { tags: "p0" }, () => {
         const graph = completeGraph("lists");
         const clone = graph.store.clone();
 
@@ -222,7 +222,7 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("rejects broken graph projections and dangling reservations during restore", () => {
+    test("rejects broken graph projections and dangling reservations during restore", { tags: "p0" }, () => {
         const graph = completeGraph("restore-corruption");
         const snapshot = graph.store.snapshot();
         expect(
@@ -272,7 +272,7 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("rejects noncontiguous CAS updates and immutable ownership changes", () => {
+    test("rejects noncontiguous CAS updates and immutable ownership changes", { tags: "p0" }, () => {
         const store = new MemorySlateStore();
         const slate = Slate.initial(
             new SlateId("slate-invalid-cas"),
@@ -314,7 +314,7 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("uses the shared taxonomy for graph and reservation invariants", () => {
+    test("uses the shared taxonomy for graph and reservation invariants", { tags: "p1" }, () => {
         const store = new MemorySlateStore();
         const workspace = new WorkspaceId("workspace-invariants");
         const slate = Slate.initial(new SlateId("slate-invariants"), workspace, ref("source"));
@@ -493,7 +493,7 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("[slate.deployment-reservation] [slate.resource-reservation] validates reservation constructors and immutable reservation replay", () => {
+    test("[slate.deployment-reservation] [slate.resource-reservation] validates reservation constructors and immutable reservation replay", { tags: "p0" }, () => {
         const graph = completeGraph("reservation-replay");
         expect(
             () =>
@@ -567,7 +567,7 @@ describe("MemorySlateStore", () => {
         ).toThrowError(expect.objectContaining({ code: "protocol.duplicate" }));
     });
 
-    test("rejects missing replay roots and dangling owned graph records", () => {
+    test("rejects missing replay roots and dangling owned graph records", { tags: "p0" }, () => {
         const graph = completeGraph("dangling-replay");
         const snapshot = graph.store.snapshot();
         const invalidSnapshots: MemorySlateSnapshot[] = [
@@ -593,7 +593,7 @@ describe("MemorySlateStore", () => {
         }
     });
 
-    test("rejects fork-origin mutation and accepts exact parent-version lineage", () => {
+    test("rejects fork-origin mutation and accepts exact parent-version lineage", { tags: "p0" }, () => {
         const store = new MemorySlateStore();
         const workspace = new WorkspaceId("workspace-lineage");
         const slate = Slate.initial(new SlateId("slate-lineage"), workspace, ref("source"));
@@ -653,7 +653,7 @@ describe("MemorySlateStore", () => {
         ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
     });
 
-    test("restores unordered history and rejects dangling parent, deployment, resource, and preview graphs", () => {
+    test("restores unordered history and rejects dangling parent, deployment, resource, and preview graphs", { tags: "p0" }, () => {
         const complete = completeGraph("restart-edges");
         const completeSnapshot = complete.store.snapshot();
         expect(
@@ -751,7 +751,7 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("rejects fork closure and resource finalization after their durable dependencies disappear", () => {
+    test("rejects fork closure and resource finalization after their durable dependencies disappear", { tags: "p0" }, () => {
         const store = new MemorySlateStore();
         const workspace = new WorkspaceId("workspace-fork-closure");
         const source = Slate.initial(new SlateId("slate-fork-source"), workspace, ref("source"));

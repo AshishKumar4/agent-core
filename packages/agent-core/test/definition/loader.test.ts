@@ -28,7 +28,7 @@ const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
 
 describe("production Blueprint validation-before-load", () => {
-    test("does not resolve or evaluate code when config validation fails", async () => {
+    test("does not resolve or evaluate code when config validation fails", { tags: "p0" }, async () => {
         const fixture = packageFixture();
         const get = vi.fn(async () => fixture.mainBytes);
         const evaluate = vi.fn(async () => "loaded");
@@ -41,7 +41,7 @@ describe("production Blueprint validation-before-load", () => {
         expect(evaluate).not.toHaveBeenCalled();
     });
 
-    test("rejects an inspected import outside the declared closure before evaluation", async () => {
+    test("rejects an inspected import outside the declared closure before evaluation", { tags: "p0" }, async () => {
         const fixture = packageFixture();
         const evaluate = vi.fn(async () => "loaded");
         const loader = blueprintLoader(
@@ -63,7 +63,7 @@ describe("production Blueprint validation-before-load", () => {
         [[]],
         [["./dependency.js", "./dependency.js"]],
         [["./dependency.js", "./extra.js"]]
-    ])("rejects nonexact inspected import set %j", async (imports) => {
+    ])("rejects nonexact inspected import set %j", { tags: "p0" }, async (imports) => {
         const fixture = packageFixture();
         const evaluate = vi.fn(async () => "loaded");
         const loader = blueprintLoader(
@@ -79,7 +79,7 @@ describe("production Blueprint validation-before-load", () => {
         expect(evaluate).not.toHaveBeenCalled();
     });
 
-    test("preflights every exact module byte before invoking the evaluator", async () => {
+    test("preflights every exact module byte before invoking the evaluator", { tags: "p0" }, async () => {
         const fixture = packageFixture();
         const get = vi.fn(async (reference: ContentRef) =>
             reference.equals(fixture.dependencyRef)
@@ -96,7 +96,7 @@ describe("production Blueprint validation-before-load", () => {
         expect(evaluate).not.toHaveBeenCalled();
     });
 
-    test("rejects a non-byte content adapter result before inspection or evaluation", async () => {
+    test("rejects a non-byte content adapter result before inspection or evaluation", { tags: "p0" }, async () => {
         const fixture = packageFixture();
         const evaluate = vi.fn(async () => "loaded");
         const inspect = vi.fn(async (module: PackageCodeModule) => module.imports);
@@ -114,7 +114,7 @@ describe("production Blueprint validation-before-load", () => {
         expect(evaluate).not.toHaveBeenCalled();
     });
 
-    test("[C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order", async () => {
+    test("[C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order", { tags: "p0" }, async () => {
         const fixture = packageFixture();
         const source = new Map([
             [fixture.mainRef.value, fixture.mainBytes],
@@ -154,7 +154,7 @@ describe("production Blueprint validation-before-load", () => {
         expect(disposed).toEqual(["./main.js", "./dependency.js"]);
     });
 
-    test("does not fall back after evaluator failure and disposes completed handles", async () => {
+    test("does not fall back after evaluator failure and disposes completed handles", { tags: "p1" }, async () => {
         const fixture = packageFixture();
         const evaluated: string[] = [];
         const disposed: string[] = [];
@@ -181,7 +181,7 @@ describe("production Blueprint validation-before-load", () => {
         expect(disposed).toEqual(["./dependency.js"]);
     });
 
-    test("surfaces disposal failure and still closes the scope only once", async () => {
+    test("surfaces disposal failure and still closes the scope only once", { tags: "p1" }, async () => {
         const fixture = packageFixture();
         let disposals = 0;
         const loader = blueprintLoader(
@@ -202,7 +202,7 @@ describe("production Blueprint validation-before-load", () => {
         expect(disposals).toBe(2);
     });
 
-    test("retains the verified snapshot when the source buffer mutates during inspection", async () => {
+    test("retains the verified snapshot when the source buffer mutates during inspection", { tags: "p0" }, async () => {
         const fixture = packageFixture();
         const sharedMain = fixture.mainBytes.slice();
         const seen: Uint8Array[] = [];
@@ -225,7 +225,7 @@ describe("production Blueprint validation-before-load", () => {
         ).toBeDefined();
     });
 
-    test("rejects a transitive module shared across incompatible placement modes", async () => {
+    test("rejects a transitive module shared across incompatible placement modes", { tags: "p0" }, async () => {
         const fixture = packageFixture();
         const dynamic = fixture.release.manifests[0]!;
         const providerBytes = encoder.encode("export { value } from './dependency.js';");

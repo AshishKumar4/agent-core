@@ -35,7 +35,7 @@ function token(
 }
 
 describe("public Run and Turn values", () => {
-    test("keeps the four identifiers nominally distinct", () => {
+    test("keeps the four identifiers nominally distinct", { tags: "p2" }, () => {
         const ids = [
             new RunId("run-id"),
             new TurnId("turn-id"),
@@ -49,7 +49,7 @@ describe("public Run and Turn values", () => {
 });
 
 describe("TurnLease", () => {
-    test("[turn-lease-verifier] memory and repository implementations enforce the exact durable lease", () => {
+    test("[turn-lease-verifier] memory and repository implementations enforce the exact durable lease", { tags: "p0" }, () => {
         const seeded = seedRunningTurn();
         const verifiers = [
             new MemoryTurnLeaseVerifier([seeded.running.lease], () => at(1_500)),
@@ -64,7 +64,7 @@ describe("TurnLease", () => {
         }
     });
 
-    test("[C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement", () => {
+    test("[C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement", { tags: "p0" }, () => {
         const seeded = seedRunningTurn();
         const replacementHolder = new PrincipalRef(
             tenant,
@@ -114,7 +114,7 @@ describe("TurnLease", () => {
         }
     });
 
-    test("admits only the exact live Turn, holder, and epoch", () => {
+    test("admits only the exact live Turn, holder, and epoch", { tags: "p0" }, () => {
         const lease = TurnLease.unclaimed(turn).claim(holder, at(1), at(10));
 
         expect(lease.admits(token(), at(9))).toBe(true);
@@ -126,7 +126,7 @@ describe("TurnLease", () => {
         expect(lease.admits(token(), at(10))).toBe(false);
     });
 
-    test("renews only an exact live token with a later expiration", () => {
+    test("renews only an exact live token with a later expiration", { tags: "p0" }, () => {
         const lease = TurnLease.unclaimed(turn).claim(holder, at(1), at(10));
         const renewed = lease.renew(holder, 1, at(2), at(20));
 
@@ -145,7 +145,7 @@ describe("TurnLease", () => {
         expect(() => lease.renew(holder, 1, at(10), at(20))).toThrow(/exact current/);
     });
 
-    test("reclaims only expired held leases and advances the fence", () => {
+    test("reclaims only expired held leases and advances the fence", { tags: "p0" }, () => {
         const lease = TurnLease.unclaimed(turn).claim(holder, at(1), at(10));
         const reclaimed = lease.reclaim(otherHolder, at(10), at(20));
 
@@ -160,7 +160,7 @@ describe("TurnLease", () => {
         );
     });
 
-    test("fences old tokens and can be claimed again for the same Turn", () => {
+    test("fences old tokens and can be claimed again for the same Turn", { tags: "p0" }, () => {
         const held = TurnLease.unclaimed(turn).claim(holder, at(1), at(10));
         const fenced = held.fence();
         const resumed = fenced.claim(otherHolder, at(2), at(20));

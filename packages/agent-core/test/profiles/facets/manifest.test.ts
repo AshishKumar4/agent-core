@@ -193,6 +193,7 @@ const expectedProfileOperations: Readonly<Record<string, Readonly<Record<string,
 describe("W8 internal profile manifest/runtime correspondence", () => {
     test.each(profiles)(
         "$name manifest round-trips with exact closed contributions",
+        { tags: "p1" },
         (candidate) => {
             const manifest = candidate.create(
                 manifestInit(candidate.name, candidate.requiredBindings)
@@ -217,6 +218,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
 
     test.each(profiles.filter((candidate) => candidate.requiredBindings !== undefined))(
         "$name refuses a manifest missing its required composition binding",
+        { tags: "p1" },
         (candidate) => {
             expect(() => candidate.create(manifestInit(candidate.name))).toThrow(
                 /requires binding/u
@@ -224,7 +226,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         }
     );
 
-    test("fixes provider-only Approval placement and dynamic zero-ambient Slate constraints", () => {
+    test("fixes provider-only Approval placement and dynamic zero-ambient Slate constraints", { tags: "p1" }, () => {
         const approval = createApprovalGatewayManifest(manifestInit("approval"));
         expect(approval.isolation).toEqual(["provider"]);
 
@@ -247,7 +249,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         ).toBe(false);
     });
 
-    test("[P11-SLATE-DYNAMIC] rejects ambient authority from the dynamic backend configuration", () => {
+    test("[P11-SLATE-DYNAMIC] rejects ambient authority from the dynamic backend configuration", { tags: "p0" }, () => {
         const slate = createSlateManifest(
             manifestInit("slate-dynamic", [SLATE_ENVIRONMENT_BINDING])
         );
@@ -263,7 +265,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         ).toBe(false);
     });
 
-    test("[P11-SLATE-BINDINGS] requires the Environment capability as an explicit Binding", () => {
+    test("[P11-SLATE-BINDINGS] requires the Environment capability as an explicit Binding", { tags: "p1" }, () => {
         expect(() => createSlateManifest(manifestInit("slate-unbound"))).toThrow(
             /requires binding/u
         );
@@ -273,7 +275,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         ]);
     });
 
-    test("declares MCP parent controls/config without static discovered Operations", () => {
+    test("declares MCP parent controls/config without static discovered Operations", { tags: "p1" }, () => {
         const manifest = createMcpManifest(manifestInit("mcp", [MCP_PARENT_BINDING]));
         expect(contributedOperations(manifest)).toEqual([]);
         expect(manifest.contributions.entries.map((entry) => entry.slot.value)).toEqual([
@@ -298,12 +300,12 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         }
     });
 
-    test("keeps Single-tenant explicitly policy-only with no Facet manifest factory", () => {
+    test("keeps Single-tenant explicitly policy-only with no Facet manifest factory", { tags: "p1" }, () => {
         expect("createSingleTenantManifest" in SingleTenant).toBe(false);
         expect(SingleTenant.SINGLE_TENANT_OPERATIONS).toEqual([]);
     });
 
-    test("exposes the W8 internal runtime contract from every actual Facet facade", () => {
+    test("exposes the W8 internal runtime contract from every actual Facet facade", { tags: "p1" }, () => {
         const facades = [
             FilesystemFacet,
             ShellFacet,
@@ -322,7 +324,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         expect("asInternalRuntime" in McpFacet.prototype).toBe(false);
     });
 
-    test("coalesces concurrent lifecycle start/stop and gates the shared runtime", async () => {
+    test("coalesces concurrent lifecycle start/stop and gates the shared runtime", { tags: "p1" }, async () => {
         const lifecyclePort = recordingRuntime("task").runtime;
         lifecyclePort.deactivate();
         const internal = new TaskFacet(lifecyclePort, new TaskBackend()).asInternalRuntime(
@@ -335,7 +337,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         expect(internal.active).toBe(false);
     });
 
-    test("preserves caller identity/config/bindings but rejects undeclared contributions", () => {
+    test("preserves caller identity/config/bindings but rejects undeclared contributions", { tags: "p1" }, () => {
         const init = manifestInit("filesystem", ["caller.binding"]);
         const manifest = createFilesystemManifest(init);
         expect(manifest.id).toBe(init.id);
@@ -354,7 +356,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         ).toThrow(/undeclared slot/u);
     });
 
-    test("validates optional config composition, prompt shape, and declared custom entries", () => {
+    test("validates optional config composition, prompt shape, and declared custom entries", { tags: "p1" }, () => {
         const { configSchema: _configSchema, ...withoutConfig } = manifestInit("minimal");
         const unconstrained = createStandardProfileManifest(withoutConfig, {
             isolation: ["bundled"],
@@ -397,7 +399,7 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         ).toThrow(/does not match slot/u);
     });
 
-    test("provides internal lookup/surface/lifecycle/children without claiming the external Facet base", async () => {
+    test("provides internal lookup/surface/lifecycle/children without claiming the external Facet base", { tags: "p1" }, async () => {
         const manifest = createTaskManifest(manifestInit("task"));
         const { runtime } = recordingRuntime("task");
         runtime.deactivate();

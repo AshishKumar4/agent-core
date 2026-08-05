@@ -45,7 +45,7 @@ import { BoundOperationRef, FacetOperationRef } from "../../src/facets/operation
 const objectSchema = new JsonSchema({ type: "object" });
 
 describe("Declarative facet vocabulary", () => {
-    test("exports W3-owned Facet, Operation, and Surface contracts without host constructors", () => {
+    test("exports W3-owned Facet, Operation, and Surface contracts without host constructors", { tags: "p2" }, () => {
         expect("Facet" in declarations).toBe(true);
         expect("Operation" in declarations).toBe(true);
         expect("Surface" in declarations).toBe(true);
@@ -59,7 +59,7 @@ describe("Declarative facet vocabulary", () => {
         expect("MemorySlotStore" in declarations).toBe(false);
     });
 
-    test("accepts only canonical JSON facet data and freezes canonical copies", () => {
+    test("accepts only canonical JSON facet data and freezes canonical copies", { tags: "p0" }, () => {
         const source = { z: [{ b: 2, a: 1 }], a: true };
         const canonical = canonicalFacetData(source);
         source.z[0]!.a = 9;
@@ -72,7 +72,7 @@ describe("Declarative facet vocabulary", () => {
         expect(isFacetData(Number.POSITIVE_INFINITY)).toBe(false);
     });
 
-    test("models operation, surface, event, prompt, and slot declarations", () => {
+    test("models operation, surface, event, prompt, and slot declarations", { tags: "p1" }, () => {
         const operation = new OperationDescriptor(
             new OperationName("deploy.run"),
             "externalSend",
@@ -123,7 +123,7 @@ describe("Declarative facet vocabulary", () => {
         expect(Object.isFrozen(slot.authority.visibility)).toBe(true);
     });
 
-    test("[facet.slot-entry] preserves SlotEntry golden bytes and round-trips immutable canonical data", () => {
+    test("[facet.slot-entry] preserves SlotEntry golden bytes and round-trips immutable canonical data", { tags: "p0" }, () => {
         const source = { title: "Original", nested: { order: 1 } };
         const entry = new SlotEntry(
             new SlotName("core.card"),
@@ -149,7 +149,7 @@ describe("Declarative facet vocabulary", () => {
         expect(Object.isFrozen(decoded.value)).toBe(true);
     });
 
-    test("requires exact SlotEntry payload fields", () => {
+    test("requires exact SlotEntry payload fields", { tags: "p1" }, () => {
         expectCodecError(
             () =>
                 SlotEntry.decode(
@@ -185,7 +185,7 @@ describe("Declarative facet vocabulary", () => {
         );
     });
 
-    test("models commands, automations, ingress, and interceptors as codec data", () => {
+    test("models commands, automations, ingress, and interceptors as codec data", { tags: "p1" }, () => {
         const move = new FieldMove("/target", { from: "/input/target" });
         const command = new Command({
             name: "deploy",
@@ -244,7 +244,7 @@ describe("Declarative facet vocabulary", () => {
         ]);
     });
 
-    test("keeps constructed and decoded interceptor declarations immutable", () => {
+    test("keeps constructed and decoded interceptor declarations immutable", { tags: "p0" }, () => {
         const interceptor = new InterceptorDeclaration(
             new InterceptorId("immutable"),
             "operation.before",
@@ -262,7 +262,7 @@ describe("Declarative facet vocabulary", () => {
         expect(decoded.toData()).toEqual(interceptor.toData());
     });
 
-    test("[facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec", () => {
+    test("[facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec", { tags: "p1" }, () => {
         const move = new FieldMove("/target", { from: "/source" });
         const fieldMapping = new FieldMapping([move]);
         const payloadMapping = new PayloadMapping([move]);
@@ -332,7 +332,7 @@ describe("Declarative facet vocabulary", () => {
         expect(defaultInterceptor.appliesTo.toData()).toEqual([{ operation: "*" }]);
     });
 
-    test("[C13-FACET-REF-CANONICAL] uses canonical instance, bound, and Facet operation references", () => {
+    test("[C13-FACET-REF-CANONICAL] uses canonical instance, bound, and Facet operation references", { tags: "p1" }, () => {
         const binding = new BindingName("deploy");
         const operation = new OperationName("run");
         const bound = new BoundOperationRef(binding, operation);
@@ -351,7 +351,7 @@ describe("Declarative facet vocabulary", () => {
         ).toThrow(/string/);
     });
 
-    test("[C13-FACET-MANIFEST] canonicalizes manifests without changing ordered mapping semantics", () => {
+    test("[C13-FACET-MANIFEST] canonicalizes manifests without changing ordered mapping semantics", { tags: "p0" }, () => {
         const firstMove = new FieldMove("/first", { from: "/z" });
         const secondMove = new FieldMove("/second", { literal: { b: 2, a: 1 } });
         const orderedMapping = new FieldMapping([firstMove, secondMove]);
@@ -406,7 +406,7 @@ describe("Declarative facet vocabulary", () => {
         );
     });
 
-    test("rejects empty, duplicate, unknown, and ambiguous set-like declarations", () => {
+    test("rejects empty, duplicate, unknown, and ambiguous set-like declarations", { tags: "p1" }, () => {
         expect(
             () =>
                 new FacetManifest({
@@ -448,7 +448,7 @@ describe("Declarative facet vocabulary", () => {
         ).toThrow(TypeError);
     });
 
-    test("rejects malformed event, interceptor, mapping, and slot declarations at decode boundaries", () => {
+    test("rejects malformed event, interceptor, mapping, and slot declarations at decode boundaries", { tags: "p2" }, () => {
         expect(() => EventPattern.fromData({ acceptedTrust: [], kind: "event" })).toThrow(
             /must not be empty/
         );
@@ -564,7 +564,7 @@ describe("Declarative facet vocabulary", () => {
         }
     });
 
-    test("rejects unknown codec fields and noncanonical record bytes", () => {
+    test("rejects unknown codec fields and noncanonical record bytes", { tags: "p0" }, () => {
         expectCodecError(
             () =>
                 OperationDescriptor.decode(
@@ -589,7 +589,7 @@ describe("Declarative facet vocabulary", () => {
         expectCodecError(() => Prompt.decode(canonical), "codec.invalid");
     });
 
-    test("[facet.bound-operation-ref] [facet.operation-ref] covers strict W3 declaration constructor and codec branches", () => {
+    test("[facet.bound-operation-ref] [facet.operation-ref] covers strict W3 declaration constructor and codec branches", { tags: "p2" }, () => {
         const operation = new OperationRef("acme.runtime:run");
         const binding = new BindingName("runtime");
         const minimalCommand = Command.fromData({

@@ -47,7 +47,7 @@ import {
 } from "./fixture";
 
 describe("Agent and Run records", () => {
-    it("[C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins", () => {
+    it("[C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins", { tags: "p1" }, () => {
         const sources = sourceRecords();
         expect(
             AgentRevisionRecordCodec.decode(AgentRevisionRecordCodec.encode(sources.agent))
@@ -74,7 +74,7 @@ describe("Agent and Run records", () => {
         ).toBe(true);
     });
 
-    it("rejects duplicate package IDs and nonpreferred placement", () => {
+    it("rejects duplicate package IDs and nonpreferred placement", { tags: "p1" }, () => {
         const value = pins();
         expect(
             () => new BlueprintPin(" ", value.blueprint.version, value.blueprint.digest)
@@ -111,7 +111,7 @@ describe("Agent and Run records", () => {
         ).toThrow(/preference/);
     });
 
-    it("[C13-RUN-PINS-ENVIRONMENT] round-trips exact source identities and does not alias Environment revisions", () => {
+    it("[C13-RUN-PINS-ENVIRONMENT] round-trips exact source identities and does not alias Environment revisions", { tags: "p1" }, () => {
         const value = RunPinsCodec.decode(RunPinsCodec.encode(pins()));
         expect(value.agent.id.constructor).toBe(ids.agent.constructor);
         expect(value.effectivePolicy.id.constructor).toBe(ids.policy.constructor);
@@ -127,7 +127,7 @@ describe("Agent and Run records", () => {
         expect(otherEnvironment.equals(value)).toBe(false);
     });
 
-    it("rejects bare-revision and duplicated snapshot source fields", () => {
+    it("rejects bare-revision and duplicated snapshot source fields", { tags: "p2" }, () => {
         const legacyPins = structuredClone(pins().toData()) as Record<string, unknown>;
         delete legacyPins["environment"];
         legacyPins["environmentRevision"] = 3;
@@ -143,7 +143,7 @@ describe("Agent and Run records", () => {
         );
     });
 
-    it("rejects empty, reordered, and duplicate Run configuration histories", () => {
+    it("rejects empty, reordered, and duplicate Run configuration histories", { tags: "p1" }, () => {
         const run = genesis().run;
         const { parent, terminal, ...required } = run;
         for (const configurations of [[], [digest("f")], [run.configuration, run.configuration]]) {
@@ -159,7 +159,7 @@ describe("Agent and Run records", () => {
         }
     });
 
-    it("[C13-RUN-PLACEMENT-SNAPSHOT] binds placement snapshots to one Turn and one pin set", () => {
+    it("[C13-RUN-PLACEMENT-SNAPSHOT] binds placement snapshots to one Turn and one pin set", { tags: "p1" }, () => {
         const pin = new PlacementPin({
             facet: new FacetRef("core:facet-1"),
             manifest: ["provider", "dynamic"],
@@ -176,7 +176,7 @@ describe("Agent and Run records", () => {
         expect(decoded.placements[0]?.selected).toBe("dynamic");
     });
 
-    it("enforces the closed writer matrix and complete control proposal binding", () => {
+    it("enforces the closed writer matrix and complete control proposal binding", { tags: "p0" }, () => {
         const { evidence, repository } = harness();
         const receiptCommit = new RunCommit({
             id: new RunCommitId("commit-invocation"),
@@ -257,7 +257,7 @@ describe("Agent and Run records", () => {
 });
 
 describe("Turn lifecycle", () => {
-    it("[C13-TURN-LIFECYCLE] enforces claim, renewal, suspension, resume, completion, and terminal rejection", () => {
+    it("[C13-TURN-LIFECYCLE] enforces claim, renewal, suspension, resume, completion, and terminal rejection", { tags: "p0" }, () => {
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
         let turn = new Turn({
             id: ids.turn,
@@ -287,7 +287,7 @@ describe("Turn lifecycle", () => {
         expect(() => turn.claim(ids.holder, new Date(1500), new Date(5000))).toThrow(/claim/);
     });
 
-    it("[C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct", () => {
+    it("[C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct", { tags: "p1" }, () => {
         const checkpoint = new RunCheckpoint(
             new RunCheckpointId("checkpoint-1"),
             ids.turn,
@@ -327,7 +327,7 @@ describe("Turn lifecycle", () => {
 });
 
 describe("memory Run runtime", () => {
-    it("[C13-RUN-GRAPH-ARITY] atomically creates and restores a canonical Run graph", () => {
+    it("[C13-RUN-GRAPH-ARITY] atomically creates and restores a canonical Run graph", { tags: "p0" }, () => {
         const first = harness();
         first.runtime.createRun(genesis());
         const snapshot = first.storage.snapshot();
@@ -355,7 +355,7 @@ describe("memory Run runtime", () => {
         expect(restored.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
     });
 
-    it("uses expected-head CAS without leaving an orphan losing commit", () => {
+    it("uses expected-head CAS without leaving an orphan losing commit", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
@@ -411,7 +411,7 @@ describe("memory Run runtime", () => {
         expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(winner.id)).toBe(true);
     });
 
-    it("atomically persists checkpoint before suspension fencing", () => {
+    it("atomically persists checkpoint before suspension fencing", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
@@ -474,7 +474,7 @@ describe("memory Run runtime", () => {
         ).toBeDefined();
     });
 
-    it("[C13-RUN-PINS-SOURCES] rejects migration ahead of an admitted old-pin Turn", () => {
+    it("[C13-RUN-PINS-SOURCES] rejects migration ahead of an admitted old-pin Turn", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
@@ -524,7 +524,7 @@ describe("memory Run runtime", () => {
         ).toBeUndefined();
     });
 
-    it("[C13-TURN-NO-RETRY-RECORD] exposes no Turn retry runtime or record field", () => {
+    it("[C13-TURN-NO-RETRY-RECORD] exposes no Turn retry runtime or record field", { tags: "p0" }, () => {
         const value = harness();
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
         const turn = new Turn({
@@ -545,7 +545,7 @@ describe("memory Run runtime", () => {
         expect("retryOf" in Turn.decode(Turn.encode(turn))).toBe(false);
     });
 
-    it("creates one attenuated child through lease-bound atomic spawn genesis", () => {
+    it("creates one attenuated child through lease-bound atomic spawn genesis", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
@@ -683,7 +683,7 @@ describe("memory Run runtime", () => {
         ).toHaveLength(1);
     });
 
-    it("[C13-RUN-EQUAL-PIN-MERGE] accepts only ordered equal-pin current heads for binary merge", () => {
+    it("[C13-RUN-EQUAL-PIN-MERGE] accepts only ordered equal-pin current heads for binary merge", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const sourceBranchId = new RunBranchId("branch-source");
@@ -758,7 +758,7 @@ describe("memory Run runtime", () => {
         expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(merge.id)).toBe(true);
     });
 
-    it("[C13-RUN-UNDO-REDO] appends undo selection without rewinding ancestry", () => {
+    it("[C13-RUN-UNDO-REDO] appends undo selection without rewinding ancestry", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const undo = new RunCommit({
@@ -789,7 +789,7 @@ describe("memory Run runtime", () => {
         ).toBe(true);
     });
 
-    it("rolls back incomplete genesis and rejects unresolved source revisions", () => {
+    it("rolls back incomplete genesis and rejects unresolved source revisions", { tags: "p0" }, () => {
         const value = harness();
         value.sources.accepts = false;
         expect(() => value.runtime.createRun(genesis())).toThrow(/source revisions/);
@@ -807,7 +807,7 @@ describe("memory Run runtime", () => {
         ).toBeUndefined();
     });
 
-    it("[C13-TURN-NO-RETRY-RUNTIME] cancels an unheld queued Turn without creating a result commit", () => {
+    it("[C13-TURN-NO-RETRY-RUNTIME] cancels an unheld queued Turn without creating a result commit", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
@@ -836,7 +836,7 @@ describe("memory Run runtime", () => {
         ).toBeDefined();
     });
 
-    it("[C13-TURN-CALLBACK-WRITER] anchors a Turn, rejects stale tokens, and terminalizes with derived settlement", () => {
+    it("[C13-TURN-CALLBACK-WRITER] anchors a Turn, rejects stale tokens, and terminalizes with derived settlement", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
@@ -920,7 +920,7 @@ describe("memory Run runtime", () => {
         ).toThrow(/terminal/);
     });
 
-    it("[C13-RUN-TERMINAL-OBLIGATIONS] derives settlement from every captured obligation", () => {
+    it("[C13-RUN-TERMINAL-OBLIGATIONS] derives settlement from every captured obligation", { tags: "p0" }, () => {
         const value = harness();
         const obligation = new SettlementObligation({
             registryEpoch: 1,

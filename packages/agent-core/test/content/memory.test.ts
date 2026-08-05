@@ -53,7 +53,7 @@ contentRetentionContract("memory", () => {
 });
 
 describe("MemoryContentStore records", () => {
-    test("keeps transient hold authority out of the public content surface", () => {
+    test("keeps transient hold authority out of the public content surface", { tags: "p0" }, () => {
         for (const name of [
             "ContentHoldAuthority",
             "ContentHoldProof",
@@ -68,7 +68,7 @@ describe("MemoryContentStore records", () => {
         expect(MemoryContentStore.prototype).not.toHaveProperty("reap");
     });
 
-    test("keeps stored and returned bytes detached from hostile range behavior", async () => {
+    test("keeps stored and returned bytes detached from hostile range behavior", { tags: "p0" }, async () => {
         const store = new MemoryContentStore();
         const stored = await store.put(new TextEncoder().encode("private"));
         let observed: Uint8Array | undefined;
@@ -87,7 +87,7 @@ describe("MemoryContentStore records", () => {
         await expect(store.get(stored.ref)).resolves.toEqual(new TextEncoder().encode("private"));
     });
 
-    test("exposes only frozen, non-subclassable ByteRange values", () => {
+    test("exposes only frozen, non-subclassable ByteRange values", { tags: "p0" }, () => {
         const range = ByteRange.slice(1, 2);
         expect(Object.isFrozen(range)).toBe(true);
         expect(Object.isFrozen(ByteRange.prototype)).toBe(true);
@@ -105,7 +105,7 @@ describe("MemoryContentStore records", () => {
         ).toThrow(TypeError);
     });
 
-    test("[C13-CODEC-VERSIONING] round-trips stat and owner-edge records through versioned codecs", async () => {
+    test("[C13-CODEC-VERSIONING] round-trips stat and owner-edge records through versioned codecs", { tags: "p1" }, async () => {
         const store = new MemoryContentStore();
         const stored = await store.put(new TextEncoder().encode("codec"));
         const stat = await store.stat(stored.ref);
@@ -163,7 +163,7 @@ describe("MemoryContentStore records", () => {
         ).toThrow(/malformed/);
     });
 
-    test("[content.owner-edge] [content.transient-lease] restores content, owner, tombstone, and lease state", async () => {
+    test("[content.owner-edge] [content.transient-lease] restores content, owner, tombstone, and lease state", { tags: "p0" }, async () => {
         const store = new MemoryContentStore();
         const owner = contentOwner();
         const retention = store.retention(owner.tenant, owner.actor);
@@ -208,7 +208,7 @@ describe("MemoryContentStore records", () => {
         );
     });
 
-    test("rolls back transient bytes, relation, and lease together", async () => {
+    test("rolls back transient bytes, relation, and lease together", { tags: "p0" }, async () => {
         const store = new MemoryContentStore();
         const owner = contentOwner();
         store.retention(owner.tenant, owner.actor);
@@ -234,7 +234,7 @@ describe("MemoryContentStore records", () => {
         ).resolves.toBeDefined();
     });
 
-    test("reacquires a closed same-envelope lease after snapshot restart", async () => {
+    test("reacquires a closed same-envelope lease after snapshot restart", { tags: "p1" }, async () => {
         const store = new MemoryContentStore();
         const owner = contentOwner();
         store.retention(owner.tenant, owner.actor);

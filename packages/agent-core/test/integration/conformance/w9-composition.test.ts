@@ -125,7 +125,7 @@ const descriptor = new OperationDescriptor(
 );
 
 describe("W9 internal typed composition", () => {
-    test("rejects stale authority and preserves an opaque no-write direct stamp", async () => {
+    test("rejects stale authority and preserves an opaque no-write direct stamp", { tags: "p0" }, async () => {
         const state = new AuthorityState();
         const authority = new TenantOperationAuthority(state, () => new Date(10));
         const resolved = await authority.resolve(principal, bindingName);
@@ -156,7 +156,7 @@ describe("W9 internal typed composition", () => {
         ).toBeUndefined();
     });
 
-    test("fails closed on substituted resolution evidence and only admits same-domain interception", async () => {
+    test("fails closed on substituted resolution evidence and only admits same-domain interception", { tags: "p0" }, async () => {
         const state = new AuthorityState();
         const unresolved = operationAuthority(state, { resolve: () => undefined });
         await expect(unresolved.resolve(principal, bindingName)).rejects.toMatchObject({
@@ -414,7 +414,7 @@ describe("W9 internal typed composition", () => {
         }
     );
 
-    test("denies an expired authenticated permit without consuming its nonce", async () => {
+    test("denies an expired authenticated permit without consuming its nonce", { tags: "p0" }, async () => {
         const expected = permitExpectation();
         const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
         const permit = issuerStore.transaction((transaction) =>
@@ -529,7 +529,7 @@ describe("W9 internal typed composition", () => {
         }
     );
 
-    test("fails closed for malformed permits while preserving infrastructure failures", async () => {
+    test("fails closed for malformed permits while preserving infrastructure failures", { tags: "p0" }, async () => {
         const expected = permitExpectation();
         const store = new MemoryAuthorityPermitStore(expected.target.actor);
         let denials = 0;
@@ -583,7 +583,7 @@ describe("W9 internal typed composition", () => {
         expect(denials).toBe(1);
     });
 
-    test("rejects invalid permit lifetimes before issuing authority", () => {
+    test("rejects invalid permit lifetimes before issuing authority", { tags: "p0" }, () => {
         const expected = permitExpectation();
         const store = new MemoryAuthorityPermitStore(expected.issuer);
 
@@ -600,7 +600,7 @@ describe("W9 internal typed composition", () => {
         ).toThrow(/positive safe integer/);
     });
 
-    test("delegates installation provenance and creates a protected profile runtime", () => {
+    test("delegates installation provenance and creates a protected profile runtime", { tags: "p1" }, () => {
         const provenance = new (class extends PackageInstallationProvenancePort<object, object> {
             protected authenticatedInstallation(): undefined {
                 return undefined;
@@ -625,7 +625,7 @@ describe("W9 internal typed composition", () => {
         expect(runtime.active).toBe(false);
     });
 
-    test("captures exact reserved-minus-completed Run frontier across restart and close races", () => {
+    test("captures exact reserved-minus-completed Run frontier across restart and close races", { tags: "p1" }, () => {
         const run = new RunId("w9-run");
         const initial = RunAdmissionRegistry.initial(run);
         const complete = initial.reserve({
@@ -693,7 +693,7 @@ describe("W9 internal typed composition", () => {
         expect(closed.close()).toBe(closed);
     });
 
-    test("settles every Run obligation through canonical identity adapters", () => {
+    test("settles every Run obligation through canonical identity adapters", { tags: "p1" }, () => {
         const approval = new ApprovalId("w9-settlement-approval");
         const invocation = new InvocationId("w9-settlement-invocation");
         const route = new RouteReservationId("w9-settlement-route");
@@ -765,7 +765,7 @@ describe("W9 internal typed composition", () => {
         expect(seen.size).toBe(8);
     });
 
-    test("replays per-item mediation and retries the durable outbox after crashes", async () => {
+    test("replays per-item mediation and retries the durable outbox after crashes", { tags: "p0" }, async () => {
         const transactions = new MemoryTransactions();
         const persistence = new MemoryInvocationMediationPersistence();
         const invocation = new InvocationId("w9-replay");
@@ -864,7 +864,7 @@ describe("W9 internal typed composition", () => {
         expect([...deliveredCommits]).toEqual(["w9-outbox-receipt"]);
     });
 
-    test("adapts profile mediation through the canonical batch invocation port", async () => {
+    test("adapts profile mediation through the canonical batch invocation port", { tags: "p1" }, async () => {
         const invocation = new InvocationId("w9-profile-invocation");
         const batch = new SuccessfulBatch<ProtectedOperationRequest>(invocation);
         const adapter = new InvocationProtectedOperationPort(
@@ -891,7 +891,7 @@ describe("W9 internal typed composition", () => {
         expect(batch.calls).toBe(1);
     });
 
-    test("uses canonical constructors and keeps composition off the package surface", () => {
+    test("uses canonical constructors and keeps composition off the package surface", { tags: "p2" }, () => {
         expect(RunId).toBe(ExecutionRunId);
         expect(InvocationContextId).toBe(InteractionInvocationId);
         expect(WorkspaceId).toBe(RoutedWorkspaceId);

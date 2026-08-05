@@ -19,7 +19,7 @@ import {
 
 workspacePersistenceContract("SQLite", createSqliteHarness);
 
-test("file-backed SQLite records survive a database close and reopen", () => {
+test("file-backed SQLite records survive a database close and reopen", { tags: "p0" }, () => {
     const directory = mkdtempSync(join(tmpdir(), "agent-core-events-"));
     const path = join(directory, "events.sqlite");
     const event = eventFixture("sqlite-file-restart");
@@ -55,7 +55,7 @@ test("file-backed SQLite records survive a database close and reopen", () => {
     }
 });
 
-test("rejects preexisting lax workspace event tables", () => {
+test("rejects preexisting lax workspace event tables", { tags: "p1" }, () => {
     const database = new TestSqlite();
     database.run(
         "CREATE TABLE workspace_event_records (kind TEXT, id TEXT, bytes BLOB) STRICT",
@@ -65,7 +65,7 @@ test("rejects preexisting lax workspace event tables", () => {
     expect(() => new SqliteWorkspaceEventRecords(database)).toThrow(/schema is incompatible/);
 });
 
-test("verifies initial pointer compare-and-set postconditions", () => {
+test("verifies initial pointer compare-and-set postconditions", { tags: "p0" }, () => {
     const database = new TestSqlite();
     const records = new SqliteWorkspaceEventRecords(database);
     database.run(

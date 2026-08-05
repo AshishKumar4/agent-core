@@ -94,7 +94,7 @@ afterAll(() => {
 });
 
 describe("lease algebra agrees with the verified model", () => {
-    test("admission agrees on every generated (lease, token, now)", async () => {
+    test("admission agrees on every generated (lease, token, now)", { tags: "p0" }, async () => {
         await fc.assert(
             fc.asyncProperty(
                 leaseArbitrary,
@@ -120,7 +120,7 @@ describe("lease algebra agrees with the verified model", () => {
         );
     });
 
-    test("claim agrees: admissibility and successor state", async () => {
+    test("claim agrees: admissibility and successor state", { tags: "p0" }, async () => {
         await fc.assert(
             fc.asyncProperty(
                 leaseArbitrary,
@@ -144,7 +144,7 @@ describe("lease algebra agrees with the verified model", () => {
         );
     });
 
-    test("renew agrees: exact token, unexpired lease, strictly later expiry", async () => {
+    test("renew agrees: exact token, unexpired lease, strictly later expiry", { tags: "p0" }, async () => {
         await fc.assert(
             fc.asyncProperty(
                 leaseArbitrary,
@@ -182,7 +182,7 @@ describe("lease algebra agrees with the verified model", () => {
         );
     });
 
-    test("reclaim agrees: held, expired, future expiry, epoch bump", async () => {
+    test("reclaim agrees: held, expired, future expiry, epoch bump", { tags: "p0" }, async () => {
         await fc.assert(
             fc.asyncProperty(
                 leaseArbitrary,
@@ -206,7 +206,7 @@ describe("lease algebra agrees with the verified model", () => {
         );
     });
 
-    test("fence agrees: unconditional clear-and-bump", async () => {
+    test("fence agrees: unconditional clear-and-bump", { tags: "p0" }, async () => {
         await fc.assert(
             fc.asyncProperty(leaseArbitrary, async (lease) => {
                 await compareStep(lease, { kind: "terminalFence" }, () => liveLease(lease).fence());

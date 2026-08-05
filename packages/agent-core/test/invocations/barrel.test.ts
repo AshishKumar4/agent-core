@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import * as invocations from "../../src/invocations";
 
 describe("invocation context barrel", () => {
-    test("exports the complete W6 runtime API", () => {
+    test("exports the complete W6 runtime API", { tags: "p2" }, () => {
         expect(Object.keys(invocations).sort()).toEqual([
             "AlarmReconciliationDriver",
             "Approval",

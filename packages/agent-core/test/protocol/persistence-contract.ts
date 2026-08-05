@@ -80,7 +80,7 @@ export function protocolPersistenceContract<Transaction>(
             harnesses.clear();
         });
 
-        test("stores codec-backed records and resolves them synchronously", () => {
+        test("stores codec-backed records and resolves them synchronously", { tags: "p1" }, () => {
             const harness = open();
             const records = protocolTestRecords("codec", defaultCaller);
 
@@ -162,7 +162,7 @@ export function protocolPersistenceContract<Transaction>(
             }
         );
 
-        test("[C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links", () => {
+        test("[C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links", { tags: "p0" }, () => {
             const harness = open();
             const linked = protocolTestRecords("write-audit-link", defaultCaller);
             harness.transaction((transaction) => {
@@ -198,7 +198,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("keeps caller and idempotency identity structurally distinct", () => {
+        test("keeps caller and idempotency identity structurally distinct", { tags: "p0" }, () => {
             const harness = open();
             const identities = [
                 protocolTestRecords(
@@ -261,7 +261,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("reserves only the original write and leaves duplicate lookup unchanged", () => {
+        test("reserves only the original write and leaves duplicate lookup unchanged", { tags: "p0" }, () => {
             const harness = open();
             const original = protocolTestRecords("original", defaultCaller);
             const duplicate = protocolTestRecords("duplicate", defaultCaller, {
@@ -286,7 +286,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("rejects a duplicate that does not name a reserved original", () => {
+        test("rejects a duplicate that does not name a reserved original", { tags: "p0" }, () => {
             const harness = open();
             const duplicate = protocolTestRecords("orphan-duplicate", defaultCaller, {
                 outcome: "duplicate",
@@ -311,7 +311,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("rejects identity replacement and rolls back its staged audit and write", () => {
+        test("rejects identity replacement and rolls back its staged audit and write", { tags: "p0" }, () => {
             const harness = open();
             const original = protocolTestRecords("identity-original", defaultCaller);
             const replacement = protocolTestRecords("identity-replacement", defaultCaller, {
@@ -346,7 +346,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("keeps malformed and unauthenticated writes out of the identity index", () => {
+        test("keeps malformed and unauthenticated writes out of the identity index", { tags: "p0" }, () => {
             const harness = open();
             const records = [
                 protocolTestRecords("malformed", defaultCaller, { outcome: "rejectedMalformed" }),
@@ -373,7 +373,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("reserves authenticated malformed writes and replays through duplicate lineage", () => {
+        test("reserves authenticated malformed writes and replays through duplicate lineage", { tags: "p0" }, () => {
             const harness = open();
             const malformed = protocolTestRecords("authenticated-malformed", defaultCaller, {
                 outcome: "rejectedMalformed",
@@ -406,7 +406,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("enforces append-only audit and write identifiers", () => {
+        test("enforces append-only audit and write identifiers", { tags: "p0" }, () => {
             const harness = open();
             const original = protocolTestRecords("append-only", defaultCaller);
             harness.transaction((transaction) => {
@@ -460,6 +460,7 @@ export function protocolPersistenceContract<Transaction>(
 
         test.each(["id", "outcome", "actor"] as const)(
             "rejects non-reciprocal %s linkage and rolls back",
+            { tags: "p0" },
             (mismatch) => {
                 const harness = open();
                 const records = protocolTestRecords(`reciprocal-${mismatch}`, defaultCaller, {
@@ -501,6 +502,7 @@ export function protocolPersistenceContract<Transaction>(
 
         test.each(["audit", "write", "identity"] as const)(
             "rolls back a fault at the %s persistence boundary",
+            { tags: "p0" },
             (boundary) => {
                 const harness = open();
                 const records = protocolTestRecords(
@@ -538,7 +540,7 @@ export function protocolPersistenceContract<Transaction>(
             }
         );
 
-        test("retains committed records and rollback absence across restart", () => {
+        test("retains committed records and rollback absence across restart", { tags: "p0" }, () => {
             const harness = open();
             const committed = protocolTestRecords("restart-committed", defaultCaller);
             const rolledBack = protocolTestRecords("restart-rolled-back", defaultCaller);
@@ -573,7 +575,7 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("rejects a codec-representable unsupported causal path without persistence", () => {
+        test("rejects a codec-representable unsupported causal path without persistence", { tags: "p1" }, () => {
             const harness = open();
             const unsupported = protocolUnsupportedAuditRecords("unsupported").find(
                 (record) => record.kind.kind === "commit"

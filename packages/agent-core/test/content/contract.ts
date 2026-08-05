@@ -9,7 +9,7 @@ const decode = (value: Uint8Array): string => new TextDecoder().decode(value);
 
 export function contentStoreContract(name: string, create: () => ContentStore): void {
     describe(`${name} ContentStore contract`, () => {
-        test("puts, resolves, and stats content-addressed bytes", async () => {
+        test("puts, resolves, and stats content-addressed bytes", { tags: "p1" }, async () => {
             const store = create();
             const stored = await store.put(encode("content"), new MediaHint("text/plain"));
 
@@ -24,7 +24,7 @@ export function contentStoreContract(name: string, create: () => ContentStore): 
             });
         });
 
-        test("deduplicates equal bytes by content address", async () => {
+        test("deduplicates equal bytes by content address", { tags: "p1" }, async () => {
             const store = create();
             const first = await store.put(encode("same"), new MediaHint("text/plain"));
             const second = await store.put(
@@ -39,7 +39,7 @@ export function contentStoreContract(name: string, create: () => ContentStore): 
             });
         });
 
-        test("detaches input and every returned byte range", async () => {
+        test("detaches input and every returned byte range", { tags: "p0" }, async () => {
             const store = create();
             const input = encode("abcdef");
             const stored = await store.put(input);
@@ -54,7 +54,7 @@ export function contentStoreContract(name: string, create: () => ContentStore): 
             expect(await store.get(stored.ref, ByteRange.slice(6, 0))).toEqual(new Uint8Array());
         });
 
-        test("rejects ranges outside the content bounds", async () => {
+        test("rejects ranges outside the content bounds", { tags: "p1" }, async () => {
             const store = create();
             const stored = await store.put(encode("abc"));
 
@@ -68,7 +68,7 @@ export function contentStoreContract(name: string, create: () => ContentStore): 
             expect(() => ByteRange.slice(Number.MAX_SAFE_INTEGER, 1)).toThrow(TypeError);
         });
 
-        test("distinguishes an unresolved store-produced reference", async () => {
+        test("distinguishes an unresolved store-produced reference", { tags: "p1" }, async () => {
             const source = create();
             const target = create();
             const stored = await source.put(encode("only in source"));

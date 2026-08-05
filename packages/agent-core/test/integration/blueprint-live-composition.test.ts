@@ -273,7 +273,7 @@ const observeDescriptor = new OperationDescriptor(
 );
 
 describe("a declared Blueprint is what executes", () => {
-    test("a policy tightening declared in the Blueprint flips live admission to mediated", () => {
+    test("a policy tightening declared in the Blueprint flips live admission to mediated", { tags: "p0" }, () => {
         const projections = materializedProjections(
             new PolicySet({ tiers: { observe: "mediated" } })
         );
@@ -290,7 +290,7 @@ describe("a declared Blueprint is what executes", () => {
         ).toBe("mediated");
     });
 
-    test("the derived Subscription record targets exactly the declared Operation", () => {
+    test("the derived Subscription record targets exactly the declared Operation", { tags: "p1" }, () => {
         const projections = materializedProjections(new PolicySet({}));
         const record = projections.find(
             (projection) =>
@@ -323,7 +323,7 @@ describe("a declared Blueprint is what executes", () => {
         expect(live.source.acceptedTrust).toEqual(["self"]);
     });
 
-    test("the placement record pins the declared isolation and forecloses the direct tier", () => {
+    test("the placement record pins the declared isolation and forecloses the direct tier", { tags: "p0" }, () => {
         const projections = materializedProjections(new PolicySet({}));
         const record = projectionOfKind(projections, "facet-placement");
         const desired = record.desired as { readonly selected: string };

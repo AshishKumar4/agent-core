@@ -35,7 +35,7 @@ export function contentRetentionContract<TTransaction>(
     create: () => ContentRetentionHarness<TTransaction>
 ): void {
     describe(`${name} content-retention contract`, () => {
-        test("retains idempotently and starts the tombstone on final release", async () => {
+        test("retains idempotently and starts the tombstone on final release", { tags: "p0" }, async () => {
             const harness = create();
             const stored = await harness.store.put(encode("retained"));
             const edge = new ContentOwnerEdge(tenant, actor, "record:result", stored.ref);
@@ -57,7 +57,7 @@ export function contentRetentionContract<TTransaction>(
             expect(collected.candidates[0]?.observedAt).toEqual(at(22));
         });
 
-        test("rejects missing content and immutable owner-key collisions", async () => {
+        test("rejects missing content and immutable owner-key collisions", { tags: "p0" }, async () => {
             const harness = create();
             const first = await harness.store.put(encode("first"));
             const second = await harness.store.put(encode("second"));
@@ -99,7 +99,7 @@ export function contentRetentionContract<TTransaction>(
             await expect(harness.store.get(second.ref)).resolves.toEqual(encode("second"));
         });
 
-        test("rejects foreign Actor and Tenant edges before mutation", async () => {
+        test("rejects foreign Actor and Tenant edges before mutation", { tags: "p0" }, async () => {
             const harness = create();
             const stored = await harness.store.put(encode("local"));
             const foreign: readonly ContentOwnerEdge[] = [
@@ -130,7 +130,7 @@ export function contentRetentionContract<TTransaction>(
             expect(collect(harness, at(20), true)).toEqual({ candidates: [], refs: [] });
         });
 
-        test("deduplicates content until every owner releases in either order", async () => {
+        test("deduplicates content until every owner releases in either order", { tags: "p0" }, async () => {
             for (const reverse of [false, true]) {
                 const harness = create();
                 const first = await harness.store.put(encode("shared"));
@@ -152,14 +152,14 @@ export function contentRetentionContract<TTransaction>(
             }
         });
 
-        test("never collects a direct put without an authenticated Tenant relation", async () => {
+        test("never collects a direct put without an authenticated Tenant relation", { tags: "p0" }, async () => {
             const harness = create();
             const stored = await harness.store.put(encode("orphan"));
             expect(collect(harness, at(100), true)).toEqual({ candidates: [], refs: [] });
             await expect(harness.store.get(stored.ref)).resolves.toEqual(encode("orphan"));
         });
 
-        test("fails closed for absent, denied, and faulting policy decisions", async () => {
+        test("fails closed for absent, denied, and faulting policy decisions", { tags: "p0" }, async () => {
             const harness = create();
             const stored = await harness.store.put(encode("policy"));
             const edge = new ContentOwnerEdge(tenant, actor, "policy", stored.ref);
@@ -186,7 +186,7 @@ export function contentRetentionContract<TTransaction>(
             expect(collect(harness, at(24), true).refs).toEqual([stored.ref]);
         });
 
-        test("blocks GC through active lease and opens at close or exact expiry", async () => {
+        test("blocks GC through active lease and opens at close or exact expiry", { tags: "p0" }, async () => {
             for (const closeEarly of [true, false]) {
                 const harness = create();
                 harness.setNow(at(10));
@@ -211,7 +211,7 @@ export function contentRetentionContract<TTransaction>(
             }
         });
 
-        test("lease-only failure is not eligible before close and reacquisition advances safely", async () => {
+        test("lease-only failure is not eligible before close and reacquisition advances safely", { tags: "p0" }, async () => {
             const harness = create();
             harness.setNow(at(10));
             const firstBinding = bindingFor("failed", "first", at(50));
@@ -232,7 +232,7 @@ export function contentRetentionContract<TTransaction>(
             expect(collected.candidates[0]?.unownedSince).toEqual(at(45));
         });
 
-        test("replaces closed or expired same-envelope leases but rejects active conflicts", async () => {
+        test("replaces closed or expired same-envelope leases but rejects active conflicts", { tags: "p1" }, async () => {
             for (const closeFirst of [true, false]) {
                 const harness = create();
                 harness.setNow(at(10));
@@ -269,7 +269,7 @@ export function contentRetentionContract<TTransaction>(
             }
         });
 
-        test("rejects foreign or mismatched lease acquisition without partial insertion", async () => {
+        test("rejects foreign or mismatched lease acquisition without partial insertion", { tags: "p0" }, async () => {
             const harness = create();
             harness.setNow(at(10));
             const binding = bindingFor("bound lease", "bound", at(30));
@@ -298,7 +298,7 @@ export function contentRetentionContract<TTransaction>(
             expect(collect(harness, at(40), true)).toEqual({ candidates: [], refs: [] });
         });
 
-        test("owner and lease ordering always waits for both protections", async () => {
+        test("owner and lease ordering always waits for both protections", { tags: "p0" }, async () => {
             for (const closeFirst of [true, false]) {
                 const harness = create();
                 const stored = await harness.store.put(encode("ordered"));
@@ -328,7 +328,7 @@ export function contentRetentionContract<TTransaction>(
             }
         });
 
-        test("rechecks owners and leases added during policy evaluation", async () => {
+        test("rechecks owners and leases added during policy evaluation", { tags: "p0" }, async () => {
             const ownerHarness = create();
             const ownerStored = await ownerHarness.store.put(encode("policy owner race"));
             const ownerEdge = new ContentOwnerEdge(tenant, actor, "policy-race", ownerStored.ref);
@@ -379,7 +379,7 @@ export function contentRetentionContract<TTransaction>(
             );
         });
 
-        test("normalizes inactive leases without weakening unrelated owners", async () => {
+        test("normalizes inactive leases without weakening unrelated owners", { tags: "p0" }, async () => {
             const harness = create();
             const owned = await harness.store.put(encode("owned inactive lease"));
             const edge = new ContentOwnerEdge(tenant, actor, "inactive-owner", owned.ref);
@@ -408,7 +408,7 @@ export function contentRetentionContract<TTransaction>(
             );
         });
 
-        test("rolls back owner mutations when the host transaction faults", async () => {
+        test("rolls back owner mutations when the host transaction faults", { tags: "p0" }, async () => {
             const harness = create();
             const stored = await harness.store.put(encode("rollback"));
             const edge = new ContentOwnerEdge(tenant, actor, "fault", stored.ref);

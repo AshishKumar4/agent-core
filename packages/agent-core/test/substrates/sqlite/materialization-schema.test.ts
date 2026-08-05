@@ -37,7 +37,7 @@ const tenantId = new TenantId("tenant");
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 describe("SQLite materialization schema", () => {
-    test("creates the exact marked schema with a closed managed-state kind constraint", () => {
+    test("creates the exact marked schema with a closed managed-state kind constraint", { tags: "p1" }, () => {
         const database = new TestSqlite();
         new SqliteMaterializationStore(database, actorRef("schema"));
 
@@ -84,7 +84,7 @@ describe("SQLite materialization schema", () => {
         expect(stateSql).toContain("UNIQUE (generation_id, logical_key)");
     });
 
-    test("rejects unsupported managed-state inserts and loads even if SQLite checks are bypassed", () => {
+    test("rejects unsupported managed-state inserts and loads even if SQLite checks are bypassed", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("unsupported-row");
         const store = new SqliteMaterializationStore(database, actor);
@@ -113,7 +113,7 @@ describe("SQLite materialization schema", () => {
         ).toEqual([{ record_kind: "binding" }]);
     });
 
-    test("requires reset through decoded managed-state, generation, and pointer closure", () => {
+    test("requires reset through decoded managed-state, generation, and pointer closure", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("unsupported-closure");
         const store = new SqliteMaterializationStore(database, actor);
@@ -135,7 +135,7 @@ describe("SQLite materialization schema", () => {
         ).toEqual(legacyBytes);
     });
 
-    test("requires reset when stored plan bytes contain an unsupported closure", () => {
+    test("requires reset when stored plan bytes contain an unsupported closure", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("unsupported-plan");
         const store = new SqliteMaterializationStore(database, actor);
@@ -151,7 +151,7 @@ describe("SQLite materialization schema", () => {
         ).toEqual(legacyBytes);
     });
 
-    test("requires reset for an unsupported marker version without rewriting it", () => {
+    test("requires reset for an unsupported marker version without rewriting it", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("future-schema");
         new SqliteMaterializationStore(database, actor);
@@ -165,7 +165,7 @@ describe("SQLite materialization schema", () => {
         ]);
     });
 
-    test("binds the marked schema to one owning Tenant without rewriting it", () => {
+    test("binds the marked schema to one owning Tenant without rewriting it", { tags: "p0" }, () => {
         const database = new TestSqlite();
         new SqliteMaterializationStore(database, actorRef("tenant-a"));
 
@@ -177,7 +177,7 @@ describe("SQLite materialization schema", () => {
         ).toEqual([{ owner_id: "tenant-a", owner_kind: "tenant" }]);
     });
 
-    test("requires reset for a malformed marked table without replacing its data", () => {
+    test("requires reset for a malformed marked table without replacing its data", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("malformed-table");
         new SqliteMaterializationStore(database, actor);
@@ -191,7 +191,7 @@ describe("SQLite materialization schema", () => {
         ]);
     });
 
-    test("requires reset for a malformed marked index without replacing it", () => {
+    test("requires reset for a malformed marked index without replacing it", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("malformed-index");
         new SqliteMaterializationStore(database, actor);
@@ -215,7 +215,7 @@ describe("SQLite materialization schema", () => {
         ).toContain("ON definition_managed_state (logical_key)");
     });
 
-    test("requires reset for extra indexes targeting protected tables", () => {
+    test("requires reset for extra indexes targeting protected tables", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("extra-index");
         new SqliteMaterializationStore(database, actor);
@@ -233,7 +233,7 @@ describe("SQLite materialization schema", () => {
         ).toEqual([{ name: "hostile_materialization_index" }]);
     });
 
-    test("requires reset for triggers targeting protected tables", () => {
+    test("requires reset for triggers targeting protected tables", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("extra-trigger");
         new SqliteMaterializationStore(database, actor);
@@ -255,7 +255,7 @@ describe("SQLite materialization schema", () => {
         ).toEqual([{ name: "hostile_materialization_trigger" }]);
     });
 
-    test("requires reset when definition materialization tables predate the marker", () => {
+    test("requires reset when definition materialization tables predate the marker", { tags: "p0" }, () => {
         const database = new TestSqlite();
         database.run("CREATE TABLE definition_blueprints (sentinel TEXT)", []);
         database.run("INSERT INTO definition_blueprints VALUES ('keep')", []);
@@ -270,6 +270,7 @@ describe("SQLite materialization schema", () => {
 
     test.each(["Definition_Blueprints", "DEFINITION_MATERIALIZATION_PLANS"])(
         "requires reset for case-variant unmarked %s without replacing it",
+        { tags: "p0" },
         (table) => {
             const database = new TestSqlite();
             database.run(`CREATE TABLE ${table} (sentinel TEXT)`, []);
@@ -289,7 +290,7 @@ describe("SQLite materialization schema", () => {
         "composition_slot_entries",
         "composition_slot_shadow",
         "Composition_Slot_Entries"
-    ])("requires reset for legacy %s without deleting its data", (table) => {
+    ])("requires reset for legacy %s without deleting its data", { tags: "p0" }, (table) => {
         const database = new TestSqlite();
         database.run(`CREATE TABLE ${table} (sentinel TEXT)`, []);
         database.run(`INSERT INTO ${table} VALUES ('keep')`, []);
@@ -300,7 +301,7 @@ describe("SQLite materialization schema", () => {
         expect(database.all(`SELECT sentinel FROM ${table}`, [])).toEqual([{ sentinel: "keep" }]);
     });
 
-    test("requires reset for a legacy Slot shadow without touching the shadow row", () => {
+    test("requires reset for a legacy Slot shadow without touching the shadow row", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("legacy-shadow");
         const record = supportedRecord("legacy-shadow");
@@ -331,7 +332,7 @@ describe("SQLite materialization schema", () => {
         ]);
     });
 
-    test("requires reset for orphan managed state without deleting it", () => {
+    test("requires reset for orphan managed state without deleting it", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("orphan");
         new SqliteMaterializationStore(database, actor);
@@ -361,7 +362,7 @@ describe("SQLite materialization schema", () => {
         ]);
     });
 
-    test("rolls back standalone managed state that has no stored generation", () => {
+    test("rolls back standalone managed state that has no stored generation", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("standalone-orphan");
         const store = new SqliteMaterializationStore(database, actor);

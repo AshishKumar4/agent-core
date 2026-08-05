@@ -4,7 +4,7 @@ import { ContentRef, Digest } from "../../src/core";
 const DIGEST = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
 describe("ContentRef", () => {
-    test("round-trips a SHA-256 content address through a detached digest", () => {
+    test("round-trips a SHA-256 content address through a detached digest", { tags: "p0" }, () => {
         const digest = new Digest(DIGEST);
         const ref = ContentRef.fromDigest(digest);
 
@@ -14,7 +14,7 @@ describe("ContentRef", () => {
         expect(ref.equals(new ContentRef(ref.value))).toBe(true);
     });
 
-    test("is deeply runtime immutable", () => {
+    test("is deeply runtime immutable", { tags: "p0" }, () => {
         const ref = new ContentRef(`sha256:${DIGEST}`);
 
         expect(Object.isFrozen(ref)).toBe(true);
@@ -24,7 +24,7 @@ describe("ContentRef", () => {
         }).toThrow(TypeError);
     });
 
-    test("rejects noncanonical addresses and counterfeit digests", () => {
+    test("rejects noncanonical addresses and counterfeit digests", { tags: "p0" }, () => {
         for (const value of [
             DIGEST,
             `SHA256:${DIGEST}`,

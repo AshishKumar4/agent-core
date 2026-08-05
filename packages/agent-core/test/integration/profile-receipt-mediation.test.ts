@@ -30,7 +30,7 @@ const target = new FacetRef("profile:approval");
 const input = { resource: "account" } as const;
 
 describe("Canonical profile Receipt mediation", () => {
-    test("[P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation", async () => {
+    test("[P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation", { tags: "p0" }, async () => {
         const target = new FacetRef("profile:filesystem");
         const invocation = new InvocationId("filesystem-write-receipt");
         const harness = new CanonicalBatchHarness<ProtectedOperationRequest>(
@@ -68,7 +68,7 @@ describe("Canonical profile Receipt mediation", () => {
         expect(backend.read("/file")).toEqual(new Uint8Array([1]));
     });
 
-    test("[P11-APPROVAL-GATEWAY-RECEIPTS] persists and replays the canonical W6 Receipt across restart", async () => {
+    test("[P11-APPROVAL-GATEWAY-RECEIPTS] persists and replays the canonical W6 Receipt across restart", { tags: "p0" }, async () => {
         const fixture = approvalFixture("approval-receipt");
 
         await expect(fixture.facet.applyAction(input)).resolves.toEqual({ applied: true });

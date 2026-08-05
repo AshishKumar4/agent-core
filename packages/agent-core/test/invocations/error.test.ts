@@ -15,7 +15,7 @@ import {
 import { invocationCodecs, prepared } from "./fixture";
 
 describe("invocation operational error taxonomy", () => {
-    test("[C13-ADV-STALE-RECOVERY-OWNER] uses AgentCoreError for append conflicts and missing persisted evidence", () => {
+    test("[C13-ADV-STALE-RECOVERY-OWNER] uses AgentCoreError for append conflicts and missing persisted evidence", { tags: "p1" }, () => {
         const state = createInvocationMemoryState();
         const persistence = new MemoryInvocationPersistence(invocationCodecs);
         const invocation = prepared("duplicate-error");

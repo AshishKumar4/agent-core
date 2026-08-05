@@ -18,7 +18,7 @@ import {
 } from "../../src/definition/placement";
 
 describe("pure policy floors", () => {
-    test("[C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location", () => {
+    test("[C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location", { tags: "p0" }, () => {
         for (const placement of PLACEMENT_PREFERENCE) {
             expect(
                 evaluatePolicy({
@@ -30,7 +30,7 @@ describe("pure policy floors", () => {
         }
     });
 
-    test("implements the exact impact and Turn-owned session floor", () => {
+    test("implements the exact impact and Turn-owned session floor", { tags: "p0" }, () => {
         for (const turnOwnedSession of [false, true]) {
             for (const impact of POLICY_IMPACTS) {
                 const expected =
@@ -42,7 +42,7 @@ describe("pure policy floors", () => {
         }
     });
 
-    test("never lowers a floor across every impact, placement, and policy tier", () => {
+    test("never lowers a floor across every impact, placement, and policy tier", { tags: "p0" }, () => {
         for (const impact of POLICY_IMPACTS) {
             for (const turnOwnedSession of [false, true]) {
                 for (const placement of PLACEMENT_PREFERENCE) {
@@ -68,7 +68,7 @@ describe("pure policy floors", () => {
         }
     });
 
-    test("[C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement", () => {
+    test("[C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement", { tags: "p0" }, () => {
         for (const placement of ["dynamic", "provider"] as const) {
             const selection = selectPlacement({
                 manifest: PLACEMENT_PREFERENCE,
@@ -89,7 +89,7 @@ describe("pure policy floors", () => {
 });
 
 describe("monotone policy composition", () => {
-    test("takes the minimum finite direct-revocation window across governing policies", () => {
+    test("takes the minimum finite direct-revocation window across governing policies", { tags: "p1" }, () => {
         const merged = mergePolicySets([
             new PolicySet({ maxDirectRevocationWindowMs: 500 }),
             new PolicySet({ maxDirectRevocationWindowMs: 20 }),
@@ -132,7 +132,7 @@ describe("monotone policy composition", () => {
         expect(mergePolicySets([])).toBe(PolicySet.empty());
     });
 
-    test("[C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements", () => {
+    test("[C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements", { tags: "p0" }, () => {
         const packagePolicy = new PolicySet({
             approvals: ["observe"],
             tiers: { execute: "mediated" }
@@ -164,7 +164,7 @@ describe("monotone policy composition", () => {
         }
     });
 
-    test("[C13-POLICY-DIRECT-ESCALATION] intersects placement policies and cannot broaden an ancestor constraint", () => {
+    test("[C13-POLICY-DIRECT-ESCALATION] intersects placement policies and cannot broaden an ancestor constraint", { tags: "p0" }, () => {
         const packagePolicy = new PolicySet({
             placement: new PlacementPolicy(["dynamic", "provider", "bundled"])
         });
@@ -188,7 +188,7 @@ describe("monotone policy composition", () => {
 });
 
 describe("policy declaration codec", () => {
-    test("[definition.policy-set] decodes the direct-revocation window as a bounded number and rejects other shapes", () => {
+    test("[definition.policy-set] decodes the direct-revocation window as a bounded number and rejects other shapes", { tags: "p1" }, () => {
         const bounded = PolicySet.decode(
             PolicySet.encode(new PolicySet({ maxDirectRevocationWindowMs: 250 }))
         );
@@ -207,7 +207,7 @@ describe("policy declaration codec", () => {
         ).toThrow(/revocation window is invalid/);
     });
 
-    test("[definition.policy-set] canonicalizes immutable declarative data and round-trips byte deterministically", () => {
+    test("[definition.policy-set] canonicalizes immutable declarative data and round-trips byte deterministically", { tags: "p0" }, () => {
         const approvals: Impact[] = ["administer", "observe"];
         const tiers: Partial<Record<Impact, EnforcementTier>> = {
             administer: "mediated",
@@ -264,7 +264,7 @@ describe("policy declaration codec", () => {
         ).toThrow("Policy placement is invalid");
     });
 
-    test("makes approval removal unrepresentable and rejects malformed codec data", () => {
+    test("makes approval removal unrepresentable and rejects malformed codec data", { tags: "p0" }, () => {
         expect(() => new PolicySet({ approvals: ["observe", "observe"] })).toThrow(/unique/);
         expect(() => new PolicySet({ tiers: { observe: "lower" as EnforcementTier } })).toThrow(
             /tier/

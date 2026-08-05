@@ -34,7 +34,7 @@ import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "
 operationDeclarationEvidence("Shell", SHELL_OPERATIONS, { run: "execute", cancel: "mutate" });
 
 describe("Shell protected facade", () => {
-    test("[P11-SHELL-BOUNDARY] preserves the Filesystem path.invalid code for command escape", async () => {
+    test("[P11-SHELL-BOUNDARY] preserves the Filesystem path.invalid code for command escape", { tags: "p0" }, async () => {
         let boundaryFailure: unknown;
         const filesystem = new FilesystemFacet(
             recordingRuntime("shell-boundary-fs").runtime,
@@ -67,7 +67,7 @@ describe("Shell protected facade", () => {
         expect(boundaryFailure).toMatchObject({ detailCode: "path.invalid" });
     });
 
-    test("[P11-SHELL-HANDOFF] hands off only to an explicitly registered external command", async () => {
+    test("[P11-SHELL-HANDOFF] hands off only to an explicitly registered external command", { tags: "p0" }, async () => {
         let externalStarts = 0;
         const registry = new ShellCommandRegistryBackend();
         const shell = createShell(registry);
@@ -88,7 +88,7 @@ describe("Shell protected facade", () => {
         expect(externalStarts).toBe(1);
     });
 
-    test("[P11-SHELL-RUN] selects direct tier only for a bundled Turn-owned Session", () => {
+    test("[P11-SHELL-RUN] selects direct tier only for a bundled Turn-owned Session", { tags: "p0" }, () => {
         const descriptor = SHELL_OPERATION_CONTRACTS.run.descriptor;
         expect(descriptor.impact).toBe("execute");
         expect(
@@ -114,7 +114,7 @@ describe("Shell protected facade", () => {
         }
     });
 
-    test("[P11-SHELL-COMPOSITION] executes a declared command against the Session Filesystem profile", async () => {
+    test("[P11-SHELL-COMPOSITION] executes a declared command against the Session Filesystem profile", { tags: "p1" }, async () => {
         const filesystemRuntime = recordingRuntime("shell-composition-fs");
         const filesystem = new FilesystemFacet(
             filesystemRuntime.runtime,
@@ -142,7 +142,7 @@ describe("Shell protected facade", () => {
         ]);
     });
 
-    test("[P11-SHELL-REGISTRY] resolves only explicitly registered commands", () => {
+    test("[P11-SHELL-REGISTRY] resolves only explicitly registered commands", { tags: "p0" }, () => {
         const registry = new ShellCommandRegistryBackend();
         const command = { start: () => immediateProcess(Promise.resolve(0)) };
         registry.register("known", command);
@@ -150,7 +150,7 @@ describe("Shell protected facade", () => {
         expect(registry.resolve("unknown")).toBeUndefined();
     });
 
-    test("[P11-SHELL-STREAMS] supplies streaming stdin, stdout, and stderr to commands", async () => {
+    test("[P11-SHELL-STREAMS] supplies streaming stdin, stdout, and stderr to commands", { tags: "p1" }, async () => {
         const io = new StreamingIoBackend();
         const registry = new ShellCommandRegistryBackend();
         registry.register("streams", {
@@ -179,7 +179,7 @@ describe("Shell protected facade", () => {
         expect(io.stderr).toEqual([new Uint8Array([2])]);
     });
 
-    test("[P11-SHELL-UNKNOWN] rejects unknown commands without external handoff", async () => {
+    test("[P11-SHELL-UNKNOWN] rejects unknown commands without external handoff", { tags: "p0" }, async () => {
         const registry = new ShellCommandRegistryBackend();
         const shell = createShell(registry);
         await expect(
@@ -187,7 +187,7 @@ describe("Shell protected facade", () => {
         ).rejects.toMatchObject({ detailCode: "command.unknown" });
     });
 
-    test("[P11-SHELL-FILESYSTEM] routes run/cancel, injects IO privately, and binds commands to exact env.fs", async () => {
+    test("[P11-SHELL-FILESYSTEM] routes run/cancel, injects IO privately, and binds commands to exact env.fs", { tags: "p1" }, async () => {
         const filesystemRuntime = recordingRuntime("filesystem");
         const filesystem = new FilesystemFacet(
             filesystemRuntime.runtime,
@@ -242,7 +242,7 @@ describe("Shell protected facade", () => {
         expect(io.opened).toEqual(["one", "two"]);
     });
 
-    test("[P11-SHELL-CANCELLATION] cancel force-terminates within the configured bound and fences a non-cooperative process", async () => {
+    test("[P11-SHELL-CANCELLATION] cancel force-terminates within the configured bound and fences a non-cooperative process", { tags: "p0" }, async () => {
         const never = new Promise<number>(() => {});
         const clock = new ControlledTerminationClock();
         let starts = 0;
@@ -287,7 +287,7 @@ describe("Shell protected facade", () => {
         ).resolves.toBe(0);
     });
 
-    test("[P11-SHELL-SINGLE-AUTHORITY] denial prevents command execution and IO acquisition", async () => {
+    test("[P11-SHELL-SINGLE-AUTHORITY] denial prevents command execution and IO acquisition", { tags: "p0" }, async () => {
         let starts = 0;
         const registry = new ShellCommandRegistryBackend();
         registry.register("effect", {
@@ -314,7 +314,7 @@ describe("Shell protected facade", () => {
 });
 
 describe("Shell backends", () => {
-    test("[P11-SHELL-PARSER] tokenizes explicitly and rejects duplicate or malformed commands", () => {
+    test("[P11-SHELL-PARSER] tokenizes explicitly and rejects duplicate or malformed commands", { tags: "p1" }, () => {
         expect(tokenizeShellCommand("tool 'one two' three\\ four \"\"")).toEqual([
             "tool",
             "one two",
@@ -332,7 +332,7 @@ describe("Shell backends", () => {
         ).toThrow(expect.objectContaining({ detailCode: "command.invalid" }));
     });
 
-    test("validates termination bounds, exit-code wire values, and missing command targets", async () => {
+    test("validates termination bounds, exit-code wire values, and missing command targets", { tags: "p2" }, async () => {
         const process = immediateProcess(Promise.resolve(0));
         expect(
             () => new ShellExecutionBoundary(process, new ControlledTerminationClock(), -1)
@@ -364,7 +364,7 @@ describe("Shell backends", () => {
         await expect(backend.cancel(executionId("missing"))).resolves.toBe(false);
     });
 
-    test("keeps execution IDs exclusive and tokenizes quote characters inside another quote", async () => {
+    test("keeps execution IDs exclusive and tokenizes quote characters inside another quote", { tags: "p1" }, async () => {
         expect(tokenizeShellCommand(`tool "a'b" 'c"d'`)).toEqual(["tool", "a'b", 'c"d']);
         const pending = deferred<number>();
         const registry = new ShellCommandRegistryBackend();
@@ -379,7 +379,7 @@ describe("Shell backends", () => {
         await expect(running).resolves.toBe(0);
     });
 
-    test("fails closed across force, confirmation, fence, and completion failures", async () => {
+    test("fails closed across force, confirmation, fence, and completion failures", { tags: "p0" }, async () => {
         const never = new Promise<number>(() => {});
         let fences = 0;
         const forceFailure = new ShellExecutionBoundary(

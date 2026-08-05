@@ -11,7 +11,7 @@ import { digestOf, packageLock, packageRelease } from "./package-store-contract"
 import { MetadataSnapshot } from "../../src/definition/package";
 
 describe("ProjectedPackageStore hostile adapter boundaries", () => {
-    test("rejects duplicate listed releases and snapshots", () => {
+    test("rejects duplicate listed releases and snapshots", { tags: "p1" }, () => {
         const store = new HostilePackageStore();
         const release = packageRelease("package", "1.0.0");
         store.add(release);
@@ -25,7 +25,7 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         expect(() => store.listSnapshots()).toThrow(/duplicate immutable key/);
     });
 
-    test("rejects adapter substitutions for immutable release snapshot and lock writes", () => {
+    test("rejects adapter substitutions for immutable release snapshot and lock writes", { tags: "p0" }, () => {
         const release = packageRelease("package", "1.0.0");
         const other = packageRelease("package", "1.0.0", digestOf("other-code"));
         const releaseStore = new HostilePackageStore();
@@ -48,7 +48,7 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         expect(() => lockStore.addLock(lock)).toThrow(/immutable|projection/);
     });
 
-    test("rejects lookup aliases and malformed stored bytes", () => {
+    test("rejects lookup aliases and malformed stored bytes", { tags: "p1" }, () => {
         const store = new HostilePackageStore();
         const release = packageRelease("package", "1.0.0");
         store.add(release);

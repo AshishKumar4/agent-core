@@ -15,7 +15,7 @@ import {
 
 packageStoreContract("memory", () => new MemoryPackageStore());
 
-test("[package-store] memory and SQLite satisfy one shared codec-storage contract", () => {
+test("[package-store] memory and SQLite satisfy one shared codec-storage contract", { tags: "p1" }, () => {
     const stores = [new MemoryPackageStore(), new SqlitePackageStore(new TestSqlite())];
     for (const [index, store] of stores.entries()) {
         const value = packageRelease(`seam-${index}`, "1.0.0");
@@ -25,7 +25,7 @@ test("[package-store] memory and SQLite satisfy one shared codec-storage contrac
 });
 
 describe("MemoryPackageStore persistence", () => {
-    test("[definition.package-release] [definition.metadata-snapshot] [definition.package-lock] restores releases, snapshots, and locks from a detached sorted snapshot", () => {
+    test("[definition.package-release] [definition.metadata-snapshot] [definition.package-lock] restores releases, snapshots, and locks from a detached sorted snapshot", { tags: "p1" }, () => {
         const store = new MemoryPackageStore();
         const zeta = packageRelease("zeta", "2.0.0");
         const alpha = packageRelease("alpha", "1.0.0");
@@ -198,7 +198,7 @@ describe("MemoryPackageStore persistence", () => {
     });
 
     test.each(["packageId", "version", "manifestDigest", "codeDigest"] as const)(
-        "rejects a snapshot with a corrupt release %s projection",
+        "rejects a snapshot with a corrupt release %s projection", { tags: "p0" },
         (projection) => {
             const snapshot = releaseSnapshot();
             const release = snapshot.releases[0]!;
@@ -219,7 +219,7 @@ describe("MemoryPackageStore persistence", () => {
         }
     );
 
-    test("rejects malformed release codec bytes in a snapshot", () => {
+    test("rejects malformed release codec bytes in a snapshot", { tags: "p0" }, () => {
         const snapshot = releaseSnapshot();
         expect(
             () =>
@@ -231,7 +231,7 @@ describe("MemoryPackageStore persistence", () => {
     });
 
     test.each(["lockDigest", "snapshotDigest", "snapshotRevision"] as const)(
-        "rejects a snapshot with a corrupt lock %s projection",
+        "rejects a snapshot with a corrupt lock %s projection", { tags: "p0" },
         (projection) => {
             const snapshot = lockSnapshot();
             const lock = snapshot.locks[0]!;
@@ -256,7 +256,7 @@ describe("MemoryPackageStore persistence", () => {
         }
     );
 
-    test("rejects malformed lock codec bytes and duplicate immutable keys", () => {
+    test("rejects malformed lock codec bytes and duplicate immutable keys", { tags: "p0" }, () => {
         const release = releaseSnapshot();
         expect(
             () =>
@@ -283,7 +283,7 @@ describe("MemoryPackageStore persistence", () => {
         ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
     });
 
-    test("rejects duplicate snapshots and malformed snapshot scalar and byte fields", () => {
+    test("rejects duplicate snapshots and malformed snapshot scalar and byte fields", { tags: "p1" }, () => {
         const store = new MemoryPackageStore();
         const release = packageRelease("package", "1.0.0");
         const metadata = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });

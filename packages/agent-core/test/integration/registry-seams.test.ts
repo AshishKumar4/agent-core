@@ -20,7 +20,7 @@ interface RetentionHarness {
     transaction(operation: (transaction: unknown) => void): void;
 }
 
-test("[content-store] memory and SQLite satisfy one shared content contract", async () => {
+test("[content-store] memory and SQLite satisfy one shared content contract", { tags: "p1" }, async () => {
     const stores: readonly ContentStore[] = [
         new MemoryContentStore(),
         new SqliteContentStore(new TestSqlite())
@@ -32,7 +32,7 @@ test("[content-store] memory and SQLite satisfy one shared content contract", as
     }
 });
 
-test("[content-retention] memory and SQLite satisfy one shared ownership contract", async () => {
+test("[content-retention] memory and SQLite satisfy one shared ownership contract", { tags: "p1" }, async () => {
     const memoryStore = new MemoryContentStore();
     const database = new TestSqlite();
     const sqliteStore = new SqliteContentStore(database);

@@ -30,7 +30,7 @@ const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("20.0.0") });
 
 describe("package releases", () => {
-    test("[definition.package-release] canonicalizes immutable metadata and round-trips its strict codec", () => {
+    test("[definition.package-release] canonicalizes immutable metadata and round-trips its strict codec", { tags: "p0" }, () => {
         const dependencies = [
             new PackageDependency(new PackageId("zeta"), "^2.0.0"),
             new PackageDependency(new PackageId("alpha"), ">=1 <2")
@@ -68,7 +68,7 @@ describe("package releases", () => {
         expect(decoded.configSchema?.document).toEqual({ type: "object" });
     });
 
-    test("rejects malformed, duplicate, empty, and noncanonical release metadata", () => {
+    test("rejects malformed, duplicate, empty, and noncanonical release metadata", { tags: "p1" }, () => {
         expect(() => new PackageId(" padded ")).toThrow(/canonical/);
         expect(() => new PackageDependency(new PackageId("dep"), " ")).toThrow(/nonblank/);
         expect(() => new PackageDependency(new PackageId("dep"), "not a range")).toThrow(/valid/);
@@ -305,7 +305,7 @@ describe("package releases", () => {
 });
 
 describe("metadata snapshots", () => {
-    test("[definition.metadata-snapshot] copies, sorts, freezes, and round-trips one immutable metadata revision", () => {
+    test("[definition.metadata-snapshot] copies, sorts, freezes, and round-trips one immutable metadata revision", { tags: "p0" }, () => {
         const releases = [
             packageRelease("zeta", "1.0.0"),
             packageRelease("alpha", "2.0.0"),
@@ -337,7 +337,7 @@ describe("metadata snapshots", () => {
         ).toThrow(/digest/);
     });
 
-    test("deduplicates identical releases and rejects conflicting full-version metadata", () => {
+    test("deduplicates identical releases and rejects conflicting full-version metadata", { tags: "p1" }, () => {
         const release = packageRelease("same", "1.0.0+build");
         const duplicate = PackageRelease.decode(PackageRelease.encode(release));
         const snapshot = new MetadataSnapshot({
@@ -382,7 +382,7 @@ describe("metadata snapshots", () => {
 });
 
 describe("package locks", () => {
-    test("[definition.package-lock] sorts complete pins and round-trips byte deterministically", () => {
+    test("[definition.package-lock] sorts complete pins and round-trips byte deterministically", { tags: "p0" }, () => {
         const snapshotDigest = digestOf("snapshot");
         const pins = [pin("zeta", "2.0.0"), pin("alpha", "1.0.0+build")];
         const lock = new PackageLock({
@@ -401,7 +401,7 @@ describe("package locks", () => {
         expect(PackageLock.encode(PackageLock.decode(encoded))).toEqual(encoded);
     });
 
-    test("rejects duplicate pins and unknown codec fields", () => {
+    test("rejects duplicate pins and unknown codec fields", { tags: "p1" }, () => {
         expect(
             () =>
                 new PackageLock({

@@ -23,7 +23,7 @@ class WrongActorId extends TextId {
 
 class DerivedActorId extends ActorId {}
 
-test("ActorRef accepts only its closed kinds and exact ActorId instances", () => {
+test("ActorRef accepts only its closed kinds and exact ActorId instances", { tags: "p1" }, () => {
     expect(ActorId).toBe(CanonicalActorId);
     expect(Object.isFrozen(new ActorRef("tenant", new ActorId("valid-actor")))).toBe(true);
     expect(() => Reflect.construct(ActorRef, ["invalid", actorId])).toThrow(TypeError);
@@ -37,7 +37,7 @@ test("ActorRef accepts only its closed kinds and exact ActorId instances", () =>
 });
 
 describe("ActorRecoveryState codec", () => {
-    test("[actor.recovery-state] round-trips recovery state through its versioned codec", () => {
+    test("[actor.recovery-state] round-trips recovery state through its versioned codec", { tags: "p0" }, () => {
         const state = new ActorRecoveryState(actor, 7, 3);
         const encoded = ActorRecoveryState.encode(state);
 
@@ -49,7 +49,7 @@ describe("ActorRecoveryState codec", () => {
         expect(decoded.recoveries).toBe(3);
     });
 
-    test("rejects malformed payloads with a typed codec error", () => {
+    test("rejects malformed payloads with a typed codec error", { tags: "p1" }, () => {
         const malformed = [
             null,
             {},
@@ -68,7 +68,7 @@ describe("ActorRecoveryState codec", () => {
         }
     });
 
-    test("rejects an unknown codec major", () => {
+    test("rejects an unknown codec major", { tags: "p2" }, () => {
         const encoded = encodeCanonicalJson({
             kind: "actor.recovery-state",
             payload: { actor: { kind: actor.kind, id: actor.id.value }, epoch: 7, recoveries: 3 },
@@ -83,7 +83,7 @@ describe("ActorRecoveryState codec", () => {
         );
     });
 
-    test("enforces safe integer state invariants in constructors and decoding", () => {
+    test("enforces safe integer state invariants in constructors and decoding", { tags: "p0" }, () => {
         const invalid = [
             { epoch: -1, recoveries: 1 },
             { epoch: Number.MAX_SAFE_INTEGER + 1, recoveries: 1 },
@@ -107,7 +107,7 @@ describe("ActorRecoveryState codec", () => {
         }
     });
 
-    test("fails before recovery counters or fences exceed safe integers", () => {
+    test("fails before recovery counters or fences exceed safe integers", { tags: "p0" }, () => {
         const exhaustedEpoch = new ActorRecoveryState(actor, Number.MAX_SAFE_INTEGER, 1);
         const exhaustedRecoveries = new ActorRecoveryState(actor, 0, Number.MAX_SAFE_INTEGER);
 

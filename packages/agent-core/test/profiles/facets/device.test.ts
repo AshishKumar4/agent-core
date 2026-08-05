@@ -49,7 +49,7 @@ operationDeclarationEvidence("Device", DEVICE_OPERATIONS, {
 });
 
 describe("Device protected Environment profile", () => {
-    test("[P11-DEVICE-LIVE-IMPACT] routes live and cached Operations through mediation", async () => {
+    test("[P11-DEVICE-LIVE-IMPACT] routes live and cached Operations through mediation", { tags: "p1" }, async () => {
         const agent = principal("agent");
         const consent = new MemoryDeviceConsentBackend(() => 10);
         consent.grant(deviceId("phone"), agent, 20);
@@ -92,7 +92,7 @@ describe("Device protected Environment profile", () => {
         expect(transport.sent.every((request) => request.agentId.equals(agent))).toBe(true);
     });
 
-    test("denial prevents pairing and reverse transport", async () => {
+    test("denial prevents pairing and reverse transport", { tags: "p0" }, async () => {
         const transport = new TestDeviceTransport();
         const device = new DeviceFacet(
             denyingRuntime("device").runtime,
@@ -104,7 +104,7 @@ describe("Device protected Environment profile", () => {
         expect(transport.sent).toEqual([]);
     });
 
-    test("[P11-DEVICE-PAIRING] passes the admitted device key and operator approval to reverse transport", async () => {
+    test("[P11-DEVICE-PAIRING] passes the admitted device key and operator approval to reverse transport", { tags: "p1" }, async () => {
         const agent = principal("rewrite-agent");
         const consent = new MemoryDeviceConsentBackend(() => 1);
         consent.grant(deviceId("rewritten-phone"), agent, 2);
@@ -165,7 +165,7 @@ describe("Device protected Environment profile", () => {
 });
 
 describe("Device transport admission and declarations", () => {
-    test("[P11-DEVICE-ENVIRONMENT] checks the exact Environment before transport", async () => {
+    test("[P11-DEVICE-ENVIRONMENT] checks the exact Environment before transport", { tags: "p0" }, async () => {
         const agent = principal("environment-agent");
         const phone = deviceId("environment-phone");
         const checked: DeviceId[] = [];
@@ -188,7 +188,7 @@ describe("Device transport admission and declarations", () => {
         expect(transport.sent.map((request) => request.deviceId)).toEqual([phone]);
     });
 
-    test("[P11-DEVICE-CONSENT-ABSENT] rejects absent, forged, and wrong-device admission evidence", async () => {
+    test("[P11-DEVICE-CONSENT-ABSENT] rejects absent, forged, and wrong-device admission evidence", { tags: "p0" }, async () => {
         const agent = principal("bound-agent");
         const consent = new MemoryDeviceConsentBackend(() => 1);
         const admission = grantAndAdmit(consent, deviceId("bound-phone"), agent, 2);
@@ -207,7 +207,7 @@ describe("Device transport admission and declarations", () => {
         expect(transport.sent).toEqual([]);
     });
 
-    test("[P11-DEVICE-CONSENT-PAIR] admits only the exact Device and Agent pair", () => {
+    test("[P11-DEVICE-CONSENT-PAIR] admits only the exact Device and Agent pair", { tags: "p0" }, () => {
         const now = 10;
         const agent = principal("live-agent", "tenant-a");
         const other = principal("live-agent", "tenant-b");
@@ -221,7 +221,7 @@ describe("Device transport admission and declarations", () => {
         );
     });
 
-    test("[P11-DEVICE-CONSENT-LIVE] rejects expired consent", () => {
+    test("[P11-DEVICE-CONSENT-LIVE] rejects expired consent", { tags: "p0" }, () => {
         let now = 10;
         const agent = principal("expiring-agent");
         const phone = deviceId("expiring-phone");
@@ -233,7 +233,7 @@ describe("Device transport admission and declarations", () => {
         );
     });
 
-    test("[P11-DEVICE-CONSENT-ISOLATION] rejects another Device under the same Agent", () => {
+    test("[P11-DEVICE-CONSENT-ISOLATION] rejects another Device under the same Agent", { tags: "p0" }, () => {
         const agent = principal("isolated-agent");
         const consent = new MemoryDeviceConsentBackend(() => 1);
         consent.grant(deviceId("authorized-phone"), agent, 2);
@@ -242,7 +242,7 @@ describe("Device transport admission and declarations", () => {
         );
     });
 
-    test("[P11-DEVICE-CONSENT-FINAL-CHECK] returns exact immutable target admission evidence", () => {
+    test("[P11-DEVICE-CONSENT-FINAL-CHECK] returns exact immutable target admission evidence", { tags: "p0" }, () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         const device = deviceId("final-phone");
         const boundAgent = principal("final-agent");
@@ -253,7 +253,7 @@ describe("Device transport admission and declarations", () => {
         expect(Object.isFrozen(admission)).toBe(true);
     });
 
-    test("[P11-DEVICE-CONSENT-REVOCATION] rejects consent revoked before target admission", () => {
+    test("[P11-DEVICE-CONSENT-REVOCATION] rejects consent revoked before target admission", { tags: "p0" }, () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         const device = deviceId("revoked-phone");
         const boundAgent = principal("revoked-agent");
@@ -265,7 +265,7 @@ describe("Device transport admission and declarations", () => {
         );
     });
 
-    test("[P11-DEVICE-CONSENT-ADMITTED] preserves a target admission across later revocation", async () => {
+    test("[P11-DEVICE-CONSENT-ADMITTED] preserves a target admission across later revocation", { tags: "p0" }, async () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         const device = deviceId("admitted-phone");
         const boundAgent = principal("admitted-agent");
@@ -283,7 +283,7 @@ describe("Device transport admission and declarations", () => {
         expect(transport.admissions).toEqual([admission]);
     });
 
-    test("[P11-DEVICE-CACHED-READ] remains observe and requires no live admission", () => {
+    test("[P11-DEVICE-CACHED-READ] remains observe and requires no live admission", { tags: "p1" }, () => {
         const backend = new DeviceBackend(new LiveSession(), new TestDeviceTransport(), {
             read: (_device, key) => (key === "present" ? { nested: true } : undefined)
         });
@@ -294,7 +294,7 @@ describe("Device transport admission and declarations", () => {
         });
     });
 
-    test("declares typed commands and standard Events", () => {
+    test("declares typed commands and standard Events", { tags: "p1" }, () => {
         expect(DEVICE_COMMANDS.map((command) => command.name)).toEqual([
             "camera",
             "location",
@@ -315,7 +315,7 @@ describe("Device transport admission and declarations", () => {
         ]);
     });
 
-    test("[P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions", () => {
+    test("[P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions", { tags: "p2" }, () => {
         for (const contract of Object.values(DEVICE_OPERATION_CONTRACTS)) {
             expect(contract.inputCodec).toBeInstanceOf(VersionedProfileWireCodec);
             const codec = contract.inputCodec as VersionedProfileWireCodec<unknown>;
@@ -325,7 +325,7 @@ describe("Device transport admission and declarations", () => {
         }
     });
 
-    test("validates command identities, pairing, operation membership, and consent clocks", async () => {
+    test("validates command identities, pairing, operation membership, and consent clocks", { tags: "p1" }, async () => {
         const transport = new TestDeviceTransport();
         const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
         expect(new DeviceCommandId("camera-request").value).toBe("camera-request");
@@ -350,7 +350,7 @@ describe("Device transport admission and declarations", () => {
 });
 
 describe("Device effect identity to reverse transport", () => {
-    test("[P11-DEVICE-DISPATCH] delivers the canonical effect identity derived from the context", async () => {
+    test("[P11-DEVICE-DISPATCH] delivers the canonical effect identity derived from the context", { tags: "p0" }, async () => {
         const agent = principal("dispatch-agent");
         const phone = deviceId("dispatch-phone");
         const consent = new MemoryDeviceConsentBackend(() => 1);
@@ -374,7 +374,7 @@ describe("Device effect identity to reverse transport", () => {
         expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
     });
 
-    test("[P11-DEVICE-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-delivering", async () => {
+    test("[P11-DEVICE-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-delivering", { tags: "p0" }, async () => {
         const agent = principal("crash-agent");
         const phone = deviceId("crash-phone");
         const consent = new MemoryDeviceConsentBackend(() => 1);

@@ -98,7 +98,7 @@ function createSqliteTenantBootstrap(
 }
 
 describe("tenant.bootstrap concrete compositions", () => {
-    test("[protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure", async () => {
+    test("[protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure", { tags: "p1" }, async () => {
         const content = new CounterContentStore(() => undefined);
         const first = createMemoryTenantBootstrap({ actor, anchor, content });
         const raw = envelope(content, { key: "memory-bootstrap" });
@@ -119,7 +119,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         expect(memoryEvidence(restarted)).toEqual({ audits: 4, identities: 1, writes: 2 });
     });
 
-    test("[protocol.tenant-bootstrap-anchor] [protocol.tenant-bootstrap-marker] file SQLite composition creates and restores the complete closure", async () => {
+    test("[protocol.tenant-bootstrap-anchor] [protocol.tenant-bootstrap-marker] file SQLite composition creates and restores the complete closure", { tags: "p1" }, async () => {
         const directory = mkdtempSync(join(tmpdir(), "tenant-bootstrap-composition-"));
         const path = join(directory, "tenant.sqlite");
         let database: FileSqlite | undefined;
@@ -151,7 +151,7 @@ describe("tenant.bootstrap concrete compositions", () => {
     });
 
     test.each(["memory", "SQLite"] as const)(
-        "%s rejects forged caller, revision, lease, and payload records",
+        "%s rejects forged caller, revision, lease, and payload records", { tags: "p0" },
         async (kind) => {
             const content = new CounterContentStore(() => undefined);
             const composition =
@@ -225,7 +225,7 @@ describe("tenant.bootstrap concrete compositions", () => {
     );
 
     test.each(["memory", "SQLite"] as const)(
-        "%s rejects an unauthenticated bootstrap before creating Tenant state",
+        "%s rejects an unauthenticated bootstrap before creating Tenant state", { tags: "p0" },
         async (kind) => {
             const content = new CounterContentStore(() => undefined);
             const composition =
@@ -249,7 +249,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         }
     );
 
-    test("SQLite composition rejects wrong Actor kind and corrupt protocol ID state", async () => {
+    test("SQLite composition rejects wrong Actor kind and corrupt protocol ID state", { tags: "p0" }, async () => {
         const content = new CounterContentStore(() => undefined);
         expect(() =>
             createSqliteTenantBootstrap({
@@ -280,7 +280,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         );
     });
 
-    test("SQLite composition rejects Actor drift and protocol ID exhaustion", async () => {
+    test("SQLite composition rejects Actor drift and protocol ID exhaustion", { tags: "p0" }, async () => {
         const content = new CounterContentStore(() => undefined);
         const database = new TestSqlite();
         const composition = createSqliteTenantBootstrap({ database, actor, anchor, content });
@@ -311,7 +311,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         ).toBe(Number.MAX_SAFE_INTEGER);
     });
 
-    test("SQLite composition rejects negative persisted protocol IDs", () => {
+    test("SQLite composition rejects negative persisted protocol IDs", { tags: "p1" }, () => {
         const content = new CounterContentStore(() => undefined);
         const database = new TestSqlite();
         createSqliteTenantBootstrap({ database, actor, anchor, content });
@@ -326,7 +326,7 @@ describe("tenant.bootstrap concrete compositions", () => {
     });
 
     test.each(["raw-write", "typed-write", "typed-read", "lost-write"] as const)(
-        "SQLite composition translates %s protocol ID failures",
+        "SQLite composition translates %s protocol ID failures", { tags: "p1" },
         async (failure) => {
             const content = new CounterContentStore(() => undefined);
             const database = new FaultSqlite();
@@ -343,7 +343,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         }
     );
 
-    test("SQLite bootstrap payload codec rejects non-object canonical payloads", async () => {
+    test("SQLite bootstrap payload codec rejects non-object canonical payloads", { tags: "p1" }, async () => {
         const content = new CounterContentStore(() => undefined);
         const composition = createSqliteTenantBootstrap({
             database: new TestSqlite(),
@@ -375,7 +375,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         ).toBe("rejectedMalformed");
     });
 
-    test("memory bootstrap restart rejects changed durable anchor", () => {
+    test("memory bootstrap restart rejects changed durable anchor", { tags: "p0" }, () => {
         const content = new CounterContentStore(() => undefined);
         const composition = createMemoryTenantBootstrap({ actor, anchor, content });
         expect(() =>
@@ -388,7 +388,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         ).toThrow(AgentCoreError);
     });
 
-    test("memory bootstrap rejects deep snapshot corruption and ID exhaustion", async () => {
+    test("memory bootstrap rejects deep snapshot corruption and ID exhaustion", { tags: "p0" }, async () => {
         const content = new CounterContentStore(() => undefined);
         const composition = createMemoryTenantBootstrap({ actor, anchor, content });
         const snapshot = composition.snapshot();
@@ -436,7 +436,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         ).rejects.toMatchObject({ code: "protocol.invalid-state" });
     });
 
-    test("memory bootstrap rejects malformed snapshot envelopes and Actor state", () => {
+    test("memory bootstrap rejects malformed snapshot envelopes and Actor state", { tags: "p1" }, () => {
         const content = new CounterContentStore(() => undefined);
         const composition = createMemoryTenantBootstrap({ actor, anchor, content });
         const snapshot = composition.snapshot();
@@ -505,7 +505,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         ).toThrow(AgentCoreError);
     });
 
-    test("anchor codec rejects malformed payloads and accepts every Tenant kind", () => {
+    test("anchor codec rejects malformed payloads and accepts every Tenant kind", { tags: "p1" }, () => {
         expect(() => TenantBootstrapAnchorRecord.decode(anchorEnvelope(null))).toThrow(
             AgentCoreError
         );
@@ -539,7 +539,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         expect(service.tenantKind).toBe("service");
     });
 
-    test("typed bootstrap reply and observation codecs reject malformed wire values", () => {
+    test("typed bootstrap reply and observation codecs reject malformed wire values", { tags: "p1" }, () => {
         let currentAnchor: TenantBootstrapAnchor | undefined = anchor;
         const store = {
             anchor: () => currentAnchor,
@@ -596,7 +596,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         }
     });
 
-    test("memory bootstrap payload codec rejects non-object canonical payloads", async () => {
+    test("memory bootstrap payload codec rejects non-object canonical payloads", { tags: "p1" }, async () => {
         const content = new CounterContentStore(() => undefined);
         const composition = createMemoryTenantBootstrap({ actor, anchor, content });
         expect(
@@ -612,7 +612,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         ).toBe("rejectedMalformed");
     });
 
-    test("exports no callback backend, plan, writer, or raw bootstrap command", () => {
+    test("exports no callback backend, plan, writer, or raw bootstrap command", { tags: "p2" }, () => {
         for (const symbol of [
             "TenantBootstrapBackend",
             "TenantBootstrapCommand",
@@ -629,7 +629,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         expect(protocol.createMemoryTenantBootstrap).toBeTypeOf("function");
     });
 
-    test("fails closed on malformed anchor codec and non-Tenant Actors", () => {
+    test("fails closed on malformed anchor codec and non-Tenant Actors", { tags: "p0" }, () => {
         expect(() =>
             TenantBootstrapAnchorRecord.decode(new TextEncoder().encode("null"))
         ).toThrow();

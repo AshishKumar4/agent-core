@@ -39,7 +39,7 @@ import {
 const encoder = new TextEncoder();
 
 describe("Blueprint config", () => {
-    test("[C13-CONFIG-SECRET-REF] [definition.config] uses one tagged SecretRef representation and round-trips canonical nested refs", () => {
+    test("[C13-CONFIG-SECRET-REF] [definition.config] uses one tagged SecretRef representation and round-trips canonical nested refs", { tags: "p0" }, () => {
         const reference = new SecretRef("tenant", "vault", "services/deploy");
         const source = {
             nested: { token: reference },
@@ -69,7 +69,7 @@ describe("Blueprint config", () => {
         expect(Object.isFrozen(config.toData().nested)).toBe(true);
     });
 
-    test("rejects alternate SecretRef forms and raw values at credential-typed positions", () => {
+    test("rejects alternate SecretRef forms and raw values at credential-typed positions", { tags: "p0" }, () => {
         const tagged = encodeSecretRef(new SecretRef("tenant", "vault", "deploy"));
 
         expect(
@@ -102,7 +102,7 @@ describe("Blueprint config", () => {
         ).toThrow(/tagged representation/);
     });
 
-    test("composes base, release, manifest, and settings contribution schemas", () => {
+    test("composes base, release, manifest, and settings contribution schemas", { tags: "p1" }, () => {
         const release = packageRelease();
         const schema = composeConfigSchema(
             new JsonSchema({
@@ -143,7 +143,7 @@ describe("Blueprint config", () => {
         );
     });
 
-    test("rejects malformed canonical config and exercises empty and scalar schema paths", () => {
+    test("rejects malformed canonical config and exercises empty and scalar schema paths", { tags: "p1" }, () => {
         expect(Config.empty().toData()).toEqual({});
         expect(new Config({ value: -0 }).toData()).toEqual({ value: 0 });
         expect(new Config({ values: [true, null, "text", 1] }).toData()).toEqual({

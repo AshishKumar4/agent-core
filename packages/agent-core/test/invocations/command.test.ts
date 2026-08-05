@@ -17,7 +17,7 @@ import {
 } from "../../src/invocations";
 
 describe("Invocation protocol command families", () => {
-    test("[C13-ADV-EARLY-AGGREGATE] pins the executor/system lease matrix and forbids aggregate revisions", () => {
+    test("[C13-ADV-EARLY-AGGREGATE] pins the executor/system lease matrix and forbids aggregate revisions", { tags: "p0" }, () => {
         const commands = createInvocationProtocolCommands(new Backend(), callers);
         expect(commands).toHaveLength(Object.keys(INVOCATION_COMMANDS).length);
         for (const command of commands) {
@@ -36,7 +36,7 @@ describe("Invocation protocol command families", () => {
         ).toBe(false);
     });
 
-    test("[C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously", () => {
+    test("[C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously", { tags: "p0" }, () => {
         const backend = new Backend();
         const command = createInvocationProtocolCommands(backend, callers).find(
             (entry) => entry.command === INVOCATION_COMMANDS.claimExecutor

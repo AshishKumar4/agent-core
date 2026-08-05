@@ -119,7 +119,7 @@ describe("CanonicalBatchInvocationPort", () => {
         }
     );
 
-    test("[C13-CLAIM-INITIAL-ATOMIC] claims before async permit issuance and returns one output only for success", async () => {
+    test("[C13-CLAIM-INITIAL-ATOMIC] claims before async permit issuance and returns one output only for success", { tags: "p0" }, async () => {
         const harness = new Harness(true);
         const invocation = new InvocationId("canonical-batch");
         const prepared = harness.preparation.create(invocation, [{ item: 0 }, { item: 1 }]);
@@ -182,7 +182,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(evidence.publications).toHaveLength(2);
     });
 
-    test("[C13-EFFECT-IDEMPOTENCY] reuses a durable claim after permit-call crash and never repeats the effect", async () => {
+    test("[C13-EFFECT-IDEMPOTENCY] reuses a durable claim after permit-call crash and never repeats the effect", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("canonical-crash");
         harness.permits.crashOnce = true;
@@ -210,7 +210,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(harness.executions).toEqual([0]);
     });
 
-    test("concurrent duplicates converge without terminalizing a live attempt", async () => {
+    test("concurrent duplicates converge without terminalizing a live attempt", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("concurrent-after-permit");
         const issued = deferred<void>();
@@ -274,7 +274,7 @@ describe("CanonicalBatchInvocationPort", () => {
         }
     );
 
-    test("[C13-CLAIM-RECOVERY-NEW-OWNER] rejects empty, inexact, and substituted canonical batch preparation before claiming", async () => {
+    test("[C13-CLAIM-RECOVERY-NEW-OWNER] rejects empty, inexact, and substituted canonical batch preparation before claiming", { tags: "p0" }, async () => {
         const empty = new Harness(false);
         await expect(
             empty.port.invoke(request(new InvocationId("empty-batch"), [], () => undefined))
@@ -310,7 +310,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(substituted.records.createdClaims).toBe(0);
     });
 
-    test("[C13-RECEIPT-PRE-EFFECT] persists the exact Invocation-to-deniedPreEffect Receipt edge", async () => {
+    test("[C13-RECEIPT-PRE-EFFECT] persists the exact Invocation-to-deniedPreEffect Receipt edge", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("permit-denied");
         harness.permits.deniedItems.add(0);
@@ -339,7 +339,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(harness.executions).toEqual([]);
     });
 
-    test("rejects an existing PreparedInvocation without its exact Invocation audit root", async () => {
+    test("rejects an existing PreparedInvocation without its exact Invocation audit root", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("prepared-without-root");
         const prepared = harness.preparation.create(invocation, [{ value: 1 }]);
@@ -353,7 +353,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(harness.records.createdClaims).toBe(0);
     });
 
-    test("atomically rejects an EffectAttempt whose Invocation audit cause is substituted", async () => {
+    test("atomically rejects an EffectAttempt whose Invocation audit cause is substituted", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("attempt-cause-substitution");
         harness.records.substituteAttemptCause = true;
@@ -373,7 +373,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(evidence.publications).toEqual([]);
     });
 
-    test("[P11-DEVICE-CONSENT-ABSENT] records final target-admission denial with no EffectAttempt", async () => {
+    test("[P11-DEVICE-CONSENT-ABSENT] records final target-admission denial with no EffectAttempt", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("target-admission-denied");
         harness.finalAdmissions.result = {
@@ -398,7 +398,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(harness.executions).toEqual([]);
     });
 
-    test("[P11-DEVICE-CONSENT-REVOCATION] linearizes a revocation after permit issue but before final target admission", async () => {
+    test("[P11-DEVICE-CONSENT-REVOCATION] linearizes a revocation after permit issue but before final target admission", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("target-admission-race");
         const issued = deferred<void>();
@@ -425,7 +425,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(harness.executions).toEqual([]);
     });
 
-    test("[P11-DEVICE-CONSENT-ADMITTED] does not let post-admission revocation cancel an admitted effect", async () => {
+    test("[P11-DEVICE-CONSENT-ADMITTED] does not let post-admission revocation cancel an admitted effect", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("target-admission-committed");
         const admission = Object.freeze({ pair: "device:agent" });
@@ -460,7 +460,7 @@ describe("CanonicalBatchInvocationPort", () => {
         ).toHaveLength(1);
     });
 
-    test("[C13-CLAIM-RECOVERY-SAME-ORDINAL] recovers an expired permit-stage claim under a new worker at the same ordinal", async () => {
+    test("[C13-CLAIM-RECOVERY-SAME-ORDINAL] recovers an expired permit-stage claim under a new worker at the same ordinal", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("expired-claim");
         harness.permits.crashOnce = true;
@@ -483,7 +483,7 @@ describe("CanonicalBatchInvocationPort", () => {
         ).toEqual([0, 0]);
     });
 
-    test("[C13-EFFECT-RECONCILIATION] terminalizes a crash-recovered admitted attempt without repeating the effect", async () => {
+    test("[C13-EFFECT-RECONCILIATION] terminalizes a crash-recovered admitted attempt without repeating the effect", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("admitted-crash");
         harness.failResourcesOnce = true;
@@ -502,7 +502,7 @@ describe("CanonicalBatchInvocationPort", () => {
         expect(harness.executions).toEqual([]);
     });
 
-    test("[C13-RECEIPT-ID-NAMESPACE] turns an operation failure into one final failed Receipt", async () => {
+    test("[C13-RECEIPT-ID-NAMESPACE] turns an operation failure into one final failed Receipt", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("effect-failed");
         const result = await harness.port.invoke(
@@ -561,7 +561,7 @@ describe("CanonicalBatchInvocationPort", () => {
         }
     );
 
-    test("post-admission untyped throws are indeterminate", async () => {
+    test("post-admission untyped throws are indeterminate", { tags: "p1" }, async () => {
         const harness = new Harness(false);
         const result = await harness.port.invoke(
             request(new InvocationId("effect-indeterminate"), [{ value: 1 }], () => {
@@ -574,7 +574,7 @@ describe("CanonicalBatchInvocationPort", () => {
         });
     });
 
-    test("rejects a Receipt audit whose cause is not the exact attempt audit", async () => {
+    test("rejects a Receipt audit whose cause is not the exact attempt audit", { tags: "p0" }, async () => {
         const harness = new Harness(false);
         const invocation = new InvocationId("receipt-cause-substitution");
         harness.records.substituteReceiptCause = true;

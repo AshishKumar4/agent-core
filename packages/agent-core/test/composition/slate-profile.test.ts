@@ -23,7 +23,7 @@ function dispatchFixture(): EffectDispatch {
 }
 
 describe("Slate profile composition", () => {
-    test("maps profile wire DTOs to typed SlateRuntime arguments", async () => {
+    test("maps profile wire DTOs to typed SlateRuntime arguments", { tags: "p1" }, async () => {
         const calls: Array<{ readonly operation: string; readonly values: readonly unknown[] }> =
             [];
         const stopped = new TypeError("stop after mapping");
@@ -87,7 +87,7 @@ describe("Slate profile composition", () => {
         ]);
     });
 
-    test("maps runtime outcomes and optional profile fields", async () => {
+    test("maps runtime outcomes and optional profile fields", { tags: "p1" }, async () => {
         const workspace = new WorkspaceId("workspace-profile-backend");
         const slateId = new SlateId("slate-profile-backend");
         const versionId = new SlateVersionId("version-profile-backend");

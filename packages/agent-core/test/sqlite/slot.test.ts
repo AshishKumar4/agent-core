@@ -22,7 +22,7 @@ workspaceSlotStoreContract(
 );
 
 describe("SqliteWorkspaceSlotStore persistence", () => {
-    test("survives adapter recreation and rejects a different Workspace owner", () => {
+    test("survives adapter recreation and rejects a different Workspace owner", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const owner = new WorkspaceId("workspace");
         const store = new SqliteWorkspaceSlotStore(owner, database);
@@ -38,7 +38,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         );
     });
 
-    test("survives file close and reopen", () => {
+    test("survives file close and reopen", { tags: "p1" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "agent-core-slot-"));
         const path = join(directory, "slot.sqlite");
         try {
@@ -62,7 +62,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         }
     });
 
-    test("fails closed on projection corruption", () => {
+    test("fails closed on projection corruption", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
         install(store, slot());
@@ -78,14 +78,14 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         ).toThrow(/projection/);
     });
 
-    test("rejects a transaction from another database", () => {
+    test("rejects a transaction from another database", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
         expect(() => store.loadRevision(new TestSqlite())).toThrow(/owning transaction/);
         expect(() => store.loadRevision(database)).toThrow(/owning transaction/);
     });
 
-    test("rejects precreated weak schemas and broken entry closure", () => {
+    test("rejects precreated weak schemas and broken entry closure", { tags: "p1" }, () => {
         const weak = new TestSqlite();
         weak.run("CREATE TABLE facet_slot_schema (singleton, version, workspace)", []);
         expect(() => new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), weak)).toThrow(
@@ -100,7 +100,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         expect(() => store.entries(slot().name)).toThrow(/violates/);
     });
 
-    test("rejects nested access, revision conflicts, immutable declarations, and invalid entries with typed codes", () => {
+    test("rejects nested access, revision conflicts, immutable declarations, and invalid entries with typed codes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
         const declaration = slot();
@@ -141,7 +141,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         expect(store.slot(new SlotName("missing"))).toBeUndefined();
     });
 
-    test("rejects partial schemas, missing singleton state, and unexpected protected objects on restart", () => {
+    test("rejects partial schemas, missing singleton state, and unexpected protected objects on restart", { tags: "p0" }, () => {
         const owner = new WorkspaceId("workspace");
         const partial = new TestSqlite();
         partial.run("CREATE TABLE facet_slots (name TEXT PRIMARY KEY, record BLOB) STRICT", []);
@@ -206,7 +206,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         expect(() => new SqliteWorkspaceSlotStore(owner, invalidEntryDatabase)).toThrow(/violates/);
     });
 
-    test("fails closed when a hostile SQLite adapter returns invalid projected types", () => {
+    test("fails closed when a hostile SQLite adapter returns invalid projected types", { tags: "p0" }, () => {
         const revisionDatabase = new TestSqlite();
         const revisionStore = new SqliteWorkspaceSlotStore(
             new WorkspaceId("workspace"),

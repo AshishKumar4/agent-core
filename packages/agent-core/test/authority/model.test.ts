@@ -26,7 +26,7 @@ import {
 } from "./fixture";
 
 describe("authority value records", () => {
-    test("canonicalizes capability sets and enforces argument constraints", () => {
+    test("canonicalizes capability sets and enforces argument constraints", { tags: "p0" }, () => {
         const spec = new CapabilitySpec({
             facetPattern: "workspace:mail.*",
             operations: ["send", "read", "send"],
@@ -55,7 +55,7 @@ describe("authority value records", () => {
         expect(Object.isFrozen(spec.argumentConstraints)).toBe(true);
     });
 
-    test("accepts only equal-or-narrower delegated capabilities", () => {
+    test("accepts only equal-or-narrower delegated capabilities", { tags: "p0" }, () => {
         const parent = new CapabilitySpec({
             facetPattern: "workspace:mail.*",
             impacts: ["observe", "mutate"]
@@ -73,7 +73,7 @@ describe("authority value records", () => {
         expect(parent.covers(wider)).toBe(false);
     });
 
-    test("[authority.grant] [authority.scope-epoch] round-trips retained authority records through canonical codecs", () => {
+    test("[authority.grant] [authority.scope-epoch] round-trips retained authority records through canonical codecs", { tags: "p0" }, () => {
         const grant = allowGrant("grant-codec");
         const epoch = new ScopeEpoch(workspaceScope, 3);
 
@@ -81,7 +81,7 @@ describe("authority value records", () => {
         expect(ScopeEpoch.decode(ScopeEpoch.encode(epoch)).toData()).toEqual(epoch.toData());
     });
 
-    test("rejects malformed and unknown-major capability bytes", () => {
+    test("rejects malformed and unknown-major capability bytes", { tags: "p0" }, () => {
         const unknownMajor = encodeCanonicalJson({
             kind: "authority.capability-spec",
             version: { major: 2, minor: 0 },
@@ -103,7 +103,7 @@ describe("authority value records", () => {
         ).toThrow(TypeError);
     });
 
-    test("advances Scope epochs immutably", () => {
+    test("advances Scope epochs immutably", { tags: "p0" }, () => {
         const initial = ScopeEpoch.initial(tenantScope);
         const next = initial.next();
 
@@ -113,7 +113,7 @@ describe("authority value records", () => {
         expect(Object.isFrozen(initial)).toBe(true);
     });
 
-    test("rejects extra Project ancestry for a projectless Workspace", () => {
+    test("rejects extra Project ancestry for a projectless Workspace", { tags: "p0" }, () => {
         const tenant = tenantScope;
         const project = ScopeRef.project(tenant.tenantId, new ProjectId("extra-project"));
         const projectless = ScopeRef.workspace(tenant.tenantId, workspaceScope.workspaceId!);
@@ -128,7 +128,7 @@ describe("authority value records", () => {
         ).toThrow(/canonical ancestry/);
     });
 
-    test("[authority.path-epoch-evidence] round-trips exact path evidence and reports changed Scopes", () => {
+    test("[authority.path-epoch-evidence] round-trips exact path evidence and reports changed Scopes", { tags: "p0" }, () => {
         const path = new PathEpochEvidence([
             new ScopeEpoch(tenantScope, 2),
             new ScopeEpoch(projectScope, 3),
@@ -144,7 +144,7 @@ describe("authority value records", () => {
         expect(path.staleScopes(changed).map((scope) => scope.kind)).toEqual(["project"]);
     });
 
-    test("[authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically", () => {
+    test("[authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically", { tags: "p0" }, () => {
         const ownerTenant = new TenantId("watermark-owner");
         const owner = new ActorRef("workspace", new ActorId("watermark-workspace"));
         const holder = new PrincipalRef(new TenantId("foreign-home"), new PrincipalId("guest"));
@@ -160,7 +160,7 @@ describe("authority value records", () => {
         ).toBe(true);
     });
 
-    test("[authority.binding] keeps Binding identity immutable while advancing local generations", () => {
+    test("[authority.binding] keeps Binding identity immutable while advancing local generations", { tags: "p0" }, () => {
         const domain = new ProtectionDomain("backend", "model", "no-secrets");
         const binding = Binding.active(
             workspaceScope,
@@ -196,7 +196,7 @@ describe("authority value records", () => {
 });
 
 describe("Grant model", () => {
-    test("revokes immutably and cannot restore live authority", () => {
+    test("revokes immutably and cannot restore live authority", { tags: "p0" }, () => {
         const active = allowGrant("grant-revoke");
         const revoked = active.revoke();
 
@@ -207,7 +207,7 @@ describe("Grant model", () => {
         expect(Object.isFrozen(revoked)).toBe(true);
     });
 
-    test("[C13-AUTH-PLANE] prohibits deny attenuation", () => {
+    test("[C13-AUTH-PLANE] prohibits deny attenuation", { tags: "p0" }, () => {
         expect(
             () =>
                 new Grant(

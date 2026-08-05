@@ -26,7 +26,7 @@ import { describe, expect, test } from "vitest";
 import { denyingRuntime, recordingRuntime } from "./harness";
 
 describe("MCP protected lifecycle and durable operation registration", () => {
-    test("[P11-MCP-INVOCATION] mediates lifecycle, discovery, and discovered calls", async () => {
+    test("[P11-MCP-INVOCATION] mediates lifecycle, discovery, and discovered calls", { tags: "p1" }, async () => {
         const server = new TestMcpServer();
         const { runtime, admission } = recordingRuntime("mcp");
         const facet = new McpFacet(
@@ -63,7 +63,7 @@ describe("MCP protected lifecycle and durable operation registration", () => {
         ]);
     });
 
-    test("[P11-MCP-ADAPTER] [P11-MCP-TOOLS] [facet.mcp-discovery-registration] restores validated immutable operation registration without rediscovery", async () => {
+    test("[P11-MCP-ADAPTER] [P11-MCP-TOOLS] [facet.mcp-discovery-registration] restores validated immutable operation registration without rediscovery", { tags: "p1" }, async () => {
         const store = new MemoryMcpDiscoveryRegistrationStore();
         const firstServer = new TestMcpServer();
         const first = new McpFacet(
@@ -95,7 +95,7 @@ describe("MCP protected lifecycle and durable operation registration", () => {
         expect(restartedServer.discoveryCalls).toBe(0);
     });
 
-    test("[P11-MCP-LIFECYCLE] denial prevents server lifecycle handlers", async () => {
+    test("[P11-MCP-LIFECYCLE] denial prevents server lifecycle handlers", { tags: "p0" }, async () => {
         const server = new TestMcpServer();
         const facet = new McpFacet(
             denyingRuntime("mcp").runtime,
@@ -140,7 +140,7 @@ describe("MCP protected lifecycle and durable operation registration", () => {
 });
 
 describe("MCP normative discovery", () => {
-    test("[P11-MCP-SCHEMA-BOUNDARY] validates discovered schemas before projecting Operations", () => {
+    test("[P11-MCP-SCHEMA-BOUNDARY] validates discovered schemas before projecting Operations", { tags: "p1" }, () => {
         const discovered = createDiscovery().discover(document());
         expect(discovered.operations[0]?.input.document).toEqual({});
         expect(() =>
@@ -150,7 +150,7 @@ describe("MCP normative discovery", () => {
         ).toThrow(expect.objectContaining({ detailCode: "schema.invalid" }));
     });
 
-    test("[P11-MCP-REVISION] enforces the edition's exact protocol revision", () => {
+    test("[P11-MCP-REVISION] enforces the edition's exact protocol revision", { tags: "p2" }, () => {
         expect(MCP_PROTOCOL_REVISION).toBe("2025-11-25");
         expect(() =>
             createDiscovery().discover({
@@ -162,7 +162,7 @@ describe("MCP normative discovery", () => {
         ).toThrow(expect.objectContaining({ detailCode: "revision.mismatch" }));
     });
 
-    test("[P11-MCP-IMPACT-ANNOTATION] [P11-MCP-IMPACT-DEFAULT-REMOTE] [P11-MCP-IMPACT-DEFAULT-LOCAL] maps only exact impact metadata and defaults unannotated remote/local tools", () => {
+    test("[P11-MCP-IMPACT-ANNOTATION] [P11-MCP-IMPACT-DEFAULT-REMOTE] [P11-MCP-IMPACT-DEFAULT-LOCAL] maps only exact impact metadata and defaults unannotated remote/local tools", { tags: "p0" }, () => {
         const annotated = createDiscovery().discover(
             document({ _meta: { [MCP_IMPACT_ANNOTATION]: "mutate" } })
         );
@@ -176,7 +176,7 @@ describe("MCP normative discovery", () => {
         ).toBe("execute");
     });
 
-    test("[P11-MCP-IMPACT-UNKNOWN] rejects malformed or unknown impact metadata", () => {
+    test("[P11-MCP-IMPACT-UNKNOWN] rejects malformed or unknown impact metadata", { tags: "p0" }, () => {
         for (const metadata of [
             { _meta: { [MCP_IMPACT_ANNOTATION]: "unknown" } },
             { _meta: { [MCP_IMPACT_ANNOTATION]: 1 } },
@@ -193,7 +193,7 @@ describe("MCP normative discovery", () => {
         ).toBe("externalSend");
     });
 
-    test("[P11-MCP-MALFORMED-SCHEMA] [P11-MCP-NO-LATE-SCHEMA] rejects malformed discovery metadata and schemas before registration", () => {
+    test("[P11-MCP-MALFORMED-SCHEMA] [P11-MCP-NO-LATE-SCHEMA] rejects malformed discovery metadata and schemas before registration", { tags: "p1" }, () => {
         const discovery = createDiscovery();
         for (const malformed of [
             [],
@@ -246,7 +246,7 @@ describe("MCP normative discovery", () => {
         ).toThrow(expect.objectContaining({ detailCode: "schema.invalid" }));
     });
 
-    test("rejects duplicate operation names and invalid persisted digests", () => {
+    test("rejects duplicate operation names and invalid persisted digests", { tags: "p1" }, () => {
         expect(() =>
             createDiscovery().discover({
                 revision: MCP_PROTOCOL_REVISION,
@@ -274,7 +274,7 @@ describe("MCP normative discovery", () => {
         ).toThrow(expect.objectContaining({ detailCode: "name.duplicate" }));
     });
 
-    test("[P11-MCP-POSITIVE-BOUNDS] [P11-MCP-PROMPT-COUNT] [P11-MCP-PROMPT-BYTES] enforces positive finite normative prompt item and canonical byte bounds", () => {
+    test("[P11-MCP-POSITIVE-BOUNDS] [P11-MCP-PROMPT-COUNT] [P11-MCP-PROMPT-BYTES] enforces positive finite normative prompt item and canonical byte bounds", { tags: "p1" }, () => {
         for (const bounds of [
             [0, 1],
             [1, 0],
@@ -310,7 +310,7 @@ describe("MCP normative discovery", () => {
         }
     });
 
-    test("[P11-MCP-SCHEMA-BOUNDARY] [P11-MCP-RESOURCES] [P11-MCP-PROMPTS] preserves validated schemas and projects resources and prompts", () => {
+    test("[P11-MCP-SCHEMA-BOUNDARY] [P11-MCP-RESOURCES] [P11-MCP-PROMPTS] preserves validated schemas and projects resources and prompts", { tags: "p1" }, () => {
         const discovered = createDiscovery().discover(new TestMcpServer().document);
         expect(discovered.operations[0]?.input.document).toEqual({
             type: "object",
@@ -324,7 +324,7 @@ describe("MCP normative discovery", () => {
         ]);
     });
 
-    test("rejects calls that have no persisted discovery registration", () => {
+    test("rejects calls that have no persisted discovery registration", { tags: "p0" }, () => {
         const facet = new McpFacet(
             recordingRuntime("mcp-undiscovered").runtime,
             createDiscovery(),
@@ -568,7 +568,7 @@ describe("MCP wire codecs and error identity", () => {
 });
 
 describe("MCP effect identity to server backend", () => {
-    test("[P11-MCP-DISPATCH] delivers the canonical effect identity derived from the context", async () => {
+    test("[P11-MCP-DISPATCH] delivers the canonical effect identity derived from the context", { tags: "p0" }, async () => {
         const server = new TestMcpServer();
         const { runtime, admission } = recordingRuntime("mcp-dispatch");
         const facet = new McpFacet(
@@ -591,7 +591,7 @@ describe("MCP effect identity to server backend", () => {
         expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
     });
 
-    test("[P11-MCP-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-invoking", async () => {
+    test("[P11-MCP-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-invoking", { tags: "p0" }, async () => {
         const server = new DedupMcpServer();
         const dispatch = new EffectDispatch(
             "mcp-test-key",

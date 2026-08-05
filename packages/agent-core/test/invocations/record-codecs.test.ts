@@ -32,7 +32,7 @@ import {
 } from "./fixture";
 
 describe("durable invocation record codecs", () => {
-    test("[audit-record] round-trips an actual immutable fixture", () => {
+    test("[audit-record] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const record = new AuditRecord({
             id: new AuditRecordId("static-audit"),
             actor: new ActorRef("run", new ActorId("static-actor")),
@@ -43,7 +43,7 @@ describe("durable invocation record codecs", () => {
         expect(AuditRecord.decode(AuditRecord.encode(record)).id.equals(record.id)).toBe(true);
     });
 
-    test("[invocation.prepared] round-trips an actual immutable fixture", () => {
+    test("[invocation.prepared] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const record = prepared("static-prepared");
         const decoded = PreparedInvocation.decode(
             PreparedInvocation.encode(record, preparedReferenceCodecs),
@@ -52,7 +52,7 @@ describe("durable invocation record codecs", () => {
         expect(decoded.intentDigest.equals(record.intentDigest)).toBe(true);
     });
 
-    test("[invocation.approval] round-trips an actual immutable fixture", () => {
+    test("[invocation.approval] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const invocation = prepared("static-approval");
         const record = Approval.pending(
             new ApprovalId("static-approval"),
@@ -64,7 +64,7 @@ describe("durable invocation record codecs", () => {
         expect(Approval.decode(Approval.encode(record)).id.equals(record.id)).toBe(true);
     });
 
-    test("[invocation.item-claim] round-trips an actual immutable fixture", () => {
+    test("[invocation.item-claim] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const record = new ItemClaim(
             new ItemClaimId("static-claim"),
             new InvocationId("static-claim-invocation"),
@@ -81,7 +81,7 @@ describe("durable invocation record codecs", () => {
         expect(claimCodec.decode(claimCodec.encode(record)).id.equals(record.id)).toBe(true);
     });
 
-    test("[invocation.effect-attempt] round-trips an actual immutable fixture", () => {
+    test("[invocation.effect-attempt] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const record = new EffectAttempt(
             new EffectAttemptId("static-attempt"),
             new InvocationId("static-attempt-invocation"),
@@ -103,7 +103,7 @@ describe("durable invocation record codecs", () => {
         expect(attemptCodec.decode(attemptCodec.encode(record)).id.equals(record.id)).toBe(true);
     });
 
-    test("[invocation.receipt] round-trips an actual immutable fixture", () => {
+    test("[invocation.receipt] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const record = new PreEffectReceipt(
             new ReceiptId("static-receipt"),
             new InvocationId("static-receipt-invocation"),

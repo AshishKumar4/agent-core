@@ -29,7 +29,7 @@ const key = new DeploymentKey("platform");
 const deploymentId = DeploymentId.derive(tenantId, key);
 
 describe("SQLite materialization rollout control", () => {
-    test("requires a Tenant owner and a complete marked schema", () => {
+    test("requires a Tenant owner and a complete marked schema", { tags: "p1" }, () => {
         expect(() =>
             SqliteMaterializationStore.control(
                 new TestSqlite(),
@@ -83,7 +83,7 @@ describe("SQLite materialization rollout control", () => {
         );
     });
 
-    test("validates deployment projections revisions and missing lookups", () => {
+    test("validates deployment projections revisions and missing lookups", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = SqliteMaterializationStore.control(database, tenantActor);
         const controller = controllerFor(store);
@@ -138,7 +138,7 @@ describe("SQLite materialization rollout control", () => {
         ).toThrow(/projection|codec bytes/);
     });
 
-    test("persists and restores immutable validation attestations", () => {
+    test("persists and restores immutable validation attestations", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = SqliteMaterializationStore.control(database, tenantActor);
         const attestation = validationAttestation();
@@ -159,7 +159,7 @@ describe("SQLite materialization rollout control", () => {
         expect(() => SqliteMaterializationStore.control(database, tenantActor)).toThrow();
     });
 
-    test("requires rollout and outbox closure and exact outbox CAS", () => {
+    test("requires rollout and outbox closure and exact outbox CAS", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = SqliteMaterializationStore.control(database, tenantActor);
         const materializationPlan = plan(1);
@@ -225,6 +225,7 @@ describe("SQLite materialization rollout control", () => {
 
     test.each(["rollout_id", "target_kind", "target_id", "status", "revision"] as const)(
         "rejects corrupt outbox %s projections",
+        { tags: "p1" },
         (projection) => {
             const database = new TestSqlite();
             const store = SqliteMaterializationStore.control(database, tenantActor);
@@ -252,7 +253,7 @@ describe("SQLite materialization rollout control", () => {
         }
     );
 
-    test("rejects truncated target outbox closure on completion and restart", () => {
+    test("rejects truncated target outbox closure on completion and restart", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = SqliteMaterializationStore.control(database, tenantActor);
         const controller = controllerFor(store);
@@ -264,7 +265,7 @@ describe("SQLite materialization rollout control", () => {
         );
     });
 
-    test("fails closed on missing or multiply returned control writes", () => {
+    test("fails closed on missing or multiply returned control writes", { tags: "p0" }, () => {
         for (const fault of ["deployment-empty", "deployment-multiple"] as const) {
             const database = new FaultControlSqlite();
             const store = SqliteMaterializationStore.control(database, tenantActor);

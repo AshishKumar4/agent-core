@@ -36,7 +36,7 @@ import { admissionFor, createLedger, prepared } from "../../../invocations/fixtu
 import { createSqliteInvocationPersistence } from "./fixture";
 
 describe("SqliteInvocationMediationPersistence", () => {
-    test("[C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract", () => {
+    test("[C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract", { tags: "p1" }, () => {
         const memoryState = createInvocationMediationMemoryState();
         const memory = new MemoryInvocationMediationPersistence();
         verifyMediationContract(memory, (operation) => operation(memoryState), "memory");
@@ -53,7 +53,7 @@ describe("SqliteInvocationMediationPersistence", () => {
         );
     });
 
-    test("[invocation.mediated-replay] [invocation.publication-outbox] persists replay revisions and durable publication acknowledgement", () => {
+    test("[invocation.mediated-replay] [invocation.publication-outbox] persists replay revisions and durable publication acknowledgement", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const persistence = new SqliteInvocationMediationPersistence(
             database,
@@ -351,7 +351,7 @@ describe("SqliteInvocationMediationPersistence", () => {
         }
     );
 
-    test("does not resend an acknowledged Event after a Commit sink crash", async () => {
+    test("does not resend an acknowledged Event after a Commit sink crash", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const persistence = new SqliteInvocationMediationPersistence(
             database,
@@ -395,7 +395,7 @@ describe("SqliteInvocationMediationPersistence", () => {
         expect(persistence.publication(database, publication.id)?.state.kind).toBe("published");
     });
 
-    test("rejects duplicate or skipped replay and publication revisions across restart", () => {
+    test("rejects duplicate or skipped replay and publication revisions across restart", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const audits = new SqliteProtocolPersistence(database);
         let persistence = new SqliteInvocationMediationPersistence(database, audits);
@@ -452,7 +452,7 @@ describe("SqliteInvocationMediationPersistence", () => {
         ).toThrow(/next transition/);
     });
 
-    test("detects substituted replay and outbox projection columns after restart", () => {
+    test("detects substituted replay and outbox projection columns after restart", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const audits = new SqliteProtocolPersistence(database);
         let persistence = new SqliteInvocationMediationPersistence(database, audits);

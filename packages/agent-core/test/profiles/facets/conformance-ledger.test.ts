@@ -36,7 +36,7 @@ import { expect, test } from "vitest";
 type Check = () => void;
 
 function requirement(id: string, check: Check): void {
-    test(`[${id}] exact profile manifest or runtime contract`, check);
+    test(`[${id}] exact profile manifest or runtime contract`, { tags: "p1" }, check);
 }
 
 function operation(operations: readonly OperationDescriptor[], name: string): OperationDescriptor {

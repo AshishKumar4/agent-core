@@ -45,7 +45,7 @@ const anchor = {
 };
 
 describe("SQLite Tenant authority mutation storage", () => {
-    test("[C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes", () => {
+    test("[C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -73,7 +73,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         expect(createSqliteTenantControlStore(database).epoch(tenantScope).epoch).toBe(initial + 4);
     });
 
-    test("reconciles Membership Grants and bumps exactly once on revoke", () => {
+    test("reconciles Membership Grants and bumps exactly once on revoke", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -114,7 +114,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         expect(restarted.epoch(tenantScope).epoch).toBe(3);
     });
 
-    test("bumps team and principal resolver-input mutations", () => {
+    test("bumps team and principal resolver-input mutations", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -141,7 +141,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         expect(store.epoch(tenantScope).epoch).toBe(++epoch);
     });
 
-    test("enforces Tenant and immutable record boundaries", () => {
+    test("enforces Tenant and immutable record boundaries", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -199,7 +199,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         expect(store.loadMembership(orphan.id)).toBeUndefined();
     });
 
-    test("enforces narrowing and recursively revokes delegated Grant chains", () => {
+    test("enforces narrowing and recursively revokes delegated Grant chains", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -255,7 +255,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         ]);
     });
 
-    test("persists canonical Workspace topology and verified guest lifecycle across restart", () => {
+    test("persists canonical Workspace topology and verified guest lifecycle across restart", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -321,7 +321,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         ).toBe(true);
     });
 
-    test("rejects malformed orphan identity rows before serving after restart", () => {
+    test("rejects malformed orphan identity rows before serving after restart", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));

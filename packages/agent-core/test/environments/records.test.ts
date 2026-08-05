@@ -78,13 +78,13 @@ const exposure = new PortExposure(
 );
 
 describe("Environment records", () => {
-    test("keeps snapshot and exposure identifiers nominally distinct", () => {
+    test("keeps snapshot and exposure identifiers nominally distinct", { tags: "p1" }, () => {
         expect(snapshotId.equals(new EnvironmentSnapshotId(snapshotId.value))).toBe(true);
         expect(snapshotId.equals(new PortExposureId(snapshotId.value))).toBe(false);
         expect(exposureId.equals(new EnvironmentSessionId(exposureId.value))).toBe(false);
     });
 
-    test("[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0", () => {
+    test("[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0", { tags: "p1" }, () => {
         const records = [
             [Environment, environment],
             [EnvironmentRevisionRecord, revisionRecord],
@@ -104,7 +104,7 @@ describe("Environment records", () => {
         }
     });
 
-    test("rejects an unknown major for every Environment record", () => {
+    test("rejects an unknown major for every Environment record", { tags: "p2" }, () => {
         const records = [
             [Environment, environment],
             [EnvironmentRevisionRecord, revisionRecord],
@@ -130,7 +130,7 @@ describe("Environment records", () => {
         }
     });
 
-    test("carries lifecycle behavior and rejects illegal transitions", () => {
+    test("carries lifecycle behavior and rejects illegal transitions", { tags: "p1" }, () => {
         const reserved = new EnvironmentSession(
             sessionId,
             environmentId,
@@ -168,7 +168,7 @@ describe("Environment records", () => {
         expect(() => exposure.revoked()).toThrow(AgentCoreError);
     });
 
-    test("makes every terminal lifecycle transition idempotent and every illegal transition fail", () => {
+    test("makes every terminal lifecycle transition idempotent and every illegal transition fail", { tags: "p1" }, () => {
         const reserved = sessionIn(EnvironmentSessionState.reserved);
         const opening = reserved.beginOpen();
         const opened = opening.opened();
@@ -220,7 +220,7 @@ describe("Environment records", () => {
         expect(() => revoked.exposed("https://preview.example.test/")).toThrow(AgentCoreError);
     });
 
-    test("rejects malformed codec payloads instead of constructing impossible durable states", () => {
+    test("rejects malformed codec payloads instead of constructing impossible durable states", { tags: "p0" }, () => {
         expectInvalidPayload(Environment, environment, null);
         expectInvalidPayload(Environment, environment, { id: environmentId.value });
         expectInvalidPayload(Environment, environment, {
@@ -269,7 +269,7 @@ describe("Environment records", () => {
         });
     });
 
-    test("rejects exhausted counters and invalid record invariants", () => {
+    test("rejects exhausted counters and invalid record invariants", { tags: "p0" }, () => {
         const exhausted = new Environment(
             environmentId,
             Revision.initial(),
@@ -327,7 +327,7 @@ describe("Environment records", () => {
         expect(() => new ProviderDescriptor(provider.id, " ", configuration)).toThrow(TypeError);
     });
 
-    test("requires branded values for every record and capability field", () => {
+    test("requires branded values for every record and capability field", { tags: "p1" }, () => {
         const invalid = {} as never;
         const credential = new SecretRef("vault", "credential-provider", "strict-shape");
         const actions = [
@@ -591,7 +591,7 @@ describe("Environment records", () => {
         for (const action of actions) expect(action).toThrow(TypeError);
     });
 
-    test("codes operational transition failures without changing constructor validation", () => {
+    test("codes operational transition failures without changing constructor validation", { tags: "p2" }, () => {
         expect(() =>
             environment.rotate(
                 new EnvironmentRevisionRecord(environmentId, new Revision(1), 2, provider)
@@ -666,14 +666,14 @@ describe("Environment records", () => {
         ).toThrow(TypeError);
     });
 
-    test("rejects credential-bearing exposure URLs", () => {
+    test("rejects credential-bearing exposure URLs", { tags: "p0" }, () => {
         expect(() => exposureWithUrl("https://user:password@example.test/")).toThrow(TypeError);
         expect(() => exposureWithUrl("https://example.test/?token=secret")).toThrow(TypeError);
         expect(() => exposureWithUrl("https://example.test/#secret")).toThrow(TypeError);
         expect(() => exposureWithUrl("ftp://example.test/resource")).toThrow(TypeError);
     });
 
-    test("validates every counter and decodes every lifecycle state", () => {
+    test("validates every counter and decodes every lifecycle state", { tags: "p1" }, () => {
         expect(
             () =>
                 new EnvironmentSession(
@@ -773,7 +773,7 @@ describe("Environment records", () => {
         }
     });
 
-    test("rejects mistyped required and optional codec fields", () => {
+    test("rejects mistyped required and optional codec fields", { tags: "p2" }, () => {
         expectInvalidPayload(Environment, environment, {
             id: 1,
             activeRevision: 0,
@@ -814,7 +814,7 @@ describe("Environment records", () => {
         });
     });
 
-    test("[P11-ENVIRONMENT-CREDENTIAL-SEAM] credential isolation passes only a bound capability and content references", async () => {
+    test("[P11-ENVIRONMENT-CREDENTIAL-SEAM] credential isolation passes only a bound capability and content references", { tags: "p0" }, async () => {
         const credential = new SecretRef("vault", "credential-provider", "environment-token");
         const capability = new EnvironmentCredentialProxyCapability(
             session.capability,
@@ -835,7 +835,7 @@ describe("Environment records", () => {
 });
 
 describe("MemoryEnvironmentStore", () => {
-    test("[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS", () => {
+    test("[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS", { tags: "p1" }, () => {
         const store = seededStore();
 
         expect(store.compareAndSetSession(undefined, session)).toBe(true);
@@ -845,7 +845,7 @@ describe("MemoryEnvironmentStore", () => {
         expect(store.getSession(sessionId)?.state.name).toBe("closing");
     });
 
-    test("rejects records that do not pin the exact stored generation", () => {
+    test("rejects records that do not pin the exact stored generation", { tags: "p0" }, () => {
         const store = seededStore();
         const unpinned = new EnvironmentSession(
             sessionId,
@@ -887,7 +887,7 @@ describe("MemoryEnvironmentStore", () => {
         expect(store.getRevision(environmentId, invalidRevision.revision)).toBeUndefined();
     });
 
-    test("codes invalid restore, snapshot, and exposure pins", () => {
+    test("codes invalid restore, snapshot, and exposure pins", { tags: "p1" }, () => {
         const store = seededStore();
         const restore = new EnvironmentSession(
             new EnvironmentSessionId("session-invalid-restore"),
@@ -944,7 +944,7 @@ describe("MemoryEnvironmentStore", () => {
         );
     });
 
-    test("rejects future snapshot epochs while retaining fenced snapshot history", () => {
+    test("rejects future snapshot epochs while retaining fenced snapshot history", { tags: "p0" }, () => {
         const store = seededStore();
         expect(store.compareAndSetSession(undefined, session)).toBe(true);
         const future = new EnvironmentSnapshot(
@@ -981,7 +981,7 @@ describe("MemoryEnvironmentStore", () => {
         expect(store.compareAndSetSnapshot(creating.recordRevision, creating.fail())).toBe(true);
     });
 
-    test("codes CAS progression and immutable revision violations as invalid state", () => {
+    test("codes CAS progression and immutable revision violations as invalid state", { tags: "p0" }, () => {
         const empty = new MemoryEnvironmentStore();
         expect(() =>
             empty.compareAndSetEnvironment(
@@ -1053,7 +1053,7 @@ describe("MemoryEnvironmentStore", () => {
         );
     });
 
-    test("leaves no orphan revision when the atomic head CAS conflicts", () => {
+    test("leaves no orphan revision when the atomic head CAS conflicts", { tags: "p0" }, () => {
         const store = seededStore();
         const nextRevision = revision(1, 1);
         const nextHead = environment.rotate(nextRevision);
@@ -1063,7 +1063,7 @@ describe("MemoryEnvironmentStore", () => {
         expect(store.getRevision(environmentId, nextRevision.revision)).toBeUndefined();
     });
 
-    test("rolls back a revision when atomic head persistence fails", () => {
+    test("rolls back a revision when atomic head persistence fails", { tags: "p0" }, () => {
         const store = new FailingEnvironmentStore();
         seedStore(store);
         const nextRevision = revision(1, 1);
@@ -1079,7 +1079,7 @@ describe("MemoryEnvironmentStore", () => {
         expect(store.getRevision(environmentId, nextRevision.revision)).toBeUndefined();
     });
 
-    test("validates stored projections against their codec bytes on restore", () => {
+    test("validates stored projections against their codec bytes on restore", { tags: "p0" }, () => {
         const store = seededStore();
         expect(store.compareAndSetSession(undefined, session)).toBe(true);
         const image = store.exportImage();
@@ -1095,7 +1095,7 @@ describe("MemoryEnvironmentStore", () => {
         );
     });
 
-    test("rejects duplicate, malformed, mismatched, and orphaned store image rows", () => {
+    test("rejects duplicate, malformed, mismatched, and orphaned store image rows", { tags: "p0" }, () => {
         const store = seededStore();
         expect(store.compareAndSetSession(undefined, session)).toBe(true);
         const image = store.exportImage();
@@ -1133,7 +1133,7 @@ describe("MemoryEnvironmentStore", () => {
         );
     });
 
-    test("validates every durable row key and resource projection after restart", () => {
+    test("validates every durable row key and resource projection after restart", { tags: "p0" }, () => {
         const store = seededStore();
         store.compareAndSetSession(undefined, session);
         store.compareAndSetSnapshot(undefined, snapshot);
@@ -1167,7 +1167,7 @@ describe("MemoryEnvironmentStore", () => {
         ).toThrow(/projection does not match/);
     });
 
-    test("rejects nonzero initial generations and revisions beyond the durable head", () => {
+    test("rejects nonzero initial generations and revisions beyond the durable head", { tags: "p0" }, () => {
         const invalidRevision = new EnvironmentRevisionRecord(
             environmentId,
             Revision.initial(),
@@ -1225,7 +1225,7 @@ describe("MemoryEnvironmentStore", () => {
         expect(() => new MemoryEnvironmentStore({ rows })).toThrow(/orphan revision/);
     });
 
-    test("restores the prior image when the head hook throws a typed store error", () => {
+    test("restores the prior image when the head hook throws a typed store error", { tags: "p0" }, () => {
         const store = new TypedFailingEnvironmentStore();
         seedStore(store);
         const nextRevision = revision(1, 1);

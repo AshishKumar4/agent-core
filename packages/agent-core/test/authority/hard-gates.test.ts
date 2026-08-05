@@ -64,7 +64,7 @@ const args = { value: "ok" } as const;
 const argsDigest = Digest.sha256(encodeCanonicalJson(args));
 
 describe("canonical capability hard gates", () => {
-    test("[C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths", () => {
+    test("[C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths", { tags: "p0" }, () => {
         const parent = new CapabilitySpec({
             facetPattern: "workspace:mail.*",
             operations: ["send"],
@@ -119,7 +119,7 @@ describe("canonical capability hard gates", () => {
         }
     });
 
-    test("strictly rejects malformed capability shapes", () => {
+    test("strictly rejects malformed capability shapes", { tags: "p0" }, () => {
         expect(() =>
             CapabilitySpec.fromData({
                 facetPattern: "*",
@@ -190,7 +190,7 @@ describe("canonical capability hard gates", () => {
 });
 
 describe("Grant and authority identifier hard gates", () => {
-    test("defensively freezes caller-provided subject references", () => {
+    test("defensively freezes caller-provided subject references", { tags: "p0" }, () => {
         const mutable = {
             kind: "principal" as const,
             principalId: new PrincipalId("mutable-principal")
@@ -231,7 +231,7 @@ describe("Grant and authority identifier hard gates", () => {
         );
     });
 
-    test("strictly validates Grant construction and replacement", () => {
+    test("strictly validates Grant construction and replacement", { tags: "p0" }, () => {
         expect(
             () =>
                 new Grant(
@@ -307,7 +307,7 @@ describe("Grant and authority identifier hard gates", () => {
         expect(() => direct.revoke().assertCanReplace(direct)).toThrow(AgentCoreError);
     });
 
-    test("strictly validates Grant codec origin, effect, state, and attenuation", () => {
+    test("strictly validates Grant codec origin, effect, state, and attenuation", { tags: "p0" }, () => {
         const grant = new Grant(
             grantId,
             workspaceScope,
@@ -335,7 +335,7 @@ describe("Grant and authority identifier hard gates", () => {
             expectRecordMutationFailure(Grant.codec, grant, mutate);
     });
 
-    test("validates deterministic role Grant identifiers", () => {
+    test("validates deterministic role Grant identifiers", { tags: "p0" }, () => {
         expect(GrantId.forRole("membership", 0).value).toMatch(/^role:/);
         expect(() => GrantId.forRole("membership", -1)).toThrow(TypeError);
         expect(() => GrantId.forRole("", 0)).toThrow(TypeError);
@@ -356,7 +356,7 @@ describe("Grant and authority identifier hard gates", () => {
 });
 
 describe("Binding and epoch hard gates", () => {
-    test("uses behavior-carrying Binding transitions", () => {
+    test("uses behavior-carrying Binding transitions", { tags: "p0" }, () => {
         const inactive = binding.deactivate();
         expect(inactive.deactivate()).toBe(inactive);
         expect(
@@ -422,7 +422,7 @@ describe("Binding and epoch hard gates", () => {
         );
     });
 
-    test("strictly decodes Binding domains and states", () => {
+    test("strictly decodes Binding domains and states", { tags: "p0" }, () => {
         expect(() =>
             decodeDomain({ kind: "unknown", label: "x", secretPolicy: "no-secrets" })
         ).toThrow(TypeError);
@@ -435,7 +435,7 @@ describe("Binding and epoch hard gates", () => {
         }));
     });
 
-    test("enforces exact path and watermark invariants", () => {
+    test("enforces exact path and watermark invariants", { tags: "p0" }, () => {
         expect(() => new ScopeEpoch(tenantScope, -1)).toThrow(TypeError);
         expectAgentError(
             () => new ScopeEpoch(tenantScope, Number.MAX_SAFE_INTEGER).next(),
@@ -543,7 +543,7 @@ describe("Binding and epoch hard gates", () => {
 });
 
 describe("typed authority evidence hard gates", () => {
-    test("gives requests uniform static codecs", () => {
+    test("gives requests uniform static codecs", { tags: "p0" }, () => {
         const request = checkRequest();
         expect(
             AuthorityCheckRequest.decode(AuthorityCheckRequest.encode(request))
@@ -568,7 +568,7 @@ describe("typed authority evidence hard gates", () => {
         }));
     });
 
-    test("rejects malformed operational identity before evidence issuance", () => {
+    test("rejects malformed operational identity before evidence issuance", { tags: "p0" }, () => {
         const base = checkInit();
         expect(() => new AuthorityCheckRequest({ ...base, ownerFence: -1 })).toThrow(TypeError);
         expect(() => new AuthorityCheckRequest({ ...base, itemIndex: -1 })).toThrow(TypeError);
@@ -606,7 +606,7 @@ describe("typed authority evidence hard gates", () => {
         expect(() => new BindingValidationRequest({ ...validation, nonce: "" })).toThrow(TypeError);
     });
 
-    test("[C13-AUTH-PATH-EVIDENCE] enforces evidence issuer, time, path, and grant matrices", () => {
+    test("[C13-AUTH-PATH-EVIDENCE] enforces evidence issuer, time, path, and grant matrices", { tags: "p0" }, () => {
         const request = checkRequest();
         expect(() => evidence({ issuer: owner })).toThrow(TypeError);
         expect(() => evidence({ issuerTenant: otherTenant })).toThrow(TypeError);
@@ -649,7 +649,7 @@ describe("typed authority evidence hard gates", () => {
         expect(validationEvidence().binds(validation)).toBe(true);
     });
 
-    test("strictly rejects evidence codec enums and duplicate Grant IDs", () => {
+    test("strictly rejects evidence codec enums and duplicate Grant IDs", { tags: "p0" }, () => {
         expect(() => evidence({ matchedAllow: [grantId, grantId] })).toThrow(TypeError);
         expectRecordMutationFailure(AuthorityCheckEvidence.codec, evidence(), (payload) => ({
             ...payload,
@@ -721,7 +721,7 @@ describe("materialization and epoch planning operational errors", () => {
         Revision.initial()
     );
 
-    test("uses AgentCoreError for invalid materialization inputs", () => {
+    test("uses AgentCoreError for invalid materialization inputs", { tags: "p0" }, () => {
         const materializer = new RoleGrantMaterializer();
         expectAgentError(
             () =>
@@ -764,7 +764,7 @@ describe("materialization and epoch planning operational errors", () => {
         );
     });
 
-    test("uses AgentCoreError for invalid epoch plans", () => {
+    test("uses AgentCoreError for invalid epoch plans", { tags: "p0" }, () => {
         const planner = new EpochPlanner();
         expectAgentError(
             () =>

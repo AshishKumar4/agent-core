@@ -47,7 +47,7 @@ function membership(assignedRole: Role, subject: SubjectReference = principal): 
 }
 
 describe("RoleGrantMaterializer", () => {
-    test("uses stable role Grant IDs and is an exact semantic no-op", () => {
+    test("uses stable role Grant IDs and is an exact semantic no-op", { tags: "p0" }, () => {
         const assignedRole = role("reader-custom", [
             new RoleRule(
                 "allow",
@@ -80,7 +80,7 @@ describe("RoleGrantMaterializer", () => {
         expect(second.affectedScopes).toEqual([]);
     });
 
-    test("reconciles changed and obsolete rules without adding authority", () => {
+    test("reconciles changed and obsolete rules without adding authority", { tags: "p0" }, () => {
         const original = role("custom", [
             new RoleRule(
                 "allow",
@@ -118,6 +118,7 @@ describe("RoleGrantMaterializer", () => {
 
     test.each([GuestVerificationScheme.token, GuestVerificationScheme.callback])(
         "materializes no Grants for unverified %s guests",
+        { tags: "p0" },
         (scheme) => {
             const guest = SubjectRef.foreign(tenantId, otherPrincipalId, scheme);
             const assignedRole = role("guest-role", [
@@ -148,7 +149,7 @@ describe("RoleGrantMaterializer", () => {
         }
     );
 
-    test("[C13-AUTH-GUEST-SUBJECT] materializes verified guest allows and denies while removing elevated allows", () => {
+    test("[C13-AUTH-GUEST-SUBJECT] materializes verified guest allows and denies while removing elevated allows", { tags: "p0" }, () => {
         const guest = SubjectRef.foreign(tenantId, otherPrincipalId, GuestVerificationScheme.token);
         const assignedRole = role("verified-guest", [
             new RoleRule(
@@ -198,7 +199,7 @@ describe("RoleGrantMaterializer", () => {
         ).toBe(true);
     });
 
-    test("revokes every stale guest Grant without inventing verification", () => {
+    test("revokes every stale guest Grant without inventing verification", { tags: "p0" }, () => {
         const guest = SubjectRef.foreign(tenantId, otherPrincipalId, GuestVerificationScheme.token);
         const assignedRole = role("guest-reconciled", [
             new RoleRule(
@@ -369,7 +370,7 @@ describe("RoleGrantMaterializer", () => {
         ]);
     });
 
-    test("rejects handshake as a steady-state guest verification scheme", () => {
+    test("rejects handshake as a steady-state guest verification scheme", { tags: "p0" }, () => {
         const guest = SubjectRef.foreign(
             tenantId,
             otherPrincipalId,
@@ -393,7 +394,7 @@ describe("RoleGrantMaterializer", () => {
 });
 
 describe("EpochPlanner", () => {
-    test("enumerates every resolver-input mutation and bumps each Scope once", () => {
+    test("enumerates every resolver-input mutation and bumps each Scope once", { tags: "p0" }, () => {
         const mutations: Parameters<EpochPlanner["plan"]>[1] = [
             { kind: "grant", scope: workspaceScope },
             { kind: "membership", affectedScopes: [workspaceScope] },
@@ -443,7 +444,7 @@ describe("EpochPlanner", () => {
         ]);
     });
 
-    test("preflights overflow before producing any partial plan", () => {
+    test("preflights overflow before producing any partial plan", { tags: "p0" }, () => {
         expect(() =>
             new EpochPlanner().plan(
                 [

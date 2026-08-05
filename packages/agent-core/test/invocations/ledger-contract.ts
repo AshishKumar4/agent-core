@@ -59,7 +59,7 @@ export function invocationLedgerContract<Transaction>(
             harnesses.clear();
         });
 
-        test("[invocation.prepared] persists preparation and derives stable shape-sensitive identities", () => {
+        test("[invocation.prepared] persists preparation and derives stable shape-sensitive identities", { tags: "p0" }, () => {
             const harness = open();
             const single = prepared("identity-single", { a: 1 });
             const batch = prepared("identity-batch", [{ a: 1 }]);
@@ -75,7 +75,7 @@ export function invocationLedgerContract<Transaction>(
             expect(restored?.item(0).idempotencyKey).toBe(single.item(0).idempotencyKey);
         });
 
-        test("[invocation.approval] [invocation.continuation] consumes one exact Approval with the first admitted attempt", () => {
+        test("[invocation.approval] [invocation.continuation] consumes one exact Approval with the first admitted attempt", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("approved", [{ send: 0 }, { send: 1 }], {
                 lease: "lease:1"
@@ -135,7 +135,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow();
         });
 
-        test("restores the consumed Approval continuation before admitting another batch item", () => {
+        test("restores the consumed Approval continuation before admitting another batch item", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("continued-after-restart", [{ item: 0 }, { item: 1 }], {
                 lease: "lease:1",
@@ -199,7 +199,7 @@ export function invocationLedgerContract<Transaction>(
             });
         });
 
-        test("rejects an expired approved continuation without consuming or attempting", () => {
+        test("rejects an expired approved continuation without consuming or attempting", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared(
                 "expired-approval",
@@ -250,7 +250,7 @@ export function invocationLedgerContract<Transaction>(
             });
         });
 
-        test("[invocation.item-claim] recovers only an expired no-attempt claim at the same ordinal under a new worker", () => {
+        test("[invocation.item-claim] recovers only an expired no-attempt claim at the same ordinal under a new worker", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("recover", { run: true }, { lease: "lease:1" });
             const first = executorClaim(
@@ -289,7 +289,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBe(0);
         });
 
-        test("recovers an unattempted retry claim despite a prior failed ordinal", () => {
+        test("recovers an unattempted retry claim despite a prior failed ordinal", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("retry-recover", { run: true }, { lease: "lease:1" });
             const claim0 = executorClaim(
@@ -407,7 +407,7 @@ export function invocationLedgerContract<Transaction>(
             }
         );
 
-        test("records pre-effect terminal evidence only before any attempt", () => {
+        test("records pre-effect terminal evidence only before any attempt", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("denied");
             const denied = new PreEffectReceipt(
@@ -499,7 +499,7 @@ export function invocationLedgerContract<Transaction>(
             }
         );
 
-        test("[C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes", () => {
+        test("[C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("batch", [{ index: 0 }, { index: 1 }], {
                 lease: "lease:1"
@@ -577,7 +577,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow();
         });
 
-        test("[invocation.effect-attempt] rejects substituted AuthorityAdmission before persisting an attempt", () => {
+        test("[invocation.effect-attempt] rejects substituted AuthorityAdmission before persisting an attempt", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("authority", { send: true }, { lease: "lease:1" });
             const claim = executorClaim(
@@ -616,7 +616,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBeUndefined();
         });
 
-        test("covers lease-free system admission and defensive Receipt rejection paths", () => {
+        test("covers lease-free system admission and defensive Receipt rejection paths", { tags: "p1" }, () => {
             const harness = open();
             const invocation = prepared("system");
             const claim = new ItemClaim<string>(
@@ -693,7 +693,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow();
         });
 
-        test("derives Approval requirements and forbids out-of-band consumption", () => {
+        test("derives Approval requirements and forbids out-of-band consumption", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared(
                 "approval-guard",
@@ -748,7 +748,7 @@ export function invocationLedgerContract<Transaction>(
             );
         });
 
-        test("prevents claim terminalization races and superseded-claim resurrection", () => {
+        test("prevents claim terminalization races and superseded-claim resurrection", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("claim-race", { send: true }, { lease: "lease:1" });
             const first = executorClaim(
@@ -804,7 +804,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/current no-attempt/);
         });
 
-        test("binds system and recovered executor claims to the Prepared owner", () => {
+        test("binds system and recovered executor claims to the Prepared owner", { tags: "p0" }, () => {
             const harness = open();
             const systemInvocation = prepared("wrong-system");
             const foreignSystem = new ItemClaim<string>(
@@ -856,7 +856,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/exact PreparedInvocation lease/);
         });
 
-        test("rejects duplicate preparation and malformed Approval revisions", () => {
+        test("rejects duplicate preparation and malformed Approval revisions", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("duplicate-preparation");
             harness.transaction((transaction) => harness.ledger.prepare(transaction, invocation));
@@ -904,7 +904,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/next legal/);
         });
 
-        test("fails closed when cross-wave preparation evidence rejects ownership", () => {
+        test("fails closed when cross-wave preparation evidence rejects ownership", { tags: "p0" }, () => {
             const harness = open();
             const invalid = PreparedInvocation.create(
                 {
@@ -930,7 +930,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBeUndefined();
         });
 
-        test("rejects live, unresolved, and wrong-ordinal claims", () => {
+        test("rejects live, unresolved, and wrong-ordinal claims", { tags: "p1" }, () => {
             const harness = open();
             const invocation = prepared("claim-guards", {}, { lease: "lease:1" });
             const first = executorClaim(
@@ -986,7 +986,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/wrong attempt ordinal/);
         });
 
-        test("rejects altered recovery identity and invalid attempt ownership", () => {
+        test("rejects altered recovery identity and invalid attempt ownership", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("attempt-guards", {}, { lease: "lease:1" });
             const claim = executorClaim(
@@ -1045,7 +1045,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/valid Date/);
         });
 
-        test("rejects token-bearing system attempts and orphaned consumed approvals", () => {
+        test("rejects token-bearing system attempts and orphaned consumed approvals", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("system-token");
             const claim = new ItemClaim<string>(
@@ -1123,7 +1123,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/no matching InvocationContinuation/);
         });
 
-        test("rejects expired approvals, invalid reconciliation, and nonfailed retries", () => {
+        test("rejects expired approvals, invalid reconciliation, and nonfailed retries", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared(
                 "expired-approval",
@@ -1209,7 +1209,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/final failed/);
         });
 
-        test("rolls back partial preparation across restart", () => {
+        test("rolls back partial preparation across restart", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("rollback-preparation");
             expect(() =>
@@ -1226,7 +1226,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBeUndefined();
         });
 
-        test("rolls back Approval consumption when first-attempt append conflicts", () => {
+        test("rolls back Approval consumption when first-attempt append conflicts", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("approval-atomicity", [{ item: 0 }, { item: 1 }], {
                 lease: "lease:1",
@@ -1287,7 +1287,7 @@ export function invocationLedgerContract<Transaction>(
             ).toEqual([]);
         });
 
-        test("fails closed on contradictory pre-effect and attempted histories", () => {
+        test("fails closed on contradictory pre-effect and attempted histories", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("contradictory-history");
             const attempt = new EffectAttempt<string, string>(
@@ -1322,7 +1322,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/contradictory/);
         });
 
-        test("[C13-ADV-COMPETING-CLAIMS] admits only one current item claim", () => {
+        test("[C13-ADV-COMPETING-CLAIMS] admits only one current item claim", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("competing-claims", {}, { lease: "lease:1" });
             const first = executorClaim(
@@ -1358,7 +1358,7 @@ export function invocationLedgerContract<Transaction>(
             ).toHaveLength(1);
         });
 
-        test("[C13-ADV-NONFUTURE-CLAIM] rejects equal and past claim expiries", () => {
+        test("[C13-ADV-NONFUTURE-CLAIM] rejects equal and past claim expiries", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("nonfuture-claim", {}, { lease: "lease:1" });
             harness.transaction((transaction) => harness.ledger.prepare(transaction, invocation));
@@ -1381,7 +1381,7 @@ export function invocationLedgerContract<Transaction>(
             ).toEqual([]);
         });
 
-        test("[C13-ADV-PREMATURE-RECOVERY] rejects recovery before the current claim expires", () => {
+        test("[C13-ADV-PREMATURE-RECOVERY] rejects recovery before the current claim expires", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("premature-recovery", {}, { lease: "lease:1" });
             const first = executorClaim(
@@ -1417,7 +1417,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBeUndefined();
         });
 
-        test("[C13-ADV-POST-ATTEMPT-RECOVERY] rejects recovery after an attempt was admitted", () => {
+        test("[C13-ADV-POST-ATTEMPT-RECOVERY] rejects recovery after an attempt was admitted", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("post-attempt-recovery", {}, { lease: "lease:1" });
             const first = executorClaim(
@@ -1455,7 +1455,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBeUndefined();
         });
 
-        test("[C13-ADV-RECOVERY-ORDINAL] rejects recovery that advances an unattempted ordinal", () => {
+        test("[C13-ADV-RECOVERY-ORDINAL] rejects recovery that advances an unattempted ordinal", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("recovery-ordinal", {}, { lease: "lease:1" });
             const current = executorClaim(
@@ -1492,7 +1492,7 @@ export function invocationLedgerContract<Transaction>(
             ).toEqual({ advanced: undefined, current });
         });
 
-        test("[C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage", () => {
+        test("[C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage", { tags: "p0" }, () => {
             const harness = open();
             const deniedInvocation = prepared("denied-lineage");
             const denied = new PreEffectReceipt(
@@ -1564,7 +1564,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/untouched item/);
         });
 
-        test("[C13-CLAIM-FUTURE-EXPIRY] durably admits a claim only with future expiry", () => {
+        test("[C13-CLAIM-FUTURE-EXPIRY] durably admits a claim only with future expiry", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("future-expiry", {}, { lease: "lease:1" });
             const claim = executorClaim(
@@ -1588,7 +1588,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBe(time(5).getTime());
         });
 
-        test("[C13-CLAIM-RECOVERY-FUTURE-EXPIRY] requires a recovered claim to expire in the future", () => {
+        test("[C13-CLAIM-RECOVERY-FUTURE-EXPIRY] requires a recovered claim to expire in the future", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("recovery-future-expiry", {}, { lease: "lease:1" });
             const first = executorClaim(
@@ -1635,7 +1635,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBe(time(4).getTime());
         });
 
-        test("[C13-CLAIM-RECOVERY-NO-ATTEMPT] recovers only claims with no admitted attempt", () => {
+        test("[C13-CLAIM-RECOVERY-NO-ATTEMPT] recovers only claims with no admitted attempt", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("recovery-no-attempt", {}, { lease: "lease:1" });
             const claim = executorClaim(
@@ -1674,7 +1674,7 @@ export function invocationLedgerContract<Transaction>(
             ).toThrow(/no-attempt/);
         });
 
-        test("[C13-EFFECT-ATTEMPT-IMMUTABLE] preserves the first EffectAttempt append", () => {
+        test("[C13-EFFECT-ATTEMPT-IMMUTABLE] preserves the first EffectAttempt append", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("immutable-attempt", {}, { lease: "lease:1" });
             const claim = executorClaim(
@@ -1718,7 +1718,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBe(attempt.auditCause.value);
         });
 
-        test("[C13-PREPARED-APPROVAL-SINGLE-USE] consumes one Approval only on the first admitted attempt", () => {
+        test("[C13-PREPARED-APPROVAL-SINGLE-USE] consumes one Approval only on the first admitted attempt", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("approval-single-use", [{ item: 0 }, { item: 1 }], {
                 lease: "lease:1",
@@ -1783,7 +1783,7 @@ export function invocationLedgerContract<Transaction>(
             });
         });
 
-        test("[C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation", () => {
+        test("[C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("approval-unique", {}, { approvalRequired: true });
             const first = Approval.pending(
@@ -1818,7 +1818,7 @@ export function invocationLedgerContract<Transaction>(
             });
         });
 
-        test("[C13-PREPARED-CONTINUATION-ABSENT] rejects consumed Approval admission without its continuation", () => {
+        test("[C13-PREPARED-CONTINUATION-ABSENT] rejects consumed Approval admission without its continuation", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("continuation-absent", [{ item: 0 }, { item: 1 }], {
                 lease: "lease:1",
@@ -1885,7 +1885,7 @@ export function invocationLedgerContract<Transaction>(
             ).toBeUndefined();
         });
 
-        test("[C13-PREPARED-OPTIONAL-LEASE] admits exact leased and lease-free ownership modes", () => {
+        test("[C13-PREPARED-OPTIONAL-LEASE] admits exact leased and lease-free ownership modes", { tags: "p0" }, () => {
             const harness = open();
             const systemInvocation = prepared("optional-lease-system");
             const systemClaim = new ItemClaim<string>(
@@ -1947,7 +1947,7 @@ export function invocationLedgerContract<Transaction>(
             });
         });
 
-        test("[C13-RECEIPT-INDETERMINATE-SUPERSESSION] persists one final supersession exactly once", () => {
+        test("[C13-RECEIPT-INDETERMINATE-SUPERSESSION] persists one final supersession exactly once", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("indeterminate-supersession", {}, { lease: "lease:1" });
             const claim = executorClaim(
@@ -2016,7 +2016,7 @@ export function invocationLedgerContract<Transaction>(
             ).toHaveLength(2);
         });
 
-        test("rejects a stale authenticated worker after claim ownership changes", () => {
+        test("rejects a stale authenticated worker after claim ownership changes", { tags: "p0" }, () => {
             const harness = open();
             const invocation = prepared("stale-worker", {}, { lease: "lease:1" });
             const claim = executorClaim(

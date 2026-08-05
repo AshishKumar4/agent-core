@@ -38,7 +38,7 @@ const anchor = Object.freeze({
 });
 
 describe("MemoryTenantControlStore", () => {
-    test("[authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot", () => {
+    test("[authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const role = observeRole("memory-reader");
@@ -75,7 +75,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.bootstrapAnchor().trustAnchor).toEqual(Uint8Array.of(1, 2, 3));
     });
 
-    test("rejects unknown versions, extra fields, and codec-key disagreement", () => {
+    test("rejects unknown versions, extra fields, and codec-key disagreement", { tags: "p0" }, () => {
         const snapshot = bootstrappedStore().snapshot();
         expect(() =>
             MemoryTenantControlStore.restore({
@@ -108,7 +108,7 @@ describe("MemoryTenantControlStore", () => {
         ).toThrow(/identity closure is incomplete/);
     });
 
-    test("keeps bootstrap atomic and eligible after a late bootstrap failure", () => {
+    test("keeps bootstrap atomic and eligible after a late bootstrap failure", { tags: "p0" }, () => {
         const store = MemoryTenantControlStore.create(anchor);
         const plan = createTenantControlBootstrapPlan(anchor, Revision.initial());
 
@@ -125,7 +125,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.grants()).toEqual([]);
     });
 
-    test("allows writes only after bootstrap and only inside an owned transaction", () => {
+    test("allows writes only after bootstrap and only inside an owned transaction", { tags: "p0" }, () => {
         const fresh = MemoryTenantControlStore.create(anchor);
         const service = new AuthorityMutationService(fresh);
         expect(() =>
@@ -140,7 +140,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.grants().some((grant) => grant.id.value === "after-bootstrap")).toBe(true);
     });
 
-    test("[C13-AUTH-EPOCH-ADVANCEMENT] memory advances durable path epochs for allow and deny changes", () => {
+    test("[C13-AUTH-EPOCH-ADVANCEMENT] memory advances durable path epochs for allow and deny changes", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const initial = store.epoch(workspaceScope).epoch;
@@ -168,7 +168,7 @@ describe("MemoryTenantControlStore", () => {
         );
     });
 
-    test("rolls back post-bootstrap transactions and rejects asynchronous callbacks", () => {
+    test("rolls back post-bootstrap transactions and rejects asynchronous callbacks", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const before = store.snapshot();
 
@@ -188,7 +188,7 @@ describe("MemoryTenantControlStore", () => {
         );
     });
 
-    test("never grants write capability to a captured root store", () => {
+    test("never grants write capability to a captured root store", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const before = store.snapshot();
 
@@ -202,7 +202,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.grant(new GrantId("captured-root"))).toBeUndefined();
     });
 
-    test("rejects captured-root reentry without committing an inner mutation", () => {
+    test("rejects captured-root reentry without committing an inner mutation", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const before = store.snapshot();
 
@@ -219,7 +219,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.grant(new GrantId("nested-root-grant"))).toBeUndefined();
     });
 
-    test("fails closed on malformed anchors and bootstrap requests", () => {
+    test("fails closed on malformed anchors and bootstrap requests", { tags: "p0" }, () => {
         expect(() => MemoryTenantControlStore.create({ ...anchor, actorId: "" as never })).toThrow(
             /anchor is malformed/
         );
@@ -256,7 +256,7 @@ describe("MemoryTenantControlStore", () => {
         );
     });
 
-    test("rejects malformed marker and anchor snapshot projections", () => {
+    test("rejects malformed marker and anchor snapshot projections", { tags: "p0" }, () => {
         const snapshot = bootstrappedStore().snapshot();
         expect(() => MemoryTenantControlStore.restore(null as never)).toThrow(
             /snapshot is malformed/
@@ -350,7 +350,7 @@ describe("MemoryTenantControlStore", () => {
         ).toThrow(/missing Principal|invalid Membership evidence/);
     });
 
-    test("rejects forged role-derived Grant bytes during restore", () => {
+    test("rejects forged role-derived Grant bytes during restore", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const role = observeRole("restore-role");
@@ -401,7 +401,7 @@ describe("MemoryTenantControlStore", () => {
         ).toThrow(/materialization/);
     });
 
-    test("enforces narrowing and recursively revokes delegated Grant chains", () => {
+    test("enforces narrowing and recursively revokes delegated Grant chains", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const parent = new Grant(
@@ -483,7 +483,7 @@ describe("MemoryTenantControlStore", () => {
         ]);
     });
 
-    test("keeps explicitly revoked role Grants terminal across Role reconciliation", () => {
+    test("keeps explicitly revoked role Grants terminal across Role reconciliation", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const role = observeRole("terminal-role-grant");
@@ -522,7 +522,7 @@ describe("MemoryTenantControlStore", () => {
         expect(store.grant(roleGrant.id)?.isLive).toBe(false);
     });
 
-    test("restores deny authority through Team and verified guest identity closures", () => {
+    test("restores deny authority through Team and verified guest identity closures", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         const service = new AuthorityMutationService(store);
         const teammate = new PrincipalId("memory-team-principal");
@@ -684,7 +684,7 @@ describe("MemoryTenantControlStore", () => {
         ).toThrow(/invalid Membership evidence/);
     });
 
-    test("rejects direct stale Workspace and revoked Membership rewrites", () => {
+    test("rejects direct stale Workspace and revoked Membership rewrites", { tags: "p0" }, () => {
         const store = bootstrappedStore();
         expect(() =>
             store.transaction((candidate) =>
@@ -761,7 +761,7 @@ describe("MemoryTenantControlStore", () => {
         ).toThrow(/invalid trust evidence/);
     });
 
-    test("rejects malformed authority record scalar and collection shapes", () => {
+    test("rejects malformed authority record scalar and collection shapes", { tags: "p0" }, () => {
         const roleGrant = bootstrappedStore()
             .grants()
             .find((grant) => grant.origin.kind === "role")!;

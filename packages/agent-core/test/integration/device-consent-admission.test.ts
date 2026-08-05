@@ -32,7 +32,7 @@ const phone = new DeviceId("phone");
 const agent = new PrincipalRef(new TenantId("tenant"), new PrincipalId("agent"));
 
 describe("Device target-local consent admission", () => {
-    test("[P11-DEVICE-CONSENT-PAIR] admits only live consent for the exact Device and Agent pair", () => {
+    test("[P11-DEVICE-CONSENT-PAIR] admits only live consent for the exact Device and Agent pair", { tags: "p0" }, () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         const port = admissionPort(consent);
         const otherAgent = new PrincipalRef(new TenantId("tenant"), new PrincipalId("other-agent"));
@@ -48,7 +48,7 @@ describe("Device target-local consent admission", () => {
         });
     });
 
-    test("[P11-DEVICE-CONSENT-LIVE] rejects exact-pair consent at its expiration boundary", () => {
+    test("[P11-DEVICE-CONSENT-LIVE] rejects exact-pair consent at its expiration boundary", { tags: "p0" }, () => {
         let now = 1;
         const consent = new MemoryDeviceConsentBackend(() => now);
         consent.grant(phone, agent, 2);
@@ -62,7 +62,7 @@ describe("Device target-local consent admission", () => {
         });
     });
 
-    test("[P11-DEVICE-CONSENT-ISOLATION] never applies one Device consent to another Device", () => {
+    test("[P11-DEVICE-CONSENT-ISOLATION] never applies one Device consent to another Device", { tags: "p0" }, () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         consent.grant(new DeviceId("other-phone"), agent, 2);
 
@@ -73,7 +73,7 @@ describe("Device target-local consent admission", () => {
         });
     });
 
-    test("[P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair", () => {
+    test("[P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair", { tags: "p0" }, () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         consent.grant(phone, agent, 2);
 
@@ -86,7 +86,7 @@ describe("Device target-local consent admission", () => {
         expect(Object.isFrozen(result.evidence)).toBe(true);
     });
 
-    test("[P11-DEVICE-CONSENT-ABSENT] commits a final W6 denial without an EffectAttempt", async () => {
+    test("[P11-DEVICE-CONSENT-ABSENT] commits a final W6 denial without an EffectAttempt", { tags: "p0" }, async () => {
         const harness = deviceHarness(new MemoryDeviceConsentBackend(() => 1));
         const invocation = new InvocationId("device-consent-absent");
         let executed = false;
@@ -111,7 +111,7 @@ describe("Device target-local consent admission", () => {
         expect(executed).toBe(false);
     });
 
-    test("[P11-DEVICE-CONSENT-REVOCATION] denies without an EffectAttempt when revocation wins final admission", async () => {
+    test("[P11-DEVICE-CONSENT-REVOCATION] denies without an EffectAttempt when revocation wins final admission", { tags: "p0" }, async () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         consent.grant(phone, agent, 2);
         const harness = deviceHarness(consent);
@@ -137,7 +137,7 @@ describe("Device target-local consent admission", () => {
         ).toEqual([]);
     });
 
-    test("[P11-DEVICE-CONSENT-ADMITTED] keeps an external effect admitted after its EffectAttempt despite revocation", async () => {
+    test("[P11-DEVICE-CONSENT-ADMITTED] keeps an external effect admitted after its EffectAttempt despite revocation", { tags: "p0" }, async () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         consent.grant(phone, agent, 2);
         const harness = deviceHarness(consent);
@@ -167,14 +167,14 @@ describe("Device target-local consent admission", () => {
         });
     });
 
-    test("[P11-DEVICE-CACHED-READ] keeps cached observe reads outside live consent admission", () => {
+    test("[P11-DEVICE-CACHED-READ] keeps cached observe reads outside live consent admission", { tags: "p1" }, () => {
         const port = admissionPort(new MemoryDeviceConsentBackend(() => 1));
         expect(port.admit({}, request("readCached", phone), {} as never)).toEqual({
             kind: "admitted"
         });
     });
 
-    test("fails closed for substituted targets, operations, and malformed canonical inputs", () => {
+    test("fails closed for substituted targets, operations, and malformed canonical inputs", { tags: "p0" }, () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         const port = admissionPort(consent);
         const base = request("camera", phone);
@@ -210,7 +210,7 @@ describe("Device target-local consent admission", () => {
         }
     });
 
-    test("preserves target consent infrastructure failures", () => {
+    test("preserves target consent infrastructure failures", { tags: "p1" }, () => {
         const consent = new (class extends DeviceConsentBackend<object> {
             protected assertLive(): number {
                 throw new TypeError("consent store unavailable");
@@ -221,7 +221,7 @@ describe("Device target-local consent admission", () => {
         ).toThrow("consent store unavailable");
     });
 
-    test("[P11-DEVICE-CONSENT-ADMITTED] does not let revocation cancel transport after W6 admission commits", async () => {
+    test("[P11-DEVICE-CONSENT-ADMITTED] does not let revocation cancel transport after W6 admission commits", { tags: "p0" }, async () => {
         const consent = new MemoryDeviceConsentBackend(() => 1);
         consent.grant(phone, agent, 2);
         const final = admissionPort(consent).admit({}, request("camera", phone), {} as never);

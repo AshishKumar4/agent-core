@@ -17,7 +17,7 @@ import {
 } from "./fixtures";
 
 describe("ViewReplayProtocol", () => {
-    test("[C13-VIEW-DELTA-REPLAY] delegates RFC 6902 and durably replays deltas", () => {
+    test("[C13-VIEW-DELTA-REPLAY] delegates RFC 6902 and durably replays deltas", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -66,7 +66,7 @@ describe("ViewReplayProtocol", () => {
         expect(restartedEngine.calls).toHaveLength(1);
     });
 
-    test("returns an empty delta replay at current revision without invoking the engine", () => {
+    test("returns an empty delta replay at current revision without invoking the engine", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -88,7 +88,7 @@ describe("ViewReplayProtocol", () => {
         expect(engine.calls).toEqual([]);
     });
 
-    test("falls back to the durable snapshot when the requested base is unavailable", () => {
+    test("falls back to the durable snapshot when the requested base is unavailable", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -119,7 +119,7 @@ describe("ViewReplayProtocol", () => {
         });
     });
 
-    test("does not persist a delta when the injected engine rejects it", () => {
+    test("does not persist a delta when the injected engine rejects it", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -148,7 +148,7 @@ describe("ViewReplayProtocol", () => {
         ).toEqual([]);
     });
 
-    test("rejects stale publishes and replay revisions ahead of durable state", () => {
+    test("rejects stale publishes and replay revisions ahead of durable state", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -173,7 +173,7 @@ describe("ViewReplayProtocol", () => {
         );
     });
 
-    test("requires exact durable retention for every View ContentRef", () => {
+    test("requires exact durable retention for every View ContentRef", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -205,7 +205,7 @@ describe("ViewReplayProtocol", () => {
         expect(() => protocol.publishSnapshot(records, view, [retention])).not.toThrow();
     });
 
-    test("retains ContentRefs present only in durable ViewDelta operations", () => {
+    test("retains ContentRefs present only in durable ViewDelta operations", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -250,7 +250,7 @@ describe("ViewReplayProtocol", () => {
         expect(() => protocol.publish(records, delta, [], [retention])).not.toThrow();
     });
 
-    test("compacts old snapshots and deltas while preserving bounded replay", () => {
+    test("compacts old snapshots and deltas while preserving bounded replay", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
@@ -282,7 +282,7 @@ describe("ViewReplayProtocol", () => {
         }
     });
 
-    test("compaction is Surface-exact and releases obsolete retention references", () => {
+    test("compaction is Surface-exact and releases obsolete retention references", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         const released: string[] = [];
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(

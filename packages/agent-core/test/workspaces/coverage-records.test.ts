@@ -314,7 +314,7 @@ class ExactEventIntentAuthenticator extends EventIntentAuthenticator {
 }
 
 describe("workspace codec primitives", () => {
-    test("accepts valid primitive values and rejects malformed JSON shapes", () => {
+    test("accepts valid primitive values and rejects malformed JSON shapes", { tags: "p2" }, () => {
         expect(requireObject({ value: true }, "subject")).toEqual({ value: true });
         for (const malformed of [null, [], "scalar"] satisfies readonly JsonValue[]) {
             expect(() => requireObject(malformed, "subject")).toThrow(/must be an object/);
@@ -346,7 +346,7 @@ describe("workspace codec primitives", () => {
         expect(() => requireArray({}, "subject")).toThrow(/must be an array/);
     });
 
-    test("round-trips actors, content, revisions, optional principals, scopes, and tenants", () => {
+    test("round-trips actors, content, revisions, optional principals, scopes, and tenants", { tags: "p1" }, () => {
         const actors = [
             new ActorRef("tenant", new ActorId("actor-tenant")),
             new ActorRef("workspace", new ActorId("actor-workspace")),
@@ -395,7 +395,7 @@ describe("workspace codec primitives", () => {
 });
 
 describe("event values and records", () => {
-    test("models both verification cases and canonical immutable provenance", () => {
+    test("models both verification cases and canonical immutable provenance", { tags: "p1" }, () => {
         expect(EventVerification.verified().kind).toBe("verified");
         expect(EventVerification.host().kind).toBe("host");
         expect(EventVerification.verified().equals(EventVerification.verified())).toBe(true);
@@ -434,7 +434,7 @@ describe("event values and records", () => {
         expect(() => provenance({ group: "padded " })).toThrow(/nonblank canonical string/);
     });
 
-    test("canonicalizes and deeply freezes JSON scalars, arrays, and objects", () => {
+    test("canonicalizes and deeply freezes JSON scalars, arrays, and objects", { tags: "p1" }, () => {
         for (const scalar of [null, true, 42, "text"] satisfies readonly JsonValue[]) {
             expect(canonicalJson(scalar)).toBe(scalar);
         }
@@ -451,7 +451,7 @@ describe("event values and records", () => {
         expect(Object.isFrozen(copied[0]["nested"])).toBe(true);
     });
 
-    test("enforces every Event constructor trust and identity invariant", () => {
+    test("enforces every Event constructor trust and identity invariant", { tags: "p0" }, () => {
         const matching = eventInit("matching");
         const other = content("coverage-other-content");
         expect(() => new Event({ ...matching, payloadDigest: other.digest })).toThrow(
@@ -547,7 +547,7 @@ describe("event values and records", () => {
         ).not.toThrow();
     });
 
-    test("round-trips every source and optional provenance shape without aliasing", () => {
+    test("round-trips every source and optional provenance shape without aliasing", { tags: "p1" }, () => {
         const cause = new EventId("event-coverage-cause");
         const complete = new Event(eventInit("complete", { causation: cause, source: "actor" }));
         const decodedComplete = Event.decode(Event.encode(complete));
@@ -588,7 +588,7 @@ describe("event values and records", () => {
         expectUniformCodec(complete, Event);
     });
 
-    test("rejects malformed Event fields, types, discriminants, and envelope versions", () => {
+    test("rejects malformed Event fields, types, discriminants, and envelope versions", { tags: "p2" }, () => {
         const valid = new Event(eventInit("codec"));
         const payload = recordPayload(Event.encode(valid));
         const { id, ...missingId } = payload;
@@ -652,7 +652,7 @@ describe("event values and records", () => {
 });
 
 describe("authenticated event intents", () => {
-    test("authenticates and detaches complete and minimal intent variants", () => {
+    test("authenticates and detaches complete and minimal intent variants", { tags: "p0" }, () => {
         const authenticator = new ExactEventIntentAuthenticator();
         const cause = new EventId("event-intent-cause");
         const lease = {
@@ -704,7 +704,7 @@ describe("authenticated event intents", () => {
         });
     });
 
-    test("rejects tampered full-intent evidence and changed signed fields", () => {
+    test("rejects tampered full-intent evidence and changed signed fields", { tags: "p0" }, () => {
         const authenticator = new ExactEventIntentAuthenticator();
         const original = eventIntent("signed");
         const evidence = authenticator.evidence(original);
@@ -746,7 +746,7 @@ describe("authenticated event intents", () => {
         }
     });
 
-    test("detaches getter substitutions and rejects constructor and structural forgeries", () => {
+    test("detaches getter substitutions and rejects constructor and structural forgeries", { tags: "p0" }, () => {
         const authenticator = new ExactEventIntentAuthenticator();
         const original = eventIntent("getter");
         const substitutedId = new EventId("event-intent-substituted");
@@ -776,7 +776,7 @@ describe("authenticated event intents", () => {
 });
 
 describe("subscriptions", () => {
-    test("[C13-SUBSCRIPTION-AUTHORITY] copies values, revises immutably, and supports both authority cases", () => {
+    test("[C13-SUBSCRIPTION-AUTHORITY] copies values, revises immutably, and supports both authority cases", { tags: "p1" }, () => {
         const initial = subscription("initial");
         const revised = initial.revise({
             source: new EventPattern("other.*", ["owner"], "facet.*"),
@@ -797,7 +797,7 @@ describe("subscriptions", () => {
         expectUniformCodec(subscription("delegated", "delegated"), Subscription);
     });
 
-    test("supports every dedupe value and absent or present source patterns", () => {
+    test("supports every dedupe value and absent or present source patterns", { tags: "p1" }, () => {
         const base = subscription("dedupe");
         const payload = recordPayload(Subscription.encode(base));
         for (const dedupe of [
@@ -825,7 +825,7 @@ describe("subscriptions", () => {
         ).toBeUndefined();
     });
 
-    test("rejects overlapping mappings and malformed Subscription payloads", () => {
+    test("rejects overlapping mappings and malformed Subscription payloads", { tags: "p2" }, () => {
         expect(
             () =>
                 new Subscription({
@@ -897,7 +897,7 @@ describe("subscriptions", () => {
 });
 
 describe("retention and inbox records", () => {
-    test("models and round-trips every retained record kind", () => {
+    test("models and round-trips every retained record kind", { tags: "p1" }, () => {
         const kinds = [
             RetainedRecordKind.event(),
             RetainedRecordKind.routeReservation(),
@@ -924,7 +924,7 @@ describe("retention and inbox records", () => {
         );
     });
 
-    test("rejects mismatched content and malformed retained kinds or fields", () => {
+    test("rejects mismatched content and malformed retained kinds or fields", { tags: "p2" }, () => {
         const retained = content("coverage-retention-mismatch");
         const other = content("coverage-retention-other");
         expect(
@@ -981,7 +981,7 @@ describe("retention and inbox records", () => {
         ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
     });
 
-    test("accepts boundary inbox counters and rejects every invalid counter shape", () => {
+    test("accepts boundary inbox counters and rejects every invalid counter shape", { tags: "p2" }, () => {
         expect(inbox(0, Number.MAX_SAFE_INTEGER).leaseEpoch).toBe(Number.MAX_SAFE_INTEGER);
         for (const sequence of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
             expect(() => inbox(sequence, 0)).toThrow(/non-negative safe integers/);
@@ -995,7 +995,7 @@ describe("retention and inbox records", () => {
         expectUniformCodec(reference, InboxEventReference);
     });
 
-    test("rejects malformed Inbox payload fields and envelope versions", () => {
+    test("rejects malformed Inbox payload fields and envelope versions", { tags: "p2" }, () => {
         const payload = recordPayload(InboxEventReference.encode(inbox(2, 4)));
         const { turn, ...missingTurn } = payload;
         expect(turn).toBe("turn-coverage");
@@ -1032,7 +1032,7 @@ describe("retention and inbox records", () => {
 });
 
 describe("views and deltas", () => {
-    test("validates action text, copies optional schemas, and rejects duplicate IDs", () => {
+    test("validates action text, copies optional schemas, and rejects duplicate IDs", { tags: "p1" }, () => {
         for (const id of ["", " padded", "padded "]) {
             expect(() => action(id)).toThrow(/Action ID must be a nonblank canonical string/);
         }
@@ -1067,7 +1067,7 @@ describe("views and deltas", () => {
         );
     });
 
-    test("round-trips scalar, array, and object View bodies with optional action schemas", () => {
+    test("round-trips scalar, array, and object View bodies with optional action schemas", { tags: "p1" }, () => {
         const bodies = [
             null,
             false,
@@ -1094,7 +1094,7 @@ describe("views and deltas", () => {
         expectUniformCodec(view(), View);
     });
 
-    test("requires an immediate delta revision and deeply copies patch JSON", () => {
+    test("requires an immediate delta revision and deeply copies patch JSON", { tags: "p1" }, () => {
         const previous = view();
         expect(
             () =>
@@ -1129,7 +1129,7 @@ describe("views and deltas", () => {
         expectUniformCodec(value, ViewDelta);
     });
 
-    test("rebuilds a View document and rejects malformed or mismatched documents", () => {
+    test("rebuilds a View document and rejects malformed or mismatched documents", { tags: "p1" }, () => {
         const previous = view({ ready: true }, [action("old")]);
         const next = delta(previous);
         expect(viewDocument(previous)).toEqual({
@@ -1200,7 +1200,7 @@ describe("views and deltas", () => {
         ).toThrow(/action IDs must be unique/);
     });
 
-    test("rejects malformed View and ViewDelta codec fields and discriminants", () => {
+    test("rejects malformed View and ViewDelta codec fields and discriminants", { tags: "p2" }, () => {
         const previous = view();
         const viewPayload = recordPayload(View.encode(previous));
         const viewActions = viewPayload["actions"];
@@ -1270,7 +1270,7 @@ describe("views and deltas", () => {
 });
 
 describe("workspace identifiers", () => {
-    test("constructs every identifier and preserves nominal equality", () => {
+    test("constructs every identifier and preserves nominal equality", { tags: "p2" }, () => {
         const identifiers = [
             new ActionId("action-id"),
             new ContentRetentionId("retention-id"),
@@ -1290,7 +1290,7 @@ describe("workspace identifiers", () => {
         expect(identifiers.every(Object.isFrozen)).toBe(true);
     });
 
-    test("rejects empty and oversized values for every identifier", () => {
+    test("rejects empty and oversized values for every identifier", { tags: "p2" }, () => {
         const constructors = [
             ActionId,
             ContentRetentionId,
@@ -1305,7 +1305,7 @@ describe("workspace identifiers", () => {
     });
 });
 
-test("all W7 records expose uniform static encode/decode entry points", () => {
+test("all W7 records expose uniform static encode/decode entry points", { tags: "p1" }, () => {
     const event = new Event(eventInit("uniform"));
     const subscribed = subscription("uniform");
     const retained = retention(RetainedRecordKind.view(), "uniform-all");
@@ -1321,7 +1321,7 @@ test("all W7 records expose uniform static encode/decode entry points", () => {
     expectUniformCodec(renderedDelta, ViewDelta);
 });
 
-test("runtime failures preserve typed AgentCore errors", () => {
+test("runtime failures preserve typed AgentCore errors", { tags: "p2" }, () => {
     const error = new AgentCoreError("authority.denied", "denied");
     expect(error).toMatchObject({ code: "authority.denied", message: "denied" });
     expect(new ContentRef(content("content-ref").ref.value).digest).toEqual(

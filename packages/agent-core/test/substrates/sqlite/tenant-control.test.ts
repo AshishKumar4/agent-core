@@ -33,7 +33,7 @@ const anchor = {
 };
 
 describe("SQLite Tenant control storage", () => {
-    test("creates only the retained strict Tenant control schema", () => {
+    test("creates only the retained strict Tenant control schema", { tags: "p1" }, () => {
         const database = new TestSqlite();
         createSqliteTenantControlStore(database, anchor);
         const rows = database.all(
@@ -65,7 +65,7 @@ describe("SQLite Tenant control storage", () => {
         expect(tableNames(database)).not.toContain("workspace_binding_generations");
     });
 
-    test("reopens a file with identity, Grant, epoch, anchor, and marker intact", () => {
+    test("reopens a file with identity, Grant, epoch, anchor, and marker intact", { tags: "p0" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "agent-core-tenant-control-"));
         const path = join(directory, "tenant.sqlite");
         try {
@@ -97,7 +97,7 @@ describe("SQLite Tenant control storage", () => {
         }
     });
 
-    test("rolls the complete resolver-input mutation back on failure", () => {
+    test("rolls the complete resolver-input mutation back on failure", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
         database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -119,7 +119,7 @@ describe("SQLite Tenant control storage", () => {
         expect(store.isBootstrapEligible()).toBe(false);
     });
 
-    test("rolls the complete bootstrap closure back when marker insertion fails", () => {
+    test("rolls the complete bootstrap closure back when marker insertion fails", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
 
@@ -142,7 +142,7 @@ describe("SQLite Tenant control storage", () => {
         expect(store.epoch(tenantScope).epoch).toBe(0);
     });
 
-    test("rejects corrupted identity, authority, and bootstrap projections", () => {
+    test("rejects corrupted identity, authority, and bootstrap projections", { tags: "p0" }, () => {
         const identityDatabase = new TestSqlite();
         const identityStore = createSqliteTenantControlStore(identityDatabase, anchor);
         identityDatabase.transaction(() =>
@@ -215,7 +215,7 @@ describe("SQLite Tenant control storage", () => {
         );
     });
 
-    test("rejects a different anchor after restart", () => {
+    test("rejects a different anchor after restart", { tags: "p0" }, () => {
         const database = new TestSqlite();
         createSqliteTenantControlStore(database, anchor);
 

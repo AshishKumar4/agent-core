@@ -5,7 +5,7 @@ import { PlatformCompatibility, ValidationAttestation } from "../../src/definiti
 const encoder = new TextEncoder();
 
 describe("ValidationAttestation", () => {
-    test("[definition.validation-attestation] round-trips every validation input under one content-derived identity", () => {
+    test("[definition.validation-attestation] round-trips every validation input under one content-derived identity", { tags: "p0" }, () => {
         const attestation = createAttestation();
         const bytes = ValidationAttestation.encode(attestation);
         const decoded = ValidationAttestation.decode(bytes);
@@ -21,7 +21,7 @@ describe("ValidationAttestation", () => {
         ).toBe("custom-validator.v1");
     });
 
-    test("rejects forged identities malformed data and noncanonical validator versions", () => {
+    test("rejects forged identities malformed data and noncanonical validator versions", { tags: "p0" }, () => {
         const attestation = createAttestation();
         expect(
             () =>
@@ -90,7 +90,7 @@ describe("ValidationAttestation", () => {
 });
 
 describe("PlatformCompatibility", () => {
-    test("[definition.platform-compatibility] round-trips exact target versions and rejects malformed targets", () => {
+    test("[definition.platform-compatibility] round-trips exact target versions and rejects malformed targets", { tags: "p1" }, () => {
         const target = new PlatformCompatibility({
             spec: new SemVer("1.2.3"),
             host: new SemVer("4.5.6")

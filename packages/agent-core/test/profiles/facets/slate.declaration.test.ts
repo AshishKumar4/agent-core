@@ -38,7 +38,7 @@ operationDeclarationEvidence("Slate", SLATE_OPERATIONS, {
 });
 
 describe("Slate protected profile", () => {
-    test("[P11-SLATE-PREVIEW] routes all six Operations and delegates preview to Environment control", async () => {
+    test("[P11-SLATE-PREVIEW] routes all six Operations and delegates preview to Environment control", { tags: "p1" }, async () => {
         const slateRuntime = recordingRuntime("slate");
         const environmentRuntime = recordingRuntime("environment");
         const backend = new TestSlateBackend();
@@ -87,7 +87,7 @@ describe("Slate protected profile", () => {
         ]);
     });
 
-    test("denial prevents Slate backend mutation", async () => {
+    test("denial prevents Slate backend mutation", { tags: "p0" }, async () => {
         const backend = new TestSlateBackend();
         const environment = new EnvironmentFacet(
             recordingRuntime("environment").runtime,
@@ -103,7 +103,7 @@ describe("Slate protected profile", () => {
         expect(backend.calls).toEqual([]);
     });
 
-    test("declares dynamic isolation and operation contributions", () => {
+    test("declares dynamic isolation and operation contributions", { tags: "p1" }, () => {
         expect(SLATE_ISOLATION).toEqual(["dynamic"]);
         expect(SLATE_CONTRIBUTIONS.entries.map((entry) => entry.slot.value)).toEqual([
             "operations",
@@ -276,7 +276,7 @@ describe("Slate wire codec evidence", () => {
 });
 
 describe("Slate effect identity to deployment backend", () => {
-    test("[P11-SLATE-DISPATCH] delivers the canonical effect identity derived from the context to deploy", async () => {
+    test("[P11-SLATE-DISPATCH] delivers the canonical effect identity derived from the context to deploy", { tags: "p0" }, async () => {
         const { runtime, admission } = recordingRuntime("slate-dispatch");
         const backend = new TestSlateBackend();
         const environment = new EnvironmentFacet(
@@ -297,7 +297,7 @@ describe("Slate effect identity to deployment backend", () => {
         expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
     });
 
-    test("[P11-SLATE-CRASH-RETRY] a crash-after-send deploy retry reuses the key so the provider dedups instead of redeploying", async () => {
+    test("[P11-SLATE-CRASH-RETRY] a crash-after-send deploy retry reuses the key so the provider dedups instead of redeploying", { tags: "p0" }, async () => {
         const backend = new DedupSlateBackend();
         const dispatch = new EffectDispatch(
             "slate-test-key",

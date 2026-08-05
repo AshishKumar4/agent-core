@@ -19,7 +19,7 @@ function roundTrip(commit: RunCommit): RunCommit {
 }
 
 describe("Run commit codec matrix", () => {
-    it("round-trips delivery and every tree resolution shape", () => {
+    it("round-trips delivery and every tree resolution shape", { tags: "p1" }, () => {
         const delivery = roundTrip(
             new RunCommit({
                 id: new RunCommitId("delivery"),
@@ -115,7 +115,7 @@ describe("Run commit codec matrix", () => {
         ).toThrow(/unique/);
     });
 
-    it("round-trips pick and synthesis resolution evidence", () => {
+    it("round-trips pick and synthesis resolution evidence", { tags: "p1" }, () => {
         const source = new RunCommitId("source-2");
         const control = {
             kind: "system" as const,
@@ -198,7 +198,7 @@ function auditKey(audit: SettlementAuditObligation): string {
 }
 
 describe("Settlement codec and lifecycle", () => {
-    it("derives every typed audit obligation from the frontier and round-trips", () => {
+    it("derives every typed audit obligation from the frontier and round-trips", { tags: "p1" }, () => {
         const obligation = new SettlementObligation({
             registryEpoch: 4,
             obligations: [
@@ -277,7 +277,7 @@ describe("Settlement codec and lifecycle", () => {
         ).toThrow(/outcome/);
     });
 
-    it("keeps terminal state immutable and permits only captured evidence revision", () => {
+    it("keeps terminal state immutable and permits only captured evidence revision", { tags: "p0" }, () => {
         const obligation = new SettlementObligation({
             registryEpoch: 1,
             obligations: []

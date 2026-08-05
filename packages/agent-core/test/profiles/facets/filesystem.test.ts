@@ -74,7 +74,7 @@ mutableFilesystemBackendEvidence(
 );
 
 describe("Filesystem protected facade", () => {
-    test("[P11-FILESYSTEM-RECEIPT] routes all seven Operations and delegates mutation receipts to the host port", async () => {
+    test("[P11-FILESYSTEM-RECEIPT] routes all seven Operations and delegates mutation receipts to the host port", { tags: "p1" }, async () => {
         const { runtime, admission } = recordingRuntime("filesystem");
         const backend = new MemoryFilesystemBackend();
         const facet = new FilesystemFacet(runtime, backend);
@@ -124,7 +124,7 @@ describe("Filesystem protected facade", () => {
         ]);
     });
 
-    test("does not invoke a filesystem backend after denied admission", async () => {
+    test("does not invoke a filesystem backend after denied admission", { tags: "p0" }, async () => {
         const backend = new MemoryFilesystemBackend();
         const { runtime } = denyingRuntime("filesystem");
         const facet = new FilesystemFacet(runtime, backend);
@@ -138,13 +138,13 @@ describe("Filesystem protected facade", () => {
 });
 
 describe("Filesystem backend invariants", () => {
-    test("[P11-FILESYSTEM-SUITE] uses one complete reader/mutator contract", () => {
+    test("[P11-FILESYSTEM-SUITE] uses one complete reader/mutator contract", { tags: "p1" }, () => {
         const filesystem = new MemoryFilesystemBackend();
         runFilesystemReaderContract(filesystem, filesystem);
         runFilesystemMutationContract(filesystem);
     });
 
-    test("[P11-FILESYSTEM-BACKINGS] runs the shared suite against every backing and wrapper", () => {
+    test("[P11-FILESYSTEM-BACKINGS] runs the shared suite against every backing and wrapper", { tags: "p1" }, () => {
         const readers: Array<
             readonly [string, () => { reader: FilesystemReaderBackend; seed: FilesystemBackend }]
         > = [
@@ -185,7 +185,7 @@ describe("Filesystem backend invariants", () => {
         }
     });
 
-    test("[P11-FILESYSTEM-PATHS] normalizes inside the root and publishes the fixed branchable detail codes", () => {
+    test("[P11-FILESYSTEM-PATHS] normalizes inside the root and publishes the fixed branchable detail codes", { tags: "p0" }, () => {
         expect(normalizeFilesystemPath("/a//b/../c/./")).toBe("/a/c");
         for (const path of ["", "relative", "/../escape", "/a/../../escape", "/a\\b", "/a\0b"]) {
             expect(() => normalizeFilesystemPath(path)).toThrow(FilesystemError);
@@ -201,7 +201,7 @@ describe("Filesystem backend invariants", () => {
         expect(() => new FilesystemError("outside" as never, "/", "invalid")).toThrow(TypeError);
     });
 
-    test("[P11-FILESYSTEM-ATOMIC-WRITE] rejects oversized replacements and destructive moves without partial changes", () => {
+    test("[P11-FILESYSTEM-ATOMIC-WRITE] rejects oversized replacements and destructive moves without partial changes", { tags: "p0" }, () => {
         const filesystem = new MemoryFilesystemBackend(1);
         filesystem.mkdir("/tree/child", true);
         filesystem.write("/tree/file", new Uint8Array([1]));
@@ -214,7 +214,7 @@ describe("Filesystem backend invariants", () => {
         expect([...filesystem.read("/tree/file")]).toEqual([1]);
     });
 
-    test("[P11-FILESYSTEM-RANGES] rejects malformed ranges, paging, write modes, and node-kind conflicts", () => {
+    test("[P11-FILESYSTEM-RANGES] rejects malformed ranges, paging, write modes, and node-kind conflicts", { tags: "p2" }, () => {
         expect(() => new MemoryFilesystemBackend(-1)).toThrow(TypeError);
         const filesystem = new MemoryFilesystemBackend();
         filesystem.mkdir("/docs");
@@ -252,7 +252,7 @@ describe("Filesystem backend invariants", () => {
         );
     });
 
-    test("[P11-FILESYSTEM-MOVE] handles root, recursive creation, idempotent moves, and destination conflicts", () => {
+    test("[P11-FILESYSTEM-MOVE] handles root, recursive creation, idempotent moves, and destination conflicts", { tags: "p1" }, () => {
         const filesystem = new MemoryFilesystemBackend();
         filesystem.mkdir("/");
         expect(() => filesystem.mkdir("/missing/child")).toThrow(
@@ -286,7 +286,7 @@ describe("Filesystem backend invariants", () => {
         );
     });
 
-    test("[P11-FILESYSTEM-MOVE-ASSERTIONS] rejects moves across mounts without changing either backend", () => {
+    test("[P11-FILESYSTEM-MOVE-ASSERTIONS] rejects moves across mounts without changing either backend", { tags: "p0" }, () => {
         const left = new MemoryFilesystemBackend();
         const right = new MemoryFilesystemBackend();
         left.write("/file", new Uint8Array([1]));
@@ -303,7 +303,7 @@ describe("Filesystem backend invariants", () => {
         );
     });
 
-    test("round-trips every optional filesystem wire field and rejects malformed outputs", () => {
+    test("round-trips every optional filesystem wire field and rejects malformed outputs", { tags: "p1" }, () => {
         expect(
             FILESYSTEM_OPERATION_CONTRACTS.read.decodeInput(
                 FILESYSTEM_OPERATION_CONTRACTS.read.encodeInput({
@@ -379,7 +379,7 @@ describe("Filesystem backend invariants", () => {
         ).toEqual({ path: "/file", range: { length: 2 } });
     });
 
-    test("translates non-root mounts, records all effects, and rejects invalid mount topology", () => {
+    test("translates non-root mounts, records all effects, and rejects invalid mount topology", { tags: "p1" }, () => {
         expect(() => new MountFilesystemBackend([])).toThrow(TypeError);
         expect(
             () =>

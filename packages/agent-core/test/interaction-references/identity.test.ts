@@ -23,7 +23,7 @@ import {
 } from "../../src/workspaces";
 
 describe("canonical interaction identities", () => {
-    test("re-exports one frozen constructor through W6 and W7 barrels", () => {
+    test("re-exports one frozen constructor through W6 and W7 barrels", { tags: "p1" }, () => {
         expect(InvocationAuditRecordId).toBe(interaction.AuditRecordId);
         expect(InvocationCorrelationId).toBe(interaction.CorrelationId);
         expect(InvocationInvocationId).toBe(interaction.InvocationId);
@@ -42,7 +42,7 @@ describe("canonical interaction identities", () => {
         }
     });
 
-    test("keeps W2 WorkspaceId and W6 ReceiptId distinct", () => {
+    test("keeps W2 WorkspaceId and W6 ReceiptId distinct", { tags: "p1" }, () => {
         expect(WorkspaceId).toBe(IdentityWorkspaceId);
         for (const [name, Type] of Object.entries(invocationReferences)) {
             expect(invocations[name as keyof typeof invocations]).toBe(Type);

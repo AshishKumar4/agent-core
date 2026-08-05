@@ -3,7 +3,7 @@ import { Revision } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 
 describe("Revision", () => {
-    test("increments without mutating the prior value", () => {
+    test("increments without mutating the prior value", { tags: "p0" }, () => {
         const initial = Revision.initial();
         const next = initial.next();
 
@@ -15,7 +15,7 @@ describe("Revision", () => {
         expect(Object.isFrozen(next)).toBe(true);
     });
 
-    test("rejects unsafe revisions and overflow", () => {
+    test("rejects unsafe revisions and overflow", { tags: "p0" }, () => {
         for (const value of [
             -1,
             1.5,
@@ -31,7 +31,7 @@ describe("Revision", () => {
         );
     });
 
-    test("rejects prototype counterfeits during equality", () => {
+    test("rejects prototype counterfeits during equality", { tags: "p0" }, () => {
         const counterfeit = Object.create(Revision.prototype) as Revision;
 
         expect(Revision.initial().equals(counterfeit)).toBe(false);

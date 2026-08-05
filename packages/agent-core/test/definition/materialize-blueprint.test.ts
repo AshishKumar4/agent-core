@@ -114,7 +114,7 @@ const topology = new (class extends MaterializationTopologyPort {
 })();
 
 describe("complete Blueprint materialization", () => {
-    test("projects every Blueprint construct to a record under its owning Actor", () => {
+    test("projects every Blueprint construct to a record under its owning Actor", { tags: "p1" }, () => {
         const validated = fullBlueprint();
         const plan = planMaterialization({
             validatedBlueprint: validated,
@@ -147,7 +147,7 @@ describe("complete Blueprint materialization", () => {
         ]);
     });
 
-    test("materializes each supported record kind and covers every Blueprint field", () => {
+    test("materializes each supported record kind and covers every Blueprint field", { tags: "p1" }, () => {
         const plan = planMaterialization({
             validatedBlueprint: fullBlueprint(),
             tenantId,
@@ -180,7 +180,7 @@ describe("complete Blueprint materialization", () => {
         );
     });
 
-    test("each materialized record kind lands under exactly one owning Actor", () => {
+    test("each materialized record kind lands under exactly one owning Actor", { tags: "p0" }, () => {
         const plan = planMaterialization({
             validatedBlueprint: fullBlueprint(),
             tenantId,
@@ -201,7 +201,7 @@ describe("complete Blueprint materialization", () => {
         }
     });
 
-    test("re-applying an unchanged Blueprint reconciles to a semantic no-op", () => {
+    test("re-applying an unchanged Blueprint reconciles to a semantic no-op", { tags: "p1" }, () => {
         const validated = fullBlueprint();
         const plan = planMaterialization({
             validatedBlueprint: validated,
@@ -220,7 +220,7 @@ describe("complete Blueprint materialization", () => {
         expect(second.every((result) => !result.pointerChanged)).toBe(true);
     });
 
-    test("mutating a single construct reconciles only that construct's record", () => {
+    test("mutating a single construct reconciles only that construct's record", { tags: "p1" }, () => {
         const stores = new Map<string, TestStore>();
         const first = planMaterialization({
             validatedBlueprint: fullBlueprint(),
@@ -247,7 +247,7 @@ describe("complete Blueprint materialization", () => {
         expect(results.get(actorKey(environmentActor))?.semanticNoop).toBe(true);
     });
 
-    test("rejects a contribution that violates its slot's contribute-authority", () => {
+    test("rejects a contribution that violates its slot's contribute-authority", { tags: "p0" }, () => {
         expect(() =>
             planMaterialization({
                 validatedBlueprint: fullBlueprint({ slotContributor: "stranger.facet" }),
@@ -259,7 +259,7 @@ describe("complete Blueprint materialization", () => {
         ).toThrow(/may not contribute to slot custom.card/);
     });
 
-    test("rejects a duplicate command name in the same surface slot", () => {
+    test("rejects a duplicate command name in the same surface slot", { tags: "p1" }, () => {
         expect(() =>
             planMaterialization({
                 validatedBlueprint: fullBlueprint({ duplicateCommand: true }),

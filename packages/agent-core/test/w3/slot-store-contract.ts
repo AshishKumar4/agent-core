@@ -35,7 +35,7 @@ export function workspaceSlotStoreContract<Transaction>(
     create: (owner: WorkspaceId) => SlotStoreContract<Transaction>
 ): void {
     describe(`${name} [workspace-slot-store] Workspace Slot store`, () => {
-        test("persists codec records with deterministic ordering and idempotent replay", () => {
+        test("persists codec records with deterministic ordering and idempotent replay", { tags: "p0" }, () => {
             const store = create(new WorkspaceId("workspace"));
             const declaration = slot();
             const second = entry("workspace:second", 20, { title: "Second" });
@@ -62,7 +62,7 @@ export function workspaceSlotStoreContract<Transaction>(
             ).toBe(true);
         });
 
-        test("rejects missing slots, invalid schemas, and conflicting contribution origins", () => {
+        test("rejects missing slots, invalid schemas, and conflicting contribution origins", { tags: "p1" }, () => {
             const store = create(new WorkspaceId("workspace"));
             const declaration = slot();
             const accepted = entry("workspace:facet", 1, { title: "Accepted" });
@@ -80,7 +80,7 @@ export function workspaceSlotStoreContract<Transaction>(
             ).toHaveLength(1);
         });
 
-        test("rolls back failed writes and rejects asynchronous transactions", async () => {
+        test("rolls back failed writes and rejects asynchronous transactions", { tags: "p0" }, async () => {
             const store = create(new WorkspaceId("workspace"));
             const declaration = slot();
             expect(() =>

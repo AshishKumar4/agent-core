@@ -71,7 +71,7 @@ const anchor = {
 };
 
 describe("SQLite Tenant and identity hard gates", () => {
-    test("requires anchor, completed bootstrap, and nonnested transactions", () => {
+    test("requires anchor, completed bootstrap, and nonnested transactions", { tags: "p0" }, () => {
         expect(() => createSqliteTenantControlStore(new TestSqlite())).toThrow(AgentCoreError);
         const database = new TestSqlite();
         const store = createSqliteTenantControlStore(database, anchor);
@@ -86,7 +86,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         );
     });
 
-    test("rejects bootstrap through a foreign transaction without partial writes", () => {
+    test("rejects bootstrap through a foreign transaction without partial writes", { tags: "p0" }, () => {
         const source = new TestSqlite();
         const foreign = new TestSqlite();
         const store = createSqliteTenantControlStore(source, anchor);
@@ -109,7 +109,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         expect(cloned.all("SELECT * FROM tenant_identities", [])).toEqual([]);
     });
 
-    test("rejects Tenant kind drift from the immutable anchor", () => {
+    test("rejects Tenant kind drift from the immutable anchor", { tags: "p0" }, () => {
         const { database } = fixture();
         const drifted = new Tenant(tenantId, "organization", "active", Revision.initial());
         database.run(`UPDATE tenant_identities SET kind = ?, record = ? WHERE id = ?`, [
@@ -120,7 +120,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         expect(() => createSqliteTenantControlStore(database)).toThrow(AgentCoreError);
     });
 
-    test("enforces SQLite Project, Workspace, Team, Principal, and trust revisions", () => {
+    test("enforces SQLite Project, Workspace, Team, Principal, and trust revisions", { tags: "p0" }, () => {
         const { store, service } = fixture();
         const project = new Project(
             new ProjectId("sqlite-hard-project"),
@@ -201,7 +201,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ["tenant_identities", "kind", "organization"],
         ["tenant_principals", "kind", "service"],
         ["tenant_roles", "record", Uint8Array.of(0)]
-    ] as const)("rejects corrupt %s projections eagerly", (table, column, value) => {
+    ] as const)("rejects corrupt %s projections eagerly", { tags: "p0" }, (table, column, value) => {
         const { database } = fixture();
         const keyColumn = table === "tenant_roles" ? "name" : "id";
         const key =
@@ -214,7 +214,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         expect(() => createSqliteTenantControlStore(database)).toThrow();
     });
 
-    test("cross-checks every identity projection through SqliteIdentityReader", () => {
+    test("cross-checks every identity projection through SqliteIdentityReader", { tags: "p1" }, () => {
         const { database, service } = fixture();
         const project = new Project(
             new ProjectId("reader-project"),
@@ -241,7 +241,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         expect(reader.loadGuestTrust(new GuestTrustId("missing"))).toBeUndefined();
     });
 
-    test("rejects each mismatched identity query projection", () => {
+    test("rejects each mismatched identity query projection", { tags: "p0" }, () => {
         {
             const state = fixture();
             const team = new Team(
@@ -322,7 +322,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         }
     });
 
-    test("rejects malformed low-level identity row types", () => {
+    test("rejects malformed low-level identity row types", { tags: "p1" }, () => {
         const principal = new Principal(ownerId, "user", "active");
         expect(() =>
             new SqliteIdentityReader(
@@ -375,7 +375,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ).toThrow(AgentCoreError);
     });
 
-    test("enforces every mutable identity writer before commit", () => {
+    test("enforces every mutable identity writer before commit", { tags: "p0" }, () => {
         const { store, service } = fixture();
         service.createWorkspace(
             new Workspace(workspaceId, tenantId, undefined, Revision.initial())
@@ -768,7 +768,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 );
             }
         ]
-    ] as const)("rejects %s relational corruption on restart", (_name, corrupt) => {
+    ] as const)("rejects %s relational corruption on restart", { tags: "p0" }, (_name, corrupt) => {
         const state = fixture();
         corrupt(state);
         expect(() => createSqliteTenantControlStore(state.database)).toThrow(AgentCoreError);
@@ -787,7 +787,7 @@ describe("SQLite Binding and watermark hard gates", () => {
         new FacetRef("workspace:sqlite.binding.facet")
     );
 
-    test("anchors stores and enforces monotonic revisions", () => {
+    test("anchors stores and enforces monotonic revisions", { tags: "p0" }, () => {
         expect(() => new SqliteBindingStore(new TestSqlite(), ScopeRef.tenant(tenantId))).toThrow(
             TypeError
         );
@@ -821,7 +821,7 @@ describe("SQLite Binding and watermark hard gates", () => {
         expect(watermarks.join(watermarkKey(watermark), []).revision.value).toBe(0);
     });
 
-    test("rejects foreign owner records and projection corruption", () => {
+    test("rejects foreign owner records and projection corruption", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const bindings = new SqliteBindingStore(database, workspaceScope);
         expect(() =>
@@ -864,7 +864,7 @@ describe("SQLite Binding and watermark hard gates", () => {
         );
     });
 
-    test("rejects foreign rows loaded after store initialization", () => {
+    test("rejects foreign rows loaded after store initialization", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const local = new SqliteBindingStore(database, workspaceScope);
         const otherScope = ScopeRef.workspace(tenantId, new WorkspaceId("other-binding-workspace"));
@@ -881,7 +881,7 @@ describe("SQLite Binding and watermark hard gates", () => {
         expect(() => new SqliteBindingStore(database, workspaceScope)).toThrow(AgentCoreError);
     });
 
-    test("rejects malformed SQLite driver row types and lost writes", () => {
+    test("rejects malformed SQLite driver row types and lost writes", { tags: "p0" }, () => {
         const bindingRow = bindingProjection(binding);
         expect(
             () =>
@@ -1080,7 +1080,7 @@ describe("SQLite authority adapter taxonomy", () => {
         { kind: "direct" }
     );
 
-    test("round-trips and idempotently rewrites Grant and epoch records", () => {
+    test("round-trips and idempotently rewrites Grant and epoch records", { tags: "p0" }, () => {
         const state = fixture();
         state.store.transaction(() => {
             saveSqliteGrant(state.database, grant);
@@ -1098,7 +1098,7 @@ describe("SQLite authority adapter taxonomy", () => {
         );
     });
 
-    test("converts missing writes and malformed projections to AgentCoreError", () => {
+    test("converts missing writes and malformed projections to AgentCoreError", { tags: "p1" }, () => {
         expectErrorCode(
             () => saveSqliteGrant(new StubSqlite(), grant),
             "protocol.revision-conflict"

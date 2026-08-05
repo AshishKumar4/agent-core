@@ -4,7 +4,7 @@ import { AgentCoreError } from "../../src/errors";
 import * as operations from "../../src/operations";
 
 describe("W3 operations context barrel", () => {
-    test("exports contracts without trusted host constructors", () => {
+    test("exports contracts without trusted host constructors", { tags: "p2" }, () => {
         expect("Facet" in operations).toBe(true);
         expect("Operation" in operations).toBe(true);
         expect("Interceptor" in operations).toBe(true);

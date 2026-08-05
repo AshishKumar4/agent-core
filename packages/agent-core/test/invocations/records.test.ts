@@ -27,7 +27,7 @@ import {
 import { admissionFor, attemptCodec, claimCodec, continuationCodec } from "./fixture";
 
 describe("Invocation evidence records", () => {
-    test("guards every Approval terminal transition and round-trips revisions", () => {
+    test("guards every Approval terminal transition and round-trips revisions", { tags: "p0" }, () => {
         const pending = approval("decision", time(10));
         const denied = pending.deny(new PrincipalId("denier"), time(2), "not allowed");
         const decodedDenied = ApprovalCodec.decode(ApprovalCodec.encode(denied));
@@ -67,7 +67,7 @@ describe("Invocation evidence records", () => {
         ).toThrow(/before expiry/);
     });
 
-    test("rejects every malformed Approval chronology and codec state", () => {
+    test("rejects every malformed Approval chronology and codec state", { tags: "p1" }, () => {
         class DerivedApprovalId extends ApprovalId {}
         expect(() =>
             Approval.pending(
@@ -142,7 +142,7 @@ describe("Invocation evidence records", () => {
         expect(() => Approval.decode(envelope(null))).toThrow();
     });
 
-    test("round-trips executor and system claims and enforces recovery ownership", () => {
+    test("round-trips executor and system claims and enforces recovery ownership", { tags: "p0" }, () => {
         const executor = new ItemClaim(
             new ItemClaimId("executor-claim"),
             new InvocationId("claim-invocation"),
@@ -228,7 +228,7 @@ describe("Invocation evidence records", () => {
         ).toBe("system");
     });
 
-    test("round-trips EffectAttempts with and without executor tokens", () => {
+    test("round-trips EffectAttempts with and without executor tokens", { tags: "p1" }, () => {
         class DerivedEffectAttemptId extends EffectAttemptId {}
         expect(
             () =>
@@ -294,7 +294,7 @@ describe("Invocation evidence records", () => {
         ).toThrow();
     });
 
-    test("round-trips every Receipt variant and rejects illegal result lineage", () => {
+    test("round-trips every Receipt variant and rejects illegal result lineage", { tags: "p1" }, () => {
         const preEffect = new PreEffectReceipt(
             new ReceiptId("pre-effect"),
             new InvocationId("receipt-invocation"),
@@ -424,7 +424,7 @@ describe("Invocation evidence records", () => {
         expect(() => Receipt.encode(new UnknownReceipt())).toThrow();
     });
 
-    test("[C13-PREPARED-ROUTED-PROJECTION] covers every BatchOutcome precedence and terminal projection", () => {
+    test("[C13-PREPARED-ROUTED-PROJECTION] covers every BatchOutcome precedence and terminal projection", { tags: "p1" }, () => {
         const invocation = new InvocationId("outcome-invocation");
         const denied = new PreEffectReceipt(
             new ReceiptId("outcome-denied"),

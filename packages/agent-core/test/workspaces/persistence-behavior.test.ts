@@ -17,7 +17,7 @@ class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {
 }
 
 describe("workspace persistence behavior", () => {
-    test("restarts from durable records and rejects duplicate and conflicting identities", () => {
+    test("restarts from durable records and rejects duplicate and conflicting identities", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = workspacePersistence();
         const event = eventFixture("persistence-restart");
@@ -47,7 +47,7 @@ describe("workspace persistence behavior", () => {
         );
     });
 
-    test("fails closed when authoritative bytes or reciprocal indexes are corrupted", () => {
+    test("fails closed when authoritative bytes or reciprocal indexes are corrupted", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = workspacePersistence();
         const event = eventFixture("persistence-corruption");

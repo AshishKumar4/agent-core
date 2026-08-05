@@ -30,7 +30,7 @@ import {
 
 materializationStoreContract("memory", (owner) => new MemoryMaterializationStore(owner));
 
-test("[materialization-store] memory and SQLite satisfy one shared codec-storage contract", () => {
+test("[materialization-store] memory and SQLite satisfy one shared codec-storage contract", { tags: "p1" }, () => {
     const owner = actorRef("materialization-seam");
     const stores = [
         new MemoryMaterializationStore(owner),
@@ -46,7 +46,7 @@ test("[materialization-store] memory and SQLite satisfy one shared codec-storage
 });
 
 describe("MemoryMaterializationStore persistence", () => {
-    test("[C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history", () => {
+    test("[C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history", { tags: "p1" }, () => {
         const actor = actorRef("workspace");
         const first = materializationState(actor, 1, "first");
         const second = materializationState(actor, 2, "second");
@@ -366,7 +366,7 @@ describe("MemoryMaterializationStore persistence", () => {
         }
     });
 
-    test("rejects asynchronous transactions without committing their draft", async () => {
+    test("rejects asynchronous transactions without committing their draft", { tags: "p0" }, async () => {
         const store = new MemoryMaterializationStore(actorRef("workspace"));
 
         expect(() =>
@@ -385,7 +385,7 @@ describe("MemoryMaterializationStore persistence", () => {
         ["generation", "generations"],
         ["managed state", "managedState"],
         ["pointer", "pointers"]
-    ] as const)("rejects corrupt %s codec bytes in a snapshot", (_subject, collection) => {
+    ] as const)("rejects corrupt %s codec bytes in a snapshot", { tags: "p0" }, (_subject, collection) => {
         const snapshot = completeSnapshot();
         const corrupted = {
             ...snapshot,
@@ -397,7 +397,7 @@ describe("MemoryMaterializationStore persistence", () => {
         );
     });
 
-    test("rejects corrupt projections, dangling generation closure, and duplicate keys", () => {
+    test("rejects corrupt projections, dangling generation closure, and duplicate keys", { tags: "p0" }, () => {
         const snapshot = completeSnapshot();
         expect(
             () =>
@@ -460,7 +460,7 @@ describe("MemoryMaterializationStore persistence", () => {
         ).toThrow(/duplicate materialization generations/);
     });
 
-    test("rejects unsupported managed-state kinds during snapshot restore", () => {
+    test("rejects unsupported managed-state kinds during snapshot restore", { tags: "p1" }, () => {
         const snapshot = completeSnapshot();
 
         expect(
@@ -499,7 +499,7 @@ describe("MemoryMaterializationStore persistence", () => {
         ["generations", "actorKind"],
         ["managedState", "logicalKey"],
         ["pointers", "deploymentId"]
-    ] as const)("rejects malformed %s snapshot field %s", (collection, field) => {
+    ] as const)("rejects malformed %s snapshot field %s", { tags: "p0" }, (collection, field) => {
         const snapshot = completeSnapshot();
         const corrupted = {
             ...snapshot,
@@ -546,7 +546,7 @@ describe("MemoryMaterializationStore persistence", () => {
         }
     );
 
-    test("rejects malformed snapshot bytes and duplicate pointer keys", () => {
+    test("rejects malformed snapshot bytes and duplicate pointer keys", { tags: "p0" }, () => {
         const snapshot = completeSnapshot();
         expect(
             () =>
@@ -584,7 +584,7 @@ describe("MemoryMaterializationStore persistence", () => {
         ["pointers", "actorKind", "run"],
         ["pointers", "actorId", "other"],
         ["pointers", "generationId", "1".repeat(64)]
-    ] as const)("rejects detached %s projection mismatch in %s", (collection, field, value) => {
+    ] as const)("rejects detached %s projection mismatch in %s", { tags: "p0" }, (collection, field, value) => {
         const snapshot = completeSnapshot();
         const corrupted = {
             ...snapshot,

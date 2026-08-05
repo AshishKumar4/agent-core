@@ -14,7 +14,7 @@ import {
 } from "../../src/identity";
 
 describe("coordinated FacetRef and CapabilitySpec transition", () => {
-    test("[C13-AUTH-ROLE-MATERIALIZATION] retains the exact W3 CapabilitySpec through Role and Grant runtime records", () => {
+    test("[C13-AUTH-ROLE-MATERIALIZATION] retains the exact W3 CapabilitySpec through Role and Grant runtime records", { tags: "p0" }, () => {
         const capability = new CapabilitySpec({
             facetPattern: "workspace:mail.*",
             impacts: ["observe"]
@@ -35,7 +35,7 @@ describe("coordinated FacetRef and CapabilitySpec transition", () => {
         expect("CapabilitySpec" in authority).toBe(false);
     });
 
-    test("[C13-AUTH-BINDING-RESOLUTION] retains the exact W3 FacetRef through Binding runtime records", () => {
+    test("[C13-AUTH-BINDING-RESOLUTION] retains the exact W3 FacetRef through Binding runtime records", { tags: "p0" }, () => {
         const facet = new FacetRef("workspace:mail.primary");
         const binding = new Binding(
             scope,

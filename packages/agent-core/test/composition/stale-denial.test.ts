@@ -216,7 +216,7 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
 }
 
 describe("stale mediated authority produces durable denial evidence (§3.4 rule 7)", () => {
-    test("advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence", async () => {
+    test("advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence", { tags: "p0" }, async () => {
         const state = new StaleAuthorityState();
         const authority = new TenantOperationAuthority(state, () => NOW);
         const resolution = (await authority.resolve(principal, bindingName)).resolution;
@@ -253,7 +253,7 @@ describe("stale mediated authority produces durable denial evidence (§3.4 rule 
         ).resolves.toMatchObject({ binding: state.binding, domain });
     });
 
-    test("repeated stale invocations add no unbounded duplicate denial evidence", async () => {
+    test("repeated stale invocations add no unbounded duplicate denial evidence", { tags: "p1" }, async () => {
         const state = new StaleAuthorityState();
         const authority = new TenantOperationAuthority(state, () => NOW);
         const resolution = (await authority.resolve(principal, bindingName)).resolution;

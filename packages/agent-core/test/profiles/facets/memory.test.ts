@@ -38,7 +38,7 @@ operationDeclarationEvidence("Memory", MEMORY_OPERATIONS, {
 });
 
 describe("Memory protected facade", () => {
-    test("[P11-MEMORY-PROMPT] materializes the relevant authorized recall result into the prompt", async () => {
+    test("[P11-MEMORY-PROMPT] materializes the relevant authorized recall result into the prompt", { tags: "p1" }, async () => {
         const content = new TestContent();
         const backend = new MemoryBackend(
             new InMemoryMemoryIndexBackend(),
@@ -71,7 +71,7 @@ describe("Memory protected facade", () => {
         ]);
     });
 
-    test("[P11-MEMORY-DISCOVERY] routes all Operations, filters through host-bound access, and bounds prompt contribution", async () => {
+    test("[P11-MEMORY-DISCOVERY] routes all Operations, filters through host-bound access, and bounds prompt contribution", { tags: "p1" }, async () => {
         const content = new TestContent();
         const access = new TestAccess("alice");
         const backend = new MemoryBackend(new InMemoryMemoryIndexBackend(), access, content);
@@ -111,7 +111,7 @@ describe("Memory protected facade", () => {
         expect(admission.calls[3]?.kind).toBe("control");
     });
 
-    test("[P11-MEMORY-CANONICAL] denial leaves canonical memory unchanged", async () => {
+    test("[P11-MEMORY-CANONICAL] denial leaves canonical memory unchanged", { tags: "p0" }, async () => {
         const content = new TestContent();
         const backend = new MemoryBackend(
             new InMemoryMemoryIndexBackend(),
@@ -134,7 +134,7 @@ describe("Memory protected facade", () => {
 });
 
 describe("Memory backends", () => {
-    test("declares the bounded protected recall prompt materializer", () => {
+    test("declares the bounded protected recall prompt materializer", { tags: "p1" }, () => {
         expect(MEMORY_CONTRIBUTIONS.entries.map((entry) => entry.slot.value)).toEqual([
             "operations",
             "prompt"
@@ -144,7 +144,7 @@ describe("Memory backends", () => {
         );
     });
 
-    test("[P11-MEMORY-REBUILD] prunes only elapsed retention and keeps derived index rebuild invisible", () => {
+    test("[P11-MEMORY-REBUILD] prunes only elapsed retention and keeps derived index rebuild invisible", { tags: "p0" }, () => {
         const content = new TestContent();
         const backend = new MemoryBackend(
             new InMemoryMemoryIndexBackend(),
@@ -159,7 +159,7 @@ describe("Memory backends", () => {
         expect(backend.recall({ query: "" }).map((entry) => entry.id)).toEqual(["retained"]);
     });
 
-    test("[P11-MEMORY-FORGET] validates entries, duplicate IDs, limits, time, and forget authority", () => {
+    test("[P11-MEMORY-FORGET] validates entries, duplicate IDs, limits, time, and forget authority", { tags: "p0" }, () => {
         const content = new TestContent();
         const access = new TestAccess("alice");
         const backend = new MemoryBackend(new InMemoryMemoryIndexBackend(), access, content);
@@ -214,7 +214,7 @@ describe("Memory backends", () => {
         ).toEqual({ query: "alpha", limit: 1 });
     });
 
-    test("bounds prompt construction and validates every configured integer", async () => {
+    test("bounds prompt construction and validates every configured integer", { tags: "p1" }, async () => {
         const content = new TestContent();
         const backend = new MemoryBackend(
             new InMemoryMemoryIndexBackend(),

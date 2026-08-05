@@ -48,7 +48,7 @@ materializationStoreContract(
 );
 
 describe("SqliteMaterializationStore persistence", () => {
-    test("joins W1 Actor activation and W4 initialization in one SQLite transaction", () => {
+    test("joins W1 Actor activation and W4 initialization in one SQLite transaction", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("activation");
         const store = new SqliteMaterializationStore(database, actor);
@@ -80,7 +80,7 @@ describe("SqliteMaterializationStore persistence", () => {
         ]);
     });
 
-    test("survives adapter recreation over one database", () => {
+    test("survives adapter recreation over one database", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const actor = actorRef("workspace");
         const fixture = installComplete(new SqliteMaterializationStore(database, actor));
@@ -106,7 +106,7 @@ describe("SqliteMaterializationStore persistence", () => {
         ).toBe(true);
     });
 
-    test("survives closing and reopening a file-backed database", () => {
+    test("survives closing and reopening a file-backed database", { tags: "p1" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "agent-core-materialization-"));
         const path = join(directory, "materialization.sqlite");
         try {
@@ -133,7 +133,7 @@ describe("SqliteMaterializationStore persistence", () => {
         }
     });
 
-    test("creates strict tables and persists authoritative codec blobs", () => {
+    test("creates strict tables and persists authoritative codec blobs", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = new SqliteMaterializationStore(database, actorRef("workspace"));
         const fixture = installComplete(store);
@@ -306,7 +306,7 @@ describe("SqliteMaterializationStore persistence", () => {
             "listGenerationPointers"
         ],
         ["pointer", "definition_materialization_pointers", "revision", 9, "listGenerationPointers"]
-    ] as const)("rejects a corrupt %s projection", (_subject, table, column, value, reader) => {
+    ] as const)("rejects a corrupt %s projection", { tags: "p0" }, (_subject, table, column, value, reader) => {
         const database = new TestSqlite();
         const store = new SqliteMaterializationStore(database, actorRef("workspace"));
         installComplete(store);
@@ -327,7 +327,7 @@ describe("SqliteMaterializationStore persistence", () => {
         ["generation", "definition_materialization_generations", "listGenerations"],
         ["managed state", "definition_managed_state", "listManagedState"],
         ["pointer", "definition_materialization_pointers", "listGenerationPointers"]
-    ] as const)("rejects corrupt %s codec bytes", (_subject, table, reader) => {
+    ] as const)("rejects corrupt %s codec bytes", { tags: "p0" }, (_subject, table, reader) => {
         const database = new TestSqlite();
         const store = new SqliteMaterializationStore(database, actorRef("workspace"));
         installComplete(store);
@@ -347,7 +347,7 @@ describe("SqliteMaterializationStore persistence", () => {
         ["definition_managed_state", "desired_digest", "", "listManagedState"],
         ["definition_materialization_pointers", "deployment_id", "", "listGenerationPointers"],
         ["definition_materialization_pointers", "revision", -1, "listGenerationPointers"]
-    ] as const)("rejects malformed SQLite scalar %s.%s", (table, column, value, reader) => {
+    ] as const)("rejects malformed SQLite scalar %s.%s", { tags: "p0" }, (table, column, value, reader) => {
         const database = new TestSqlite();
         const store = new SqliteMaterializationStore(database, actorRef("workspace"));
         installComplete(store);
@@ -363,7 +363,7 @@ describe("SqliteMaterializationStore persistence", () => {
         );
     });
 
-    test("rejects missing generation state and a pointer retargeted outside its Actor", () => {
+    test("rejects missing generation state and a pointer retargeted outside its Actor", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteMaterializationStore(database, actorRef("workspace"));
         const fixture = installComplete(store);

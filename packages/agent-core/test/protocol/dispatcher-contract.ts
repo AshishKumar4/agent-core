@@ -13,7 +13,7 @@ import type { CounterFixture, CounterFixtureFactory, FaultBoundary } from "./cou
 
 export function counterDispatcherContract(name: string, create: CounterFixtureFactory): void {
     describe(`CommandIngress and CommandDispatcher (${name})`, () => {
-        test("accepts an absent caller cause with a host-created Invocation root", async () => {
+        test("accepts an absent caller cause with a host-created Invocation root", { tags: "p1" }, async () => {
             const harness = create();
             const raw = harness.envelope({ amount: 4 });
 
@@ -46,7 +46,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(decodedWrite.reply).toEqual(result.reply);
         });
 
-        test("rebinds an existing content ref without requiring resubmission", async () => {
+        test("rebinds an existing content ref without requiring resubmission", { tags: "p1" }, async () => {
             const harness = create();
 
             const result = await harness.dispatch(harness.envelope({ amount: 3 }));
@@ -55,7 +55,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot()).toMatchObject({ contentGets: 1, contentPuts: 0 });
         });
 
-        test("holds copied submitted bytes outside the actor transaction", async () => {
+        test("holds copied submitted bytes outside the actor transaction", { tags: "p1" }, async () => {
             const harness = create();
             const raw = harness.envelope({ key: "submitted", amount: 3 });
             const ref = CommandEnvelopeCodec.decode(raw).payload.value;
@@ -70,7 +70,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot()).toMatchObject({ value: 3, contentPuts: 1 });
         });
 
-        test("uses a valid actor-local caller cause without creating another root", async () => {
+        test("uses a valid actor-local caller cause without creating another root", { tags: "p1" }, async () => {
             const harness = create();
             const cause = harness.seedInvocationCause();
 
@@ -114,6 +114,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             ]
         ])(
             "rejects a %s caller cause before content and replays its identity",
+            { tags: "p0" },
             async (name, createCause) => {
                 const harness = create();
                 const callerCause = await createCause(harness);
@@ -151,7 +152,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("persists duplicate evidence and replays before mutable gates", async () => {
+        test("persists duplicate evidence and replays before mutable gates", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({ amount: 2 });
             const first = await harness.dispatch(raw);
@@ -177,7 +178,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             ]);
         });
 
-        test("replays duplicates without entering any payload preparation state", async () => {
+        test("replays duplicates without entering any payload preparation state", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({ key: "all-preparation-states" });
             const first = await harness.dispatch(raw);
@@ -197,7 +198,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().contentPuts).toBe(0);
         });
 
-        test("lets a duplicate with an altered invalid cause win before cause validation", async () => {
+        test("lets a duplicate with an altered invalid cause win before cause validation", { tags: "p0" }, async () => {
             const harness = create();
             const originalCause = harness.seedInvocationCause("duplicate-original-cause");
             const first = await harness.dispatch(
@@ -233,7 +234,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(root?.id.equals(originalCause.id)).toBe(false);
         });
 
-        test("defensively rechecks an admitted caller cause after injected corruption", async () => {
+        test("defensively rechecks an admitted caller cause after injected corruption", { tags: "p0" }, async () => {
             const harness = create();
             const cause = harness.seedInvocationCause("removed-before-mutation");
             const raw = harness.envelope({
@@ -252,7 +253,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
         });
 
-        test("resolves the second duplicate lookup before defensive cause recheck", async () => {
+        test("resolves the second duplicate lookup before defensive cause recheck", { tags: "p0" }, async () => {
             const harness = create();
             const cause = harness.seedInvocationCause("removed-before-racing-duplicate");
             const key = "cause-recheck-racing-duplicate";
@@ -273,7 +274,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().value).toBe(2);
         });
 
-        test("closes the admission/preparation race with a second duplicate lookup", async () => {
+        test("closes the admission/preparation race with a second duplicate lookup", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({ key: "racing", amount: 2 });
             const barrier = harness.pauseNextPayloadGet();
@@ -290,7 +291,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().value).toBe(2);
         });
 
-        test("serializes concurrent originals into one commit and one duplicate", async () => {
+        test("serializes concurrent originals into one commit and one duplicate", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({ key: "concurrent-original", amount: 2 });
 
@@ -307,7 +308,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot()).toMatchObject({ value: 2, identityCount: 1 });
         });
 
-        test("encodes and replays typed replies and observations", async () => {
+        test("encodes and replays typed replies and observations", { tags: "p1" }, async () => {
             const harness = create({ typedExecution: true });
             const raw = harness.envelope({ key: "typed-codecs", amount: 3 });
 
@@ -323,7 +324,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(decoded.observation).toEqual(committed.observation);
         });
 
-        test("encodes a typed reply without manufacturing an observation", async () => {
+        test("encodes a typed reply without manufacturing an observation", { tags: "p1" }, async () => {
             const harness = create({ typedExecution: true, typedObservation: false });
 
             const committed = await harness.dispatch(harness.envelope({ key: "typed-reply-only" }));
@@ -336,7 +337,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
         test.each([
             ["reply", { includeReplyCodec: false }],
             ["observation", { includeObservationCodec: false }]
-        ] as const)("rolls back a typed execution missing its %s codec", async (_case, options) => {
+        ] as const)("rolls back a typed execution missing its %s codec", { tags: "p1" }, async (_case, options) => {
             const harness = create({ typedExecution: true, ...options });
 
             const result = await harness.accept(
@@ -352,6 +353,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
 
         test.each(["replyEncoding", "observationEncoding"] as const)(
             "rolls back typed %s codec faults",
+            { tags: "p1" },
             async (fault) => {
                 const harness = create({ typedExecution: true });
                 harness.setFault(fault);
@@ -370,7 +372,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("applies exact command-family caller policy before duplicate lookup", async () => {
+        test("applies exact command-family caller policy before duplicate lookup", { tags: "p0" }, async () => {
             const harness = create({ caller: CommandCallerPolicy.actor("run") });
 
             const result = await harness.dispatch(harness.envelope());
@@ -379,7 +381,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot()).toMatchObject({ value: 0, contentGets: 0 });
         });
 
-        test("returns preparation infrastructure failure without evidence or mutation", async () => {
+        test("returns preparation infrastructure failure without evidence or mutation", { tags: "p1" }, async () => {
             const harness = create();
             harness.setFault("contentGet");
 
@@ -416,7 +418,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
                     return harness.dispatch(raw, harness.caller, Uint8Array.of(1, 2, 3));
                 }
             ]
-        ])("records and reserves deterministic %s payload rejection", async (_case, run) => {
+        ])("records and reserves deterministic %s payload rejection", { tags: "p0" }, async (_case, run) => {
             const harness = create();
             const raw = harness.envelope({ key: `malformed-${_case}` });
 
@@ -430,7 +432,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().audits.size).toBe(1);
         });
 
-        test("replays a post-auth malformed result after payload correction", async () => {
+        test("replays a post-auth malformed result after payload correction", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({ key: "corrected", amount: 5 });
             const ref = CommandEnvelopeCodec.decode(raw).payload.value;
@@ -447,7 +449,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
         });
 
-        test("rolls back an asynchronous gate instead of treating its Promise as approval", async () => {
+        test("rolls back an asynchronous gate instead of treating its Promise as approval", { tags: "p0" }, async () => {
             const harness = create({ asynchronousGate: true });
 
             const result = await harness.accept(harness.envelope());
@@ -460,7 +462,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().writes).toHaveLength(0);
         });
 
-        test("rolls back an asynchronous payload decoder as a programmer fault", async () => {
+        test("rolls back an asynchronous payload decoder as a programmer fault", { tags: "p1" }, async () => {
             const harness = create({ asynchronousPayload: true });
 
             const result = await harness.accept(harness.envelope({ key: "asynchronous-payload" }));
@@ -472,7 +474,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 0, writes: [] });
         });
 
-        test("records only the explicit malformed payload decoder result", async () => {
+        test("records only the explicit malformed payload decoder result", { tags: "p1" }, async () => {
             const harness = create();
 
             const result = await harness.accept(
@@ -489,6 +491,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
 
         test.each(["type", "agentCore", "programmer"] as const)(
             "rolls back arbitrary %s payload decoder faults without evidence",
+            { tags: "p1" },
             async (payloadFailure) => {
                 const harness = create({ payloadFailure });
 
@@ -511,7 +514,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("registration callbacks cannot mutate authenticated envelope state", async () => {
+        test("registration callbacks cannot mutate authenticated envelope state", { tags: "p0" }, async () => {
             const harness = create({ mutateEnvelope: true, lease: "required" });
             const lease = harness.setLease();
 
@@ -530,6 +533,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
 
         test.each<FaultBoundary>(["mutation", "invocationAudit", "writeAudit", "writeRecord"])(
             "reports guaranteed rollback when %s fails",
+            { tags: "p0" },
             async (boundary) => {
                 const harness = create();
                 const raw = harness.envelope();
@@ -561,7 +565,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("requires a same-key retry after an unknown commit acknowledgement", async () => {
+        test("requires a same-key retry after an unknown commit acknowledgement", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({ key: "unknown-ack", amount: 2 });
             harness.setFault("unknownAck");
@@ -593,7 +597,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(restarted.snapshot().value).toBe(2);
         });
 
-        test("does not promise same-key reconciliation for an unindexed unknown commit", async () => {
+        test("does not promise same-key reconciliation for an unindexed unknown commit", { tags: "p0" }, async () => {
             const harness = create();
             harness.setFault("unknownUnindexed");
 
@@ -608,7 +612,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().writes).toHaveLength(1);
         });
 
-        test("rolls back invalid-cause rejection persistence faults and rejects after restart", async () => {
+        test("rolls back invalid-cause rejection persistence faults and rejects after restart", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({
                 key: "invalid-cause-restart",
@@ -649,6 +653,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
 
         test.each(["forgedUnknown", "forgedActorUnknown"] as const)(
             "does not trust %s errors thrown inside the transaction or poison the Actor",
+            { tags: "p0" },
             async (fault) => {
                 const harness = create();
                 harness.setFault(fault);
@@ -668,7 +673,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("restarts with its fence and replays committed work without payload access", async () => {
+        test("restarts with its fence and replays committed work without payload access", { tags: "p0" }, async () => {
             const harness = create();
             const raw = harness.envelope({ key: "restart-replay", amount: 3 });
             const committed = await harness.dispatch(raw);
@@ -692,7 +697,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             ]);
         });
 
-        test("rolls back transient lease verification faults", async () => {
+        test("rolls back transient lease verification faults", { tags: "p0" }, async () => {
             const harness = create();
             harness.setFault("payloadValidation");
 
@@ -709,7 +714,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             });
         });
 
-        test("rolls back read failures instead of recording false denial", async () => {
+        test("rolls back read failures instead of recording false denial", { tags: "p0" }, async () => {
             const harness = create();
             harness.setFault("readSnapshot");
 
@@ -723,7 +728,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().writes).toHaveLength(0);
         });
 
-        test("rolls back attempted gate read mutation", async () => {
+        test("rolls back attempted gate read mutation", { tags: "p0" }, async () => {
             const harness = create();
             harness.setFault("gateMutation");
 
@@ -738,7 +743,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().writes).toHaveLength(0);
         });
 
-        test("records malformed and oversized raw envelopes with exact digest", async () => {
+        test("records malformed and oversized raw envelopes with exact digest", { tags: "p1" }, async () => {
             const harness = create();
             const malformed = Uint8Array.from([0xff, 0x00, 0x7b]);
             const oversized = new Uint8Array(4097);
@@ -754,7 +759,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().identityCount).toBe(0);
         });
 
-        test("does not trust a caller cause before exact caller authentication", async () => {
+        test("does not trust a caller cause before exact caller authentication", { tags: "p0" }, async () => {
             const harness = create();
             const cause = harness.seedInvocationCause();
 
@@ -776,7 +781,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().identityCount).toBe(0);
         });
 
-        test("retains and replays authenticated decoded shape rejection", async () => {
+        test("retains and replays authenticated decoded shape rejection", { tags: "p0" }, async () => {
             const harness = create();
             const payload = encodeCanonicalJson({ amount: 1 });
             const ref = testContentRef("counter:missing-revision:1");
@@ -810,7 +815,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().contentGets).toBe(0);
         });
 
-        test("evaluates post-payload gates in deterministic order", async () => {
+        test("evaluates post-payload gates in deterministic order", { tags: "p1" }, async () => {
             const harness = create({ lease: "required" });
             const token = harness.setLease();
             harness.setAuthorized(false);
@@ -881,7 +886,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             ).toBe("rejectedLease");
         });
 
-        test("admits absent optional revisions and enforces forbidden revisions", async () => {
+        test("admits absent optional revisions and enforces forbidden revisions", { tags: "p0" }, async () => {
             const optional = create({ expectedRevision: "optional" });
             expect(
                 (
@@ -927,7 +932,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
                 })
             ],
             ["wrong epoch", (token) => ({ ...token, epoch: token.epoch + 1 })]
-        ])("rejects %s required lease tokens", async (_case, alter) => {
+        ])("rejects %s required lease tokens", { tags: "p0" }, async (_case, alter) => {
             const harness = create({ lease: "required" });
             const token = harness.setLease();
             const supplied = alter(token);
@@ -982,7 +987,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("rejects expired and forbidden lease tokens", async () => {
+        test("rejects expired and forbidden lease tokens", { tags: "p0" }, async () => {
             const required = create({ lease: "required" });
             const expired = required.setLease({ expiresAt: new Date("2026-07-07T11:59:59.000Z") });
             expect((await required.dispatch(required.envelope({ lease: expired }))).outcome).toBe(

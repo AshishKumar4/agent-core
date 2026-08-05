@@ -13,7 +13,7 @@ interface MemoryWorkspaceState {
 
 workspacePersistenceContract("memory", createMemoryHarness);
 
-test("memory composite indexes keep NUL-containing tuples distinct", () => {
+test("memory composite indexes keep NUL-containing tuples distinct", { tags: "p0" }, () => {
     const records = new MemoryWorkspaceRecords();
     records.insertUnique({ namespace: "route:A", key: "B\u0000C", recordKey: "first" });
     records.insertUnique({ namespace: "route:A\u0000B", key: "C", recordKey: "second" });
@@ -22,7 +22,7 @@ test("memory composite indexes keep NUL-containing tuples distinct", () => {
     expect(records.findUnique("route:A\u0000B", "C")?.recordKey).toBe("second");
 });
 
-test("rejects a secondary index pointing to an unrelated valid Event", () => {
+test("rejects a secondary index pointing to an unrelated valid Event", { tags: "p0" }, () => {
     const records = new MemoryWorkspaceRecords();
     const event = eventFixture("wrong-index-owner");
     records.insertRecord({ kind: "event", id: event.id.value, bytes: Event.codec.encode(event) });

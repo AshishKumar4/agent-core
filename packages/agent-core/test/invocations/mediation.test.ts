@@ -59,7 +59,7 @@ const descriptor = new OperationDescriptor(
 );
 
 describe("W6 operation mediation integration", () => {
-    test("memory audit evidence relations survive restart and remain actor-owned", () => {
+    test("memory audit evidence relations survive restart and remain actor-owned", { tags: "p1" }, () => {
         const persistence = new MemoryInvocationMediationPersistence();
         let state = createInvocationMediationMemoryState();
         const actor = new ActorRef("run", new ActorId("memory-evidence-actor"));
@@ -123,7 +123,7 @@ describe("W6 operation mediation integration", () => {
         ).toThrow(/missing evidence projection/u);
     });
 
-    test("[invocation.continuation] [invocation.mediated-replay] [invocation.publication-outbox] round-trips continuation, replay, and publication durable records", () => {
+    test("[invocation.continuation] [invocation.mediated-replay] [invocation.publication-outbox] round-trips continuation, replay, and publication durable records", { tags: "p1" }, () => {
         const continuation = new InvocationContinuation(
             new InvocationId("codec-invocation"),
             new Digest("a".repeat(64)),
@@ -174,7 +174,7 @@ describe("W6 operation mediation integration", () => {
         ).toBe(publication.id.value);
     });
 
-    test("[C13-PREPARED-REPLAY-POST] [invocation.mediated-replay] [invocation-replay-persistence] reserves before interception and reuses durable before/after presentation", async () => {
+    test("[C13-PREPARED-REPLAY-POST] [invocation.mediated-replay] [invocation-replay-persistence] reserves before interception and reuses durable before/after presentation", { tags: "p0" }, async () => {
         const transactions = new MemoryTransactions();
         const persistence = new MemoryInvocationMediationPersistence();
         const invocation = new InvocationId("mediated-invocation");
@@ -264,7 +264,7 @@ describe("W6 operation mediation integration", () => {
         expect(afterRuns).toBe(1);
     });
 
-    test("[C13-PREPARED-REPLAY-PRE] commits raw replay identity before mutating interception and rejects conflicts first", async () => {
+    test("[C13-PREPARED-REPLAY-PRE] commits raw replay identity before mutating interception and rejects conflicts first", { tags: "p0" }, async () => {
         const transactions = new MemoryTransactions();
         const persistence = new MemoryInvocationMediationPersistence();
         const invocation = new InvocationId("reserved-before-interception");
@@ -324,7 +324,7 @@ describe("W6 operation mediation integration", () => {
         ).resolves.toMatchObject({ kind: "new" });
     });
 
-    test("[C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget", async () => {
+    test("[C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget", { tags: "p0" }, async () => {
         const transactions = new MemoryTransactions();
         const persistence = new MemoryInvocationMediationPersistence();
         const publication = InvocationPublicationOutbox.pending(
@@ -365,7 +365,7 @@ describe("W6 operation mediation integration", () => {
         expect(published).toHaveLength(2);
     });
 
-    test("persists independent sink acknowledgements and never republishes an acknowledged sink", async () => {
+    test("persists independent sink acknowledgements and never republishes an acknowledged sink", { tags: "p0" }, async () => {
         const transactions = new MemoryTransactions();
         const persistence = new MemoryInvocationMediationPersistence();
         const publication = InvocationPublicationOutbox.pending({
@@ -415,7 +415,7 @@ describe("W6 operation mediation integration", () => {
         ).toBe("published");
     });
 
-    test("[C13-ADV-APPROVAL-REPLAY] rejects noncanonical replay scopes, attempted direct contexts, and unprepared invocation", async () => {
+    test("[C13-ADV-APPROVAL-REPLAY] rejects noncanonical replay scopes, attempted direct contexts, and unprepared invocation", { tags: "p0" }, async () => {
         const transactions = new MemoryTransactions();
         const persistence = new MemoryInvocationMediationPersistence();
         const invocation = new InvocationId("guarded-invocation");
@@ -443,7 +443,7 @@ describe("W6 operation mediation integration", () => {
         ).rejects.toThrow(/no reserved prepared replay identity/);
     });
 
-    test("keeps a reservation recoverable when before interception returns malformed cardinality", async () => {
+    test("keeps a reservation recoverable when before interception returns malformed cardinality", { tags: "p1" }, async () => {
         const { port } = replayHarness("malformed-before");
         const request = preflight("malformed-before");
         await expect(
@@ -458,7 +458,7 @@ describe("W6 operation mediation integration", () => {
     });
 
     test.each(["invocation", "count", "index"] as const)(
-        "rejects substituted canonical batch %s evidence before recording output",
+        "rejects substituted canonical batch %s evidence before recording output", { tags: "p0" },
         async (substitution) => {
             const invocation = new InvocationId(`substituted-${substitution}`);
             const batch: CanonicalBatchInvoker<string> = {
@@ -499,7 +499,7 @@ describe("W6 operation mediation integration", () => {
         }
     );
 
-    test("[C13-BATCH-OUTCOME-TERMINAL] persists terminal batch evidence and fails closed on every replay", async () => {
+    test("[C13-BATCH-OUTCOME-TERMINAL] persists terminal batch evidence and fails closed on every replay", { tags: "p0" }, async () => {
         const invocation = new InvocationId("terminal-replay");
         const terminalReceipt = new PreEffectReceipt(
             new ReceiptId("terminal-receipt"),
@@ -536,7 +536,7 @@ describe("W6 operation mediation integration", () => {
         });
     });
 
-    test("[C13-PREPARED-APPROVAL-BINDING] binds presentation to exact invocation evidence, item count, and persisted outputs", async () => {
+    test("[C13-PREPARED-APPROVAL-BINDING] binds presentation to exact invocation evidence, item count, and persisted outputs", { tags: "p0" }, async () => {
         const invocation = new InvocationId("presentation-guards");
         const { port } = replayHarness(invocation.value);
         const request = preflight(invocation.value);
@@ -615,7 +615,7 @@ describe("W6 operation mediation integration", () => {
         expect(presentations).toBe(1);
     });
 
-    test("[C13-ADV-NONHOMOGENEOUS-BATCH] enforces replay phase immutability and nonempty exact batch shape", () => {
+    test("[C13-ADV-NONHOMOGENEOUS-BATCH] enforces replay phase immutability and nonempty exact batch shape", { tags: "p0" }, () => {
         const reservation = replayReservation("phase-guards");
         expect(() =>
             MediatedReplayRecord.reserve({
@@ -657,7 +657,7 @@ describe("W6 operation mediation integration", () => {
         expect(() => terminal.present(0, [], null)).toThrow(/effect output/);
     });
 
-    test("[C13-BATCH-OUTCOME-COMPLETE] maps profile receipt mode and terminal outcomes without leaking batch shapes", async () => {
+    test("[C13-BATCH-OUTCOME-COMPLETE] maps profile receipt mode and terminal outcomes without leaking batch shapes", { tags: "p1" }, async () => {
         const invocation = new InvocationId("profile-modes");
         const operation = {
             descriptor,
@@ -732,7 +732,7 @@ describe("W6 operation mediation integration", () => {
         }
     });
 
-    test("[C13-PREPARED-NO-TURN-OWNER] rejects substituted continuation identifiers, owner kinds, actor kinds, and indexes", () => {
+    test("[C13-PREPARED-NO-TURN-OWNER] rejects substituted continuation identifiers, owner kinds, actor kinds, and indexes", { tags: "p0" }, () => {
         class SubstitutedInvocationId extends InvocationId {}
         const owner = {
             kind: "system" as const,

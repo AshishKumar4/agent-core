@@ -4,14 +4,14 @@ import { Digest, type DigestAlgorithm } from "../../src/core";
 const ABC_SHA256 = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
 describe("Digest", () => {
-    test("matches the SHA-256 abc vector", () => {
+    test("matches the SHA-256 abc vector", { tags: "p0" }, () => {
         const bytes = new TextEncoder().encode("abc");
 
         expect(Digest.sha256(bytes).value).toBe(ABC_SHA256);
         expect(bytes).toEqual(new TextEncoder().encode("abc"));
     });
 
-    test("is runtime immutable", () => {
+    test("is runtime immutable", { tags: "p0" }, () => {
         const digest = new Digest(ABC_SHA256);
 
         expect(Object.isFrozen(digest)).toBe(true);
@@ -21,7 +21,7 @@ describe("Digest", () => {
         expect(digest.algorithm).toBe("sha256");
     });
 
-    test("rejects malformed values, unsupported algorithms, and non-byte input", () => {
+    test("rejects malformed values, unsupported algorithms, and non-byte input", { tags: "p0" }, () => {
         for (const value of ["", "A".repeat(64), "0".repeat(63), "g".repeat(64)]) {
             expect(() => new Digest(value)).toThrow(TypeError);
         }

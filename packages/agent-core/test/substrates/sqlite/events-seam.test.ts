@@ -5,11 +5,13 @@ import { TestSqlite } from "../../helpers/sqlite";
 
 test(
     "[workspace-record-storage] memory and SQLite satisfy the shared storage contract",
+    { tags: "p1" },
     verifyWorkspaceStorage
 );
 
 test(
     "[workspace.event] [workspace.subscription] [workspace.route-reservation] [workspace.route-projection] [workspace.route-delivery] [workspace.view] [workspace.view-delta] [workspace.content-retention-reference] durable records use the shared memory and SQLite storage contract",
+    { tags: "p1" },
     verifyWorkspaceStorage
 );
 

@@ -47,7 +47,7 @@ const contract = new ProfileOperationContract(
 );
 
 describe("Protected profile runtime port", () => {
-    test("executes a W3 Operation only after protected admission", async () => {
+    test("executes a W3 Operation only after protected admission", { tags: "p0" }, async () => {
         const { runtime, admission } = recordingRuntime("example");
         let called = false;
         const output = await runtime.invoke(contract, { value: "input" }, (input, context) => {
@@ -64,7 +64,7 @@ describe("Protected profile runtime port", () => {
         expect(admission.calls.map((call) => call.name)).toEqual(["example"]);
     });
 
-    test("validates wire input before the protected port and output before release", async () => {
+    test("validates wire input before the protected port and output before release", { tags: "p1" }, async () => {
         const { runtime, admission } = recordingRuntime("validation");
         await expect(
             runtime.invoke(contract, { value: 7 } as never, () => "unused")
@@ -76,7 +76,7 @@ describe("Protected profile runtime port", () => {
         ).rejects.toMatchObject({ code: "operation.invalid-output", detailCode: "wire.output" });
     });
 
-    test("rejects result-kind substitution from the protected port", async () => {
+    test("rejects result-kind substitution from the protected port", { tags: "p0" }, async () => {
         const { runtime: template } = recordingRuntime("kind-template");
         const runtime = new ProtectedProfileRuntimePort(
             template.host,
@@ -91,7 +91,7 @@ describe("Protected profile runtime port", () => {
         ).rejects.toMatchObject({ code: "operation.invalid-output", detailCode: "wire.output" });
     });
 
-    test("blocks inactive execution before encoding or admission", async () => {
+    test("blocks inactive execution before encoding or admission", { tags: "p1" }, async () => {
         const { runtime, admission } = recordingRuntime("inactive");
         runtime.deactivate();
         await expect(

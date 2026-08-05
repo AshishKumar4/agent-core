@@ -80,7 +80,7 @@ const topology = new (class extends MaterializationTopologyPort {
 })();
 
 describe("materialization planning", () => {
-    test("normalizes reordered inputs into byte-identical Actor-local plans", () => {
+    test("normalizes reordered inputs into byte-identical Actor-local plans", { tags: "p0" }, () => {
         const validatedBlueprint = validatedDefinition(["zeta", "alpha"]);
         const first = planMaterialization({
             validatedBlueprint,
@@ -146,7 +146,7 @@ describe("materialization planning", () => {
         ).toThrow(/must return an ActorRef/);
     });
 
-    test("[definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec", () => {
+    test("[definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec", { tags: "p1" }, () => {
         const approvals: ("execute" | "externalSend")[] = ["execute"];
         const projection = policyProjection("policy:dashboard", new PolicySet({ approvals }));
         const origin = managedOrigin();
@@ -200,7 +200,7 @@ describe("materialization planning", () => {
         ).toThrow(/string/);
     });
 
-    test("deduplicates identical logical keys and rejects conflicting desired records", () => {
+    test("deduplicates identical logical keys and rejects conflicting desired records", { tags: "p1" }, () => {
         const projection = policyProjection("scope:default", PolicySet.empty());
         const duplicate = policyProjection("scope:default", PolicySet.empty());
         const origin = managedOrigin();
@@ -221,7 +221,7 @@ describe("materialization planning", () => {
         ).toThrow(/Conflicting desired projections.*scope:default/);
     });
 
-    test("records all four placement source sets and validates the fixed selection", () => {
+    test("records all four placement source sets and validates the fixed selection", { tags: "p1" }, () => {
         const projection = placementProjection(
             "placement:acme.deploy",
             "acme.deploy",
@@ -269,7 +269,7 @@ describe("materialization planning", () => {
         "policy",
         "facet-placement.v1",
         "policy-set.v1"
-    ])("rejects unsupported materialization kind %s", (recordKind) => {
+    ])("rejects unsupported materialization kind %s", { tags: "p1" }, (recordKind) => {
         expect(
             () =>
                 new DesiredProjection({
@@ -309,7 +309,7 @@ describe("materialization planning", () => {
             } as JsonValue,
             message: /Slot entry index must be a non-negative safe integer/
         }
-    ])("rejects malformed desired state: $label", ({ recordKind, desired, message }) => {
+    ])("rejects malformed desired state: $label", { tags: "p1" }, ({ recordKind, desired, message }) => {
         expect(
             () =>
                 new DesiredProjection({
@@ -320,7 +320,7 @@ describe("materialization planning", () => {
         ).toThrow(message);
     });
 
-    test("admits every normative materialization kind", () => {
+    test("admits every normative materialization kind", { tags: "p1" }, () => {
         expect(ManagedStateRecord.supportedRecordKinds()).toEqual([
             "agent-profile",
             "environment",
@@ -335,7 +335,7 @@ describe("materialization planning", () => {
         expect(Object.isFrozen(ManagedStateRecord.supportedRecordKinds())).toBe(true);
     });
 
-    test("snapshots kind accessors before validation and assignment", () => {
+    test("snapshots kind accessors before validation and assignment", { tags: "p1" }, () => {
         let projectionKindReads = 0;
         const projection = new DesiredProjection({
             logicalKey: "policy:accessor",
@@ -364,7 +364,7 @@ describe("materialization planning", () => {
         expect(record.recordKind).toBe("policy-set");
     });
 
-    test("canonicalizes policy-set desired data before deriving identity", () => {
+    test("canonicalizes policy-set desired data before deriving identity", { tags: "p0" }, () => {
         const noncanonical = new DesiredProjection({
             logicalKey: "policy:canonical",
             recordKind: "policy-set",
@@ -384,7 +384,7 @@ describe("materialization planning", () => {
         expect(noncanonical.desiredDigest.equals(canonical.desiredDigest)).toBe(true);
     });
 
-    test("rejects non-primitive supported-kind lookalikes", () => {
+    test("rejects non-primitive supported-kind lookalikes", { tags: "p1" }, () => {
         expect(
             () =>
                 new DesiredProjection({
@@ -395,7 +395,7 @@ describe("materialization planning", () => {
         ).toThrow(/record kind/);
     });
 
-    test("validates supported materialization payloads through their domain invariants", () => {
+    test("validates supported materialization payloads through their domain invariants", { tags: "p1" }, () => {
         const placement = placementProjection(
             "placement:acme.deploy",
             "acme.deploy",
@@ -478,7 +478,7 @@ describe("materialization planning", () => {
         ).toThrow(/Unsupported materialization record kind/);
     });
 
-    test("[C13-POLICY-EPOCH-RECHECK] rechecks supported kinds while assembling Actor and materialization plans", () => {
+    test("[C13-POLICY-EPOCH-RECHECK] rechecks supported kinds while assembling Actor and materialization plans", { tags: "p1" }, () => {
         const origin = managedOrigin();
         const actor = new ActorRef("tenant", new ActorId("tenant-a"));
         const valid = policyProjection("policy:tenant", PolicySet.empty());
@@ -511,7 +511,7 @@ describe("materialization planning", () => {
         );
     });
 
-    test("rejects mismatched IDs, origins, digests, and unknown codec fields", () => {
+    test("rejects mismatched IDs, origins, digests, and unknown codec fields", { tags: "p0" }, () => {
         const origin = managedOrigin();
         const projection = policyProjection(
             "agent:helper",

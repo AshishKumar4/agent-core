@@ -29,7 +29,7 @@ operationDeclarationEvidence("Self", SELF_OPERATIONS, {
 });
 
 describe("Self protected Run contract", () => {
-    test("[P11-SELF-COMPOSITION] composes mediated Facet Operations over the typed Run dependency", async () => {
+    test("[P11-SELF-COMPOSITION] composes mediated Facet Operations over the typed Run dependency", { tags: "p1" }, async () => {
         const run = new TestRunDependency();
         const { runtime, admission } = recordingRuntime("self-composition");
         await new SelfFacet(runtime, run).checkpoint({ checkpoint: { value: 1 } });
@@ -39,7 +39,7 @@ describe("Self protected Run contract", () => {
         expect(run.calls).toEqual(["checkpoint"]);
     });
 
-    test("[P11-SELF-FINISH-MEMBRANE] invokes finish through mediation before the Run dependency", async () => {
+    test("[P11-SELF-FINISH-MEMBRANE] invokes finish through mediation before the Run dependency", { tags: "p0" }, async () => {
         const run = new TestRunDependency();
         const { runtime, admission } = recordingRuntime("self-finish");
         await new SelfFacet(runtime, run).finish({ result: { value: 1 } });
@@ -47,7 +47,7 @@ describe("Self protected Run contract", () => {
         expect(run.calls).toEqual(["finish"]);
     });
 
-    test("[P11-SELF-SPAWN-MEMBRANE] invokes spawn through mediation before the Run dependency", async () => {
+    test("[P11-SELF-SPAWN-MEMBRANE] invokes spawn through mediation before the Run dependency", { tags: "p0" }, async () => {
         const run = new TestRunDependency();
         const { runtime, admission } = recordingRuntime("self-spawn");
         await new SelfFacet(runtime, run).spawn({ child: { value: 1 } });
@@ -57,7 +57,7 @@ describe("Self protected Run contract", () => {
         expect(run.calls).toEqual(["spawn"]);
     });
 
-    test("[P11-SELF-MEDIATION] routes all five Operations without caller-supplied leases or authority", async () => {
+    test("[P11-SELF-MEDIATION] routes all five Operations without caller-supplied leases or authority", { tags: "p0" }, async () => {
         const run = new TestRunDependency();
         const { runtime, admission } = recordingRuntime("self");
         const facet = new SelfFacet(runtime, run);
@@ -113,7 +113,7 @@ describe("Self protected Run contract", () => {
         ]);
     });
 
-    test("[P11-SELF-AUTHORITY] denial prevents the typed Run dependency", async () => {
+    test("[P11-SELF-AUTHORITY] denial prevents the typed Run dependency", { tags: "p0" }, async () => {
         const run = new TestRunDependency();
         const facet = new SelfFacet(denyingRuntime("self").runtime, run);
         await expect(facet.spawn({ child: {} })).rejects.toMatchObject({

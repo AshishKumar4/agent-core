@@ -21,7 +21,7 @@ const resolver = new PackageResolver();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
 
 describe("deterministic package resolution", () => {
-    test("backtracks globally instead of accepting a greedy local maximum", () => {
+    test("backtracks globally instead of accepting a greedy local maximum", { tags: "p1" }, () => {
         const snapshot = metadata([
             release("a", "2.0.0", [dependency("c", "^2")]),
             release("a", "1.0.0", [dependency("c", "^1")]),
@@ -39,7 +39,7 @@ describe("deterministic package resolution", () => {
         expect(versions(lock)).toEqual({ a: "1.0.0", b: "1.0.0", c: "1.5.0" });
     });
 
-    test("excludes prereleases unless every accumulated range admits the same base", () => {
+    test("excludes prereleases unless every accumulated range admits the same base", { tags: "p1" }, () => {
         const simple = metadata([release("app", "2.0.0-beta.2"), release("app", "1.9.0")]);
         expect(versions(resolvePackageLock(simple, [dependency("app", ">=1.0.0")]))).toEqual({
             app: "1.9.0"
@@ -70,7 +70,7 @@ describe("deterministic package resolution", () => {
         ).toBe("2.0.0-beta.2");
     });
 
-    test("breaks equal-precedence build ties by ascending full canonical version", () => {
+    test("breaks equal-precedence build ties by ascending full canonical version", { tags: "p1" }, () => {
         const alphaFirst = metadata([release("app", "1.0.0+alpha"), release("app", "1.0.0+zeta")]);
         const zetaFirst = metadata([release("app", "1.0.0+zeta"), release("app", "1.0.0+alpha")]);
 
@@ -81,7 +81,7 @@ describe("deterministic package resolution", () => {
         expect(PackageLock.encode(first)).toEqual(PackageLock.encode(second));
     });
 
-    test("resolves byte-identically across root, release, and dependency insertion orders", () => {
+    test("resolves byte-identically across root, release, and dependency insertion orders", { tags: "p1" }, () => {
         const first = metadata(
             [
                 release("root-b", "1.0.0", [dependency("z", "^1"), dependency("a", "^1")]),
@@ -113,7 +113,7 @@ describe("deterministic package resolution", () => {
         expect(left.packages.map((pin) => pin.id.value)).toEqual(["a", "root-a", "root-b", "z"]);
     });
 
-    test("rejects duplicate roots, missing packages, and incompatible intersections", () => {
+    test("rejects duplicate roots, missing packages, and incompatible intersections", { tags: "p1" }, () => {
         const snapshot = metadata([
             release("a", "1.0.0", [dependency("shared", "^1")]),
             release("b", "1.0.0", [dependency("shared", "^2")]),
@@ -131,7 +131,7 @@ describe("deterministic package resolution", () => {
         ).toThrow(/No version of package shared satisfies/);
     });
 
-    test("rejects self and multi-package cycles with canonical paths", () => {
+    test("rejects self and multi-package cycles with canonical paths", { tags: "p1" }, () => {
         const self = metadata([release("self", "1.0.0", [dependency("self", "*")])]);
         expect(() => resolvePackageLock(self, [dependency("self", "*")])).toThrow(
             "Package dependency cycle: self -> self"
@@ -147,7 +147,7 @@ describe("deterministic package resolution", () => {
         );
     });
 
-    test("backtracks away from a cyclic candidate when a complete closure exists", () => {
+    test("backtracks away from a cyclic candidate when a complete closure exists", { tags: "p1" }, () => {
         const snapshot = metadata([
             release("a", "2.0.0", [dependency("b", "^2")]),
             release("a", "1.0.0", [dependency("b", "^1")]),
@@ -380,7 +380,7 @@ describe("deterministic package resolution", () => {
         });
     });
 
-    test("filters Package and Facet compatibility before deterministic selection", () => {
+    test("filters Package and Facet compatibility before deterministic selection", { tags: "p1" }, () => {
         const snapshot = metadata([
             release("app", "3.0.0", [], new CompatRange(">=2", "*")),
             release("app", "2.0.0", [], CompatRange.any(), new CompatRange("*", ">=2")),

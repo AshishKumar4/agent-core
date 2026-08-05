@@ -27,7 +27,7 @@ const classifications = new Set<TypeErrorClassification>([
 ]);
 
 describe("W1 error taxonomy", { timeout: 30_000 }, () => {
-    test("classifies every remaining TypeError construction exactly once", () => {
+    test("classifies every remaining TypeError construction exactly once", { tags: "p2" }, () => {
         expect(taxonomy.schemaVersion).toBe("agent-core.error-taxonomy/v3");
         expect(taxonomy.sources).toEqual(coverageInventory);
         expect(new Set(taxonomy.sources).size).toBe(taxonomy.sources.length);
@@ -104,7 +104,7 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
         ).toBe(true);
     });
 
-    test("contains no bare or unresolved Error construction in W1 runtime sources", () => {
+    test("contains no bare or unresolved Error construction in W1 runtime sources", { tags: "p2" }, () => {
         const scans = taxonomy.sources.map((source) =>
             scanSource(source, readFileSync(new URL(source, packageUrl), "utf8"))
         );
@@ -180,7 +180,7 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
             1,
             1
         ]
-    ])("detects %s", (_name, source, typeErrors, bareErrors) => {
+    ])("detects %s", { tags: "p2" }, (_name, source, typeErrors, bareErrors) => {
         const scan = scanSource("fixture.ts", source);
         expect(scan.typeErrors).toHaveLength(typeErrors);
         expect(scan.bareErrors).toHaveLength(bareErrors);
@@ -191,12 +191,12 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
         "globalThis[name]('dynamic')",
         "const DynamicError = globalThis[name]; new DynamicError('dynamic')",
         "Reflect.construct(globalThis[name], ['dynamic'])"
-    ])("rejects unresolved dynamic error constructor form: %s", (source) => {
+    ])("rejects unresolved dynamic error constructor form: %s", { tags: "p2" }, (source) => {
         const scan = scanSource("fixture.ts", source);
         expect(scan.unresolved).toHaveLength(1);
     });
 
-    test("intentionally ignores shadowed local error and host identifiers", () => {
+    test("intentionally ignores shadowed local error and host identifiers", { tags: "p2" }, () => {
         const scan = scanSource(
             "fixture.ts",
             `
@@ -228,7 +228,7 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
         expect(scan.unresolved).toEqual([]);
     });
 
-    test("keeps for and switch lexical error bindings inside their scopes", () => {
+    test("keeps for and switch lexical error bindings inside their scopes", { tags: "p2" }, () => {
         const scan = scanSource(
             "fixture.ts",
             `

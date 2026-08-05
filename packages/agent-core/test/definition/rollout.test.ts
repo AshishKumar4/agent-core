@@ -44,7 +44,7 @@ describe("materialization rollout and outbox", () => {
         SqliteMaterializationStore.control(new TestSqlite(), tenantActor)
     );
 
-    test("restores pending memory rollout state and rejects dangling outbox", () => {
+    test("restores pending memory rollout state and rejects dangling outbox", { tags: "p1" }, () => {
         const store = new MemoryMaterializationControlStore();
         beginRollout(controllerFor(store), plan(1, ["a"]));
         const snapshot = store.snapshot();
@@ -84,7 +84,7 @@ describe("materialization rollout and outbox", () => {
         ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
     });
 
-    test("[definition.validation-attestation] persists immutable validation attestations in Tenant control storage", () => {
+    test("[definition.validation-attestation] persists immutable validation attestations in Tenant control storage", { tags: "p0" }, () => {
         const store = new MemoryMaterializationControlStore();
         const attestation = validationAttestation();
         store.transaction((transaction) => store.insertAttestation(transaction, attestation));
@@ -102,7 +102,7 @@ describe("materialization rollout and outbox", () => {
         ).toHaveLength(1);
     });
 
-    test("memory control store rejects stale CAS skipped revisions and orphan inserts", () => {
+    test("memory control store rejects stale CAS skipped revisions and orphan inserts", { tags: "p0" }, () => {
         const store = new MemoryMaterializationControlStore();
         const deployment = DeploymentRecord.initial(tenantId, deploymentKey);
         expect(
@@ -144,7 +144,7 @@ describe("materialization rollout and outbox", () => {
         ).toThrow(/stored rollout/);
     });
 
-    test("restores SQLite control state and fails closed on projection corruption", () => {
+    test("restores SQLite control state and fails closed on projection corruption", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = SqliteMaterializationStore.control(database, tenantActor);
         const rollout = controllerFor(store).begin(
@@ -165,7 +165,7 @@ describe("materialization rollout and outbox", () => {
         );
     });
 
-    test("[definition.deployment] round-trips rollout records and rejects forged deployment transitions", () => {
+    test("[definition.deployment] round-trips rollout records and rejects forged deployment transitions", { tags: "p0" }, () => {
         const deployment = DeploymentRecord.initial(tenantId, deploymentKey);
         expect(DeploymentRecord.decode(DeploymentRecord.encode(deployment))).toEqual(deployment);
         expect(
@@ -222,7 +222,7 @@ describe("materialization rollout and outbox", () => {
         );
     });
 
-    test("[definition.materialization-rollout] [definition.materialization-outbox] round-trips rollout and outbox codecs and rejects malformed states", () => {
+    test("[definition.materialization-rollout] [definition.materialization-outbox] round-trips rollout and outbox codecs and rejects malformed states", { tags: "p1" }, () => {
         const materializationPlan = plan(1, ["a"]);
         const rollout = new MaterializationRollout({ plan: materializationPlan });
         expect(MaterializationRollout.decode(MaterializationRollout.encode(rollout))).toEqual(
@@ -384,7 +384,7 @@ describe("materialization rollout and outbox", () => {
         expect(isLegalOutboxTransition(entry, entry)).toBe(false);
     });
 
-    test("rejects forward rollback across deployments or without a higher generation", () => {
+    test("rejects forward rollback across deployments or without a higher generation", { tags: "p1" }, () => {
         const active = plan(1, ["a"]);
         const failed = plan(2, ["b"]);
         expect(() => forwardRollbackPlan(active, failed, origin(2))).toThrow(/advance/);
@@ -397,7 +397,7 @@ describe("materialization rollout and outbox", () => {
         expect(() => forwardRollbackPlan(active, failed, foreignOrigin)).toThrow(/same Tenant/);
     });
 
-    test("surfaces every control-store CAS and missing-record failure", () => {
+    test("surfaces every control-store CAS and missing-record failure", { tags: "p1" }, () => {
         expect(() =>
             controllerFor(new MemoryMaterializationControlStore()).begin(
                 plan(1, ["a"]),
@@ -1163,7 +1163,7 @@ function rolloutContract<Transaction>(
     name: string,
     create: () => MaterializationControlStore<Transaction>
 ): void {
-    test(`${name} [materialization-control-store] persists union-target outbox and completes only after every acknowledgement`, () => {
+    test(`${name} [materialization-control-store] persists union-target outbox and completes only after every acknowledgement`, { tags: "p0" }, () => {
         const store = create();
         const controller = controllerFor(store);
         const firstPlan = plan(1, ["a"]);
@@ -1198,7 +1198,7 @@ function rolloutContract<Transaction>(
         expect(controller.complete(second.id).activePlanId?.equals(second.plan.id)).toBe(true);
     });
 
-    test(`${name} allocates generations with CAS and keeps acknowledgements idempotent`, () => {
+    test(`${name} allocates generations with CAS and keeps acknowledgements idempotent`, { tags: "p0" }, () => {
         const store = create();
         const controller = controllerFor(store);
         const rollout = beginRollout(controller, plan(1, ["a"]));
@@ -1245,7 +1245,7 @@ function rolloutContract<Transaction>(
         ).toThrow(/transition is invalid|transition history/);
     });
 
-    test(`${name} creates forward rollback plans without rewinding target history`, () => {
+    test(`${name} creates forward rollback plans without rewinding target history`, { tags: "p1" }, () => {
         const active = plan(1, ["a"]);
         const failed = plan(2, ["b"]);
         const rollback = forwardRollbackPlan(active, failed, origin(3));
@@ -1262,7 +1262,7 @@ function rolloutContract<Transaction>(
         expect(rollback.id.equals(active.id)).toBe(false);
     });
 
-    test(`${name} starts forward compensation while a prior rollout remains pending`, () => {
+    test(`${name} starts forward compensation while a prior rollout remains pending`, { tags: "p1" }, () => {
         const store = create();
         const controller = controllerFor(store);
         const first = beginRollout(controller, plan(1, ["a"]));
@@ -1303,7 +1303,7 @@ function rolloutContract<Transaction>(
         ).toThrow(/different pending rollout/);
     });
 
-    test(`${name} compensates an initial pending rollout without an active predecessor`, () => {
+    test(`${name} compensates an initial pending rollout without an active predecessor`, { tags: "p1" }, () => {
         const store = create();
         const controller = controllerFor(store);
         const failed = beginRollout(controller, plan(1, ["a"]));

@@ -141,7 +141,7 @@ const requests: readonly RunProtocolRequest[] = [
 ];
 
 describe("Run protocol family", () => {
-    it("declares every closed command with fixed revision and lease policies", () => {
+    it("declares every closed command with fixed revision and lease policies", { tags: "p1" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
         expect(commands.map((command) => command.command)).toEqual(Object.values(RUN_COMMANDS));
         expect(Object.values(RUN_COMMANDS)).not.toContain("turn.retry");
@@ -166,7 +166,7 @@ describe("Run protocol family", () => {
         ).toThrow(/Workspace or Run/);
     });
 
-    it("round-trips exact canonical payloads through command-specific codecs", () => {
+    it("round-trips exact canonical payloads through command-specific codecs", { tags: "p1" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
         for (const [index, request] of requests.entries()) {
             const decoded = commands[index]!.payload.decode(
@@ -180,7 +180,7 @@ describe("Run protocol family", () => {
         ).toThrow(/fields/);
     });
 
-    it("keeps system commands restricted to the exact owning Actor", () => {
+    it("keeps system commands restricted to the exact owning Actor", { tags: "p0" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
         const system = commands.find((command) => command.command === RUN_COMMANDS.merge)!;
         expect(system.caller.admits({ kind: "actor", actor: owner })).toBe(true);
@@ -195,7 +195,7 @@ describe("Run protocol family", () => {
         ).toBe(false);
     });
 
-    it("delegates decoded requests to the typed transaction port", () => {
+    it("delegates decoded requests to the typed transaction port", { tags: "p1" }, () => {
         const port = new TestPort();
         const command = createRunProtocolCommands(port, owner).find(
             (candidate) => candidate.command === RUN_COMMANDS.create
@@ -211,7 +211,7 @@ describe("Run protocol family", () => {
         expect(port.decisionAt).toBe(at);
     });
 
-    it("delegates every deterministic gate through the typed port", () => {
+    it("delegates every deterministic gate through the typed port", { tags: "p1" }, () => {
         const port = new TestPort();
         const command = createRunProtocolCommands(port, owner).find(
             (candidate) => candidate.command === RUN_COMMANDS.claimTurn
@@ -230,7 +230,7 @@ describe("Run protocol family", () => {
         expect(port.decisionAt).toBe(at);
     });
 
-    it("rejects every malformed payload shape before typed port execution", () => {
+    it("rejects every malformed payload shape before typed port execution", { tags: "p2" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
         const create = commands.find((command) => command.command === RUN_COMMANDS.create)!;
         for (const payload of ["null", "[]", "{}", '{"run":""}', '{"run":1}']) {

@@ -37,7 +37,7 @@ import { invocationLedgerContract } from "../../../invocations/ledger-contract";
 import { createSqliteInvocationPersistence } from "./fixture";
 import { describe, expect, test } from "vitest";
 
-test("[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract", () => {
+test("[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract", { tags: "p1" }, () => {
     const memoryState = createInvocationMemoryState();
     const memory = new MemoryInvocationPersistence(invocationCodecs);
     verifyPreparedContract(memory, (operation) => operation(memoryState), "memory");
@@ -99,7 +99,7 @@ function verifyPreparedContract<Transaction>(
 invocationLedgerContract("sqlite", () => new SqliteHarness(), "excluded");
 
 describe("SqliteInvocationPersistence transaction scope", () => {
-    test("[C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation", () => {
+    test("[C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation", { tags: "p0" }, () => {
         const harness = new SqliteHarness();
         expect(() =>
             harness.persistence.prepared(
@@ -112,7 +112,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         ).toThrow(/supplied transaction/);
     });
 
-    test("returns undefined for every missing durable lookup", () => {
+    test("returns undefined for every missing durable lookup", { tags: "p1" }, () => {
         const harness = new SqliteHarness();
         harness.transaction((transaction) => {
             expect(
@@ -142,7 +142,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         });
     });
 
-    test("rejects orphan revisions, Receipts, and duplicate SQLite appends with typed errors", () => {
+    test("rejects orphan revisions, Receipts, and duplicate SQLite appends with typed errors", { tags: "p0" }, () => {
         const harness = new SqliteHarness();
         const invocation = prepared("sqlite-orphan");
         const pending = Approval.pending(
@@ -177,7 +177,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         });
     });
 
-    test("decodes source EffectAttempt bytes before appending an AttemptReceipt", () => {
+    test("decodes source EffectAttempt bytes before appending an AttemptReceipt", { tags: "p0" }, () => {
         const harness = new SqliteHarness();
         const invocation = prepared("receipt-source-corruption");
         const claim = systemClaim("receipt-source-corruption", 0);
@@ -307,12 +307,12 @@ describe("SqliteInvocationPersistence transaction scope", () => {
                 return () => harness.persistence.prepared(harness.database, invocation.header.id);
             }
         }
-    ])("fails closed on corrupt $name projections", ({ setup }) => {
+    ])("fails closed on corrupt $name projections", { tags: "p1" }, ({ setup }) => {
         const harness = new SqliteHarness();
         expect(setup(harness)).toThrow(/Stored invocation projection|Invalid/);
     });
 
-    test("[C13-PREPARED-APPROVAL-CONTINUATION] fails closed on orphaned Approval and continuation indexes after restart", () => {
+    test("[C13-PREPARED-APPROVAL-CONTINUATION] fails closed on orphaned Approval and continuation indexes after restart", { tags: "p0" }, () => {
         const harness = new SqliteHarness();
         const invocation = prepared("sqlite-restart-indexes");
         const approval = Approval.pending(
@@ -367,7 +367,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         ).toThrow(/Stored invocation projection/);
     });
 
-    test("[C13-RECEIPT-ATTEMPT-CHAIN] fails closed when an Attempt Receipt loses or changes its source attempt projection", () => {
+    test("[C13-RECEIPT-ATTEMPT-CHAIN] fails closed when an Attempt Receipt loses or changes its source attempt projection", { tags: "p0" }, () => {
         const orphan = new SqliteHarness();
         const invocation = prepared("sqlite-orphaned-receipt-source");
         const claim = systemClaim("sqlite-orphaned-receipt-source", 0);

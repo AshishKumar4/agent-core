@@ -6,7 +6,7 @@ import {
 } from "../../../src/substrates/sqlite/sqlite";
 import { TestSqlite } from "../../helpers/sqlite";
 
-test("rejects SQLite provenance transfer involving uninitialized capabilities", () => {
+test("rejects SQLite provenance transfer involving uninitialized capabilities", { tags: "p0" }, () => {
     const database = new TestSqlite();
     const forged = Object.create(null) as ReadableSqlite;
 

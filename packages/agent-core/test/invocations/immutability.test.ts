@@ -34,7 +34,7 @@ const referenceCodec: StructuralCodec<MutableReference> = {
 };
 
 describe("invocation record immutability", () => {
-    test("[C13-PREPARED-WHOLE-DIGEST] detaches PreparedInvocation structural references before digesting", () => {
+    test("[C13-PREPARED-WHOLE-DIGEST] detaches PreparedInvocation structural references before digesting", { tags: "p0" }, () => {
         const authority = mutable("authority");
         const domain = mutable("domain");
         const epochs = mutable("epochs");
@@ -101,7 +101,7 @@ describe("invocation record immutability", () => {
         hostileValue = "hostile-after";
     });
 
-    test("[C13-PREPARED-APPROVAL-FIRST-ATTEMPT] freezes claim, attempt, admission, and Approval state aliases", () => {
+    test("[C13-PREPARED-APPROVAL-FIRST-ATTEMPT] freezes claim, attempt, admission, and Approval state aliases", { tags: "p0" }, () => {
         const token = mutable("token");
         const claim = new ItemClaim(
             new ItemClaimId("immutable-claim"),

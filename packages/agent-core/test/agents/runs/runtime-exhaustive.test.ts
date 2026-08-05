@@ -120,7 +120,7 @@ function forcedCancellation(
 }
 
 describe("RunRuntime rejection matrix", () => {
-    it("uses run.invalid-state for malformed and duplicate genesis", () => {
+    it("uses run.invalid-state for malformed and duplicate genesis", { tags: "p1" }, () => {
         const value = harness();
         const valid = genesis();
         const malformed = {
@@ -151,7 +151,7 @@ describe("RunRuntime rejection matrix", () => {
         expectCode(() => value.runtime.createRun(valid), "run.invalid-state");
     });
 
-    it("rejects invalid branches and generic migration append", () => {
+    it("rejects invalid branches and generic migration append", { tags: "p1" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const duplicateName = new RunBranch(
@@ -185,7 +185,7 @@ describe("RunRuntime rejection matrix", () => {
         );
     });
 
-    it("[C13-RUN-PARENT-PIN-INHERITANCE] rejects migration evidence whose from pins do not match the durable parent", () => {
+    it("[C13-RUN-PARENT-PIN-INHERITANCE] rejects migration evidence whose from pins do not match the durable parent", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const target = configuration();
@@ -224,7 +224,7 @@ describe("RunRuntime rejection matrix", () => {
         ).toBeUndefined();
     });
 
-    it("[C13-TURN-NO-RETRY-PROTOCOL] has no retry transition and rejects a wrong effective Run", () => {
+    it("[C13-TURN-NO-RETRY-PROTOCOL] has no retry transition and rejects a wrong effective Run", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         expect("retryTurn" in value.runtime).toBe(false);
         expectCode(
@@ -234,7 +234,7 @@ describe("RunRuntime rejection matrix", () => {
         expect(value.runtime.settled(ids.run)).toBe(false);
     });
 
-    it("[C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers", () => {
+    it("[C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const first = message("first", ids.root);
         value.runtime.appendCommit(first, new Revision(0), new Date(1500));
@@ -284,7 +284,7 @@ describe("RunRuntime rejection matrix", () => {
         );
     });
 
-    it("[C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content", () => {
+    it("[C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const missingSource = new RunCommit({
@@ -390,7 +390,7 @@ describe("RunRuntime rejection matrix", () => {
 });
 
 describe("Turn and terminalization rejection matrix", () => {
-    it("rejects ordinary inbox sequence and suspend/complete mismatches with turn.invalid-state", () => {
+    it("rejects ordinary inbox sequence and suspend/complete mismatches with turn.invalid-state", { tags: "p1" }, () => {
         const value = seedRunningTurn();
         const wrongEntry = new TurnInboxEntry(
             new TurnInboxEntryId("wrong-sequence"),
@@ -464,7 +464,7 @@ describe("Turn and terminalization rejection matrix", () => {
         );
     });
 
-    it("rejects duplicate inbox idempotency keys", () => {
+    it("rejects duplicate inbox idempotency keys", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const first = new TurnInboxEntry(
             new TurnInboxEntryId("first-key"),
@@ -511,7 +511,7 @@ describe("Turn and terminalization rejection matrix", () => {
         );
     });
 
-    it("rejects malformed cancellation attribution on reclaim", () => {
+    it("rejects malformed cancellation attribution on reclaim", { tags: "p1" }, () => {
         for (const overrides of [{ sequence: 1 }]) {
             const value = seedRunningTurn();
             expectCode(
@@ -529,7 +529,7 @@ describe("Turn and terminalization rejection matrix", () => {
         }
     });
 
-    it("rejects terminalization with mismatched result and sibling cancellation evidence", () => {
+    it("rejects terminalization with mismatched result and sibling cancellation evidence", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const result = message("terminal-not-result", ids.root);
         expectCode(
@@ -609,7 +609,7 @@ describe("Turn and terminalization rejection matrix", () => {
         );
     });
 
-    it("[C13-RUN-TERMINAL-SIBLINGS] atomically fences queued, running, and suspended siblings with durable evidence", () => {
+    it("[C13-RUN-TERMINAL-SIBLINGS] atomically fences queued, running, and suspended siblings with durable evidence", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const queuedId = new TurnId("queued-terminal-sibling");
         const queuedPlacement = new TurnPlacementSnapshot(queuedId, pins(), []);
@@ -830,7 +830,7 @@ describe("Turn and terminalization rejection matrix", () => {
         ).toEqual(records);
     });
 
-    it("[C13-ADV-ADMITTED-SIBLING] rejects missing and malformed held sibling cancellation evidence", () => {
+    it("[C13-ADV-ADMITTED-SIBLING] rejects missing and malformed held sibling cancellation evidence", { tags: "p0" }, () => {
         for (const variant of ["missing", "event"] as const) {
             const value = seedRunningTurn();
             const siblingId = new TurnId(`held-${variant}`);
@@ -916,7 +916,7 @@ describe("Turn and terminalization rejection matrix", () => {
         }
     });
 
-    it("rejects unsuccessful control and mismatched fence evidence atomically", () => {
+    it("rejects unsuccessful control and mismatched fence evidence atomically", { tags: "p0" }, () => {
         for (const variant of ["control", "fence"] as const) {
             const value = seedRunningTurn();
             const siblingId = new TurnId(`adversarial-${variant}`);
@@ -1006,7 +1006,7 @@ describe("Turn and terminalization rejection matrix", () => {
         }
     });
 
-    it("rolls back sibling fences, records, and registry close when the terminal commit fails", () => {
+    it("rolls back sibling fences, records, and registry close when the terminal commit fails", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const siblingId = new TurnId("rollback-sibling");
         const placement = new TurnPlacementSnapshot(siblingId, pins(), []);

@@ -28,13 +28,13 @@ import { definitionRevisionConflict, invalidDefinition } from "../../src/definit
 import { compareText } from "../../src/definition/order";
 
 describe("definition value boundaries", () => {
-    test("orders canonical text without locale-dependent collation", () => {
+    test("orders canonical text without locale-dependent collation", { tags: "p0" }, () => {
         expect(compareText("a", "a")).toBe(0);
         expect(compareText("a", "b")).toBe(-1);
         expect(compareText("b", "a")).toBe(1);
     });
 
-    test("derives stable Tenant-scoped deployment identities and rejects malformed IDs", () => {
+    test("derives stable Tenant-scoped deployment identities and rejects malformed IDs", { tags: "p1" }, () => {
         const key = new DeploymentKey("platform");
         const first = DeploymentId.derive(new TenantId("tenant-a"), key);
         const same = DeploymentId.derive(new TenantId("tenant-a"), new DeploymentKey("platform"));
@@ -47,7 +47,7 @@ describe("definition value boundaries", () => {
         expect(() => new MaterializationGenerationId("not-a-digest")).toThrow(/SHA-256/);
     });
 
-    test("requires one owner-published declaration codec and canonical owner output", () => {
+    test("requires one owner-published declaration codec and canonical owner output", { tags: "p1" }, () => {
         expect(
             () =>
                 new BlueprintDeclarationCodecPort([
@@ -62,7 +62,7 @@ describe("definition value boundaries", () => {
         expect(() => port.canonicalize("environments", {})).toThrow(/Missing owner-published/);
     });
 
-    test("validates canonical compatibility ranges and exact target admission", () => {
+    test("validates canonical compatibility ranges and exact target admission", { tags: "p1" }, () => {
         expect(canonicalCompatibilityRange("^1", "Range")).toBe(">=1.0.0 <2.0.0-0");
         expect(() => canonicalCompatibilityRange(" ", "Range")).toThrow(/nonblank/);
         expect(() => canonicalCompatibilityRange("not-semver", "Range")).toThrow(/valid/);
@@ -74,7 +74,7 @@ describe("definition value boundaries", () => {
         expect(compatibilityAdmits({ spec: "^2", host: ">=2" }, target)).toBe(false);
     });
 
-    test("requires complete nonduplicated fail-closed RunPins evidence", () => {
+    test("requires complete nonduplicated fail-closed RunPins evidence", { tags: "p0" }, () => {
         expect(RunPinEvidence.clear().permitsChange).toBe(true);
         expect(new RunPinEvidence("blocked", ["b", "a"]).blockers).toEqual(["a", "b"]);
         expect(new RunPinEvidence("blocked", ["run"]).permitsChange).toBe(false);
@@ -83,7 +83,7 @@ describe("definition value boundaries", () => {
         expect(() => new RunPinEvidence("partial", ["same", "same"])).toThrow(/unique/);
     });
 
-    test("exercises strict Blueprint PackageInstall and root access boundaries", () => {
+    test("exercises strict Blueprint PackageInstall and root access boundaries", { tags: "p1" }, () => {
         const install = new PackageInstall({
             request: new PackageDependency(new PackageId("package"), "^1"),
             config: new Config({ enabled: true })
@@ -181,7 +181,7 @@ describe("definition value boundaries", () => {
         );
     });
 
-    test("rejects malformed placement and policy values at public constructors", () => {
+    test("rejects malformed placement and policy values at public constructors", { tags: "p1" }, () => {
         const input = new PlacementInput({
             manifest: ["dynamic"],
             policy: ["dynamic"],

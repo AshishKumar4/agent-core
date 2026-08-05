@@ -16,7 +16,7 @@ class SecondId extends TextId {
 class FirstChildId extends FirstId {}
 
 describe("TextId", () => {
-    test("uses the concrete identifier type and exact text as identity", () => {
+    test("uses the concrete identifier type and exact text as identity", { tags: "p1" }, () => {
         const id = new FirstId("same");
 
         expect(id.value).toBe("same");
@@ -26,14 +26,14 @@ describe("TextId", () => {
         expect(id.equals(new SecondId("same"))).toBe(false);
     });
 
-    test("rejects invalid runtime text without coercion", () => {
+    test("rejects invalid runtime text without coercion", { tags: "p1" }, () => {
         for (const value of ["", "x".repeat(257), "\ud800", "\udc00", 1, null]) {
             expect(() => new FirstId(value as string)).toThrow(TypeError);
         }
         expect(() => new FirstId("\ud83d\ude00")).not.toThrow();
     });
 
-    test("does not accept prototype counterfeits as equal identifiers", () => {
+    test("does not accept prototype counterfeits as equal identifiers", { tags: "p0" }, () => {
         const id = new FirstId("id");
         const counterfeit = Object.create(FirstId.prototype) as FirstId;
 
@@ -41,7 +41,7 @@ describe("TextId", () => {
         expect(id.equals(null as unknown as TextId)).toBe(false);
     });
 
-    test("captures nominal type independently of mutable constructor properties", () => {
+    test("captures nominal type independently of mutable constructor properties", { tags: "p0" }, () => {
         const id = new FirstId("id");
         const same = new FirstId("id");
         Object.defineProperty(id, "constructor", { value: SecondId });

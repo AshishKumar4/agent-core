@@ -16,7 +16,7 @@ import { PolicySet } from "../../src/definition/policy";
 import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../src/facets";
 
 describe("Blueprint", () => {
-    test("[definition.blueprint] [definition.package-install] round-trips strict canonical declaration data", () => {
+    test("[definition.blueprint] [definition.package-install] round-trips strict canonical declaration data", { tags: "p0" }, () => {
         const agent = { model: { policy: "balanced" }, name: "helper" };
         const blueprint = new Blueprint({
             meta: new BlueprintMeta("support-desk", new SemVer("1.2.0")),
@@ -47,7 +47,7 @@ describe("Blueprint", () => {
         expect(Object.isFrozen(decoded.agents[0])).toBe(true);
     });
 
-    test("requires unique root package requests", () => {
+    test("requires unique root package requests", { tags: "p1" }, () => {
         expect(
             () =>
                 new Blueprint({
@@ -69,7 +69,7 @@ describe("Blueprint", () => {
         ).toThrow(/object declaration/);
     });
 
-    test("produces deterministic bytes for equivalent root and object ordering", () => {
+    test("produces deterministic bytes for equivalent root and object ordering", { tags: "p0" }, () => {
         const left = new Blueprint({
             meta: { name: "deterministic", version: new SemVer("1.0.0") },
             packages: [
@@ -93,7 +93,7 @@ describe("Blueprint", () => {
         expect(left.packages.map((entry) => entry.request.id.value)).toEqual(["alpha", "zeta"]);
     });
 
-    test("rejects unknown codec fields and malformed optional declarations", () => {
+    test("rejects unknown codec fields and malformed optional declarations", { tags: "p1" }, () => {
         const blueprint = new Blueprint({
             meta: { name: "strict", version: new SemVer("1.0.0") },
             packages: [],

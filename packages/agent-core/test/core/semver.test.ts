@@ -3,7 +3,7 @@ import { SemVer, encodeCanonicalJson } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 
 describe("SemVer", () => {
-    test("parses and renders the complete SemVer 2.0.0 form", () => {
+    test("parses and renders the complete SemVer 2.0.0 form", { tags: "p1" }, () => {
         const version = new SemVer("12.3.4-alpha.1+linux.x64");
 
         expect(version).toMatchObject({ major: 12, minor: 3, patch: 4 });
@@ -13,7 +13,7 @@ describe("SemVer", () => {
         expect(new SemVer(12, 3, 4, ["alpha", "1"], ["linux", "x64"]).equals(version)).toBe(true);
     });
 
-    test("implements the SemVer precedence sequence", () => {
+    test("implements the SemVer precedence sequence", { tags: "p1" }, () => {
         const ordered = [
             "1.0.0-alpha",
             "1.0.0-alpha.1",
@@ -36,7 +36,7 @@ describe("SemVer", () => {
         ).toBeLessThan(0);
     });
 
-    test("compares release and prerelease boundaries symmetrically", () => {
+    test("compares release and prerelease boundaries symmetrically", { tags: "p1" }, () => {
         expect(SemVer.parse("1.2.3").toString()).toBe("1.2.3");
         expect(new SemVer(1, 2, 3).toString()).toBe("1.2.3");
         expect(new SemVer(1, 2, 3, [], ["build"]).toString()).toBe("1.2.3+build");
@@ -58,7 +58,7 @@ describe("SemVer", () => {
         expect(new SemVer("1.0.0-alpha").compare(new SemVer("1.0.0-alpha"))).toBe(0);
     });
 
-    test("rejects noncanonical, unsafe, and malformed runtime versions", () => {
+    test("rejects noncanonical, unsafe, and malformed runtime versions", { tags: "p2" }, () => {
         for (const value of ["1", "1.2", "01.2.3", "1.02.3", "1.2.03", "1.2.3-01", "v1.2.3"]) {
             expect(() => new SemVer(value)).toThrow(TypeError);
         }
@@ -70,13 +70,13 @@ describe("SemVer", () => {
         expect(() => new SemVer(1, undefined as unknown as number, 3)).toThrow(TypeError);
     });
 
-    test("rejects a non-string parse input without coercion", () => {
+    test("rejects a non-string parse input without coercion", { tags: "p2" }, () => {
         expect(() => SemVer.parse(1 as unknown as string)).toThrow(
             new TypeError("Semantic version must follow SemVer 2.0.0")
         );
     });
 
-    test("copies and deeply freezes identifier arrays", () => {
+    test("copies and deeply freezes identifier arrays", { tags: "p0" }, () => {
         const prerelease = ["rc", "1"];
         const build = ["linux"];
         const version = new SemVer(1, 2, 3, prerelease, build);
@@ -90,7 +90,7 @@ describe("SemVer", () => {
         expect(Object.isFrozen(version.build)).toBe(true);
     });
 
-    test("[core.semver] round-trips deterministically through its strict codec", () => {
+    test("[core.semver] round-trips deterministically through its strict codec", { tags: "p0" }, () => {
         const version = new SemVer("2.7.1-rc.3+build.9");
         const first = SemVer.encode(version);
 

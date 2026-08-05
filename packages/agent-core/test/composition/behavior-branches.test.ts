@@ -73,7 +73,7 @@ import {
 import { preparedReferenceCodecs } from "../invocations/fixture";
 
 describe("W9 composition behavior branches", () => {
-    test("rejects every substituted routed identity and replays only byte-stable intent", () => {
+    test("rejects every substituted routed identity and replays only byte-stable intent", { tags: "p0" }, () => {
         const reservation = reservationFixture("composed-admission");
         const projection = projectionFixture(reservation);
         const bridgeAudit = new AuditRecordId("bridge-audit");
@@ -196,7 +196,7 @@ describe("W9 composition behavior branches", () => {
         }
     );
 
-    test("builds the target-local audit chain and fails closed when reservation evidence is absent", () => {
+    test("builds the target-local audit chain and fails closed when reservation evidence is absent", { tags: "p0" }, () => {
         const event = eventFixture("composed-audit");
         const reservation = reservationFixture("composed-audit");
         const projection = authenticatedProjectionFixture(reservation);
@@ -265,7 +265,7 @@ describe("W9 composition behavior branches", () => {
         });
     });
 
-    test("maps Run inbox conflicts, duplicates, lease rejection, and lifecycle rejection", () => {
+    test("maps Run inbox conflicts, duplicates, lease rejection, and lifecycle rejection", { tags: "p1" }, () => {
         const turn = new TurnId("composed-inbox-turn");
         const reference = inboxFixture("composed-inbox", 2, 4, turn);
         const token = {
@@ -357,7 +357,7 @@ describe("W9 composition behavior branches", () => {
         expect(() => port.append({}, reference, token)).toThrow("unexpected");
     });
 
-    test("owns loaded package handles, rejects double activation, and preserves cleanup failures", async () => {
+    test("owns loaded package handles, rejects double activation, and preserves cleanup failures", { tags: "p1" }, async () => {
         const manifest = emptyManifest("composition.runtime");
         const stops: string[] = [];
         const loaded = loadedBlueprint(
@@ -430,7 +430,7 @@ describe("W9 composition behavior branches", () => {
         await expect(failedModuleCleanup.dispose()).resolves.toBeUndefined();
     });
 
-    test("treats slot installation and contribution as byte-stable append-only provenance", () => {
+    test("treats slot installation and contribution as byte-stable append-only provenance", { tags: "p0" }, () => {
         const state = {
             revision: Revision.initial(),
             slots: new Map<string, SlotDeclaration>(),
@@ -543,7 +543,7 @@ describe("W9 composition behavior branches", () => {
         expect(backend.slot(state, declaration.name)).toBe(declaration);
     });
 
-    test("delegates canonical run evidence without reconstructing cross-domain identities", () => {
+    test("delegates canonical run evidence without reconstructing cross-domain identities", { tags: "p1" }, () => {
         const calls: string[] = [];
         const receipt = new CanonicalRunEvidencePort({
             receipt: () => (calls.push("receipt"), undefined),

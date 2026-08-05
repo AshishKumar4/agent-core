@@ -41,7 +41,7 @@ const lease: LeaseToken = Object.freeze({
 });
 
 describe("EnvironmentController", () => {
-    test("codes invalid operation inputs", async () => {
+    test("codes invalid operation inputs", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-invalid-input", "0"));
         const store = new MemoryEnvironmentStore();
         const controller = new EnvironmentController(
@@ -88,7 +88,7 @@ describe("EnvironmentController", () => {
         );
     });
 
-    test("[C13-ENVIRONMENT-ROTATION] rotates future sessions without retargeting an open session", async () => {
+    test("[C13-ENVIRONMENT-ROTATION] rotates future sessions without retargeting an open session", { tags: "p1" }, async () => {
         const first = new TestProvider(descriptor("provider-first", "a"));
         const second = new TestProvider(descriptor("provider-second", "b"));
         const fixture = setup([first, second]);
@@ -123,7 +123,7 @@ describe("EnvironmentController", () => {
         expect(fixture.controller.session(oldSession.capability).generation).toBe(0);
     });
 
-    test("[C13-ENVIRONMENT-DISPOSE-CLOSE] fences close before child disposal and rejects stale capabilities", async () => {
+    test("[C13-ENVIRONMENT-DISPOSE-CLOSE] fences close before child disposal and rejects stale capabilities", { tags: "p0" }, async () => {
         const events: string[] = [];
         const provider = new TestProvider(descriptor("provider-close", "c"));
         const fixture = setup([provider]);
@@ -183,7 +183,7 @@ describe("EnvironmentController", () => {
         expect(durableText).not.toContain(lease.holder.principalId.value);
     });
 
-    test("keeps the exact Turn lease as an injected verifier seam", () => {
+    test("keeps the exact Turn lease as an injected verifier seam", { tags: "p0" }, () => {
         const provider = new TestProvider(descriptor("provider-lease", "d"));
         const seen: LeaseToken[] = [];
         const verifier: TurnLeaseVerifier = {
@@ -246,7 +246,7 @@ describe("EnvironmentController", () => {
         }
     );
 
-    test("coalesces concurrent open calls into one provider operation", async () => {
+    test("coalesces concurrent open calls into one provider operation", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-coalesced-open", "7"));
         const deferred = new Deferred<ResourceOutcome<LiveEnvironmentSession>>();
         provider.deferredOpen = deferred;
@@ -271,7 +271,7 @@ describe("EnvironmentController", () => {
         expect(provider.closeRequests).toHaveLength(0);
     });
 
-    test("does not clean up a winning provider session when a stale ready result arrives", async () => {
+    test("does not clean up a winning provider session when a stale ready result arrives", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-stale-ready", "6"));
         const winnerDeferred = new Deferred<ResourceOutcome<LiveEnvironmentSession>>();
         const staleDeferred = new Deferred<ResourceOutcome<LiveEnvironmentSession>>();
@@ -336,7 +336,7 @@ describe("EnvironmentController", () => {
         expect(staleReleases).toBe(1);
     });
 
-    test("[P11-ENVIRONMENT-CLOSE] reconciles an indeterminate close after controller restart", async () => {
+    test("[P11-ENVIRONMENT-CLOSE] reconciles an indeterminate close after controller restart", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-close-restart", "8"));
         provider.closeResults.push(
             ProviderActionOutcome.indeterminate,
@@ -364,7 +364,7 @@ describe("EnvironmentController", () => {
         expect(provider.closeRequests).toHaveLength(2);
     });
 
-    test("keeps close fenced until every exposure revocation reconciles", async () => {
+    test("keeps close fenced until every exposure revocation reconciles", { tags: "p0" }, async () => {
         const provider = new TestProvider(descriptor("provider-close-exposure", "5"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -400,7 +400,7 @@ describe("EnvironmentController", () => {
         expect(provider.closeRequests).toHaveLength(1);
     });
 
-    test("[P11-ENVIRONMENT-DISPOSE] cleans up an open callback that arrives after close", async () => {
+    test("[P11-ENVIRONMENT-DISPOSE] cleans up an open callback that arrives after close", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-late-open", "f"));
         const deferred = new Deferred<ResourceOutcome<LiveEnvironmentSession>>();
         provider.deferredOpen = deferred;
@@ -438,7 +438,7 @@ describe("EnvironmentController", () => {
         expect(provider.sessions.has(reserved.id.value)).toBe(false);
     });
 
-    test("reconciles snapshots and exposures and restores from exact content", async () => {
+    test("reconciles snapshots and exposures and restores from exact content", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-resources", "1"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -494,7 +494,7 @@ describe("EnvironmentController", () => {
         expect(provider.revokeRequests.every((request) => request.sessionEpoch === 0)).toBe(true);
     });
 
-    test("revokes a late exposure callback instead of resurrecting it", async () => {
+    test("revokes a late exposure callback instead of resurrecting it", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-late-exposure", "2"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -525,7 +525,7 @@ describe("EnvironmentController", () => {
         expect(provider.exposures.has(exposureId.value)).toBe(false);
     });
 
-    test("keeps provider failures recoverable without inventing successful resources", async () => {
+    test("keeps provider failures recoverable without inventing successful resources", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-failures", "3"));
         const fixture = setup([provider]);
         const failedOpen = fixture.controller.reserveSession(
@@ -593,7 +593,7 @@ describe("EnvironmentController", () => {
         );
     });
 
-    test("rejects malformed resource outcomes from every provider resource operation", async () => {
+    test("rejects malformed resource outcomes from every provider resource operation", { tags: "p2" }, async () => {
         const provider = new TestProvider(descriptor("provider-malformed-resources", "e"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -669,7 +669,7 @@ describe("EnvironmentController", () => {
         );
     });
 
-    test("rejects non-object outcomes and malformed ready session handles", async () => {
+    test("rejects non-object outcomes and malformed ready session handles", { tags: "p2" }, async () => {
         const provider = new TestProvider(descriptor("provider-malformed-handles", "7"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -698,7 +698,7 @@ describe("EnvironmentController", () => {
         }
     });
 
-    test("rejects malformed provider action outcomes from exposure revoke and session close", async () => {
+    test("rejects malformed provider action outcomes from exposure revoke and session close", { tags: "p2" }, async () => {
         const provider = new TestProvider(descriptor("provider-malformed-actions", "f"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -748,7 +748,7 @@ describe("EnvironmentController", () => {
         ).rejects.toEqual(invalidOutput);
     });
 
-    test("rejects absent pinned providers before any provider operation", async () => {
+    test("rejects absent pinned providers before any provider operation", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-unregistered", "4"));
         const fixture = setup([provider]);
         const controller = new EnvironmentController(
@@ -772,7 +772,7 @@ describe("EnvironmentController", () => {
         expect(provider.openRequests).toHaveLength(0);
     });
 
-    test("never normalizes missing providers during resource and cleanup operations", async () => {
+    test("never normalizes missing providers during resource and cleanup operations", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-missing-operations", "d"));
         const fixture = setup([provider]);
         const first = fixture.controller.reserveSession(
@@ -819,7 +819,7 @@ describe("EnvironmentController", () => {
         expect(fixture.store.getSession(second.id)?.state.name).toBe("closing");
     });
 
-    test("replays identical reservations and rejects IDs reused across generations", async () => {
+    test("replays identical reservations and rejects IDs reused across generations", { tags: "p0" }, async () => {
         const first = new TestProvider(descriptor("provider-replay-first", "a"));
         const second = new TestProvider(descriptor("provider-replay-second", "b"));
         const fixture = setup([first, second]);
@@ -889,7 +889,7 @@ describe("EnvironmentController", () => {
         );
     });
 
-    test("requires an exact ProviderDescriptor for provision replay", () => {
+    test("requires an exact ProviderDescriptor for provision replay", { tags: "p0" }, () => {
         const first = descriptor("provider-exact-replay", "1");
         const changes = [
             descriptor("provider-other-id", "1"),
@@ -914,7 +914,7 @@ describe("EnvironmentController", () => {
         }
     });
 
-    test("retries provider-absent resources and replays terminal operations", async () => {
+    test("retries provider-absent resources and replays terminal operations", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-absent-retry", "a"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -970,7 +970,7 @@ describe("EnvironmentController", () => {
         );
     });
 
-    test("codes missing resources and cross-session revocation", async () => {
+    test("codes missing resources and cross-session revocation", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-missing-resources", "b"));
         const fixture = setup([provider]);
         const missingEnvironment = new EnvironmentId("environment-missing");
@@ -1017,7 +1017,7 @@ describe("EnvironmentController", () => {
         ).rejects.toMatchObject({ code: "environment.stale-session" });
     });
 
-    test("[P11-ENVIRONMENT-USE] rehydrates open provider handles after restart without reopening", async () => {
+    test("[P11-ENVIRONMENT-USE] rehydrates open provider handles after restart without reopening", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-rehydrate-open", "c"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -1059,7 +1059,7 @@ describe("EnvironmentController", () => {
         expect(provider.openRequests).toHaveLength(1);
     });
 
-    test("[C13-ENVIRONMENT-STALE-SESSION] detects provider loss despite a cached handle and releases it fail-closed", async () => {
+    test("[C13-ENVIRONMENT-STALE-SESSION] detects provider loss despite a cached handle and releases it fail-closed", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-cached-loss", "0"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -1097,7 +1097,7 @@ describe("EnvironmentController", () => {
         expect(fixture.store.getSession(opened.id)?.state.name).toBe("lost");
     });
 
-    test("[P11-ENVIRONMENT-STALE] settles provider callbacks against the latest close fence", async () => {
+    test("[P11-ENVIRONMENT-STALE] settles provider callbacks against the latest close fence", { tags: "p0" }, async () => {
         const provider = new TestProvider(descriptor("provider-close-races", "1"));
         const fixture = setup([provider]);
         const closingReservation = fixture.controller.reserveSession(
@@ -1131,7 +1131,7 @@ describe("EnvironmentController", () => {
         expect((await failingOpen).state.name).toBe("closed");
     });
 
-    test("revokes a late ready exposure and disposes a replaced live provider handle", async () => {
+    test("revokes a late ready exposure and disposes a replaced live provider handle", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-late-cleanup", "2"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -1174,7 +1174,7 @@ describe("EnvironmentController", () => {
         ).toBe("revoked");
     });
 
-    test("[P11-ENVIRONMENT-ROTATION] surfaces rotation and resource CAS loss without reporting provider success", async () => {
+    test("[P11-ENVIRONMENT-ROTATION] surfaces rotation and resource CAS loss without reporting provider success", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-cas-loss", "3"));
         const store = new RejectingEnvironmentStore();
         const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -1226,7 +1226,7 @@ describe("EnvironmentController", () => {
         await expect(exposure).rejects.toMatchObject({ code: "protocol.revision-conflict" });
     });
 
-    test("fences a snapshot result that arrives after its source session begins closing", async () => {
+    test("fences a snapshot result that arrives after its source session begins closing", { tags: "p0" }, async () => {
         const provider = new TestProvider(descriptor("provider-snapshot-fence", "3"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(
@@ -1252,7 +1252,7 @@ describe("EnvironmentController", () => {
         expect((await snapshot).state.name).toBe("failed");
     });
 
-    test("pins restore reservations to one exact snapshot and fails closed on missing generations", async () => {
+    test("pins restore reservations to one exact snapshot and fails closed on missing generations", { tags: "p0" }, async () => {
         const provider = new TestProvider(descriptor("provider-restore-pins", "4"));
         const fixture = setup([provider]);
         const source = fixture.controller.reserveSession(
@@ -1298,7 +1298,7 @@ describe("EnvironmentController", () => {
         });
     });
 
-    test("keeps thrown provider close errors indeterminate and restart-reconcilable", async () => {
+    test("keeps thrown provider close errors indeterminate and restart-reconcilable", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-close-throw", "5"));
         const fixture = setup([provider]);
         const reserved = fixture.controller.reserveSession(

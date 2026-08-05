@@ -50,7 +50,7 @@ const verification = new GuestVerification(
 );
 
 describe("behavior-carrying identity states", () => {
-    test("keeps Principal disable terminal and immutable", () => {
+    test("keeps Principal disable terminal and immutable", { tags: "p0" }, () => {
         const active = new Principal(principalId, "user", "active");
         const disabled = active.disable();
         expect(active.canAct).toBe(true);
@@ -61,7 +61,7 @@ describe("behavior-carrying identity states", () => {
         expect(() => new Principal(principalId, "user", "bad" as never)).toThrow(TypeError);
     });
 
-    test("enforces Membership transitions with AgentCoreError", () => {
+    test("enforces Membership transitions with AgentCoreError", { tags: "p1" }, () => {
         const member = new Membership(
             new MembershipId("hard-member"),
             ScopeRef.tenant(tenantId),
@@ -99,7 +99,7 @@ describe("behavior-carrying identity states", () => {
         );
     });
 
-    test("admits only fresh host-minted guest proof and prevents restored proof reuse", () => {
+    test("admits only fresh host-minted guest proof and prevents restored proof reuse", { tags: "p0" }, () => {
         expect(
             () =>
                 new Membership(
@@ -154,7 +154,7 @@ describe("behavior-carrying identity states", () => {
         ).toThrow(TypeError);
     });
 
-    test("makes deleted Tenant state terminal", () => {
+    test("makes deleted Tenant state terminal", { tags: "p0" }, () => {
         const tenant = new Tenant(tenantId, "organization", "active", Revision.initial());
         const suspended = tenant.revise("suspended");
         const active = suspended.revise("active");
@@ -171,7 +171,7 @@ describe("behavior-carrying identity states", () => {
         );
     });
 
-    test("uses AgentCoreError for invalid Team and Project operations", () => {
+    test("uses AgentCoreError for invalid Team and Project operations", { tags: "p2" }, () => {
         const team = new Team(
             new TeamId("hard-team"),
             tenantId,
@@ -227,7 +227,7 @@ describe("guest trust and verification hard gates", () => {
         Digest.sha256(Uint8Array.of(2))
     );
 
-    test("carries state behavior and closed operational errors", () => {
+    test("carries state behavior and closed operational errors", { tags: "p1" }, () => {
         expectAgentError(
             () => trust.rotate({ kind: "callback", endpoint: "http://insecure.example/" }),
             "protocol.invalid-state"
@@ -306,7 +306,7 @@ describe("guest trust and verification hard gates", () => {
         expectAgentError(() => trust.rotate(exceptional), "protocol.invalid-state");
     });
 
-    test("separates verification shape errors from operational time errors", () => {
+    test("separates verification shape errors from operational time errors", { tags: "p2" }, () => {
         expect(
             () =>
                 new GuestVerification(
@@ -347,7 +347,7 @@ describe("guest trust and verification hard gates", () => {
         ).toBe(false);
     });
 
-    test("strictly rejects malformed guest codec variants", () => {
+    test("strictly rejects malformed guest codec variants", { tags: "p2" }, () => {
         expectCodecFailure(GuestTrust.codec, trust, (payload) => ({
             ...payload,
             handshakeDigest: 3
@@ -372,7 +372,7 @@ describe("guest trust and verification hard gates", () => {
 });
 
 describe("identity shape and codec hard gates", () => {
-    test("strictly validates Role capability declarations", () => {
+    test("strictly validates Role capability declarations", { tags: "p1" }, () => {
         expect(() => new RoleRule("bad" as never, capability())).toThrow(TypeError);
         expect(() => new RoleRule("allow", {} as never)).toThrow(TypeError);
         expect(() => new CapabilitySpec({ facetPattern: "bad [", impacts: ["observe"] })).toThrow(
@@ -436,7 +436,7 @@ describe("identity shape and codec hard gates", () => {
         }));
     });
 
-    test("validates immutable Workspace topology shape", () => {
+    test("validates immutable Workspace topology shape", { tags: "p1" }, () => {
         expect(
             () =>
                 new Workspace(
@@ -465,7 +465,7 @@ describe("identity shape and codec hard gates", () => {
         expect(Workspace.decode(Workspace.encode(workspace)).scope.kind).toBe("workspace");
     });
 
-    test("strictly restores every identity repository branch", () => {
+    test("strictly restores every identity repository branch", { tags: "p1" }, () => {
         const principal = new Principal(principalId, "user", "active");
         const record = {
             kind: "principal" as const,

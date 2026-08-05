@@ -44,7 +44,7 @@ export function workspacePersistenceContract<Transaction>(
     create: () => WorkspacePersistenceHarness<Transaction>
 ): void {
     describe(`${name} workspace persistence`, () => {
-        test("binds retained content to the exact durable record atomically", () => {
+        test("binds retained content to the exact durable record atomically", { tags: "p0" }, () => {
             const harness = create();
             try {
                 const event = eventFixture(`${name}-retention`);
@@ -88,7 +88,7 @@ export function workspacePersistenceContract<Transaction>(
             }
         });
 
-        test("rolls back partial unique reservations and preserves the original owner", () => {
+        test("rolls back partial unique reservations and preserves the original owner", { tags: "p0" }, () => {
             const harness = create();
             try {
                 const original = eventFixture(`${name}-unique-original`);
@@ -140,7 +140,7 @@ export function workspacePersistenceContract<Transaction>(
             }
         });
 
-        test("enforces subscription and View compare-and-set revisions", () => {
+        test("enforces subscription and View compare-and-set revisions", { tags: "p0" }, () => {
             const harness = create();
             try {
                 const initial = subscriptionFixture(`${name}-cas`);
@@ -206,7 +206,7 @@ export function workspacePersistenceContract<Transaction>(
             }
         });
 
-        test("makes route projection and delivery decisions terminal", () => {
+        test("makes route projection and delivery decisions terminal", { tags: "p0" }, () => {
             const harness = create();
             try {
                 const reservation = reservationFixture(`${name}-terminal`, { target: sourceActor });
@@ -286,7 +286,7 @@ export function workspacePersistenceContract<Transaction>(
             }
         });
 
-        test("restores Events, routes, Views, and deltas after restart", () => {
+        test("restores Events, routes, Views, and deltas after restart", { tags: "p1" }, () => {
             const harness = create();
             try {
                 const event = eventFixture(`${name}-restart`);

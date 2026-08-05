@@ -139,7 +139,7 @@ function permitStoreContract<Transaction>(
             }
         );
 
-        test("rolls issue and consume back with their owner transactions", async () => {
+        test("rolls issue and consume back with their owner transactions", { tags: "p0" }, async () => {
             const harness = create();
             const authority = new CurrentAuthority<Transaction>();
             const expected = expectation();
@@ -189,7 +189,7 @@ function permitStoreContract<Transaction>(
             );
         });
 
-        test("replays an exact issuance after response loss and restart", () => {
+        test("replays an exact issuance after response loss and restart", { tags: "p0" }, () => {
             const harness = create();
             const authority = new CurrentAuthority<Transaction>();
             const expected = expectation();
@@ -221,7 +221,7 @@ function permitStoreContract<Transaction>(
             expect(authority.lastClaim).toBeUndefined();
         });
 
-        test("concurrent deterministic issuance converges on one exact permit", async () => {
+        test("concurrent deterministic issuance converges on one exact permit", { tags: "p0" }, async () => {
             const harness = create();
             const authority = new CurrentAuthority<Transaction>();
             const expected = expectation();
@@ -248,7 +248,7 @@ function permitStoreContract<Transaction>(
             ).toBe(left.digest().value);
         });
 
-        test("denies conflicting nonce reuse and foreign owner transactions", () => {
+        test("denies conflicting nonce reuse and foreign owner transactions", { tags: "p0" }, () => {
             const harness = create();
             const authority = new CurrentAuthority<Transaction>();
             const expected = expectation();
@@ -355,7 +355,7 @@ describe("AuthorityPermit", () => {
         }
     );
 
-    test("[authority.permit] codec preserves every normative field and immutable dates", () => {
+    test("[authority.permit] codec preserves every normative field and immutable dates", { tags: "p0" }, () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "codec-nonce",
@@ -442,7 +442,7 @@ describe("AuthorityPermit", () => {
         );
     });
 
-    test("round-trips delegated system authority and an absent optional lease", () => {
+    test("round-trips delegated system authority and an absent optional lease", { tags: "p0" }, () => {
         const data = {
             ...expectation().toData(),
             authority: {
@@ -474,7 +474,7 @@ describe("AuthorityPermit", () => {
         expect(permit.authority.kind).toBe("delegated");
     });
 
-    test("rejects malformed permit identities and times before issuance", () => {
+    test("rejects malformed permit identities and times before issuance", { tags: "p0" }, () => {
         expect(() =>
             expectation({ issuer: new ActorRef("workspace", new ActorId("not-a-tenant")) })
         ).toThrow(/Tenant Actor/);
@@ -546,7 +546,7 @@ describe("AuthorityPermit", () => {
         ).toThrow(/valid non-negative Date/);
     });
 
-    test("rejects malformed codec variants fail closed", () => {
+    test("rejects malformed codec variants fail closed", { tags: "p0" }, () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "malformed-codec",
@@ -579,7 +579,7 @@ describe("AuthorityPermit", () => {
         }
     });
 
-    test("fails closed for substituted bindings and expiry without consuming", async () => {
+    test("fails closed for substituted bindings and expiry without consuming", { tags: "p0" }, async () => {
         const tenantStore = new MemoryAuthorityPermitStore(issuerActor);
         const targetStore = new MemoryAuthorityPermitStore(targetActor);
         const authority = new CurrentAuthority<unknown>();
@@ -635,7 +635,7 @@ describe("AuthorityPermit", () => {
         ).toBeUndefined();
     });
 
-    test("post-issuance Grant or epoch revocation cannot cancel the admitted permit", async () => {
+    test("post-issuance Grant or epoch revocation cannot cancel the admitted permit", { tags: "p0" }, async () => {
         const tenantStore = new MemoryAuthorityPermitStore(issuerActor);
         const targetStore = new MemoryAuthorityPermitStore(targetActor);
         const authority = new CurrentAuthority<unknown>();
@@ -674,7 +674,7 @@ describe("AuthorityPermit", () => {
         ).toBe(admitted.digest().value);
     });
 
-    test("rejects malformed memory recovery and wrong Actor ownership", async () => {
+    test("rejects malformed memory recovery and wrong Actor ownership", { tags: "p0" }, async () => {
         const issuerStore = new MemoryAuthorityPermitStore(issuerActor);
         const expected = expectation();
         const permit = issuerStore.transaction((transaction) =>
@@ -743,7 +743,7 @@ describe("AuthorityPermit", () => {
         ).toThrow(/another Actor owner/);
     });
 
-    test("SQLite recovery rejects a substituted owner and malformed permit bytes", () => {
+    test("SQLite recovery rejects a substituted owner and malformed permit bytes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteAuthorityPermitStore(database, issuerActor);
         const expected = expectation();
@@ -770,7 +770,7 @@ describe("AuthorityPermit", () => {
         expect(() => new SqliteAuthorityPermitStore(database, issuerActor)).toThrow();
     });
 
-    test("SQLite permit storage fails closed on read, write, and projection faults", async () => {
+    test("SQLite permit storage fails closed on read, write, and projection faults", { tags: "p0" }, async () => {
         const expected = expectation();
         const authenticationStore = new MemoryAuthorityPermitStore(issuerActor);
         const permit = authenticationStore.transaction((transaction) =>

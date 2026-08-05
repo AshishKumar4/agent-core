@@ -6,7 +6,7 @@ import { ProtectionDomain, TaskId } from "../../src/facets";
 import { EventId, SubscriptionId, WorkspaceId } from "../../src/workspaces";
 
 describe("retained context values", () => {
-    test("keeps context identifiers nominally distinct", () => {
+    test("keeps context identifiers nominally distinct", { tags: "p1" }, () => {
         const ids = [
             new AgentId("agent"),
             new AgentProfileId("profile"),
@@ -37,7 +37,7 @@ describe("retained context values", () => {
         ).toBe(true);
     });
 
-    test("enforces protection-domain invariants", () => {
+    test("enforces protection-domain invariants", { tags: "p0" }, () => {
         const backend = new ProtectionDomain("backend", "control", "may-hold-secrets");
 
         expect(backend.canHoldSecrets).toBe(true);

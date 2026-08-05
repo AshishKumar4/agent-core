@@ -120,7 +120,7 @@ type HarnessFactory = () => AuthorityCommandHarness;
 
 function authorityCommandContract(name: string, create: HarnessFactory): void {
     describe(`closed Tenant authority commands (${name})`, () => {
-        test("binds validation and check evidence to the authenticated source and decision time", async () => {
+        test("binds validation and check evidence to the authenticated source and decision time", { tags: "p0" }, async () => {
             const harness = create();
             const validation = harness.bindingRequest();
             const validationPayload = BindingValidationRequest.encode(validation);
@@ -156,7 +156,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             expect(checked.write.caller).toEqual(harness.caller);
         });
 
-        test("rejects source Actor and qualified Principal spoofing before authority evaluation", async () => {
+        test("rejects source Actor and qualified Principal spoofing before authority evaluation", { tags: "p0" }, async () => {
             const harness = create();
             const request = harness.checkRequest();
             const payload = AuthorityCheckRequest.encode(request);
@@ -194,7 +194,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             expect(harness.snapshot()).toMatchObject({ checks: 0, writes: 2, audits: 2 });
         });
 
-        test("replays duplicate check evidence without re-evaluating authority", async () => {
+        test("replays duplicate check evidence without re-evaluating authority", { tags: "p0" }, async () => {
             const harness = create();
             const request = harness.checkRequest();
             const payload = AuthorityCheckRequest.encode(request);
@@ -215,7 +215,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             expect(harness.snapshot().checks).toBe(1);
         });
 
-        test("admits exact current check and permit leases while rejecting stale epochs", async () => {
+        test("admits exact current check and permit leases while rejecting stale epochs", { tags: "p0" }, async () => {
             const harness = create();
             const commandLease = { turn: authorityTurn, holder: principal, epoch: 2 };
             const authorityLease = {
@@ -266,7 +266,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             expect(harness.snapshot()).toMatchObject({ checks: 1, permits: 1, writes: 3 });
         });
 
-        test("commits a typed stale-path denial instead of issuing stale authority", async () => {
+        test("commits a typed stale-path denial instead of issuing stale authority", { tags: "p0" }, async () => {
             const harness = create();
             const request = harness.checkRequest();
             harness.setEpoch(2);
@@ -283,7 +283,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             expect(harness.snapshot()).toMatchObject({ checks: 1, writes: 1, audits: 2 });
         });
 
-        test("[protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path", async () => {
+        test("[protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path", { tags: "p0" }, async () => {
             const harness = create();
             const request = harness.permitRequest();
             const payload = AuthorityPermitIssuanceRequest.encode(request);
@@ -317,7 +317,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             expect(staleHarness.snapshot()).toMatchObject({ permits: 0, writes: 1, audits: 1 });
         });
 
-        test("rolls permit issuance back when linked WriteRecord evidence rejects", async () => {
+        test("rolls permit issuance back when linked WriteRecord evidence rejects", { tags: "p0" }, async () => {
             const harness = create();
             const request = harness.permitRequest();
             const payload = AuthorityPermitIssuanceRequest.encode(request);
@@ -336,7 +336,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             expect(harness.snapshot()).toMatchObject({ writes: 1, permits: 1 });
         });
 
-        test("records malformed ingress without evaluating authority", async () => {
+        test("records malformed ingress without evaluating authority", { tags: "p1" }, async () => {
             const harness = create();
             await expect(
                 harness.dispatch(new Uint8Array([0xff]), new Uint8Array())
@@ -351,7 +351,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
 authorityCommandContract("memory", createMemoryHarness);
 authorityCommandContract("SQLite", createSqliteHarness);
 
-test("closed Tenant authority composition rejects a non-Tenant owning Actor", () => {
+test("closed Tenant authority composition rejects a non-Tenant owning Actor", { tags: "p0" }, () => {
     expect(() =>
         createClosedTenantAuthorityComposition({
             actor: sourceActor

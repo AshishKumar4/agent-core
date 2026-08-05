@@ -41,7 +41,7 @@ interface MemoryState {
 
 protocolPersistenceContract("memory", createMemoryHarness);
 
-test("[write-record] memory protocol records survive adapter and snapshot restoration", () => {
+test("[write-record] memory protocol records survive adapter and snapshot restoration", { tags: "p1" }, () => {
     const records = new MemoryProtocolRecords();
     const persistence = persistenceForRecords();
     const expected = protocolTestRecords("memory-restart");
@@ -66,7 +66,7 @@ test("[write-record] memory protocol records survive adapter and snapshot restor
     });
 });
 
-test("memory restart preserves actor source identity without aliasing principal callers", () => {
+test("memory restart preserves actor source identity without aliasing principal callers", { tags: "p1" }, () => {
     const actor = new ActorRef("workspace", new ActorId("memory-source-actor"));
     const actorCaller = { kind: "actor" as const, actor };
     const records = new MemoryProtocolRecords();
@@ -99,7 +99,7 @@ test("memory restart preserves actor source identity without aliasing principal 
     ).toBe(false);
 });
 
-test("memory snapshots rebuild non-authoritative identity projections from writes", () => {
+test("memory snapshots rebuild non-authoritative identity projections from writes", { tags: "p1" }, () => {
     const records = new MemoryProtocolRecords();
     const persistence = persistenceForRecords();
     const expected = protocolTestRecords("memory-identity-alias");
@@ -136,7 +136,7 @@ test("memory snapshots rebuild non-authoritative identity projections from write
 });
 
 test.each(["audit", "write"] as const)(
-    "memory snapshots reject duplicate %s identifiers",
+    "memory snapshots reject duplicate %s identifiers", { tags: "p0" },
     (kind) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -161,7 +161,7 @@ test.each(["audit", "write"] as const)(
 );
 
 test.each(["audit", "write"] as const)(
-    "memory records enforce append-only %s insertion directly",
+    "memory records enforce append-only %s insertion directly", { tags: "p0" },
     (kind) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -182,7 +182,7 @@ test.each(["audit", "write"] as const)(
     }
 );
 
-test("memory snapshots and reads do not expose mutable record bytes", () => {
+test("memory snapshots and reads do not expose mutable record bytes", { tags: "p0" }, () => {
     const records = new MemoryProtocolRecords();
     const persistence = persistenceForRecords();
     const expected = protocolTestRecords("memory-byte-copy");
@@ -197,7 +197,7 @@ test("memory snapshots and reads do not expose mutable record bytes", () => {
     );
 });
 
-test.each(["audit", "write"] as const)("memory reads reject non-byte %s storage", (kind) => {
+test.each(["audit", "write"] as const)("memory reads reject non-byte %s storage", { tags: "p0" }, (kind) => {
     const records = new MemoryProtocolRecords();
     const persistence = persistenceForRecords();
     const expected = protocolTestRecords(`memory-non-byte-${kind}`);
@@ -222,7 +222,7 @@ test.each(["audit", "write"] as const)("memory reads reject non-byte %s storage"
     );
 });
 
-test("memory fails closed when canonical snapshot writes reserve one identity", () => {
+test("memory fails closed when canonical snapshot writes reserve one identity", { tags: "p0" }, () => {
     const first = new MemoryProtocolRecords();
     const second = new MemoryProtocolRecords();
     const persistence = persistenceForRecords();
@@ -246,7 +246,7 @@ test("memory fails closed when canonical snapshot writes reserve one identity", 
     );
 });
 
-test("memory reads every hand-seeded codec-representable non-write audit projection", () => {
+test("memory reads every hand-seeded codec-representable non-write audit projection", { tags: "p1" }, () => {
     const audits = protocolUnsupportedAuditRecords("memory-unsupported");
     const records = new MemoryProtocolRecords({
         audits: audits.map((audit) => ({
@@ -271,7 +271,7 @@ test("memory reads every hand-seeded codec-representable non-write audit project
     );
 });
 
-test.each(["audit", "write"] as const)("memory reads reject corrupt %s codec bytes", (record) => {
+test.each(["audit", "write"] as const)("memory reads reject corrupt %s codec bytes", { tags: "p0" }, (record) => {
     const records = new MemoryProtocolRecords();
     const persistence = persistenceForRecords();
     const expected = protocolTestRecords(`memory-codec-${record}`);
@@ -306,7 +306,7 @@ test.each(["audit", "write"] as const)("memory reads reject corrupt %s codec byt
 });
 
 test.each(["evidenceIdentity", "evidenceKind", "writeId", "writeOutcome"] as const)(
-    "memory reads reject a corrupt write-audit %s projection",
+    "memory reads reject a corrupt write-audit %s projection", { tags: "p0" },
     (projection) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -344,7 +344,7 @@ test.each(["evidenceIdentity", "evidenceKind", "writeId", "writeOutcome"] as con
 );
 
 test.each(["missing", "actor", "tenant", "correlation"] as const)(
-    "memory write reads reject a %s Invocation cause",
+    "memory write reads reject a %s Invocation cause", { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -391,7 +391,7 @@ test.each(["missing", "actor", "tenant", "correlation"] as const)(
     }
 );
 
-test("memory rejects write and audit records whose reciprocal record is missing", () => {
+test("memory rejects write and audit records whose reciprocal record is missing", { tags: "p0" }, () => {
     const records = new MemoryProtocolRecords();
     const persistence = persistenceForRecords();
     const expected = protocolTestRecords("memory-missing-reciprocal");
@@ -414,7 +414,7 @@ test("memory rejects write and audit records whose reciprocal record is missing"
 });
 
 test.each(["wrong-kind", "cause-free"] as const)(
-    "memory rejects a %s write audit cause",
+    "memory rejects a %s write audit cause", { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -455,7 +455,7 @@ test.each(["wrong-kind", "cause-free"] as const)(
     }
 );
 
-test("[C13-PROTOCOL-REJECTION-ROOT] audit values reject nested Invocation roots before persistence", () => {
+test("[C13-PROTOCOL-REJECTION-ROOT] audit values reject nested Invocation roots before persistence", { tags: "p1" }, () => {
     expect(
         () =>
             new AuditRecord({
@@ -470,7 +470,7 @@ test("[C13-PROTOCOL-REJECTION-ROOT] audit values reject nested Invocation roots 
 });
 
 test.each(["identity", "actor", "reply", "unreserved-original"] as const)(
-    "memory rejects a duplicate with corrupt %s lineage",
+    "memory rejects a duplicate with corrupt %s lineage", { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -539,7 +539,7 @@ test.each(["identity", "actor", "reply", "unreserved-original"] as const)(
 );
 
 test.each(["audit", "write"] as const)(
-    "memory reads reject a corrupt %s projection",
+    "memory reads reject a corrupt %s projection", { tags: "p0" },
     (projection) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -562,7 +562,7 @@ test.each(["audit", "write"] as const)(
 );
 
 test.each(["missing-audit", "orphan-write-audit", "missing-cause", "duplicate-lineage"] as const)(
-    "memory startup repair rejects %s corruption",
+    "memory startup repair rejects %s corruption", { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();

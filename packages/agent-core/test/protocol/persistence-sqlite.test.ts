@@ -25,7 +25,7 @@ import { expectAgentCoreError } from "./error-assertion";
 
 protocolPersistenceContract("SQLite", createSqliteHarness);
 
-test("SQLite protocol persistence survives a file-backed database restart", () => {
+test("SQLite protocol persistence survives a file-backed database restart", { tags: "p1" }, () => {
     const directory = mkdtempSync(join(tmpdir(), "agent-core-protocol-"));
     const path = join(directory, "protocol.sqlite");
     const expected = protocolTestRecords("sqlite-file-restart");
@@ -61,7 +61,7 @@ test("SQLite protocol persistence survives a file-backed database restart", () =
     }
 });
 
-test("SQLite reads every hand-seeded codec-representable non-write audit projection", () => {
+test("SQLite reads every hand-seeded codec-representable non-write audit projection", { tags: "p1" }, () => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const audits = protocolUnsupportedAuditRecords("sqlite-unsupported");
@@ -92,7 +92,7 @@ test("SQLite reads every hand-seeded codec-representable non-write audit project
     );
 });
 
-test.each(["audit", "write"] as const)("SQLite reads reject corrupt %s codec bytes", (record) => {
+test.each(["audit", "write"] as const)("SQLite reads reject corrupt %s codec bytes", { tags: "p0" }, (record) => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const expected = protocolTestRecords(`sqlite-codec-${record}`);
@@ -111,7 +111,7 @@ test.each(["audit", "write"] as const)("SQLite reads reject corrupt %s codec byt
 });
 
 test.each(["evidenceKind", "writeId", "writeOutcome"] as const)(
-    "SQLite reads reject a corrupt write-audit %s projection",
+    "SQLite reads reject a corrupt write-audit %s projection", { tags: "p0" },
     (projection) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -146,7 +146,7 @@ test.each(["evidenceKind", "writeId", "writeOutcome"] as const)(
 );
 
 test.each(["missing", "actor", "tenant", "correlation"] as const)(
-    "SQLite write reads reject a %s Invocation cause",
+    "SQLite write reads reject a %s Invocation cause", { tags: "p0" },
     (corruption) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -190,7 +190,7 @@ test.each(["missing", "actor", "tenant", "correlation"] as const)(
 );
 
 test.each(["audit", "write"] as const)(
-    "SQLite reads reject a corrupt %s projection",
+    "SQLite reads reject a corrupt %s projection", { tags: "p0" },
     (projection) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -227,7 +227,7 @@ test.each(["audit", "write"] as const)(
     }
 );
 
-test("SQLite rejects an audit evidence identity that disagrees with codec bytes", () => {
+test("SQLite rejects an audit evidence identity that disagrees with codec bytes", { tags: "p0" }, () => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const expected = protocolTestRecords("sqlite-corrupt-evidence-identity");
@@ -241,7 +241,7 @@ test("SQLite rejects an audit evidence identity that disagrees with codec bytes"
     expectAgentCoreError(() => persistence.findAudit(database, expected.root.id), "codec.invalid");
 });
 
-test("SQLite repairs corrupt identity projections from canonical write bytes", () => {
+test("SQLite repairs corrupt identity projections from canonical write bytes", { tags: "p1" }, () => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const expected = protocolTestRecords("sqlite-repair-identity");
@@ -266,7 +266,7 @@ test("SQLite repairs corrupt identity projections from canonical write bytes", (
     });
 });
 
-test("SQLite repairs deleted identity projections and lost or corrupt indexes", () => {
+test("SQLite repairs deleted identity projections and lost or corrupt indexes", { tags: "p1" }, () => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const expected = protocolTestRecords("sqlite-rebuild-projection");
@@ -297,7 +297,7 @@ test("SQLite repairs deleted identity projections and lost or corrupt indexes", 
     ).toBe(true);
 });
 
-test("SQLite rebuilds missing and counterfeit command identity views canonically", () => {
+test("SQLite rebuilds missing and counterfeit command identity views canonically", { tags: "p1" }, () => {
     const counterfeitViews: readonly (string | undefined)[] = [
         undefined,
         `CREATE VIEW protocol_command_identities AS
@@ -367,7 +367,7 @@ test("SQLite rebuilds missing and counterfeit command identity views canonically
     }
 });
 
-test("SQLite clears swapped identity projections before rebuilding unique indexes", () => {
+test("SQLite clears swapped identity projections before rebuilding unique indexes", { tags: "p1" }, () => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const first = protocolTestRecords("sqlite-swap-first");
@@ -413,7 +413,7 @@ test("SQLite clears swapped identity projections before rebuilding unique indexe
 });
 
 test.each(["missing-audit", "orphan-write-audit", "missing-cause", "duplicate-lineage"] as const)(
-    "SQLite startup repair rejects %s corruption",
+    "SQLite startup repair rejects %s corruption", { tags: "p0" },
     (corruption) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -455,7 +455,7 @@ test.each(["missing-audit", "orphan-write-audit", "missing-cause", "duplicate-li
     }
 );
 
-test("SQLite fails closed when canonical writes conflict after index loss", () => {
+test("SQLite fails closed when canonical writes conflict after index loss", { tags: "p0" }, () => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const original = protocolTestRecords("sqlite-conflict-original");
@@ -487,7 +487,7 @@ test("SQLite fails closed when canonical writes conflict after index loss", () =
     );
 });
 
-test("SQLite validates STRICT protocol schema version without accepting legacy tables", () => {
+test("SQLite validates STRICT protocol schema version without accepting legacy tables", { tags: "p1" }, () => {
     const database = new TestSqlite();
     new SqliteProtocolPersistence(database);
     const strict = new Map(
@@ -505,7 +505,7 @@ test("SQLite validates STRICT protocol schema version without accepting legacy t
 });
 
 test.each(["wrong-type", "non-strict", "columns"] as const)(
-    "SQLite rejects %s protocol schema corruption",
+    "SQLite rejects %s protocol schema corruption", { tags: "p0" },
     (corruption) => {
         const database = new TestSqlite();
         new SqliteProtocolPersistence(database);
@@ -537,7 +537,7 @@ test.each(["wrong-type", "non-strict", "columns"] as const)(
     }
 );
 
-test("SQLite schema validation propagates an unexpected driver TypeError", () => {
+test("SQLite schema validation propagates an unexpected driver TypeError", { tags: "p2" }, () => {
     const database = new TestSqlite();
     new SqliteProtocolPersistence(database);
     const all = database.all.bind(database);
@@ -562,7 +562,7 @@ test("SQLite schema validation propagates an unexpected driver TypeError", () =>
 test.each([
     ["audit kind", "audit", "evidence_kind", "invalid-kind"],
     ["write outcome", "write", "outcome", "invalid-outcome"]
-] as const)("SQLite rejects an invalid stored %s", (_case, record, column, value) => {
+] as const)("SQLite rejects an invalid stored %s", { tags: "p0" }, (_case, record, column, value) => {
     const database = new TestSqlite();
     const persistence = new SqliteProtocolPersistence(database);
     const expected = protocolTestRecords(`sqlite-invalid-${record}`);
@@ -587,7 +587,7 @@ test.each([
     ["text", "id", 7],
     ["nullable text", "write_id", 7]
 ] as const)(
-    "SQLite rejects a projected %s column with the wrong runtime type",
+    "SQLite rejects a projected %s column with the wrong runtime type", { tags: "p0" },
     (_case, column, corruptValue) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -616,7 +616,7 @@ test.each([
 test.each([
     ["Error", new Error("index rebuild fault")],
     ["non-Error", "index rebuild fault"]
-] as const)("SQLite rolls back an %s identity-index rebuild fault", (_case, fault) => {
+] as const)("SQLite rolls back an %s identity-index rebuild fault", { tags: "p0" }, (_case, fault) => {
     const database = new TestSqlite();
     new SqliteProtocolPersistence(database);
     const run = database.run.bind(database);

@@ -54,7 +54,7 @@ describe.each([
         write: (operation: () => void): void => operation()
     }
 ])("authority store parity: $name [binding-store] [invalidation-watermark-store]", (harness) => {
-    test("persists only monotonic Binding generations", () => {
+    test("persists only monotonic Binding generations", { tags: "p0" }, () => {
         const store = harness.bindingStore();
         harness.write(() => store.save(binding));
         harness.write(() => store.save(binding));
@@ -96,7 +96,7 @@ describe.each([
         ).toThrow(/another Workspace/);
     });
 
-    test("joins watermarks pointwise without decreasing or duplicating Scopes", () => {
+    test("joins watermarks pointwise without decreasing or duplicating Scopes", { tags: "p0" }, () => {
         const store = harness.watermarkStore();
         harness.write(() => store.save(watermark));
         const key = watermarkKey(watermark);
@@ -118,7 +118,7 @@ describe.each([
 });
 
 describe("memory authority snapshot isolation", () => {
-    test("detaches Binding and watermark bytes and rejects projection disagreement", () => {
+    test("detaches Binding and watermark bytes and rejects projection disagreement", { tags: "p0" }, () => {
         expect(() => new MemoryBindingStore(ScopeRef.tenant(tenant))).toThrow(TypeError);
         expect(() =>
             new MemoryBindingStore(scope).save(
@@ -216,7 +216,7 @@ describe("memory authority snapshot isolation", () => {
 });
 
 describe("SQLite authority corruption closure", () => {
-    test("eagerly rejects malformed Binding and watermark rows on reopen", () => {
+    test("eagerly rejects malformed Binding and watermark rows on reopen", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const bindings = new SqliteBindingStore(database, scope);
         bindings.save(binding);
@@ -240,7 +240,7 @@ describe("SQLite authority corruption closure", () => {
 });
 
 describe("SQLite authority store restart", () => {
-    test("reopens Binding and watermark codec bytes from a file", () => {
+    test("reopens Binding and watermark codec bytes from a file", { tags: "p0" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "agent-core-w2-authority-"));
         const path = join(directory, "authority.sqlite");
         try {

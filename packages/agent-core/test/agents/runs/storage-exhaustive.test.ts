@@ -30,7 +30,7 @@ function rawRecord(overrides: Partial<StoredRunRecord> = {}): StoredRunRecord {
 }
 
 describe("MemoryRunStorage exhaustive behavior", () => {
-    it("rejects async and nested transactions with stable codes", () => {
+    it("rejects async and nested transactions with stable codes", { tags: "p1" }, () => {
         const storage = new MemoryRunStorage();
         expectCode(
             () => storage.transaction(() => Promise.resolve() as never),
@@ -42,7 +42,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("accepts equal immutable replay and rejects conflicting replay", () => {
+    it("accepts equal immutable replay and rejects conflicting replay", { tags: "p0" }, () => {
         const storage = new MemoryRunStorage();
         storage.transaction((tx) => {
             storage.insert(tx, rawRecord());
@@ -77,7 +77,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("rejects every malformed raw record and snapshot projection", () => {
+    it("rejects every malformed raw record and snapshot projection", { tags: "p2" }, () => {
         const storage = new MemoryRunStorage();
         for (const record of [
             rawRecord({ key: "" }),
@@ -123,7 +123,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("detects key and revision projection corruption through the repository", () => {
+    it("detects key and revision projection corruption through the repository", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const snapshot = value.storage.snapshot();
@@ -158,7 +158,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("[C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry", () => {
+    it("[C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         expect(
             value.repository.transaction((tx) =>
@@ -197,7 +197,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("enforces exact revision increments", () => {
+    it("enforces exact revision increments", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const run = value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run)!);
@@ -210,7 +210,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("rejects admission identity changes before compare-and-swap", () => {
+    it("rejects admission identity changes before compare-and-swap", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const current = value.repository.transaction((tx) =>
@@ -233,7 +233,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         ).toEqual(current);
     });
 
-    it("fails closed after restart when ancestry loses an intermediate commit", () => {
+    it("fails closed after restart when ancestry loses an intermediate commit", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const first = message("ancestry-first", ids.root, value.token);
         value.runtime.appendCommit(first, new Revision(0), new Date(1500));
@@ -255,7 +255,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("[C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted", () => {
+    it("[C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const snapshot = value.storage.snapshot();

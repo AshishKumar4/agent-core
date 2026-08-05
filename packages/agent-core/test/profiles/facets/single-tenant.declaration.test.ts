@@ -2,16 +2,16 @@ import { SINGLE_TENANT_EVENTS, SINGLE_TENANT_OPERATIONS } from "../../../src/fac
 import { describe, expect, test } from "vitest";
 
 describe("Single-tenant policy profile", () => {
-    test("[P11-SINGLE-TENANT-NO-OPERATIONS] exposes no Operation entry point", () => {
+    test("[P11-SINGLE-TENANT-NO-OPERATIONS] exposes no Operation entry point", { tags: "p1" }, () => {
         expect(SINGLE_TENANT_OPERATIONS).toEqual([]);
     });
 
-    test("[P11-SINGLE-TENANT-NO-EVENTS] exposes no Event or impact declaration", () => {
+    test("[P11-SINGLE-TENANT-NO-EVENTS] exposes no Event or impact declaration", { tags: "p1" }, () => {
         expect(SINGLE_TENANT_EVENTS).toEqual([]);
         expect(SINGLE_TENANT_OPERATIONS.map((operation) => operation.impact)).toEqual([]);
     });
 
-    test("[P11-SINGLE-TENANT-NO-MACHINERY] declares no Operations, Events, Facet runtime, or installation machinery", async () => {
+    test("[P11-SINGLE-TENANT-NO-MACHINERY] declares no Operations, Events, Facet runtime, or installation machinery", { tags: "p1" }, async () => {
         expect(SINGLE_TENANT_OPERATIONS).toEqual([]);
         expect(SINGLE_TENANT_EVENTS).toEqual([]);
         const module = await import("../../../src/facets");

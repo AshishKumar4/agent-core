@@ -40,7 +40,7 @@ const item: RunObligation = Object.freeze({
 });
 
 describe("durable Run admission registry", () => {
-    it("round-trips immutable canonical state and rejects malformed completion sets", () => {
+    it("round-trips immutable canonical state and rejects malformed completion sets", { tags: "p1" }, () => {
         const reserved = RunAdmissionRegistry.initial(ids.run).reserve(item);
         const completed = reserved.registry.complete(reserved.reservation);
         const decoded = RunAdmissionRegistryCodec.decode(
@@ -72,7 +72,7 @@ describe("durable Run admission registry", () => {
         ).toThrow(/unique canonical/);
     });
 
-    it("[C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions", () => {
+    it("[C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions", { tags: "p0" }, () => {
         const first = RunAdmissionRegistry.initial(ids.run).reserve(item);
         const duplicate = first.registry.reserve({ ...item });
         expect(duplicate.registry).toBe(first.registry);
@@ -112,7 +112,7 @@ describe("durable Run admission registry", () => {
         ).toThrow(/exact reserved/);
     });
 
-    it("[C13-ADV-POST-FENCE-SYSTEM-EVIDENCE] captures exactly reserved minus completed and rejects every post-close race", () => {
+    it("[C13-ADV-POST-FENCE-SYSTEM-EVIDENCE] captures exactly reserved minus completed and rejects every post-close race", { tags: "p0" }, () => {
         let registry = RunAdmissionRegistry.initial(ids.run);
         const completed = registry.reserve({ kind: "approval", approval });
         registry = completed.registry.complete(completed.reservation);
@@ -153,7 +153,7 @@ describe("durable Run admission registry", () => {
         ).toThrow(/exact reserved/);
     });
 
-    it("[C13-ADV-UNEQUAL-PIN-MERGE] persists reservations and completion across a memory restart", () => {
+    it("[C13-ADV-UNEQUAL-PIN-MERGE] persists reservations and completion across a memory restart", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const done = value.runtime.reserveRunObligation(ids.run, {
@@ -172,7 +172,7 @@ describe("durable Run admission registry", () => {
         expect(restarted.runtime.acceptsRunAdmission(pending)).toBe(true);
     });
 
-    it("fails closed when durable admission is omitted and when its epoch is exhausted", () => {
+    it("fails closed when durable admission is omitted and when its epoch is exhausted", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const snapshot = value.storage.snapshot();
@@ -201,7 +201,7 @@ describe("durable Run admission registry", () => {
         expect(() => exhausted.close()).toThrow(/epoch is exhausted/);
     });
 
-    it("rejects malformed registry and reservation identities before admission", () => {
+    it("rejects malformed registry and reservation identities before admission", { tags: "p2" }, () => {
         expect(
             () =>
                 new RunAdmissionRegistry({
@@ -290,7 +290,7 @@ describe("durable Run admission registry", () => {
 });
 
 describe("transactional terminal frontier", () => {
-    it("[C13-RUN-SETTLED-DERIVED] captures a nonempty exact frontier and derives all settlement categories", () => {
+    it("[C13-RUN-SETTLED-DERIVED] captures a nonempty exact frontier and derives all settlement categories", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const obligations: readonly RunObligation[] = [
             { kind: "approval", approval },
@@ -337,7 +337,7 @@ describe("transactional terminal frontier", () => {
         expect(value.runtime.settled(ids.run)).toBe(true);
     });
 
-    it("[C13-RUN-FRONTIER-EMPTY] records an honestly empty frontier", () => {
+    it("[C13-RUN-FRONTIER-EMPTY] records an honestly empty frontier", { tags: "p1" }, () => {
         const value = seedRunningTurn();
         const snapshot = value.runtime.terminalizeRun(terminalRequest(value, "empty-terminal"));
         expect(snapshot.obligation.obligations).toEqual([]);
@@ -345,7 +345,7 @@ describe("transactional terminal frontier", () => {
         expect(value.runtime.settled(ids.run)).toBe(true);
     });
 
-    it("[C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure", () => {
+    it("[C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const reservation = value.runtime.reserveRunObligation(ids.run, item);
         const invalid = terminalRequest(value, "invalid-terminal");
@@ -366,7 +366,7 @@ describe("transactional terminal frontier", () => {
         expect(value.runtime.acceptsRunAdmission(reservation)).toBe(true);
     });
 
-    it("[C13-ADV-POST-TERMINAL-PREPARATION] requires every canonical settlement identity without accepting broad Invocation evidence", () => {
+    it("[C13-ADV-POST-TERMINAL-PREPARATION] requires every canonical settlement identity without accepting broad Invocation evidence", { tags: "p0" }, () => {
         const obligation = new SettlementObligation({
             registryEpoch: 1,
             obligations: [item]
@@ -381,7 +381,7 @@ describe("transactional terminal frontier", () => {
         expect(isSettled({}, obligation, value.settlement)).toBe(true);
     });
 
-    it("[C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each derived audit independently", () => {
+    it("[C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each derived audit independently", { tags: "p0" }, () => {
         const obligations: readonly RunObligation[] = [
             { kind: "approval", approval },
             item,
@@ -426,7 +426,7 @@ describe("transactional terminal frontier", () => {
         expect(isSettled({}, obligation, value.settlement)).toBe(true);
     });
 
-    it("[C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities", () => {
+    it("[C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities", { tags: "p2" }, () => {
         expect(
             () =>
                 new SettlementObligation({

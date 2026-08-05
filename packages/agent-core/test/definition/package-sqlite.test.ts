@@ -25,7 +25,7 @@ import {
 packageStoreContract("SQLite", () => new SqlitePackageStore(new TestSqlite()));
 
 describe("SqlitePackageStore persistence", () => {
-    test("survives adapter recreation over the same database", () => {
+    test("survives adapter recreation over the same database", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const release = packageRelease("package", "1.0.0");
         const metadata = new MetadataSnapshot({ revision: new Revision(2), releases: [release] });
@@ -47,7 +47,7 @@ describe("SqlitePackageStore persistence", () => {
         );
     });
 
-    test("survives closing and reopening a file-backed database", () => {
+    test("survives closing and reopening a file-backed database", { tags: "p1" }, () => {
         const directory = mkdtempSync(join(tmpdir(), "agent-core-package-"));
         const path = join(directory, "packages.sqlite");
         const release = packageRelease("durable", "1.0.0+build");
@@ -74,7 +74,7 @@ describe("SqlitePackageStore persistence", () => {
         }
     });
 
-    test("uses strict tables and stores the authoritative codec bytes", () => {
+    test("uses strict tables and stores the authoritative codec bytes", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = new SqlitePackageStore(database);
         const release = packageRelease("package", "1.0.0");
@@ -110,7 +110,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["package_id", "version", "manifest_digest", "code_digest"] as const)(
-        "rejects a corrupt release %s projection",
+        "rejects a corrupt release %s projection", { tags: "p0" },
         (projection) => {
             const database = new TestSqlite();
             const store = new SqlitePackageStore(database);
@@ -130,7 +130,7 @@ describe("SqlitePackageStore persistence", () => {
         }
     );
 
-    test("rejects corrupt release codec bytes", () => {
+    test("rejects corrupt release codec bytes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqlitePackageStore(database);
         const release = packageRelease("package", "1.0.0");
@@ -143,7 +143,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["lock_digest", "snapshot_digest", "snapshot_revision"] as const)(
-        "rejects a corrupt lock %s projection",
+        "rejects a corrupt lock %s projection", { tags: "p0" },
         (projection) => {
             const database = new TestSqlite();
             const store = new SqlitePackageStore(database);
@@ -164,7 +164,7 @@ describe("SqlitePackageStore persistence", () => {
         }
     );
 
-    test("rejects corrupt lock codec bytes", () => {
+    test("rejects corrupt lock codec bytes", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqlitePackageStore(database);
         const digest = digestOf("snapshot");
@@ -178,7 +178,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["digest", "revision", "record"] as const)(
-        "rejects a corrupt metadata snapshot %s projection",
+        "rejects a corrupt metadata snapshot %s projection", { tags: "p0" },
         (projection) => {
             const database = new TestSqlite();
             const store = new SqlitePackageStore(database);
@@ -201,7 +201,7 @@ describe("SqlitePackageStore persistence", () => {
         }
     );
 
-    test("rejects malformed SQLite projection scalar types", () => {
+    test("rejects malformed SQLite projection scalar types", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqlitePackageStore(database);
         const release = packageRelease("package", "1.0.0");
@@ -219,7 +219,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["release", "snapshot", "lock"] as const)(
-        "fails closed when a %s insert produces no durable row",
+        "fails closed when a %s insert produces no durable row", { tags: "p0" },
         (kind) => {
             const database = new DropInsertSqlite();
             const store = new SqlitePackageStore(database);

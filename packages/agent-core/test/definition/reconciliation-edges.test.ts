@@ -27,7 +27,7 @@ const actor = new ActorRef("workspace", new ActorId("workspace"));
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 describe("reconciliation adversarial boundaries", () => {
-    test("rejects duplicate desired and duplicate owner snapshots", () => {
+    test("rejects duplicate desired and duplicate owner snapshots", { tags: "p1" }, () => {
         const desired = record(1, "policy:a", PolicySet.empty());
         const state = memoryState();
         const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
@@ -47,7 +47,7 @@ describe("reconciliation adversarial boundaries", () => {
         );
     });
 
-    test("rejects missing occupied foreign and removal drift", () => {
+    test("rejects missing occupied foreign and removal drift", { tags: "p0" }, () => {
         const previous = record(1, "policy:a", PolicySet.empty());
         const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
         const state = memoryState();
@@ -84,7 +84,7 @@ describe("reconciliation adversarial boundaries", () => {
         );
     });
 
-    test("rejects malformed pin evidence and owner adapters that lie about mutation", () => {
+    test("rejects malformed pin evidence and owner adapters that lie about mutation", { tags: "p0" }, () => {
         const previous = record(1, "policy:a", PolicySet.empty());
         const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
         const state = memoryState(snapshotOf(previous));
@@ -133,7 +133,7 @@ describe("reconciliation adversarial boundaries", () => {
         ).not.toThrow();
     });
 
-    test("derives removals from the previous closure even when list omits resources", () => {
+    test("derives removals from the previous closure even when list omits resources", { tags: "p1" }, () => {
         const previous = record(1, "policy:a", PolicySet.empty());
         const state = memoryState(snapshotOf(previous));
         const omitted = new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {

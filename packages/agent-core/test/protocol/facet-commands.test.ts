@@ -49,7 +49,7 @@ import { CounterAuthenticator, CounterContentStore, CounterIds } from "./counter
 const decisionAt = new Date("2026-07-12T12:00:00.000Z");
 
 describe("Facet Slot protocol commands", () => {
-    test("requires the exact Workspace Actor and authority backend", () => {
+    test("requires the exact Workspace Actor and authority backend", { tags: "p0" }, () => {
         const target = actor("workspace");
         const foreign = actor("foreign");
         const backend = new Backend();
@@ -80,7 +80,7 @@ describe("Facet Slot protocol commands", () => {
         ).toThrow(/Workspace/);
     });
 
-    test("installs and contributes under exact revision progression", () => {
+    test("installs and contributes under exact revision progression", { tags: "p1" }, () => {
         const target = actor("workspace");
         const backend = new Backend();
         const install = new FacetSlotInstallCommand(backend, target);
@@ -129,7 +129,7 @@ describe("Facet Slot protocol commands", () => {
         expect(backend.revision.value).toBe(2);
     });
 
-    test("[C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions", () => {
+    test("[C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions", { tags: "p0" }, () => {
         const target = actor("workspace");
         const backend = new Backend();
         const command = new FacetSlotContributeCommand(backend, target);
@@ -144,7 +144,7 @@ describe("Facet Slot protocol commands", () => {
         ).toThrow(/unknown fields/);
     });
 
-    test("[C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher", async () => {
+    test("[C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher", { tags: "p0" }, async () => {
         const admitted = closedSlotFixture("workspace:trusted", "workspace:trusted");
         const payload = FacetSlotCommandPayload.contribute({
             slot: new SlotName("dashboard.card"),
@@ -168,7 +168,7 @@ describe("Facet Slot protocol commands", () => {
         expect(denied.entries()).toEqual([]);
     });
 
-    test("atomically rejects payload, authority, and installation provenance substitution", () => {
+    test("atomically rejects payload, authority, and installation provenance substitution", { tags: "p0" }, () => {
         const target = actor("workspace");
         const declaration = slot();
         const state: SlotState = {
@@ -239,7 +239,7 @@ describe("Facet Slot protocol commands", () => {
         expect(state.revision.value).toBe(1);
     });
 
-    test("strictly decodes typed replies without accepting revision coercion", () => {
+    test("strictly decodes typed replies without accepting revision coercion", { tags: "p1" }, () => {
         const command = new FacetSlotInstallCommand(new Backend(), actor("workspace"));
         const codec = command.replyCodec!;
         expect(codec.decode(codec.encode({ revision: new Revision(3) })).revision.value).toBe(3);
@@ -258,7 +258,7 @@ describe("Facet Slot protocol commands", () => {
         ).toThrow(/unknown fields/);
     });
 
-    test("covers malformed protocol state, lifecycle denial, foreign callers, and install no-ops", () => {
+    test("covers malformed protocol state, lifecycle denial, foreign callers, and install no-ops", { tags: "p1" }, () => {
         const target = actor("workspace");
         const foreign = actor("foreign");
         const backend = new Backend();

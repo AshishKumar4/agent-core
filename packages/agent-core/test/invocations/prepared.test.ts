@@ -21,7 +21,7 @@ const codec = new PreparedInvocationCodec({
 });
 
 describe("PreparedInvocation canonical identity", () => {
-    test("round-trips canonical single and ordered batch records", () => {
+    test("round-trips canonical single and ordered batch records", { tags: "p1" }, () => {
         for (const record of [
             prepared("roundtrip-single", { b: 2, a: 1 }),
             prepared("roundtrip-batch", [{ index: 0 }, { index: 1 }])
@@ -33,7 +33,7 @@ describe("PreparedInvocation canonical identity", () => {
         }
     });
 
-    test("[C13-PREPARED-REPLAY-IDENTITY] distinguishes single, one-item batch, batch order, lease, authority, domain, seed, and pin", () => {
+    test("[C13-PREPARED-REPLAY-IDENTITY] distinguishes single, one-item batch, batch order, lease, authority, domain, seed, and pin", { tags: "p0" }, () => {
         const values = [
             prepared("shape-single", { value: 1 }),
             prepared("shape-batch", [{ value: 1 }]),
@@ -53,7 +53,7 @@ describe("PreparedInvocation canonical identity", () => {
         );
     });
 
-    test("[C13-ADV-EMPTY-BATCH] rejects an empty batch", () => {
+    test("[C13-ADV-EMPTY-BATCH] rejects an empty batch", { tags: "p1" }, () => {
         expect(() =>
             PreparedInvocation.create(
                 {
@@ -77,7 +77,7 @@ describe("PreparedInvocation canonical identity", () => {
         ).toThrow(/nonempty/);
     });
 
-    test("rejects caller-selected placement that violates canonical preference", () => {
+    test("rejects caller-selected placement that violates canonical preference", { tags: "p1" }, () => {
         expect(
             () =>
                 new InvocationPlacementPin({
@@ -153,7 +153,7 @@ describe("PreparedInvocation canonical identity", () => {
         );
     });
 
-    test("[C13-PREPARED-ITEM-KEYS] rejects supplied key or digest substitution during decode", () => {
+    test("[C13-PREPARED-ITEM-KEYS] rejects supplied key or digest substitution during decode", { tags: "p0" }, () => {
         const record = prepared("tamper", { secure: true });
         const envelope = asObject(decodeCanonicalJson(codec.encode(record)));
         const payload = asObject(envelope["payload"]!);
@@ -179,7 +179,7 @@ describe("PreparedInvocation canonical identity", () => {
         expect(() => codec.decode(encodeCanonicalJson(changedDigest))).toThrow(/identity/);
     });
 
-    test("[C13-ADV-CHANGED-ITEM-KEY] rejects a changed derived item key", () => {
+    test("[C13-ADV-CHANGED-ITEM-KEY] rejects a changed derived item key", { tags: "p0" }, () => {
         const record = prepared("changed-item-key", { secure: true });
         const envelope = asObject(decodeCanonicalJson(codec.encode(record)));
         const payload = asObject(envelope["payload"]!);
@@ -205,7 +205,7 @@ describe("PreparedInvocation canonical identity", () => {
         ).toThrow(/identity/);
     });
 
-    test("[C13-ADV-STRUCTURAL-INTENT-CHANGE] rejects changed prepared arguments under the original identity", () => {
+    test("[C13-ADV-STRUCTURAL-INTENT-CHANGE] rejects changed prepared arguments under the original identity", { tags: "p0" }, () => {
         const record = prepared("structural-intent-change", { nested: { approved: true } });
         const envelope = asObject(decodeCanonicalJson(codec.encode(record)));
         const payload = asObject(envelope["payload"]!);
@@ -231,7 +231,7 @@ describe("PreparedInvocation canonical identity", () => {
         ).toThrow(/identity/);
     });
 
-    test("[C13-PREPARED-PAYLOAD-SHAPE] validates routed evidence, indexes, actors, and payload variants", () => {
+    test("[C13-PREPARED-PAYLOAD-SHAPE] validates routed evidence, indexes, actors, and payload variants", { tags: "p1" }, () => {
         const init = {
             id: new InvocationId("routed"),
             operation: operationPin("routed"),

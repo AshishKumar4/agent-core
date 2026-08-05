@@ -50,7 +50,7 @@ import { describe, expect, test } from "vitest";
 import { denyingRuntime, recordingRuntime } from "./harness";
 
 describe("Environment protected control profile", () => {
-    test("[P11-ENVIRONMENT-SPECIFICATION] declares no Operations or Events and routes lifecycle, durability, preview, and credentials through control", async () => {
+    test("[P11-ENVIRONMENT-SPECIFICATION] declares no Operations or Events and routes lifecycle, durability, preview, and credentials through control", { tags: "p1" }, async () => {
         const backend = new TestEnvironmentBackend();
         const { runtime, admission } = recordingRuntime("environment");
         const environment = new EnvironmentFacet(runtime, backend);
@@ -100,7 +100,7 @@ describe("Environment protected control profile", () => {
         ]);
     });
 
-    test("[P11-ENVIRONMENT-FAIL-CLOSED] denial prevents session opening", async () => {
+    test("[P11-ENVIRONMENT-FAIL-CLOSED] denial prevents session opening", { tags: "p0" }, async () => {
         const backend = new TestEnvironmentBackend();
         const environment = new EnvironmentFacet(denyingRuntime("environment").runtime, backend);
         await expect(environment.open({ environment: "env" })).rejects.toMatchObject({
@@ -109,7 +109,7 @@ describe("Environment protected control profile", () => {
         expect(backend.calls).toEqual([]);
     });
 
-    test("[P11-ENVIRONMENT-CHILD-FACETS] validates canonical session bindings and freezes child capabilities", () => {
+    test("[P11-ENVIRONMENT-CHILD-FACETS] validates canonical session bindings and freezes child capabilities", { tags: "p1" }, () => {
         expect(() => new EnvironmentSessionBinding(" ", 0, [])).toThrow(TypeError);
         expect(() => new EnvironmentSessionBinding("", 0, [])).toThrow(
             "Environment session binding ID must be canonical"
@@ -131,7 +131,7 @@ describe("Environment protected control profile", () => {
         expect(Object.isFrozen(binding.children)).toBe(true);
     });
 
-    test("[P11-ENVIRONMENT-CHILD-CONTRACTS] adapts typed EnvironmentController lease, IDs, children, preview, and credentials", async () => {
+    test("[P11-ENVIRONMENT-CHILD-CONTRACTS] adapts typed EnvironmentController lease, IDs, children, preview, and credentials", { tags: "p1" }, async () => {
         const provider = new ReadyProvider();
         const controller = new EnvironmentController(
             new MemoryEnvironmentStore(),
@@ -201,7 +201,7 @@ describe("Environment protected control profile", () => {
         );
     });
 
-    test("round-trips optional restore and child wire data and rejects a preview without a URL", async () => {
+    test("round-trips optional restore and child wire data and rejects a preview without a URL", { tags: "p1" }, async () => {
         const open = ENVIRONMENT_CONTROL_CONTRACTS.open;
         expect(
             open.decodeInput(

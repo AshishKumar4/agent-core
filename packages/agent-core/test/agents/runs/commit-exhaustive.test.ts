@@ -121,7 +121,7 @@ function synthesize(id = "synthesize"): RunCommit {
 }
 
 describe("closed commit writer matrix", () => {
-    it("[C13-TURN-RUN-COMMIT-WRITER] accepts root and exact Turn writers and rejects forged writer pairs", () => {
+    it("[C13-TURN-RUN-COMMIT-WRITER] accepts root and exact Turn writers and rejects forged writer pairs", { tags: "p0" }, () => {
         const value = harness();
         const root = new RunCommit({
             id: ids.root,
@@ -161,7 +161,7 @@ describe("closed commit writer matrix", () => {
         );
     });
 
-    it("[C13-WRITER-MATRIX] rejects every Receipt evidence mismatch", () => {
+    it("[C13-WRITER-MATRIX] rejects every Receipt evidence mismatch", { tags: "p0" }, () => {
         const variants = [
             undefined,
             {
@@ -231,7 +231,7 @@ describe("closed commit writer matrix", () => {
         );
     });
 
-    it("[C13-WRITER-POST-FENCE-EVIDENCE] rejects every delivery and control evidence mismatch", () => {
+    it("[C13-WRITER-POST-FENCE-EVIDENCE] rejects every delivery and control evidence mismatch", { tags: "p0" }, () => {
         const value = harness();
         expectCode(
             () =>
@@ -323,7 +323,7 @@ describe("closed commit writer matrix", () => {
         value.repository.transaction((tx) => validateCommitWriter(tx, exact, value.evidence));
     });
 
-    it("[C13-ADV-UNAUTHORIZED-WRITER] rejects substitution between SystemCause and returned evidence IDs", () => {
+    it("[C13-ADV-UNAUTHORIZED-WRITER] rejects substitution between SystemCause and returned evidence IDs", { tags: "p0" }, () => {
         const value = harness();
         const returned = new ReceiptId("returned-receipt");
         const substituted = new RunCommit({
@@ -413,7 +413,7 @@ describe("closed commit writer matrix", () => {
         );
     });
 
-    it("[C13-WRITER-SYNTHESIS] requires exact synthesis Run, token, and content evidence", () => {
+    it("[C13-WRITER-SYNTHESIS] requires exact synthesis Run, token, and content evidence", { tags: "p0" }, () => {
         const variants = [
             undefined,
             {
@@ -472,7 +472,7 @@ describe("closed RunCommit shapes", () => {
         expect(() => new RunCommit(init)).toThrow(TypeError);
     };
 
-    it("[C13-RUN-BINARY-MERGE] rejects invalid root, merge, and unary arities", () => {
+    it("[C13-RUN-BINARY-MERGE] rejects invalid root, merge, and unary arities", { tags: "p0" }, () => {
         expectShapeError({
             id: new RunCommitId("bad-root"),
             run: ids.run,
@@ -504,7 +504,7 @@ describe("closed RunCommit shapes", () => {
         });
     });
 
-    it("[C13-TURN-INVOCATION-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits", () => {
+    it("[C13-TURN-INVOCATION-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits", { tags: "p0" }, () => {
         const cases: RunCommitInit[] = [
             {
                 id: new RunCommitId("bad-invocation"),
@@ -556,7 +556,7 @@ describe("closed RunCommit shapes", () => {
         cases.forEach(expectShapeError);
     });
 
-    it("rejects malformed serialized writer and resolution variants", () => {
+    it("rejects malformed serialized writer and resolution variants", { tags: "p2" }, () => {
         const mutate = (
             base: RunCommit,
             update: (data: Record<string, unknown>) => void,

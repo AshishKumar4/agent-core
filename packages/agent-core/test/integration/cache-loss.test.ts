@@ -6,7 +6,7 @@ import {
 } from "../../src/facets";
 import { expect, test } from "vitest";
 
-test("[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content", () => {
+test("[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content", { tags: "p1" }, () => {
     const reference = ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode("canonical")));
     const entry = new MemoryEntry("memory", reference, "scope.read", 1);
     const content: MemoryContentBackend = {

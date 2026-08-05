@@ -78,7 +78,7 @@ const contract = new ProfileOperationContract(
 );
 
 describe("W3 profile runtime", () => {
-    test("keeps profile host adapters private and uses canonical Operation execution", async () => {
+    test("keeps profile host adapters private and uses canonical Operation execution", { tags: "p1" }, async () => {
         expect("InternalProfileFacetRuntime" in facets).toBe(false);
         expect("ProtectedProfileRuntimePort" in facets).toBe(false);
         expect(voidProfileWireCodec.decode(null)).toBeUndefined();
@@ -103,7 +103,7 @@ describe("W3 profile runtime", () => {
         ).rejects.toMatchObject({ code: "operation.invalid-input", detailCode: "wire.input" });
     });
 
-    test("models direct contexts without attempts and rejects partial attempt identity", () => {
+    test("models direct contexts without attempts and rejects partial attempt identity", { tags: "p0" }, () => {
         const direct = ProfileEffectContext.fromOperation(operationContext(false));
         expect(direct.attempt).toBeUndefined();
         expect(direct.attemptOrdinal).toBeUndefined();
@@ -152,7 +152,7 @@ describe("W3 profile runtime", () => {
         }
     });
 
-    test("rejects mismatched profile contracts and non-exact host identifier classes", () => {
+    test("rejects mismatched profile contracts and non-exact host identifier classes", { tags: "p1" }, () => {
         expect(
             () =>
                 new ProfileOperationContract(
@@ -211,7 +211,7 @@ describe("W3 profile runtime", () => {
         );
     });
 
-    test("fails closed on protected result substitution and wire codec failures", async () => {
+    test("fails closed on protected result substitution and wire codec failures", { tags: "p0" }, async () => {
         const receiptContract = new ProfileOperationContract(
             "example",
             descriptor,
@@ -327,7 +327,7 @@ describe("W3 profile runtime", () => {
         });
     });
 
-    test("adapts descriptors to distinct runtime Operations and Surfaces", async () => {
+    test("adapts descriptors to distinct runtime Operations and Surfaces", { tags: "p1" }, async () => {
         const protectedPort = new RecordingProtectedPort(false);
         const runtimePort = profileRuntime(protectedPort);
         const operation = runtimePort.operation(contract, (input) => input.value);
@@ -357,7 +357,7 @@ describe("W3 profile runtime", () => {
         expect(runtime.active).toBe(false);
     });
 
-    test("composes standard profile manifests without exporting profile implementations", () => {
+    test("composes standard profile manifests without exporting profile implementations", { tags: "p1" }, () => {
         const manifest = createStandardProfileManifest(
             {
                 id: new FacetPackageId("profile.standard"),
@@ -377,7 +377,7 @@ describe("W3 profile runtime", () => {
         );
     });
 
-    test("coalesces lifecycle transitions, honors abort, and rejects duplicate runtime declarations", async () => {
+    test("coalesces lifecycle transitions, honors abort, and rejects duplicate runtime declarations", { tags: "p1" }, async () => {
         const runtimePort = profileRuntime(new RecordingProtectedPort(false));
         const operation = runtimePort.operation(contract, (input) => input.value);
         const manifest = operationOnlyManifest(descriptor);

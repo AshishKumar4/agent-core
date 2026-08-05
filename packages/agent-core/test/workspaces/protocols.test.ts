@@ -195,7 +195,7 @@ class TestEventIntentAuthenticator extends EventIntentAuthenticator {
 }
 
 describe("SourceEventProtocol", () => {
-    test("registers opaque prepared routing as typed W1 command evidence", async () => {
+    test("registers opaque prepared routing as typed W1 command evidence", { tags: "p1" }, async () => {
         const harness = createProtocolHarness();
         harness.transaction((state) =>
             harness.persistence.saveSubscription(
@@ -230,7 +230,7 @@ describe("SourceEventProtocol", () => {
         expect(execution.observation).toBe(execution.reply);
     });
 
-    test("prepares outside the transaction, commits source-owned reservations, and replays unknown ack", async () => {
+    test("prepares outside the transaction, commits source-owned reservations, and replays unknown ack", { tags: "p0" }, async () => {
         const harness = createProtocolHarness();
         const subscription = subscriptionFixture("source", {
             mapping: new PayloadMapping([new FieldMove("/argument", { from: "/value" })])
@@ -275,7 +275,7 @@ describe("SourceEventProtocol", () => {
         expect(retention.discarded).toEqual([`retention-${routes.prepared[0]?.reservation.value}`]);
     });
 
-    test("rejects wrong source ownership and a stale subscription snapshot", async () => {
+    test("rejects wrong source ownership and a stale subscription snapshot", { tags: "p0" }, async () => {
         const harness = createProtocolHarness();
         const subscription = subscriptionFixture("snapshot");
         harness.transaction((state) =>
@@ -314,7 +314,7 @@ describe("SourceEventProtocol", () => {
         expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
     });
 
-    test("rolls back faults before and inside commit without phantom reservations", async () => {
+    test("rolls back faults before and inside commit without phantom reservations", { tags: "p0" }, async () => {
         const harness = createProtocolHarness();
         const subscription = subscriptionFixture("fault");
         harness.transaction((state) =>
@@ -357,7 +357,7 @@ describe("SourceEventProtocol", () => {
         ]);
     });
 
-    test("rejects caller-assembled preparation and trust changed during async preparation", async () => {
+    test("rejects caller-assembled preparation and trust changed during async preparation", { tags: "p0" }, async () => {
         const harness = createProtocolHarness();
         const subscription = subscriptionFixture("prepared-brand");
         harness.transaction((state) =>
@@ -402,7 +402,7 @@ describe("SourceEventProtocol", () => {
         expect(harness.snapshot().records.listRecords("event")).toEqual([]);
     });
 
-    test("keeps payload-dedupe results stable across a second Event retry", async () => {
+    test("keeps payload-dedupe results stable across a second Event retry", { tags: "p0" }, async () => {
         const harness = createProtocolHarness();
         const subscription = subscriptionFixture("payload-reply", { dedupe: "payload" });
         harness.transaction((state) =>
@@ -451,7 +451,7 @@ describe("SourceEventProtocol", () => {
 });
 
 describe("authenticated target projection protocol", () => {
-    test("registers authenticated target admission as typed W1 command evidence", () => {
+    test("registers authenticated target admission as typed W1 command evidence", { tags: "p1" }, () => {
         const harness = createProtocolHarness();
         const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
         const admission = authenticatedAdmission("target-command");
@@ -472,7 +472,7 @@ describe("authenticated target projection protocol", () => {
         expect(execution.observation).toBe(execution.reply);
     });
 
-    test("rejects tampering, wrong targets, and public attempts to forge the bridge", () => {
+    test("rejects tampering, wrong targets, and public attempts to forge the bridge", { tags: "p0" }, () => {
         const authenticator = new TestProjectionAuthenticator();
         const reservation = reservationFixture("authentication");
         const projection = projectionFixture(reservation);
@@ -530,7 +530,7 @@ describe("authenticated target projection protocol", () => {
         expect(harness.snapshot().records.listRecords("routeProjection")).toHaveLength(0);
     });
 
-    test("admits projection and invocation once, then returns the terminal delivery on replay", () => {
+    test("admits projection and invocation once, then returns the terminal delivery on replay", { tags: "p0" }, () => {
         const harness = createProtocolHarness();
         const audit = new AuditPort();
         const protocol = targetProtocol(harness, audit, new SequenceIds());
@@ -557,7 +557,7 @@ describe("authenticated target projection protocol", () => {
         });
     });
 
-    test("records authority and invocation rejection as terminal without invoking past denial", () => {
+    test("records authority and invocation rejection as terminal without invoking past denial", { tags: "p0" }, () => {
         for (const rejection of ["authority", "invocation"] as const) {
             const harness = createProtocolHarness();
             const authority = new TargetAuthority(
@@ -592,7 +592,7 @@ describe("authenticated target projection protocol", () => {
         }
     });
 
-    test("rolls back a fault after projection append and succeeds on retry", () => {
+    test("rolls back a fault after projection append and succeeds on retry", { tags: "p0" }, () => {
         const harness = createProtocolHarness();
         const invocations = new InvocationAdmission({ kind: "accepted" });
         invocations.fail = true;
@@ -620,7 +620,7 @@ describe("authenticated target projection protocol", () => {
         );
     });
 
-    test("rejects a differently authenticated intent reusing a terminal reservation ID", () => {
+    test("rejects a differently authenticated intent reusing a terminal reservation ID", { tags: "p0" }, () => {
         const harness = createProtocolHarness();
         const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
         const original = authenticatedAdmission("target-conflict");
@@ -648,7 +648,7 @@ describe("authenticated target projection protocol", () => {
         expect(harness.snapshot().invocationCalls).toBe(1);
     });
 
-    test("rejects invocation admission that substitutes the stable Invocation ID", () => {
+    test("rejects invocation admission that substitutes the stable Invocation ID", { tags: "p0" }, () => {
         const harness = createProtocolHarness();
         const protocol = new TargetProjectionProtocol(
             targetActor,
@@ -675,7 +675,7 @@ describe("authenticated target projection protocol", () => {
 });
 
 describe("InboxProtocol", () => {
-    test("accepts only the exact live Turn lease and preserves sequence uniqueness", () => {
+    test("accepts only the exact live Turn lease and preserves sequence uniqueness", { tags: "p0" }, () => {
         const harness = createProtocolHarness();
         const now = new Date("2026-07-10T12:00:00.000Z");
         const holder = new PrincipalRef(tenant, new PrincipalId("lease-holder"));

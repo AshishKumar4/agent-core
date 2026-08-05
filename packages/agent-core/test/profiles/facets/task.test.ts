@@ -32,7 +32,7 @@ operationDeclarationEvidence("Task", TASK_OPERATIONS, {
 });
 
 describe("Task protected facade", () => {
-    test("[P11-TASK-COMPOSITION] routes three Operations through invoke and task actions only through emit", async () => {
+    test("[P11-TASK-COMPOSITION] routes three Operations through invoke and task actions only through emit", { tags: "p1" }, async () => {
         const { runtime, admission } = recordingRuntime("task");
         const task = new TaskFacet(runtime, new TaskBackend());
         await task.create({
@@ -96,7 +96,7 @@ describe("Task protected facade", () => {
         expect(backend.list()).toHaveLength(1);
     });
 
-    test("denial prevents task mutation and Event delivery", async () => {
+    test("denial prevents task mutation and Event delivery", { tags: "p0" }, async () => {
         const backend = new TaskBackend();
         const task = new TaskFacet(denyingRuntime("task").runtime, backend);
         await expect(
@@ -112,7 +112,7 @@ describe("Task protected facade", () => {
 });
 
 describe("Task declarations and backend", () => {
-    test("[P11-TASK-PRODUCT-LIFECYCLE] exercises a product-defined status lifecycle in its Task schema", () => {
+    test("[P11-TASK-PRODUCT-LIFECYCLE] exercises a product-defined status lifecycle in its Task schema", { tags: "p1" }, () => {
         const productTask = new JsonSchema({
             type: "object",
             properties: {
@@ -143,7 +143,7 @@ describe("Task declarations and backend", () => {
         );
     });
 
-    test("declares the board, Event, subscription, and manifest contributions", () => {
+    test("declares the board, Event, subscription, and manifest contributions", { tags: "p1" }, () => {
         expect(TASK_BOARD_SURFACE.id.value).toBe("task.board");
         expect(TASK_ACTION_EVENT.kind.value).toBe("task.actionSubmitted");
         expect(TASK_ACTION_SUBSCRIPTION.target.value).toBe("update");
@@ -154,7 +154,7 @@ describe("Task declarations and backend", () => {
         ]);
     });
 
-    test("[P11-TASK-CYCLE-REJECTION] rejects hierarchy cycles without changing the task", () => {
+    test("[P11-TASK-CYCLE-REJECTION] rejects hierarchy cycles without changing the task", { tags: "p1" }, () => {
         const backend = new TaskBackend();
         backend.create(new TaskEntry(taskId("parent"), undefined, undefined, {}));
         backend.create(new TaskEntry(taskId("child"), taskId("parent"), undefined, {}));
@@ -166,7 +166,7 @@ describe("Task declarations and backend", () => {
         ).toBeUndefined();
     });
 
-    test("[P11-TASK-HIERARCHY] validates task identity, parents, duplicates, and missing targets", () => {
+    test("[P11-TASK-HIERARCHY] validates task identity, parents, duplicates, and missing targets", { tags: "p1" }, () => {
         expect(() => new TaskEntry(new TaskId(" "), undefined, undefined, {})).toThrow(TypeError);
         expect(() => new TaskEntry(taskId("self"), taskId("self"), undefined, {})).toThrow(
             TypeError
@@ -312,7 +312,7 @@ describe("Task declarations and backend", () => {
         expect(() => new TaskId("")).toThrow("Task ID must contain between 1 and 256 characters");
     });
 
-    test("round-trips absent, concrete, and cleared optional task updates", () => {
+    test("round-trips absent, concrete, and cleared optional task updates", { tags: "p1" }, () => {
         const contract = TASK_OPERATION_CONTRACTS.update;
         expect(
             contract.decodeInput(contract.encodeInput({ id: taskId("task"), update: {} }))

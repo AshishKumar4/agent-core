@@ -37,7 +37,7 @@ function expectCode(operation: () => unknown, code: AgentCoreError["code"]): voi
 }
 
 describe("ForcedTurnCancellation record", () => {
-    it("[run.forced-turn-cancellation] round-trips every exact evidence identity and fence epoch", () => {
+    it("[run.forced-turn-cancellation] round-trips every exact evidence identity and fence epoch", { tags: "p1" }, () => {
         const record = cancellation();
         const decoded = ForcedTurnCancellationCodec.decode(
             ForcedTurnCancellationCodec.encode(record)
@@ -53,7 +53,7 @@ describe("ForcedTurnCancellation record", () => {
         expect(decoded.cancellationAudit.value).toBe("forced-cancellation-audit");
     });
 
-    it("rejects same-Turn, nonincrementing fences, unknown fields, and unknown codec majors", () => {
+    it("rejects same-Turn, nonincrementing fences, unknown fields, and unknown codec majors", { tags: "p1" }, () => {
         expect(
             () =>
                 new ForcedTurnCancellation({
@@ -112,7 +112,7 @@ describe("ForcedTurnCancellation record", () => {
         );
     });
 
-    it("[run.forced-turn-cancellation] persists immutably through memory snapshot restart and rejects identity conflict", () => {
+    it("[run.forced-turn-cancellation] persists immutably through memory snapshot restart and rejects identity conflict", { tags: "p0" }, () => {
         const storage = new MemoryRunStorage();
         const repository = new RunRepository(storage);
         const record = cancellation();

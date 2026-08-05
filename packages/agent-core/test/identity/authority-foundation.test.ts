@@ -8,7 +8,7 @@ import { GuestVerificationScheme, SubjectRef } from "../../src/identity/subject"
 import { Workspace } from "../../src/identity/workspace";
 
 describe("qualified identity and Tenant topology", () => {
-    test("[C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically", () => {
+    test("[C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically", { tags: "p0" }, () => {
         const first = new PrincipalRef(new TenantId("tenant:a"), new PrincipalId("principal:b:c"));
         const second = new PrincipalRef(new TenantId("tenant:a:b"), new PrincipalId("principal:c"));
 
@@ -16,7 +16,7 @@ describe("qualified identity and Tenant topology", () => {
         expect(PrincipalRef.decode(PrincipalRef.encode(first)).equals(first)).toBe(true);
     });
 
-    test("[identity.workspace] derives exact immutable Workspace ancestry from the Tenant record", () => {
+    test("[identity.workspace] derives exact immutable Workspace ancestry from the Tenant record", { tags: "p0" }, () => {
         const workspace = new Workspace(
             new WorkspaceId("workspace"),
             new TenantId("tenant"),
@@ -51,7 +51,7 @@ describe("guest trust and verification", () => {
         Digest.sha256(Uint8Array.of(1, 2, 3))
     );
 
-    test("[identity.guest-trust] persists only steady-state token or callback trust", () => {
+    test("[identity.guest-trust] persists only steady-state token or callback trust", { tags: "p0" }, () => {
         const decoded = GuestTrust.decode(GuestTrust.encode(trust));
 
         expect(decoded.verifier).toEqual(trust.verifier);
@@ -69,7 +69,7 @@ describe("guest trust and verification", () => {
         ).toThrow(/distinct/);
     });
 
-    test("[identity.guest-verification] binds verification to qualified identity, trust revision, scheme, and expiry", () => {
+    test("[identity.guest-verification] binds verification to qualified identity, trust revision, scheme, and expiry", { tags: "p0" }, () => {
         const principal = new PrincipalId("guest");
         const verification = new GuestVerification(
             new PrincipalRef(home, principal),
@@ -92,7 +92,7 @@ describe("guest trust and verification", () => {
         ).toBe(true);
     });
 
-    test("revocation is terminal and rotation advances revision", () => {
+    test("revocation is terminal and rotation advances revision", { tags: "p0" }, () => {
         const rotated = trust.rotate({ kind: "callback", endpoint: "https://home.example/verify" });
         const revoked = rotated.revoke();
 

@@ -36,7 +36,7 @@ function expectCode(operation: () => unknown, code: AgentCoreError["code"]): voi
 }
 
 describe("TurnStatus complete transition matrix", () => {
-    it("[C13-TURN-CHILD-RUN-WRITER] rejects every illegal queued, running, suspended, and terminal transition", () => {
+    it("[C13-TURN-CHILD-RUN-WRITER] rejects every illegal queued, running, suspended, and terminal transition", { tags: "p1" }, () => {
         expectCode(() => TurnStatus.queued.suspend(), "turn.invalid-state");
         expectCode(() => TurnStatus.queued.complete("failed"), "turn.invalid-state");
         expectCode(() => TurnStatus.running.claim(), "turn.invalid-state");
@@ -51,7 +51,7 @@ describe("TurnStatus complete transition matrix", () => {
         }
     });
 
-    it("returns every legal status singleton", () => {
+    it("returns every legal status singleton", { tags: "p1" }, () => {
         expect(TurnStatus.queued.claim().kind).toBe("running");
         expect(TurnStatus.running.suspend().kind).toBe("suspended");
         expect(TurnStatus.running.complete("succeeded").kind).toBe("succeeded");
@@ -63,7 +63,7 @@ describe("TurnStatus complete transition matrix", () => {
 });
 
 describe("Turn aggregate exhaustive behavior", () => {
-    it("rejects every invalid aggregate shape", () => {
+    it("rejects every invalid aggregate shape", { tags: "p2" }, () => {
         expect(() =>
             queued({
                 lease: TurnLease.unclaimed(new TurnId("other"))
@@ -100,7 +100,7 @@ describe("Turn aggregate exhaustive behavior", () => {
         ).toThrow(/result/);
     });
 
-    it("rejects lifecycle methods outside running and exact-token state", () => {
+    it("rejects lifecycle methods outside running and exact-token state", { tags: "p0" }, () => {
         const value = queued();
         const token = { turn: ids.turn, holder: ids.holder, epoch: 1 };
         expectCode(() => value.renew(token, new Date(1), new Date(10)), "turn.invalid-state");
@@ -123,7 +123,7 @@ describe("Turn aggregate exhaustive behavior", () => {
         expectCode(() => running.requireToken(token, new Date(10)), "lease.invalid");
     });
 
-    it("[C13-TURN-NO-RETRY] rejects retry linkage in the Turn record codec", () => {
+    it("[C13-TURN-NO-RETRY] rejects retry linkage in the Turn record codec", { tags: "p0" }, () => {
         const value = queued();
         expect("retryOf" in value).toBe(false);
         expect("retryOf" in (value.toData() as object)).toBe(false);
@@ -131,7 +131,7 @@ describe("Turn aggregate exhaustive behavior", () => {
         expect(() => Turn.fromData(data as never)).toThrow(/fields/);
     });
 
-    it("round-trips optional checkpoint, result, lease, and every status", () => {
+    it("round-trips optional checkpoint, result, lease, and every status", { tags: "p1" }, () => {
         const checkpoint = new RunCheckpointId("checkpoint");
         const result = content("b");
         for (const status of [
@@ -158,7 +158,7 @@ describe("Turn aggregate exhaustive behavior", () => {
         expect(() => Turn.fromData(data as never)).toThrow(/status/);
     });
 
-    it("round-trips advisory cache lineage without affecting transitions", () => {
+    it("round-trips advisory cache lineage without affecting transitions", { tags: "p1" }, () => {
         const value = queued({
             cacheLineage: {
                 turn: new TurnId("cache-parent"),
@@ -174,7 +174,7 @@ describe("Turn aggregate exhaustive behavior", () => {
 });
 
 describe("checkpoint and inbox codecs", () => {
-    it("round-trips tree and no-tree checkpoints and rejects cursor shape", () => {
+    it("round-trips tree and no-tree checkpoints and rejects cursor shape", { tags: "p1" }, () => {
         const withTree = new RunCheckpoint(
             new RunCheckpointId("with-tree"),
             ids.turn,
@@ -206,7 +206,7 @@ describe("checkpoint and inbox codecs", () => {
         ).toThrow(/cursor/);
     });
 
-    it("round-trips ordinary and cancellation inbox entries and rejects every malformed shape", () => {
+    it("round-trips ordinary and cancellation inbox entries and rejects every malformed shape", { tags: "p1" }, () => {
         const ordinary = new TurnInboxEntry(
             new TurnInboxEntryId("ordinary"),
             ids.turn,

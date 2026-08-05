@@ -17,7 +17,7 @@ import {
 } from "../../src/invocations";
 
 describe("invocation codec helpers", () => {
-    test("decodes optional, numeric, array, and structural values exactly", () => {
+    test("decodes optional, numeric, array, and structural values exactly", { tags: "p1" }, () => {
         const object = {
             absent: null,
             array: [1, "two"],
@@ -46,7 +46,7 @@ describe("invocation codec helpers", () => {
         ["array", () => requireArray({ value: "not-array" }, "value")],
         ["canonical text", () => requireCanonicalText(" padded ", "value")],
         ["valid Date", () => validDate(new Date(Number.NaN), "value")]
-    ])("rejects malformed %s values", (_name, operation) => {
+    ])("rejects malformed %s values", { tags: "p1" }, (_name, operation) => {
         expect(operation).toThrow(TypeError);
     });
 
@@ -94,7 +94,7 @@ describe("invocation codec helpers", () => {
         expect(() => immutableReference(ghost)).toThrow(/accessors/);
     });
 
-    test("deep-freezes structural references and rejects cycles", () => {
+    test("deep-freezes structural references and rejects cycles", { tags: "p1" }, () => {
         const value = { nested: { value: 1 } };
         expect(immutableReference(value)).toBe(value);
         expect(Object.isFrozen(value)).toBe(true);
