@@ -8,6 +8,7 @@ import {
     AuditRecordId,
     CorrelationId,
     InvocationId,
+    RouteReservationId,
     WriteRecordId,
     auditEvidenceIdentity
 } from "../../src/invocations";
@@ -591,6 +592,52 @@ test("stored audit write projections must match their codec bytes", { tags: "p1"
     const read = (): unknown => persistence.findAudit(phantom, expected.root.id);
     expectAgentCoreError(read, "codec.invalid");
     expect(read).toThrow("Stored audit key or projection does not match its codec bytes");
+});
+
+test("write appends against non-write audit evidence fail closed", { tags: "p0" }, () => {
+    const persistence = new StoragePersistence();
+    const records = new MemoryProtocolRecords();
+    const delivery = new AuditRecord({
+        id: new AuditRecordId("adapter-delivery-audit"),
+        actor: adapterActor,
+        tenant: adapterTenant,
+        correlation: new CorrelationId("adapter-delivery-correlation"),
+        kind: { kind: "delivery", reservation: new RouteReservationId("adapter-delivery") }
+    });
+    records.insertAudit(storedAudit(delivery));
+    const write = new WriteRecord({
+        id: new WriteRecordId("adapter-delivery-write"),
+        actor: adapterActor,
+        envelopeDigest: Digest.sha256(new TextEncoder().encode("adapter-delivery")),
+        caller: { kind: "actor", actor: adapterActor },
+        command: "adapter.command",
+        idempotencyKey: "adapter-delivery-key",
+        at: new Date("2026-07-07T12:00:00.000Z"),
+        outcome: "committed",
+        audit: delivery.id,
+        reply: new TextEncoder().encode("adapter-delivery-reply")
+    });
+
+    expectAgentCoreError(() => persistence.appendWrite(records, write), "protocol.invalid-state");
+    expect(persistence.findWriteById(records, write.id)).toBeUndefined();
+});
+
+test("stored write audits must retain their write id projection", { tags: "p1" }, () => {
+    const records = new MemoryProtocolRecords();
+    const persistence = new StoragePersistence();
+    const expected = protocolTestRecords("adapter-stripped-write-id");
+    appendProtocolTestRecords(persistence, records, expected);
+    const stripped = new (class extends FacadeStorage {
+        public override findAudit(id: string): StoredProtocolAudit | undefined {
+            const stored = super.findAudit(id);
+            if (stored === undefined || stored.evidenceKind !== "write") return stored;
+            const { writeId: _writeId, ...rest } = stored;
+            return rest;
+        }
+    })(records);
+
+    const read = (): unknown => persistence.findAudit(stripped, expected.audit.id);
+    expectAgentCoreError(read, "codec.invalid");
 });
 
 function causeFreeWriteRecords(

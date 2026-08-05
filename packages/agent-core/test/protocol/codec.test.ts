@@ -1045,6 +1045,32 @@ class CodecAuthenticator extends CommandAuthenticator<undefined> {
     }
 }
 
+test("rejects non-string command names and idempotency keys", { tags: "p2" }, () => {
+    expect(
+        () => new CommandEnvelope({ ...envelopeInit(), command: 42 as unknown as string })
+    ).toThrow(new TypeError("Command name must contain between 1 and 256 characters"));
+    expect(
+        () => new CommandEnvelope({ ...envelopeInit(), idempotencyKey: 42 as unknown as string })
+    ).toThrow(new TypeError("Command idempotency key must contain between 1 and 512 characters"));
+});
+
+test("rejects callers whose identity contradicts their declared kind", { tags: "p2" }, () => {
+    expect(
+        () =>
+            new CommandEnvelope({
+                ...envelopeInit(),
+                caller: { kind: "actor", actor: principalRef } as unknown as CommandCaller
+            })
+    ).toThrow(new TypeError("Command caller is invalid"));
+    expect(
+        () =>
+            new CommandEnvelope({
+                ...envelopeInit(),
+                caller: { kind: "principal", principal: actor } as unknown as CommandCaller
+            })
+    ).toThrow(new TypeError("Command caller is invalid"));
+});
+
 function envelopeInit(caller: CommandCaller = principalCaller) {
     return {
         command: "codec.command",

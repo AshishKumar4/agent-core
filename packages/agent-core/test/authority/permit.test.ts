@@ -546,6 +546,23 @@ describe("AuthorityPermit", () => {
         ).toThrow(/valid non-negative Date/);
     });
 
+    test("rejects reservation obligations that are not invocation items", { tags: "p0" }, () => {
+        expect(() =>
+            expectation({
+                reservation: {
+                    run: new RunId("permit-run"),
+                    registryEpoch: 5,
+                    obligation: {
+                        kind: "route" as never,
+                        invocation,
+                        itemIndex: 2,
+                        itemKey
+                    }
+                }
+            })
+        ).toThrow(TypeError);
+    });
+
     test("rejects malformed codec variants fail closed", { tags: "p0" }, () => {
         const permit = new AuthorityPermit({
             ...expectation(),
@@ -741,6 +758,26 @@ describe("AuthorityPermit", () => {
                 )
             )
         ).toThrow(/another Actor owner/);
+    });
+
+    test("fails closed with the codec error on malformed stored ownership records", { tags: "p1" }, () => {
+        const digestValue = Digest.sha256(Uint8Array.of(1)).value;
+        const snapshots = [
+            { version: 1, issued: [null as never], consumed: [] },
+            { version: 1, issued: [], consumed: [null as never] },
+            { version: 1, issued: [], consumed: [{ nonce: 5 as never, digest: digestValue }] },
+            { version: 1, issued: [], consumed: [{ nonce: "corrupt-nonce", digest: 5 as never }] }
+        ] as const;
+        for (const snapshot of snapshots) {
+            let thrown: unknown;
+            try {
+                new MemoryAuthorityPermitStore(issuerActor, snapshot);
+            } catch (error) {
+                thrown = error;
+            }
+            expect(thrown).toBeInstanceOf(AgentCoreError);
+            expect(thrown).toMatchObject({ code: "codec.invalid" });
+        }
     });
 
     test("SQLite recovery rejects a substituted owner and malformed permit bytes", { tags: "p0" }, () => {

@@ -1139,6 +1139,110 @@ describe("materialization rollout mutation boundaries", () => {
         );
         expect(() => DeploymentRecord.fromData(null)).toThrow("Deployment must be an object");
     });
+
+    // kills src/definition/rollout.ts:560 (dropping the compensates link from the candidate
+    // rollout makes a same-generation compensation collide with the failed rollout identity)
+    test("derives compensation rollout identity from its compensates link", { tags: "p0" }, () => {
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const failed = beginRollout(controller, plan(1, ["a"]));
+        expect(() =>
+            controller.begin(
+                plan(1, ["a"]),
+                deploymentKey,
+                undefined,
+                failed.id,
+                validationAttestation(1)
+            )
+        ).toThrow(/not allocated/);
+    });
+
+    // kills src/definition/rollout.ts:625 (receipt outcome discriminant guard)
+    test("rejects acknowledgement receipts whose outcome is not applied", { tags: "p0" }, () => {
+        const store = new MemoryMaterializationControlStore();
+        const controller = controllerFor(store);
+        const rollout = beginRollout(controller, plan(1, ["a"]));
+        const entry = outbox(store, rollout.id)[0]!;
+        expect(() =>
+            controller.acknowledge(entry.id, {
+                ...receipt(entry, digest("reply")),
+                outcome: "failed"
+            } as never)
+        ).toThrow(/does not match its target apply receipt/);
+        expect(outbox(store, rollout.id)[0]!.status).toBe("pending");
+    });
+
+    // kills src/definition/rollout.ts:712 (independent id and rollout identity conjuncts)
+    test("detects forged outbox identities that keep matching targets", { tags: "p1" }, () => {
+        const rollout = new MaterializationRollout({ plan: plan(1, ["a"]) });
+        const expected = expectedOutboxEntries(rollout);
+        const forgedId = Object.assign(
+            Object.create(MaterializationOutboxEntry.prototype) as MaterializationOutboxEntry,
+            expected[0],
+            { id: digest("forged-outbox-id") }
+        );
+        expect(() => requireExactOutboxClosure(rollout, [forgedId])).toThrow(
+            /exact target closure/
+        );
+        const forgedRollout = Object.assign(
+            Object.create(MaterializationOutboxEntry.prototype) as MaterializationOutboxEntry,
+            expected[0],
+            { rolloutId: digest("forged-rollout-id") }
+        );
+        expect(() => requireExactOutboxClosure(rollout, [forgedRollout])).toThrow(
+            /exact target closure/
+        );
+    });
+
+    // kills src/definition/rollout.ts:737-739 (per-conjunct outbox transition guards)
+    test("rejects forged outbox transitions that skip durable history", { tags: "p1" }, () => {
+        const actorPlan = plan(1, ["a"]).actors[0]!;
+        const entry = MaterializationOutboxEntry.pending(digest("rollout"), actorPlan);
+        const forge = (
+            base: MaterializationOutboxEntry,
+            patch: Partial<Pick<MaterializationOutboxEntry, "attempts" | "revision">>
+        ): MaterializationOutboxEntry =>
+            Object.assign(
+                Object.create(MaterializationOutboxEntry.prototype) as MaterializationOutboxEntry,
+                base,
+                patch
+            );
+
+        const pendingNext = forge(entry.attempted(), { attempts: entry.attempts });
+        expect(isLegalOutboxTransition(entry, pendingNext)).toBe(false);
+
+        const acknowledged = entry.acknowledge(digest("reply"));
+        const reAcknowledged = forge(acknowledged, { revision: acknowledged.revision.next() });
+        expect(isLegalOutboxTransition(acknowledged, reAcknowledged)).toBe(false);
+
+        const skippedAttempts = forge(entry.attempted().acknowledge(digest("reply")), {
+            revision: entry.revision.next()
+        });
+        expect(isLegalOutboxTransition(entry, skippedAttempts)).toBe(false);
+    });
+
+    // kills src/definition/rollout.ts:760 (identity conjuncts stay independently binding)
+    test("rejects deployment transitions whose derived identity was forged", { tags: "p1" }, () => {
+        const initial = DeploymentRecord.initial(tenantId, deploymentKey);
+        const begun = initial.begin(digest("rollout"), 1);
+        const forgedId = Object.assign(
+            Object.create(DeploymentRecord.prototype) as DeploymentRecord,
+            begun,
+            { id: DeploymentId.derive(new TenantId("tenant-b"), deploymentKey) }
+        );
+        expect(isLegalDeploymentTransition(initial, forgedId)).toBe(false);
+    });
+
+    // kills src/definition/rollout.ts:869 (primitive payloads must fail the object guard)
+    test("rejects primitive control payloads as non-objects", { tags: "p2" }, () => {
+        expect(() => DeploymentRecord.fromData("text")).toThrow(/Deployment must be an object/);
+        expect(() => MaterializationRollout.fromData(7)).toThrow(
+            /Materialization rollout must be an object/
+        );
+        expect(() => MaterializationOutboxEntry.fromData("text")).toThrow(
+            /Materialization outbox must be an object/
+        );
+    });
 });
 
 function acknowledgedControlSnapshot(

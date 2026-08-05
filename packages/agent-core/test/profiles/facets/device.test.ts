@@ -492,6 +492,43 @@ describe("Device consent boundaries and error identity", () => {
         );
     });
 
+    test("rejects empty pairing credentials before reverse transport", { tags: "p0" }, () => {
+        const transport = new TestDeviceTransport();
+        const backend = new DeviceBackend(new LiveSession(), transport, {
+            read: () => undefined
+        });
+        for (const input of [
+            { deviceId: deviceId("phone"), publicKey: "", operatorApproval: "approved" },
+            { deviceId: deviceId("phone"), publicKey: "key", operatorApproval: "" }
+        ]) {
+            let caught: unknown;
+            try {
+                backend.pair(input);
+            } catch (error) {
+                caught = error;
+            }
+            expect(caught).toBeInstanceOf(DeviceError);
+            expect(caught).toMatchObject({ detailCode: "command.invalid" });
+        }
+        expect(transport.paired).toEqual([]);
+    });
+
+    test("rejects null and primitive admission evidence with the typed consent error", { tags: "p0" }, async () => {
+        const transport = new TestDeviceTransport();
+        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
+        for (const admission of [null, 42]) {
+            let caught: unknown;
+            try {
+                await backend.execute("camera", cameraInput(), effectContext(admission));
+            } catch (error) {
+                caught = error;
+            }
+            expect(caught).toBeInstanceOf(DeviceError);
+            expect(caught).toMatchObject({ detailCode: "consent.invalid" });
+        }
+        expect(transport.sent).toEqual([]);
+    });
+
     test("maps consent denial to authority.denied and every other detail to invalid input", {
         tags: "p0"
     }, () => {

@@ -93,6 +93,18 @@ describe("SQLite Actor store", () => {
         });
     });
 
+    test("rejects a sibling store transaction while one is active on the database", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteActorStore(database);
+        const sibling = new SqliteActorStore(database);
+        store.bindActor(actor);
+
+        store.transaction(() => {
+            expect(() => sibling.transaction(() => undefined)).toThrow(nestedError);
+            return undefined;
+        });
+    });
+
     test("names stale-transaction rejections exactly", { tags: "p1" }, () => {
         const store = new SqliteActorStore(new TestSqlite());
         const foreignStore = new SqliteActorStore(new TestSqlite());

@@ -169,6 +169,27 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         expect(stored?.entrySchema.accepts({ heading: "replaced" })).toBe(false);
     });
 
+    test("keeps declarations immutable against same-length conflicting schemas", { tags: "p0" }, () => {
+        const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
+        store.install(slot());
+        const sameLengthConflict = new SlotDeclaration(
+            slotName,
+            new JsonSchema({
+                type: "object",
+                required: ["eltit"],
+                properties: { eltit: { type: "string" } },
+                additionalProperties: false
+            }),
+            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+        );
+
+        expect(() => store.install(sameLengthConflict)).toThrow(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+        expect(store.revision().value).toBe(1);
+        expect(store.slot(slotName)?.entrySchema.accepts({ title: "kept" })).toBe(true);
+    });
+
     test("rejects contributions to uninstalled slots with the exact error", { tags: "p1" }, () => {
         const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
 

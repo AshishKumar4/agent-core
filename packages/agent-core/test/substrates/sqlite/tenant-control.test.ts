@@ -12,7 +12,16 @@ import {
     type SynchronousResultGuard
 } from "../../../src/actors";
 import { Revision } from "../../../src/core";
-import { Principal, PrincipalId, ScopeRef, SubjectRef, TenantId } from "../../../src/identity";
+import {
+    MembershipId,
+    Principal,
+    PrincipalId,
+    Project,
+    ProjectId,
+    ScopeRef,
+    SubjectRef,
+    TenantId
+} from "../../../src/identity";
 import {
     SqliteIdentityReader,
     TransactionalSqlite,
@@ -226,6 +235,188 @@ describe("SQLite Tenant control storage", () => {
             })
         ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
     });
+
+    test("reports a suppressed anchor insert as the exact invalid state", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        createSqliteTenantControlStore(database, anchor);
+        database.run("DELETE FROM tenant_bootstrap_anchor", []);
+        database.run(
+            `CREATE TRIGGER ignore_anchor_insert BEFORE INSERT ON tenant_bootstrap_anchor
+             BEGIN SELECT RAISE(IGNORE); END`,
+            []
+        );
+
+        expect(() => createSqliteTenantControlStore(database, anchor)).toThrow(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+    });
+
+    test("bootstraps with an anchor that omits the tenant kind", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const kindless = {
+            actorId: new ActorId("tenant-control-actor"),
+            tenantId,
+            principalId,
+            trustAnchor: Uint8Array.of(3, 2, 1)
+        };
+        const store = createSqliteTenantControlStore(database, kindless);
+        database.transaction(() => store.bootstrapTenant(database, kindless, Revision.initial()));
+
+        expect(store.bootstrapMarker()?.tenantId.equals(tenantId)).toBe(true);
+        expect(store.loadTenant(tenantId)?.kind).toBe("personal");
+    });
+
+    test("fails closed on a null bootstrap marker projection column", { tags: "p1" }, () => {
+        const database = new MarkerTamperSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        database.tampered = true;
+
+        expect(() => store.bootstrapMarker()).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
+
+    test("rejects Grants for a Project Scope that is not stored", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        const grant = new Grant(
+            new GrantId("project-scope-grant"),
+            ScopeRef.project(tenantId, new ProjectId("missing-project")),
+            SubjectRef.principal(principalId),
+            "allow",
+            new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+            { kind: "direct" }
+        );
+
+        expect(() => store.transaction((transaction) => transaction.putGrant(grant))).toThrow(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+        expect(store.grant(grant.id)).toBeUndefined();
+    });
+
+    test("reconstruction rejects an unreferenced corrupt principal row", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        database.run(
+            `INSERT INTO tenant_principals (id, kind, status, record)
+             VALUES ('ghost-principal', 'user', 'active', ?)`,
+            [Uint8Array.of(1, 2, 3)]
+        );
+
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
+
+    test("reconstruction rejects an unreferenced corrupt role row", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        database.run("INSERT INTO tenant_roles (name, record) VALUES ('ghost-role', ?)", [
+            Uint8Array.of(1, 2, 3)
+        ]);
+
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
+
+    test("reconstruction rejects a Project row of a foreign Tenant", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        const foreign = new Project(
+            new ProjectId("ghost-project"),
+            new TenantId("foreign-tenant"),
+            "Ghost",
+            Revision.initial()
+        );
+        database.run(
+            `INSERT INTO tenant_projects (id, tenant_id, revision, record)
+             VALUES (?, ?, ?, ?)`,
+            [foreign.id.value, foreign.tenantId.value, 0, Project.encode(foreign)]
+        );
+
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
+
+    test("reconstruction rejects an attenuation the parent cannot cover", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        const parent = allowGrant("attenuation-parent");
+        store.transaction((transaction) => transaction.putGrant(parent));
+        const child = new Grant(
+            new GrantId("attenuation-child"),
+            tenantScope,
+            SubjectRef.principal(principalId),
+            "allow",
+            new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "mutate"] }),
+            { kind: "direct" },
+            parent.id
+        );
+        const parentRow = database.all(
+            "SELECT scope_key, subject_key FROM tenant_grants WHERE id = ?",
+            [parent.id.value]
+        )[0]!;
+        database.run(
+            `INSERT INTO tenant_grants (id, scope_key, subject_key, effect, parent_grant_id, state, record)
+             VALUES (?, ?, ?, 'allow', ?, 'active', ?)`,
+            [
+                child.id.value,
+                parentRow["scope_key"]!,
+                parentRow["subject_key"]!,
+                parent.id.value,
+                Grant.encode(child)
+            ]
+        );
+
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
+
+    test("reconstruction rejects an extra role Grant beyond the materialized set", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        const membershipRow = database.all(
+            "SELECT id, role_name FROM tenant_memberships LIMIT 1",
+            []
+        )[0]!;
+        const grantRow = database.all(
+            "SELECT scope_key, subject_key FROM tenant_grants LIMIT 1",
+            []
+        )[0]!;
+        const extra = new Grant(
+            new GrantId("forged-extra-grant"),
+            tenantScope,
+            SubjectRef.principal(principalId),
+            "allow",
+            new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+            {
+                kind: "role",
+                membershipId: new MembershipId(String(membershipRow["id"])),
+                roleName: String(membershipRow["role_name"]),
+                ruleOrdinal: 9999,
+                guest: false
+            }
+        );
+        database.run(
+            `INSERT INTO tenant_grants (id, scope_key, subject_key, effect, parent_grant_id, state, record)
+             VALUES (?, ?, ?, 'allow', NULL, 'active', ?)`,
+            [extra.id.value, grantRow["scope_key"]!, grantRow["subject_key"]!, Grant.encode(extra)]
+        );
+
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
 });
 
 function allowGrant(id: string): Grant {
@@ -261,6 +452,19 @@ class TestSqlite extends TransactionalSqlite {
         ..._guard: SynchronousResultGuard<Result>
     ): Result {
         return this.#database.transaction(() => requireSynchronousResult(operation()))();
+    }
+}
+
+class MarkerTamperSqlite extends TestSqlite {
+    public tampered = false;
+
+    public override all(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        if (!this.tampered || !statement.includes("FROM tenant_bootstrap_marker")) return rows;
+        return rows.map((row) => ({ ...row, tenant_id: null }));
     }
 }
 

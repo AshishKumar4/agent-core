@@ -1101,6 +1101,46 @@ describe("Slate record mutation kills", () => {
             new TypeError("Slate effect idempotency key must be canonical")
         );
     });
+
+    test("rejects empty effect idempotency keys", { tags: "p1" }, () => {
+        expect(() => new SlateEffectContext(invocation, 0, 0, "")).toThrow(TypeError);
+    });
+
+    test("distinguishes same-length canonical invocation encodings", { tags: "p0" }, () => {
+        const request = freezeSlateInvocationRequest({
+            operation: "deploy",
+            impact: "externalSend",
+            workspaceId: workspace,
+            slateId,
+            deploymentId,
+            publicationId,
+            publicationMaterialization: materialization,
+            target: "aa",
+            expectedActiveDeploymentId: undefined
+        });
+
+        expect(sameSlateInvocationRequest(request, { ...request })).toBe(true);
+        expect(sameSlateInvocationRequest(request, { ...request, target: "ab" })).toBe(false);
+    });
+
+    test("rejects array and function payload containers outright", { tags: "p2" }, () => {
+        const fields = {
+            activeDeploymentId: null,
+            forkedFrom: null,
+            headVersionId: null,
+            id: "slate-container",
+            latestPublicationId: null,
+            revision: 0,
+            source: source.value,
+            workspaceId: workspace.value
+        };
+
+        const arrayPayload = Object.assign([], fields);
+        expect(() => Slate.fromData(arrayPayload as unknown as JsonValue)).toThrow(TypeError);
+
+        const functionPayload = Object.assign(() => undefined, fields);
+        expect(() => Slate.fromData(functionPayload as unknown as JsonValue)).toThrow(TypeError);
+    });
 });
 
 function expectDecodeFailure<Record>(

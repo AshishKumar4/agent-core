@@ -230,6 +230,43 @@ describe("same-Actor additive materialization", () => {
         expect(after.pointer?.generationId.value).toBe(before.pointer?.generationId.value);
     });
 
+    test("reports a byte-divergent active generation as corrupt, not a revision conflict", { tags: "p0" }, () => {
+        // kills src/definition/materializer.ts:194
+        const actor = actorRef("workspace-divergent");
+        const store = new MemoryMaterializationStore(actor);
+        const materializer = localMaterializer(actor, store);
+        const plan = actorPlan(actor, origin(1, "config-a"), [projection("slot:a", { value: 1 })]);
+        const desired = materializeActorPlan(actor, plan);
+        const divergent = new MaterializationGeneration({
+            actor,
+            origin: plan.origin,
+            actorPlanId: plan.id,
+            managedRecordIds: []
+        });
+        expect(divergent.id.equals(desired.generation.id)).toBe(true);
+        store.transaction((transaction) => {
+            store.insertGeneration(transaction, divergent);
+            expect(
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    undefined,
+                    MaterializationGenerationPointer.initial(actor, deploymentId, divergent.id)
+                )
+            ).toBe(true);
+        });
+
+        let caught: unknown;
+        try {
+            materializer.apply(plan);
+        } catch (error) {
+            caught = error;
+        }
+        expect(caught).toBeInstanceOf(AgentCoreError);
+        expect((caught as AgentCoreError).code).toBe("codec.invalid");
+    });
+
     test("moves only the active pointer and leaves old generations and state untouched", { tags: "p0" }, () => {
         const actor = actorRef("workspace-a");
         const store = new MemoryMaterializationStore(actor);

@@ -110,6 +110,26 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         expect(() => aliasedLock.getLock(lock.digest)).toThrow(/key or projection/);
     });
 
+    test("keeps stored codec bytes independent of adapter-scribbled projection buffers", { tags: "p0" }, () => {
+        // kills src/definition/package-store.ts:205,215,224 (projection defensive byte copies)
+        const store = new ScribblingPackageStore();
+        const release = packageRelease("scribble", "1.0.0");
+        const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
+        const lock = packageLock(snapshot.digest, 1, [release]);
+
+        store.add(release);
+        store.addSnapshot(snapshot);
+        store.addLock(lock);
+
+        expect(PackageRelease.encode(store.get(release.id, release.version)!)).toEqual(
+            PackageRelease.encode(release)
+        );
+        expect(MetadataSnapshot.encode(store.getSnapshot(snapshot.digest)!)).toEqual(
+            MetadataSnapshot.encode(snapshot)
+        );
+        expect(PackageLock.encode(store.getLock(lock.digest)!)).toEqual(PackageLock.encode(lock));
+    });
+
     test("names malformed stored snapshot and lock bytes exactly", { tags: "p2" }, () => {
         const release = packageRelease("package", "1.0.0");
         const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
@@ -187,6 +207,26 @@ class HostilePackageStore extends ProjectedPackageStore {
         this.locks.push(row);
         return row;
     }
+}
+
+class ScribblingPackageStore extends HostilePackageStore {
+    protected override insertRelease(release: StoredPackageRelease): StoredPackageRelease {
+        return super.insertRelease(scribbled(release));
+    }
+
+    protected override insertSnapshot(snapshot: StoredMetadataSnapshot): StoredMetadataSnapshot {
+        return super.insertSnapshot(scribbled(snapshot));
+    }
+
+    protected override insertLock(lock: StoredPackageLock): StoredPackageLock {
+        return super.insertLock(scribbled(lock));
+    }
+}
+
+function scribbled<Row extends { readonly bytes: Uint8Array }>(row: Row): Row {
+    const detached = { ...row, bytes: row.bytes.slice() };
+    row.bytes.fill(0);
+    return detached;
 }
 
 function rowForRelease(release: ReturnType<typeof packageRelease>): StoredPackageRelease {

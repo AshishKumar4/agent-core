@@ -103,6 +103,37 @@ describe("MemoryTenantControlStore mutation gates", () => {
         );
     });
 
+    test("keeps in-transaction record listings canonically sorted", { tags: "p1" }, () => {
+        const { store, service } = bootstrapped();
+        service.createGrant(allowGrant("zz-transaction-order"));
+        const observed = store.transaction((candidate) => {
+            candidate.putGrant(allowGrant("aa-transaction-order"));
+            return candidate.grants().map((grant) => grant.id.value);
+        });
+        expect(observed).toContain("aa-transaction-order");
+        expect(observed).toContain("zz-transaction-order");
+        expect(observed).toEqual([...observed].sort((left, right) => left.localeCompare(right)));
+    });
+
+    test("returns synchronous null transaction results unchanged", { tags: "p2" }, () => {
+        const { store } = bootstrapped();
+        expect(store.transaction(() => null)).toBeNull();
+    });
+
+    test("rejects bootstrap anchors whose trust anchor merely extends the stored bytes", { tags: "p0" }, () => {
+        const fresh = MemoryTenantControlStore.create(anchor);
+        expectAgentCoreError(
+            () =>
+                fresh.bootstrapTenant(
+                    { ...anchor, trustAnchor: Uint8Array.of(1, 2, 3, 4) },
+                    Revision.initial()
+                ),
+            "protocol.invalid-state",
+            "Tenant bootstrap request does not match its immutable anchor"
+        );
+        expect(fresh.isBootstrapEligible()).toBe(true);
+    });
+
     test("ties bootstrap eligibility to every empty collection", { tags: "p0" }, () => {
         const empty = MemoryTenantControlStore.create(anchor).snapshot();
         const boot = bootstrapped().store.snapshot();

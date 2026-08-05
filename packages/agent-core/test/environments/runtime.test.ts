@@ -1319,6 +1319,610 @@ describe("EnvironmentController", () => {
         );
         expect((await restarted.reconcileSession(opened.id, lease)).state.name).toBe("closed");
     });
+
+    test("codes a provision conflict when the store refuses an initial CAS", { tags: "p1" }, () => {
+        const store = new RejectingEnvironmentStore();
+        store.rejectEnvironment = true;
+        const provider = new TestProvider(descriptor("provider-refused-provision", "6"));
+        const controller = new EnvironmentController(
+            store,
+            new MemoryEnvironmentProviderRegistry([provider]),
+            { permits: (candidate) => candidate === lease }
+        );
+
+        expect(() =>
+            controller.provision(initialRevision(provider.descriptor), lease)
+        ).toThrowError(
+            expect.objectContaining({
+                code: "protocol.revision-conflict",
+                message: "Environment was provisioned concurrently"
+            })
+        );
+    });
+
+    test("returns the stored head for an identical provision replay", { tags: "p0" }, () => {
+        const store = new RejectingEnvironmentStore();
+        const provider = new TestProvider(descriptor("provider-provision-replay", "7"));
+        const controller = new EnvironmentController(
+            store,
+            new MemoryEnvironmentProviderRegistry([provider]),
+            { permits: (candidate) => candidate === lease }
+        );
+        const first = controller.provision(initialRevision(provider.descriptor), lease);
+        store.rejectEnvironment = true;
+
+        const replay = controller.provision(initialRevision(provider.descriptor), lease);
+
+        expect(replay.id.equals(environmentId)).toBe(true);
+        expect(replay.activeRevision.value).toBe(0);
+        expect(replay.generation).toBe(0);
+        expect(replay.recordRevision.value).toBe(first.recordRevision.value);
+    });
+
+    test("returns the stored reservation for identical replays under a refused CAS", { tags: "p0" }, async () => {
+        const store = new RejectingEnvironmentStore();
+        const provider = new TestProvider(descriptor("provider-reserve-replay", "8"));
+        const controller = new EnvironmentController(
+            store,
+            new MemoryEnvironmentProviderRegistry([provider]),
+            { permits: (candidate) => candidate === lease }
+        );
+        controller.provision(initialRevision(provider.descriptor), lease);
+        const bare = controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-replay-bare"),
+            lease
+        );
+        const source = controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-replay-source"),
+            lease
+        );
+        await controller.openSession(source.capability, lease);
+        const snapshotId = new EnvironmentSnapshotId("snapshot-replay-pin");
+        await controller.snapshot(source.capability, snapshotId, lease);
+        const restoring = controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-replay-restoring"),
+            lease,
+            snapshotId
+        );
+        store.rejectSession = true;
+
+        const bareReplay = controller.reserveSession(environmentId, bare.id, lease);
+        expect(bareReplay.state.name).toBe("reserved");
+        expect(bareReplay.epoch).toBe(0);
+        expect(bareReplay.restoreFrom).toBeUndefined();
+        expect(bareReplay.recordRevision.value).toBe(bare.recordRevision.value);
+
+        const restoringReplay = controller.reserveSession(
+            environmentId,
+            restoring.id,
+            lease,
+            snapshotId
+        );
+        expect(restoringReplay.state.name).toBe("reserved");
+        expect(restoringReplay.restoreFrom?.value).toBe(snapshotId.value);
+        expect(restoringReplay.recordRevision.value).toBe(restoring.recordRevision.value);
+    });
+
+    test("codes refused session, snapshot, and exposure CAS without a stored record", { tags: "p1" }, async () => {
+        const store = new RejectingEnvironmentStore();
+        const provider = new TestProvider(descriptor("provider-refused-records", "9"));
+        const controller = new EnvironmentController(
+            store,
+            new MemoryEnvironmentProviderRegistry([provider]),
+            { permits: (candidate) => candidate === lease }
+        );
+        controller.provision(initialRevision(provider.descriptor), lease);
+        const reserved = controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-refused-records"),
+            lease
+        );
+        await controller.openSession(reserved.capability, lease);
+        const invalidSession = (message: string) =>
+            expect.objectContaining({ code: "environment.invalid-session", message });
+
+        store.rejectSession = true;
+        expect(() =>
+            controller.reserveSession(
+                environmentId,
+                new EnvironmentSessionId("session-refused-fresh"),
+                lease
+            )
+        ).toThrowError(
+            invalidSession("Environment session ID is already reserved for another generation")
+        );
+        store.rejectSession = false;
+
+        store.rejectSnapshot = true;
+        await expect(
+            controller.snapshot(
+                reserved.capability,
+                new EnvironmentSnapshotId("snapshot-refused-fresh"),
+                lease
+            )
+        ).rejects.toEqual(
+            invalidSession("Environment snapshot ID is already used by another session generation")
+        );
+        store.rejectSnapshot = false;
+
+        store.rejectExposure = true;
+        await expect(
+            controller.expose(
+                reserved.capability,
+                new PortExposureId("exposure-refused-fresh"),
+                4173,
+                lease
+            )
+        ).rejects.toEqual(
+            invalidSession("Port exposure ID is already used by another session generation")
+        );
+    });
+
+    test("fences one session ID across environments", { tags: "p0" }, () => {
+        const provider = new TestProvider(descriptor("provider-cross-environment", "a"));
+        const fixture = setup([provider]);
+        const otherEnvironment = new EnvironmentId("environment-runtime-other");
+        fixture.controller.provision(
+            new EnvironmentRevisionRecord(
+                otherEnvironment,
+                Revision.initial(),
+                0,
+                provider.descriptor
+            ),
+            lease
+        );
+        const sessionId = new EnvironmentSessionId("session-cross-environment");
+        fixture.controller.reserveSession(environmentId, sessionId, lease);
+
+        expect(() =>
+            fixture.controller.reserveSession(otherEnvironment, sessionId, lease)
+        ).toThrowError(
+            expect.objectContaining({
+                code: "environment.invalid-session",
+                message: "Environment session ID is already reserved for another generation"
+            })
+        );
+    });
+
+    test("reconciling a ready snapshot never consults the provider", { tags: "p1" }, async () => {
+        const provider = new TestProvider(descriptor("provider-ready-reconcile", "b"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-ready-reconcile"),
+            lease
+        );
+        await fixture.controller.openSession(reserved.capability, lease);
+        const snapshotId = new EnvironmentSnapshotId("snapshot-ready-reconcile");
+        await fixture.controller.snapshot(reserved.capability, snapshotId, lease);
+        provider.inspectSnapshotOutcomeOverride = malformedResource({ name: "bogus" });
+
+        const reconciled = await fixture.controller.reconcileSnapshot(snapshotId, lease);
+
+        expect(reconciled.state.name).toBe("ready");
+        expect(reconciled.content?.value).toBe(provider.snapshotContent.value);
+    });
+
+    test("revoke demands the exact session and the exact epoch", { tags: "p0" }, async () => {
+        const provider = new TestProvider(descriptor("provider-revoke-fence", "c"));
+        const fixture = setup([provider]);
+        const first = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-revoke-fence-first"),
+            lease
+        );
+        const second = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-revoke-fence-second"),
+            lease
+        );
+        await fixture.controller.openSession(first.capability, lease);
+        await fixture.controller.openSession(second.capability, lease);
+        const exposureId = new PortExposureId("exposure-revoke-fence");
+        await fixture.controller.expose(first.capability, exposureId, 4173, lease);
+        const staleCapability = expect.objectContaining({
+            code: "environment.stale-session",
+            message: "Port exposure does not belong to the exact Environment session capability"
+        });
+
+        await expect(
+            fixture.controller.revoke(second.capability, exposureId, lease)
+        ).rejects.toEqual(staleCapability);
+
+        provider.sessions.delete(first.id.value);
+        const lost = await fixture.controller.reconcileSession(first.id, lease);
+        expect(lost.state.name).toBe("lost");
+        await expect(
+            fixture.controller.revoke(lost.capability, exposureId, lease)
+        ).rejects.toEqual(staleCapability);
+        expect(fixture.store.getExposure(exposureId)?.state.name).toBe("exposed");
+    });
+
+    test("a ready open settling on a failed session cleans up without transitioning", { tags: "p1" }, async () => {
+        const provider = new TestProvider(descriptor("provider-settle-on-failed", "d"));
+        const winner = new Deferred<ResourceOutcome<LiveEnvironmentSession>>();
+        const loser = new Deferred<ResourceOutcome<LiveEnvironmentSession>>();
+        provider.deferredOpens.push(winner, loser);
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-settle-on-failed"),
+            lease
+        );
+        let releases = 0;
+        const lateHandle = {
+            children: [],
+            release: () => {
+                releases += 1;
+            }
+        };
+
+        const pending = fixture.controller.openSession(reserved.capability, lease);
+        const restarted = new EnvironmentController(
+            fixture.store,
+            fixture.registry,
+            fixture.verifier
+        );
+        const reconciled = restarted.reconcileSession(reserved.id, lease);
+        loser.resolve(ProviderResourceOutcome.failed);
+        expect((await reconciled).state.name).toBe("failed");
+
+        winner.resolve(ProviderResourceOutcome.ready(lateHandle));
+        const settled = await pending;
+
+        expect(settled.state.name).toBe("failed");
+        expect(releases).toBe(1);
+        expect(provider.closeRequests).toHaveLength(1);
+    });
+
+    test("close keeps the live handle until every exposure is revoked", { tags: "p0" }, async () => {
+        const provider = new TestProvider(descriptor("provider-close-handle-fence", "e"));
+        let releases = 0;
+        provider.handle = {
+            children: [],
+            release: () => {
+                releases += 1;
+            }
+        };
+        provider.openResult = ProviderResourceOutcome.ready(provider.handle);
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-close-handle-fence"),
+            lease
+        );
+        await fixture.controller.openSession(reserved.capability, lease);
+        await fixture.controller.expose(
+            reserved.capability,
+            new PortExposureId("exposure-close-handle-fence"),
+            4173,
+            lease
+        );
+        provider.revokeResults.push(ProviderActionOutcome.indeterminate);
+
+        const closing = await fixture.controller.closeSession(reserved.capability, lease);
+
+        expect(closing.state.name).toBe("closing");
+        expect(releases).toBe(0);
+        expect(provider.closeRequests).toHaveLength(0);
+    });
+
+    test("reconcile resolves to closed when close completes during inspection", { tags: "p1" }, async () => {
+        const provider = new TestProvider(descriptor("provider-close-during-reconcile", "f"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-close-during-reconcile"),
+            lease
+        );
+        const opened = await fixture.controller.openSession(reserved.capability, lease);
+        const inspection = new Deferred<ResourceOutcome<LiveEnvironmentSession>>();
+        provider.deferredInspectSessions.push(inspection);
+
+        const pending = fixture.controller.reconcileSession(opened.id, lease);
+        const closed = await fixture.controller.closeSession(opened.capability, lease);
+        expect(closed.state.name).toBe("closed");
+        inspection.resolve(ProviderResourceOutcome.absent);
+
+        expect((await pending).state.name).toBe("closed");
+    });
+
+    test("a late ready snapshot cannot resurrect a failed snapshot", { tags: "p0" }, async () => {
+        const provider = new TestProvider(descriptor("provider-late-snapshot", "1"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-late-snapshot"),
+            lease
+        );
+        await fixture.controller.openSession(reserved.capability, lease);
+        const first = new Deferred<ResourceOutcome<ContentRef>>();
+        const second = new Deferred<ResourceOutcome<ContentRef>>();
+        provider.deferredSnapshots.push(first, second);
+        const snapshotId = new EnvironmentSnapshotId("snapshot-late-ready");
+
+        const pending = fixture.controller.snapshot(reserved.capability, snapshotId, lease);
+        const reconciling = fixture.controller.reconcileSnapshot(snapshotId, lease);
+        second.resolve(ProviderResourceOutcome.failed);
+        expect((await reconciling).state.name).toBe("failed");
+
+        first.resolve(ProviderResourceOutcome.ready(provider.snapshotContent));
+        const settled = await pending;
+
+        expect(settled.state.name).toBe("failed");
+        expect(fixture.store.getSnapshot(snapshotId)?.state.name).toBe("failed");
+    });
+
+    test("a late ready exposure with unfinished cleanup stays revoking", { tags: "p0" }, async () => {
+        const provider = new TestProvider(descriptor("provider-late-exposure-cleanup", "2"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-late-exposure-cleanup"),
+            lease
+        );
+        await fixture.controller.openSession(reserved.capability, lease);
+        const deferred = new Deferred<ResourceOutcome<string>>();
+        provider.deferredExposure = deferred;
+        const exposureId = new PortExposureId("exposure-late-cleanup");
+        provider.revokeResults.push(
+            ProviderActionOutcome.indeterminate,
+            ProviderActionOutcome.indeterminate
+        );
+
+        const pending = fixture.controller.expose(reserved.capability, exposureId, 4173, lease);
+        const revoking = await fixture.controller.revoke(reserved.capability, exposureId, lease);
+        expect(revoking.state.name).toBe("revoking");
+        deferred.resolve(ProviderResourceOutcome.ready(provider.exposureUrl));
+
+        expect((await pending).state.name).toBe("revoking");
+        expect(fixture.store.getExposure(exposureId)?.state.name).toBe("revoking");
+        expect(provider.revokeRequests).toHaveLength(2);
+    });
+
+    test("indeterminate and misdirected exposure outcomes stay recoverable", { tags: "p1" }, async () => {
+        const provider = new TestProvider(descriptor("provider-exposure-recoverable", "3"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-exposure-recoverable"),
+            lease
+        );
+        await fixture.controller.openSession(reserved.capability, lease);
+
+        provider.exposureResult = ProviderResourceOutcome.indeterminate;
+        const indeterminate = await fixture.controller.expose(
+            reserved.capability,
+            new PortExposureId("exposure-indeterminate"),
+            4173,
+            lease
+        );
+        expect(indeterminate.state.name).toBe("exposing");
+        expect(fixture.store.getExposure(indeterminate.id)?.state.name).toBe("exposing");
+
+        const deferred = new Deferred<ResourceOutcome<string>>();
+        provider.deferredExposure = deferred;
+        const exposureId = new PortExposureId("exposure-failed-while-revoking");
+        provider.revokeResults.push(ProviderActionOutcome.indeterminate);
+        const pending = fixture.controller.expose(reserved.capability, exposureId, 4173, lease);
+        const revoking = await fixture.controller.revoke(reserved.capability, exposureId, lease);
+        expect(revoking.state.name).toBe("revoking");
+        deferred.resolve(ProviderResourceOutcome.failed);
+
+        expect((await pending).state.name).toBe("revoking");
+        expect(fixture.store.getExposure(exposureId)?.state.name).toBe("revoking");
+    });
+
+    test("revoking an already-revoked exposure is provider-idempotent", { tags: "p1" }, async () => {
+        const provider = new TestProvider(descriptor("provider-revoke-idempotent", "4"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-revoke-idempotent"),
+            lease
+        );
+        await fixture.controller.openSession(reserved.capability, lease);
+        const exposureId = new PortExposureId("exposure-revoke-idempotent");
+        await fixture.controller.expose(reserved.capability, exposureId, 4173, lease);
+        const revoked = await fixture.controller.revoke(reserved.capability, exposureId, lease);
+        expect(revoked.state.name).toBe("revoked");
+        expect(provider.revokeRequests).toHaveLength(1);
+
+        const replay = await fixture.controller.revoke(reserved.capability, exposureId, lease);
+
+        expect(replay.state.name).toBe("revoked");
+        expect(provider.revokeRequests).toHaveLength(1);
+    });
+
+    test("a pre-loss capability cannot close a lost session", { tags: "p0" }, async () => {
+        const provider = new TestProvider(descriptor("provider-pre-loss-close", "5"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-pre-loss-close"),
+            lease
+        );
+        const opened = await fixture.controller.openSession(reserved.capability, lease);
+        provider.sessions.delete(opened.id.value);
+        const lost = await fixture.controller.reconcileSession(opened.id, lease);
+        expect(lost.state.name).toBe("lost");
+
+        await expect(
+            fixture.controller.closeSession(reserved.capability, lease)
+        ).rejects.toEqual(
+            expect.objectContaining({
+                code: "environment.stale-session",
+                message: "Environment session capability is stale or belongs to another session"
+            })
+        );
+        expect(fixture.store.getSession(opened.id)?.state.name).toBe("lost");
+    });
+
+    test("a capability must name the exact session environment", { tags: "p0" }, async () => {
+        const provider = new TestProvider(descriptor("provider-capability-environment", "6"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-capability-environment"),
+            lease
+        );
+        const foreign = new EnvironmentSessionCapability(
+            new EnvironmentId("environment-runtime-foreign"),
+            reserved.id,
+            reserved.environmentRevision,
+            reserved.epoch
+        );
+
+        expect(() => fixture.controller.session(foreign)).toThrowError(
+            expect.objectContaining({
+                code: "environment.stale-session",
+                message: "Environment session capability is stale or belongs to another session"
+            })
+        );
+    });
+
+    test("close replay while closing persists nothing new", { tags: "p1" }, async () => {
+        const store = new RejectingEnvironmentStore();
+        const provider = new TestProvider(descriptor("provider-close-replay-no-cas", "7"));
+        const controller = new EnvironmentController(
+            store,
+            new MemoryEnvironmentProviderRegistry([provider]),
+            { permits: (candidate) => candidate === lease }
+        );
+        controller.provision(initialRevision(provider.descriptor), lease);
+        const reserved = controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-close-replay-no-cas"),
+            lease
+        );
+        const opened = await controller.openSession(reserved.capability, lease);
+        provider.closeResults.push(
+            ProviderActionOutcome.indeterminate,
+            ProviderActionOutcome.indeterminate
+        );
+        const closing = await controller.closeSession(opened.capability, lease);
+        expect(closing.state.name).toBe("closing");
+        store.rejectSession = true;
+
+        const replay = await controller.closeSession(opened.capability, lease);
+
+        expect(replay.state.name).toBe("closing");
+    });
+
+    test("revoke replay while revoking persists nothing new", { tags: "p1" }, async () => {
+        const store = new RejectingEnvironmentStore();
+        const provider = new TestProvider(descriptor("provider-revoke-replay-no-cas", "8"));
+        const controller = new EnvironmentController(
+            store,
+            new MemoryEnvironmentProviderRegistry([provider]),
+            { permits: (candidate) => candidate === lease }
+        );
+        controller.provision(initialRevision(provider.descriptor), lease);
+        const reserved = controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-revoke-replay-no-cas"),
+            lease
+        );
+        await controller.openSession(reserved.capability, lease);
+        const exposureId = new PortExposureId("exposure-revoke-replay-no-cas");
+        await controller.expose(reserved.capability, exposureId, 4173, lease);
+        provider.revokeResults.push(
+            ProviderActionOutcome.indeterminate,
+            ProviderActionOutcome.indeterminate
+        );
+        const revoking = await controller.revoke(reserved.capability, exposureId, lease);
+        expect(revoking.state.name).toBe("revoking");
+        store.rejectExposure = true;
+
+        const replay = await controller.revoke(reserved.capability, exposureId, lease);
+
+        expect(replay.state.name).toBe("revoking");
+        expect(provider.revokeRequests).toHaveLength(2);
+    });
+
+    test("closes reserved and failed sessions without opening them", { tags: "p1" }, async () => {
+        const provider = new TestProvider(descriptor("provider-close-unopened", "9"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-close-reserved"),
+            lease
+        );
+        const closedReserved = await fixture.controller.closeSession(reserved.capability, lease);
+        expect(closedReserved.state.name).toBe("closed");
+        expect(provider.openRequests).toHaveLength(0);
+
+        const failing = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-close-failed"),
+            lease
+        );
+        provider.openResult = ProviderResourceOutcome.absent;
+        const failed = await fixture.controller.openSession(failing.capability, lease);
+        expect(failed.state.name).toBe("failed");
+
+        const closedFailed = await fixture.controller.closeSession(failing.capability, lease);
+        expect(closedFailed.state.name).toBe("closed");
+    });
+
+    test("rejects function-shaped and getter-trapped live session handles", { tags: "p2" }, async () => {
+        const provider = new TestProvider(descriptor("provider-exotic-handles", "a"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-exotic-handles"),
+            lease
+        );
+        const invalidResource = expect.objectContaining({
+            code: "operation.invalid-output",
+            message: "Environment provider resource outcome is malformed"
+        });
+        const handles: unknown[] = [
+            Object.assign(() => {}, { children: [], release: () => {} }),
+            { children: [Object.assign(() => {}, { dispose: () => {} })], release: () => {} },
+            {
+                get children(): never {
+                    throw new RangeError("hidden children");
+                },
+                release: () => {}
+            }
+        ];
+
+        for (const handle of handles) {
+            provider.openOutcomeOverride = malformedResource({ name: "ready", value: handle });
+            await expect(
+                fixture.controller.openSession(reserved.capability, lease)
+            ).rejects.toEqual(invalidResource);
+        }
+        expect(fixture.store.getSession(reserved.id)?.state.name).toBe("opening");
+    });
+
+    test("rejects a function outcome that mimics a success shape", { tags: "p2" }, async () => {
+        const provider = new TestProvider(descriptor("provider-function-outcome", "b"));
+        const fixture = setup([provider]);
+        const reserved = fixture.controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-function-outcome"),
+            lease
+        );
+        const opened = await fixture.controller.openSession(reserved.capability, lease);
+        const succeeded = () => {};
+        Reflect.deleteProperty(succeeded, "length");
+        provider.closeOutcomeOverride = malformedAction(succeeded);
+
+        await expect(
+            fixture.controller.closeSession(opened.capability, lease)
+        ).rejects.toEqual(
+            expect.objectContaining({
+                code: "operation.invalid-output",
+                message: "Environment provider action outcome is malformed"
+            })
+        );
+        expect(fixture.store.getSession(opened.id)?.state.name).toBe("closing");
+    });
 });
 
 class TestProvider extends EnvironmentProvider {
@@ -1356,7 +1960,11 @@ class TestProvider extends EnvironmentProvider {
     public removeIndeterminateExposure = false;
     public deferredOpen: Deferred<ResourceOutcome<LiveEnvironmentSession>> | undefined;
     public readonly deferredOpens: Deferred<ResourceOutcome<LiveEnvironmentSession>>[] = [];
+    public readonly deferredInspectSessions: Deferred<
+        ResourceOutcome<LiveEnvironmentSession>
+    >[] = [];
     public deferredSnapshot: Deferred<ResourceOutcome<ContentRef>> | undefined;
+    public readonly deferredSnapshots: Deferred<ResourceOutcome<ContentRef>>[] = [];
     public deferredExposure: Deferred<ResourceOutcome<string>> | undefined;
     public onClose: (() => void) | undefined;
     public throwOpen = false;
@@ -1395,6 +2003,8 @@ class TestProvider extends EnvironmentProvider {
         request: OpenSessionRequest
     ): Promise<ResourceOutcome<LiveEnvironmentSession>> {
         this.inspectSessionRequests.push(request);
+        const deferred = this.deferredInspectSessions.shift();
+        if (deferred !== undefined) return deferred.promise;
         if (this.inspectSessionOutcomeOverride !== undefined) {
             return Promise.resolve(this.inspectSessionOutcomeOverride);
         }
@@ -1423,7 +2033,8 @@ class TestProvider extends EnvironmentProvider {
         request: SnapshotEnvironmentRequest
     ): Promise<ResourceOutcome<ContentRef>> {
         this.snapshotRequests.push(request);
-        if (this.deferredSnapshot !== undefined) return this.deferredSnapshot.promise;
+        const deferred = this.deferredSnapshots.shift() ?? this.deferredSnapshot;
+        if (deferred !== undefined) return deferred.promise;
         if (this.snapshotOutcomeOverride !== undefined)
             return Promise.resolve(this.snapshotOutcomeOverride);
         if (this.snapshotResult.name === "ready") {

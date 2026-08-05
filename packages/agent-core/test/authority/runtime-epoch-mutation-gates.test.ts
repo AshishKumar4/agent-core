@@ -483,6 +483,39 @@ describe("memory invalidation watermark store mutation gates", () => {
             "Memory watermark snapshot record is malformed"
         );
     });
+
+    test("fails closed on non-object snapshot containers and records", { tags: "p1" }, () => {
+        expectAgentError(
+            () => new MemoryInvalidationWatermarkStore(tenantId, owner, null as never),
+            "codec.invalid",
+            "Memory watermark snapshot is malformed"
+        );
+        expectAgentError(
+            () =>
+                new MemoryInvalidationWatermarkStore(
+                    tenantId,
+                    owner,
+                    Object.assign(() => undefined, { version: 1, records: [] }) as never
+                ),
+            "codec.invalid",
+            "Memory watermark snapshot is malformed"
+        );
+        const saved = InvalidationWatermark.empty(tenantId, owner, holder);
+        expectAgentError(
+            () =>
+                new MemoryInvalidationWatermarkStore(tenantId, owner, {
+                    version: 1,
+                    records: [
+                        Object.assign(() => undefined, {
+                            key: watermarkKey(saved),
+                            bytes: InvalidationWatermark.encode(saved)
+                        }) as never
+                    ]
+                }),
+            "codec.invalid",
+            "Memory watermark snapshot record is malformed"
+        );
+    });
 });
 
 function checkInit(): ConstructorParameters<typeof AuthorityCheckRequest>[0] {

@@ -242,6 +242,28 @@ describe("SQLite content retention state validation", () => {
         );
     });
 
+    test("rejects a negative unowned-since relation column as corruption", { tags: "p1" }, async () => {
+        const database = new InterceptingSqlite();
+        const store = new SqliteContentStore(database);
+        const owner = contentOwner();
+        const retention = store.retention(owner.tenant, owner.actor);
+        const access = store.transient(owner.tenant, owner.actor, () => at(10));
+        await access.acquire(
+            bindingFor("negative-column", "negative-column-envelope", at(30)),
+            encode("negative-column")
+        );
+        database.mutateRows = (statement, rows) =>
+            statement.includes("FROM content_relations")
+                ? rows.map((row) => ({ ...row, unowned_since: -5 }))
+                : rows;
+
+        expectExactError(
+            () => collectAll(database, retention, at(20)),
+            "codec.invalid",
+            "Expected nullable non-negative integer column: unowned_since"
+        );
+    });
+
     test("reports exact malformed relation column diagnostics", { tags: "p1" }, async () => {
         const database = new InterceptingSqlite();
         const store = new SqliteContentStore(database);

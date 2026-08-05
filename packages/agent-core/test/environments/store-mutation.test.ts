@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ContentRef, Revision } from "../../src/core";
+import { AgentCoreError } from "../../src/errors";
 import {
     Environment,
     EnvironmentId,
@@ -310,7 +311,106 @@ describe("MemoryEnvironmentStore mutation kills", () => {
             })
         );
     });
+
+    test("rejects rows whose record revision drifts from their projection", { tags: "p0" }, () => {
+        const rows = seededStore()
+            .exportImage()
+            .rows.map((row) =>
+                row.kind === "head" ? { ...row, recordRevision: row.recordRevision + 1 } : row
+            );
+
+        expect(() => new MemoryEnvironmentStore({ rows })).toThrowError(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Environment store projection does not match codec bytes"
+            })
+        );
+    });
+
+    test("rejects tampered and truncated stored projections", { tags: "p0" }, () => {
+        const image = seededStore().exportImage();
+        const projectionMismatch = expect.objectContaining({
+            code: "protocol.invalid-state",
+            message: "Environment store projection does not match codec bytes"
+        });
+
+        const tampered = image.rows.map((row) =>
+            row.kind === "head"
+                ? { ...row, projection: ["tampered", ...row.projection.slice(1)] }
+                : row
+        );
+        expect(() => new MemoryEnvironmentStore({ rows: tampered })).toThrowError(
+            projectionMismatch
+        );
+
+        const truncated = image.rows.map((row) =>
+            row.kind === "head" ? { ...row, projection: row.projection.slice(0, -1) } : row
+        );
+        expect(() => new MemoryEnvironmentStore({ rows: truncated })).toThrowError(
+            projectionMismatch
+        );
+    });
+
+    test("deletes rolled-back rows after an initial head commit failure", { tags: "p0" }, () => {
+        const store = new ArmedHookEnvironmentStore();
+        store.armed = true;
+
+        expect(() =>
+            store.compareAndSetEnvironment(undefined, revisionRecord, environment)
+        ).toThrowError(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Injected initial commit failure"
+            })
+        );
+        store.armed = false;
+        expect(store.exportImage().rows).toEqual([]);
+        expect(store.getEnvironment(environmentId)).toBeUndefined();
+        expect(store.getRevision(environmentId, Revision.initial())).toBeUndefined();
+    });
+
+    test("codes and rolls back a head CAS that does not persist", { tags: "p0" }, () => {
+        const notPersisted = expect.objectContaining({
+            code: "protocol.invalid-state",
+            message: "Environment atomic CAS did not persist codec bytes"
+        });
+
+        const missing = new UnpersistedHeadEnvironmentStore();
+        missing.headResult = () => undefined;
+        expect(() =>
+            missing.compareAndSetEnvironment(undefined, revisionRecord, environment)
+        ).toThrowError(notPersisted);
+        missing.headResult = undefined;
+        expect(missing.exportImage().rows).toEqual([]);
+        expect(missing.getEnvironment(environmentId)).toBeUndefined();
+
+        const lying = new UnpersistedHeadEnvironmentStore();
+        lying.headResult = () =>
+            new Environment(environmentId, Revision.initial(), 0, new Revision(1));
+        expect(() =>
+            lying.compareAndSetEnvironment(undefined, revisionRecord, environment)
+        ).toThrowError(notPersisted);
+        lying.headResult = undefined;
+        expect(lying.exportImage().rows).toEqual([]);
+    });
 });
+
+class ArmedHookEnvironmentStore extends MemoryEnvironmentStore {
+    public armed = false;
+
+    protected override beforeEnvironmentHeadCommit(): void {
+        if (!this.armed) return;
+        throw new AgentCoreError("protocol.invalid-state", "Injected initial commit failure");
+    }
+}
+
+class UnpersistedHeadEnvironmentStore extends MemoryEnvironmentStore {
+    public headResult: (() => Environment | undefined) | undefined;
+
+    public override getEnvironment(id: EnvironmentId): Environment | undefined {
+        return this.headResult === undefined ? super.getEnvironment(id) : this.headResult();
+    }
+}
 
 function seededStore(): MemoryEnvironmentStore {
     const store = new MemoryEnvironmentStore();

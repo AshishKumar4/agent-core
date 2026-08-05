@@ -350,6 +350,109 @@ describe("MaterializationStore hostile adapter boundaries", () => {
             /Materialization generation contains conflicting logical keys/
         );
     });
+
+    test("keeps stored codec bytes independent of adapter-scribbled projection buffers", { tags: "p0" }, () => {
+        // kills src/definition/materialization-store.ts:637,648,664,680,694 (projection defensive byte copies)
+        const store = new ScribblingMaterializationStore(actor, emptyRows());
+        const fixture = materializationState(actor, 1, "scribble");
+        const stamped = blueprint("scribble", "1.0.0", { value: "scribble" });
+
+        store.addBlueprint(stamped);
+        store.addPlan(fixture.plan);
+        installGeneration(store, fixture);
+        expect(
+            store.transaction((transaction) =>
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    undefined,
+                    MaterializationGenerationPointer.initial(
+                        actor,
+                        deploymentId,
+                        fixture.materialization.generation.id
+                    )
+                )
+            )
+        ).toBe(true);
+
+        expect(Blueprint.encode(store.getBlueprint("scribble", new SemVer("1.0.0"))!)).toEqual(
+            Blueprint.encode(stamped)
+        );
+        expect(MaterializationPlan.encode(store.getPlan(fixture.plan.id)!)).toEqual(
+            MaterializationPlan.encode(fixture.plan)
+        );
+        expect(
+            MaterializationGeneration.encode(
+                store.getGeneration(fixture.materialization.generation.id)!
+            )
+        ).toEqual(MaterializationGeneration.encode(fixture.materialization.generation));
+        expect(store.listManagedState(fixture.materialization.generation.id)).toHaveLength(1);
+        expect(store.getGenerationPointer(actor, deploymentId)?.revision.value).toBe(0);
+    });
+
+    test("rejects byte-divergent generation replays before decoding adapter rows", { tags: "p0" }, () => {
+        // kills src/definition/materialization-store.ts:822 (equalBytes byte-length guard)
+        const store = hostileStore(false);
+        const fixture = materializationState(actor, 1, "prefix");
+        const generation = fixture.materialization.generation;
+        const bytes = MaterializationGeneration.encode(generation);
+        store.rows.generations.push({
+            ...rowForGeneration(generation),
+            bytes: bytes.slice(0, bytes.byteLength - 1)
+        });
+
+        expect(() =>
+            store.transaction((transaction) => store.insertGeneration(transaction, generation))
+        ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
+    });
+
+    test("reports a revision conflict when the active pointer generation disappears mid-CAS", { tags: "p0" }, () => {
+        // kills src/definition/materialization-store.ts:376 (current-generation guard in pointer CAS)
+        const memory = new MemoryMaterializationStore(actor);
+        const first = materializationState(actor, 1, "flap-first");
+        const second = materializationState(actor, 2, "flap-second");
+        installGeneration(memory, first);
+        installGeneration(memory, second);
+        const initial = MaterializationGenerationPointer.initial(
+            actor,
+            deploymentId,
+            first.materialization.generation.id
+        );
+        memory.transaction((transaction) =>
+            memory.compareAndSetGenerationPointer(
+                transaction,
+                actor,
+                deploymentId,
+                undefined,
+                initial
+            )
+        );
+        const snapshot = memory.snapshot();
+        const store = new FlappingGenerationStore(
+            actor,
+            {
+                blueprints: [...snapshot.blueprints],
+                plans: [...snapshot.plans],
+                generations: [...snapshot.generations],
+                managedState: [...snapshot.managedState],
+                pointers: [...snapshot.pointers]
+            },
+            first.materialization.generation.id
+        );
+
+        expect(() =>
+            store.transaction((transaction) =>
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    initial.revision,
+                    initial.activate(second.materialization.generation.id)
+                )
+            )
+        ).toThrowError(expect.objectContaining({ code: "protocol.revision-conflict" }));
+    });
 });
 
 interface HostileRows {
@@ -458,6 +561,77 @@ class HostileMaterializationStore extends MaterializationStore<HostileRows> {
         if (this.pointerFault !== "drop") this.rows.pointers.push(row);
         return true;
     }
+}
+
+class ScribblingMaterializationStore extends HostileMaterializationStore {
+    protected override writeBlueprint(
+        transaction: HostileRows,
+        blueprint: StoredBlueprint
+    ): StoredBlueprint {
+        return super.writeBlueprint(transaction, scribbled(blueprint));
+    }
+
+    protected override writePlan(
+        transaction: HostileRows,
+        plan: StoredMaterializationPlan
+    ): StoredMaterializationPlan {
+        return super.writePlan(transaction, scribbled(plan));
+    }
+
+    protected override writeGeneration(
+        transaction: HostileRows,
+        generation: StoredMaterializationGeneration
+    ): StoredMaterializationGeneration {
+        return super.writeGeneration(transaction, scribbled(generation));
+    }
+
+    protected override writeManagedState(
+        transaction: HostileRows,
+        record: StoredManagedStateRecord
+    ): StoredManagedStateRecord {
+        return super.writeManagedState(transaction, scribbled(record));
+    }
+
+    protected override writeGenerationPointer(
+        transaction: HostileRows,
+        expectedRevision: Revision | undefined,
+        pointer: StoredMaterializationGenerationPointer
+    ): boolean {
+        return super.writeGenerationPointer(transaction, expectedRevision, scribbled(pointer));
+    }
+}
+
+class FlappingGenerationStore extends HostileMaterializationStore {
+    #visibleFlappingReads = 1;
+
+    public constructor(
+        owner: ActorRef,
+        rows: HostileRows,
+        private readonly flappingId: MaterializationGenerationId
+    ) {
+        super(owner, rows);
+    }
+
+    protected override findGeneration(
+        transaction: HostileRows,
+        id: MaterializationGenerationId
+    ): StoredMaterializationGeneration | undefined {
+        if (id.equals(this.flappingId)) {
+            if (this.#visibleFlappingReads === 0) return undefined;
+            this.#visibleFlappingReads -= 1;
+        }
+        return super.findGeneration(transaction, id);
+    }
+}
+
+function emptyRows(): HostileRows {
+    return { blueprints: [], plans: [], generations: [], managedState: [], pointers: [] };
+}
+
+function scribbled<Row extends { readonly bytes: Uint8Array }>(row: Row): Row {
+    const detached = { ...row, bytes: row.bytes.slice() };
+    row.bytes.fill(0);
+    return detached;
 }
 
 function hostileStore(complete = true): HostileMaterializationStore {

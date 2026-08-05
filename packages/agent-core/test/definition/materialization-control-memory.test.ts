@@ -312,6 +312,25 @@ describe("MemoryMaterializationControlStore integrity", () => {
         ).toThrow(/Materialization outbox transition is invalid/);
     });
 
+    test("isolates transaction draft bytes from committed control state", { tags: "p0" }, () => {
+        // kills src/definition/memory.ts:734 (transaction draft byte detachment)
+        const store = new MemoryMaterializationControlStore();
+        const attestation = validationAttestation(1);
+        store.transaction((transaction) => store.insertAttestation(transaction, attestation));
+
+        expect(() =>
+            store.transaction((transaction) => {
+                transaction.attestations.get(attestation.id.value)!.fill(0);
+                throw new TypeError("injected rollback");
+            })
+        ).toThrow(/injected rollback/);
+        expect(
+            store
+                .transaction((transaction) => store.loadAttestation(transaction, attestation.id))
+                ?.id.equals(attestation.id)
+        ).toBe(true);
+    });
+
     test("names every missing closure linkage during snapshot restore", { tags: "p1" }, () => {
         const { store, deployment } = storeWithDeployment();
         const rollout = new MaterializationRollout({ plan: plan(1, ["a"]) });

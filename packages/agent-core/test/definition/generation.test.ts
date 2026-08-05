@@ -73,6 +73,16 @@ describe("materialization generation identity and canonicalization", () => {
         );
     });
 
+    test("rejects padded managed resource names", { tags: "p1" }, () => {
+        // kills src/definition/generation.ts:518
+        expect(() => managedResourceId(actor, origin(1), " policy:padded ", "policy-set")).toThrow(
+            /Managed resource logical key must be a nonblank canonical string/
+        );
+        expect(() => managedResourceId(actor, origin(1), "policy:stable", " policy-set ")).toThrow(
+            /Managed resource record kind must be a nonblank canonical string/
+        );
+    });
+
     test("names every malformed managed state field in its codec error", { tags: "p2" }, () => {
         const generation = MaterializationGeneration.fromActorPlan(actorPlan(origin(1)));
         const record = ManagedStateRecord.fromProjection(

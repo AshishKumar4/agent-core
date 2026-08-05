@@ -9,7 +9,7 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite/sqlite";
-import { WorkspacePersistence } from "../../../src/workspaces";
+import { WorkspacePersistence, type CompactableWorkspaceRecordKind } from "../../../src/workspaces";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 import { eventFixture, eventRetention, sourceActor, tenant } from "../../workspaces/fixtures";
 import {
@@ -85,6 +85,17 @@ test("verifies initial pointer compare-and-set postconditions", { tags: "p0" }, 
             undefined
         )
     ).toThrow(/lost a concurrent race/);
+});
+
+test("refuses to compact non-compactable record kinds and keeps them stored", { tags: "p0" }, () => {
+    const database = new TestSqlite();
+    const records = new SqliteWorkspaceEventRecords(database);
+    records.insertRecord({ kind: "event", id: "guarded", bytes: Uint8Array.of(1) });
+
+    expect(() =>
+        records.deleteCompactedRecords("event" as CompactableWorkspaceRecordKind, ["guarded"])
+    ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
+    expect(records.findRecord("event", "guarded")?.bytes).toEqual(Uint8Array.of(1));
 });
 
 test("duplicate records are rejected before the insert executes", { tags: "p1" }, () => {

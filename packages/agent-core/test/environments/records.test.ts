@@ -673,6 +673,36 @@ describe("Environment records", () => {
         expect(() => exposureWithUrl("ftp://example.test/resource")).toThrow(TypeError);
     });
 
+    test("requires a URL exactly when a port exposure is exposed", { tags: "p0" }, () => {
+        expect(() => exposureIn(PortExposureState.exposed, undefined)).toThrow(TypeError);
+    });
+
+    test("revokes failed exposures and keeps exposed replays inert", { tags: "p1" }, () => {
+        const failed = exposureIn(PortExposureState.failed);
+        const revoking = failed.beginRevoke();
+        expect(revoking.state.name).toBe("revoking");
+        expect(revoking.url).toBeUndefined();
+        expect(revoking.recordRevision.value).toBe(failed.recordRevision.value + 1);
+
+        const exposed = exposureIn(PortExposureState.exposed, "https://preview.example.test/");
+        expect(exposed.exposed("https://user:secret@example.test/")).toBe(exposed);
+    });
+
+    test("fences rotation to the exact environment and next revision", { tags: "p0" }, () => {
+        const invalidRotation = expect.objectContaining({ code: "operation.invalid-input" });
+        expect(() =>
+            environment.rotate(
+                new EnvironmentRevisionRecord(
+                    new EnvironmentId("environment-records-other"),
+                    new Revision(1),
+                    1,
+                    provider
+                )
+            )
+        ).toThrowError(invalidRotation);
+        expect(() => environment.rotate(revision(2, 1))).toThrowError(invalidRotation);
+    });
+
     test("validates every counter and decodes every lifecycle state", { tags: "p1" }, () => {
         expect(
             () =>

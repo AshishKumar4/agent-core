@@ -478,6 +478,21 @@ describe("SQLite materialization schema", () => {
         expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
     });
 
+    test("accepts a stored table whose IF NOT EXISTS uses wider whitespace", { tags: "p2" }, () => {
+        const database = new TestSqlite();
+        const actor = actorRef("whitespace-schema");
+        new SqliteMaterializationStore(database, actor);
+        const sql = database.all(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'definition_blueprints'",
+            []
+        )[0]?.["sql"];
+        expect(typeof sql).toBe("string");
+        database.run("DROP TABLE definition_blueprints", []);
+        database.run(String(sql).replace("IF NOT EXISTS", "IF  NOT  EXISTS"), []);
+
+        expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
+    });
+
     test("names the exact schema marker reset reasons", { tags: "p1" }, () => {
         const unsupported = expect.objectContaining({
             code: "codec.invalid",

@@ -1,10 +1,15 @@
 import { describe, expect, test } from "vitest";
+import type { SynchronousResultGuard, TransactionOperation } from "../../src/actors";
 import { JsonSchema, Revision } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { WorkspaceId } from "../../src/identity";
 import { SlotAuthorityPolicy, SlotDeclaration, SlotEntry, SlotName } from "../../src/facets";
 import { MemoryWorkspaceSlotStore } from "../../src/facets/slot-memory";
-import { WorkspaceSlotCatalog, type SlotQueryAuthorityPort } from "../../src/facets/slot-store";
+import {
+    WorkspaceSlotCatalog,
+    WorkspaceSlotStore,
+    type SlotQueryAuthorityPort
+} from "../../src/facets/slot-store";
 import {
     contribute,
     entry,
@@ -561,6 +566,38 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
         );
     });
 
+    test("contribute enforces the entry schema before any backend insert", { tags: "p0" }, () => {
+        const store = new BareWorkspaceSlotStore(new WorkspaceId("workspace"));
+        store.install(slot());
+
+        expectAgentCoreError(
+            () => store.contribute(entry("workspace:bad", 2, { invalid: true })),
+            "operation.invalid-input",
+            /does not match the entry schema/
+        );
+        expect(store.entries(slot().name)).toHaveLength(0);
+        expect(store.contribute(entry("workspace:facet", 1, { title: "Card" })).value).toBe(2);
+        expect(store.entries(slot().name)).toHaveLength(1);
+    });
+
+    test("never enumerates entries for uninstalled slots", { tags: "p0" }, async () => {
+        const owner = new WorkspaceId("workspace");
+        const store = new BareWorkspaceSlotStore(owner);
+        store.install(slot());
+        store.contribute(entry("workspace:facet", 1, { title: "Card" }));
+        const authority: SlotQueryAuthorityPort<object> = {
+            workspace: () => owner,
+            canViewSlot: async () => true,
+            canViewEntry: async () => true
+        };
+        const catalog = new WorkspaceSlotCatalog(store, {}, authority);
+
+        await expect(catalog.query(new SlotName("missing.slot"))).resolves.toEqual([]);
+        expect(store.listedSlots).toEqual([]);
+        await expect(catalog.query(slot().name)).resolves.toHaveLength(1);
+        expect(store.listedSlots).toEqual(["dashboard.card"]);
+    });
+
     test("never consults slot visibility for uninstalled slots", { tags: "p0" }, async () => {
         const owner = new WorkspaceId("workspace");
         const store = new MemoryWorkspaceSlotStore(owner);
@@ -582,6 +619,55 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
         expect(consulted).toEqual(["dashboard.card"]);
     });
 });
+
+interface BareSlotState {
+    revision: number;
+    readonly slots: Map<string, SlotDeclaration>;
+    readonly entries: Map<string, SlotEntry>;
+}
+
+class BareWorkspaceSlotStore extends WorkspaceSlotStore<BareSlotState> {
+    public readonly listedSlots: string[] = [];
+    readonly #state: BareSlotState = { revision: 0, slots: new Map(), entries: new Map() };
+
+    public transaction<Result>(
+        operation: TransactionOperation<BareSlotState, Result>,
+        ..._guard: SynchronousResultGuard<Result>
+    ): Result {
+        return operation(this.#state);
+    }
+
+    public loadRevision(transaction: BareSlotState): Revision {
+        return new Revision(transaction.revision);
+    }
+
+    public saveRevision(transaction: BareSlotState, revision: Revision): void {
+        transaction.revision = revision.value;
+    }
+
+    public loadSlot(transaction: BareSlotState, name: SlotName): SlotDeclaration | undefined {
+        return transaction.slots.get(name.value);
+    }
+
+    public insertSlot(transaction: BareSlotState, declaration: SlotDeclaration): void {
+        transaction.slots.set(declaration.name.value, declaration);
+    }
+
+    public loadEntry(transaction: BareSlotState, id: SlotEntry["id"]): SlotEntry | undefined {
+        return transaction.entries.get(id.value);
+    }
+
+    public listEntries(transaction: BareSlotState, slot: SlotName): readonly SlotEntry[] {
+        this.listedSlots.push(slot.value);
+        return Object.freeze(
+            [...transaction.entries.values()].filter((candidate) => candidate.slot.equals(slot))
+        );
+    }
+
+    public insertEntry(transaction: BareSlotState, entry: SlotEntry): void {
+        transaction.entries.set(entry.id.value, entry);
+    }
+}
 
 function expectAgentCoreError(
     action: () => unknown,

@@ -9,6 +9,7 @@ import {
     EnvironmentRevisionRecord,
     EnvironmentSession,
     EnvironmentSessionId,
+    EnvironmentSessionState,
     EnvironmentSnapshot,
     EnvironmentSnapshotId,
     EnvironmentSnapshotState,
@@ -644,6 +645,90 @@ describe("EnvironmentController mutation kills", () => {
             expect(fixture.store.getSession(opened.id)?.state.name).toBe("closing");
         }
     );
+
+    test("codes a missing pinned revision during provider resolution", { tags: "p1" }, async () => {
+        const inner = new MemoryEnvironmentStore();
+        const masking = new MaskingEnvironmentStore(inner);
+        const provider = new TestProvider(descriptor("provider-hidden-revision", "5"));
+        const registry = new MemoryEnvironmentProviderRegistry([provider]);
+        const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
+        const controller = new EnvironmentController(masking, registry, verifier);
+        controller.provision(initialRevision(provider.descriptor), lease);
+        const reserved = controller.reserveSession(
+            environmentId,
+            new EnvironmentSessionId("session-hidden-revision"),
+            lease
+        );
+        masking.hideRevision = true;
+
+        await expect(controller.openSession(reserved.capability, lease)).rejects.toEqual(
+            expect.objectContaining({
+                code: "environment.stale-session",
+                message: "Environment resource does not pin an exact provider generation"
+            })
+        );
+        expect(provider.openRequests).toHaveLength(0);
+    });
+
+    test(
+        "codes a provision conflict when the stored revision record is missing",
+        { tags: "p1" },
+        () => {
+            const inner = new MemoryEnvironmentStore();
+            const masking = new MaskingEnvironmentStore(inner);
+            const provider = new TestProvider(descriptor("provider-conflict-no-revision", "6"));
+            const registry = new MemoryEnvironmentProviderRegistry([provider]);
+            const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
+            const controller = new EnvironmentController(masking, registry, verifier);
+            controller.provision(initialRevision(provider.descriptor), lease);
+            masking.rejectEnvironmentCas = true;
+            masking.hideRevision = true;
+
+            expect(() =>
+                controller.provision(initialRevision(provider.descriptor), lease)
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Environment was provisioned concurrently"
+                })
+            );
+        }
+    );
+
+    test(
+        "fails a snapshot whose session is missing, not open, or epoch-drifted at settle time",
+        { tags: "p0" },
+        async () => {
+            const inner = new MemoryEnvironmentStore();
+            const masking = new MaskingEnvironmentStore(inner);
+            const provider = new TestProvider(descriptor("provider-snapshot-session-guard", "7"));
+            const registry = new MemoryEnvironmentProviderRegistry([provider]);
+            const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
+            const controller = new EnvironmentController(masking, registry, verifier);
+            controller.provision(initialRevision(provider.descriptor), lease);
+            const reserved = controller.reserveSession(
+                environmentId,
+                new EnvironmentSessionId("session-snapshot-guard"),
+                lease
+            );
+            await controller.openSession(reserved.capability, lease);
+            const masks = ["hidden", "failed-state", "epoch-drift"] as const;
+
+            for (const mask of masks) {
+                const snapshotId = new EnvironmentSnapshotId(`snapshot-guard-${mask}`);
+                const result = new Deferred<ResourceOutcome<ContentRef>>();
+                provider.deferredSnapshot = result;
+                const pending = controller.snapshot(reserved.capability, snapshotId, lease);
+                masking.sessionMask = mask;
+                result.resolve(ProviderResourceOutcome.ready(provider.snapshotContent));
+
+                expect((await pending).state.name).toBe("failed");
+                expect(inner.getSnapshot(snapshotId)?.state.name).toBe("failed");
+                masking.sessionMask = undefined;
+                provider.deferredSnapshot = undefined;
+            }
+        }
+    );
 });
 
 class TestProvider extends EnvironmentProvider {
@@ -753,6 +838,9 @@ class TestProvider extends EnvironmentProvider {
 class MaskingEnvironmentStore extends EnvironmentStore {
     public maskSnapshotContent = false;
     public bumpRevisionGeneration = false;
+    public hideRevision = false;
+    public rejectEnvironmentCas = false;
+    public sessionMask: "hidden" | "failed-state" | "epoch-drift" | undefined;
 
     public constructor(private readonly inner: MemoryEnvironmentStore) {
         super();
@@ -766,6 +854,7 @@ class MaskingEnvironmentStore extends EnvironmentStore {
         id: EnvironmentId,
         revision: Revision
     ): EnvironmentRevisionRecord | undefined {
+        if (this.hideRevision) return undefined;
         const record = this.inner.getRevision(id, revision);
         if (record === undefined || !this.bumpRevisionGeneration) return record;
         return new EnvironmentRevisionRecord(
@@ -781,11 +870,24 @@ class MaskingEnvironmentStore extends EnvironmentStore {
         revision: EnvironmentRevisionRecord,
         environment: Environment
     ): boolean {
+        if (this.rejectEnvironmentCas) return false;
         return this.inner.compareAndSetEnvironment(expected, revision, environment);
     }
 
     public getSession(id: EnvironmentSessionId): EnvironmentSession | undefined {
-        return this.inner.getSession(id);
+        const session = this.inner.getSession(id);
+        if (session === undefined || this.sessionMask === undefined) return session;
+        if (this.sessionMask === "hidden") return undefined;
+        return new EnvironmentSession(
+            session.id,
+            session.environmentId,
+            session.environmentRevision,
+            session.generation,
+            this.sessionMask === "epoch-drift" ? session.epoch + 1 : session.epoch,
+            this.sessionMask === "failed-state" ? EnvironmentSessionState.failed : session.state,
+            session.restoreFrom,
+            session.recordRevision
+        );
     }
 
     public compareAndSetSession(

@@ -4692,6 +4692,94 @@ export function invocationLedgerContract<Transaction>(
                 );
             }
         );
+
+        test(
+            "[invocation.item-claim] rejects claim owner kinds that contradict the Prepared lease mode",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const leaseFree = prepared("owner-kind-lease-free");
+                const leased = prepared("owner-kind-leased", {}, { lease: "lease:1" });
+                const rejected: readonly ItemClaim<string>[] = [
+                    executorClaim(
+                        leaseFree.header.id,
+                        0,
+                        0,
+                        "claim:owner-kind:executor",
+                        "worker:owner-kind:executor",
+                        time(10)
+                    ),
+                    systemClaim(
+                        leased,
+                        0,
+                        0,
+                        "claim:owner-kind:system",
+                        "worker:owner-kind:system",
+                        time(10)
+                    )
+                ];
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, leaseFree);
+                    harness.ledger.prepare(transaction, leased);
+                });
+                for (const claim of rejected) {
+                    let failure: unknown;
+                    try {
+                        harness.transaction((transaction) =>
+                            harness.ledger.claimItem(transaction, claim, time(1))
+                        );
+                    } catch (error) {
+                        failure = error;
+                    }
+                    expect(failure).toBeInstanceOf(AgentCoreError);
+                    expect(failure).toMatchObject({ code: "invocation.invalid" });
+                    expect(
+                        harness.transaction((transaction) =>
+                            harness.persistence.claim(transaction, claim.id)
+                        )
+                    ).toBeUndefined();
+                }
+            }
+        );
+
+        test(
+            "[invocation.receipt] resolves the current head for opaque Receipt identifier text",
+            { tags: "p2" },
+            () => {
+                const harness = open();
+                const invocation = prepared("opaque-receipt-id", {}, { lease: "lease:1" });
+                const claim = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:opaque-receipt-id",
+                    "worker:opaque-receipt-id",
+                    time(10)
+                );
+                const attempt = effectAttempt(invocation, claim, "attempt:opaque-receipt-id", time(2));
+                const receipt = new AttemptReceipt(
+                    new ReceiptId("Stryker was here"),
+                    attempt.id,
+                    "succeeded",
+                    undefined,
+                    time(3),
+                    content("opaque-receipt-id")
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                    harness.ledger.admitAttempt(transaction, attempt, time(2));
+                    harness.ledger.recordAttemptReceipt(transaction, receipt);
+                });
+                expect(
+                    harness.transaction(
+                        (transaction) =>
+                            harness.ledger.currentReceipt(transaction, invocation.header.id, 0)?.id
+                                .value
+                    )
+                ).toBe("Stryker was here");
+            }
+        );
     });
 }
 

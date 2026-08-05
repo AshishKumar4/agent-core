@@ -269,6 +269,61 @@ describe("TenantAuthorityRuntime hard gates", () => {
         ).toBe("guestVerificationExpired");
     });
 
+    test("denies binding validation for foreign subjects backed by non-guest role Grants", { tags: "p0" }, () => {
+        const store = new FakeAuthorityStore();
+        const home = new TenantId("runtime-hard-nonguest-home");
+        const guest = new PrincipalId("runtime-hard-nonguest");
+        const subject = SubjectRef.foreign(home, guest, GuestVerificationScheme.callback);
+        const trust = new GuestTrust(
+            new GuestTrustId("runtime-hard-nonguest-trust"),
+            tenantId,
+            home,
+            { kind: "callback", endpoint: "https://runtime-hard.example/nonguest" },
+            "active",
+            Revision.initial()
+        );
+        const membership = new Membership(
+            new MembershipId("runtime-hard-nonguest-member"),
+            workspaceScope,
+            subject,
+            new RoleName("guest"),
+            "active",
+            Revision.initial(),
+            new GuestVerification(
+                new PrincipalRef(home, guest),
+                trust.id,
+                trust.revision,
+                "callback",
+                Digest.sha256(Uint8Array.of(21)),
+                new Date(1),
+                new Date(100)
+            )
+        );
+        const backing = new Grant(
+            GrantId.forRole(membership.id, 0),
+            workspaceScope,
+            subject,
+            "allow",
+            capability,
+            {
+                kind: "role",
+                membershipId: membership.id,
+                roleName: membership.role.value,
+                ruleOrdinal: 0,
+                guest: false
+            }
+        );
+        store.grantRecords.push(backing);
+        store.membershipRecords.push(membership);
+        store.trustRecords.push(trust);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+        expectAgentError(
+            () => runtime.validateBinding(validationRequest(backing.id), new Date(10)),
+            "authority.denied",
+            "Binding requires a live allow Grant reaching its Workspace"
+        );
+    });
+
     test("fails closed for every malformed delegation lineage branch", { tags: "p0" }, () => {
         for (const malformed of [
             "revoked",

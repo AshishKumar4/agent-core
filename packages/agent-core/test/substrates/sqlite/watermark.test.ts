@@ -143,6 +143,21 @@ describe("SQLite watermark store exact failure and persistence behavior", () => 
         expect(row?.["revision"]).toBe(1);
     });
 
+    test("persists a same-length join transition instead of treating it as a no-op", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
+        store.save(watermark);
+        store.join(key, [new ScopeEpoch(scope, 3)]);
+
+        const advanced = store.join(key, [new ScopeEpoch(scope, 4)]);
+        expect(advanced.revision.value).toBe(2);
+        expect(advanced.epoch(scope)).toBe(4);
+
+        const loaded = store.load(key);
+        expect(loaded?.revision.value).toBe(2);
+        expect(loaded?.epoch(scope)).toBe(4);
+    });
+
     test("requires initialization before join with the exact error", { tags: "p0" }, () => {
         const store = new SqliteInvalidationWatermarkStore(new TestSqlite(), tenant, owner);
 

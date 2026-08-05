@@ -1248,6 +1248,41 @@ describe("Declarative facet vocabulary", () => {
     );
 
     test(
+        "[facet.prompt-contribution] breaks priority ties by title before body from any input order",
+        { tags: "p1" },
+        () => {
+            const first = () => new Prompt("a", "z", 1);
+            const second = () => new Prompt("b", "a", 1);
+            for (const sections of [
+                [first(), second()],
+                [second(), first()]
+            ]) {
+                expect(
+                    new PromptContribution(sections).sections.map((section) => section.title)
+                ).toEqual(["a", "b"]);
+            }
+        }
+    );
+
+    test(
+        "[facet.operation-selector] orders facet-scoped patterns by exact facet before operation",
+        { tags: "p1" },
+        () => {
+            const parent = new OperationPattern("x", new FacetPackageId("core"));
+            const scoped = new OperationPattern("x", new FacetPackageId("core.mail"));
+            for (const patterns of [
+                [parent, scoped],
+                [scoped, parent]
+            ]) {
+                expect(new OperationSelector(patterns).toData()).toEqual([
+                    { facet: "core", operation: "x" },
+                    { facet: "core.mail", operation: "x" }
+                ]);
+            }
+        }
+    );
+
+    test(
         "[facet.interceptor-declaration] [facet.slot-entry] validates priorities and ordinals as safe integers",
         { tags: "p1" },
         () => {

@@ -2,8 +2,10 @@ import {
     Approval,
     ApprovalId,
     AttemptReceipt,
+    AuditRecord,
     AuditRecordId,
     ClaimWorkerId,
+    CorrelationId,
     EffectAttempt,
     EffectAttemptId,
     InvocationError,
@@ -15,10 +17,11 @@ import {
     cloneInvocationMemoryState,
     createInvocationMemoryState,
     InvocationContinuation,
+    type InvocationAuditPersistence,
     type InvocationMemoryState
 } from "../../src/invocations";
 import { AgentCoreError } from "../../src/errors";
-import { PrincipalId } from "../../src/identity";
+import { PrincipalId, TenantId } from "../../src/identity";
 import { expect, test } from "vitest";
 import {
     admissionFor,
@@ -756,5 +759,150 @@ test(
         expect(persistence.prepared(state, invocation.header.id)?.header.id.value).toBe(
             invocation.header.id.value
         );
+    }
+);
+
+test(
+    "[invocation-persistence] ledger fails closed on duplicated pre-effect Receipt history",
+    { tags: "p0" },
+    () => {
+        const state = createInvocationMemoryState();
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const ledger = createLedger(persistence);
+        const invocation = prepared("memory-duplicate-pre-effect");
+        persistence.insertPrepared(state, invocation);
+        for (const suffix of ["first", "second"]) {
+            persistence.appendReceipt(
+                state,
+                new PreEffectReceipt(
+                    new ReceiptId(`memory-duplicate-pre-effect-${suffix}`),
+                    invocation.header.id,
+                    0,
+                    "deniedPreEffect",
+                    new Date(1000),
+                    "denied"
+                )
+            );
+        }
+        const error = rejects(
+            () => ledger.currentReceipt(state, invocation.header.id, 0),
+            AgentCoreError
+        );
+        expect(error.code).toBe("invocation.invalid");
+    }
+);
+
+test(
+    "[invocation-persistence] ledger refuses transition times the time port distrusts",
+    { tags: "p0" },
+    () => {
+        const state = createInvocationMemoryState();
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const ledger = createLedger(persistence, {
+            timeAdmits: (time) => time.getTime() >= 2000
+        });
+        const invocation = prepared("memory-distrusted-time");
+        const claim = new ItemClaim<string>(
+            new ItemClaimId("memory-distrusted-time-claim"),
+            invocation.header.id,
+            0,
+            0,
+            {
+                kind: "system",
+                actor: invocation.header.actor,
+                worker: new ClaimWorkerId("memory-distrusted-time-worker")
+            },
+            new Date(10000)
+        );
+        ledger.prepare(state, invocation);
+        const error = rejects(() => ledger.claimItem(state, claim, new Date(1000)), AgentCoreError);
+        expect(error.code).toBe("invocation.invalid");
+        expect(persistence.claim(state, claim.id)).toBeUndefined();
+        ledger.claimItem(state, claim, new Date(2000));
+        expect(persistence.claim(state, claim.id)?.id.value).toBe(claim.id.value);
+    }
+);
+
+test(
+    "[invocation-persistence] memory latest-Approval reads fail closed on revision-key drift",
+    { tags: "p0" },
+    () => {
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-approval-latest-drift");
+        const approval = Approval.pending(
+            new ApprovalId("memory-approval-latest-drift-approval"),
+            invocation.header.id,
+            invocation.intentDigest,
+            new Date(1000)
+        );
+        const state = createInvocationMemoryState();
+        state.approvals.set(
+            `${approval.id.value}\u00005`,
+            invocationCodecs.approval.encode(approval)
+        );
+        const error = rejects(() => persistence.approval(state, approval.id), AgentCoreError);
+        expect(error.code).toBe("codec.invalid");
+    }
+);
+
+class RecordedAuditEvidence implements InvocationAuditPersistence<InvocationMemoryState> {
+    private readonly audits = new Map<string, AuditRecord>();
+
+    public seed(record: AuditRecord): void {
+        this.audits.set(record.id.value, record);
+    }
+
+    public audit(_transaction: InvocationMemoryState, id: AuditRecordId): AuditRecord | undefined {
+        return this.audits.get(id.value);
+    }
+
+    public findAuditByEvidence(): AuditRecord | undefined {
+        return undefined;
+    }
+
+    public appendAudit(_transaction: InvocationMemoryState, record: AuditRecord): void {
+        this.audits.set(record.id.value, record);
+    }
+}
+
+test(
+    "[invocation.audit] audit relations fail closed when receipt evidence names a ghost attempt",
+    { tags: "p1" },
+    () => {
+        const state = createInvocationMemoryState();
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const ledger = createLedger(persistence);
+        const evidence = new RecordedAuditEvidence();
+        const invocation = prepared("memory-ghost-attempt");
+        const receipt = new AttemptReceipt(
+            new ReceiptId("memory-ghost-attempt-receipt"),
+            new EffectAttemptId("memory-ghost-attempt-attempt"),
+            "failed",
+            undefined,
+            new Date(2000),
+            undefined
+        );
+        persistence.appendReceipt(state, receipt);
+        const attemptAudit = new AuditRecord({
+            id: new AuditRecordId("memory-ghost-attempt-audit"),
+            actor: invocation.header.actor,
+            tenant: new TenantId("tenant:memory"),
+            correlation: new CorrelationId("correlation:memory"),
+            kind: { kind: "attempt", id: receipt.attempt }
+        });
+        evidence.seed(attemptAudit);
+        const receiptAudit = new AuditRecord({
+            id: new AuditRecordId("memory-ghost-attempt-receipt-audit"),
+            actor: invocation.header.actor,
+            tenant: new TenantId("tenant:memory"),
+            correlation: new CorrelationId("correlation:memory"),
+            cause: attemptAudit.id,
+            kind: { kind: "receipt", id: receipt.id, outcome: "failed" }
+        });
+        const error = rejects(
+            () => ledger.requirePersistedAuditRelation(state, receiptAudit, evidence),
+            InvocationError
+        );
+        expect(error.failure).toBe("audit.evidence-mismatch");
     }
 );

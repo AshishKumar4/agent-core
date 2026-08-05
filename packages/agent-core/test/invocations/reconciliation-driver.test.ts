@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ContentRef, Digest } from "../../src/core";
 import {
     AlarmReconciliationDriver,
+    AttemptReceipt,
     InvocationReconciler,
     type EffectAttemptId,
     type EffectReconciliationPort,
@@ -11,6 +12,7 @@ import {
 import { InvocationId } from "../../src/interaction-references";
 import { OperationRequestKey } from "../../src/operations";
 import { TestSqlite } from "../helpers/sqlite";
+import { expectAgentCoreError } from "../protocol/error-assertion";
 import {
     CanonicalBatchHarness,
     type CanonicalBatchHarnessState,
@@ -136,6 +138,31 @@ function unknownProvider(): EffectReconciliationPort<string, string> {
     return { query: async () => ({ kind: "unknown" }) };
 }
 
+const untouchedReconciler = {
+    async reconcile(): Promise<AttemptReceipt | undefined> {
+        throw new TypeError("The reconciliation driver must not reconcile here");
+    }
+};
+
+const emptyIndeterminateSource: IndeterminateAttemptSource = { indeterminate: () => [] };
+
+function stalledReconciler(
+    fixture: Awaited<ReturnType<typeof indeterminateFixture>>,
+    invocation: InvocationId
+): { reconcile(): Promise<AttemptReceipt | undefined> } {
+    return {
+        async reconcile() {
+            const receipt = fixture.harness.transactions.transact((transaction) =>
+                fixture.harness.ledger.currentReceipt(transaction, invocation, 0)
+            );
+            if (!(receipt instanceof AttemptReceipt) || receipt.outcome !== "indeterminate") {
+                throw new TypeError("The current Receipt must still be indeterminate");
+            }
+            return receipt;
+        }
+    };
+}
+
 describe("reconciliation driver", () => {
     test(
         "[C13-EFFECT-RECONCILIATION-DRIVER] direct reconciler calls never establish scheduling",
@@ -220,6 +247,104 @@ describe("reconciliation driver", () => {
             const report = await driver.sweep();
             expect(report).toEqual({ queried: 1, reconciled: 0, remaining: true });
             expect(schedule.scheduled()).toBeDefined();
+        }
+    );
+
+    test("rejects a non-positive or unsafe sweep interval", { tags: "p1" }, () => {
+        const schedule = new DurableSchedule(new TestSqlite());
+        const now = (): Date => new Date(0);
+        for (const intervalMs of [0, -INTERVAL_MS, 1.5, 2 ** 53]) {
+            expectAgentCoreError(
+                () =>
+                    new AlarmReconciliationDriver(
+                        untouchedReconciler,
+                        emptyIndeterminateSource,
+                        schedule,
+                        intervalMs,
+                        now
+                    ),
+                "protocol.invalid-state"
+            );
+        }
+        expect(
+            new AlarmReconciliationDriver(
+                untouchedReconciler,
+                emptyIndeterminateSource,
+                schedule,
+                1,
+                now
+            )
+        ).toBeInstanceOf(AlarmReconciliationDriver);
+    });
+
+    test("rejects a non-positive or unsafe batch limit", { tags: "p1" }, () => {
+        const schedule = new DurableSchedule(new TestSqlite());
+        const now = (): Date => new Date(0);
+        for (const batchLimit of [0, -8, 1.5, 2 ** 53]) {
+            expectAgentCoreError(
+                () =>
+                    new AlarmReconciliationDriver(
+                        untouchedReconciler,
+                        emptyIndeterminateSource,
+                        schedule,
+                        INTERVAL_MS,
+                        now,
+                        batchLimit
+                    ),
+                "protocol.invalid-state"
+            );
+        }
+        expect(
+            new AlarmReconciliationDriver(
+                untouchedReconciler,
+                emptyIndeterminateSource,
+                schedule,
+                INTERVAL_MS,
+                now,
+                1
+            )
+        ).toBeInstanceOf(AlarmReconciliationDriver);
+    });
+
+    test(
+        "[C13-EFFECT-RECONCILIATION-DRIVER] arm schedules the first sweep one interval after now",
+        { tags: "p1" },
+        () => {
+            const schedule = new DurableSchedule(new TestSqlite());
+            const epoch = 1_754_000_000_000;
+            const armed = new AlarmReconciliationDriver(
+                untouchedReconciler,
+                emptyIndeterminateSource,
+                schedule,
+                INTERVAL_MS,
+                () => new Date(epoch)
+            ).arm();
+
+            expect(armed.getTime()).toBe(epoch + INTERVAL_MS);
+            expect(schedule.scheduled()?.getTime()).toBe(epoch + INTERVAL_MS);
+        }
+    );
+
+    test(
+        "[C13-EFFECT-RECONCILIATION-DRIVER] a sweep leaves a still-indeterminate attempt unreconciled and re-arms one interval after now",
+        { tags: "p1" },
+        async () => {
+            const fixture = await indeterminateFixture("driver-stalled");
+            const schedule = new DurableSchedule(new TestSqlite());
+            const epoch = 1_754_000_000_000;
+            const driver = new AlarmReconciliationDriver(
+                stalledReconciler(fixture, new InvocationId("driver-stalled")),
+                fixture.source,
+                schedule,
+                INTERVAL_MS,
+                () => new Date(epoch)
+            );
+
+            const report = await driver.sweep();
+            // The reconciler returned the still-indeterminate Receipt: the
+            // attempt counts as queried but never as reconciled.
+            expect(report).toEqual({ queried: 1, reconciled: 0, remaining: true });
+            expect(schedule.scheduled()?.getTime()).toBe(epoch + INTERVAL_MS);
         }
     );
 });

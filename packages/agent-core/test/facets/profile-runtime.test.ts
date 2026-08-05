@@ -571,6 +571,20 @@ describe("W3 effect dispatch identity", () => {
                 )
         ).toThrow("Profile effect idempotency key must be canonical");
     });
+
+    test("rejects an empty effect idempotency key", { tags: "p1" }, () => {
+        expect(
+            () =>
+                new ProfileEffectContext(
+                    new InvocationId("empty-key"),
+                    0,
+                    "",
+                    undefined,
+                    undefined,
+                    undefined
+                )
+        ).toThrow("Profile effect idempotency key must be canonical");
+    });
 });
 
 describe("W3 profile wire codec versioning", () => {

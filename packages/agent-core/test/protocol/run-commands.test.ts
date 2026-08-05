@@ -230,6 +230,32 @@ describe("Run protocol family", () => {
         expect(port.decisionAt).toBe(at);
     });
 
+    it("rejects fractional expirations and admits every terminal outcome", { tags: "p1" }, () => {
+        const commands = createRunProtocolCommands(new TestPort(), owner);
+        const claim = requireRunCommand(commands, RUN_COMMANDS.claimTurn);
+        for (const payload of ['{"expiresAt":1.5,"turn":"turn"}', '{"expiresAt":0.5,"turn":"turn"}']) {
+            expect(() => claim.payload.decode(new TextEncoder().encode(payload))).toThrow(
+                /expiration/
+            );
+        }
+
+        const complete = requireRunCommand(commands, RUN_COMMANDS.completeTurn);
+        for (const outcome of ["succeeded", "failed", "cancelled"] as const) {
+            const decoded = complete.payload.decode(
+                new TextEncoder().encode(
+                    `{"commit":"commit-1","outcome":"${outcome}","turn":"turn-1"}`
+                )
+            );
+            if (decoded.kind !== "completeTurn") throw new TypeError("Expected a completion");
+            expect(decoded.outcome).toBe(outcome);
+        }
+        expect(() =>
+            complete.payload.decode(
+                new TextEncoder().encode('{"commit":"commit-1","outcome":"","turn":"turn-1"}')
+            )
+        ).toThrow(/outcome/);
+    });
+
     it("rejects every malformed payload shape before typed port execution", { tags: "p2" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
         const create = commands.find((command) => command.command === RUN_COMMANDS.create)!;

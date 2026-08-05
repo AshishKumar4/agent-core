@@ -1275,6 +1275,40 @@ describe("SQLite authority adapter mutation gates", () => {
         expect(loadSqliteGrant(database, grant.id)?.state.name).toBe("revoked");
     });
 
+    test("rejects a same-length direct Grant mutation instead of ignoring it", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        saveSqliteGrant(database, grant);
+        const mutated = new Grant(
+            grant.id,
+            scope,
+            SubjectRef.principal(ownerId),
+            "allow",
+            new CapabilitySpec({ facetPattern: "q", impacts: ["observe"] }),
+            { kind: "direct" }
+        );
+
+        expect(() => saveSqliteGrant(database, mutated)).toThrow(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+        expect(Grant.encode(loadSqliteGrant(database, grant.id)!)).toEqual(Grant.encode(grant));
+    });
+
+    test("fails closed when the parent Grant projection column is absent", { tags: "p1" }, () => {
+        const row = {
+            id: grant.id.value,
+            scope_key: scopeKey(grant.scope),
+            subject_key: subjectKey(grant.subject),
+            effect: grant.effect,
+            state: grant.state.name,
+            record: Grant.encode(grant)
+        } satisfies SqliteRow;
+
+        expect(() => loadSqliteGrant(new StubSqlite(row), grant.id)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
+
     test(
         "grant writes that do not land fail with the exact concurrent-change conflict",
         { tags: "p0" },

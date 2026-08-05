@@ -241,6 +241,41 @@ describe("CanonicalBatchInvocationPort", () => {
     });
 
     test(
+        "deduplicates a sibling item that is still in flight after another item completes",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("sibling-item-in-flight");
+            const issuedSecondItem = deferred<void>();
+            const release = deferred<void>();
+            let issueCalls = 0;
+            harness.permits.onIssue = async () => {
+                issueCalls += 1;
+                if (issueCalls === 2) {
+                    issuedSecondItem.resolve(undefined);
+                    await release.promise;
+                }
+            };
+            const value = request(invocation, [{ value: 1 }, { value: 2 }], (index) =>
+                harness.executions.push(index)
+            );
+
+            const first = harness.port.invoke(value);
+            await issuedSecondItem.promise;
+            const duplicate = harness.port.invoke(value);
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+            release.resolve(undefined);
+            const [winner, replay] = await Promise.all([first, duplicate]);
+
+            expect(winner.items[1]).toMatchObject({ kind: "succeeded", output: { value: 2 } });
+            expect(replay.items[1]).toMatchObject({ kind: "succeeded", output: { value: 2 } });
+            expect(harness.permits.claimedBeforeIssue).toEqual([0, 1]);
+            expect(harness.authentication.authenticatedItems).toEqual([0, 1]);
+            expect(harness.executions).toEqual([0, 1]);
+        }
+    );
+
+    test(
         "independent invocation runtimes never share in-flight item results",
         { tags: "p0" },
         async () => {
@@ -879,6 +914,78 @@ describe("CanonicalBatchInvocationPort", () => {
             });
             expect(itemReceipt(replayed, 0).id.equals(itemReceipt(failed, 0).id)).toBe(true);
             expect(executions).toBe(1);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toHaveLength(1);
+        }
+    );
+
+    test(
+        "replays a reconciled succeeded receipt to a pending retry claim without a new attempt",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("reconciled-retry-claim");
+            let firstExecution = true;
+            const failing = request(invocation, [{ value: 1 }], () => {
+                if (firstExecution) {
+                    firstExecution = false;
+                    throw new ConfirmedOperationFailure(
+                        "confirmed remote failure",
+                        ContentRef.fromDigest(digest("confirmed remote failure"))
+                    );
+                }
+            });
+            const failed = await harness.port.invoke(failing);
+            expect(failed.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: { outcome: "failed" }
+            });
+
+            const issued = deferred<void>();
+            const release = deferred<void>();
+            harness.permits.onIssue = async () => {
+                issued.resolve(undefined);
+                await release.promise;
+            };
+            const retried = harness.port.invoke(
+                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+            );
+            await issued.promise;
+
+            const reconciled = await harness.content.put(encodeCanonicalJson({ value: 1 }));
+            harness.transactions.transact((transaction) => {
+                const attempt = harness.persistence
+                    .attemptsForItem(transaction, invocation, 0)
+                    .at(0);
+                if (attempt === undefined) throw new TypeError("EffectAttempt is missing");
+                const receipt = harness.persistence
+                    .receiptsForAttempt(transaction, attempt.id)
+                    .at(0);
+                if (!(receipt instanceof AttemptReceipt)) {
+                    throw new TypeError("AttemptReceipt is missing");
+                }
+                transaction.receipts.set(
+                    receipt.id.value,
+                    ReceiptCodec.encode(
+                        new AttemptReceipt(
+                            receipt.id,
+                            receipt.attempt,
+                            "succeeded",
+                            undefined,
+                            receipt.recordedAt,
+                            reconciled.ref
+                        )
+                    )
+                );
+            });
+            release.resolve(undefined);
+
+            const result = await retried;
+            expect(result.items[0]).toMatchObject({ kind: "succeeded", output: { value: 1 } });
+            expect(harness.executions).toEqual([]);
             expect(
                 harness.transactions.transact((transaction) =>
                     harness.persistence.attemptsForItem(transaction, invocation, 0)

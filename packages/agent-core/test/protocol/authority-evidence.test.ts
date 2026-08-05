@@ -1,10 +1,26 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import { RunId } from "../../src/agents";
+import {
+    Digest,
+    Revision,
+    SemVer,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    type JsonValue
+} from "../../src/core";
+import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
-import { BindingName, FacetRef, ProtectionDomain } from "../../src/facets";
+import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
 import { PrincipalId, ScopeRef, SubjectRef, TenantId, WorkspaceId } from "../../src/identity";
-import { GrantId, ScopeEpoch } from "../../src/authority";
+import { ClaimWorkerId, InvocationId, ItemClaimId } from "../../src/invocations";
+import {
+    AuthorityPermit,
+    AuthorityPermitExpectation,
+    GrantId,
+    ScopeEpoch,
+    type AuthorityPermitExpectationInit
+} from "../../src/authority";
 import { PrincipalRef } from "../identity/internal-fixture";
 import {
     AuthorityCheckEvidence,
@@ -17,10 +33,13 @@ import {
 import {
     AuthorityCheckPayloadCodec,
     AuthorityCheckReply,
+    AuthorityPermitIssuancePayloadCodec,
+    AuthorityPermitIssuanceReply,
     AuthorityPermitIssuanceRequest,
     BindingValidationPayloadCodec,
     BindingValidationReply
 } from "../../src/protocol/authority-evidence";
+import { expectAgentCoreError } from "./error-assertion";
 
 const tenant = new TenantId("tenant-evidence");
 const principal = new PrincipalRef(tenant, new PrincipalId("principal-evidence"));
@@ -354,6 +373,96 @@ test("permit issuance codec diagnostics are exact", { tags: "p1" }, () => {
     exposed.setTime(0);
     expect(request.expiresAt).toEqual(new Date(2_000));
 });
+
+test("authority protocol codec failures carry the codec.invalid code", { tags: "p1" }, () => {
+    const issuanceEnvelope = (payload: JsonValue): Uint8Array =>
+        encodeCanonicalJson({
+            kind: "protocol.authority-permit-issuance-request",
+            version: { major: 1, minor: 0 },
+            payload
+        });
+
+    expectAgentCoreError(
+        () =>
+            AuthorityPermitIssuanceRequest.decode(
+                issuanceEnvelope({ expectation: null, expiresAt: "soon", nonce: "permit" })
+            ),
+        "codec.invalid"
+    );
+    expectAgentCoreError(() => AuthorityPermitIssuanceRequest.decode(issuanceEnvelope({})), "codec.invalid");
+    expectAgentCoreError(
+        () =>
+            AuthorityCheckReply.decode(
+                encodeCanonicalJson({
+                    kind: "protocol.authority-check-reply",
+                    version: { major: 1, minor: 0 },
+                    payload: { wrong: true }
+                })
+            ),
+        "codec.invalid"
+    );
+});
+
+test("permit issuance replies and payload codecs round-trip frozen permits", { tags: "p2" }, () => {
+    const permit = new AuthorityPermit({
+        ...permitExpectationInit(),
+        nonce: "permit-nonce",
+        issuedAt: new Date(1_000),
+        expiresAt: new Date(2_000)
+    });
+    const reply = new AuthorityPermitIssuanceReply(permit);
+    expect(Object.isFrozen(reply)).toBe(true);
+    const decodedReply = AuthorityPermitIssuanceReply.decode(
+        AuthorityPermitIssuanceReply.encode(reply)
+    );
+    expect(decodedReply.permit.expectation.equals(permit.expectation)).toBe(true);
+
+    const codec = new AuthorityPermitIssuancePayloadCodec();
+    const expectation = new AuthorityPermitExpectation(permitExpectationInit());
+    const request = new AuthorityPermitIssuanceRequest(expectation, "permit-nonce", new Date(2_000));
+    const encoded = codec.encode(request);
+    expect(encoded).toBeInstanceOf(Uint8Array);
+    const decoded = codec.decode(encoded);
+    expect(decoded.expectation.equals(expectation)).toBe(true);
+    expect(decoded.nonce).toBe("permit-nonce");
+    expect(decoded.expiresAt).toEqual(new Date(2_000));
+});
+
+function permitExpectationInit(): AuthorityPermitExpectationInit {
+    const invocation = new InvocationId("permit-invocation");
+    return {
+        tenant,
+        issuer,
+        source: actor,
+        target: { actor: new ActorRef("run", new ActorId("permit-target")), fence: 1, domain },
+        principal,
+        binding: { name: new BindingName("mail"), generation: new Revision(1) },
+        facet,
+        operation: new OperationRef("mail:send"),
+        package: new PackagePin(
+            new PackageId("permit-package"),
+            new SemVer("1.0.0"),
+            Digest.sha256(new TextEncoder().encode("permit-manifest")),
+            Digest.sha256(new TextEncoder().encode("permit-code"))
+        ),
+        impact: "observe",
+        invocation,
+        reservation: {
+            run: new RunId("permit-run"),
+            registryEpoch: 1,
+            obligation: { kind: "invocationItem", invocation, itemIndex: 0, itemKey: "permit-item" }
+        },
+        itemIndex: 0,
+        attemptOrdinal: 0,
+        claim: new ItemClaimId("permit-claim"),
+        claimOwner: { kind: "system", actor: issuer, worker: new ClaimWorkerId("permit-worker") },
+        itemKey: "permit-item",
+        argumentsDigest: Digest.sha256(new TextEncoder().encode("permit-arguments")),
+        intentDigest: Digest.sha256(new TextEncoder().encode("permit-intent")),
+        pathEpochs: path,
+        authority: { kind: "initiator", principal, binding: new BindingName("mail") }
+    };
+}
 
 function checkRequest(): AuthorityCheckRequest {
     const argumentsValue = { channel: "internal" } as const;

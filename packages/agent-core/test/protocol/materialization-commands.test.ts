@@ -16,6 +16,7 @@ import {
     projection,
     type FakeRunUsage
 } from "../definition/materialization-harness";
+import { expectAgentCoreError } from "./error-assertion";
 
 describe("materialization.applyLocal protocol command", () => {
     test("rolls back failed asynchronous Actor activation", { tags: "p0" }, () => {
@@ -143,6 +144,65 @@ describe("materialization.applyLocal protocol command", () => {
         expect(multiActor.outcome).toBe("rejectedAuthority");
         expect(unknownField.outcome).toBe("rejectedMalformed");
         expect(harness.store.state.applyCount).toBe(0);
+    });
+
+    test("execute fails closed on missing, multi-actor, and non-Tenant controllers", { tags: "p0" }, () => {
+        const harness = new MaterializationHarness();
+        const multi = harness.multiActorPlan(new ActorRef("tenant", new ActorId("other-tenant")));
+        let applied = 0;
+        const backend: MaterializationCommandBackend<undefined, undefined> = {
+            loadPlan: () => multi,
+            loadPlanForApply: () => multi,
+            currentRevision: () => undefined,
+            permitsApply: () => true,
+            applyLocal: () => {
+                applied += 1;
+                return Uint8Array.of(1);
+            }
+        };
+        const command = new MaterializationApplyLocalCommand(
+            backend,
+            harness.actor,
+            harness.actor,
+            harness.tenant
+        );
+        const payload = command.payload.decode(
+            MaterializationCommandPayload.applyLocal(multi.id)
+        );
+        const commandEnvelope = {} as CommandEnvelope;
+        const at = MaterializationHarness.now;
+
+        expectAgentCoreError(
+            () => command.execute(undefined, commandEnvelope, payload, at),
+            "protocol.invalid-state"
+        );
+        expect(applied).toBe(0);
+
+        const missing = new MaterializationApplyLocalCommand(
+            { ...backend, loadPlanForApply: () => undefined },
+            harness.actor,
+            harness.actor,
+            harness.tenant
+        );
+        expectAgentCoreError(
+            () => missing.execute(undefined, commandEnvelope, payload, at),
+            "protocol.invalid-state"
+        );
+
+        expectAgentCoreError(
+            () =>
+                new MaterializationApplyLocalCommand(
+                    backend,
+                    harness.actor,
+                    new ActorRef("workspace", new ActorId("not-a-tenant")),
+                    harness.tenant
+                ),
+            "protocol.invalid-state"
+        );
+
+        for (const bytes of [encodeCanonicalJson(null), encodeCanonicalJson([]), encodeCanonicalJson(4)]) {
+            expectAgentCoreError(() => command.payload.decode(bytes), "protocol.invalid-envelope");
+        }
     });
 
     test("rejects a plan digest that was not persisted by the host", { tags: "p0" }, async () => {

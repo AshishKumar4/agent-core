@@ -61,6 +61,16 @@ describe("CapabilitySpec authority semantics", () => {
         expect(operated.matches(intent({ operation: "write" }))).toBe(false);
     });
 
+    test("constraint paths never traverse into arrays or string properties", { tags: "p0" }, () => {
+        const indexed = cap("*", { argumentConstraints: { "a.0": 5 } });
+        expect(indexed.matches(intent({ arguments: { a: [5] } }))).toBe(false);
+        expect(indexed.matches(intent({ arguments: { a: { "0": 5 } } }))).toBe(true);
+
+        const lengthProbe = cap("*", { argumentConstraints: { "a.length": 2 } });
+        expect(lengthProbe.matches(intent({ arguments: { a: "xy" } }))).toBe(false);
+        expect(lengthProbe.matches(intent({ arguments: { a: { length: 2 } } }))).toBe(true);
+    });
+
     test("grantsElevation follows delegate and administer impacts", { tags: "p0" }, () => {
         expect(cap("*", { impacts: ["delegate"] }).grantsElevation()).toBe(true);
         expect(cap("*", { impacts: ["administer"] }).grantsElevation()).toBe(true);

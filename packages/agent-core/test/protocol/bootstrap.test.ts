@@ -911,6 +911,30 @@ test("memory bootstrap restart accepts identical anchors and rejects drift", { t
     ).not.toThrow();
 });
 
+test("memory bootstrap Actor snapshot faults surface the codec failure code", { tags: "p1" }, () => {
+    const content = new CounterContentStore(() => undefined);
+    const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+    const snapshot = composition.snapshot();
+
+    expectAgentCoreError(
+        () =>
+            createMemoryTenantBootstrap({
+                actor,
+                anchor,
+                content,
+                snapshot: {
+                    version: 1,
+                    opaque: {
+                        ...(snapshot.opaque as object),
+                        actor: { kind: "tenant", id: "x".repeat(257) },
+                        recoveryState: null
+                    }
+                } as MemoryTenantBootstrapSnapshot
+            }),
+        "codec.invalid"
+    );
+});
+
 test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" }, () => {
     const content = new CounterContentStore(() => undefined);
     const composition = createMemoryTenantBootstrap({ actor, anchor, content });

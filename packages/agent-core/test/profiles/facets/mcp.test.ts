@@ -274,6 +274,35 @@ describe("MCP normative discovery", () => {
         ).toThrow(expect.objectContaining({ detailCode: "name.duplicate" }));
     });
 
+    test("rejects empty operation names with the typed discovery error", { tags: "p1" }, () => {
+        let caught: unknown;
+        try {
+            createDiscovery().discover({
+                revision: MCP_PROTOCOL_REVISION,
+                tools: [{ name: "", inputSchema: {}, outputSchema: {} }],
+                resources: [],
+                prompts: []
+            });
+        } catch (error) {
+            caught = error;
+        }
+        expect(caught).toBeInstanceOf(McpDiscoveryError);
+        expect(caught).toMatchObject({ detailCode: "name.duplicate" });
+    });
+
+    test("rejects array and primitive tool metadata as invalid impact evidence", { tags: "p0" }, () => {
+        for (const metadata of [[], "annotations"]) {
+            let caught: unknown;
+            try {
+                createDiscovery().discover(document({ _meta: metadata }));
+            } catch (error) {
+                caught = error;
+            }
+            expect(caught).toBeInstanceOf(McpDiscoveryError);
+            expect(caught).toMatchObject({ detailCode: "impact.invalid" });
+        }
+    });
+
     test("[P11-MCP-POSITIVE-BOUNDS] [P11-MCP-PROMPT-COUNT] [P11-MCP-PROMPT-BYTES] enforces positive finite normative prompt item and canonical byte bounds", { tags: "p1" }, () => {
         for (const bounds of [
             [0, 1],

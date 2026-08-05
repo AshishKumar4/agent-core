@@ -248,6 +248,48 @@ describe("Binding validation request and evidence gates", () => {
         ).toBe(false);
     });
 
+    test("[C13-AUTH-PATH-EVIDENCE] validates evidence time and Scope-to-path alignment", { tags: "p0" }, () => {
+        expectTypeError(
+            () => validationEvidence({ checkedAt: new Date(Number.NaN) }),
+            "Binding validation time is invalid"
+        );
+        expectTypeError(
+            () => validationEvidence({ checkedAt: new Date(-5) }),
+            "Binding validation time is invalid"
+        );
+        expectTypeError(
+            () =>
+                new BindingValidationEvidence(
+                    tenantId,
+                    new ActorRef("tenant", new ActorId("binding-mutation-issuer")),
+                    validationRequest().digest(),
+                    tenantScope,
+                    subject,
+                    grantId(),
+                    new PathEpochEvidence([new ScopeEpoch(tenantScope, 1)]),
+                    new Date(10)
+                ),
+            "Binding validation path must end at its Workspace Scope"
+        );
+        expectTypeError(
+            () =>
+                new BindingValidationEvidence(
+                    tenantId,
+                    new ActorRef("tenant", new ActorId("binding-mutation-issuer")),
+                    validationRequest().digest(),
+                    workspaceScope,
+                    subject,
+                    grantId(),
+                    new PathEpochEvidence([
+                        new ScopeEpoch(tenantScope, 1),
+                        new ScopeEpoch(otherWorkspaceScope, 2)
+                    ]),
+                    new Date(10)
+                ),
+            "Binding validation path must end at its Workspace Scope"
+        );
+    });
+
     test("[C13-AUTH-PATH-EVIDENCE] decodes every Actor kind and requires a Tenant issuer", { tags: "p0" }, () => {
         const payload = validationEvidence().toData();
         expect(BindingValidationEvidence.fromData(payload).issuer.kind).toBe("tenant");

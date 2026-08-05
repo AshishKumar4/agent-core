@@ -183,6 +183,22 @@ describe("SQLite Binding store exact failure and persistence behavior", () => {
         expect(rows[0]?.["state"]).toBe("active");
     });
 
+    test("persists a same-length replacement instead of treating it as a no-op", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteBindingStore(database, scope);
+        store.save(binding);
+        const replacement = binding.replace(
+            new GrantId("tnarg"),
+            new FacetRef("workspace:mail.instance")
+        );
+        store.save(replacement);
+
+        const loaded = store.load(binding.key);
+        expect(loaded?.generation).toBe(1);
+        expect(loaded?.revision.value).toBe(1);
+        expect(loaded?.grantId.value).toBe("tnarg");
+    });
+
     test("rejects every forged projection column as the exact malformed Binding", { tags: "p1" }, () => {
         const forgeries: readonly (readonly [string, SqliteValue])[] = [
             ["scope_key", "forged"],
@@ -207,6 +223,17 @@ describe("SQLite Binding store exact failure and persistence behavior", () => {
                 })
             );
         }
+    });
+
+    test("fails closed on a text projection column that is not a string", { tags: "p1" }, () => {
+        const database = new ProjectionTamperSqlite();
+        const store = new SqliteBindingStore(database, scope);
+        store.save(binding);
+        database.replacement = ["state", null];
+
+        expect(() => store.load(binding.key)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
     });
 
     test("detects a forged binding key through list", { tags: "p1" }, () => {

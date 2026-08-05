@@ -11,6 +11,7 @@ import {
 import {
     ContentRef,
     Digest,
+    Revision,
     decodeCanonicalJson,
     encodeBase64,
     encodeCanonicalJson
@@ -33,7 +34,8 @@ import { MemoryProtocolPersistence, MemoryProtocolRecords } from "../../src/prot
 import {
     CommandPayloadMalformedError,
     PayloadLeaseBinding,
-    issueLeasedCommandPayload
+    issueLeasedCommandPayload,
+    issueMalformedCommandPayload
 } from "../../src/protocol/payload";
 import { CommandCallerPolicy } from "../../src/protocol/policy";
 import type { ProtocolCommand } from "../../src/protocol/registration";
@@ -789,6 +791,170 @@ test("typed executions must be objects that carry a reply", { tags: "p1" }, asyn
     }
 });
 
+test("caller revocation between admission and prepared dispatch rejects without replay", { tags: "p0" }, async () => {
+    const policy = new RevocableCallerPolicy();
+    const harness = new CounterHarness({ caller: policy });
+    const raw = harness.envelope({ key: "revoked-caller" });
+    const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
+        harness.caller,
+        CommandEnvelopeCodec.decode(raw),
+        Digest.sha256(raw)
+    );
+    const admission = await harness.dispatcher.admit(raw, authentication);
+    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+    const committed = await harness.dispatch(raw);
+    expect(committed.outcome).toBe("committed");
+    policy.revoke();
+
+    const result = await admission.dispatch(issueMalformedCommandPayload("absent"));
+
+    expect(result.outcome).toBe("rejectedAuthentication");
+    expect(result.write.idempotencyKey).toBeUndefined();
+    expect(harness.snapshot().value).toBe(1);
+});
+
+test("a supplied expected revision is fenced when no current revision exists", { tags: "p1" }, async () => {
+    const records = new MemoryProtocolRecords();
+    const dispatcher = new CommandDispatcher(
+        probeDispatcherInit({ records, command: new OptionalRevisionProbeCommand() })
+    );
+    const content = new CounterContentStore(() => undefined);
+    const payload = encodeCanonicalJson({ probe: true });
+    const payloadDigest = Digest.sha256(payload);
+    const reference = ContentRef.fromDigest(payloadDigest);
+    content.install(reference.value, payload);
+    const raw = CommandEnvelopeCodec.encode(
+        new CommandEnvelope({
+            command: "probe.command",
+            caller: probeCaller,
+            idempotencyKey: "probe-revisionless",
+            expectedRevision: Revision.initial(),
+            payload: reference,
+            payloadDigest
+        })
+    );
+    const authentication = await new ProbeAuthenticator().authenticate(
+        probeCaller,
+        CommandEnvelopeCodec.decode(raw),
+        Digest.sha256(raw)
+    );
+    const admission = await dispatcher.admit(raw, authentication);
+    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+    const binding = new PayloadLeaseBinding(
+        probeTenant,
+        probeActor,
+        Digest.sha256(raw),
+        reference,
+        payloadDigest,
+        new Date(CounterHarness.now.getTime() + 60_000)
+    );
+    const lease = await content.acquire(binding);
+    if (lease === undefined) throw new TypeError("Expected a payload lease");
+
+    const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
+
+    expect(result.outcome).toBe("rejectedRevision");
+    await lease.close();
+});
+
+test("committed replies detach from the command execution buffer", { tags: "p1" }, async () => {
+    const execution = encodeCanonicalJson({ probe: "reply" });
+    const expected = execution.slice();
+    const records = new MemoryProtocolRecords();
+    const adapter = new MemoryProtocolPersistence<ProbeState>((state) => state.records);
+    const zeroing: ProtocolPersistence<ProbeState> = {
+        findWrite: (transaction, identity) => adapter.findWrite(transaction, identity),
+        findAudit: (transaction, id) => adapter.findAudit(transaction, id),
+        appendAudit: (transaction, record, context) => {
+            adapter.appendAudit(transaction, record, context);
+            execution.fill(0);
+        },
+        appendWrite: (transaction, record) => adapter.appendWrite(transaction, record)
+    };
+    const dispatcher = new CommandDispatcher(
+        probeDispatcherInit({ records, persistence: zeroing, execution })
+    );
+    const content = new CounterContentStore(() => undefined);
+    const payload = encodeCanonicalJson({ probe: true });
+    const payloadDigest = Digest.sha256(payload);
+    const reference = ContentRef.fromDigest(payloadDigest);
+    content.install(reference.value, payload);
+    const raw = CommandEnvelopeCodec.encode(
+        new CommandEnvelope({
+            command: "probe.command",
+            caller: probeCaller,
+            idempotencyKey: "probe-detached-reply",
+            payload: reference,
+            payloadDigest
+        })
+    );
+    const authentication = await new ProbeAuthenticator().authenticate(
+        probeCaller,
+        CommandEnvelopeCodec.decode(raw),
+        Digest.sha256(raw)
+    );
+    const admission = await dispatcher.admit(raw, authentication);
+    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+    const binding = new PayloadLeaseBinding(
+        probeTenant,
+        probeActor,
+        Digest.sha256(raw),
+        reference,
+        payloadDigest,
+        new Date(CounterHarness.now.getTime() + 60_000)
+    );
+    const lease = await content.acquire(binding);
+    if (lease === undefined) throw new TypeError("Expected a payload lease");
+
+    const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
+
+    expect(result.outcome).toBe("committed");
+    expect(result.reply).toEqual(expected);
+    expect(result.write.reply).toEqual(expected);
+    expect(Object.hasOwn(result, "observation")).toBe(false);
+    await lease.close();
+});
+
+test("function-typed Actor activation stores are admitted", { tags: "p2" }, async () => {
+    const state: ProbeState = { records: new MemoryProtocolRecords(), nextId: 0 };
+    const base = new MemoryActorStore<ProbeState>(state, (value) => ({
+        records: value.records.clone(),
+        nextId: value.nextId
+    }));
+    const store = Object.assign(function activationCapableStore(): void {}, {
+        bindActor: base.bindActor.bind(base),
+        activateActor: base.activateActor.bind(base),
+        transaction: base.transaction.bind(base),
+        read: base.read.bind(base),
+        loadRecoveryState: base.loadRecoveryState.bind(base),
+        saveRecoveryState: base.saveRecoveryState.bind(base)
+    });
+    const dispatcher = new CommandDispatcher(
+        probeDispatcherInit({
+            records: state.records,
+            store: store as unknown as MemoryActorStore<ProbeState>
+        })
+    );
+
+    const admission = await dispatcher.admit(Uint8Array.of(0xff), undefined);
+
+    expect(admission.kind).toBe("completed");
+    if (admission.kind !== "completed") throw new TypeError("Expected a completed admission");
+    expect(admission.result.outcome).toBe("rejectedMalformed");
+});
+
+class RevocableCallerPolicy extends CommandCallerPolicy {
+    #revoked = false;
+
+    public revoke(): void {
+        this.#revoked = true;
+    }
+
+    public admits(caller: CommandCaller): boolean {
+        return !this.#revoked && caller.kind === "principal";
+    }
+}
+
 interface ProbeState {
     records: MemoryProtocolRecords;
     nextId: number;
@@ -849,11 +1015,40 @@ class ProbeCommand implements ProtocolCommand<ProbeState, ProbeRead> {
     }
 }
 
+class OptionalRevisionProbeCommand implements ProtocolCommand<ProbeState, ProbeRead> {
+    public readonly command = "probe.command";
+    public readonly caller = CommandCallerPolicy.principal();
+    public readonly expectedRevision = "optional" as const;
+    public readonly lease = "forbidden" as const;
+    public readonly payload = { decode: (bytes: Uint8Array): unknown => decodeCanonicalJson(bytes) };
+
+    public authorize(): boolean {
+        return true;
+    }
+
+    public permitsLifecycle(): boolean {
+        return true;
+    }
+
+    public currentRevision(): undefined {
+        return undefined;
+    }
+
+    public currentLease(): undefined {
+        return undefined;
+    }
+
+    public execute(): Uint8Array {
+        return encodeCanonicalJson({ probe: "reply" });
+    }
+}
+
 function probeDispatcherInit(init: {
     readonly records: MemoryProtocolRecords;
     readonly store?: MemoryActorStore<ProbeState>;
     readonly persistence?: ProtocolPersistence<ProbeState>;
     readonly execution?: Uint8Array;
+    readonly command?: ProtocolCommand<ProbeState, ProbeRead>;
 }): CommandDispatcherInit<ProbeState, ProbeRead> {
     const state: ProbeState = { records: init.records, nextId: 0 };
     return {
@@ -874,11 +1069,12 @@ function probeDispatcherInit(init: {
         tenant: probeTenant,
         readOnly: () => Object.freeze({ ready: true }),
         commands: [
-            new ProbeCommand(
-                "execution" in init
-                    ? (init.execution as Uint8Array)
-                    : encodeCanonicalJson({ probe: "reply" })
-            )
+            init.command ??
+                new ProbeCommand(
+                    "execution" in init
+                        ? (init.execution as Uint8Array)
+                        : encodeCanonicalJson({ probe: "reply" })
+                )
         ],
         limits: { envelopeBytes: 4096, payloadBytes: 1024 },
         now: () => CounterHarness.now

@@ -45,6 +45,15 @@ describe("W6 mediated replay record", () => {
         expect(decoded.id.equals(record.id)).toBe(true);
     });
 
+    test("rejects reservation identity text that is padded with whitespace", { tags: "p1" }, () => {
+        expect(() =>
+            MediatedReplayRecord.reserve({
+                ...replayReservation("padded-identity"),
+                operation: "send "
+            })
+        ).toThrow(TypeError);
+    });
+
     test("requires items to match the nonempty payload shape exactly", { tags: "p1" }, () => {
         const invocation = new InvocationId("shape-guards");
         expect(() => directRecord({ kind: "single" }, [], invocation, 1)).toThrow(
@@ -86,6 +95,52 @@ describe("W6 mediated replay record", () => {
         expect(() => terminal.recordEffect(0, { late: true }, new ReceiptId("late"))).toThrow(
             /immutable/
         );
+    });
+
+    test(
+        "keeps effected items immutable against repeated effect and late terminal recording",
+        { tags: "p0" },
+        () => {
+            const effected = MediatedReplayRecord.reserve(replayReservation("effect-immutable"))
+                .prepare(new InvocationId("effect-immutable-invocation"), [{}], [[]])
+                .recordEffect(0, { effect: 1 }, new ReceiptId("effect-receipt"));
+            let repeatedEffect: unknown;
+            try {
+                effected.recordEffect(0, { effect: 2 }, new ReceiptId("late-effect"));
+            } catch (error) {
+                repeatedEffect = error;
+            }
+            expect(repeatedEffect).toMatchObject({
+                code: "invocation.invalid",
+                failure: "state.invalid-transition"
+            });
+            let lateTerminal: unknown;
+            try {
+                effected.recordTerminal(0, new ReceiptId("late-terminal"));
+            } catch (error) {
+                lateTerminal = error;
+            }
+            expect(lateTerminal).toMatchObject({
+                code: "invocation.invalid",
+                failure: "state.invalid-transition"
+            });
+        }
+    );
+
+    test("rejects presentation while the record has not completed preparation", { tags: "p1" }, () => {
+        const partial = directRecord(
+            { kind: "batch", itemCount: 2 },
+            [preparedItem(0), reservedItem(1)],
+            undefined,
+            0
+        );
+        let failure: unknown;
+        try {
+            partial.present(0, [], {});
+        } catch (error) {
+            failure = error;
+        }
+        expect(failure).toBeInstanceOf(TypeError);
     });
 
     test("names the replay execution kind before decoding its digest", { tags: "p2" }, () => {

@@ -914,6 +914,43 @@ describe("InvocationReconciler", () => {
         }
     );
 
+    test(
+        "rejects a provider that drops result content the persisted final Receipt holds",
+        { tags: "p0" },
+        async () => {
+            const { harness, attempt } = await indeterminateInvocation("reconcile-dropped-content");
+            const dropped = await harness.content.put(new TextEncoder().encode('{"value":1}'));
+            let releaseQueries!: () => void;
+            const released = new Promise<void>((resolve) => {
+                releaseQueries = resolve;
+            });
+            let query = 0;
+            const reconciler = createReconciler(harness, {
+                async query() {
+                    const index = query;
+                    query += 1;
+                    await released;
+                    return index === 0
+                        ? { kind: "failed", result: dropped.ref }
+                        : { kind: "failed" };
+                }
+            });
+            const left = reconciler.reconcile(attempt.id);
+            const right = reconciler.reconcile(attempt.id);
+            releaseQueries();
+            const outcomes = await Promise.allSettled([left, right]);
+
+            const fulfilled = outcomes.flatMap((outcome) =>
+                outcome.status === "fulfilled" ? [outcome.value] : []
+            );
+            expect(fulfilled).toHaveLength(1);
+            expect(fulfilled[0]).toMatchObject({ outcome: "failed", result: dropped.ref });
+            expect(outcomes.filter((outcome) => outcome.status === "rejected")[0]).toMatchObject({
+                reason: { code: "invocation.invalid" }
+            });
+        }
+    );
+
     test("requires exact attempt audit evidence for reconciliation", { tags: "p1" }, async () => {
         const { harness, attempt } = await indeterminateInvocation(
             "reconcile-missing-attempt-audit"

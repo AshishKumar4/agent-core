@@ -80,6 +80,32 @@ describe("Facet Slot protocol commands", () => {
         ).toThrow(/Workspace/);
     });
 
+    test("prepared contributions to an undeclared slot fail lifecycle closed", { tags: "p1" }, () => {
+        const target = actor("workspace");
+        const backend = new Backend();
+        const contribute = new FacetSlotContributeCommand(backend, target);
+        const decoded = contribute.payload.decode(
+            FacetSlotCommandPayload.contribute(contribution(entry()))
+        );
+        const contributionEnvelope = envelope(FACET_SLOT_COMMANDS.contribute, target);
+
+        expect(contribute.authorize(backend, contributionEnvelope, decoded)).toBe(true);
+        expect(contribute.permitsLifecycle(backend, contributionEnvelope, decoded)).toBe(false);
+    });
+
+    test("contribution codec rejects non-canonical ordinals", { tags: "p2" }, () => {
+        const contribute = new FacetSlotContributeCommand(new Backend(), actor("workspace"));
+        for (const ordinal of ["-1", "1.5", '"1"']) {
+            expect(() =>
+                contribute.payload.decode(
+                    new TextEncoder().encode(
+                        `{"ordinal":${ordinal},"slot":"dashboard.card","value":{"title":"Card"}}`
+                    )
+                )
+            ).toThrow(TypeError);
+        }
+    });
+
     test("installs and contributes under exact revision progression", { tags: "p1" }, () => {
         const target = actor("workspace");
         const backend = new Backend();

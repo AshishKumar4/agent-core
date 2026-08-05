@@ -1,15 +1,31 @@
 import { describe, expect, test } from "vitest";
-import { ContentRef, Digest } from "../../src/core";
+import { ContentRef, Digest, Revision } from "../../src/core";
+import {
+    EnvironmentId,
+    EnvironmentSessionCapability,
+    EnvironmentSessionId,
+    PortExposureId
+} from "../../src/environments";
 import { InvocationId, ReceiptId } from "../../src/invocations";
 import {
     MemorySlateIdSource,
     MemorySlateStore,
+    Slate,
+    SlateDeployment,
+    SlateDeploymentId,
+    SlateDeploymentReservation,
     SlateEffectContext,
+    SlateId,
     SlateInvocationSeam,
     SlateMutationSeam,
     SlatePreviewValidationSeam,
     SlateProvider,
+    SlatePublication,
+    SlatePublicationId,
     SlateRuntime,
+    SlateStore,
+    SlateVersion,
+    SlateVersionId,
     type SlateInvocationRequest,
     type SlateInvocationResult,
     type SlateMutationRequest,
@@ -149,12 +165,225 @@ describe("SlateRuntime mutation kills", () => {
             })
         );
     });
+
+    test("commit revalidates source lineage inside the transaction", { tags: "p1" }, async () => {
+        const fixture = runtimeFixture("commit-lineage");
+        const slate = await fixture.runtime.create(fixture.workspace, ref("original"));
+        fixture.mutations.beforeMutation = (request) => {
+            if (request.operation !== "commit") return;
+            const current = fixture.store.getSlate(slate.id)!;
+            fixture.store.compareAndSetSlate(current.revision, current.update(ref("interleaved")));
+        };
+
+        await expect(fixture.runtime.commit(slate.id, new Revision(1))).rejects.toMatchObject({
+            code: "protocol.revision-conflict"
+        });
+        expect(fixture.store.listVersions(slate.id)).toEqual([]);
+    });
+
+    test("commit revalidates head lineage inside the transaction", { tags: "p1" }, async () => {
+        const fixture = runtimeFixture("commit-head");
+        const slate = await fixture.runtime.create(fixture.workspace, ref("head-source"));
+        const first = await fixture.runtime.commit(slate.id);
+        fixture.mutations.beforeMutation = (request) => {
+            if (request.operation !== "commit") return;
+            const current = fixture.store.getSlate(slate.id)!;
+            const interleaved = new SlateVersion(
+                new SlateVersionId("version-commit-head-interleaved"),
+                fixture.workspace,
+                slate.id,
+                current.source,
+                first.id
+            );
+            fixture.store.addVersion(interleaved);
+            fixture.store.compareAndSetSlate(current.revision, current.commit(interleaved.id));
+        };
+
+        await expect(fixture.runtime.commit(slate.id, new Revision(2))).rejects.toMatchObject({
+            code: "protocol.revision-conflict"
+        });
+    });
+
+    test("commit refuses a head that vanished inside the transaction", { tags: "p1" }, async () => {
+        const store = new DraftDoctoringStore();
+        const fixture = runtimeFixture("commit-strip", store);
+        const slate = await fixture.runtime.create(fixture.workspace, ref("strip-source"));
+        await fixture.runtime.commit(slate.id);
+        store.doctorSlate = (current) =>
+            current.id.equals(slate.id)
+                ? new Slate({
+                      id: current.id,
+                      workspaceId: current.workspaceId,
+                      source: current.source,
+                      revision: current.revision
+                  })
+                : current;
+
+        await expect(fixture.runtime.commit(slate.id)).rejects.toMatchObject({
+            code: "protocol.revision-conflict"
+        });
+    });
+
+    test("fork revalidates the exact source graph inside the transaction", { tags: "p1" }, async () => {
+        const store = new DraftDoctoringStore();
+        const fixture = runtimeFixture("fork-revalidate", store);
+        const slate = await fixture.runtime.create(fixture.workspace, ref("fork-source"));
+        const version = await fixture.runtime.commit(slate.id);
+        store.doctorSlate = (current) =>
+            current.id.equals(slate.id)
+                ? new Slate({
+                      id: current.id,
+                      workspaceId: new WorkspaceId("workspace-fork-elsewhere"),
+                      source: current.source,
+                      ...(current.headVersionId === undefined
+                          ? {}
+                          : { headVersionId: current.headVersionId }),
+                      revision: current.revision
+                  })
+                : current;
+
+        await expect(fixture.runtime.fork(version.id, fixture.workspace)).rejects.toMatchObject({
+            code: "protocol.revision-conflict"
+        });
+        expect(fixture.store.listSlates()).toHaveLength(1);
+    });
+
+    test("publish revalidates the version binding inside the transaction", { tags: "p1" }, async () => {
+        const store = new DraftDoctoringStore();
+        const fixture = runtimeFixture("publish-revalidate", store);
+        const slate = await fixture.runtime.create(fixture.workspace, ref("publish-source"));
+        const version = await fixture.runtime.commit(slate.id);
+        store.doctorVersion = (current) =>
+            current.id.equals(version.id)
+                ? new SlateVersion(
+                      current.id,
+                      current.workspaceId,
+                      current.slateId,
+                      ref("publish-drifted"),
+                      current.parentVersionId
+                  )
+                : current;
+
+        await expect(
+            fixture.runtime.publish(version.id, ref("publish-materialization"))
+        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+        expect(fixture.store.listPublications(slate.id)).toEqual([]);
+    });
+
+    test("preview links pin the exact revision even when the source is unchanged", { tags: "p1" }, async () => {
+        const fixture = runtimeFixture("preview-pin");
+        const slate = await fixture.runtime.create(fixture.workspace, ref("preview-source"));
+        fixture.mutations.beforeMutation = (request) => {
+            if (request.operation !== "preview.link") return;
+            const current = fixture.store.getSlate(slate.id)!;
+            const version = new SlateVersion(
+                new SlateVersionId("version-preview-pin"),
+                fixture.workspace,
+                slate.id,
+                current.source
+            );
+            fixture.store.addVersion(version);
+            fixture.store.compareAndSetSlate(current.revision, current.commit(version.id));
+        };
+
+        await expect(
+            fixture.runtime.linkPreview(
+                slate.id,
+                sessionCapability("preview-pin", 0, 0),
+                new PortExposureId("exposure-preview-pin")
+            )
+        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+        expect(fixture.store.listPreviews(slate.id)).toEqual([]);
+    });
+
+    test("reconciled completed deployments report inactive slates without activation", { tags: "p1" }, async () => {
+        const graph = inactiveDeploymentStore("reconcile-inactive");
+        const fixture = runtimeFixture("reconcile-inactive", graph.store);
+
+        const outcome = await fixture.runtime.reconcileDeployment(graph.deployment.id);
+
+        if (outcome.outcome !== "succeeded") throw new TypeError("Expected completed deployment");
+        expect(outcome.activated).toBe(false);
+        expect(outcome.deployment.id.equals(graph.deployment.id)).toBe(true);
+    });
+
+    test("rollback pins the expected pointer and activates inactive slates", { tags: "p0" }, async () => {
+        const graph = inactiveDeploymentStore("rollback-inactive");
+        const fixture = runtimeFixture("rollback-inactive", graph.store);
+
+        await expect(
+            fixture.runtime.rollback(graph.slate.id, graph.deployment.id, graph.deployment.id)
+        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+        expect(graph.store.getSlate(graph.slate.id)?.activeDeploymentId).toBeUndefined();
+
+        const activated = await fixture.runtime.rollback(graph.slate.id, graph.deployment.id);
+        expect(activated.activeDeploymentId?.equals(graph.deployment.id)).toBe(true);
+        expect(
+            graph.store.getSlate(graph.slate.id)?.activeDeploymentId?.equals(graph.deployment.id)
+        ).toBe(true);
+    });
+
+    test("rejects function-shaped and value-less invocation results", { tags: "p1" }, async () => {
+        const fixture = runtimeFixture("hostile-results");
+        const { publication } = await publishedSlate(fixture);
+        const functionResult = Object.assign(() => undefined, {
+            outcome: "failed",
+            receiptId: new ReceiptId("receipt-function-result")
+        });
+        Reflect.deleteProperty(functionResult, "length");
+        Reflect.deleteProperty(functionResult, "name");
+        fixture.invocations.resultOverride = functionResult;
+        await expect(
+            fixture.runtime.deploy(publication.id, "production", "external-function-result")
+        ).rejects.toMatchObject({ code: "invocation.invalid" });
+
+        fixture.invocations.resultOverride = {
+            outcome: "succeeded",
+            receiptId: new ReceiptId("receipt-value-less"),
+            extra: true
+        };
+        await expect(
+            fixture.runtime.deploy(publication.id, "production", "external-value-less")
+        ).rejects.toMatchObject({ code: "invocation.invalid" });
+    });
 });
 
 class StubMutationSeam extends SlateMutationSeam {
+    public beforeMutation: ((request: SlateMutationRequest) => void) | undefined;
+
     public mutate<Result>(request: SlateMutationRequest, mutation: () => Result): Promise<Result> {
         expect(Object.isFrozen(request)).toBe(true);
+        this.beforeMutation?.(request);
         return Promise.resolve(mutation());
+    }
+}
+
+class DraftDoctoringStore extends MemorySlateStore {
+    public doctorSlate: ((slate: Slate) => Slate) | undefined;
+    public doctorVersion: ((version: SlateVersion) => SlateVersion) | undefined;
+    #inTransaction = false;
+
+    public override transaction<Result>(operation: (store: SlateStore) => Result): Result {
+        this.#inTransaction = true;
+        try {
+            return operation(this);
+        } finally {
+            this.#inTransaction = false;
+        }
+    }
+
+    public override getSlate(id: SlateId): Slate | undefined {
+        const slate = super.getSlate(id);
+        return slate === undefined || !this.#inTransaction || this.doctorSlate === undefined
+            ? slate
+            : this.doctorSlate(slate);
+    }
+
+    public override getVersion(id: SlateVersionId): SlateVersion | undefined {
+        const version = super.getVersion(id);
+        return version === undefined || !this.#inTransaction || this.doctorVersion === undefined
+            ? version
+            : this.doctorVersion(version);
     }
 }
 
@@ -245,29 +474,95 @@ class StubProvider extends SlateProvider {
 interface RuntimeFixture {
     readonly workspace: WorkspaceId;
     readonly store: MemorySlateStore;
+    readonly mutations: StubMutationSeam;
     readonly invocations: StubInvocationSeam;
     readonly provider: StubProvider;
     readonly runtime: SlateRuntime;
 }
 
-function runtimeFixture(label: string): RuntimeFixture {
-    const store = new MemorySlateStore();
+function runtimeFixture(
+    label: string,
+    store: MemorySlateStore = new MemorySlateStore()
+): RuntimeFixture {
+    const mutations = new StubMutationSeam();
     const invocations = new StubInvocationSeam();
     const provider = new StubProvider();
     return {
         workspace: new WorkspaceId(`workspace-${label}`),
         store,
+        mutations,
         invocations,
         provider,
         runtime: new SlateRuntime(
             store,
             provider,
-            new StubMutationSeam(),
+            mutations,
             invocations,
             new StubPreviewValidation(),
             new MemorySlateIdSource(label)
         )
     };
+}
+
+function sessionCapability(label: string, revision: number, epoch: number) {
+    return new EnvironmentSessionCapability(
+        new EnvironmentId(`environment-${label}`),
+        new EnvironmentSessionId(`session-${label}`),
+        new Revision(revision),
+        epoch
+    );
+}
+
+function inactiveDeploymentStore(label: string): {
+    readonly store: MemorySlateStore;
+    readonly workspace: WorkspaceId;
+    readonly slate: Slate;
+    readonly deployment: SlateDeployment;
+} {
+    const store = new MemorySlateStore();
+    const workspace = new WorkspaceId(`workspace-${label}`);
+    const slate = Slate.initial(new SlateId(`slate-${label}`), workspace, ref(`${label}-source`));
+    expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
+    const version = new SlateVersion(
+        new SlateVersionId(`version-${label}`),
+        workspace,
+        slate.id,
+        slate.source
+    );
+    store.addVersion(version);
+    const publication = new SlatePublication(
+        new SlatePublicationId(`publication-${label}`),
+        workspace,
+        slate.id,
+        version.id,
+        ref(`${label}-publication`)
+    );
+    store.addPublication(publication);
+    const invocationId = new InvocationId(`invocation-${label}`);
+    const deployment = new SlateDeployment(
+        new SlateDeploymentId(`deployment-${label}`),
+        workspace,
+        slate.id,
+        publication.id,
+        "production",
+        ref(`${label}-deployment`),
+        invocationId,
+        new ReceiptId(`receipt-${label}`)
+    );
+    store.reserveDeployment(
+        new SlateDeploymentReservation({
+            id: deployment.id,
+            workspaceId: workspace,
+            slateId: slate.id,
+            publicationId: publication.id,
+            publicationMaterialization: publication.materialization,
+            target: deployment.target,
+            externalKey: `external-${label}`,
+            invocationId
+        })
+    );
+    store.addDeployment(deployment);
+    return { store, workspace, slate, deployment };
 }
 
 async function publishedSlate(fixture: RuntimeFixture): Promise<{
