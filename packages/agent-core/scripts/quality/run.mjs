@@ -374,22 +374,49 @@ async function runPriorityTests() {
     const reports = {};
     for (const priority of ["p0", "p1", "p2"]) {
         const report = resolve(reportRoot, "tests", `priority-${priority}.json`);
-        run(
-            process.execPath,
-            [
-                resolve(packageRoot, "node_modules/vitest/vitest.mjs"),
-                "run",
-                ...files[priority],
-                "--tagsFilter",
-                priority,
-                "--reporter=json",
-                `--outputFile=${report}`
-            ],
-            { cwd: packageRoot }
-        );
+        try {
+            run(
+                process.execPath,
+                [
+                    resolve(packageRoot, "node_modules/vitest/vitest.mjs"),
+                    "run",
+                    ...files[priority],
+                    "--tagsFilter",
+                    priority,
+                    "--reporter=json",
+                    `--outputFile=${report}`
+                ],
+                { cwd: packageRoot }
+            );
+        } catch (error) {
+            await printFailingAssertions(report, priority);
+            throw error;
+        }
         reports[priority] = await readCanonicalJson(report);
     }
     validatePriorityLanes(reports);
+}
+
+// The JSON reporter leaves failure detail inside the report file; surface it so
+// a red lane names its failing tests in the run log.
+async function printFailingAssertions(reportPath, lane) {
+    let report;
+    try {
+        report = await readCanonicalJson(reportPath);
+    } catch {
+        console.error(`${lane} lane produced no readable report`);
+        return;
+    }
+    for (const result of report.testResults ?? []) {
+        for (const assertion of result.assertionResults ?? []) {
+            if (assertion.status !== "passed" && assertion.status !== "skipped") {
+                console.error(
+                    `${lane} ${assertion.status}: ${result.name}#${assertion.fullName}\n` +
+                        (assertion.failureMessages ?? []).join("\n")
+                );
+            }
+        }
+    }
 }
 
 function runNode(name, context, orchestrated = false, extraArgs = []) {
