@@ -159,7 +159,10 @@ function explicitlyAdmitsPrerelease(value: string, rangeValue: string): boolean 
         (comparators) =>
             comparators.every((comparator) => comparator.test(candidate)) &&
             comparators.some(
+                // An empty comparator carries the ANY sentinel instead of a
+                // version, and a range that names no version admits no prerelease.
                 (comparator) =>
+                    comparator.value !== "" &&
                     comparator.semver.prerelease.length > 0 &&
                     comparator.semver.major === candidate.major &&
                     comparator.semver.minor === candidate.minor &&

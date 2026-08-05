@@ -147,6 +147,17 @@ describe("deterministic package resolution", () => {
         );
     });
 
+    test("a wildcard range skips prerelease candidates instead of crashing", { tags: "p1" }, () => {
+        const snapshot = metadata([
+            release("app", "2.0.0-beta.2"),
+            release("app", "1.0.0")
+        ]);
+
+        expect(versions(resolvePackageLock(snapshot, [dependency("app", "*")]))).toEqual({
+            app: "1.0.0"
+        });
+    });
+
     test("backtracks away from a cyclic candidate when a complete closure exists", { tags: "p1" }, () => {
         const snapshot = metadata([
             release("a", "2.0.0", [dependency("b", "^2")]),
@@ -378,6 +389,30 @@ describe("deterministic package resolution", () => {
             c: "1.0.0",
             z: "1.0.0"
         });
+    });
+
+    test("resolves a deep shared-dependency lattice without revisiting subgraphs", { tags: "p1" }, () => {
+        // kills src/definition/resolver.ts:188 (cycle detection's visited guard:
+        // without it the 2-wide lattice below is re-traversed once per path, which
+        // is exponential in depth and can never finish inside the test timeout)
+        const levels = 30;
+        const releases: PackageRelease[] = [];
+        for (let level = 0; level < levels; level += 1) {
+            const next = String(level + 1).padStart(2, "0");
+            const deps =
+                level === levels - 1
+                    ? []
+                    : [dependency(`n${next}a`, "1.0.0"), dependency(`n${next}b`, "1.0.0")];
+            const current = String(level).padStart(2, "0");
+            releases.push(release(`n${current}a`, "1.0.0", deps));
+            releases.push(release(`n${current}b`, "1.0.0", deps));
+        }
+        const lock = resolvePackageLock(metadata(releases), [
+            dependency("n00a", "1.0.0"),
+            dependency("n00b", "1.0.0")
+        ]);
+        expect(lock.packages).toHaveLength(2 * levels);
+        expect(lock.packages.every((pin) => pin.version.toString() === "1.0.0")).toBe(true);
     });
 
     test("filters Package and Facet compatibility before deterministic selection", { tags: "p1" }, () => {
