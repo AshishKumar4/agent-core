@@ -1536,7 +1536,7 @@
         "tree": "fd32865cc559459b7ff45c358d5a7a8e6a8a5b54",
         "rationale": "The final identity-authority conformance registry and runtime tests cover canonical resolution and durable storage.",
         "tests": [
-          "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] derives canonical topology and deny closure from Tenant stores",
+          "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny",
           "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
         ],
         "checks": [],
@@ -1589,7 +1589,7 @@
               "packages/agent-core/test/identity/hard-gates.test.ts"
             ],
             "tests": [
-              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] derives canonical topology and deny closure from Tenant stores",
+              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -1610,7 +1610,7 @@
               "packages/agent-core/test/identity/hard-gates.test.ts"
             ],
             "tests": [
-              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] derives canonical topology and deny closure from Tenant stores",
+              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -1631,7 +1631,7 @@
               "packages/agent-core/test/identity/hard-gates.test.ts"
             ],
             "tests": [
-              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] derives canonical topology and deny closure from Tenant stores",
+              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -1652,7 +1652,7 @@
               "packages/agent-core/test/identity/hard-gates.test.ts"
             ],
             "tests": [
-              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] derives canonical topology and deny closure from Tenant stores",
+              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -1673,7 +1673,7 @@
               "packages/agent-core/test/identity/hard-gates.test.ts"
             ],
             "tests": [
-              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] derives canonical topology and deny closure from Tenant stores",
+              "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2824,7 +2824,7 @@
         "tree": "fd32865cc559459b7ff45c358d5a7a8e6a8a5b54",
         "rationale": "Command runtime emits correlated completion Events and revisioned View replay.",
         "tests": [
-          "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] publishes success and failure completion Events correlated to the invocation"
+          "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion"
         ],
         "checks": [],
         "artifacts": [
@@ -2852,7 +2852,7 @@
               "packages/agent-core/test/operations/runtime.test.ts"
             ],
             "tests": [
-              "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] publishes success and failure completion Events correlated to the invocation"
+              "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion"
             ],
             "checks": []
           }
@@ -4979,7 +4979,7 @@
         "tree": "fd32865cc559459b7ff45c358d5a7a8e6a8a5b54",
         "rationale": "The complete invocation runtime API is exported through the canonical context barrel and packed registry.",
         "tests": [
-          "test/invocations/barrel.test.ts#invocation context barrel [C13-ADV-RECOVERY-ORDINAL] exports the complete W6 runtime API"
+          "test/invocations/barrel.test.ts#invocation context barrel exports the complete W6 runtime API"
         ],
         "checks": ["exports"],
         "artifacts": [
@@ -5013,7 +5013,7 @@
               "packages/agent-core/test/invocations/barrel.test.ts"
             ],
             "tests": [
-              "test/invocations/barrel.test.ts#invocation context barrel [C13-ADV-RECOVERY-ORDINAL] exports the complete W6 runtime API"
+              "test/invocations/barrel.test.ts#invocation context barrel exports the complete W6 runtime API"
             ],
             "checks": ["exports"]
           },
@@ -5030,7 +5030,7 @@
               "packages/agent-core/test/invocations/barrel.test.ts"
             ],
             "tests": [
-              "test/invocations/barrel.test.ts#invocation context barrel [C13-ADV-RECOVERY-ORDINAL] exports the complete W6 runtime API"
+              "test/invocations/barrel.test.ts#invocation context barrel exports the complete W6 runtime API"
             ],
             "checks": ["exports"]
           }
