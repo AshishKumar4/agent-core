@@ -30,15 +30,22 @@ for (const name of transitionIndex.manifests) {
     );
     if (transition.state === "completed") completedTransitions.push(transition);
 }
+// Transition completions and resolution outcomes may cite the quality and
+// governance harness suites beside the product and cloudflare runs.
+const executed = await executedTestSelectors([
+    resolve(reportRoot, "tests/vitest.json"),
+    resolve(reportRoot, "tests/quality.json"),
+    resolve(reportRoot, "tests/governance.json"),
+    resolve(packageRoot, "../agent-core-cloudflare/reports/quality/tests/structural.json"),
+    resolve(packageRoot, "../agent-core-cloudflare/reports/quality/tests/workers.json")
+]);
 if (completedTransitions.length > 0) {
-    const executed = await executedTestSelectors();
     for (const transition of completedTransitions) {
         requirePassingTests(transition.completion.tests, executed, transition.id);
         await requirePassingNodes(transition.completion.checks ?? [], transition.id, stage);
     }
 }
 {
-    const executed = await executedTestSelectors();
     for (const resolution of resolutions.entries) {
         if (stage === "final" && resolution.state === "external-gated") {
             throw new TypeError(`External resolution lacks remote evidence: ${resolution.source}`);

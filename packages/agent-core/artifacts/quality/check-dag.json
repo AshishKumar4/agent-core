@@ -91,7 +91,9 @@
             "build",
             "tests",
             "coverage",
-            "exports"
+            "exports",
+            "quality-tests",
+            "governance-tests"
         ],
         "conformance": [
             "ledger",

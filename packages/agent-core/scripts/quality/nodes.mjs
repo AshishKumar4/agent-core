@@ -9,7 +9,14 @@ export async function requirePassingNodes(nodes, owner, stage) {
     if (JSON.stringify(graph.evidenceNodes) !== JSON.stringify(fixedEvidenceNodes)) {
         throw new TypeError("Quality evidence node policy changed");
     }
-    const requiredIntegrationDependencies = ["build", "tests", "coverage", "exports"];
+    const requiredIntegrationDependencies = [
+        "build",
+        "tests",
+        "coverage",
+        "exports",
+        "quality-tests",
+        "governance-tests"
+    ];
     if (
         JSON.stringify(graph.nodes.integration) !== JSON.stringify(requiredIntegrationDependencies)
     ) {
