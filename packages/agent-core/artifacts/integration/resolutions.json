@@ -29,10 +29,10 @@
           "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
           "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
           "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-          "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+          "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
           "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
           "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-          "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together",
+          "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt",
           "test/profiles/facets/conformance-ledger.test.ts#[P11-FILESYSTEM-READONLY] exact profile manifest or runtime contract",
           "test/profiles/facets/device.test.ts#Device transport admission and declarations [P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions",
           "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-REVOCATION] denies without an EffectAttempt when revocation wins final admission"
@@ -149,10 +149,10 @@
               "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
               "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
               "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
               "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": []
           },
@@ -185,10 +185,10 @@
               "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
               "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
               "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
               "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt",
               "test/profiles/facets/conformance-ledger.test.ts#[P11-FILESYSTEM-READONLY] exact profile manifest or runtime contract"
             ],
             "checks": []
@@ -221,10 +221,10 @@
               "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
               "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
               "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
               "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": []
           },
@@ -256,10 +256,10 @@
               "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
               "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
               "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
               "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": []
           },
@@ -292,10 +292,10 @@
               "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
               "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
               "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
               "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt",
               "test/profiles/facets/device.test.ts#Device transport admission and declarations [P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-REVOCATION] denies without an EffectAttempt when revocation wins final admission"
             ],
@@ -329,10 +329,10 @@
               "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
               "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
               "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
               "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": []
           },
@@ -364,10 +364,10 @@
               "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
               "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision",
               "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
               "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
               "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-FINAL-CHECK] returns target-local immutable evidence for the exact pair",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": []
           }
@@ -437,8 +437,8 @@
           "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
           "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
           "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-          "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-          "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+          "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+          "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
         ],
         "checks": ["coverage", "exports"],
         "artifacts": [
@@ -517,8 +517,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -545,8 +545,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -573,8 +573,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -601,8 +601,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -629,8 +629,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -657,8 +657,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -685,8 +685,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -713,8 +713,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           },
@@ -741,8 +741,8 @@
               "test/quality/request-outcome-evidence.test.ts#request outcome reconciliation normalizes W8 package scripts into aggregate lanes while retaining exact dependencies",
               "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition adapts profile mediation through the canonical batch invocation port",
               "test/interaction-references/identity.test.ts#canonical interaction identities keeps W2 WorkspaceId and W6 ReceiptId distinct",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] binds the complete canonical intent before EffectAttempt admission",
-              "cloudflare/test/authority-permit.test.ts#[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] atomically consumes with EffectAttempt and rolls both back together"
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt",
+              "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt"
             ],
             "checks": ["coverage", "exports"]
           }
