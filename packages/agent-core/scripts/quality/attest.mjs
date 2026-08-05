@@ -76,6 +76,14 @@ if (expectedNodes.includes("tests")) {
     expectedCoreReports.add("coverage/coverage-final.json");
     expectedCoreReports.add("coverage/coverage-summary.json");
 }
+if (expectedNodes.includes("quality-tests")) expectedCoreReports.add("tests/quality.json");
+if (expectedNodes.includes("governance-tests")) expectedCoreReports.add("tests/governance.json");
+if (expectedNodes.includes("priority-tests")) {
+    for (const priority of ["p0", "p1", "p2"]) {
+        expectedCoreReports.add(`tests/priority-${priority}.json`);
+    }
+}
+if (expectedNodes.includes("test-priorities")) expectedCoreReports.add("test-priorities.json");
 if (expectedNodes.includes("coverage")) {
     expectedCoreReports.add("coverage/attestation.json");
     expectedCoreReports.add("coverage/source-universe.json");
