@@ -56,7 +56,7 @@ const forbiddenPath =
     /\/(?:authority|definition|quality|scripts)\/|\/(?:bootstrap|materialization)[^/]*\.ts$/;
 
 describe("W1 verification manifest", () => {
-    test("is the exact live W1 source and test ownership inventory", () => {
+    test("is the exact live W1 source and test ownership inventory", { tags: "p2" }, () => {
         const discoveredSources = [
             ...discover("src/actors", ".ts"),
             ...discover("src/content", ".ts"),
@@ -67,13 +67,16 @@ describe("W1 verification manifest", () => {
         const liveSources = discoveredSources.filter(
             (path) => !integration.sourceExtensions.includes(path)
         );
-        const liveTests = [
+        const discoveredTests = [
             ...discover("test/actors", ".test.ts"),
             ...discover("test/content", ".test.ts"),
             ...discover("test/core", ".test.ts"),
             ...genericProtocolTests,
             ...sqliteTests
         ].sort();
+        const liveTests = discoveredTests.filter(
+            (path) => !integration.testExtensions.includes(path)
+        );
         const coverageInventory = [...coverage.matchAll(/^src\/[^\n]+\.ts$/gm)].map(
             (match) => match[0]
         );
@@ -87,8 +90,12 @@ describe("W1 verification manifest", () => {
         expect(manifest.sourceFiles).toEqual(coverageInventory);
         expect(manifest.sourceFiles).toEqual(taxonomy.sources);
         expect(integration.sourceExtensions).toEqual(["src/actors/id.ts"]);
+        expect(integration.testExtensions).toEqual(["test/core/errors.test.ts"]);
         expect(discoveredSources).toEqual(
             [...manifest.sourceFiles, ...integration.sourceExtensions].sort()
+        );
+        expect(discoveredTests).toEqual(
+            [...manifest.testFiles, ...integration.testExtensions].sort()
         );
         expect(
             [...manifest.sourceFiles, ...manifest.testFiles].every((path) =>
@@ -116,6 +123,7 @@ interface ErrorTaxonomy {
 
 interface IntegratedW1Manifest {
     readonly sourceExtensions: readonly string[];
+    readonly testExtensions: readonly string[];
 }
 
 function discover(root: string, suffix: string): string[] {

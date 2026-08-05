@@ -147,8 +147,8 @@
       "artifacts": [
         {
           "path": "packages/agent-core/artifacts/integration/transitions/w9-integration-candidate.json",
-          "blob": "f0aaf985dc5cefc28c584f9c638ff4f95d6e4700",
-          "sha256": "9f2755f1cb01aa7b7562e34edbb1df348b5fa8cd4ca042d2cef9420ee74cc36d"
+          "blob": "75f81d1e266195f7153d92a8ff590a3ca642e193",
+          "sha256": "c38afdfffd31edcf2e791fcb561bfb0b684d04e4190c171d567f33ae640e78fc"
         }
       ],
       "blockers": []

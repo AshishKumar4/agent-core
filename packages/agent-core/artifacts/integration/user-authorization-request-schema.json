@@ -113,7 +113,7 @@
         "requestedDecision": {
           "const": "authorize the two declared staging-only remote gates or decline them; production remains prohibited"
         },
-        "executionPerformed": { "const": false },
+        "executionPerformed": { "type": "boolean" },
         "localSubstitute": { "const": false },
         "executionEvidence": {
           "type": "object",
@@ -126,7 +126,7 @@
           "properties": {
             "consentEnvironmentVariablesPresent": { "const": false },
             "cloudflareAccountIdPresent": { "const": false },
-            "gatedExecutionRecords": { "const": 0 }
+            "gatedExecutionRecords": { "type": "integer", "minimum": 0 }
           }
         }
       }

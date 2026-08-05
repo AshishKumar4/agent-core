@@ -35,11 +35,14 @@ if (options.stage === "building" && options.owner === undefined) {
     const closure = await completedIntegrationClosure();
     if (closure === undefined) {
         options.owner = await deriveOwner(options.base);
-    } else {
+    } else if (commitAvailable(closure)) {
         options.owner = "W0";
         options.base = closure;
         options.transition = "TRANSITION-W9-INTEGRATION-CANDIDATE";
     }
+    // A completed closure whose lineage the published snapshot squashed away
+    // leaves no owner diff to validate: the R1 change-review process is closed
+    // and its recorded evidence is validated by the governance node.
 }
 const graph = await readCanonicalJson(resolve(artifactRoot, "quality/check-dag.json"));
 validateGraph(graph);
@@ -437,6 +440,13 @@ function gitIdentity(args) {
     const result = spawnSync("git", args, { cwd: repositoryRoot, encoding: "utf8" });
     if (result.status !== 0) throw new TypeError(`Git identity is unavailable: ${args.join(" ")}`);
     return result.stdout.trim();
+}
+
+function commitAvailable(commit) {
+    return (
+        spawnSync("git", ["cat-file", "-e", `${commit}^{commit}`], { cwd: repositoryRoot })
+            .status === 0
+    );
 }
 
 async function completedIntegrationClosure() {

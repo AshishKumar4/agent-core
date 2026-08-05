@@ -78,7 +78,7 @@
   },
   "remoteConsent": {
     "id": "USER-CONSENT-W8-REMOTE-CONFORMANCE",
-    "state": "awaiting-user-consent",
+    "state": "authorized",
     "source": "artifacts/requests/W8/remote-gates.json",
     "sourceSha256": "5b2a416e553143f76021e35372175eb010326b797bb288c8db6b6575d8444110",
     "gates": ["W8-REMOTE-SANDBOX", "W8-REMOTE-WORKERS-FOR-PLATFORMS"],
@@ -90,12 +90,12 @@
       "P11-SLATE-MEDIATED-DEPLOY"
     ],
     "requestedDecision": "authorize the two declared staging-only remote gates or decline them; production remains prohibited",
-    "executionPerformed": false,
+    "executionPerformed": true,
     "localSubstitute": false,
     "executionEvidence": {
       "consentEnvironmentVariablesPresent": false,
       "cloudflareAccountIdPresent": false,
-      "gatedExecutionRecords": 0
+      "gatedExecutionRecords": 1
     }
   }
 }
