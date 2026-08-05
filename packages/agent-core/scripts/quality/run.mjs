@@ -398,7 +398,7 @@ async function runPriorityTests() {
 }
 
 // The JSON reporter leaves failure detail inside the report file; surface it so
-// a red lane names its failing tests in the run log.
+// a red lane names its failing tests and crashed suites in the run log.
 async function printFailingAssertions(reportPath, lane) {
     let report;
     try {
@@ -408,6 +408,11 @@ async function printFailingAssertions(reportPath, lane) {
         return;
     }
     for (const result of report.testResults ?? []) {
+        if (result.status !== "passed" && (result.assertionResults ?? []).length === 0) {
+            console.error(
+                `${lane} suite ${result.status}: ${result.name}\n${result.message ?? ""}`
+            );
+        }
         for (const assertion of result.assertionResults ?? []) {
             if (assertion.status !== "passed" && assertion.status !== "skipped") {
                 console.error(
@@ -417,6 +422,11 @@ async function printFailingAssertions(reportPath, lane) {
             }
         }
     }
+    console.error(
+        `${lane} lane summary: suites ${report.numFailedTestSuites ?? "?"} failed of ` +
+            `${report.numTotalTestSuites ?? "?"}, tests ${report.numFailedTests ?? "?"} failed of ` +
+            `${report.numTotalTests ?? "?"}`
+    );
 }
 
 function runNode(name, context, orchestrated = false, extraArgs = []) {

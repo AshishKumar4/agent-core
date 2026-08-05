@@ -48,3 +48,15 @@ jobs:
       # (zero sorry, zero extra axioms).
       - name: Verify
         run: pnpm verify
+
+      # Red lanes keep their evidence: the JSON reports carry the failure detail
+      # the console summaries cannot.
+      - name: Upload quality reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: |
+            packages/agent-core/reports/quality
+            packages/agent-core-cloudflare/reports/quality
+          if-no-files-found: ignore
