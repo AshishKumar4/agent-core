@@ -1517,14 +1517,6 @@ the Grant decision. This rule is not limited to external sends and maps to
 
 ![Tiers and the approval continuation](diagrams/mediation.svg)
 
-*Why tiers at all:* an agent loop makes thousands of `observe` calls per session, and
-several durable writes per file read would make the platform unusable — every fast
-agent runtime treats hot-path tool calls as plain function calls, for good reason. On
-the other hand, an external send with no receipt leaves you unable to answer basic
-questions like "did we actually email that customer?". Tiering keeps one uniform
-model — everything is an Invocation — while matching the cost of each call to its
-consequences.
-
 ### 7.3 PreparedInvocation and Approval
 
 Preparation freezes the whole effect intent before policy or approval:
@@ -1673,15 +1665,6 @@ An **Approval** authorizes exactly one InvocationId and its `intentDigest`; an
 Invocation has at most one Approval record. An `InvocationContinuation` MUST be absent
 before first consumption. This maps to **C13-PREPARED-APPROVAL-UNIQUE** and
 **C13-PREPARED-CONTINUATION-ABSENT**.
-The lifecycle is:
-
-```text
-intercept → prepare once → evaluate policy → persist pending Approval if required
-  → approve | deny | expire
-  → resume once: establish exact first claim, perform final authority admission, and check whole-intent digest
-  → [EffectAttempt(s)] → Receipt(s) → AuditRecord(s) → Event(s)
-```
-
 Approval is invocation-level, single-use, and MAY expire. Pending state survives process death, but resume
 requires the exact token only when the header carries one. Denial or authority/digest
 mismatch emits one `deniedPreEffect` Receipt per untouched item; expiry, cancellation,
