@@ -174,6 +174,34 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-ACCEPTANCE-OBLIGATION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-ACCEPTANCE-OBLIGATION",
+      "specTextSha256": "sha256:102b57566eaa6b620c3670f785e1eb97a4090160201ffb0537b7cd6cb12fd5af",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-ACCEPTANCE-SUBJECT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-ACCEPTANCE-SUBJECT",
+      "specTextSha256": "sha256:eb488be75bbbbe860a9f0b148741cc06e936c13ce721432c6c0f8c86f88f8f1e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-RUN-ADMISSION-REGISTRY",
       "owner": "W5",
       "specAnchor": "C13-RUN-ADMISSION-REGISTRY",

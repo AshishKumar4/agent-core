@@ -815,7 +815,19 @@ type RunObligation =
       readonly itemIndex: number; readonly itemKey: string }
   | { readonly kind: "route"; readonly reservation: RouteReservationId }
   | { readonly kind: "reconciliation"; readonly attempt: EffectAttemptId }
-  | { readonly kind: "systemCommit"; readonly commit: RunCommitId };
+  | { readonly kind: "systemCommit"; readonly commit: RunCommitId }
+  | { readonly kind: "acceptance"; readonly acceptance: AcceptanceId };
+
+interface AcceptanceCriterion {
+  readonly id: AcceptanceId;
+  readonly operation: OperationRef;           // the verifier, an ordinary Operation
+}
+
+interface AcceptanceVerdict {
+  readonly acceptance: AcceptanceId;
+  readonly subject: Digest;                   // head tree digest the verifier saw
+  readonly receipt: ReceiptId;                // its attempted Receipt
+}
 
 interface RunAdmissionRegistry {
   readonly run: RunId;
@@ -966,6 +978,28 @@ The **canonical graph** has one root with zero parents; every non-root, non-merg
 has exactly one parent equal to its branch head at append; every merge has exactly the two
 parents above; and no other parent arity is valid. Appending atomically advances only
 the target branch head. Commit records and parent order never change.
+
+A Run MAY declare **acceptance criteria** when it opens, so that finishing is something it
+proves rather than something it asserts. Each criterion names an Operation that decides
+whether the work is done, and the Run-owning Actor reserves its `AcceptanceId` as an
+`acceptance` RunObligation. The obligation completes exactly when an `AcceptanceVerdict`
+for that `AcceptanceId` names an attempted Receipt whose outcome is `succeeded` and whose
+`subject` equals the Run's current head tree digest. The verifier is an ordinary
+Operation, so its Receipt carries the whole §7 admission and audit chain and no actor can
+assert a verdict it did not earn. An unsatisfied acceptance obligation is exactly as
+unfinished as an outstanding Approval: it is snapshotted into the SettlementObligation and
+the Run is not Settled while it stands. A criterion bounds nothing — not time, not cost,
+not attempts — and a Run that declares none is settled by the same rule as before. This
+maps to **C13-RUN-ACCEPTANCE-OBLIGATION**.
+
+A verdict is evidence for its exact `subject` and for nothing else. While a criterion
+holds a verdict naming the current head tree digest, that verdict is current evidence and
+the system MUST NOT run the verifier again. A further attempt is admissible only against a
+head tree digest that no recorded verdict for that criterion names, so what makes a retry
+possible is changed input rather than elapsed time or a counted attempt. A Run therefore
+cannot spin against inputs it has not moved, and one that keeps failing is visible as a
+criterion undischarged across distinct subjects. This maps to
+**C13-RUN-ACCEPTANCE-SUBJECT**.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
@@ -2558,6 +2592,8 @@ A conforming implementation provides:
 - **C13-RUN-EXPLICIT-MIGRATION** Run migration is explicit, durably evidenced, and rejects invalid target RunPins before installation.
 - **C13-RUN-ADMISSION-REGISTRY** Every Run-associated asynchronous obligation uses canonical pre-remote identity reserve, completion, and close transitions in the Run-owner registry.
 - **C13-RUN-RESERVATION-EPOCH** Remote admission validates the exact reserved identity and open Run registry epoch.
+- **C13-RUN-ACCEPTANCE-OBLIGATION** A declared acceptance criterion is a reserved Run obligation that only a succeeded verifier Receipt discharges, and declaring none changes nothing.
+- **C13-RUN-ACCEPTANCE-SUBJECT** An acceptance verdict is evidence for its exact subject digest, and a further attempt requires a subject no recorded verdict names.
 - **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
 - **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
 - **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
