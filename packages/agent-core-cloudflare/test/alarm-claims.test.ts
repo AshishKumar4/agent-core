@@ -1,6 +1,7 @@
 import { AlarmOutboxReconciler, DurableAlarmClaims, ReconciliationOutboxId } from "../src/index.js";
 import { DatabaseSync } from "node:sqlite";
-import type { SqliteRow, SqliteValue, SynchronousSqlitePort } from "../src/migration.js";
+import type { SynchronousSqlitePort } from "../src/migration.js";
+import type { SqliteRow, SqliteValue } from "../src/sqlite.js";
 import type { SynchronousResultGuard } from "@agent-core/core";
 import { SqliteApplicationMigrator } from "../src/migration.js";
 import { FakeAlarmStorage, fakeErrors } from "./fakes.js";
