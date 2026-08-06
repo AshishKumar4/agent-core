@@ -1,5 +1,6 @@
 AGENTS.md
 packages/agent-core/SPEC.md
+packages/agent-core/SPEC-DRAFT-STE.md
 packages/agent-core/formal/
 packages/*/dist/
 packages/*/coverage/

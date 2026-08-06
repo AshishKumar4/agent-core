@@ -15,6 +15,7 @@
       "pnpm-workspace.yaml",
       "packages/agent-core/AGENTS.md",
       "packages/agent-core/SPEC.md",
+      "packages/agent-core/SPEC-DRAFT-STE.md",
       "packages/agent-core/package.json",
       "packages/agent-core/tsconfig*.json",
       "packages/agent-core/vitest*.config.mjs",
