@@ -28,6 +28,7 @@ import type { R2ContentObjectRepository } from "./content-object.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
+import { requireStorableBlob } from "./sqlite.js";
 
 const SNAPSHOT_FORMAT = "agent-core-environment-snapshot/1";
 const MAX_FILE_PATH_LENGTH = 1024;
@@ -404,6 +405,7 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
                 "Environment session file content must be a Uint8Array"
             );
         }
+        requireStorableBlob("Environment session file content", content, this.errors);
         this.requireOpenSession(request);
         this.database.run(UPSERT_FILE, [request.sessionId.value, path, content.slice()]);
     }

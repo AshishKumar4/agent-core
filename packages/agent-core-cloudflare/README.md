@@ -39,8 +39,12 @@ single-owner invariant the substrate must preserve.
 Jurisdiction is physical placement only. A jurisdiction-restricted namespace still yields
 a physically distinct object for the same name, so a given `ActorRef` must be bound to one
 jurisdiction for its lifetime. `PlacementResolver` enforces this over a `PlacementRegistry`
-seam (with `MemoryPlacementRegistry` as the deterministic reference and a Durable Object or
-config store in production): the first resolution pins an `ActorPlacement`
+seam, whose one implementation is `SqlitePlacementRegistry`: pins live in a Durable Object's
+own SQLite, so they outlive the isolate that installed them and two isolates racing the same
+Actor cannot each pin it differently. Install `placementRegistryMigration` in exactly one
+object and route every resolver to it — it is deliberately not a runtime migration, so an
+Actor object that tries to keep its own private pins finds no table and fails closed. The
+first resolution pins an `ActorPlacement`
 `{ actorName, jurisdiction, pinnedAt, epoch }`, and every later resolution reads that pin.
 An explicit, conflicting per-call jurisdiction for a pinned Actor is rejected with a typed
 `protocol.invalid-state` error — it never resolves to a second object. `locateActorObject()`

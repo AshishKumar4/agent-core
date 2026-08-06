@@ -19,12 +19,14 @@ import {
     PermitIssuerDurableObjectHost,
     DynamicWorkerLoaderAdapter,
     SqliteApplicationMigrator,
+    SqlitePlacementRegistry,
     SqliteReconciliationOutbox,
     ReconciliationOutboxId,
     contentRepositoryFromR2Binding,
     createCloudflareDurableObjectClass,
     createCloudflareWorker,
     environmentProviderMigration,
+    placementRegistryMigration,
     slateProviderMigration,
     type CloudflareDurableObjectInstance,
     type CloudflareErrorPort,
@@ -300,19 +302,15 @@ export class PermitTargetDurableObject extends DurableObject<TestEnvironment> {
         this.#expected = AuthorityPermit.decode(bytes).expectation;
     }
 
-    public async admitPermit(
-        bytes: Uint8Array,
-        at: number,
-        failAppend = false
-    ): Promise<string> {
+    public async admitPermit(bytes: Uint8Array, at: number, failAppend = false): Promise<string> {
         if (this.#expected === undefined) throw new Error("Expectation was not seeded");
         const permit = AuthorityPermit.decode(bytes);
         await this.#admission.admit(permit, this.#expected, new Date(at), () => {
             if (failAppend) throw new Error("Injected effect-append failure");
-            this.#sqlite.run(
-                "INSERT INTO effect_attempts (nonce, admitted_at) VALUES (?, ?)",
-                [permit.nonce, new Date(at).toISOString()]
-            );
+            this.#sqlite.run("INSERT INTO effect_attempts (nonce, admitted_at) VALUES (?, ?)", [
+                permit.nonce,
+                new Date(at).toISOString()
+            ]);
         });
         return permit.nonce;
     }
@@ -324,6 +322,22 @@ export class PermitTargetDurableObject extends DurableObject<TestEnvironment> {
 
     public fetch(): Response {
         return new Response("permit-target");
+    }
+}
+
+/** The placement ledger belongs to one object; no Actor object keeps private pins. */
+export class PlacementRegistryDurableObject extends DurableObject<TestEnvironment> {
+    public readonly placements: SqlitePlacementRegistry;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        const sqlite = new CloudflareSqlite(state.storage, errors);
+        new SqliteApplicationMigrator(sqlite, errors, [placementRegistryMigration(1)]).migrate();
+        this.placements = new SqlitePlacementRegistry(sqlite, errors);
+    }
+
+    public fetch(): Response {
+        return new Response("placement-registry");
     }
 }
 

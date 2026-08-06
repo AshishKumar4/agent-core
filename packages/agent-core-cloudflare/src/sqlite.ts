@@ -31,6 +31,33 @@ export interface CloudflareDurableObjectStorage {
 
 export type SynchronousResultGuard<Result> = CoreSynchronousResultGuard<Result>;
 
+/**
+ * Cloudflare documents 2 MB as the maximum size of a string, BLOB, or row in a Durable
+ * Object's SQLite storage, and workerd sets `SQLITE_LIMIT_LENGTH` to 2,200,000 so the
+ * documented value keeps headroom.
+ */
+export const SQL_BLOB_LIMIT_BYTES = 2_000_000;
+
+/**
+ * A payload past the documented limit is invalid input, not an invalid protocol state.
+ * Write seams reject it before they open a transaction, because the runtime would
+ * otherwise surface it as an opaque statement failure partway through one.
+ */
+export function requireStorableBlob(
+    subject: string,
+    bytes: Uint8Array,
+    errors: CloudflareErrorPort
+): void {
+    if (bytes.byteLength > SQL_BLOB_LIMIT_BYTES) {
+        operationalFailure(
+            errors,
+            "operation.invalid-input",
+            `${subject} of ${bytes.byteLength} bytes exceeds the ` +
+                `${SQL_BLOB_LIMIT_BYTES}-byte Durable Object SQLite limit`
+        );
+    }
+}
+
 export class CloudflareSqlite extends TransactionalSqlite {
     #transactionActive = false;
     #poisoned = false;

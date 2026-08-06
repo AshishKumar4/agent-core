@@ -26,6 +26,7 @@ import {
     environmentProviderMigration
 } from "../src/index.js";
 import type { R2ObjectBodyLike, R2ObjectLike, R2PutOptionsLike } from "../src/index.js";
+import { SQL_BLOB_LIMIT_BYTES } from "../src/sqlite.js";
 import { expectOperationalFailure } from "./assertions.js";
 import { FakeR2Bucket, fakeErrors } from "./fakes.js";
 import { NodeSqlite } from "./node-sqlite.js";
@@ -228,6 +229,29 @@ describe("DurableObjectEnvironmentProvider", () => {
         ).toEqual({
             name: "failed"
         });
+    });
+
+    test("refuses an unstorable session file at the write seam", { tags: "p1" }, async () => {
+        const { provider, sqlite } = createProvider();
+        const request = sessionRequest("sess-1");
+        await provider.openSession(request);
+
+        // Cloudflare caps a Durable Object SQLite BLOB at 2 MB, and the upsert would
+        // otherwise report it as an opaque runtime failure rather than invalid input.
+        expectOperationalFailure(
+            () =>
+                provider.writeSessionFile(
+                    request,
+                    "big.bin",
+                    new Uint8Array(SQL_BLOB_LIMIT_BYTES + 1)
+                ),
+            "operation.invalid-input"
+        );
+        expect(provider.readSessionFile(request, "big.bin")).toBeUndefined();
+        expect(sqlite.all("SELECT path FROM agent_core_environment_session_files", [])).toEqual([]);
+
+        provider.writeSessionFile(request, "big.bin", new Uint8Array(SQL_BLOB_LIMIT_BYTES));
+        expect(provider.readSessionFile(request, "big.bin")?.byteLength).toBe(SQL_BLOB_LIMIT_BYTES);
     });
 
     test("snapshots a file whose path collides with a prototype key", async () => {

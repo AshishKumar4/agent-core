@@ -50,6 +50,19 @@ describe("R2ContentObjectRepository", () => {
         );
     });
 
+    test("addresses the bytes as of the call", { tags: "p1" }, async () => {
+        // Addressing keeps no defensive copy of its own: the digest already snapshots the
+        // bytes synchronously, so a caller mutating the array while the digest is in
+        // flight cannot change the address it computed.
+        const input = bytes("stable");
+        const pending = contentObjectAddress(new TenantId("tenant"), input, fakeErrors);
+        input.fill(0);
+
+        expect((await pending).digest).toBe(
+            (await contentObjectAddress(new TenantId("tenant"), bytes("stable"), fakeErrors)).digest
+        );
+    });
+
     test("rejects body, metadata, and checksum corruption", async () => {
         const corrupt = async (
             mutate: (bucket: FakeR2Bucket, key: string) => void

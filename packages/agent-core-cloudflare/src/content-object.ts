@@ -66,6 +66,8 @@ export class R2ContentObjectRepository {
     ) {}
 
     public async put(tenantId: TenantId, bytes: Uint8Array): Promise<ContentObjectPutResult> {
+        // The one copy this path needs: the address is computed across an await, and a
+        // caller mutating its own array afterwards must not change what R2 stores.
         const detached = bytes.slice();
         const address = await contentObjectAddress(tenantId, detached, this.errors);
         const metadata = objectMetadata(address);
@@ -82,7 +84,7 @@ export class R2ContentObjectRepository {
         if (stored === undefined) {
             this.corrupt("R2 conditional write resolved without a stored content object");
         }
-        return Object.freeze({ ...stored, bytes: stored.bytes.slice(), created: written !== null });
+        return Object.freeze({ ...stored, created: written !== null });
     }
 
     public async get(tenantId: TenantId, digest: string): Promise<ContentObject | undefined> {
@@ -105,12 +107,12 @@ export class R2ContentObjectRepository {
         if (object === null) return undefined;
         const body = new Uint8Array(
             await this.callR2("R2 content body read failed", () => object.arrayBuffer())
-        ).slice();
+        );
         this.validateObject(object, address, body.byteLength);
         if ((await sha256(body, this.errors)) !== address.digest) {
             this.corrupt("R2 content body digest does not match its address");
         }
-        return Object.freeze({ ...address, bytes: body.slice() });
+        return Object.freeze({ ...address, bytes: body });
     }
 
     private async callR2<Result>(
@@ -158,7 +160,7 @@ export async function contentObjectAddress(
     requireTenantId(tenantId, errors);
     const [tenantDigest, digest] = await Promise.all([
         sha256(new TextEncoder().encode(tenantId.value), errors),
-        sha256(bytes.slice(), errors)
+        sha256(bytes, errors)
     ]);
     return Object.freeze({ key: contentObjectKey(tenantDigest, digest), digest, tenantDigest });
 }
@@ -176,6 +178,8 @@ function objectMetadata(address: ContentObjectAddress): Readonly<Record<string, 
 }
 
 async function sha256(bytes: Uint8Array, errors: CloudflareErrorPort): Promise<string> {
+    // Digesting needs a buffer source this function owns: a `Uint8Array` may view a
+    // `SharedArrayBuffer`, which `crypto.subtle.digest` does not accept.
     const detached = new ArrayBuffer(bytes.byteLength);
     new Uint8Array(detached).set(bytes);
     try {

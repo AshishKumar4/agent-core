@@ -2,21 +2,38 @@ import { AgentCoreError } from "@agent-core/core";
 import { ActorId, ActorRef } from "@agent-core/core/actors";
 import {
     ActorPlacement,
-    MemoryPlacementRegistry,
     PlacementResolver,
+    SqliteApplicationMigrator,
+    SqlitePlacementRegistry,
     UnimplementedPlacementMigration,
-    actorObjectName
+    actorObjectName,
+    cloudflareRuntimeMigrations,
+    placementRegistryMigration
 } from "../src/index.js";
+import type { SynchronousResultGuard, SynchronousSqlitePort } from "../src/index.js";
 import { FakeDurableObjectNamespace, fakeErrors } from "./fakes.js";
+import { NodeSqlite } from "./node-sqlite.js";
 
 interface FakeStub {
     readonly name: string;
     readonly jurisdiction: string | undefined;
 }
 
+const PLACEMENT_MIGRATION_VERSION = cloudflareRuntimeMigrations.length + 1;
+
+/** A real database: the pin ledger's whole value is that it survives the isolate. */
+function registryDatabase(): NodeSqlite {
+    const database = new NodeSqlite();
+    new SqliteApplicationMigrator(database, fakeErrors, [
+        ...cloudflareRuntimeMigrations,
+        placementRegistryMigration(PLACEMENT_MIGRATION_VERSION)
+    ]).migrate();
+    return database;
+}
+
 function fixture(): {
     readonly namespace: FakeDurableObjectNamespace<FakeStub>;
-    readonly registry: MemoryPlacementRegistry;
+    readonly registry: SqlitePlacementRegistry;
     readonly resolver: PlacementResolver<unknown, FakeStub>;
     readonly actor: ActorRef;
 } {
@@ -24,7 +41,7 @@ function fixture(): {
         name,
         jurisdiction
     }));
-    const registry = new MemoryPlacementRegistry();
+    const registry = new SqlitePlacementRegistry(registryDatabase(), fakeErrors);
     const resolver = new PlacementResolver<unknown, FakeStub>(registry, fakeErrors, {
         now: () => 1000
     });
@@ -92,20 +109,94 @@ describe("Actor placement pinning", () => {
     });
 
     test("registry round-trips a pin and re-pins the same jurisdiction idempotently", async () => {
-        const registry = new MemoryPlacementRegistry();
+        const registry = new SqlitePlacementRegistry(registryDatabase(), fakeErrors);
         const name = actorObjectName({ kind: "run", id: new ActorId("7") });
         const placement = new ActorPlacement(name, "eu", 1000, 0);
 
         expect(await registry.get(name)).toBeUndefined();
-        const pinned = await registry.pin(placement);
-        expect(pinned).toBe(placement);
-        expect(await registry.get(name)).toBe(placement);
+        expect(await registry.pin(placement)).toBe(placement);
+        expect(await registry.get(name)).toEqual(placement);
 
-        const rePin = await registry.pin(new ActorPlacement(name, "eu", 2000, 0));
-        expect(rePin).toBe(placement);
+        expect(await registry.pin(new ActorPlacement(name, "eu", 2000, 0))).toEqual(placement);
         // A concurrent conflicting writer also observes the original pin, never a second one.
-        const loser = await registry.pin(new ActorPlacement(name, "us", 3000, 0));
-        expect(loser).toBe(placement);
+        expect(await registry.pin(new ActorPlacement(name, "us", 3000, 0))).toEqual(placement);
+    });
+
+    test(
+        "a pin outlives the isolate that installed it, so a later isolate cannot re-pin",
+        { tags: "p0" },
+        async () => {
+            const database = registryDatabase();
+            const name = actorObjectName({ kind: "run", id: new ActorId("7") });
+            await new SqlitePlacementRegistry(database, fakeErrors).pin(
+                new ActorPlacement(name, "eu", 1000, 0)
+            );
+
+            // A second isolate holds no pins of its own; it reads the durable ledger and
+            // observes the first pin, instead of first-pinning the Actor somewhere else.
+            const later = new SqlitePlacementRegistry(database, fakeErrors);
+            expect(await later.get(name)).toEqual(new ActorPlacement(name, "eu", 1000, 0));
+            expect(await later.pin(new ActorPlacement(name, "us", 2000, 0))).toEqual(
+                new ActorPlacement(name, "eu", 1000, 0)
+            );
+        }
+    );
+
+    test("pins the default namespace durably and distinguishably", { tags: "p1" }, async () => {
+        const database = registryDatabase();
+        const name = actorObjectName({ kind: "run", id: new ActorId("7") });
+        await new SqlitePlacementRegistry(database, fakeErrors).pin(
+            new ActorPlacement(name, undefined, 1000, 0)
+        );
+
+        // The default namespace is a placement decision, not an absent pin.
+        const pin = await new SqlitePlacementRegistry(database, fakeErrors).get(name);
+        expect(pin?.jurisdiction).toBeUndefined();
+        expect(pin?.pinnedAt).toBe(1000);
+    });
+
+    test("refuses to pin without its own installed ledger", { tags: "p1" }, async () => {
+        const database = new NodeSqlite();
+        new SqliteApplicationMigrator(database, fakeErrors, cloudflareRuntimeMigrations).migrate();
+        const registry = new SqlitePlacementRegistry(database, fakeErrors);
+
+        // An Actor object carries the runtime migrations only, so a registry constructed
+        // there has no table and cannot keep a private pin.
+        await expect(
+            registry.pin(
+                new ActorPlacement(
+                    actorObjectName({ kind: "run", id: new ActorId("7") }),
+                    "eu",
+                    0,
+                    0
+                )
+            )
+        ).rejects.toThrow();
+    });
+
+    test("rejects a corrupt stored pin instead of resolving one", { tags: "p2" }, async () => {
+        const name = actorObjectName({ kind: "run", id: new ActorId("7") });
+        const database = registryDatabase();
+        database.run(
+            `INSERT INTO agent_core_actor_placements (actor_name, jurisdiction, pinned_at, epoch)
+                VALUES (?, ?, ?, ?)`,
+            [name, "", 0, 0]
+        );
+        await expect(
+            new SqlitePlacementRegistry(database, fakeErrors).get(name)
+        ).rejects.toMatchObject({ code: "codec.invalid" });
+
+        const scripted: SynchronousSqlitePort = {
+            all: () => [{ jurisdiction: new Uint8Array([1]), pinned_at: 0, epoch: 0 }],
+            run: () => {},
+            transaction: <Result>(
+                operation: () => Result,
+                ..._guard: SynchronousResultGuard<Result>
+            ): Result => operation()
+        };
+        await expect(
+            new SqlitePlacementRegistry(scripted, fakeErrors).get(name)
+        ).rejects.toMatchObject({ code: "codec.invalid" });
     });
 
     test("ActorPlacement validates its shape", () => {

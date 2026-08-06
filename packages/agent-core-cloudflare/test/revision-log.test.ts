@@ -3,6 +3,7 @@ import {
     type SqliteRow,
     type SynchronousSqlitePort
 } from "../src/index.js";
+import { SQL_BLOB_LIMIT_BYTES } from "../src/sqlite.js";
 import { FakeRuntimeSqlite, fakeErrors } from "./fakes.js";
 import { expectOperationalFailure } from "./assertions.js";
 
@@ -63,6 +64,31 @@ describe("DurableViewRevisionLog", () => {
             () => log.append("surface", 2, new Uint8Array()),
             "operation.invalid-input"
         );
+    });
+
+    test("rejects an unstorable payload before it writes anything", { tags: "p1" }, () => {
+        const database = new FakeRuntimeSqlite();
+        const log = new DurableViewRevisionLog(database, fakeErrors);
+        log.append("surface", 1, bytes("one"));
+        const writes = database.calls.length;
+        const oversized = new Uint8Array(SQL_BLOB_LIMIT_BYTES + 1);
+
+        // Cloudflare caps a Durable Object SQLite BLOB at 2 MB. Discovering that from
+        // the INSERT would report an opaque runtime failure after the revision check
+        // has already run inside the transaction.
+        expectOperationalFailure(
+            () => log.append("surface", 2, oversized),
+            "operation.invalid-input"
+        );
+        expectOperationalFailure(
+            () => log.compact("surface", 1, oversized),
+            "operation.invalid-input"
+        );
+        expect(database.calls.length).toBe(writes);
+        expect(log.currentRevision("surface")).toBe(1);
+
+        log.append("surface", 2, new Uint8Array(SQL_BLOB_LIMIT_BYTES));
+        expect(log.currentRevision("surface")).toBe(2);
     });
 
     test("rejects corrupt revision rows, payloads, gaps, and incomplete replay", () => {

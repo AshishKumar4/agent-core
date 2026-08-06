@@ -1,7 +1,20 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { encodeCanonicalJson } from "@agent-core/core";
-import { abortInstance, call, saveState } from "./harness";
+import { decodeViewStreamFrame } from "../../src/index.js";
+import {
+    abortInstance,
+    awaitEvent,
+    call,
+    events,
+    openSocket,
+    poll,
+    resultOf,
+    saveState,
+    sleep,
+    type LiveAlarmState,
+    type LiveOutboxState
+} from "./harness";
 
 const PREVIEW_HOST = "preview.agent-core-live.test";
 const publicationMaterialization = `sha256:${"1".repeat(64)}`;
@@ -186,7 +199,7 @@ describe("live Cloudflare substrate evidence", () => {
             await call("slate", "deploy", "deploy", deployment("dep-live", { target: "staging" }))
         ).toMatchObject({ ok: false, code: "protocol.invalid-state" });
 
-        saveState({
+        saveState("slate", {
             deployment: request,
             materialization,
             resource: {
@@ -253,5 +266,373 @@ describe("live Cloudflare substrate evidence", () => {
             ok: true,
             result: { materialization: materialized.result?.materialization }
         });
+    });
+});
+
+interface EnqueueResult extends LiveOutboxState {
+    readonly scheduledAt: number;
+}
+
+interface ClaimResult extends LiveAlarmState {
+    readonly dueAt: number;
+}
+
+interface ThrowingResult extends ClaimResult {
+    readonly until: number;
+}
+
+interface BlobResult {
+    readonly revision: number;
+    readonly byteLength: number;
+}
+
+interface BlobRead {
+    readonly currentRevision: number;
+    readonly lastByteLength: number | null;
+}
+
+interface DeliveryList {
+    readonly deliveries: readonly { readonly deliveryId: string; readonly attempts: number }[];
+}
+
+interface SocketList {
+    readonly count: number;
+    readonly attachments: readonly {
+        readonly channel: string;
+        readonly ackedRevision: number;
+    }[];
+}
+
+interface AttachmentProbe {
+    readonly isolate: string;
+    readonly before: { readonly channel: string; readonly ackedRevision: number };
+    readonly after: { readonly channel: string; readonly ackedRevision: number };
+    readonly currentRevision: number;
+}
+
+async function attempts(instance: string, deliveryId: string): Promise<number | undefined> {
+    const list = resultOf(await call<DeliveryList>("runtime", instance, "deliveries"));
+    return list.deliveries.find((delivery) => delivery.deliveryId === deliveryId)?.attempts;
+}
+
+describe("live Cloudflare platform-semantics evidence", () => {
+    it("[P11-ALARM-SCHEDULE] arms a real alarm from the outbox, fires it, and tears the alarm down", async () => {
+        const enqueued = resultOf(
+            await call<EnqueueResult>("runtime", "alarm-sweep", "enqueue", {
+                id: "due-now",
+                delayMs: 0
+            })
+        );
+        expect(enqueued.entries).toEqual([
+            { id: "due-now", scheduledAt: enqueued.scheduledAt }
+        ]);
+        // The physical alarm is the earliest live claim, and the reconciler holds one.
+        expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
+        expect(enqueued.claims).toEqual([
+            { owner: "agent-core.runtime", dueAt: enqueued.scheduledAt }
+        ]);
+
+        const finished = await awaitEvent("alarm-sweep", "reconcile.finished", "due-now");
+        expect(finished.at).toBeGreaterThanOrEqual(enqueued.scheduledAt);
+
+        const settled = resultOf(await call<LiveOutboxState>("runtime", "alarm-sweep", "outbox"));
+        expect(settled).toEqual({
+            entries: [],
+            nextDueAt: null,
+            physicalAlarm: null,
+            claims: []
+        });
+    });
+
+    it("[P11-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it", async () => {
+        const enqueued = resultOf(
+            await call<EnqueueResult>("runtime", "alarm-kill", "enqueue", {
+                id: "after-kill",
+                delayMs: 5_000
+            })
+        );
+        expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
+
+        await abortInstance("runtime", "alarm-kill");
+        // No request touches the instance across the whole window: whatever runs the
+        // reconciliation can only be the platform re-instantiating it for the alarm.
+        await sleep(15_000);
+
+        const finished = await awaitEvent("alarm-kill", "reconcile.finished", "after-kill", 5_000);
+        // Both timestamps come from the deployed object's own clock, so the gap carries
+        // no client skew: the alarm fired on its schedule, not when this test looked.
+        expect(finished.at - enqueued.scheduledAt).toBeLessThan(8_000);
+
+        const settled = resultOf(await call<LiveOutboxState>("runtime", "alarm-kill", "outbox"));
+        expect(settled.entries).toEqual([]);
+        expect(settled.physicalAlarm).toBeNull();
+    });
+
+    it("[P11-ALARM-RETRY] reschedules a failed reconciliation onto a real alarm and settles it", async () => {
+        const enqueued = resultOf(
+            await call<EnqueueResult>("runtime", "alarm-retry", "enqueue", {
+                id: "faulty",
+                delayMs: 0,
+                faults: 1
+            })
+        );
+        expect(enqueued.entries).toEqual([{ id: "faulty", scheduledAt: enqueued.scheduledAt }]);
+
+        const failed = await awaitEvent("alarm-retry", "reconcile.failed", "faulty");
+        const finished = await awaitEvent("alarm-retry", "reconcile.finished", "faulty");
+        // The retry is the outbox's own reschedule, one configured delay after the failure.
+        expect(finished.at - failed.at).toBeGreaterThanOrEqual(2_000);
+        expect(
+            (await events("alarm-retry")).filter(
+                (event) => event.kind === "reconcile.started" && event.subject === "faulty"
+            ).length
+        ).toBeGreaterThanOrEqual(2);
+
+        const settled = resultOf(await call<LiveOutboxState>("runtime", "alarm-retry", "outbox"));
+        expect(settled).toEqual({ entries: [], nextDueAt: null, physicalAlarm: null, claims: [] });
+    });
+
+    it("[P11-ALARM-ARBITRATION] shares one physical alarm between two claims across a real instance kill", async () => {
+        const early = resultOf(
+            await call<ClaimResult>("runtime", "alarm-claims", "claim", {
+                owner: "early",
+                delayMs: 3_600_000
+            })
+        );
+        const late = resultOf(
+            await call<ClaimResult>("runtime", "alarm-claims", "claim", {
+                owner: "late",
+                delayMs: 7_200_000
+            })
+        );
+        expect(late.physicalAlarm).toBe(early.dueAt);
+        expect(late.claims).toEqual([
+            { owner: "probe.early", dueAt: early.dueAt },
+            { owner: "probe.late", dueAt: late.dueAt }
+        ]);
+
+        // Releasing the earliest claim must leave the other one armed, not delete the slot.
+        const released = resultOf(
+            await call<LiveAlarmState>("runtime", "alarm-claims", "unclaim", { owner: "early" })
+        );
+        expect(released).toEqual({
+            physicalAlarm: late.dueAt,
+            claims: [{ owner: "probe.late", dueAt: late.dueAt }]
+        });
+
+        await abortInstance("runtime", "alarm-claims");
+
+        expect(resultOf(await call<LiveAlarmState>("runtime", "alarm-claims", "alarms"))).toEqual({
+            physicalAlarm: late.dueAt,
+            claims: [{ owner: "probe.late", dueAt: late.dueAt }]
+        });
+
+        const soon = resultOf(
+            await call<ClaimResult>("runtime", "alarm-claims", "claim", {
+                owner: "soon",
+                delayMs: 1_500
+            })
+        );
+        expect(soon.physicalAlarm).toBe(soon.dueAt);
+        const fired = await awaitEvent("alarm-claims", "claim.fired", "probe.soon");
+        expect(fired.detail).toBe(soon.dueAt);
+
+        // The fired claim released itself and the slot fell back to the surviving claim.
+        expect(resultOf(await call<LiveAlarmState>("runtime", "alarm-claims", "alarms"))).toEqual({
+            physicalAlarm: late.dueAt,
+            claims: [{ owner: "probe.late", dueAt: late.dueAt }]
+        });
+        saveState("alarmClaim", { owner: "probe.late", dueAt: late.dueAt });
+    });
+
+    it("[P11-ALARM-FAULT-RECOVERY] re-fires an alarm whose handler threw, with no external re-arming", async () => {
+        const armed = resultOf(
+            await call<ThrowingResult>("runtime", "alarm-throw", "arm-throwing", {
+                delayMs: 1_000,
+                throwForMs: 5_000
+            })
+        );
+        expect(armed.physicalAlarm).toBe(armed.dueAt);
+        expect(armed.dueAt).toBeLessThan(armed.until);
+
+        // A single observation after the throw window: any earlier request would itself
+        // have re-armed the alarm through startup repair and muddied the evidence.
+        await sleep(30_000);
+        const fired = (await events("alarm-throw")).find(
+            (event) => event.kind === "claim.fired" && event.subject === "probe.throwing"
+        );
+        expect(fired).toBeDefined();
+        // The first fire fell inside the throw window, so the successful one is a re-fire.
+        expect(fired?.at).toBeGreaterThanOrEqual(armed.until);
+
+        expect(resultOf(await call<LiveAlarmState>("runtime", "alarm-throw", "alarms"))).toEqual({
+            physicalAlarm: null,
+            claims: []
+        });
+    });
+
+    it("[P11-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight", async () => {
+        const enqueued = resultOf(
+            await call<EnqueueResult>("runtime", "fence", "enqueue", {
+                id: "fenced",
+                delayMs: 0,
+                hold: true
+            })
+        );
+        expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
+
+        // The sweep is now awaiting inside reconcile with the object's input gate open.
+        await awaitEvent("fence", "reconcile.started", "fenced");
+        const rescheduled = resultOf(
+            await call<EnqueueResult>("runtime", "fence", "enqueue", {
+                id: "fenced",
+                delayMs: 3_600_000,
+                release: true
+            })
+        );
+        await awaitEvent("fence", "reconcile.finished", "fenced");
+
+        // The acknowledgement fenced on the schedule the sweep observed, so the newer
+        // schedule survived and the alarm still points at it.
+        const settled = resultOf(await call<LiveOutboxState>("runtime", "fence", "outbox"));
+        expect(settled.entries).toEqual([
+            { id: "fenced", scheduledAt: rescheduled.scheduledAt }
+        ]);
+        expect(settled.physicalAlarm).toBe(rescheduled.scheduledAt);
+
+        // The fence is not merely permissive: the matching schedule does clear the entry.
+        expect(
+            resultOf(
+                await call<LiveOutboxState>("runtime", "fence", "acknowledge", {
+                    id: "fenced",
+                    scheduledAt: rescheduled.scheduledAt
+                })
+            )
+        ).toEqual({ entries: [], nextDueAt: null, physicalAlarm: null, claims: [] });
+    });
+
+    it("[P11-VIEW-HIBERNATION] replays a hibernating WebSocket and keeps its attachment across an idle eviction window", async () => {
+        const socket = await openSocket("socket", { channel: "live", acked: "0" });
+        try {
+            const replayed = await socket.take(2);
+            expect(replayed.map((frame) => decodeViewStreamFrame(frame))).toMatchObject([
+                { kind: "delta", channel: "live", revision: 1 },
+                { kind: "delta", channel: "live", revision: 2 }
+            ]);
+
+            socket.send({ ack: 2 });
+            const acknowledged = JSON.parse(String((await socket.take(1))[0])) as AttachmentProbe;
+            expect(acknowledged.before.ackedRevision).toBe(0);
+            expect(acknowledged.after).toEqual({ channel: "live", ackedRevision: 2 });
+            // Nothing is left to replay once every revision is acknowledged.
+            await sleep(1_000);
+            expect(socket.pending()).toBe(0);
+
+            expect(resultOf(await call<SocketList>("runtime", "socket", "sockets"))).toEqual({
+                count: 1,
+                attachments: [{ channel: "live", ackedRevision: 2 }]
+            });
+
+            // Long enough for the platform to evict the object while the socket stays open.
+            await sleep(15_000);
+
+            socket.send({ append: true });
+            const woken = await socket.take(2);
+            const probe = JSON.parse(String(woken[0])) as AttachmentProbe;
+            expect(probe.before).toEqual({ channel: "live", ackedRevision: 2 });
+            expect(probe.currentRevision).toBe(3);
+            expect(typeof probe.isolate).toBe("string");
+            expect(decodeViewStreamFrame(String(woken[1]))).toMatchObject({
+                kind: "delta",
+                channel: "live",
+                revision: 3
+            });
+
+            expect(resultOf(await call<SocketList>("runtime", "socket", "sockets"))).toEqual({
+                count: 1,
+                attachments: [{ channel: "live", ackedRevision: 2 }]
+            });
+        } finally {
+            socket.close();
+        }
+    });
+
+    it("[P11-QUEUE-DELIVERY] acknowledges, redelivers, and dead-letters through a real queue", async () => {
+        expect(
+            resultOf(
+                await call<{ readonly deliveryId: string; readonly poison: boolean }>(
+                    "queue",
+                    "queue-live",
+                    "publish",
+                    { deliveryId: "q-ack", mode: "ack" }
+                )
+            )
+        ).toEqual({ deliveryId: "q-ack", poison: false });
+        expect((await awaitEvent("queue-live", "queue.delivered", "q-ack", 90_000)).detail).toBe(1);
+
+        await call("queue", "queue-live", "publish", { deliveryId: "q-retry", mode: "retry-once" });
+        // A second attempt can only come from the queue itself redelivering a retried message.
+        await poll(
+            "redelivery of q-retry",
+            async () => {
+                const count = await attempts("queue-live", "q-retry");
+                return count !== undefined && count >= 2 ? count : undefined;
+            },
+            90_000
+        );
+        // The acknowledged delivery was never handed back.
+        expect(await attempts("queue-live", "q-ack")).toBe(1);
+
+        await call("queue", "queue-live", "publish", {
+            deliveryId: "q-poison",
+            mode: "ack",
+            poison: true
+        });
+        await awaitEvent("queue-live", "queue.poison", "q-poison", 120_000);
+        // An undecodable body never reached the target, and was not destroyed either.
+        expect(await attempts("queue-live", "q-poison")).toBeUndefined();
+    });
+
+    it("[P11-STORAGE-LIMIT] rejects a row past the platform blob limit without losing the object", async () => {
+        expect(
+            resultOf(
+                await call<BlobResult>("runtime", "blob", "blob", {
+                    channel: "limits",
+                    bytes: 1_000_000
+                })
+            )
+        ).toEqual({ revision: 1, byteLength: 1_000_000 });
+
+        const oversized = await call<BlobResult>("runtime", "blob", "blob", {
+            channel: "limits",
+            bytes: 3_000_000
+        });
+        expect(oversized.ok).toBe(false);
+        expect(oversized.code).toBe("protocol.invalid-state");
+
+        // The rejection is contained: the object still serves and the log is intact.
+        expect(
+            resultOf(
+                await call<BlobResult>("runtime", "blob", "blob", {
+                    channel: "limits",
+                    bytes: 1_000
+                })
+            )
+        ).toEqual({ revision: 2, byteLength: 1_000 });
+        expect(resultOf(await call<BlobRead>("runtime", "blob", "blob-read", { channel: "limits" }))).toEqual(
+            { currentRevision: 2, lastByteLength: 1_000 }
+        );
+    });
+
+    it("[P11-ALARM-REDEPLOY] arms durable reconciliation work for the redeployed worker to finish", async () => {
+        const enqueued = resultOf(
+            await call<EnqueueResult>("runtime", "redeploy", "enqueue", {
+                id: "survivor",
+                delayMs: 3_600_000
+            })
+        );
+        expect(enqueued.entries).toEqual([{ id: "survivor", scheduledAt: enqueued.scheduledAt }]);
+        expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
+        saveState("redeploy", { id: "survivor", scheduledAt: enqueued.scheduledAt });
     });
 });

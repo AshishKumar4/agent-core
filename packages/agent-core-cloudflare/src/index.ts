@@ -21,10 +21,11 @@ export { locateActorObject } from "./namespace.js";
 export type { ActorNamespaceLocation, DurableObjectNamespaceLike } from "./namespace.js";
 export {
     ActorPlacement,
-    MemoryPlacementRegistry,
     PlacementMigration,
     PlacementResolver,
-    UnimplementedPlacementMigration
+    SqlitePlacementRegistry,
+    UnimplementedPlacementMigration,
+    placementRegistryMigration
 } from "./placement.js";
 export type { PlacementClock, PlacementMigrationRequest, PlacementRegistry } from "./placement.js";
 export { DurableAlarmClaims } from "./alarm-claims.js";

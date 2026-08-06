@@ -2,12 +2,40 @@ import type { ActorRef } from "@agent-core/core";
 import { actorObjectName, parseActorObjectName } from "./actor-name.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
+import type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
 import {
     locateActorObject,
     type ActorNamespaceLocation,
     type DurableObjectNamespaceLike
 } from "./namespace.js";
 import { isWellFormedUnicode } from "./unicode.js";
+
+const CORRUPT_PLACEMENT = "Stored Actor placement is corrupt";
+const READ_PLACEMENT = `SELECT jurisdiction, pinned_at, epoch FROM agent_core_actor_placements
+    WHERE actor_name = ?`;
+const INSERT_PLACEMENT = `INSERT INTO agent_core_actor_placements
+    (actor_name, jurisdiction, pinned_at, epoch) VALUES (?, ?, ?, ?)`;
+
+/**
+ * Installs the placement ledger. It is deliberately absent from the runtime migrations
+ * every Actor object applies: the registry belongs to one dedicated object, and an Actor
+ * object that constructs its own registry finds no table and fails closed instead of
+ * pinning privately.
+ */
+export function placementRegistryMigration(version: number): SqliteApplicationMigration {
+    return Object.freeze({
+        version,
+        name: "cloudflare-actor-placements",
+        statements: Object.freeze([
+            `CREATE TABLE agent_core_actor_placements (
+                actor_name TEXT PRIMARY KEY,
+                jurisdiction TEXT,
+                pinned_at INTEGER NOT NULL CHECK (pinned_at >= 0),
+                epoch INTEGER NOT NULL CHECK (epoch >= 0)
+            ) STRICT`
+        ])
+    });
+}
 
 export interface PlacementClock {
     now(): number;
@@ -55,28 +83,65 @@ export class ActorPlacement {
 }
 
 /**
- * The placement registry seam. An integrator backs this with a Durable Object or config
- * store; `MemoryPlacementRegistry` is the deterministic reference used by tests. `pin`
- * must be atomic: a first writer installs the pin, and every later writer observes that
- * same pin — the registry never holds two pins for one Actor name.
+ * The placement registry seam. `pin` must be atomic across every resolver: a first writer
+ * installs the pin, and every later writer observes that same pin — the registry never
+ * holds two pins for one Actor name. The seam is asynchronous so a resolver outside the
+ * registry's own object can reach it over a Durable Object stub.
  */
 export interface PlacementRegistry {
     pin(placement: ActorPlacement): Promise<ActorPlacement>;
     get(actorName: string): Promise<ActorPlacement | undefined>;
 }
 
-export class MemoryPlacementRegistry implements PlacementRegistry {
-    readonly #pins = new Map<string, ActorPlacement>();
+/**
+ * The placement ledger over a Durable Object's private SQLite. Install
+ * `placementRegistryMigration` in exactly ONE object and route every resolver to it: the
+ * object's input gate serializes the pin transaction, and its storage outlives the isolate,
+ * so two isolates racing the same Actor cannot each install a different first pin and
+ * address two physically different objects.
+ */
+export class SqlitePlacementRegistry implements PlacementRegistry {
+    public constructor(
+        private readonly database: SynchronousSqlitePort,
+        private readonly errors: CloudflareErrorPort
+    ) {}
 
     public async pin(placement: ActorPlacement): Promise<ActorPlacement> {
-        const existing = this.#pins.get(placement.actorName);
-        if (existing !== undefined) return existing;
-        this.#pins.set(placement.actorName, placement);
-        return placement;
+        return this.database.transaction(() => {
+            const existing = this.read(placement.actorName);
+            if (existing !== undefined) return existing;
+            this.database.run(INSERT_PLACEMENT, [
+                placement.actorName,
+                placement.jurisdiction ?? null,
+                placement.pinnedAt,
+                placement.epoch
+            ]);
+            return placement;
+        });
     }
 
     public async get(actorName: string): Promise<ActorPlacement | undefined> {
-        return this.#pins.get(actorName);
+        return this.read(actorName);
+    }
+
+    private read(actorName: string): ActorPlacement | undefined {
+        const row = this.database.all(READ_PLACEMENT, [actorName])[0];
+        if (row === undefined) return undefined;
+        const jurisdiction = row.jurisdiction;
+        const pinnedAt = row.pinned_at;
+        const epoch = row.epoch;
+        if (
+            (jurisdiction !== null && typeof jurisdiction !== "string") ||
+            typeof pinnedAt !== "number" ||
+            typeof epoch !== "number"
+        ) {
+            operationalFailure(this.errors, "codec.invalid", CORRUPT_PLACEMENT);
+        }
+        try {
+            return new ActorPlacement(actorName, jurisdiction ?? undefined, pinnedAt, epoch);
+        } catch (cause) {
+            operationalFailure(this.errors, "codec.invalid", CORRUPT_PLACEMENT, cause);
+        }
     }
 }
 

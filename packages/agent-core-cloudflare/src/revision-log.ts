@@ -1,6 +1,6 @@
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
-import type { SqliteRow } from "./sqlite.js";
+import { requireStorableBlob, type SqliteRow } from "./sqlite.js";
 import type { SynchronousSqlitePort } from "./migration.js";
 
 const CURRENT_REVISION = `SELECT MAX(revision) AS revision FROM (
@@ -174,5 +174,6 @@ function requirePayload(payload: Uint8Array, errors: CloudflareErrorPort): Uint8
     if (payload.byteLength === 0) {
         operationalFailure(errors, "operation.invalid-input", "View payload must be non-empty");
     }
+    requireStorableBlob("View payload", payload, errors);
     return payload.slice();
 }
