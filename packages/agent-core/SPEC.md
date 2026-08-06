@@ -1721,13 +1721,17 @@ Each nonterminal item has at most one live claim. Claiming is an atomic
 compare-and-set over `(InvocationId, itemIndex)`; the first claim uses attempt ordinal 0
 and requires `expiresAt > now`. Claim ownership and expiry are scheduling state,
 separate from attempt ordinal. An abandoned claim may be recovered only when
-`expiresAt <= now` and no EffectAttempt exists for that item. Its replacement retains
-the same invocation, item index, and ordinal, names a different worker, and requires a
-new `expiresAt > now`. Recovery never advances the ordinal; a new ordinal is claimed
-only after the prior ordinal has a final `failed` Receipt. An executor claim embeds the
-exact LeaseToken; a system claim names its owning Actor. Only the current claim owner
-may append the one matching EffectAttempt for that ordinal. Attempted items are not
-eligible for abandoned-claim recovery and follow Receipt reconciliation instead.
+`expiresAt <= now` and no EffectAttempt exists for that claim's ordinal. Its replacement
+retains the same invocation, item index, and ordinal, names a different worker, and
+requires a new `expiresAt > now`. Recovery never advances the ordinal; a new ordinal is
+claimed only after the prior ordinal has a final `failed` Receipt. An executor claim
+embeds the exact LeaseToken; a system claim names its owning Actor. Only the current
+claim owner may append the one matching EffectAttempt for that ordinal. An ordinal that
+already has an EffectAttempt is not eligible for abandoned-claim recovery and follows
+Receipt reconciliation instead. Scoping both rules to the ordinal rather than the item is
+what keeps an item recoverable after a worker claims a retry ordinal and stops before
+appending its EffectAttempt: no attempt at that ordinal means no effect was attempted at
+it, because the attempt is appended in the same guarded transaction that admits it.
 Pre-effect policy may terminalize an unclaimed item. A final
 Receipt clears the claim; `succeeded` terminalizes the item while `failed` permits the
 next ordinal. These rules apply to index 0 of a single too, and prevent two executors

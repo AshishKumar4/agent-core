@@ -2301,7 +2301,7 @@ theorem nonvacuous_abandoned_claim_same_ordinal_recovery :
       recoveredClaimLedger ∧
     abandonedClaim.expiresAt.tick ≤ 3 ∧ 3 < recoveredClaim.expiresAt.tick ∧
     recoveredClaim.ordinal = abandonedClaim.ordinal ∧
-    NoEffectAttemptFor abandonedClaimLedger actionInvocation 0 := by
+    NoEffectAttemptFor abandonedClaimLedger actionInvocation 0 abandonedClaim.ordinal := by
   have recovery :
       EffectStep abandonedClaimLedger (.recoverItemClaim actionInvocation 0 ⟨3⟩)
         recoveredClaimLedger := by

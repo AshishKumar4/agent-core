@@ -92,9 +92,12 @@ instance : Inhabited EffectLedger where
 def PreparedItemAt (prepared : PreparedInvocation) (index : Nat) (item : PreparedItem) : Prop :=
   prepared.items[index]? = some item
 
-def NoEffectAttemptFor (ledger : EffectLedger) (invocation : InvocationId) (index : Nat) : Prop :=
+/-- Scoped to the ordinal, not the item: a claim taken for a retry ordinal and abandoned
+before its attempt was appended must stay recoverable, or the item can never terminalize. -/
+def NoEffectAttemptFor (ledger : EffectLedger) (invocation : InvocationId)
+    (index ordinal : Nat) : Prop :=
   ∀ id attempt, ledger.attempts id = some attempt →
-    attempt.invocation ≠ invocation ∨ attempt.itemIndex ≠ index
+    attempt.invocation ≠ invocation ∨ attempt.itemIndex ≠ index ∨ attempt.ordinal ≠ ordinal
 
 def AttemptMatches (prepared : PreparedInvocation) (attempt : EffectAttempt) : Prop :=
   ∃ item, PreparedItemAt prepared attempt.itemIndex item ∧ attempt.key = item.key ∧
@@ -235,7 +238,7 @@ inductive EffectStep : EffectLedger → EffectLabel → EffectLedger → Prop
       replacement.invocation = previous.invocation →
       replacement.itemIndex = previous.itemIndex → replacement.ordinal = previous.ordinal →
       replacement.owner.worker ≠ previous.owner.worker → now.tick < replacement.expiresAt.tick →
-      NoEffectAttemptFor ledger previous.invocation previous.itemIndex →
+      NoEffectAttemptFor ledger previous.invocation previous.itemIndex previous.ordinal →
       EffectStep ledger (.recoverItemClaim previous.invocation previous.itemIndex now)
         (ledger.setClaim replacement)
   | firstAttempt {ledger id attempt prepared} :
@@ -632,7 +635,7 @@ theorem abandoned_claim_recovery_preserves_ordinal_without_attempt
       previous.expiresAt.tick ≤ now.tick ∧ now.tick < replacement.expiresAt.tick ∧
       replacement.ordinal = previous.ordinal ∧
       replacement.owner.worker ≠ previous.owner.worker ∧
-      NoEffectAttemptFor before invocation index := by
+      NoEffectAttemptFor before invocation index previous.ordinal := by
   cases step with
   | recoverItemClaim lookup current intent previousOwner replacementOwner fresh freshId expired
       sameInvocation sameIndex sameOrdinal newWorker future noAttempt =>
