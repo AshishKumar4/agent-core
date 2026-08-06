@@ -2,7 +2,7 @@
 
 **A specification for building agent platforms.**
 
-_AI tools have been used to shape parts of this document and the project. The ideas and concepts presented here are of my own, and they may change as I ideate further._
+*AI tools have been used to shape parts of this document and the project. The ideas and concepts presented here are of my own, and they may change as I ideate further.*
 
 > **DRAFT — not the specification.** This is an alternate reading of `SPEC.md`, edited for
 > clarity and awaiting review. Normative clauses follow ASD-STE100 Simplified Technical
@@ -39,11 +39,11 @@ model doesn't depend on it.
 
 The design rests on a few core ideas:
 
-**Authority works like a capability.** Nothing in the system should act because of _who
-it is_; things act because of _what they hold_. A Grant records authority, a Binding
+**Authority works like a capability.** Nothing in the system should act because of *who
+it is*; things act because of *what they hold*. A Grant records authority, a Binding
 gives it a name inside one isolation domain, and resolving a binding produces a live
 capability that can be narrowed, delegated, and revoked. Roles and memberships exist so
-humans can reason about access, but they materialize _into_ Grants, so there is only
+humans can reason about access, but they materialize *into* Grants, so there is only
 one enforcement path to get right; revoking a Grant disables everything derived from
 it. This is the object-capability model (the ideas go back to Mark Miller's work), and
 it matters here because of prompt injection. An agent reads untrusted content all day,
@@ -71,7 +71,7 @@ other way around.
 
 The rest is composition. Facets bundle operations, UI, events, and prompt text into
 one installable capability. Contributions let any facet add commands, automations, and
-settings to a platform _as data_ — a slash command is a manifest entry, not a code
+settings to a platform *as data* — a slash command is a manifest entry, not a code
 change. A Slate is an application the agent builds for you, running with no ambient
 authority at all. A Lean model checks a documented abstract subset of these semantics;
 §14 states its exact boundary and makes no implementation-refinement claim.
@@ -80,10 +80,10 @@ authority at all. A Lean model checks a documented abstract subset of these sema
 
 Agent Core specifies the platform layer: identity and tenancy, authority, durable
 execution, input routing, mediated actions, UI contributions, environments, generated
-applications, and the definition plane. It deliberately does not specify the agent
+applications, and the definition plane. It deliberately does **not** specify the agent
 loop — model choice, prompting, streaming, tool-call parsing. The loop lives behind the
 Turn executor seam (§5.6), so you can drive Runs with the Claude Agent SDK, Pydantic
-AI, a bespoke loop, or whatever comes next. Think of Agent Core as everything _around_
+AI, a bespoke loop, or whatever comes next. Think of Agent Core as everything *around*
 the loop.
 
 ### 1.3 How to read this document
@@ -91,8 +91,8 @@ the loop.
 Sections 2–10 are normative; §11–§12 define profiles and sketches; §13–§14 cover
 conformance and the formal model. MUST, SHOULD, and MAY are RFC 2119 keywords.
 Behavioral contracts appear as abstract TypeScript classes. Pure data shapes appear as
-interfaces. Sections marked _(informative)_ explain; everything else binds. Short
-_why_ paragraphs record the reasoning behind the less obvious choices, so the
+interfaces. Sections marked *(informative)* explain; everything else binds. Short
+*why* paragraphs record the reasoning behind the less obvious choices, so the
 reasoning itself can be checked and challenged, not just the rules.
 
 ### 1.4 Notation and type vocabulary
@@ -115,22 +115,22 @@ contribution instance plus its contributor. `BindingRequirement` is a named capa
 a facet needs bound before start. The prose depends on these unions:
 
 ```ts
-type Impact = "observe" | "mutate" | "externalSend" | "execute" | "delegate" | "administer";
-type TrustTier = "owner" | "authenticated" | "external" | "self"; // §6.1
-type EnforcementTier = "mediated" | "direct"; // §7.2
-type IsolationMode = "bundled" | "provider" | "dynamic"; // §1.5, §10.2
-type CutPoint =
-    "operation.before" | "operation.after" | "prompt.assemble" | "input.submitted" | "turn.step"; // §4.4
-type Contributions = { readonly [slot: SlotName]: readonly unknown[] }; // validated against
-// the slot's schema (§4.2)
+type Impact          = "observe" | "mutate" | "externalSend" | "execute" | "delegate" | "administer";
+type TrustTier       = "owner" | "authenticated" | "external" | "self";      // §6.1
+type EnforcementTier = "mediated" | "direct";                                 // §7.2
+type IsolationMode   = "bundled" | "provider" | "dynamic";                    // §1.5, §10.2
+type CutPoint        = "operation.before" | "operation.after" | "prompt.assemble"
+                     | "input.submitted" | "turn.step";                       // §4.4
+type Contributions   = { readonly [slot: SlotName]: readonly unknown[] };     // validated against
+                                                                              // the slot's schema (§4.2)
 ```
 
 These core value types are fields, not primitives: `Digest` — a collision-resistant
 content digest, SHA-256 or stronger; `ContentRef` — resolvable through a ContentStore
 (§8.2); `SecretRef` (§3.5); `Revision` — a per-record optimistic-concurrency counter.
 
-A `FacetRef` _identifies_ a facet instance. A `Binding` _names_ a Grant-backed instance
-in one protection domain. A `ResolvedFacet` is the _live capability_ that resolution
+A `FacetRef` *identifies* a facet instance. A `Binding` *names* a Grant-backed instance
+in one protection domain. A `ResolvedFacet` is the *live capability* that resolution
 returns. The W3-owned canonical serialized `FacetRef` is exactly `<scope>:<instance>`.
 It contains exactly one `:` separator, and each segment matches
 `^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$`. An empty, noncanonical, or additionally separated
@@ -156,24 +156,24 @@ or a profile (§11). I try hard to keep this count from growing. A concept becom
 primitive only when at least two real platforms need it and it cannot be built by
 composing the others.
 
-| Layer                   | Primitive                                          | Constituents                                                      |
-| ----------------------- | -------------------------------------------------- | ----------------------------------------------------------------- |
-| L0 Identity & authority | **Principal**                                      | Team (a named principal set; a Tenant record)                     |
-|                         | **Scope** — the chain Tenant ⊇ Project ⊇ Workspace | Membership, Role                                                  |
-|                         | **Grant**                                          | —                                                                 |
-|                         | **Binding**                                        | ResolvedFacet                                                     |
-| L1 Composition          | **Facet**                                          | FacetManifest, Contribution, Slot                                 |
-|                         | **Operation**                                      | OperationDescriptor                                               |
-|                         | **Interceptor**                                    | —                                                                 |
-|                         | **Environment**                                    | Session, tree Checkpoint                                          |
-|                         | **Slate**                                          | versions, deployments                                             |
-| L2 Execution            | **Agent**                                          | AgentProfile                                                      |
-|                         | **Run**                                            | RunBranch, RunCommit, run Checkpoint                              |
-|                         | **Turn**                                           | TurnLease                                                         |
-| L3 Interaction          | **Event**                                          | provenance, TrustTier                                             |
-|                         | **Subscription**                                   | PayloadMapping, DedupePolicy                                      |
-|                         | **Surface**                                        | View, ViewDelta                                                   |
-| L4 Mediation            | **Invocation**                                     | PreparedInvocation, Approval, EffectAttempt, Receipt, AuditRecord |
+| Layer | Primitive | Constituents |
+| --- | --- | --- |
+| L0 Identity & authority | **Principal** | Team (a named principal set; a Tenant record) |
+| | **Scope** — the chain Tenant ⊇ Project ⊇ Workspace | Membership, Role |
+| | **Grant** | — |
+| | **Binding** | ResolvedFacet |
+| L1 Composition | **Facet** | FacetManifest, Contribution, Slot |
+| | **Operation** | OperationDescriptor |
+| | **Interceptor** | — |
+| | **Environment** | Session, tree Checkpoint |
+| | **Slate** | versions, deployments |
+| L2 Execution | **Agent** | AgentProfile |
+| | **Run** | RunBranch, RunCommit, run Checkpoint |
+| | **Turn** | TurnLease |
+| L3 Interaction | **Event** | provenance, TrustTier |
+| | **Subscription** | PayloadMapping, DedupePolicy |
+| | **Surface** | View, ViewDelta |
+| L4 Mediation | **Invocation** | PreparedInvocation, Approval, EffectAttempt, Receipt, AuditRecord |
 
 The substrate contracts (L5) are **Actor**, **ContentStore**, **RecordCodec**, and the
 command protocol dispatcher (§8.5). The definition plane (L6) adds two artifacts:
@@ -220,7 +220,7 @@ direct and team Memberships under the precedence rule of §3.3.
 - a **Workspace** is the composition boundary. It hosts Facet installs, Bindings,
   Events, Subscriptions, Agents, Runs, and Slates. It enforces workspace policy.
 
-_Why a fixed chain rather than arbitrary nesting:_ two container levels are what most
+*Why a fixed chain rather than arbitrary nesting:* two container levels are what most
 mature resource hierarchies converged on (cloud providers, code forges), they cover
 the sharing shapes that actually come up, and they keep policy resolution bounded at
 three steps. Recursive workspaces would turn policy resolution, the UI, and the
@@ -234,13 +234,13 @@ A **Membership** binds a subject (`Principal | Team`) to a Scope with a **Role**
 
 ```ts
 interface Role {
-    readonly name: RoleName; // "owner", "editor", "reader", …
-    readonly rules: readonly RoleRule[];
+  readonly name: RoleName;                         // "owner", "editor", "reader", …
+  readonly rules: readonly RoleRule[];
 }
 
 interface RoleRule {
-    readonly effect: "allow" | "deny";
-    readonly capability: CapabilitySpec;
+  readonly effect: "allow" | "deny";
+  readonly capability: CapabilitySpec;
 }
 ```
 
@@ -265,7 +265,7 @@ revokes its obsolete materialized Grants and advances the affected path epoch (�
 A guest Membership materializes the same way after removing all allow rules that could
 grant `delegate` or `administer`; the deny rules are retained.
 
-_Why:_ the moment roles and grants are two separate enforcement systems, they drift
+*Why:* the moment roles and grants are two separate enforcement systems, they drift
 apart, and that kind of drift tends to be discovered during an incident rather than
 before it. With one plane, the question "what can this subject actually do" always has
 exactly one answer, computed one way.
@@ -304,7 +304,7 @@ increasing order of coupling:
   configuration) that downgrades all future verifications to `token`. `handshake` is
   the bootstrap; steady state is always `token` or `callback`.
 
-Under every scheme, the host verifies provenance _before_ it materializes any guest
+Under every scheme, the host verifies provenance *before* it materializes any guest
 Grant, and a verification failure denies. The wire protocol for a token or a callback
 is a substrate/profile concern — the host Tenant's policy declares the issuer or
 endpoint. This document fixes the three schemes and the before-materialization
@@ -325,50 +325,38 @@ produces; identifiers alone confer nothing.
 
 ```ts
 interface PathEpochEvidence {
-    readonly path: readonly [ScopeEpoch, ...ScopeEpoch[]]; // exact Tenant→target path
+  readonly path: readonly [ScopeEpoch, ...ScopeEpoch[]]; // exact Tenant→target path
 }
 
 interface ScopeEpoch {
-    readonly scope: ScopeRef;
-    readonly epoch: number;
+  readonly scope: ScopeRef;
+  readonly epoch: number;
 }
 
 interface ResolutionStamp {
-    readonly pathEpochs: PathEpochEvidence;
-    readonly lease: LeaseToken;
-    readonly originalLeaseExpiresAt: Date;
-    readonly resolvedAt: Date;
-    readonly resolutionDeadline: Date; // immutable; renewal cannot extend it
+  readonly pathEpochs: PathEpochEvidence;
+  readonly lease: LeaseToken;
+  readonly originalLeaseExpiresAt: Date;
+  readonly resolvedAt: Date;
+  readonly resolutionDeadline: Date; // immutable; renewal cannot extend it
 }
 
 interface InvalidationWatermark {
-    readonly holder: PrincipalRef;
-    readonly delivered: readonly ScopeEpoch[]; // unique Scope keys; missing means epoch 0
+  readonly holder: PrincipalRef;
+  readonly delivered: readonly ScopeEpoch[]; // unique Scope keys; missing means epoch 0
 }
 
 abstract class AuthorityService {
-    abstract assignMembership(
-        scope: ScopeRef,
-        subject: SubjectRef,
-        role: RoleSpec
-    ): Promise<Membership>;
-    abstract revokeMembership(membership: MembershipId): Promise<void>; // revokes materialized grants, bumps epoch
-    abstract grant(
-        scope: ScopeRef,
-        subject: SubjectRef,
-        capability: CapabilitySpec,
-        attenuationOf?: GrantId
-    ): Promise<Grant>;
-    abstract deny(scope: ScopeRef, subject: SubjectRef, capability: CapabilitySpec): Promise<Grant>;
-    abstract revoke(grant: GrantId): Promise<void>; // disables descendants, bumps epoch
-    abstract bind(
-        domain: ProtectionDomain,
-        name: BindingName,
-        grant: GrantId,
-        facet: FacetRef
-    ): Promise<Binding>;
-    abstract resolve(domain: ProtectionDomain, name: BindingName): Promise<ResolvedFacet>;
-    abstract memberships(principal: PrincipalId): Promise<readonly Membership[]>;
+  abstract assignMembership(scope: ScopeRef, subject: SubjectRef, role: RoleSpec): Promise<Membership>;
+  abstract revokeMembership(membership: MembershipId): Promise<void>;   // revokes materialized grants, bumps epoch
+  abstract grant(scope: ScopeRef, subject: SubjectRef, capability: CapabilitySpec,
+                  attenuationOf?: GrantId): Promise<Grant>;
+  abstract deny(scope: ScopeRef, subject: SubjectRef, capability: CapabilitySpec): Promise<Grant>;
+  abstract revoke(grant: GrantId): Promise<void>;                       // disables descendants, bumps epoch
+  abstract bind(domain: ProtectionDomain, name: BindingName, grant: GrantId,
+                facet: FacetRef): Promise<Binding>;
+  abstract resolve(domain: ProtectionDomain, name: BindingName): Promise<ResolvedFacet>;
+  abstract memberships(principal: PrincipalId): Promise<readonly Membership[]>;
 }
 ```
 
@@ -422,7 +410,7 @@ policy.maxDirectRevocationWindow)`. Renewal never extends that immutable deadlin
    longer than its exact Turn and deadline. A `provider` or `dynamic` resolution lasts
    one Turn step and is mediated with current path epochs (§10.2).
 
-_Why bounded-window rather than instantaneous:_ no distributed substrate can update
+*Why bounded-window rather than instantaneous:* no distributed substrate can update
 every live holder atomically. Rules 6–7 give direct calls a safety bound without a
 delivery-liveness assumption and require current evidence for mediated effects.
 Eventual delivery and reconciliation use only the external liveness assumptions in
@@ -446,36 +434,36 @@ variables — so raw values never enter agent-visible domains at all.
 A **Facet** is a live, named, typed capability exposed to a protection domain. It is
 defined in two halves:
 
-- the **FacetManifest** — declarative, schema-validated, inspectable _without executing
-  code_: identity, version, compatibility range, config-schema fragment, binding
+- the **FacetManifest** — declarative, schema-validated, inspectable *without executing
+  code*: identity, version, compatibility range, config-schema fragment, binding
   requirements, isolation requirement, and contributions;
 - the **runtime class** — the behavior: operation handlers, surface rendering,
   interceptors, lifecycle, child facets.
 
 ```ts
 interface FacetManifest {
-    readonly id: FacetPackageId; // e.g. "core.fs", "acme.deploy"
-    readonly version: SemVer;
-    readonly compat: CompatRange; // spec + host compatibility
-    readonly isolation: readonly [IsolationMode, ...IsolationMode[]]; // unique admissible modes (§9.2)
-    readonly bindings: readonly BindingRequirement[];
-    readonly configSchema?: JsonSchema; // merged into the platform config schema
-    readonly contributions: Contributions; // open map keyed by SlotName (§4.2)
+  readonly id: FacetPackageId;                 // e.g. "core.fs", "acme.deploy"
+  readonly version: SemVer;
+  readonly compat: CompatRange;                // spec + host compatibility
+  readonly isolation: readonly [IsolationMode, ...IsolationMode[]]; // unique admissible modes (§9.2)
+  readonly bindings: readonly BindingRequirement[];
+  readonly configSchema?: JsonSchema;          // merged into the platform config schema
+  readonly contributions: Contributions;       // open map keyed by SlotName (§4.2)
 }
 
 abstract class Facet {
-    abstract readonly manifest: FacetManifest;
-    abstract operation(name: OperationName): Operation<unknown, unknown>;
-    abstract surface(id: SurfaceId): Surface;
-    abstract interceptor(id: InterceptorId): Interceptor;
-    abstract children(): FacetSet;
-    abstract start(ctx: OperationContext): Promise<void>; // idempotent
-    abstract stop(ctx: OperationContext): Promise<void>; // stops children first
+  abstract readonly manifest: FacetManifest;
+  abstract operation(name: OperationName): Operation<unknown, unknown>;
+  abstract surface(id: SurfaceId): Surface;
+  abstract interceptor(id: InterceptorId): Interceptor;
+  abstract children(): FacetSet;
+  abstract start(ctx: OperationContext): Promise<void>;   // idempotent
+  abstract stop(ctx: OperationContext): Promise<void>;    // stops children first
 }
 
 abstract class Operation<I, O> {
-    abstract readonly descriptor: OperationDescriptor<I, O>; // name, impact, schemas, help
-    abstract execute(ctx: OperationContext, input: I): Promise<O>;
+  abstract readonly descriptor: OperationDescriptor<I, O>; // name, impact, schemas, help
+  abstract execute(ctx: OperationContext, input: I): Promise<O>;
 }
 ```
 
@@ -490,7 +478,7 @@ invocation requires an active, undisposed Facet whose Grant, Binding, lease, and
 revocation state are valid per §3.4. Turns dispose resolved Facets on completion,
 failure, cancellation, suspension, or authority loss.
 
-_Why the split:_ everything a host, a registry, or the Blueprint validator needs to
+*Why the split:* everything a host, a registry, or the Blueprint validator needs to
 know about a facet is data it can read without running anything. This is the property
 that makes a config-defined platform possible at all — and it is the shape that both
 VS Code extensions and the most successful open agent platforms independently arrived
@@ -504,24 +492,24 @@ the `slots` meta-contribution declares new ones. Contributions are data that com
 down to existing primitives. A conforming host materializes them through the same paths
 it offers imperatively, so declared and programmatic behavior cannot diverge.
 
-| Core slot      | Entry                         | Materializes as                           |
-| -------------- | ----------------------------- | ----------------------------------------- |
-| `operations`   | OperationDescriptor           | catalog entry (runtime must implement)    |
-| `surfaces`     | SurfaceDescriptor             | renderable Surface                        |
-| `events`       | EventDeclaration              | accepted Event kinds + visibility         |
-| `ingress`      | IngressDeclaration (§6.1)     | verified external endpoint minting Events |
-| `prompt`       | PromptContribution            | prompt-assembly section                   |
-| `commands`     | Command (§4.3)                | catalog entry + derived Subscription      |
-| `automations`  | SubscriptionTemplate          | Subscription                              |
-| `interceptors` | InterceptorDeclaration (§4.4) | ordered sync hook                         |
-| `settings`     | JSON-schema fragment          | merged platform config schema             |
-| `slots`        | SlotDeclaration               | a new slot others may target              |
+| Core slot | Entry | Materializes as |
+| --- | --- | --- |
+| `operations` | OperationDescriptor | catalog entry (runtime must implement) |
+| `surfaces` | SurfaceDescriptor | renderable Surface |
+| `events` | EventDeclaration | accepted Event kinds + visibility |
+| `ingress` | IngressDeclaration (§6.1) | verified external endpoint minting Events |
+| `prompt` | PromptContribution | prompt-assembly section |
+| `commands` | Command (§4.3) | catalog entry + derived Subscription |
+| `automations` | SubscriptionTemplate | Subscription |
+| `interceptors` | InterceptorDeclaration (§4.4) | ordered sync hook |
+| `settings` | JSON-schema fragment | merged platform config schema |
+| `slots` | SlotDeclaration | a new slot others may target |
 
 ```ts
 interface SlotDeclaration {
-    readonly name: SlotName; // e.g. "dashboard.card"
-    readonly entrySchema: JsonSchema;
-    readonly authority: SlotAuthorityPolicy; // who may contribute; who may see entries
+  readonly name: SlotName;                  // e.g. "dashboard.card"
+  readonly entrySchema: JsonSchema;
+  readonly authority: SlotAuthorityPolicy;  // who may contribute; who may see entries
 }
 ```
 
@@ -530,7 +518,7 @@ and dashboards:
 
 ```ts
 abstract class SlotCatalog {
-    abstract query(slot: SlotName, viewer: SubjectRef): Promise<readonly SlotEntry[]>;
+  abstract query(slot: SlotName, viewer: SubjectRef): Promise<readonly SlotEntry[]>;
 }
 ```
 
@@ -539,8 +527,8 @@ contribution that violates the slot's contribute-authority. Core slots carry an
 implicit default policy: contribute = any installed Facet in scope; visibility = the
 same policy as direct reads (§3.4 rule 4).
 
-Slot entries come in two kinds. A _declarative_ entry is data validated against
-`entrySchema`, and the reading Surface renders it. A _surface-backed_ entry carries a
+Slot entries come in two kinds. A *declarative* entry is data validated against
+`entrySchema`, and the reading Surface renders it. A *surface-backed* entry carries a
 `SurfaceId`, and an aggregating platform Surface embeds the referenced child Views —
 refs, never live stubs, per §6.3. A `dashboard.card` slot is the canonical
 surface-backed case: the platform's dashboard Surface queries the slot and composes
@@ -551,30 +539,30 @@ the contributed cards' Views.
 A **Command** is the general form of slash commands, palette entries, and CLI verbs —
 a user-invocable, parameterized shortcut to an Operation. It is a contribution kind,
 not a primitive. It compiles entirely to catalog entries plus a derived Subscription,
-so installing a command changes _no code anywhere_, and the full authority, approval,
+so installing a command changes *no code anywhere*, and the full authority, approval,
 and audit machinery applies to it automatically.
 
 ```ts
 interface Command {
-    readonly name: string; // canonical id is `${facetId}:${name}`
-    readonly title: string; // localizable (string or i18n key)
-    readonly help?: string;
-    readonly arguments: JsonSchema; // validation + autocomplete
-    readonly operation: OperationRef; // target
-    readonly binding: BindingName; // target capability for initiator authority
-    readonly mapping?: FieldMapping; // arguments → operation input (see below)
-    readonly acceptedTrust?: readonly [TrustTier, ...TrustTier[]];
-    readonly completion?: OperationRef; // optional observe-impact completion provider
-    readonly surfaces: readonly SlotName[]; // where discoverable (chat.composer, cli, palette)
+  readonly name: string;                    // canonical id is `${facetId}:${name}`
+  readonly title: string;                   // localizable (string or i18n key)
+  readonly help?: string;
+  readonly arguments: JsonSchema;           // validation + autocomplete
+  readonly operation: OperationRef;         // target
+  readonly binding: BindingName;             // target capability for initiator authority
+  readonly mapping?: FieldMapping;          // arguments → operation input (see below)
+  readonly acceptedTrust?: readonly [TrustTier, ...TrustTier[]];
+  readonly completion?: OperationRef;       // optional observe-impact completion provider
+  readonly surfaces: readonly SlotName[];   // where discoverable (chat.composer, cli, palette)
 }
 
 interface SubscriptionTemplate {
-    readonly source: EventPattern;
-    readonly target: OperationRef;
-    readonly binding: BindingName;
-    readonly mapping?: PayloadMapping;
-    readonly dedupe?: DedupePolicy;
-    readonly authority?: "initiator" | "delegated";
+  readonly source: EventPattern;
+  readonly target: OperationRef;
+  readonly binding: BindingName;
+  readonly mapping?: PayloadMapping;
+  readonly dedupe?: DedupePolicy;
+  readonly authority?: "initiator" | "delegated";
 }
 ```
 
@@ -655,26 +643,26 @@ An **Interceptor** is an ordered, synchronous, in-process hook at a spec-defined
 point that can observe, block, or rewrite the value in flight. Every serious local
 agent runtime converged on this mechanism independently, because it is the one thing
 asynchronous events cannot express — a veto or a transform has to return a value
-_now_. The value in flight at each cut point:
+*now*. The value in flight at each cut point:
 
-| Cut point          | Value in flight           | May                           |
-| ------------------ | ------------------------- | ----------------------------- |
-| `operation.before` | (descriptor, input)       | block; rewrite input          |
-| `operation.after`  | (descriptor, output)      | rewrite output                |
-| `prompt.assemble`  | assembled prompt sections | reorder, add, remove sections |
-| `input.submitted`  | user input                | transform; block              |
-| `turn.step`        | step context              | annotate; request stop        |
+| Cut point | Value in flight | May |
+| --- | --- | --- |
+| `operation.before` | (descriptor, input) | block; rewrite input |
+| `operation.after` | (descriptor, output) | rewrite output |
+| `prompt.assemble` | assembled prompt sections | reorder, add, remove sections |
+| `input.submitted` | user input | transform; block |
+| `turn.step` | step context | annotate; request stop |
 
 ```ts
 interface InterceptorDeclaration {
-    readonly id: InterceptorId;
-    readonly cutPoint: CutPoint;
-    readonly appliesTo: OperationSelector; // DEFAULT: the contributing facet's own operations
-    readonly priority: number; // total order: (priority, facetId, id)
+  readonly id: InterceptorId;
+  readonly cutPoint: CutPoint;
+  readonly appliesTo: OperationSelector;    // DEFAULT: the contributing facet's own operations
+  readonly priority: number;                // total order: (priority, facetId, id)
 }
 
 abstract class Interceptor {
-    abstract intercept(ctx: InterceptContext, value: unknown): InterceptResult;
+  abstract intercept(ctx: InterceptContext, value: unknown): InterceptResult;
 }
 
 // The value's type at each cut point is fixed by the table above; `unknown` is
@@ -682,15 +670,15 @@ abstract class Interceptor {
 // `own(...)` for the facet's own operations, or a `{ facet, operation }` pattern
 // (each field a literal or "*"-terminated prefix) for a declared-interceptable target.
 interface InterceptContext {
-    readonly cutPoint: CutPoint; // which point fired (narrows `value`)
-    readonly operation?: OperationDescriptor; // present at operation.before/after
-    readonly turn?: TurnRef; // required only for Turn-bound cut points
-    readonly interceptor: InterceptorId; // self, for attributable rewrites (rule 5)
+  readonly cutPoint: CutPoint;              // which point fired (narrows `value`)
+  readonly operation?: OperationDescriptor; // present at operation.before/after
+  readonly turn?: TurnRef;                  // required only for Turn-bound cut points
+  readonly interceptor: InterceptorId;      // self, for attributable rewrites (rule 5)
 }
 
 type InterceptResult =
-    | { readonly proceed: true; readonly value: unknown } // pass through or rewrite
-    | { readonly proceed: false; readonly reason: string }; // block, scoped to appliesTo
+  | { readonly proceed: true; readonly value: unknown }   // pass through or rewrite
+  | { readonly proceed: false; readonly reason: string }; // block, scoped to appliesTo
 ```
 
 Rules:
@@ -756,7 +744,7 @@ git-shaped history is a permitted canonical representation), **immutable version
 and **deployments**. A Slate composes with the other primitives rather than
 duplicating them:
 
-- live preview _is_ an Environment Session — a running process with ports — not a
+- live preview *is* an Environment Session — a running process with ports — not a
   rendered View;
 - the Slate backend executes in the `dynamic` isolation mode with zero ambient
   authority; capabilities arrive only through explicitly passed Bindings;
@@ -779,121 +767,99 @@ A **Run** is a branchable, durable work session and conversation lineage. It own
 input history, RunBranches (named movable heads), RunCommits (immutable records:
 root, message, checkpoint, invocation, event delivery, result, merge, verdict, undo,
 migration), status, an optional parent Run, and results. There is no separate
-conversation primitive. Conversation state _is_ the Run's branch/commit graph, which
+conversation primitive. Conversation state *is* the Run's branch/commit graph, which
 is why branching a conversation, undoing a step, and running parallel attempts are
 graph operations here rather than product features bolted on later.
 
 ```ts
 interface RunPins {
-    readonly blueprint: {
-        readonly id: BlueprintId;
-        readonly version: SemVer;
-        readonly digest: Digest;
-    };
-    readonly packages: readonly PackagePin[]; // complete transitive closure, unique by id
-    readonly agent: { readonly id: AgentId; readonly revision: Revision; readonly digest: Digest };
-    readonly effectivePolicy: {
-        readonly id: PolicySetId;
-        readonly revision: Revision;
-        readonly digest: Digest;
-    };
-    readonly modelPolicy: {
-        readonly id: ModelPolicyId;
-        readonly revision: Revision;
-        readonly digest: Digest;
-    };
-    readonly environment: {
-        readonly id: EnvironmentId;
-        readonly revision: Revision;
-        readonly digest: Digest;
-    };
+  readonly blueprint: { readonly id: BlueprintId; readonly version: SemVer;
+      readonly digest: Digest };
+  readonly packages: readonly PackagePin[]; // complete transitive closure, unique by id
+  readonly agent: { readonly id: AgentId; readonly revision: Revision;
+      readonly digest: Digest };
+  readonly effectivePolicy: { readonly id: PolicySetId; readonly revision: Revision;
+      readonly digest: Digest };
+  readonly modelPolicy: { readonly id: ModelPolicyId; readonly revision: Revision;
+      readonly digest: Digest };
+  readonly environment: { readonly id: EnvironmentId; readonly revision: Revision;
+      readonly digest: Digest };
 }
 
 interface PackagePin {
-    readonly id: PackageId;
-    readonly version: SemVer; // exact, never a range
-    readonly manifestDigest: Digest;
-    readonly codeDigest: Digest;
+  readonly id: PackageId;
+  readonly version: SemVer;                  // exact, never a range
+  readonly manifestDigest: Digest;
+  readonly codeDigest: Digest;
 }
 
 interface TurnPlacementSnapshot {
-    readonly turn: TurnId;
-    readonly pins: RunPins;
-    readonly placements: readonly PlacementPin[]; // every resolved Facet, unique by ref
+  readonly turn: TurnId;
+  readonly pins: RunPins;
+  readonly placements: readonly PlacementPin[]; // every resolved Facet, unique by ref
 }
 
 interface PlacementPin {
-    readonly facet: FacetRef;
-    readonly manifest: readonly IsolationMode[];
-    readonly policy: readonly IsolationMode[];
-    readonly substrate: readonly IsolationMode[];
-    readonly trust: readonly IsolationMode[];
-    readonly selected: IsolationMode;
+  readonly facet: FacetRef;
+  readonly manifest: readonly IsolationMode[];
+  readonly policy: readonly IsolationMode[];
+  readonly substrate: readonly IsolationMode[];
+  readonly trust: readonly IsolationMode[];
+  readonly selected: IsolationMode;
 }
 
 type RunLifecycle =
-    | { readonly kind: "active" }
-    | {
-          readonly kind: "terminal";
-          readonly outcome: "succeeded" | "failed" | "cancelled";
-          readonly terminalCommit: RunCommitId;
-          readonly obligation: SettlementObligation;
-      };
+  | { readonly kind: "active" }
+  | { readonly kind: "terminal"; readonly outcome: "succeeded" | "failed" | "cancelled";
+      readonly terminalCommit: RunCommitId; readonly obligation: SettlementObligation };
 
 type RunObligation =
-    | { readonly kind: "approval"; readonly approval: ApprovalId }
-    | {
-          readonly kind: "invocationItem";
-          readonly invocation: InvocationId;
-          readonly itemIndex: number;
-          readonly itemKey: string;
-      }
-    | { readonly kind: "route"; readonly reservation: RouteReservationId }
-    | { readonly kind: "reconciliation"; readonly attempt: EffectAttemptId }
-    | { readonly kind: "systemCommit"; readonly commit: RunCommitId };
+  | { readonly kind: "approval"; readonly approval: ApprovalId }
+  | { readonly kind: "invocationItem"; readonly invocation: InvocationId;
+      readonly itemIndex: number; readonly itemKey: string }
+  | { readonly kind: "route"; readonly reservation: RouteReservationId }
+  | { readonly kind: "reconciliation"; readonly attempt: EffectAttemptId }
+  | { readonly kind: "systemCommit"; readonly commit: RunCommitId };
 
 interface RunAdmissionRegistry {
-    readonly run: RunId;
-    readonly epoch: number;
-    readonly open: boolean;
-    readonly reserved: readonly RunObligation[]; // unique canonical identities
-    readonly completed: readonly RunObligation[]; // subset of reserved
+  readonly run: RunId;
+  readonly epoch: number;
+  readonly open: boolean;
+  readonly reserved: readonly RunObligation[];  // unique canonical identities
+  readonly completed: readonly RunObligation[]; // subset of reserved
 }
 
 interface RunAdmissionReservation {
-    readonly run: RunId;
-    readonly registryEpoch: number;
-    readonly obligation: RunObligation;
+  readonly run: RunId;
+  readonly registryEpoch: number;
+  readonly obligation: RunObligation;
 }
 
 interface SettlementObligation {
-    readonly registryEpoch: number;
-    readonly obligations: readonly RunObligation[];
-    readonly requiredAudits: readonly SettlementAuditObligation[];
+  readonly registryEpoch: number;
+  readonly obligations: readonly RunObligation[];
+  readonly requiredAudits: readonly SettlementAuditObligation[];
 }
 
 interface ForcedTurnCancellation {
-    readonly run: RunId;
-    readonly terminalTurn: TurnId;
-    readonly turn: TurnId;
-    readonly priorLeaseEpoch: number;
-    readonly fencedLeaseEpoch: number;
-    readonly controlReceipt: ReceiptId;
-    readonly controlAudit: AuditRecordId;
-    readonly cancellationEvent: EventId; // token-scoped turn.cancel inbox evidence
-    readonly cancellationAudit: AuditRecordId;
+  readonly run: RunId;
+  readonly terminalTurn: TurnId;
+  readonly turn: TurnId;
+  readonly priorLeaseEpoch: number;
+  readonly fencedLeaseEpoch: number;
+  readonly controlReceipt: ReceiptId;
+  readonly controlAudit: AuditRecordId;
+  readonly cancellationEvent: EventId;       // token-scoped turn.cancel inbox evidence
+  readonly cancellationAudit: AuditRecordId;
 }
 
 interface SettlementAuditObligation {
-    readonly audit: AuditRecordId;
-    readonly evidence:
-        | {
-              readonly kind: "receipt";
-              readonly invocation: InvocationId;
-              readonly receipt: ReceiptId;
-          }
-        | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
-        | { readonly kind: "commit"; readonly id: RunCommitId };
+  readonly audit: AuditRecordId;
+  readonly evidence:
+    | { readonly kind: "receipt"; readonly invocation: InvocationId;
+        readonly receipt: ReceiptId }
+    | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
+    | { readonly kind: "commit"; readonly id: RunCommitId };
 }
 ```
 
@@ -1011,7 +977,7 @@ change.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
-Two things can be in conflict at a merge: the _conversation_ and the _filesystem tree_.
+Two things can be in conflict at a merge: the *conversation* and the *filesystem tree*.
 They are handled separately, because §5.4 already separates their checkpoints.
 
 **Conversation resolution.** A merge's `resolution` names one of three kinds over its
@@ -1039,7 +1005,7 @@ more than two tree inputs is invalid rather than implementation-defined. The
 
 - `ours` / `theirs` — take one side's tree wholesale (the resolution records which);
 - `perPath` — take, per path, the side that changed it relative to the common ancestor;
-  paths changed on both sides are conflicts; they are surfaced and not guessed. No
+  paths changed on **both** sides are conflicts; they are surfaced and not guessed. No
   merge commit is appended while any conflict is unresolved. The operator or an
   `administer`-impact Operation supplies an explicit side for every conflict; the final
   merge records those path resolutions.
@@ -1052,73 +1018,63 @@ and MAY omit `policies.treeMerge`.
 
 ```ts
 interface RunCommit {
-    readonly id: RunCommitId;
-    readonly branch: RunBranchId;
-    readonly kind:
-        | "root"
-        | "message"
-        | "checkpoint"
-        | "invocation"
-        | "eventDelivery"
-        | "result"
-        | "merge"
-        | "verdict"
-        | "undo"
-        | "migration";
-    readonly parents: readonly RunCommitId[];
-    readonly pins: RunPins;
-    readonly writer: CommitWriter;
-    readonly subjectTurn?: TurnId;
-    readonly content?: ContentRef;
-    readonly selects?: RunCommitId; // undo/redo only
-    readonly treeCheckpoint?: ContentRef; // §5.4 — associated tree snapshot, if any
-    readonly resolution?: MergeResolution; // merge only (§5.2.1)
-    readonly treeResolution?: TreeMergeResolution; // merge only (§5.2.1)
-    readonly invocation?: InvocationId; // invocation only (§7.3)
-    readonly receipt?: ReceiptId; // invocation or control effect
-    readonly reservation?: RouteReservationId; // eventDelivery only
-    readonly migration?: { readonly from: RunPins; readonly to: RunPins }; // migration only
+  readonly id: RunCommitId;
+  readonly branch: RunBranchId;
+  readonly kind: "root" | "message" | "checkpoint" | "invocation" | "eventDelivery"
+               | "result" | "merge" | "verdict" | "undo" | "migration";
+  readonly parents: readonly RunCommitId[];
+  readonly pins: RunPins;
+  readonly writer: CommitWriter;
+  readonly subjectTurn?: TurnId;
+  readonly content?: ContentRef;
+  readonly selects?: RunCommitId;                 // undo/redo only
+  readonly treeCheckpoint?: ContentRef;           // §5.4 — associated tree snapshot, if any
+  readonly resolution?: MergeResolution;          // merge only (§5.2.1)
+  readonly treeResolution?: TreeMergeResolution;  // merge only (§5.2.1)
+  readonly invocation?: InvocationId;                 // invocation only (§7.3)
+  readonly receipt?: ReceiptId;                   // invocation or control effect
+  readonly reservation?: RouteReservationId;      // eventDelivery only
+  readonly migration?: { readonly from: RunPins; readonly to: RunPins }; // migration only
 }
 
 type CommitWriter =
-    | { readonly kind: "root" }
-    | { readonly kind: "turn"; readonly token: LeaseToken }
-    | { readonly kind: "system"; readonly cause: SystemCause };
+  | { readonly kind: "root" }
+  | { readonly kind: "turn"; readonly token: LeaseToken }
+  | { readonly kind: "system"; readonly cause: SystemCause };
 
 type SystemCause =
-    | { readonly kind: "receipt"; readonly audit: AuditRecordId; readonly receipt: ReceiptId }
-    | {
-          readonly kind: "delivery";
-          readonly audit: AuditRecordId;
-          readonly reservation: RouteReservationId;
-      }
-    | { readonly kind: "control"; readonly audit: AuditRecordId; readonly receipt: ReceiptId };
+  | { readonly kind: "receipt"; readonly audit: AuditRecordId; readonly receipt: ReceiptId }
+  | { readonly kind: "delivery"; readonly audit: AuditRecordId;
+      readonly reservation: RouteReservationId }
+  | { readonly kind: "control"; readonly audit: AuditRecordId; readonly receipt: ReceiptId };
 
 type MergeResolution =
-    | { readonly kind: "pick"; readonly parent: RunCommitId }
-    | { readonly kind: "concat" }
-    | { readonly kind: "synthesize"; readonly token: LeaseToken; readonly receipt: ReceiptId };
+  | { readonly kind: "pick"; readonly parent: RunCommitId }
+  | { readonly kind: "concat" }
+  | { readonly kind: "synthesize"; readonly token: LeaseToken;
+      readonly receipt: ReceiptId };
 
 type TreeMergeResolution =
-    | { readonly policy: "ours" | "theirs"; readonly side: RunCommitId }
-    | { readonly policy: "perPath"; readonly resolutions: readonly PathResolution[] };
+  | { readonly policy: "ours" | "theirs"; readonly side: RunCommitId }
+  | { readonly policy: "perPath"; readonly resolutions: readonly PathResolution[] };
 
 interface PathResolution {
-    readonly path: string;
-    readonly side: RunCommitId;
+  readonly path: string;
+  readonly side: RunCommitId;
 }
+
 ```
 
 Every SystemCause names exact evidence and a preexisting compatible AuditRecord. The
 commit-kind matrix is closed:
 
-| CommitWriter       | Permitted kinds                              | Additional requirement                                   |
-| ------------------ | -------------------------------------------- | -------------------------------------------------------- |
-| `root`             | `root`                                       | atomic with Run creation                                 |
-| `turn(token)`      | `message`, `checkpoint`, `result`, `verdict` | exact current LeaseToken; `subjectTurn = token.turn`     |
-| `system(receipt)`  | `invocation`                                 | exact Receipt for any outcome and matching Receipt audit |
-| `system(delivery)` | `eventDelivery`                              | exact terminal RouteDelivery and matching delivery audit |
-| `system(control)`  | `merge`, `undo`, `migration`                 | exact successful `administer` Receipt and matching audit |
+| CommitWriter | Permitted kinds | Additional requirement |
+| --- | --- | --- |
+| `root` | `root` | atomic with Run creation |
+| `turn(token)` | `message`, `checkpoint`, `result`, `verdict` | exact current LeaseToken; `subjectTurn = token.turn` |
+| `system(receipt)` | `invocation` | exact Receipt for any outcome and matching Receipt audit |
+| `system(delivery)` | `eventDelivery` | exact terminal RouteDelivery and matching delivery audit |
+| `system(control)` | `merge`, `undo`, `migration` | exact successful `administer` Receipt and matching audit |
 
 No other pair commits. Root, Turn-authored content, Receipt evidence, and delivery
 evidence do not require a successful Invocation. Only control effects do. A system
@@ -1127,7 +1083,7 @@ it gains no Turn authority. Every merge is system-authored by its successful mat
 control Receipt. A `synthesize` merge additionally records a LeaseToken and a successful
 `execute` Receipt whose PreparedInvocation binds that exact token and content.
 
-_Why selection instead of head-rewind:_ an append-only graph means nothing is ever
+*Why selection instead of head-rewind:* an append-only graph means nothing is ever
 lost, undo is itself undoable, ancestry queries stay simple, and two observers can
 never disagree about history — they can only disagree about which commit is currently
 selected, which is one field.
@@ -1140,41 +1096,41 @@ result.
 
 ```ts
 interface LeaseToken {
-    readonly turn: TurnId;
-    readonly holder: PrincipalRef;
-    readonly epoch: number;
+  readonly turn: TurnId;
+  readonly holder: PrincipalRef;
+  readonly epoch: number;
 }
 
 abstract class TurnLease {
-    abstract readonly turn: TurnId; // exact, immutable
-    abstract readonly holder: PrincipalRef | undefined;
-    abstract readonly epoch: number; // monotonic
-    abstract readonly expiresAt: Date | undefined;
-    abstract claim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
-    abstract renew(holder: PrincipalRef, epoch: number, now: Date, expiresAt: Date): TurnLease;
-    abstract reclaim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
-    abstract fence(): TurnLease; // epoch += 1, holder cleared
+  abstract readonly turn: TurnId;                                     // exact, immutable
+  abstract readonly holder: PrincipalRef | undefined;
+  abstract readonly epoch: number;                                   // monotonic
+  abstract readonly expiresAt: Date | undefined;
+  abstract claim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
+  abstract renew(holder: PrincipalRef, epoch: number, now: Date, expiresAt: Date): TurnLease;
+  abstract reclaim(holder: PrincipalRef, now: Date, expiresAt: Date): TurnLease;
+  abstract fence(): TurnLease;                                       // epoch += 1, holder cleared
 }
 ```
 
 A Turn starts `queued` with an unheld exact-Turn lease at epoch 0. The only lifecycle
 transitions are:
 
-| From                         | Operation                                  | To          | Lease rule                                                                                |
-| ---------------------------- | ------------------------------------------ | ----------- | ----------------------------------------------------------------------------------------- |
-| `queued`                     | claim                                      | `running`   | set holder and expiry; epoch + 1                                                          |
-| `running`                    | renew                                      | `running`   | same holder and epoch, unexpired lease, later expiry                                      |
-| `running` with expired lease | reclaim                                    | `running`   | replace holder and expiry; epoch + 1                                                      |
-| `running`                    | suspend                                    | `suspended` | persist checkpoint, then fence; epoch + 1                                                 |
-| `suspended`                  | claim                                      | `running`   | set holder and expiry; epoch + 1                                                          |
-| `running`                    | succeed                                    | `succeeded` | commit result, then fence; epoch + 1                                                      |
-| `running`                    | fail                                       | `failed`    | commit result, then fence; epoch + 1                                                      |
-| `running`                    | cancel                                     | `cancelled` | fence; epoch + 1                                                                          |
-| `queued`                     | cancel                                     | `cancelled` | clear holder; epoch + 1                                                                   |
-| `suspended`                  | cancel                                     | `cancelled` | remain unheld; epoch + 1                                                                  |
-| `queued` sibling             | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
-| `running` sibling            | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
-| `suspended` sibling          | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
+| From | Operation | To | Lease rule |
+| --- | --- | --- | --- |
+| `queued` | claim | `running` | set holder and expiry; epoch + 1 |
+| `running` | renew | `running` | same holder and epoch, unexpired lease, later expiry |
+| `running` with expired lease | reclaim | `running` | replace holder and expiry; epoch + 1 |
+| `running` | suspend | `suspended` | persist checkpoint, then fence; epoch + 1 |
+| `suspended` | claim | `running` | set holder and expiry; epoch + 1 |
+| `running` | succeed | `succeeded` | commit result, then fence; epoch + 1 |
+| `running` | fail | `failed` | commit result, then fence; epoch + 1 |
+| `running` | cancel | `cancelled` | fence; epoch + 1 |
+| `queued` | cancel | `cancelled` | clear holder; epoch + 1 |
+| `suspended` | cancel | `cancelled` | remain unheld; epoch + 1 |
+| `queued` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
+| `running` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
+| `suspended` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
 
 Terminal Turns never transition. A lease never changes its `turn` and cannot authorize
 a write for another Turn. Every executor-authored RunCommit, Invocation intent,
@@ -1205,7 +1161,7 @@ Two checkpoint kinds are distinct and MUST NOT be conflated: **run checkpoints**
 (filesystem state of an Environment, content-addressed snapshots). Undoing a
 conversation and undoing files are separate operations. A RunCommit MAY carry
 `treeCheckpoint` (§5.2) naming the tree snapshot current at that commit, which makes
-_coordinated_ undo expressible as two explicit steps, never one implicit one.
+*coordinated* undo expressible as two explicit steps, never one implicit one.
 
 ### 5.5 Cache lineage
 
@@ -1220,10 +1176,10 @@ field.
 
 ```ts
 abstract class TurnExecutor {
-    abstract execute(turn: TurnContext): Promise<TurnOutcome>;
-    // TurnContext: resolved facets, operation catalog, prompt assembly, inbox,
-    // lease commit handle, checkpoint handle, tiered invocation gateway (§7.2),
-    // cancellation signal
+  abstract execute(turn: TurnContext): Promise<TurnOutcome>;
+  // TurnContext: resolved facets, operation catalog, prompt assembly, inbox,
+  // lease commit handle, checkpoint handle, tiered invocation gateway (§7.2),
+  // cancellation signal
 }
 ```
 
@@ -1286,9 +1242,9 @@ host closes that hole.
 
 ```ts
 interface IngressDeclaration {
-    readonly path: string; // or transport binding
-    readonly verification: { scheme: "hmac" | "signature" | "oauth" | "mtls"; secret: SecretRef };
-    readonly provenance: ProvenanceMapping; // verified identity → provenance fields
+  readonly path: string;                       // or transport binding
+  readonly verification: { scheme: "hmac" | "signature" | "oauth" | "mtls"; secret: SecretRef };
+  readonly provenance: ProvenanceMapping;      // verified identity → provenance fields
 }
 ```
 
@@ -1300,12 +1256,12 @@ The standard source actions enter through ordinary mediated host Operations and 
 closed Receipt-to-Event causal edge; they do not create a WriteRecord-to-Event edge or
 another audit root. The exact mapping is:
 
-| Source Event           | Host Operation                      | Required source outcome                                                |
-| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------- |
-| `task.actionSubmitted` | `host.task.submitAction` (`mutate`) | successful AttemptReceipt                                              |
-| `command.invoked`      | `host.command.submit` (`mutate`)    | successful AttemptReceipt                                              |
-| verified ingress Event | `host.ingress.accept` (`mutate`)    | successful AttemptReceipt after transport verification                 |
-| scheduler Event        | `host.schedule.fire` (`mutate`)     | successful AttemptReceipt for the exact `(subscription, fireTime)` key |
+| Source Event | Host Operation | Required source outcome |
+| --- | --- | --- |
+| `task.actionSubmitted` | `host.task.submitAction` (`mutate`) | successful AttemptReceipt |
+| `command.invoked` | `host.command.submit` (`mutate`) | successful AttemptReceipt |
+| verified ingress Event | `host.ingress.accept` (`mutate`) | successful AttemptReceipt after transport verification |
+| scheduler Event | `host.schedule.fire` (`mutate`) | successful AttemptReceipt for the exact `(subscription, fireTime)` key |
 
 The successful Receipt's AuditRecord causes the Event AuditRecord, after which routing
 continues `Event → RouteReserved`. A denied, cancelled, failed, indeterminate, or
@@ -1326,66 +1282,62 @@ A **Subscription** is a durable route from matching Events to an Operation:
 type DedupePolicy = "none" | "event" | "causation" | "payload";
 
 interface Subscription {
-    readonly source: EventPattern; // which Events match
-    readonly target: OperationRef;
-    readonly mapping: PayloadMapping; // event payload → operation input
-    readonly dedupe: DedupePolicy; // "none" | "event" | "causation" | "payload"
-    readonly authority: AuthoritySource;
+  readonly source: EventPattern;             // which Events match
+  readonly target: OperationRef;
+  readonly mapping: PayloadMapping;          // event payload → operation input
+  readonly dedupe: DedupePolicy;             // "none" | "event" | "causation" | "payload"
+  readonly authority: AuthoritySource;
 }
 
 type AuthoritySource =
-    | { readonly kind: "initiator"; readonly binding: BindingName }
-    | { readonly kind: "delegated"; readonly binding: BindingName };
+  | { readonly kind: "initiator"; readonly binding: BindingName }
+  | { readonly kind: "delegated"; readonly binding: BindingName };
 
 type TenantRelation =
-    | { readonly kind: "same"; readonly tenant: TenantId }
-    | {
-          readonly kind: "cross";
-          readonly source: TenantId;
-          readonly target: TenantId;
-          readonly authority: BindingName;
-      };
+  | { readonly kind: "same"; readonly tenant: TenantId }
+  | { readonly kind: "cross"; readonly source: TenantId; readonly target: TenantId;
+      readonly authority: BindingName };
 
 interface RouteReservation {
-    readonly id: RouteReservationId;
-    readonly invocation: InvocationId; // stable across every delivery retry
-    readonly event: EventId;
-    readonly sourceAuditCause: AuditRecordId;
-    readonly sourceActor: ActorRef;
-    readonly targetActor: ActorRef;
-    readonly tenants: TenantRelation;
-    readonly subscription: SubscriptionId;
-    readonly dedupeKey: string;
-    readonly operation: OperationRef;
-    readonly authority: AuthoritySource;
-    readonly projection: RouteProjectionId;
-    readonly projectionRef: ContentRef;
-    readonly projectionDigest: Digest;
-    readonly trust: TrustTier;
-    readonly initiator?: PrincipalRef;
+  readonly id: RouteReservationId;
+  readonly invocation: InvocationId;          // stable across every delivery retry
+  readonly event: EventId;
+  readonly sourceAuditCause: AuditRecordId;
+  readonly sourceActor: ActorRef;
+  readonly targetActor: ActorRef;
+  readonly tenants: TenantRelation;
+  readonly subscription: SubscriptionId;
+  readonly dedupeKey: string;
+  readonly operation: OperationRef;
+  readonly authority: AuthoritySource;
+  readonly projection: RouteProjectionId;
+  readonly projectionRef: ContentRef;
+  readonly projectionDigest: Digest;
+  readonly trust: TrustTier;
+  readonly initiator?: PrincipalRef;
 }
 
 interface RouteProjection {
-    readonly id: RouteProjectionId;
-    readonly reservation: RouteReservationId;
-    readonly content: ContentRef;
-    readonly digest: Digest;
-    readonly authenticated: true;
+  readonly id: RouteProjectionId;
+  readonly reservation: RouteReservationId;
+  readonly content: ContentRef;
+  readonly digest: Digest;
+  readonly authenticated: true;
 }
 
 interface RouteDelivery {
-    readonly reservation: RouteReservationId;
-    readonly outcome: "delivered" | "rejected";
-    readonly targetAudit: AuditRecordId;
-    readonly reason?: string; // required exactly when rejected
+  readonly reservation: RouteReservationId;
+  readonly outcome: "delivered" | "rejected";
+  readonly targetAudit: AuditRecordId;
+  readonly reason?: string;                  // required exactly when rejected
 }
 
 // An EventPattern matches on kind and source, each a literal or a "*"-terminated
 // prefix wildcard, and an explicit nonempty accepted-tier set. All fields must match.
 interface EventPattern {
-    readonly kind: string; // "task.*" matches "task.statusChanged"
-    readonly source?: string; // Facet/Actor id, prefix-wildcarded
-    readonly acceptedTrust: readonly [TrustTier, ...TrustTier[]]; // unique; no tier ordering
+  readonly kind: string;                     // "task.*" matches "task.statusChanged"
+  readonly source?: string;                  // Facet/Actor id, prefix-wildcarded
+  readonly acceptedTrust: readonly [TrustTier, ...TrustTier[]]; // unique; no tier ordering
 }
 
 // A PayloadMapping (and the FieldMapping used by Commands, §4.3) is an ordered list of
@@ -1393,9 +1345,9 @@ interface EventPattern {
 // It is pure data — no code — so it is validated at install and inspectable.
 type PayloadMapping = readonly FieldMove[];
 interface FieldMove {
-    readonly to: string; // JSON Pointer into the operation input
-    readonly from?: string; // JSON Pointer into the event payload
-    readonly literal?: FacetData; // used instead of `from` for a constant
+  readonly to: string;                       // JSON Pointer into the operation input
+  readonly from?: string;                    // JSON Pointer into the event payload
+  readonly literal?: FacetData;              // used instead of `from` for a constant
 }
 ```
 
@@ -1442,11 +1394,11 @@ snapshot of it.
 
 ```ts
 interface View {
-    readonly surface: SurfaceId;
-    readonly revision: Revision; // §6.3 replay is keyed on this
-    readonly body: ViewBody; // JSON data only — no live handles
-    readonly actions: readonly ActionDescriptor[];
-    readonly cursor: EventCursor; // opaque resume position in the Event log
+  readonly surface: SurfaceId;
+  readonly revision: Revision;               // §6.3 replay is keyed on this
+  readonly body: ViewBody;                   // JSON data only — no live handles
+  readonly actions: readonly ActionDescriptor[];
+  readonly cursor: EventCursor;              // opaque resume position in the Event log
 }
 
 // ViewBody is arbitrary JSON: the rendered, data-only snapshot a client displays.
@@ -1456,10 +1408,10 @@ type ViewBody = FacetData;
 // An ActionDescriptor declares a user action the View offers and the Event it emits
 // when invoked; the platform routes that Event to an Operation via a Subscription.
 interface ActionDescriptor {
-    readonly id: string; // stable within the Surface
-    readonly label: string; // localizable (string or i18n key)
-    readonly emits: EventKind; // the Event kind this action produces
-    readonly arguments?: JsonSchema; // shape of the action's payload
+  readonly id: string;                       // stable within the Surface
+  readonly label: string;                    // localizable (string or i18n key)
+  readonly emits: EventKind;                 // the Event kind this action produces
+  readonly arguments?: JsonSchema;           // shape of the action's payload
 }
 
 // An EventCursor is an opaque, codec-stable position in the owning Actor's Event log.
@@ -1521,7 +1473,7 @@ the Grant decision. This rule is not limited to external sends and maps to
 
 ![Tiers and the approval continuation](diagrams/mediation.svg)
 
-_Why tiers at all:_ an agent loop makes thousands of `observe` calls per session, and
+*Why tiers at all:* an agent loop makes thousands of `observe` calls per session, and
 several durable writes per file read would make the platform unusable — every fast
 agent runtime treats hot-path tool calls as plain function calls, for good reason. On
 the other hand, an external send with no receipt leaves you unable to answer basic
@@ -1535,99 +1487,93 @@ Preparation freezes the whole effect intent before policy or approval:
 
 ```ts
 interface PreparedInvocationHeader {
-    readonly id: InvocationId;
-    readonly operation: OperationRef;
-    readonly impact: Impact;
-    readonly domain: ProtectionDomain;
-    readonly target: FacetRef;
-    readonly actor: ActorRef;
-    readonly authority: InvocationAuthority;
-    readonly lease?: LeaseToken;
-    readonly placement: PlacementPin;
-    readonly pathEpochs: PathEpochEvidence;
-    readonly route?: RouteReservationId;
-    readonly projectionDigest?: Digest; // required exactly when route is present
-    readonly auditCause: AuditRecordId;
-    readonly requestKey: OperationRequestKey;
-    readonly idempotencySeed: string;
+  readonly id: InvocationId;
+  readonly operation: OperationRef;
+  readonly impact: Impact;
+  readonly domain: ProtectionDomain;
+  readonly target: FacetRef;
+  readonly actor: ActorRef;
+  readonly authority: InvocationAuthority;
+  readonly lease?: LeaseToken;
+  readonly placement: PlacementPin;
+  readonly pathEpochs: PathEpochEvidence;
+  readonly route?: RouteReservationId;
+  readonly projectionDigest?: Digest;        // required exactly when route is present
+  readonly auditCause: AuditRecordId;
+  readonly requestKey: OperationRequestKey;
+  readonly idempotencySeed: string;
 }
 
 type InvocationAuthority =
-    | {
-          readonly kind: "initiator";
-          readonly principal: PrincipalRef;
-          readonly binding: BindingName;
-      }
-    | {
-          readonly kind: "delegated";
-          readonly principal: PrincipalRef;
-          readonly binding: BindingName;
-      };
+  | { readonly kind: "initiator"; readonly principal: PrincipalRef;
+      readonly binding: BindingName }
+  | { readonly kind: "delegated"; readonly principal: PrincipalRef;
+      readonly binding: BindingName };
 
 interface OperationRequestKey {
-    readonly caller: CommandCaller;
-    readonly key: string;
+  readonly caller: CommandCaller;
+  readonly key: string;
 }
 
 interface InterceptorTrace {
-    readonly interceptor: InterceptorId;
-    readonly before: Digest;
-    readonly after: Digest;
+  readonly interceptor: InterceptorId;
+  readonly before: Digest;
+  readonly after: Digest;
 }
 
 interface InterceptorTransformation {
-    readonly interceptor: InterceptorId;
-    readonly input: FacetData;
-    readonly output: FacetData;
-    readonly trace: InterceptorTrace;
+  readonly interceptor: InterceptorId;
+  readonly input: FacetData;
+  readonly output: FacetData;
+  readonly trace: InterceptorTrace;
 }
 
 interface ReplayItem {
-    readonly itemIndex: number;
-    readonly rawPayloadIdentity: Digest;
-    readonly before: readonly InterceptorTransformation[];
-    readonly preparedArguments: FacetData;
-    readonly after?: readonly InterceptorTransformation[];
-    readonly presentation?: FacetData;
+  readonly itemIndex: number;
+  readonly rawPayloadIdentity: Digest;
+  readonly before: readonly InterceptorTransformation[];
+  readonly preparedArguments: FacetData;
+  readonly after?: readonly InterceptorTransformation[];
+  readonly presentation?: FacetData;
 }
 
 interface MediatedReplayRecord {
-    readonly requestKey: OperationRequestKey;
-    readonly target: FacetRef;
-    readonly operation: OperationRef;
-    readonly package: PackagePin;
-    readonly lease?: LeaseToken;
-    readonly route?: RouteReservationId;
-    readonly invocation: InvocationId;
-    readonly items: readonly [ReplayItem, ...ReplayItem[]];
+  readonly requestKey: OperationRequestKey;
+  readonly target: FacetRef;
+  readonly operation: OperationRef;
+  readonly package: PackagePin;
+  readonly lease?: LeaseToken;
+  readonly route?: RouteReservationId;
+  readonly invocation: InvocationId;
+  readonly items: readonly [ReplayItem, ...ReplayItem[]];
 }
 
 interface PreparedItem {
-    readonly arguments: FacetData;
-    readonly idempotencyKey: string;
+  readonly arguments: FacetData;
+  readonly idempotencyKey: string;
 }
 
 type PreparedPayload =
-    | { readonly kind: "single"; readonly item: PreparedItem }
-    | { readonly kind: "batch"; readonly items: readonly [PreparedItem, ...PreparedItem[]] };
+  | { readonly kind: "single"; readonly item: PreparedItem }
+  | { readonly kind: "batch"; readonly items: readonly [PreparedItem, ...PreparedItem[]] };
 
 interface PreparedInvocation {
-    readonly header: PreparedInvocationHeader;
-    readonly payload: PreparedPayload;
-    readonly intentDigest: Digest;
+  readonly header: PreparedInvocationHeader;
+  readonly payload: PreparedPayload;
+  readonly intentDigest: Digest;
 }
 
 interface InvocationContinuation {
-    readonly invocation: InvocationId;
-    readonly intentDigest: Digest;
-    readonly approval: ApprovalId;
-    readonly firstAttempt: EffectAttemptId;
-    readonly firstItemIndex: number;
-    readonly firstOrdinal: number;
-    readonly firstClaim: ItemClaimId;
-    readonly firstClaimOwner: ItemClaimOwner;
-    readonly firstItemKey: string;
-    readonly admittedAt: Date;
+  readonly invocation: InvocationId;
+  readonly intentDigest: Digest;
+  readonly approval: ApprovalId;
+  readonly firstAttempt: EffectAttemptId;
+  readonly firstItemIndex: number;
+  readonly firstOrdinal: number;
+  readonly firstClaim: ItemClaimId;
+  readonly firstClaimOwner: ItemClaimOwner;
+  readonly firstItemKey: string;
+  readonly admittedAt: Date;
 }
 ```
 
@@ -1721,54 +1667,57 @@ creates one.
 
 ```ts
 type ItemClaimOwner =
-    | { readonly kind: "executor"; readonly token: LeaseToken; readonly worker: ClaimWorkerId }
-    | { readonly kind: "system"; readonly actor: ActorRef; readonly worker: ClaimWorkerId };
+  | { readonly kind: "executor"; readonly token: LeaseToken;
+      readonly worker: ClaimWorkerId }
+  | { readonly kind: "system"; readonly actor: ActorRef;
+      readonly worker: ClaimWorkerId };
 
 interface ItemClaim {
-    readonly id: ItemClaimId;
-    readonly invocation: InvocationId;
-    readonly itemIndex: number;
-    readonly attemptOrdinal: number;
-    readonly owner: ItemClaimOwner;
-    readonly expiresAt: Date; // strictly future at claim or recovery
+  readonly id: ItemClaimId;
+  readonly invocation: InvocationId;
+  readonly itemIndex: number;
+  readonly attemptOrdinal: number;
+  readonly owner: ItemClaimOwner;
+  readonly expiresAt: Date;                  // strictly future at claim or recovery
 }
 
 interface EffectAttempt {
-    readonly id: EffectAttemptId;
-    readonly invocation: InvocationId;
-    readonly itemIndex: number;
-    readonly ordinal: number;
-    readonly claim: ItemClaimId;
-    readonly token?: LeaseToken;
-    readonly startedAt: Date;
-    readonly idempotencyKey: string;
-    readonly auditCause: AuditRecordId;
+  readonly id: EffectAttemptId;
+  readonly invocation: InvocationId;
+  readonly itemIndex: number;
+  readonly ordinal: number;
+  readonly claim: ItemClaimId;
+  readonly token?: LeaseToken;
+  readonly startedAt: Date;
+  readonly idempotencyKey: string;
+  readonly auditCause: AuditRecordId;
 }
 
 type Receipt = PreEffectReceipt | AttemptReceipt;
 
 interface PreEffectReceipt {
-    readonly id: ReceiptId;
-    readonly invocation: InvocationId;
-    readonly itemIndex: number;
-    readonly outcome: "deniedPreEffect" | "cancelledPreEffect";
-    readonly recordedAt: Date;
-    readonly reason: string;
+  readonly id: ReceiptId;
+  readonly invocation: InvocationId;
+  readonly itemIndex: number;
+  readonly outcome: "deniedPreEffect" | "cancelledPreEffect";
+  readonly recordedAt: Date;
+  readonly reason: string;
 }
 
 interface AttemptReceipt {
-    readonly id: ReceiptId;
-    readonly attempt: EffectAttemptId;
-    readonly outcome: "succeeded" | "failed" | "indeterminate";
-    readonly previous?: ReceiptId;
-    readonly recordedAt: Date;
-    readonly result?: ContentRef;
+  readonly id: ReceiptId;
+  readonly attempt: EffectAttemptId;
+  readonly outcome: "succeeded" | "failed" | "indeterminate";
+  readonly previous?: ReceiptId;
+  readonly recordedAt: Date;
+  readonly result?: ContentRef;
 }
 
-type BatchOutcome =
-    "succeeded" | "partiallySucceeded" | "failed" | "denied" | "cancelled" | "indeterminate";
+type BatchOutcome = "succeeded" | "partiallySucceeded" | "failed"
+  | "denied" | "cancelled" | "indeterminate";
 
-type TerminalBatchOutcome = "succeeded" | "partiallySucceeded" | "failed" | "denied" | "cancelled";
+type TerminalBatchOutcome = "succeeded" | "partiallySucceeded" | "failed"
+  | "denied" | "cancelled";
 ```
 
 A PreEffectReceipt is terminal for its item and has no EffectAttempt or supersession.
@@ -1824,42 +1773,30 @@ An **AuditRecord** is one immutable entry in an append-only typed causal chain:
 
 ```ts
 interface AuditRecord {
-    readonly id: AuditRecordId;
-    readonly actor: ActorRef;
-    readonly tenant: TenantId;
-    readonly correlation: CorrelationId;
-    readonly cause?: AuditRecordId;
-    readonly kind: AuditKind;
+  readonly id: AuditRecordId;
+  readonly actor: ActorRef;
+  readonly tenant: TenantId;
+  readonly correlation: CorrelationId;
+  readonly cause?: AuditRecordId;
+  readonly kind: AuditKind;
 }
 
 type AuditKind =
-    | { readonly kind: "invocation"; readonly id: InvocationId }
-    | {
-          readonly kind: "approval";
-          readonly id: ApprovalId;
-          readonly phase: "pending" | "approved" | "denied" | "expired" | "consumed";
-      }
-    | { readonly kind: "attempt"; readonly id: EffectAttemptId }
-    | {
-          readonly kind: "receipt";
-          readonly id: ReceiptId;
-          readonly outcome: PreEffectReceipt["outcome"] | AttemptReceipt["outcome"];
-      }
-    | { readonly kind: "receiptSuperseded"; readonly previous: ReceiptId; readonly next: ReceiptId }
-    | {
-          readonly kind: "write";
-          readonly id: WriteRecordId;
-          readonly outcome: WriteRecord["outcome"];
-      }
-    | { readonly kind: "event"; readonly id: EventId }
-    | { readonly kind: "routeReserved"; readonly id: RouteReservationId }
-    | {
-          readonly kind: "routeProjected";
-          readonly projection: RouteProjectionId;
-          readonly reservation: RouteReservationId;
-      }
-    | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
-    | { readonly kind: "commit"; readonly id: RunCommitId };
+  | { readonly kind: "invocation"; readonly id: InvocationId }
+  | { readonly kind: "approval"; readonly id: ApprovalId;
+      readonly phase: "pending" | "approved" | "denied" | "expired" | "consumed" }
+  | { readonly kind: "attempt"; readonly id: EffectAttemptId }
+  | { readonly kind: "receipt"; readonly id: ReceiptId;
+      readonly outcome: PreEffectReceipt["outcome"] | AttemptReceipt["outcome"] }
+  | { readonly kind: "receiptSuperseded"; readonly previous: ReceiptId;
+      readonly next: ReceiptId }
+  | { readonly kind: "write"; readonly id: WriteRecordId; readonly outcome: WriteRecord["outcome"] }
+  | { readonly kind: "event"; readonly id: EventId }
+  | { readonly kind: "routeReserved"; readonly id: RouteReservationId }
+  | { readonly kind: "routeProjected"; readonly projection: RouteProjectionId;
+      readonly reservation: RouteReservationId }
+  | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
+  | { readonly kind: "commit"; readonly id: RunCommitId };
 ```
 
 ```text
@@ -1916,9 +1853,9 @@ Tenant, Workspace, Run (when dedicated), Environment, Slate host.
 
 ```ts
 abstract class ContentStore {
-    abstract put(bytes: Uint8Array, hint?: MediaHint): Promise<{ ref: ContentRef; digest: Digest }>;
-    abstract get(ref: ContentRef, range?: ByteRange): Promise<Uint8Array>;
-    abstract stat(ref: ContentRef): Promise<ContentStat | undefined>;
+  abstract put(bytes: Uint8Array, hint?: MediaHint): Promise<{ ref: ContentRef; digest: Digest }>;
+  abstract get(ref: ContentRef, range?: ByteRange): Promise<Uint8Array>;
+  abstract stat(ref: ContentRef): Promise<ContentStat | undefined>;
 }
 ```
 
@@ -1932,7 +1869,7 @@ Durable records are data. Every record type defines a stable serialized form wit
 **versioned codec**, used identically for storage, the command protocol, and
 export/import. A codec tolerantly reads and upcasts records of any older version
 within the same major, and rejects records of an unknown newer major with a typed
-error — never a silent truncation. Live behavior wraps records; it never _is_ the
+error — never a silent truncation. Live behavior wraps records; it never *is* the
 record, and durable records never own live substrate resources.
 
 ### 8.4 State-ownership rules
@@ -1970,40 +1907,40 @@ and AuditRecord append commands.
 
 ```ts
 type CommandCaller =
-    | { readonly kind: "principal"; readonly principal: PrincipalRef }
-    | { readonly kind: "actor"; readonly actor: ActorRef };
+  | { readonly kind: "principal"; readonly principal: PrincipalRef }
+  | { readonly kind: "actor"; readonly actor: ActorRef };
 
 interface CommandEnvelope {
-    readonly command: string;
-    readonly caller: CommandCaller;
-    readonly idempotencyKey: string;
-    readonly expectedRevision?: Revision;
-    readonly lease?: LeaseToken;
-    readonly callerCause?: AuditRecordId;
-    readonly payload: ContentRef;
-    readonly payloadDigest: Digest;
+  readonly command: string;
+  readonly caller: CommandCaller;
+  readonly idempotencyKey: string;
+  readonly expectedRevision?: Revision;
+  readonly lease?: LeaseToken;
+  readonly callerCause?: AuditRecordId;
+  readonly payload: ContentRef;
+  readonly payloadDigest: Digest;
 }
 
 type CommandOutcome =
-    | "committed"
-    | "rejectedMalformed"
-    | "rejectedAuthentication"
-    | "rejectedAuthority"
-    | "rejectedLifecycle"
-    | "rejectedRevision"
-    | "rejectedLease"
-    | "duplicate";
+  | "committed"
+  | "rejectedMalformed"
+  | "rejectedAuthentication"
+  | "rejectedAuthority"
+  | "rejectedLifecycle"
+  | "rejectedRevision"
+  | "rejectedLease"
+  | "duplicate";
 
 interface WriteRecord {
-    readonly id: WriteRecordId;
-    readonly actor: ActorRef;
-    readonly envelopeDigest: Digest;
-    readonly caller?: CommandCaller; // absent only when malformed before decode
-    readonly command?: string;
-    readonly at: Date;
-    readonly outcome: CommandOutcome;
-    readonly audit: AuditRecordId;
-    readonly duplicateOf?: WriteRecordId; // present exactly for duplicate
+  readonly id: WriteRecordId;
+  readonly actor: ActorRef;
+  readonly envelopeDigest: Digest;
+  readonly caller?: CommandCaller;            // absent only when malformed before decode
+  readonly command?: string;
+  readonly at: Date;
+  readonly outcome: CommandOutcome;
+  readonly audit: AuditRecordId;
+  readonly duplicateOf?: WriteRecordId;       // present exactly for duplicate
 }
 ```
 
@@ -2047,17 +1984,17 @@ A **Blueprint** declares a platform:
 
 ```ts
 interface Blueprint {
-    readonly meta: { name: string; version: SemVer };
-    readonly packages: readonly PackageInstall[]; // package ref + config (SecretRefs only)
-    readonly scopes?: ScopeScaffold; // default Projects/Workspaces
-    readonly agents: readonly AgentProfile[];
-    readonly slots?: readonly SlotDeclaration[];
-    readonly subscriptions?: readonly SubscriptionTemplate[];
-    readonly policies: PolicySet; // enforcement tiers, approval rules,
-    // trust-tier derivation, placement policy,
-    // command visibility, quotas, retention
-    readonly environments?: readonly EnvironmentSpec[];
-    readonly surfaces?: SurfaceLayout;
+  readonly meta: { name: string; version: SemVer };
+  readonly packages: readonly PackageInstall[];    // package ref + config (SecretRefs only)
+  readonly scopes?: ScopeScaffold;                 // default Projects/Workspaces
+  readonly agents: readonly AgentProfile[];
+  readonly slots?: readonly SlotDeclaration[];
+  readonly subscriptions?: readonly SubscriptionTemplate[];
+  readonly policies: PolicySet;                    // enforcement tiers, approval rules,
+                                                   // trust-tier derivation, placement policy,
+                                                   // command visibility, quotas, retention
+  readonly environments?: readonly EnvironmentSpec[];
+  readonly surfaces?: SurfaceLayout;
 }
 ```
 
@@ -2078,19 +2015,19 @@ A skeleton:
 
 ```jsonc
 {
-    "meta": { "name": "support-desk", "version": "1.2.0" },
-    "packages": [
-        { "ref": "core.chat@^2", "config": {} },
-        { "ref": "acme.deploy@^1", "config": { "apiKey": { "$secret": "acme/deploy-key" } } }
-    ],
-    "agents": [{ "name": "helper", "instructions": "…", "model": { "policy": "balanced" } }],
-    "policies": {
-        "placement": {
-            "trusted": ["core.*"],
-            "defaultAllowed": ["provider", "dynamic"]
-        },
-        "tiers": { "acme.deploy:deploy.run": "mediated" }
-    }
+  "meta": { "name": "support-desk", "version": "1.2.0" },
+  "packages": [
+    { "ref": "core.chat@^2", "config": {} },
+    { "ref": "acme.deploy@^1", "config": { "apiKey": { "$secret": "acme/deploy-key" } } }
+  ],
+  "agents": [{ "name": "helper", "instructions": "…", "model": { "policy": "balanced" } }],
+  "policies": {
+    "placement": {
+      "trusted": ["core.*"],
+      "defaultAllowed": ["provider", "dynamic"]
+    },
+    "tiers": { "acme.deploy:deploy.run": "mediated" }
+  }
 }
 ```
 
@@ -2121,22 +2058,22 @@ and a second substrate can materialize.
 Cloudflare Durable Objects are the first-class substrate: a DO is very nearly an Actor
 already — single-threaded, durably addressed, with private transactional storage — so
 the mapping is short. What the profile mostly adds is discipline about the things DOs
-do _not_ give you: there is no transaction across two DOs, RPC stubs do not outlive an
+do *not* give you: there is no transaction across two DOs, RPC stubs do not outlive an
 execution context, and queues deliver at least once. The rules below are written
 against those facts.
 
 ### 10.1 Topology
 
-| Construct       | Hosting                                                                                                                                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tenant Actor    | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas                                                             |
-| Workspace Actor | one DO per Workspace (SQLite): facet installs, bindings, its event log, subscriptions, runs (default) or run index (dedicated), tasks, slate records                                                                              |
-| Run             | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2.                                              |
-| Turn execution  | in the Run-owning DO; each Turn retains a placement snapshot, and offloaded callbacks carry exact Turn, holder, and epoch — delivery is at-least-once and mismatches reject                                                       |
-| Environment     | Sandbox SDK container or session DO; tree checkpoints and filesystem durability via R2 snapshots; preview via authenticated exposed ports                                                                                         |
-| Slate           | records in the owning DO; frontend on static assets; backend as dynamic-mode code (§10.2)                                                                                                                                         |
-| ContentStore    | R2, with DO SQLite for small content, content-addressed                                                                                                                                                                           |
-| Events          | owned by the accepting Actor. Cross-Actor delivery uses a source-owned authenticated RouteReservation with stable InvocationId and a target-local delivery record; Queues/RPC may redeliver but cannot remap or duplicate intent. |
+| Construct | Hosting |
+| --- | --- |
+| Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
+| Workspace Actor | one DO per Workspace (SQLite): facet installs, bindings, its event log, subscriptions, runs (default) or run index (dedicated), tasks, slate records |
+| Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2. |
+| Turn execution | in the Run-owning DO; each Turn retains a placement snapshot, and offloaded callbacks carry exact Turn, holder, and epoch — delivery is at-least-once and mismatches reject |
+| Environment | Sandbox SDK container or session DO; tree checkpoints and filesystem durability via R2 snapshots; preview via authenticated exposed ports |
+| Slate | records in the owning DO; frontend on static assets; backend as dynamic-mode code (§10.2) |
+| ContentStore | R2, with DO SQLite for small content, content-addressed |
+| Events | owned by the accepting Actor. Cross-Actor delivery uses a source-owned authenticated RouteReservation with stable InvocationId and a target-local delivery record; Queues/RPC may redeliver but cannot remap or duplicate intent. |
 
 Projects are records in the Tenant DO; grouping adds zero DOs. Authority resolution
 returns complete PathEpochEvidence. The profile MUST deliver invalidation watermarks
@@ -2178,35 +2115,32 @@ Cross-DO mediated authority uses this profile record:
 
 ```ts
 interface AuthorityPermit {
-    readonly tenant: TenantId;
-    readonly issuer: ActorRef; // authoritative Tenant Actor
-    readonly source: ActorRef;
-    readonly target: {
-        readonly actor: ActorRef;
-        readonly fence: number;
-        readonly domain: ProtectionDomain;
-    };
-    readonly principal: PrincipalRef;
-    readonly binding: { readonly name: BindingName; readonly generation: Revision };
-    readonly facet: FacetRef;
-    readonly operation: OperationRef;
-    readonly package: PackagePin;
-    readonly impact: Impact;
-    readonly invocation: InvocationId;
-    readonly reservation: RunAdmissionReservation;
-    readonly itemIndex: number;
-    readonly attemptOrdinal: number;
-    readonly claim: ItemClaimId;
-    readonly claimOwner: ItemClaimOwner;
-    readonly itemKey: string;
-    readonly argumentsDigest: Digest;
-    readonly intentDigest: Digest;
-    readonly pathEpochs: PathEpochEvidence;
-    readonly authority: InvocationAuthority;
-    readonly lease?: LeaseToken;
-    readonly nonce: string;
-    readonly issuedAt: Date;
-    readonly expiresAt: Date;
+  readonly tenant: TenantId;
+  readonly issuer: ActorRef;                 // authoritative Tenant Actor
+  readonly source: ActorRef;
+  readonly target: { readonly actor: ActorRef; readonly fence: number;
+      readonly domain: ProtectionDomain };
+  readonly principal: PrincipalRef;
+  readonly binding: { readonly name: BindingName; readonly generation: Revision };
+  readonly facet: FacetRef;
+  readonly operation: OperationRef;
+  readonly package: PackagePin;
+  readonly impact: Impact;
+  readonly invocation: InvocationId;
+  readonly reservation: RunAdmissionReservation;
+  readonly itemIndex: number;
+  readonly attemptOrdinal: number;
+  readonly claim: ItemClaimId;
+  readonly claimOwner: ItemClaimOwner;
+  readonly itemKey: string;
+  readonly argumentsDigest: Digest;
+  readonly intentDigest: Digest;
+  readonly pathEpochs: PathEpochEvidence;
+  readonly authority: InvocationAuthority;
+  readonly lease?: LeaseToken;
+  readonly nonce: string;
+  readonly issuedAt: Date;
+  readonly expiresAt: Date;
 }
 ```
 
@@ -2467,7 +2401,7 @@ ambient authority and creates no cross-DO transaction. These clauses map to
 
 ---
 
-## 12. Assembly sketches _(informative)_
+## 12. Assembly sketches *(informative)*
 
 Four platforms, assembled from the same box of blocks. These are inspired by real
 systems; where the real system does something the primitives don't capture, the sketch
@@ -2736,25 +2670,25 @@ The Lean package models an abstract subset only. `artifacts/traceability.yaml` i
 sole detailed claim ledger: its status and remaining-evidence fields bound every claim.
 This section names coverage categories and trace IDs, never inferred theorem names.
 
-| Coverage category                                       | Trace IDs                                                                                                          | Boundary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Structural Invocation identity and View replay          | `AC-STRUCTURAL-001`                                                                                                | ideal whole-intent identity and structural replay only; no cryptographic or RFC 6902 claim                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Grants, Bindings, path epochs, and Role materialization | `AC-AUTH-001`, `AC-AUTH-RESOLUTION-001`, `AC-MATERIALIZE-001`                                                      | designated abstract authorization, path-evidence, deadline, holder-join, guest-attenuation, and rematerialization consequences only                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Placement, trust, and exact-Turn leases                 | `AC-PLACEMENT-001`, `AC-TRUST-001`, `AC-LEASE-001`                                                                 | pure four-set selection, one source-tier rejection property, listed LeaseStep consequences over supplied inputs, and an executable step function proven sound and complete for the lease relation (the differential-testing oracle); no complete lifecycle claim                                                                                                                                                                                                                                                                               |
-| Approval, batch effects, and Receipt lineage            | `AC-APPROVAL-001`, `AC-EFFECT-001`                                                                                 | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved                                                                                                                               |
-| Event routing and typed audit                           | `AC-EVENT-ROUTING-001`, `AC-ROUTING-001`, `AC-AUDIT-001`                                                           | lease-backed self-Event checks, authenticated target projection without a source-audit edge, designated Actor-local audit consequences, and the Subscription routing LTS — at-most-once consumption per (Subscription, event key), declared-target firing, tenant containment, channel-derived trust admission, and fail-closed disable; no reservation uniqueness, transport, storage, or complete-instrumentation claim                                                                                                                      |
-| Run settlement and graph-writer consequences            | `AC-RUN-001`, `AC-GRAPH-WRITER-001`                                                                                | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, and exact-Turn controlled synthesis only; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, ancestry, migration, undo, or general settlement-preservation claim |
-| Integrated admission and settlement                     | `AC-COMPOSED-001`                                                                                                  | designated direct/mediated admission consequences and a constructive exact-obligation settlement witness; no concrete transaction or general preservation refinement                                                                                                                                                                                                                                                                                                                                                                           |
-| Platform mechanism representations                      | `AC-REP-BROKER-001`, `AC-REP-CONSENT-001`, `AC-REP-REACTION-001`, `AC-REP-MOA-001`                                 | proved component reductions to core modules: broker credential custody with the digest-bound approval gate, per-pair consent epochs, reaction dedup and lease-fenced injection, and aggregation-chain lineage completeness; no profile, product, UX, or implementation-refinement claim                                                                                                                                                                                                                                                        |
-| Facet manifest/runtime                                  | `NC-FACET-MANIFEST-RUNTIME`                                                                                        | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Contributions and slots                                 | `NC-CONTRIBUTIONS-SLOTS`                                                                                           | §4.2 validation, ownership, ordering, conflicts, and materialized semantics are not modeled                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Commands                                                | `NC-COMMANDS`                                                                                                      | §4.3 parsing, dispatch, argument validation, authorization, and result semantics are not modeled                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Interceptors                                            | `NC-INTERCEPTORS`                                                                                                  | §4.4 ordering, cut points, rewrite restrictions, persisted pre/post transformation traces, replay reuse, and execution are not modeled                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Environment and Session                                 | `NC-ENVIRONMENT-LIFECYCLE`, `NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE`                                             | §4.5 lifecycle/provider behavior and the normative Turn-owned direct-execute exception are not modeled                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Slate                                                   | `NC-SLATE-RUNTIME`                                                                                                 | §4.6 versions, deployment, preview, authority, and generated-app behavior are not modeled                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Surface, profile, and patch semantics                   | `NC-SURFACE-RUNTIME-ACTIONS`, `NC-PROFILE-RUNTIME`, `NC-RFC6902-PATCH`                                             | explicit non-claims beyond the structural View result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Substrate and definition-plane behavior                 | `NC-CONTENTSTORE`, `NC-CODECS`, `NC-PROTOCOL-DISPATCHER`, `NC-BLUEPRINT-MATERIALIZATION`, `NC-CLOUDFLARE-BEHAVIOR` | specified but not modeled, including concrete command-envelope rejection ordering, audit linkage, and Cloudflare authority-permit issue/authentication/consumption                                                                                                                                                                                                                                                                                                                                                                             |
-| Liveness, cryptography, and concrete refinement         | `NC-TEMPORAL-LIVENESS`, `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE`, `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT`              | explicit non-claims; assumptions are listed separately in the ledger                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Coverage category | Trace IDs | Boundary |
+| --- | --- | --- |
+| Structural Invocation identity and View replay | `AC-STRUCTURAL-001` | ideal whole-intent identity and structural replay only; no cryptographic or RFC 6902 claim |
+| Grants, Bindings, path epochs, and Role materialization | `AC-AUTH-001`, `AC-AUTH-RESOLUTION-001`, `AC-MATERIALIZE-001` | designated abstract authorization, path-evidence, deadline, holder-join, guest-attenuation, and rematerialization consequences only |
+| Placement, trust, and exact-Turn leases | `AC-PLACEMENT-001`, `AC-TRUST-001`, `AC-LEASE-001` | pure four-set selection, one source-tier rejection property, listed LeaseStep consequences over supplied inputs, and an executable step function proven sound and complete for the lease relation (the differential-testing oracle); no complete lifecycle claim |
+| Approval, batch effects, and Receipt lineage | `AC-APPROVAL-001`, `AC-EFFECT-001` | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved |
+| Event routing and typed audit | `AC-EVENT-ROUTING-001`, `AC-ROUTING-001`, `AC-AUDIT-001` | lease-backed self-Event checks, authenticated target projection without a source-audit edge, designated Actor-local audit consequences, and the Subscription routing LTS — at-most-once consumption per (Subscription, event key), declared-target firing, tenant containment, channel-derived trust admission, and fail-closed disable; no reservation uniqueness, transport, storage, or complete-instrumentation claim |
+| Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, and exact-Turn controlled synthesis only; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, ancestry, migration, undo, or general settlement-preservation claim |
+| Integrated admission and settlement | `AC-COMPOSED-001` | designated direct/mediated admission consequences and a constructive exact-obligation settlement witness; no concrete transaction or general preservation refinement |
+| Platform mechanism representations | `AC-REP-BROKER-001`, `AC-REP-CONSENT-001`, `AC-REP-REACTION-001`, `AC-REP-MOA-001` | proved component reductions to core modules: broker credential custody with the digest-bound approval gate, per-pair consent epochs, reaction dedup and lease-fenced injection, and aggregation-chain lineage completeness; no profile, product, UX, or implementation-refinement claim |
+| Facet manifest/runtime | `NC-FACET-MANIFEST-RUNTIME` | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled |
+| Contributions and slots | `NC-CONTRIBUTIONS-SLOTS` | §4.2 validation, ownership, ordering, conflicts, and materialized semantics are not modeled |
+| Commands | `NC-COMMANDS` | §4.3 parsing, dispatch, argument validation, authorization, and result semantics are not modeled |
+| Interceptors | `NC-INTERCEPTORS` | §4.4 ordering, cut points, rewrite restrictions, persisted pre/post transformation traces, replay reuse, and execution are not modeled |
+| Environment and Session | `NC-ENVIRONMENT-LIFECYCLE`, `NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE` | §4.5 lifecycle/provider behavior and the normative Turn-owned direct-execute exception are not modeled |
+| Slate | `NC-SLATE-RUNTIME` | §4.6 versions, deployment, preview, authority, and generated-app behavior are not modeled |
+| Surface, profile, and patch semantics | `NC-SURFACE-RUNTIME-ACTIONS`, `NC-PROFILE-RUNTIME`, `NC-RFC6902-PATCH` | explicit non-claims beyond the structural View result |
+| Substrate and definition-plane behavior | `NC-CONTENTSTORE`, `NC-CODECS`, `NC-PROTOCOL-DISPATCHER`, `NC-BLUEPRINT-MATERIALIZATION`, `NC-CLOUDFLARE-BEHAVIOR` | specified but not modeled, including concrete command-envelope rejection ordering, audit linkage, and Cloudflare authority-permit issue/authentication/consumption |
+| Liveness, cryptography, and concrete refinement | `NC-TEMPORAL-LIVENESS`, `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE`, `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT` | explicit non-claims; assumptions are listed separately in the ledger |
 
 No structural View result implies RFC 6902 correctness, the no-live-handle runtime
 boundary, Surface semantics, or profile behavior. No representation helper implies a
@@ -2793,22 +2727,22 @@ Two things I still haven't decided:
    Session or Thread for the container; my two candidates are Session/Run and
    Run/Attempt. I'm keeping the current names in this document until I decide.
 
-## Appendix A — Translation table _(informative)_
+## Appendix A — Translation table *(informative)*
 
-| Agent Core             | Elsewhere                                                            |
-| ---------------------- | -------------------------------------------------------------------- |
-| Facet                  | MCP server's tools + resources + prompts; plugin; extension; toolset |
-| Operation              | tool / tool call                                                     |
-| Command (contribution) | slash command; palette command; CLI verb                             |
-| Run / RunBranch        | thread or session with branches; conversation tree                   |
-| Turn                   | run; execution attempt                                               |
-| Environment            | sandbox; VM; the agent's computer                                    |
-| Slate                  | canvas; artifact; generated app                                      |
-| Blueprint              | platform config; manifest; IaC definition                            |
-| Grant / Binding        | scoped token; capability; connection                                 |
-| mediated Invocation    | durable intent/receipt pipeline; approval when policy requires       |
-| Interceptor            | plugin hook; middleware; tool wrapper                                |
-| ingress                | webhook endpoint; channel adapter                                    |
+| Agent Core | Elsewhere |
+| --- | --- |
+| Facet | MCP server's tools + resources + prompts; plugin; extension; toolset |
+| Operation | tool / tool call |
+| Command (contribution) | slash command; palette command; CLI verb |
+| Run / RunBranch | thread or session with branches; conversation tree |
+| Turn | run; execution attempt |
+| Environment | sandbox; VM; the agent's computer |
+| Slate | canvas; artifact; generated app |
+| Blueprint | platform config; manifest; IaC definition |
+| Grant / Binding | scoped token; capability; connection |
+| mediated Invocation | durable intent/receipt pipeline; approval when policy requires |
+| Interceptor | plugin hook; middleware; tool wrapper |
+| ingress | webhook endpoint; channel adapter |
 
 ## Appendix B — Artifacts
 
