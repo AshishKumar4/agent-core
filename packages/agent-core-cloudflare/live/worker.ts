@@ -29,6 +29,7 @@ import {
     type SlateProviderResourceRequest
 } from "@agent-core/core/slate-provider";
 import { DurableObject } from "cloudflare:workers";
+import { encodeBase64 } from "../src/base64.js";
 import {
     CloudflareSqlite,
     DurableObjectEnvironmentProvider,
@@ -230,7 +231,7 @@ export class LiveEnvironmentHarness extends DurableObject<LiveEnvironment> {
                         sessionRequest(body),
                         field(body, "path")
                     );
-                    return content === undefined ? null : btoa(String.fromCharCode(...content));
+                    return content === undefined ? null : encodeBase64(content);
                 });
             case "/snapshot":
                 return handle(async () => outcome(await this.#environments.createSnapshot(snapshotRequest(body))));

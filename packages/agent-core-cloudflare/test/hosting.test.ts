@@ -255,7 +255,7 @@ describe("Cloudflare hosting adapters", () => {
         expect(accepted).toEqual([]);
     });
 
-    test("constructs a Durable Object without optional migrations or content", () => {
+    test("constructs a Durable Object without optional migrations or content", async () => {
         const storage = new FakeDurableObjectStorage(
             new FakeSqlStorage((statement) => ({
                 rows: statement.includes("FROM agent_core_migrations") ? [] : []
@@ -278,9 +278,57 @@ describe("Cloudflare hosting adapters", () => {
         };
 
         expect(
-            new DurableObjectClass(state, {}).fetch(new Request("https://object"))
+            await new DurableObjectClass(state, {}).fetch(new Request("https://object"))
         ).toBeInstanceOf(Response);
     });
+
+    test(
+        "fails every entry point closed when startup alarm repair rejects",
+        { tags: "p0" },
+        async () => {
+            const storage = new FakeDurableObjectStorage(new FakeSqlStorage(() => ({})));
+            const host = new (class extends FakeDurableObjectHost {
+                public override async repairAlarm(): Promise<void> {
+                    throw new TypeError("outbox unavailable");
+                }
+            })();
+            const DurableObjectClass = createCloudflareDurableObjectClass({
+                errors: fakeErrors,
+                host: { create: () => host }
+            });
+            const instance = new DurableObjectClass(
+                {
+                    storage,
+                    blockConcurrencyWhile: async <Result>(callback: () => Promise<Result>) =>
+                        callback(),
+                    acceptWebSocket(): void {}
+                },
+                {}
+            );
+
+            // An unrepaired alarm must never serve traffic, in or out of the real runtime.
+            await expect(instance.fetch(new Request("https://object"))).rejects.toMatchObject({
+                code: "protocol.invalid-state",
+                cause: new TypeError("outbox unavailable")
+            });
+            await expect(instance.alarm()).rejects.toMatchObject({
+                code: "protocol.invalid-state"
+            });
+            await expect(
+                instance.webSocketMessage(new FakeWebSocket(), "message")
+            ).rejects.toMatchObject({ code: "protocol.invalid-state" });
+            await expect(
+                instance.webSocketClose(new FakeWebSocket(), 1000, "done", true)
+            ).rejects.toMatchObject({ code: "protocol.invalid-state" });
+            await expect(
+                instance.webSocketError(new FakeWebSocket(), new TypeError("socket"))
+            ).rejects.toMatchObject({ code: "protocol.invalid-state" });
+            expect(host.alarms).toBe(0);
+            expect(host.messages).toEqual([]);
+            expect(host.closes).toBe(0);
+            expect(host.errors).toBe(0);
+        }
+    );
 });
 
 function requireFetchService(value: unknown): {

@@ -60,6 +60,18 @@ crash between enqueue and physical alarm creation is repaired from the outbox. T
 reconciliation callback receives only the outbox ID and must be idempotent for that ID,
 because a crash or acknowledgement failure after the effect causes safe repetition.
 
+`handleAlarm()` isolates each entry: a failed one is rescheduled one retry delay out and
+returned in `failures` with the mapped cause, so a single bad entry neither fails the
+sweep nor retries without evidence. A sweep that fails as a whole propagates its own
+cause — a repair that also fails never replaces it — and rearms the alarm no earlier than
+one retry delay out, because the entries it never reached are still due in the past and
+rearming there would refire the alarm immediately.
+
+A queue message whose body carries no decodable delivery is retried on its own and
+reported in `poisonMessages`. Acknowledging would destroy it and failing the batch would
+redeliver every message beside it, so its fate belongs to the queue's own retry limit and
+dead-letter queue.
+
 ## Dependency integration
 
 - W0 must pin and audit Wrangler and `@cloudflare/vitest-pool-workers` without changing

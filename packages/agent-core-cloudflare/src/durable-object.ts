@@ -1,5 +1,6 @@
 import { CloudflareSqlite, type CloudflareDurableObjectStorage } from "./sqlite.js";
 import type { CloudflareErrorPort } from "./error.js";
+import { operationalFailure } from "./error.js";
 import {
     SqliteApplicationMigrator,
     cloudflareRuntimeMigrations,
@@ -100,6 +101,7 @@ export function createCloudflareDurableObjectClass<Environment>(
     ]);
     return class CloudflareActorDurableObject implements CloudflareDurableObjectInstance {
         readonly #host: AuthoritativeDurableObjectHost;
+        readonly #startup: Promise<void>;
 
         public constructor(state: CloudflareDurableObjectStateLike, environment: Environment) {
             const sqlite = new CloudflareSqlite(state.storage, options.errors);
@@ -124,37 +126,59 @@ export function createCloudflareDurableObjectClass<Environment>(
                           )
             });
             this.#host = options.host.create(runtime);
-            void state.blockConcurrencyWhile(() => this.#host.repairAlarm());
+            // A throwing callback resets the object in the real runtime; retaining the
+            // rejection keeps every entry point fail-closed everywhere else. The extra
+            // handler only marks it observed — `#started` is what reports it.
+            this.#startup = state.blockConcurrencyWhile(() => this.#host.repairAlarm());
+            this.#startup.catch(() => undefined);
         }
 
-        public fetch(request: Request): Response | Promise<Response> {
+        async #started(): Promise<void> {
+            try {
+                await this.#startup;
+            } catch (cause) {
+                operationalFailure(
+                    options.errors,
+                    "protocol.invalid-state",
+                    "Durable Object startup alarm repair failed",
+                    cause
+                );
+            }
+        }
+
+        public async fetch(request: Request): Promise<Response> {
+            await this.#started();
             return this.#host.fetch(request);
         }
 
-        public alarm(): void | Promise<void> {
+        public async alarm(): Promise<void> {
+            await this.#started();
             return this.#host.alarm();
         }
 
-        public webSocketMessage(
+        public async webSocketMessage(
             socket: HibernatingWebSocketLike,
             message: string | ArrayBuffer
-        ): void | Promise<void> {
+        ): Promise<void> {
+            await this.#started();
             return this.#host.webSocketMessage(socket, message);
         }
 
-        public webSocketClose(
+        public async webSocketClose(
             socket: HibernatingWebSocketLike,
             code: number,
             reason: string,
             wasClean: boolean
-        ): void | Promise<void> {
+        ): Promise<void> {
+            await this.#started();
             return this.#host.webSocketClose(socket, code, reason, wasClean);
         }
 
-        public webSocketError(
+        public async webSocketError(
             socket: HibernatingWebSocketLike,
             error: unknown
-        ): void | Promise<void> {
+        ): Promise<void> {
+            await this.#started();
             return this.#host.webSocketError(socket, error);
         }
     };

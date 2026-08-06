@@ -1,4 +1,9 @@
-import { AlarmOutboxReconciler, ReconciliationOutboxId } from "../src/index.js";
+import { AgentCoreError } from "@agent-core/core";
+import {
+    AlarmOutboxReconciler,
+    ReconciliationOutboxId,
+    type ReconciliationOutbox
+} from "../src/index.js";
 import { FakeAlarmStorage, FakeReconciliationOutbox, fakeErrors } from "./fakes.js";
 
 describe("AlarmOutboxReconciler", () => {
@@ -67,9 +72,9 @@ describe("AlarmOutboxReconciler", () => {
 
         expect(await driver.handleAlarm()).toEqual({
             succeededIds: [outboxId("effect-1")],
-            failedIds: []
+            failures: []
         });
-        expect(await driver.handleAlarm()).toEqual({ succeededIds: [], failedIds: [] });
+        expect(await driver.handleAlarm()).toEqual({ succeededIds: [], failures: [] });
         expect(calls).toEqual(["effect-1"]);
         expect(alarms.scheduledAt).toBeNull();
     });
@@ -93,9 +98,9 @@ describe("AlarmOutboxReconciler", () => {
             { retryDelayMs: 25, clock: { now: () => now } }
         );
 
-        expect(await driver.handleAlarm()).toEqual({
+        expect(await driver.handleAlarm()).toMatchObject({
             succeededIds: [outboxId("b")],
-            failedIds: [outboxId("a")]
+            failures: [{ id: outboxId("a") }]
         });
         expect(alarms.scheduledAt).toBe(125);
         expect(outbox.rescheduled).toEqual([{ id: "a", scheduledAt: 125 }]);
@@ -104,7 +109,7 @@ describe("AlarmOutboxReconciler", () => {
         now = 125;
         expect(await driver.handleAlarm()).toEqual({
             succeededIds: [outboxId("a")],
-            failedIds: []
+            failures: []
         });
         expect(calls).toEqual(["a", "b", "a"]);
         expect(alarms.scheduledAt).toBeNull();
@@ -131,7 +136,7 @@ describe("AlarmOutboxReconciler", () => {
         // newer schedule and its physical alarm survive.
         expect(await driver.handleAlarm()).toEqual({
             succeededIds: [outboxId("a")],
-            failedIds: []
+            failures: []
         });
         expect(outbox.acknowledgedIds).toEqual([]);
         expect(await outbox.nextDueAt()).toBe(now + 500);
@@ -155,9 +160,9 @@ describe("AlarmOutboxReconciler", () => {
         );
 
         // The retry reschedule is fenced out, so it cannot push the newer schedule back.
-        expect(await driver.handleAlarm()).toEqual({
+        expect(await driver.handleAlarm()).toMatchObject({
             succeededIds: [],
-            failedIds: [outboxId("a")]
+            failures: [{ id: outboxId("a") }]
         });
         expect(outbox.rescheduled).toEqual([]);
         expect(await outbox.nextDueAt()).toBe(now + 500);
@@ -216,9 +221,9 @@ describe("AlarmOutboxReconciler", () => {
             clock: { now: () => now }
         });
 
-        expect(await beforeRestart.handleAlarm()).toEqual({
+        expect(await beforeRestart.handleAlarm()).toMatchObject({
             succeededIds: [],
-            failedIds: [outboxId("effect-id")]
+            failures: [{ id: outboxId("effect-id") }]
         });
         expect(externalEffects.size).toBe(1);
         expect(alarms.scheduledAt).toBe(80);
@@ -230,10 +235,83 @@ describe("AlarmOutboxReconciler", () => {
         });
         expect(await afterRestart.handleAlarm()).toEqual({
             succeededIds: [outboxId("effect-id")],
-            failedIds: []
+            failures: []
         });
         expect(attempts).toEqual(["effect-id", "effect-id"]);
         expect(externalEffects).toEqual(new Set(["effect-id"]));
+        expect(alarms.scheduledAt).toBeNull();
+    });
+
+    test(
+        "reports the mapped cause of every entry it could not reconcile",
+        { tags: "p1" },
+        async () => {
+            const alarms = new FakeAlarmStorage();
+            const outbox = new FakeReconciliationOutbox();
+            outbox.enqueue("a", 100);
+            outbox.enqueue("b", 100);
+            const driver = new AlarmOutboxReconciler(
+                alarms,
+                outbox,
+                async (id) => {
+                    if (id.value === "a") throw new TypeError("provider failed");
+                },
+                fakeErrors,
+                { retryDelayMs: 25, clock: { now: () => 100 } }
+            );
+
+            const result = await driver.handleAlarm();
+            expect(result.succeededIds).toEqual([outboxId("b")]);
+            expect(result.failures.map((failure) => failure.id)).toEqual([outboxId("a")]);
+            expect(result.failures[0]?.cause).toBeInstanceOf(AgentCoreError);
+            expect(result.failures[0]?.cause).toMatchObject({
+                code: "protocol.invalid-state",
+                cause: new TypeError("provider failed")
+            });
+            expect(outbox.rescheduled).toEqual([{ id: "a", scheduledAt: 125 }]);
+        }
+    );
+
+    test(
+        "backs a failed sweep off instead of rearming at a past due time",
+        { tags: "p1" },
+        async () => {
+            const alarms = new FakeAlarmStorage();
+            const driver = new AlarmOutboxReconciler(
+                alarms,
+                failingDueIds(100),
+                async () => undefined,
+                fakeErrors,
+                { retryDelayMs: 25, clock: { now: () => 100 } }
+            );
+
+            await expect(driver.handleAlarm()).rejects.toMatchObject({
+                code: "protocol.invalid-state",
+                message: "Reconciliation outbox due query failed"
+            });
+            // Rearming at the outbox schedule (100) would refire the alarm immediately.
+            expect(alarms.scheduledAt).toBe(125);
+        }
+    );
+
+    test("keeps the sweep failure when the alarm repair fails too", { tags: "p1" }, async () => {
+        const alarms = new FakeAlarmStorage();
+        alarms.failNextSet();
+        const driver = new AlarmOutboxReconciler(
+            alarms,
+            failingDueIds(100),
+            async () => undefined,
+            fakeErrors,
+            { retryDelayMs: 25, clock: { now: () => 100 } }
+        );
+
+        const failure = await driver.handleAlarm().catch((error: unknown) => error);
+        expect(failure).toBeInstanceOf(AgentCoreError);
+        expect(failure).toMatchObject({
+            code: "protocol.invalid-state",
+            message: "Reconciliation outbox due query failed",
+            cause: new TypeError("outbox unavailable")
+        });
         expect(alarms.scheduledAt).toBeNull();
     });
 
@@ -260,4 +338,16 @@ describe("AlarmOutboxReconciler", () => {
 
 function outboxId(value: string): ReconciliationOutboxId {
     return new ReconciliationOutboxId(value);
+}
+
+/** An outbox whose entries stay durably due while the sweep query keeps failing. */
+function failingDueIds(dueAt: number): ReconciliationOutbox {
+    return {
+        dueIds: async () => {
+            throw new TypeError("outbox unavailable");
+        },
+        nextDueAt: async () => dueAt,
+        acknowledge: async () => undefined,
+        reschedule: async () => undefined
+    };
 }

@@ -22,12 +22,25 @@ export function operationalFailure(
     message: string,
     cause?: unknown
 ): never {
+    throw operationalError(errors, code, message, cause);
+}
+
+/**
+ * The same mapping as `operationalFailure`, returned instead of raised, for the batch
+ * seams that must report a per-entry cause without failing their whole batch.
+ */
+export function operationalError(
+    errors: CloudflareErrorPort,
+    code: CloudflareOperationalErrorCode,
+    message: string,
+    cause?: unknown
+): AgentCoreError {
     try {
-        return errors.raise(code, message, cause);
+        errors.raise(code, message, cause);
     } catch (error) {
-        if (error instanceof AgentCoreError && error.code === code) throw error;
-        const failure = new AgentCoreError(code, message);
-        if (cause !== undefined) Object.defineProperty(failure, "cause", { value: cause });
-        throw failure;
+        if (error instanceof AgentCoreError && error.code === code) return error;
     }
+    const failure = new AgentCoreError(code, message);
+    if (cause !== undefined) Object.defineProperty(failure, "cause", { value: cause });
+    return failure;
 }

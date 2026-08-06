@@ -1,7 +1,8 @@
 import {
     DurableViewRevisionLog,
     HibernatingViewSocketAdapter,
-    decodeViewStreamFrame
+    decodeViewStreamFrame,
+    type HibernatingWebSocketContextLike
 } from "../src/index.js";
 import { FakeRuntimeSqlite, FakeWebSocket, FakeWebSocketContext, fakeErrors } from "./fakes.js";
 import { expectOperationalFailure } from "./assertions.js";
@@ -52,6 +53,50 @@ describe("HibernatingViewSocketAdapter", () => {
             () => adapter.acknowledge(socket, 2),
             "protocol.revision-conflict"
         );
+    });
+
+    test("never accepts a socket that could not keep its attachment", { tags: "p1" }, () => {
+        const log = new DurableViewRevisionLog(new FakeRuntimeSqlite(), fakeErrors);
+        log.append("channel", 1, new Uint8Array([1]));
+        const observed: unknown[] = [];
+        const context: HibernatingWebSocketContextLike = {
+            acceptWebSocket: (socket) => {
+                observed.push(socket.deserializeAttachment());
+            }
+        };
+        const adapter = new HibernatingViewSocketAdapter(context, log, fakeErrors);
+
+        adapter.accept(new FakeWebSocket(), "channel", 1);
+        // The attachment is already durable when the platform accepts the socket; a
+        // socket accepted without one fails every later message and cannot be repaired.
+        expect(observed).toEqual([{ version: 1, channel: "channel", ackedRevision: 1 }]);
+
+        const rejected = new FakeWebSocket();
+        rejected.serializeAttachment = () => {
+            throw new TypeError("attachment rejected");
+        };
+        expectOperationalFailure(
+            () => adapter.accept(rejected, "channel", 0),
+            "protocol.invalid-state"
+        );
+        expect(observed).toHaveLength(1);
+    });
+
+    test("replays a payload larger than the argument limit", { tags: "p2" }, () => {
+        const log = new DurableViewRevisionLog(new FakeRuntimeSqlite(), fakeErrors);
+        const payload = new Uint8Array(200_000).map((_value, index) => index % 256);
+        log.append("channel", 1, payload);
+        const socket = new FakeWebSocket();
+        new HibernatingViewSocketAdapter(new FakeWebSocketContext(), log, fakeErrors).accept(
+            socket,
+            "channel",
+            0
+        );
+
+        const frame = decodeViewStreamFrame(socket.sent[0] as string);
+        expect(
+            Uint8Array.from(atob(frame.payload), (character) => character.charCodeAt(0))
+        ).toEqual(payload);
     });
 
     test("rejects oversized or malformed attachments and frames", () => {

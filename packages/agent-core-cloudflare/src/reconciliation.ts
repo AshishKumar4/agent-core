@@ -1,5 +1,6 @@
+import type { AgentCoreError } from "@agent-core/core";
 import type { CloudflareErrorPort } from "./error.js";
-import { operationalFailure } from "./error.js";
+import { operationalError, operationalFailure } from "./error.js";
 import type { SynchronousSqlitePort } from "./migration.js";
 import { ReconciliationOutboxId } from "./id.js";
 
@@ -45,9 +46,15 @@ export interface AlarmReconciliationOptions {
     readonly clock?: ReconciliationClock;
 }
 
+/** One entry the sweep could not reconcile, kept with the cause that rescheduled it. */
+export interface ReconciliationFailure {
+    readonly id: ReconciliationOutboxId;
+    readonly cause: AgentCoreError;
+}
+
 export interface AlarmReconciliationResult {
     readonly succeededIds: readonly ReconciliationOutboxId[];
-    readonly failedIds: readonly ReconciliationOutboxId[];
+    readonly failures: readonly ReconciliationFailure[];
 }
 
 export class AlarmOutboxReconciler {
@@ -83,7 +90,8 @@ export class AlarmOutboxReconciler {
         await this.synchronizeAlarm();
     }
 
-    private async synchronizeAlarm(): Promise<void> {
+    /** `notBefore` floors the physical alarm; entries stay due at their outbox schedule. */
+    private async synchronizeAlarm(notBefore = 0): Promise<void> {
         const expected = await this.operation("Reconciliation outbox read failed", () =>
             this.outbox.nextDueAt()
         );
@@ -98,9 +106,12 @@ export class AlarmOutboxReconciler {
                     this.alarms.deleteAlarm()
                 );
             }
-        } else if (actual !== expected) {
+            return;
+        }
+        const scheduledAt = Math.max(expected, notBefore);
+        if (actual !== scheduledAt) {
             await this.operation("Physical alarm write failed", () =>
-                this.alarms.setAlarm(expected)
+                this.alarms.setAlarm(scheduledAt)
             );
         }
     }
@@ -109,7 +120,7 @@ export class AlarmOutboxReconciler {
         const now = this.#clock.now();
         requireOutputTime(now, "Reconciliation clock time", this.errors);
         const succeededIds: ReconciliationOutboxId[] = [];
-        const failedIds: ReconciliationOutboxId[] = [];
+        const failures: ReconciliationFailure[] = [];
         const visited = new Set<string>();
         try {
             const due = await this.operation("Reconciliation outbox due query failed", () =>
@@ -121,6 +132,7 @@ export class AlarmOutboxReconciler {
                 const id = entry.id;
                 if (visited.has(id.value)) continue;
                 visited.add(id.value);
+                let cause: AgentCoreError;
                 try {
                     await this.reconcile(id);
                     await this.operation(
@@ -128,28 +140,48 @@ export class AlarmOutboxReconciler {
                         () => this.outbox.acknowledge(entry)
                     );
                     succeededIds.push(id);
-                } catch {
-                    if (now > Number.MAX_SAFE_INTEGER - this.#retryDelayMs) {
-                        operationalFailure(
-                            this.errors,
-                            "protocol.invalid-state",
-                            "Reconciliation retry time exceeds the maximum safe integer"
-                        );
-                    }
-                    const retryAt = now + this.#retryDelayMs;
-                    await this.operation(`Reconciliation outbox reschedule failed for ${id}`, () =>
-                        this.outbox.reschedule(entry, retryAt)
+                    continue;
+                } catch (failure) {
+                    cause = operationalError(
+                        this.errors,
+                        "protocol.invalid-state",
+                        `Reconciliation failed for ${id}`,
+                        failure
                     );
-                    failedIds.push(id);
                 }
+                const retryAt = this.retryTime(now);
+                await this.operation(`Reconciliation outbox reschedule failed for ${id}`, () =>
+                    this.outbox.reschedule(entry, retryAt)
+                );
+                failures.push(Object.freeze({ id, cause }));
             }
-        } finally {
-            await this.repairAlarm();
+        } catch (cause) {
+            // Entries the sweep never reached stay due in the past, so rearming at the
+            // outbox schedule refires the alarm immediately: floor it one retry delay out.
+            try {
+                await this.synchronizeAlarm(this.retryTime(now));
+            } catch {
+                // Nothing here may replace the in-flight failure: it is the root cause, and
+                // the alarm is repaired from durable outbox state on the next arm or startup.
+            }
+            throw cause;
         }
+        await this.repairAlarm();
         return Object.freeze({
             succeededIds: Object.freeze(succeededIds),
-            failedIds: Object.freeze(failedIds)
+            failures: Object.freeze(failures)
         });
+    }
+
+    private retryTime(now: number): number {
+        if (now > Number.MAX_SAFE_INTEGER - this.#retryDelayMs) {
+            operationalFailure(
+                this.errors,
+                "protocol.invalid-state",
+                "Reconciliation retry time exceeds the maximum safe integer"
+            );
+        }
+        return now + this.#retryDelayMs;
     }
 
     private async operation<Result>(

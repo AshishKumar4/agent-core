@@ -1,9 +1,16 @@
 import { AgentCoreError } from "@agent-core/core";
-import type { CloudflareErrorPort } from "./error.js";
+import { encodeBase64 } from "./base64.js";
+import type { CloudflareErrorPort, CloudflareOperationalErrorCode } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { DurableViewEntry, DurableViewRevisionLog } from "./revision-log.js";
 
 const ATTACHMENT_VERSION = 1;
+/**
+ * `WebSocket.serializeAttachment` accepts at most 16,384 bytes. The platform measures the
+ * structured clone of the value, which this JSON measurement only approximates, so
+ * attachments are serialized before the socket is accepted and the platform's own limit
+ * stays authoritative over an unaccepted socket.
+ */
 const ATTACHMENT_LIMIT_BYTES = 16_384;
 
 export interface ViewSocketAttachment {
@@ -39,7 +46,10 @@ export class HibernatingViewSocketAdapter {
 
     public accept(socket: HibernatingWebSocketLike, channel: string, ackedRevision: number): void {
         const attachment = createAttachment(channel, ackedRevision, this.errors);
-        requireInputAttachmentSize(attachment, this.errors);
+        requireAttachmentSize(attachment, "operation.invalid-input", this.errors);
+        // Attach before accepting: a socket accepted without its attachment hibernates and
+        // then fails every later message, and nothing can repair it.
+        this.storeAttachment(socket, attachment);
         try {
             this.context.acceptWebSocket(socket);
         } catch (cause) {
@@ -50,7 +60,6 @@ export class HibernatingViewSocketAdapter {
                 cause
             );
         }
-        this.storeAttachment(socket, attachment);
         this.replay(socket);
     }
 
@@ -112,7 +121,7 @@ export class HibernatingViewSocketAdapter {
         socket: HibernatingWebSocketLike,
         attachment: ViewSocketAttachment
     ): void {
-        requireRuntimeAttachmentSize(attachment, this.errors);
+        requireAttachmentSize(attachment, "protocol.invalid-state", this.errors);
         try {
             socket.serializeAttachment(attachment);
         } catch (cause) {
@@ -141,30 +150,17 @@ export class HibernatingViewSocketAdapter {
     }
 }
 
-function requireInputAttachmentSize(
+function requireAttachmentSize(
     attachment: ViewSocketAttachment,
+    code: CloudflareOperationalErrorCode,
     errors: CloudflareErrorPort
 ): void {
     const size = new TextEncoder().encode(JSON.stringify(attachment)).byteLength;
     if (size > ATTACHMENT_LIMIT_BYTES) {
         operationalFailure(
             errors,
-            "operation.invalid-input",
-            "Cloudflare WebSocket attachment exceeds 16384 bytes"
-        );
-    }
-}
-
-function requireRuntimeAttachmentSize(
-    attachment: ViewSocketAttachment,
-    errors: CloudflareErrorPort
-): void {
-    const size = new TextEncoder().encode(JSON.stringify(attachment)).byteLength;
-    if (size > ATTACHMENT_LIMIT_BYTES) {
-        operationalFailure(
-            errors,
-            "protocol.invalid-state",
-            "Cloudflare WebSocket attachment exceeds 16384 bytes"
+            code,
+            `Cloudflare WebSocket attachment exceeds ${ATTACHMENT_LIMIT_BYTES} bytes`
         );
     }
 }
@@ -224,10 +220,7 @@ function decodePersistedAttachment(
         operationalFailure(errors, "codec.invalid", "WebSocket attachment has an invalid shape");
     }
     const attachment = Object.freeze(value as unknown as ViewSocketAttachment);
-    const size = new TextEncoder().encode(JSON.stringify(attachment)).byteLength;
-    if (size > ATTACHMENT_LIMIT_BYTES) {
-        operationalFailure(errors, "codec.invalid", "WebSocket attachment exceeds 16384 bytes");
-    }
+    requireAttachmentSize(attachment, "codec.invalid", errors);
     return attachment;
 }
 
@@ -239,12 +232,6 @@ function requireInputRevision(revision: number, errors: CloudflareErrorPort): vo
             "WebSocket revision must be a non-negative safe integer"
         );
     }
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-    let binary = "";
-    for (const byte of bytes) binary += String.fromCharCode(byte);
-    return btoa(binary);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -36,6 +36,7 @@ export type {
     DueReconciliation,
     IdempotentReconciliation,
     ReconciliationClock,
+    ReconciliationFailure,
     ReconciliationOutbox
 } from "./reconciliation.js";
 export { operationalFailure } from "./error.js";
@@ -62,6 +63,7 @@ export { AtLeastOnceQueueAdapter } from "./queue.js";
 export type {
     AuthoritativeQueueDelivery,
     AuthoritativeQueueTarget,
+    PoisonQueueMessage,
     QueueBatchResult,
     QueueMessageBatchLike,
     QueueMessageLike,

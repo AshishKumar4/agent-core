@@ -1,5 +1,6 @@
+import { AgentCoreError } from "@agent-core/core";
 import type { CloudflareErrorPort } from "./error.js";
-import { operationalFailure } from "./error.js";
+import { operationalError, operationalFailure } from "./error.js";
 
 export interface QueueRetryOptionsLike {
     readonly delaySeconds?: number;
@@ -39,9 +40,16 @@ export interface AuthoritativeQueueTarget<DeliveryId, Payload = unknown> {
     deliver(deliveryId: DeliveryId, payload: Payload): Promise<QueueTargetResult>;
 }
 
+/** A message whose body carries no decodable delivery, kept with the decoding cause. */
+export interface PoisonQueueMessage {
+    readonly messageId: string;
+    readonly cause: AgentCoreError;
+}
+
 export interface QueueBatchResult<DeliveryId> {
     readonly acknowledgedDeliveryIds: readonly DeliveryId[];
     readonly retriedDeliveryIds: readonly DeliveryId[];
+    readonly poisonMessages: readonly PoisonQueueMessage[];
 }
 
 export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
@@ -54,8 +62,17 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
     public async handle(batch: QueueMessageBatchLike): Promise<QueueBatchResult<DeliveryId>> {
         const acknowledgedDeliveryIds: DeliveryId[] = [];
         const retriedDeliveryIds: DeliveryId[] = [];
+        const poisonMessages: PoisonQueueMessage[] = [];
         for (const message of batch.messages) {
             const delivery = decodeDelivery(message.body, this.codecs, this.errors);
+            if (delivery instanceof AgentCoreError) {
+                // An undecodable body never becomes deliverable, but acknowledging it here
+                // would destroy it: retrying hands it to the queue's own dead-letter policy
+                // while the rest of the batch keeps its own dispositions.
+                this.dispose(`message ${message.id}`, () => message.retry());
+                poisonMessages.push(Object.freeze({ messageId: message.id, cause: delivery }));
+                continue;
+            }
             let result: QueueTargetResult;
             try {
                 result = await this.target.deliver(delivery.deliveryId, delivery.payload);
@@ -68,42 +85,49 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
                 );
             }
             const disposition = decodeResult(result, this.errors);
-            try {
-                if (disposition.disposition === "ack") {
-                    message.ack();
-                    acknowledgedDeliveryIds.push(delivery.deliveryId);
-                } else {
-                    const options =
-                        disposition.retryDelaySeconds === undefined
-                            ? undefined
-                            : { delaySeconds: disposition.retryDelaySeconds };
-                    message.retry(options);
-                    retriedDeliveryIds.push(delivery.deliveryId);
-                }
-            } catch (cause) {
-                operationalFailure(
-                    this.errors,
-                    "protocol.invalid-state",
-                    `Cloudflare queue disposition failed for delivery ${String(delivery.deliveryId)}`,
-                    cause
-                );
+            const label = `delivery ${String(delivery.deliveryId)}`;
+            if (disposition.disposition === "ack") {
+                this.dispose(label, () => message.ack());
+                acknowledgedDeliveryIds.push(delivery.deliveryId);
+            } else {
+                const options =
+                    disposition.retryDelaySeconds === undefined
+                        ? undefined
+                        : { delaySeconds: disposition.retryDelaySeconds };
+                this.dispose(label, () => message.retry(options));
+                retriedDeliveryIds.push(delivery.deliveryId);
             }
         }
         return Object.freeze({
             acknowledgedDeliveryIds: Object.freeze(acknowledgedDeliveryIds),
-            retriedDeliveryIds: Object.freeze(retriedDeliveryIds)
+            retriedDeliveryIds: Object.freeze(retriedDeliveryIds),
+            poisonMessages: Object.freeze(poisonMessages)
         });
+    }
+
+    private dispose(label: string, disposition: () => void): void {
+        try {
+            disposition();
+        } catch (cause) {
+            operationalFailure(
+                this.errors,
+                "protocol.invalid-state",
+                `Cloudflare queue disposition failed for ${label}`,
+                cause
+            );
+        }
     }
 }
 
+/** Returns the decoding failure rather than raising it: one poison body is not a batch failure. */
 function decodeDelivery<DeliveryId, Payload>(
     value: unknown,
     codecs: QueueDeliveryCodecs<DeliveryId, Payload>,
     errors: CloudflareErrorPort
-): AuthoritativeQueueDelivery<DeliveryId, Payload> {
+): AuthoritativeQueueDelivery<DeliveryId, Payload> | AgentCoreError {
     const fields = readDeliveryFields(value);
     if (fields === undefined) {
-        operationalFailure(
+        return operationalError(
             errors,
             "operation.invalid-input",
             "Queue body must contain an authoritative delivery ID and payload"
@@ -115,7 +139,7 @@ function decodeDelivery<DeliveryId, Payload>(
             payload: codecs.payload.decode(fields.payload)
         });
     } catch (cause) {
-        operationalFailure(
+        return operationalError(
             errors,
             "operation.invalid-input",
             "Queue body contains an invalid authoritative delivery identity or payload",

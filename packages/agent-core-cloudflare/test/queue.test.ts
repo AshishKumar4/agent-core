@@ -29,7 +29,8 @@ describe("AtLeastOnceQueueAdapter", () => {
 
         expect(await adapter.handle({ messages: [first, second] })).toEqual({
             acknowledgedDeliveryIds: [new RouteReservationId("delivery-1")],
-            retriedDeliveryIds: [new RouteReservationId("delivery-2")]
+            retriedDeliveryIds: [new RouteReservationId("delivery-2")],
+            poisonMessages: []
         });
         expect(calls).toEqual([
             new RouteReservationId("delivery-1"),
@@ -60,7 +61,40 @@ describe("AtLeastOnceQueueAdapter", () => {
         expect(message.retries).toEqual([]);
     });
 
-    test("maps malformed delivery input and invalid target output to exact codes", async () => {
+    test(
+        "retries only the undecodable message and delivers the rest of the batch",
+        { tags: "p1" },
+        async () => {
+            const poison = new FakeQueueMessage("platform-poison", {
+                deliveryId: "",
+                payload: null
+            });
+            const healthy = new FakeQueueMessage("platform-ok", {
+                deliveryId: "delivery",
+                payload: null
+            });
+            const adapter = new AtLeastOnceQueueAdapter(
+                { deliver: async () => ({ disposition: "ack" as const }) },
+                queueCodecs,
+                fakeErrors
+            );
+
+            const result = await adapter.handle({ messages: [poison, healthy] });
+            expect(result.acknowledgedDeliveryIds).toEqual([new RouteReservationId("delivery")]);
+            expect(result.poisonMessages.map((message) => message.messageId)).toEqual([
+                "platform-poison"
+            ]);
+            expect(result.poisonMessages[0]?.cause).toMatchObject({
+                code: "operation.invalid-input"
+            });
+            // The batch is never failed as a whole, so the healthy message keeps its ack.
+            expect(poison.retries).toEqual([undefined]);
+            expect(poison.acknowledgements).toBe(0);
+            expect(healthy.acknowledgements).toBe(1);
+        }
+    );
+
+    test("maps invalid target output to exact codes", async () => {
         const adapter = new AtLeastOnceQueueAdapter(
             {
                 deliver: async () => ({ disposition: "ack" as const, retryDelaySeconds: 1 })
@@ -68,11 +102,6 @@ describe("AtLeastOnceQueueAdapter", () => {
             queueCodecs,
             fakeErrors
         );
-        await expect(
-            adapter.handle({
-                messages: [new FakeQueueMessage("platform", { deliveryId: "", payload: null })]
-            })
-        ).rejects.toMatchObject({ code: "operation.invalid-input" });
         await expect(
             adapter.handle({
                 messages: [new FakeQueueMessage("platform", { deliveryId: "valid", payload: null })]
