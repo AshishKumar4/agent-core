@@ -230,6 +230,26 @@ describe("DurableObjectEnvironmentProvider", () => {
         });
     });
 
+    test("snapshots a file whose path collides with a prototype key", async () => {
+        // Assigning "__proto__" on an ordinary object hits the prototype setter and
+        // stores nothing, which would drop the file from an otherwise successful,
+        // digest-bound snapshot.
+        const { provider } = createProvider();
+        const request = sessionRequest("sess-1");
+        await provider.openSession(request);
+        provider.writeSessionFile(request, "__proto__", new Uint8Array([7, 8]));
+        provider.writeSessionFile(request, "constructor", new Uint8Array([9]));
+
+        const snapshot = await provider.createSnapshot(snapshotRequest("sess-1", "snap-1"));
+        if (snapshot.name !== "ready") throw new TypeError("Expected ready snapshot");
+        const files = Object.fromEntries([
+            ["__proto__", encodeBase64(new Uint8Array([7, 8]))],
+            ["constructor", encodeBase64(new Uint8Array([9]))]
+        ]);
+        const expectedBytes = encodeCanonicalJson({ files, format: SNAPSHOT_FORMAT });
+        expect(snapshot.value.value).toBe(`sha256:${Digest.sha256(expectedBytes).value}`);
+    });
+
     test("snapshots session files to a content-addressed ContentRef", async () => {
         const { provider, bucket } = createProvider();
         const request = sessionRequest("sess-1");
@@ -468,7 +488,9 @@ describe("DurableObjectEnvironmentProvider", () => {
 
     test("validates its descriptor, tenant, and preview host at construction", () => {
         const sqlite = new NodeSqlite();
-        new SqliteApplicationMigrator(sqlite, fakeErrors, [environmentProviderMigration(1)]).migrate();
+        new SqliteApplicationMigrator(sqlite, fakeErrors, [
+            environmentProviderMigration(1)
+        ]).migrate();
         const content = new R2ContentObjectRepository(new FakeR2Bucket(), fakeErrors);
         const construct = (
             descriptor: unknown,
@@ -507,9 +529,9 @@ describe("DurableObjectEnvironmentProvider", () => {
         await expect(
             call({ ...sessionRequest("sess-1"), environmentRevision: 0 })
         ).rejects.toMatchObject({ code: "operation.invalid-input" });
-        await expect(
-            call({ ...sessionRequest("sess-1"), generation: -1 })
-        ).rejects.toMatchObject({ code: "operation.invalid-input" });
+        await expect(call({ ...sessionRequest("sess-1"), generation: -1 })).rejects.toMatchObject({
+            code: "operation.invalid-input"
+        });
         await expect(
             Reflect.apply(provider.createSnapshot, provider, [
                 { ...snapshotRequest("sess-1", "snap-1"), sessionEpoch: -1 }
@@ -582,7 +604,14 @@ describe("DurableObjectEnvironmentProvider", () => {
         });
 
         const session = arm("FROM agent_core_environment_sessions WHERE session_id", [
-            { environment_id: "env-1", revision: 0, generation: 0, session_epoch: 0, restore_ref: null, state: "limbo" }
+            {
+                environment_id: "env-1",
+                revision: 0,
+                generation: 0,
+                session_epoch: 0,
+                restore_ref: null,
+                state: "limbo"
+            }
         ]);
         await session.provider.openSession(sessionRequest("sess-1"));
         session.trigger();
@@ -607,7 +636,14 @@ describe("DurableObjectEnvironmentProvider", () => {
         ).rejects.toMatchObject({ code: "codec.invalid" });
 
         const snapshot = arm("FROM agent_core_environment_snapshots", [
-            { environment_id: "env-1", session_id: "sess-1", revision: 0, generation: 0, session_epoch: 0, content_ref: 7 }
+            {
+                environment_id: "env-1",
+                session_id: "sess-1",
+                revision: 0,
+                generation: 0,
+                session_epoch: 0,
+                content_ref: 7
+            }
         ]);
         snapshot.trigger();
         await expect(
@@ -615,7 +651,16 @@ describe("DurableObjectEnvironmentProvider", () => {
         ).rejects.toMatchObject({ code: "codec.invalid" });
 
         const exposure = arm("FROM agent_core_environment_exposures", [
-            { environment_id: "env-1", session_id: "sess-1", revision: 0, generation: 0, session_epoch: 0, port: 8080, url: null, state: "open" }
+            {
+                environment_id: "env-1",
+                session_id: "sess-1",
+                revision: 0,
+                generation: 0,
+                session_epoch: 0,
+                port: 8080,
+                url: null,
+                state: "open"
+            }
         ]);
         exposure.trigger();
         await expect(
@@ -632,9 +677,9 @@ describe("DurableObjectEnvironmentProvider", () => {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             ["exp-1", "env-1", "sess-1", 0, 0, 0, 8080, null, "exposed"]
         );
-        await expect(provider.inspectExposure(exposureRequest("sess-1", "exp-1"))).rejects.toMatchObject(
-            { code: "codec.invalid" }
-        );
+        await expect(
+            provider.inspectExposure(exposureRequest("sess-1", "exp-1"))
+        ).rejects.toMatchObject({ code: "codec.invalid" });
     });
 
     test("fails closed when restoring a structurally invalid snapshot document", async () => {
@@ -660,12 +705,18 @@ describe("DurableObjectEnvironmentProvider", () => {
             await provider.openSession(sessionRequest("sess-c", { restore: filesNotRecord }))
         ).toEqual({ name: "failed" });
 
-        const encodedNotString = await restoreOf({ files: { "a.txt": 1 }, format: SNAPSHOT_FORMAT });
+        const encodedNotString = await restoreOf({
+            files: { "a.txt": 1 },
+            format: SNAPSHOT_FORMAT
+        });
         expect(
             await provider.openSession(sessionRequest("sess-d", { restore: encodedNotString }))
         ).toEqual({ name: "failed" });
 
-        const invalidBase64 = await restoreOf({ files: { "a.txt": "!!!" }, format: SNAPSHOT_FORMAT });
+        const invalidBase64 = await restoreOf({
+            files: { "a.txt": "!!!" },
+            format: SNAPSHOT_FORMAT
+        });
         expect(
             await provider.openSession(sessionRequest("sess-e", { restore: invalidBase64 }))
         ).toEqual({ name: "failed" });
@@ -702,7 +753,9 @@ describe("DurableObjectEnvironmentProvider", () => {
             const racing = provider.openSession(sessionRequest("sess-r", { restore }));
             await bucket.started;
             expect(
-                await provider.openSession(sessionRequest("sess-newer", { revision: 1, generation: 1 }))
+                await provider.openSession(
+                    sessionRequest("sess-newer", { revision: 1, generation: 1 })
+                )
             ).toMatchObject({ name: "ready" });
             bucket.release();
             expect(await racing).toEqual({ name: "failed" });

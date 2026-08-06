@@ -230,6 +230,64 @@ describe("reconciliation driver", () => {
     );
 
     test(
+        "[C13-EFFECT-RECONCILIATION-DRIVER] a failed sweep leaves the schedule armed for its attempts",
+        { tags: "p0" },
+        async () => {
+            const fixture = await indeterminateFixture("driver-failed-sweep");
+            const schedule = new DurableSchedule(new TestSqlite());
+            const failing: EffectReconciliationPort<string, string> = {
+                query: async () => {
+                    throw new TypeError("provider unreachable");
+                }
+            };
+            const driver = new AlarmReconciliationDriver(
+                fixture.reconciler(failing),
+                fixture.source,
+                schedule,
+                INTERVAL_MS,
+                fixture.harness.now
+            );
+            driver.arm();
+
+            await expect(driver.sweep()).rejects.toThrow();
+            // Clearing before the work would strand the attempt with no armed schedule.
+            expect(schedule.scheduled()).toBeDefined();
+        }
+    );
+
+    test(
+        "[C13-EFFECT-RECONCILIATION-DRIVER] restart repair arms only while attempts remain",
+        { tags: "p0" },
+        async () => {
+            const fixture = await indeterminateFixture("driver-repair");
+            const database = new TestSqlite();
+            const schedule = new DurableSchedule(database);
+            const driver = new AlarmReconciliationDriver(
+                fixture.reconciler(finalProvider()),
+                fixture.source,
+                schedule,
+                INTERVAL_MS,
+                fixture.harness.now
+            );
+
+            // A schedule lost with work outstanding is reconstructed at startup.
+            expect(driver.repair()).toBeDefined();
+            expect(schedule.scheduled()).toBeDefined();
+
+            await driver.sweep();
+            expect(schedule.scheduled()).toBeUndefined();
+            const restarted = new AlarmReconciliationDriver(
+                fixture.reconciler(finalProvider()),
+                fixture.source,
+                new DurableSchedule(database),
+                INTERVAL_MS,
+                fixture.harness.now
+            );
+            expect(restarted.repair()).toBeUndefined();
+        }
+    );
+
+    test(
         "[C13-EFFECT-RECONCILIATION-DRIVER] a sweep re-arms while attempts remain indeterminate",
         { tags: "p0" },
         async () => {

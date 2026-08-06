@@ -245,7 +245,7 @@ describe("Cloudflare operational failure mapping", () => {
         const overflow = new AlarmOutboxReconciler(
             new FakeAlarmStorage(),
             {
-                dueIds: async () => [new ReconciliationOutboxId("id")],
+                dueIds: async () => [{ id: new ReconciliationOutboxId("id"), scheduledAt: 0 }],
                 nextDueAt: async () => null,
                 acknowledge: async () => {},
                 reschedule: async () => {}

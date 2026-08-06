@@ -121,12 +121,16 @@ describe("SQLite application durability", () => {
         outbox.enqueue(new ReconciliationOutboxId("later"), 20);
         outbox.enqueue(new ReconciliationOutboxId("first"), 10);
         expect(await outbox.nextDueAt()).toBe(10);
-        expect(await outbox.dueIds(10, 5)).toEqual([new ReconciliationOutboxId("first")]);
-        await outbox.reschedule(new ReconciliationOutboxId("first"), 30);
-        expect(await outbox.dueIds(20, 5)).toEqual([new ReconciliationOutboxId("later")]);
-        await outbox.acknowledge(new ReconciliationOutboxId("later"));
+        expect(await outbox.dueIds(10, 5)).toEqual([
+            { id: new ReconciliationOutboxId("first"), scheduledAt: 10 }
+        ]);
+        await outbox.reschedule({ id: new ReconciliationOutboxId("first"), scheduledAt: 10 }, 30);
+        expect(await outbox.dueIds(20, 5)).toEqual([
+            { id: new ReconciliationOutboxId("later"), scheduledAt: 20 }
+        ]);
+        await outbox.acknowledge({ id: new ReconciliationOutboxId("later"), scheduledAt: 20 });
         expect(await outbox.nextDueAt()).toBe(30);
-        await outbox.acknowledge(new ReconciliationOutboxId("first"));
+        await outbox.acknowledge({ id: new ReconciliationOutboxId("first"), scheduledAt: 30 });
         expect(await outbox.nextDueAt()).toBeNull();
     });
 });

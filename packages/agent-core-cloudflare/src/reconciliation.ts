@@ -12,12 +12,24 @@ export interface AlarmStorageLike {
     deleteAlarm(): Promise<void>;
 }
 
-/** The outbox retains scheduling and payload ownership; this seam exposes IDs only. */
+/** One due entry: the ID to reconcile and the schedule that made it due. */
+export interface DueReconciliation {
+    readonly id: ReconciliationOutboxId;
+    readonly scheduledAt: number;
+}
+
+/**
+ * The outbox retains scheduling and payload ownership; this seam exposes IDs only.
+ *
+ * Reconciliation awaits application work while the Durable Object's input gate is
+ * open, so a request can reschedule an entry mid-flight. Both write paths therefore
+ * fence on the schedule the reconciler observed: a newer schedule survives.
+ */
 export interface ReconciliationOutbox {
-    dueIds(now: number, limit: number): Promise<readonly ReconciliationOutboxId[]>;
+    dueIds(now: number, limit: number): Promise<readonly DueReconciliation[]>;
     nextDueAt(): Promise<number | null>;
-    acknowledge(id: ReconciliationOutboxId): Promise<void>;
-    reschedule(id: ReconciliationOutboxId, scheduledAt: number): Promise<void>;
+    acknowledge(due: DueReconciliation): Promise<void>;
+    reschedule(due: DueReconciliation, scheduledAt: number): Promise<void>;
 }
 
 /** Implementations must be idempotent for every repeated call with the same outbox ID. */
@@ -100,18 +112,20 @@ export class AlarmOutboxReconciler {
         const failedIds: ReconciliationOutboxId[] = [];
         const visited = new Set<string>();
         try {
-            const ids = await this.operation("Reconciliation outbox due query failed", () =>
+            const due = await this.operation("Reconciliation outbox due query failed", () =>
                 this.outbox.dueIds(now, this.#batchSize)
             );
-            for (const id of ids) {
-                requireOutputId(id, this.errors);
+            for (const entry of due) {
+                requireOutputId(entry?.id, this.errors);
+                requireOutputTime(entry.scheduledAt, "Due reconciliation schedule", this.errors);
+                const id = entry.id;
                 if (visited.has(id.value)) continue;
                 visited.add(id.value);
                 try {
                     await this.reconcile(id);
                     await this.operation(
                         `Reconciliation outbox acknowledgement failed for ${id}`,
-                        () => this.outbox.acknowledge(id)
+                        () => this.outbox.acknowledge(entry)
                     );
                     succeededIds.push(id);
                 } catch {
@@ -124,7 +138,7 @@ export class AlarmOutboxReconciler {
                     }
                     const retryAt = now + this.#retryDelayMs;
                     await this.operation(`Reconciliation outbox reschedule failed for ${id}`, () =>
-                        this.outbox.reschedule(id, retryAt)
+                        this.outbox.reschedule(entry, retryAt)
                     );
                     failedIds.push(id);
                 }
@@ -166,18 +180,26 @@ export class SqliteReconciliationOutbox implements ReconciliationOutbox {
         );
     }
 
-    public async dueIds(now: number, limit: number): Promise<readonly ReconciliationOutboxId[]> {
+    public async dueIds(now: number, limit: number): Promise<readonly DueReconciliation[]> {
         requireInputTime(now, "Reconciliation query time", this.errors);
         requireInputPositiveInteger(limit, "query limit", this.errors);
         const rows = this.database.all(
-            `SELECT id FROM agent_core_reconciliation_outbox
+            `SELECT id, scheduled_at FROM agent_core_reconciliation_outbox
              WHERE scheduled_at <= ? ORDER BY scheduled_at, id LIMIT ?`,
             [now, limit]
         );
         return Object.freeze(
             rows.map((row) => {
                 requireStoredOutputId(row.id, this.errors);
-                return new ReconciliationOutboxId(row.id as string);
+                requireOutputTime(
+                    row.scheduled_at as number | null,
+                    "Stored outbox schedule",
+                    this.errors
+                );
+                return Object.freeze({
+                    id: new ReconciliationOutboxId(row.id as string),
+                    scheduledAt: row.scheduled_at as number
+                });
             })
         );
     }
@@ -199,17 +221,23 @@ export class SqliteReconciliationOutbox implements ReconciliationOutbox {
         return value as number | null;
     }
 
-    public async acknowledge(id: ReconciliationOutboxId): Promise<void> {
-        requireInputId(id, this.errors);
-        this.database.run("DELETE FROM agent_core_reconciliation_outbox WHERE id = ?", [id.value]);
+    public async acknowledge(due: DueReconciliation): Promise<void> {
+        requireInputId(due?.id, this.errors);
+        requireInputTime(due.scheduledAt, "Reconciliation acknowledgement fence", this.errors);
+        this.database.run(
+            "DELETE FROM agent_core_reconciliation_outbox WHERE id = ? AND scheduled_at = ?",
+            [due.id.value, due.scheduledAt]
+        );
     }
 
-    public async reschedule(id: ReconciliationOutboxId, scheduledAt: number): Promise<void> {
-        requireInputId(id, this.errors);
+    public async reschedule(due: DueReconciliation, scheduledAt: number): Promise<void> {
+        requireInputId(due?.id, this.errors);
+        requireInputTime(due.scheduledAt, "Reconciliation reschedule fence", this.errors);
         requireInputTime(scheduledAt, "Reconciliation reschedule time", this.errors);
         this.database.run(
-            "UPDATE agent_core_reconciliation_outbox SET scheduled_at = ? WHERE id = ?",
-            [scheduledAt, id.value]
+            `UPDATE agent_core_reconciliation_outbox SET scheduled_at = ?
+             WHERE id = ? AND scheduled_at = ?`,
+            [scheduledAt, due.id.value, due.scheduledAt]
         );
     }
 }

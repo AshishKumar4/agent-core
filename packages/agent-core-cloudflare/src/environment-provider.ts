@@ -513,14 +513,17 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
     }
 
     private serializeSessionFiles(session: string): Uint8Array {
-        const files: Record<string, string> = {};
+        const entries: Array<readonly [string, string]> = [];
         for (const row of this.database.all(READ_FILES, [session])) {
             const { path, content } = row;
             if (typeof path !== "string" || !(content instanceof Uint8Array)) {
                 this.corrupt("Environment session file row is corrupt");
             }
-            files[path] = encodeBase64(content);
+            entries.push([path, encodeBase64(content)]);
         }
+        // fromEntries defines own properties; assigning "__proto__" would instead hit
+        // the prototype setter and silently drop that file from the snapshot.
+        const files = Object.fromEntries(entries);
         return encodeCanonicalJson({ files, format: SNAPSHOT_FORMAT });
     }
 

@@ -3,16 +3,17 @@ import type {
     AlarmStorageLike,
     AuthoritativeDurableObjectHost,
     AuthoritativeWorkerRouter,
+    CloudflareDurableObjectStorage,
     CloudflareErrorPort,
     CloudflareExecutionContextLike,
     CloudflareOperationalErrorCode,
-    CloudflareDurableObjectStorage,
     CloudflareSqlBinding,
     CloudflareSqlCursor,
     CloudflareSqlStorage,
     CloudflareSqlValue,
-    DurableObjectNamespaceLike,
     DispatchNamespaceLike,
+    DueReconciliation,
+    DurableObjectNamespaceLike,
     DynamicWorkerHandleLike,
     DynamicWorkerLoadOptions,
     FetchServiceLike,
@@ -156,7 +157,7 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
                 .sort(([left], [right]) => left - right)
                 .map(([revision, payload]) => ({ revision, payload: payload.slice() }));
         }
-        if (statement.includes("SELECT id FROM agent_core_reconciliation_outbox")) {
+        if (statement.includes("SELECT id, scheduled_at FROM agent_core_reconciliation_outbox")) {
             const now = bindings[0] as number;
             const limit = bindings[1] as number;
             return [...this.#outbox]
@@ -166,7 +167,7 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
                         leftTime - rightTime || leftId.localeCompare(rightId)
                 )
                 .slice(0, limit)
-                .map(([id]) => ({ id }));
+                .map(([id, scheduledAt]) => ({ id, scheduled_at: scheduledAt }));
         }
         if (statement.startsWith("SELECT MIN(scheduled_at)")) {
             return [
@@ -203,9 +204,14 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
         } else if (statement.startsWith("INSERT INTO agent_core_reconciliation_outbox")) {
             this.#outbox.set(bindings[0] as string, bindings[1] as number);
         } else if (statement.startsWith("DELETE FROM agent_core_reconciliation_outbox")) {
-            this.#outbox.delete(bindings[0] as string);
+            // The durable statement fences on the observed schedule; so does the fake.
+            const id = bindings[0] as string;
+            if (this.#outbox.get(id) === (bindings[1] as number)) this.#outbox.delete(id);
         } else if (statement.startsWith("UPDATE agent_core_reconciliation_outbox")) {
-            this.#outbox.set(bindings[1] as string, bindings[0] as number);
+            const id = bindings[1] as string;
+            if (this.#outbox.get(id) === (bindings[2] as number)) {
+                this.#outbox.set(id, bindings[0] as number);
+            }
         }
     }
 
@@ -514,16 +520,16 @@ export class FakeReconciliationOutbox implements ReconciliationOutbox {
         this.#scheduled.set(id, scheduledAt);
     }
 
-    public async dueIds(now: number, limit: number): Promise<readonly ReconciliationOutboxId[]> {
-        const ids = [...this.#scheduled]
+    public async dueIds(now: number, limit: number): Promise<readonly DueReconciliation[]> {
+        const due = [...this.#scheduled]
             .filter(([, scheduledAt]) => scheduledAt <= now)
             .sort(
                 ([leftId, leftTime], [rightId, rightTime]) =>
                     leftTime - rightTime || leftId.localeCompare(rightId)
             )
             .slice(0, limit)
-            .map(([id]) => new ReconciliationOutboxId(id));
-        return this.duplicateDueIds ? ids.flatMap((id) => [id, id]) : ids;
+            .map(([id, scheduledAt]) => ({ id: new ReconciliationOutboxId(id), scheduledAt }));
+        return this.duplicateDueIds ? due.flatMap((entry) => [entry, entry]) : due;
     }
 
     public async nextDueAt(): Promise<number | null> {
@@ -531,17 +537,21 @@ export class FakeReconciliationOutbox implements ReconciliationOutbox {
         return Math.min(...this.#scheduled.values());
     }
 
-    public async acknowledge(id: ReconciliationOutboxId): Promise<void> {
-        if (this.#acknowledgementFailures.delete(id.value)) {
+    public async acknowledge(due: DueReconciliation): Promise<void> {
+        if (this.#acknowledgementFailures.delete(due.id.value)) {
             throw new TypeError("Fake outbox acknowledgement failed");
         }
-        this.#scheduled.delete(id.value);
-        this.acknowledgedIds.push(id.value);
+        // The durable outbox fences on the observed schedule; the fake must too,
+        // or a lost-wakeup regression passes here and fails in production.
+        if (this.#scheduled.get(due.id.value) !== due.scheduledAt) return;
+        this.#scheduled.delete(due.id.value);
+        this.acknowledgedIds.push(due.id.value);
     }
 
-    public async reschedule(id: ReconciliationOutboxId, scheduledAt: number): Promise<void> {
-        this.#scheduled.set(id.value, scheduledAt);
-        this.rescheduled.push({ id: id.value, scheduledAt });
+    public async reschedule(due: DueReconciliation, scheduledAt: number): Promise<void> {
+        if (this.#scheduled.get(due.id.value) !== due.scheduledAt) return;
+        this.#scheduled.set(due.id.value, scheduledAt);
+        this.rescheduled.push({ id: due.id.value, scheduledAt });
     }
 
     public failAcknowledgeOnce(id: string): void {

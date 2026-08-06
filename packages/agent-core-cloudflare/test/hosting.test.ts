@@ -215,7 +215,7 @@ describe("Cloudflare hosting adapters", () => {
             contentBucket: (_environment: { CONTENT: FakeR2Bucket }) => bucket,
             migrations: [
                 {
-                    version: 2,
+                    version: 3,
                     name: "application-table",
                     statements: ["CREATE TABLE application_table (id INTEGER)"]
                 }

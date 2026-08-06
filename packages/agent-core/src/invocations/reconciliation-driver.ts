@@ -71,22 +71,43 @@ export class AlarmReconciliationDriver {
     }
 
     /**
-     * One driver firing: re-query indeterminate attempts, reconcile each, and
-     * re-arm exactly when unresolved attempts remain. An attempt whose provider
-     * outcome is still unknown stays indeterminate and keeps the schedule armed.
+     * Reconstruct the schedule from durable attempt state. A sweep interrupted by
+     * eviction or a failing reconciliation leaves attempts indeterminate; call this
+     * during startup so the driver resumes without waiting for new work to arm it.
+     */
+    public repair(): Date | undefined {
+        if (this.attempts.indeterminate(1).length === 0) return undefined;
+        return this.arm();
+    }
+
+    /**
+     * One driver firing: re-query indeterminate attempts, reconcile each, and leave
+     * the schedule armed exactly when unresolved attempts remain. An attempt whose
+     * provider outcome is still unknown stays indeterminate and keeps it armed.
+     *
+     * The schedule is settled after the work, never before: clearing first would
+     * strand every outstanding attempt if the firing is evicted or throws.
      */
     public async sweep(): Promise<ReconciliationSweepReport> {
-        this.schedule.clear();
         const queried = this.attempts.indeterminate(this.batchLimit);
         let reconciled = 0;
-        for (const attemptId of queried) {
-            const receipt = await this.reconciler.reconcile(attemptId);
-            if (receipt !== undefined && receipt.outcome !== "indeterminate") reconciled += 1;
+        try {
+            for (const attemptId of queried) {
+                const receipt = await this.reconciler.reconcile(attemptId);
+                if (receipt !== undefined && receipt.outcome !== "indeterminate") reconciled += 1;
+            }
+        } finally {
+            this.settleSchedule();
         }
         const remaining = this.attempts.indeterminate(1).length > 0;
-        if (remaining) {
-            this.schedule.schedule(new Date(this.now().getTime() + this.intervalMs));
-        }
         return Object.freeze({ queried: queried.length, reconciled, remaining });
+    }
+
+    private settleSchedule(): void {
+        if (this.attempts.indeterminate(1).length > 0) {
+            this.schedule.schedule(new Date(this.now().getTime() + this.intervalMs));
+            return;
+        }
+        this.schedule.clear();
     }
 }

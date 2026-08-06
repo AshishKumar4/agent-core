@@ -14,6 +14,7 @@ import {
 import { contentRepositoryFromR2Binding, type R2BucketBinding } from "./r2.js";
 import type { R2ContentObjectRepository } from "./content-object.js";
 import type { AlarmStorageLike } from "./reconciliation.js";
+import { DurableAlarmClaims } from "./alarm-claims.js";
 
 export interface CloudflareDurableObjectAlarmStorage
     extends CloudflareDurableObjectStorage, AlarmStorageLike {}
@@ -23,13 +24,19 @@ export interface CloudflareDurableObjectStateLike extends HibernatingWebSocketCo
     blockConcurrencyWhile<Result>(callback: () => Promise<Result>): Promise<Result>;
 }
 
+/** The runtime's own claim on the object's single alarm. */
+const RUNTIME_ALARM_OWNER = "agent-core.runtime";
+
 export interface CloudflareDurableObjectRuntime<Environment> {
     readonly state: CloudflareDurableObjectStateLike;
     readonly environment: Environment;
     readonly sqlite: CloudflareSqlite;
     readonly revisions: DurableViewRevisionLog;
     readonly webSockets: HibernatingViewSocketAdapter;
+    /** The object's single alarm, arbitrated per owner; see `alarmClaims`. */
     readonly alarms: AlarmStorageLike;
+    /** Mint an `AlarmStorageLike` per scheduler so two owners cannot clobber each other. */
+    readonly alarmClaims: DurableAlarmClaims;
     readonly content: R2ContentObjectRepository | undefined;
 }
 
@@ -98,13 +105,15 @@ export function createCloudflareDurableObjectClass<Environment>(
             const sqlite = new CloudflareSqlite(state.storage, options.errors);
             new SqliteApplicationMigrator(sqlite, options.errors, migrations).migrate();
             const revisions = new DurableViewRevisionLog(sqlite, options.errors);
+            const alarmClaims = new DurableAlarmClaims(sqlite, options.errors);
             const runtime = Object.freeze({
                 state,
                 environment,
                 sqlite,
                 revisions,
                 webSockets: new HibernatingViewSocketAdapter(state, revisions, options.errors),
-                alarms: state.storage,
+                alarms: alarmClaims.owner(RUNTIME_ALARM_OWNER, state.storage),
+                alarmClaims,
                 content:
                     options.contentBucket === undefined
                         ? undefined

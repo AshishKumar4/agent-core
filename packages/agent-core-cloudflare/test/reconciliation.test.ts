@@ -17,8 +17,8 @@ describe("AlarmOutboxReconciler", () => {
         await driver.repairAlarm();
         expect(alarms.scheduledAt).toBe(10);
 
-        await outbox.acknowledge(outboxId("first"));
-        await outbox.acknowledge(outboxId("later"));
+        await outbox.acknowledge({ id: outboxId("first"), scheduledAt: 10 });
+        await outbox.acknowledge({ id: outboxId("later"), scheduledAt: 20 });
         await driver.repairAlarm();
         expect(alarms.scheduledAt).toBeNull();
         expect(alarms.deleteCalls).toBe(1);
@@ -108,6 +108,59 @@ describe("AlarmOutboxReconciler", () => {
         });
         expect(calls).toEqual(["a", "b", "a"]);
         expect(alarms.scheduledAt).toBeNull();
+    });
+
+    test("keeps a schedule re-enqueued while reconciliation was in flight", async () => {
+        // Durable Object input gates are open across the reconcile await, so a request
+        // can reschedule the entry mid-flight; acknowledgement must not discard it.
+        const now = 100;
+        const alarms = new FakeAlarmStorage();
+        const outbox = new FakeReconciliationOutbox();
+        outbox.enqueue("a", now);
+        const driver = new AlarmOutboxReconciler(
+            alarms,
+            outbox,
+            async () => {
+                outbox.enqueue("a", now + 500);
+            },
+            fakeErrors,
+            { clock: { now: () => now } }
+        );
+
+        // Reconciliation itself succeeded; the acknowledgement is fenced out, so the
+        // newer schedule and its physical alarm survive.
+        expect(await driver.handleAlarm()).toEqual({
+            succeededIds: [outboxId("a")],
+            failedIds: []
+        });
+        expect(outbox.acknowledgedIds).toEqual([]);
+        expect(await outbox.nextDueAt()).toBe(now + 500);
+        expect(alarms.scheduledAt).toBe(now + 500);
+    });
+
+    test("keeps a re-enqueued schedule when reconciliation fails in flight", async () => {
+        const now = 100;
+        const alarms = new FakeAlarmStorage();
+        const outbox = new FakeReconciliationOutbox();
+        outbox.enqueue("a", now);
+        const driver = new AlarmOutboxReconciler(
+            alarms,
+            outbox,
+            async () => {
+                outbox.enqueue("a", now + 500);
+                throw new TypeError("provider failed");
+            },
+            fakeErrors,
+            { retryDelayMs: 25, clock: { now: () => now } }
+        );
+
+        // The retry reschedule is fenced out, so it cannot push the newer schedule back.
+        expect(await driver.handleAlarm()).toEqual({
+            succeededIds: [],
+            failedIds: [outboxId("a")]
+        });
+        expect(outbox.rescheduled).toEqual([]);
+        expect(await outbox.nextDueAt()).toBe(now + 500);
     });
 
     test("recovers from restart using only durable outbox IDs", async () => {

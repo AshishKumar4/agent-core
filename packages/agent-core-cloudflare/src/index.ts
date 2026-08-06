@@ -27,11 +27,13 @@ export {
     UnimplementedPlacementMigration
 } from "./placement.js";
 export type { PlacementClock, PlacementMigrationRequest, PlacementRegistry } from "./placement.js";
+export { DurableAlarmClaims } from "./alarm-claims.js";
 export { AlarmOutboxReconciler, SqliteReconciliationOutbox } from "./reconciliation.js";
 export type {
     AlarmReconciliationOptions,
     AlarmReconciliationResult,
     AlarmStorageLike,
+    DueReconciliation,
     IdempotentReconciliation,
     ReconciliationClock,
     ReconciliationOutbox

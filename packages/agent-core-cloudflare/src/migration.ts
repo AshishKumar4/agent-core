@@ -42,6 +42,16 @@ export const cloudflareRuntimeMigrations: readonly SqliteApplicationMigration[] 
             `CREATE INDEX agent_core_reconciliation_due
                 ON agent_core_reconciliation_outbox (scheduled_at, id)`
         ])
+    }),
+    Object.freeze({
+        version: 2,
+        name: "cloudflare-runtime-alarm-claims",
+        statements: Object.freeze([
+            `CREATE TABLE agent_core_alarm_claims (
+                owner TEXT PRIMARY KEY,
+                due_at INTEGER NOT NULL CHECK (due_at >= 0)
+            ) STRICT`
+        ])
     })
 ]);
 
