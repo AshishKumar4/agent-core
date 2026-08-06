@@ -185,6 +185,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-POLICY-IMPACT-BOUNDARY",
+      "owner": "W4",
+      "specAnchor": "C13-POLICY-IMPACT-BOUNDARY",
+      "specTextSha256": "sha256:b9559a38f36b1326bc29900bebf43e3e06c1ebecf8d590bbb0059b87b82354bd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-POLICY-MEDIATION-FLOOR",
       "owner": "W4",
       "specAnchor": "C13-POLICY-MEDIATION-FLOOR",

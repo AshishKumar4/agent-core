@@ -1458,15 +1458,27 @@ per §4.2. Token-level model-output streaming is an executor and transport conce
 
 ### 7.1 Impact taxonomy
 
-The six impacts are defined in §1.4. Boundary rule: an operation whose request crosses
-the trust boundary is `externalSend` regardless of data direction; reading the
-response is `observe`. A web fetch is `externalSend`; listing its cached result is
-`observe`.
+The six impacts are defined in §1.4. The **trust boundary** encloses the protection
+domains (§1.5) the Tenant controls. A request crosses it when its destination is not one
+of them: another Tenant, a third party, or any endpoint reached over a network the
+platform does not own.
+
+Boundary rule: an operation whose request crosses the trust boundary is `externalSend`
+regardless of data direction, and reading the response is `observe`. A web fetch is
+`externalSend`; listing its cached result is `observe`. The host derives this from the
+seam the call leaves through, and never from what the callee declares about itself. A
+declared impact is a claim by the party whose reach is in question, so a host that
+accepted one would let any remote name its own enforcement tier. This maps to
+**C13-POLICY-IMPACT-BOUNDARY**.
 
 ### 7.2 Enforcement tiers
 
-Every protected call is an **Invocation**; enforcement is tiered. Workspace policy
-maps `(facet, operation, impact, event trust tier)` to an `EnforcementTier`:
+Every protected call is an **Invocation**; enforcement is tiered. Workspace policy maps an
+Operation's `Impact` to an `EnforcementTier`. Impact is the key because it is the class the
+policy is about; the facet and the Operation are derivable from the call itself, and a
+policy keyed on them would be an instance list rather than a rule. Event trust tier decides
+whether an Event may invoke a Command at all (§6.1), which is an admission question and not
+a tiering one.
 
 - **mediated** — the durable pipeline: resolve initiator or delegated-Binding authority → durably record intent →
   reserve the Run obligation when Run-associated → evaluate policy → Approval when
@@ -1484,9 +1496,10 @@ maps `(facet, operation, impact, event trust tier)` to an `EnforcementTier`:
 Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct;
 Turn-owned session `execute` → direct; every other `execute`, plus `mutate`,
 `externalSend`, `delegate`, and `administer` → mediated. Policy MAY raise a direct floor
-to mediated and MAY add approval. It MUST NOT lower a mediated floor or remove an
-approval required by a profile, Operation, Package, or ancestor policy. Three conditions
-also raise direct to mediated: lack of bundled co-location; an applicable `operation.before`
+to mediated, and MAY add approval, which raises it too: an approval has nowhere to be
+recorded on the direct path. It MUST NOT lower a mediated floor or remove an approval
+required by a profile, Operation, Package, or ancestor policy. Three further conditions
+raise direct to mediated: lack of bundled co-location; an applicable `operation.before`
 or `operation.after` interceptor, whose rewrite evidence (§4.4 rule 3) has no direct
 channel to be recorded through; and the absence of a configured
 `maxDirectRevocationWindowMs`, without which §3.4 rule 6 can bound no revocation window.
@@ -2519,6 +2532,7 @@ A conforming implementation provides:
 - **C13-INTERCEPTOR-ATTRIBUTION** Pre-preparation rewrites are attributable.
 - **C13-INTERCEPTOR-FROZEN-RETRY** Retrying a frozen intent does not rerun mutating interceptors.
 - **C13-INTERCEPTOR-REPLAY** Replay persists and reuses both pre-effect and post-effect interceptor transformations and traces.
+- **C13-POLICY-IMPACT-BOUNDARY** The host derives an operation's impact from the seam its request crosses, never from a declaration by the callee.
 - **C13-INTERCEPTOR-THROW-BLOCK** A thrown interceptor error is a scoped block.
 - **C13-ENVIRONMENT-STALE-SESSION** Environment session lifecycle rejects a stale session.
 - **C13-ENVIRONMENT-DISPOSE-CLOSE** Environment session close disposes child Facets.
