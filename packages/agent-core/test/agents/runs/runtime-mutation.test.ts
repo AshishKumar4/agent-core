@@ -710,6 +710,47 @@ describe("captured evidence guards", () => {
         );
     });
 
+    test("non-commit obligations never satisfy a captured commit", { tags: "p0" }, () => {
+        const value = seedRunningTurn();
+        value.runtime.reserveRunObligation(ids.run, { kind: "route", reservation: refs.route });
+        const result = new RunCommit({
+            id: new RunCommitId("terminal-route-result"),
+            run: ids.run,
+            branch: ids.branch,
+            kind: "result",
+            parents: [ids.root],
+            pins: pins(),
+            writer: { kind: "turn", token: value.token },
+            subjectTurn: ids.turn,
+            content: content("b")
+        });
+        value.runtime.terminalizeRun({
+            run: ids.run,
+            turn: ids.turn,
+            expectedRunRevision: value.repository.transaction((tx) =>
+                must(value.repository.loadRun(tx, ids.run)).revision
+            ),
+            expectedTurnRevision: value.running.revision,
+            expectedBranchRevision: new Revision(0),
+            token: value.token,
+            outcome: "succeeded",
+            commit: result,
+            siblingCancellations: new Map(),
+            now: new Date(2000)
+        });
+        withReceipt(value);
+        expectCode(
+            () =>
+                value.runtime.appendCapturedEvidence(
+                    invocationCommit("captured-route-only", result.id),
+                    new Revision(1),
+                    new Date(2000)
+                ),
+            "run.invalid-state",
+            "Post-terminal commit is not a captured obligation"
+        );
+    });
+
     test("rejects forged writer and commit kinds for captured obligations", { tags: "p0" }, () => {
         const forgedWriter = terminalized(["captured-commit"]);
         withReceipt(forgedWriter.value);
@@ -944,6 +985,31 @@ describe("event delivery", () => {
         );
         expect(inbox).toHaveLength(1);
         expect(must(inbox[0]).idempotencyKey).toBe("first-key");
+    });
+
+    test("appends successive entries with distinct idempotency keys", { tags: "p0" }, () => {
+        const value = seedRunningTurn();
+        value.runtime.deliverEvent(
+            ids.turn,
+            value.running.revision,
+            value.token,
+            inboxEntry("inbox-first-of-two", 0, "key-one"),
+            new Date(1500)
+        );
+        const advanced = value.repository.transaction((tx) =>
+            must(value.repository.loadTurn(tx, ids.turn))
+        );
+        value.runtime.deliverEvent(
+            ids.turn,
+            advanced.revision,
+            value.token,
+            inboxEntry("inbox-second-of-two", 1, "key-two"),
+            new Date(1600)
+        );
+        const inbox = value.repository.transaction((tx) =>
+            value.repository.listInbox(tx, ids.turn)
+        );
+        expect(inbox.map((entry) => entry.idempotencyKey)).toEqual(["key-one", "key-two"]);
     });
 });
 

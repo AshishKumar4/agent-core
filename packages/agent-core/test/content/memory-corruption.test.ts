@@ -89,6 +89,21 @@ describe("MemoryContentStore snapshot validation", () => {
         expect(MemoryContentStore.restore(unbound).snapshot()).toEqual(unbound);
     });
 
+    test("rejects unbound snapshots that carry retention relations", { tags: "p0" }, async () => {
+        const store = new MemoryContentStore();
+        const stored = await store.put(encode("unbound-relation"));
+        const snapshot = store.snapshot();
+        expect(snapshot.binding).toBeNull();
+        expectAgentCoreError(
+            () =>
+                MemoryContentStore.restore({
+                    ...snapshot,
+                    relations: [{ ref: stored.ref.value, unownedSince: 10 }]
+                }),
+            "protocol.invalid-state"
+        );
+    });
+
     test("rejects duplicate, malformed, and cryptographically inconsistent content rows", { tags: "p0" }, async () => {
         const snapshot = await populatedSnapshot();
         const row = snapshot.content[0]!;

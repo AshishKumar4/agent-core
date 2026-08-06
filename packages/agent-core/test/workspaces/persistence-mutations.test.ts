@@ -1021,3 +1021,62 @@ describe("workspace validators", () => {
         ).not.toThrow();
     });
 });
+
+describe("storage trust boundary kills", () => {
+    test("compaction refuses kinds outside the compactable set", { tags: "p0" }, () => {
+        const records = new MemoryWorkspaceRecords();
+        records.insertRecord({ kind: "event", id: "event-keep", bytes: Uint8Array.of(1) });
+        expect(() => records.deleteCompactedRecords("event" as never, ["event-keep"])).toThrow(
+            expect.objectContaining({ name: "AgentCoreError", code: "protocol.invalid-state" })
+        );
+        expect(records.findRecord("event", "event-keep")).toBeDefined();
+    });
+
+    test("insertRecord reports non-buffer bytes as codec corruption", { tags: "p1" }, () => {
+        const records = new MemoryWorkspaceRecords();
+        expect(() =>
+            records.insertRecord({ kind: "event", id: "event-bad", bytes: "nope" } as never)
+        ).toThrow(expect.objectContaining({ name: "AgentCoreError", code: "codec.invalid" }));
+    });
+
+    test("pointer record keys must carry a parseable revision", { tags: "p1" }, () => {
+        for (const recordKey of ["surface-unrevisioned", "surface@-1"]) {
+            const records = new MemoryWorkspaceRecords();
+            expect(() =>
+                records.compareAndSetPointer(
+                    { namespace: "view.current", key: "surface", recordKey },
+                    undefined
+                )
+            ).toThrow(expect.objectContaining({ name: "AgentCoreError", code: "codec.invalid" }));
+        }
+    });
+
+    test("a View revision CAS on an empty Surface is a revision conflict", { tags: "p1" }, () => {
+        const records = new MemoryWorkspaceRecords();
+        const persistence = persistenceWith();
+        expect(() =>
+            persistence.saveView(records, viewFixture(1, "cas-absent"), Revision.initial(), [])
+        ).toThrow(
+            expect.objectContaining({ name: "AgentCoreError", code: "protocol.revision-conflict" })
+        );
+    });
+
+    test("stores View bodies containing null values", { tags: "p1" }, () => {
+        const records = new MemoryWorkspaceRecords();
+        const persistence = persistenceWith();
+        const base = viewFixture(0, "null-body");
+        const view = new View({
+            surface: base.surface,
+            revision: base.revision,
+            body: { gap: null, nested: { hole: null }, values: [null, 1] },
+            actions: base.actions,
+            cursor: base.cursor
+        });
+        persistence.saveView(records, view, undefined, []);
+        expect(persistence.currentView(records, view.surface.value)?.body).toEqual({
+            gap: null,
+            nested: { hole: null },
+            values: [null, 1]
+        });
+    });
+});

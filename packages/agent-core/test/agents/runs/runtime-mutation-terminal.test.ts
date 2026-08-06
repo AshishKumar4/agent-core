@@ -4,10 +4,10 @@ import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import { ForcedTurnCancellation } from "../../../src/agents/runs/forced-cancellation";
-import { RunId, TurnInboxEntryId } from "../../../src/agents/runs/id";
+import { RunCheckpointId, RunId, TurnInboxEntryId } from "../../../src/agents/runs/id";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 import type { TerminalizeRunRequest } from "../../../src/agents/runs/runtime";
-import { Turn, TurnInboxEntry } from "../../../src/agents/runs/turn";
+import { RunCheckpoint, Turn, TurnInboxEntry } from "../../../src/agents/runs/turn";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
@@ -349,6 +349,96 @@ describe("held cancellation and timeout fencing", () => {
         expect(
             value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
         ).toHaveLength(1);
+    });
+
+    test("fences a held Turn after ordinary inbox traffic", { tags: "p0" }, () => {
+        const value = seedRunningTurn();
+        value.runtime.deliverEvent(
+            ids.turn,
+            value.running.revision,
+            value.token,
+            new TurnInboxEntry(
+                new TurnInboxEntryId("inbox-prior"),
+                ids.turn,
+                0,
+                "message",
+                content("1"),
+                digest("1"),
+                "prior-key",
+                undefined,
+                new Date(1400)
+            ),
+            new Date(1400)
+        );
+        const current = value.repository.transaction((tx) =>
+            must(value.repository.loadTurn(tx, ids.turn))
+        );
+        value.runtime.cancelHeldTurn(
+            {
+                turn: ids.turn,
+                expectedTurnRevision: current.revision,
+                expectedBranchRevision: new Revision(0),
+                token: value.token,
+                outcome: "cancelled",
+                commit: resultCommit("cancel-after-inbox", ids.turn, ids.root, value.token),
+                now: new Date(1500)
+            },
+            cancelEntry("cancel-after-inbox-entry", { sequence: 1 })
+        );
+        expect(
+            value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
+        ).toHaveLength(2);
+        expect(
+            value.repository.transaction((tx) =>
+                must(value.repository.loadTurn(tx, ids.turn))
+            ).status.kind
+        ).toBe("cancelled");
+    });
+
+    test("timeout rejects a suspended Turn whose fenced lease has expired", { tags: "p0" }, () => {
+        const value = seedRunningTurn();
+        const commit = new RunCommit({
+            id: new RunCommitId("suspend-for-timeout"),
+            run: ids.run,
+            branch: ids.branch,
+            kind: "checkpoint",
+            parents: [ids.root],
+            pins: pins(),
+            writer: { kind: "turn", token: value.token },
+            subjectTurn: ids.turn,
+            content: content("d")
+        });
+        const checkpoint = new RunCheckpoint(
+            new RunCheckpointId("suspend-for-timeout-checkpoint"),
+            ids.turn,
+            commit.id,
+            content("d"),
+            0,
+            undefined
+        );
+        value.runtime.suspendTurn({
+            turn: ids.turn,
+            expectedTurnRevision: value.running.revision,
+            expectedBranchRevision: new Revision(0),
+            token: value.token,
+            checkpoint,
+            commit,
+            now: new Date(1500)
+        });
+        const suspended = value.repository.transaction((tx) =>
+            must(value.repository.loadTurn(tx, ids.turn))
+        );
+        expectCode(
+            () =>
+                value.runtime.timeoutTurn(
+                    ids.turn,
+                    suspended.revision,
+                    cancelEntry("timeout-suspended"),
+                    new Date(6000)
+                ),
+            "turn.invalid-state",
+            "Turn timeout requires an expired running lease"
+        );
     });
 
     test("timeout requires an expired running lease", { tags: "p0" }, () => {
@@ -796,6 +886,33 @@ describe("forced sibling cancellation", () => {
                 must(value.repository.loadRun(tx, ids.run)).lifecycle.kind
             )
         ).toBe("terminal");
+    });
+
+    test("fences a queued sibling with exact durable evidence", { tags: "p0" }, () => {
+        const value = seedRunningTurn();
+        const queuedId = queueSibling(value, "sibling-queued-fence");
+        const sibling = value.repository.transaction((tx) =>
+            must(value.repository.loadTurn(tx, queuedId))
+        );
+        const forced = forcedEvidence(value, sibling, "queued-fence");
+        const snapshot = value.runtime.terminalizeRun(
+            terminalRequest(value, {
+                forcedCancellationControl: forced.control,
+                siblingCancellations: new Map([[queuedId.value, forced.evidence]])
+            })
+        );
+        expect(snapshot.outcome).toBe("failed");
+        const fenced = value.repository.transaction((tx) =>
+            must(value.repository.loadTurn(tx, queuedId))
+        );
+        expect(fenced.status.kind).toBe("cancelled");
+        expect(fenced.lease.holder).toBeUndefined();
+        expect(fenced.lease.epoch).toBe(1);
+        const record = value.repository.transaction((tx) =>
+            must(value.repository.loadForcedCancellation(tx, queuedId))
+        );
+        expect(record.priorLeaseEpoch).toBe(0);
+        expect(record.fencedLeaseEpoch).toBe(1);
     });
 
     test("terminalizes cleanly over succeeded, failed, and cancelled siblings", { tags: "p0" }, () => {

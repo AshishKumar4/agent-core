@@ -59,6 +59,7 @@ import {
     type OperationAuthorityPort,
     type OperationInterceptionEvidence,
     type OperationInvocationPort,
+    type OperationPayload,
     type OperationPayloadShape
 } from "../../src/operations/gateway";
 import { FacetRuntimeHost } from "../../src/operations/lifecycle";
@@ -512,6 +513,254 @@ describe("Facet runtime", () => {
         const host = new FacetRuntimeHost([firstManifest, failingManifest], [first, failing]);
         await expect(host.activate()).rejects.toThrow(/rollback stop hook/);
         await expect(host.activate()).rejects.toThrow(/requires cleanup/);
+        await host.dispose();
+    });
+
+    test("reports no facets while a never-activated host is stopping", { tags: "p1" }, async () => {
+        const host = new FacetRuntimeHost([], []);
+        const disposal = host.dispose();
+        expect(host.facets()).toEqual([]);
+        expect(host.facet(facetRef("workspace:missing"))).toBeUndefined();
+        await disposal;
+    });
+
+    test("holds disposal until an in-flight activation transition settles", { tags: "p1" }, async () => {
+        const stops: string[] = [];
+        let releaseStart!: () => void;
+        let entered!: () => void;
+        const started = new Promise<void>((resolve) => {
+            entered = resolve;
+        });
+        const startGate = new Promise<void>((resolve) => {
+            releaseStart = resolve;
+        });
+        const blockedManifest = manifest("acme.blocked", []);
+        const facet = new TestFacet(
+            "workspace:blocked",
+            blockedManifest,
+            [],
+            new Map(),
+            new Map(),
+            async () => {
+                entered();
+                await startGate;
+            },
+            async () => {
+                stops.push("stop");
+            }
+        );
+        const host = new FacetRuntimeHost([blockedManifest], [facet]);
+        const activation = host.activate();
+        await started;
+        const disposal = host.dispose();
+        let disposed = false;
+        void disposal.then(() => {
+            disposed = true;
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(disposed).toBe(false);
+        releaseStart();
+        await expect(activation).rejects.toMatchObject({ code: "facet.inactive" });
+        await disposal;
+        expect(stops).toEqual(["stop"]);
+    });
+
+    test("retries activation cleanly after a rolled-back start failure", { tags: "p1" }, async () => {
+        let attempts = 0;
+        const retryManifest = manifest("acme.retry", []);
+        const facet = new TestFacet(
+            "workspace:retry",
+            retryManifest,
+            [],
+            new Map(),
+            new Map(),
+            async () => {
+                attempts += 1;
+                if (attempts === 1) throw new TypeError("first start fails");
+            }
+        );
+        const host = new FacetRuntimeHost([retryManifest], [facet]);
+        await expect(host.activate()).rejects.toMatchObject({ code: "facet.inactive" });
+        await host.activate();
+        expect(host.active).toBe(true);
+        expect(attempts).toBe(2);
+        await host.dispose();
+    });
+
+    test("hands a dispose call racing a cancelled start the same disposal transition", { tags: "p1" }, async () => {
+        let entered!: () => void;
+        const started = new Promise<void>((resolve) => {
+            entered = resolve;
+        });
+        const racingManifest = manifest("acme.racing", []);
+        const facet = new TestFacet(
+            "workspace:racing",
+            racingManifest,
+            [],
+            new Map(),
+            new Map(),
+            (context) => {
+                entered();
+                if (context.signal.aborted) return Promise.reject(new TypeError("cancelled"));
+                return new Promise((_resolve, reject) => {
+                    context.signal.addEventListener(
+                        "abort",
+                        () => reject(new TypeError("cancelled")),
+                        { once: true }
+                    );
+                });
+            }
+        );
+        const host = new FacetRuntimeHost([racingManifest], [facet]);
+        const activation = host.activate();
+        await started;
+        const first = host.dispose();
+        let second: Promise<void> | undefined;
+        // The rejection handler runs while the disposal transition is still stopping,
+        // so this dispose call must observe the same in-flight transition promise.
+        await activation.then(
+            () => {
+                throw new TypeError("activation must fail");
+            },
+            () => {
+                second = host.dispose();
+            }
+        );
+        expect(second).toBe(first);
+        await first;
+    });
+
+    test("never restarts Facets while a cancelled activation is being disposed", { tags: "p1" }, async () => {
+        let startCalls = 0;
+        let entered!: () => void;
+        const started = new Promise<void>((resolve) => {
+            entered = resolve;
+        });
+        const cancelledManifest = manifest("acme.cancel-restart", []);
+        const facet = new TestFacet(
+            "workspace:cancel-restart",
+            cancelledManifest,
+            [],
+            new Map(),
+            new Map(),
+            (context) => {
+                startCalls += 1;
+                entered();
+                if (context.signal.aborted) return Promise.reject(new TypeError("cancelled"));
+                return new Promise((_resolve, reject) => {
+                    context.signal.addEventListener(
+                        "abort",
+                        () => reject(new TypeError("cancelled")),
+                        { once: true }
+                    );
+                });
+            }
+        );
+        const host = new FacetRuntimeHost([cancelledManifest], [facet]);
+        const activation = host.activate();
+        await started;
+        const disposal = host.dispose();
+        await expect(activation.catch(() => host.activate())).rejects.toMatchObject({
+            code: "facet.inactive"
+        });
+        await disposal;
+        expect(startCalls).toBe(1);
+    });
+
+    test("retries failed stop hooks on the next disposal without restarting", { tags: "p1" }, async () => {
+        let startCalls = 0;
+        let stopCalls = 0;
+        let failStop = true;
+        const cleanupManifest = manifest("acme.cleanup-retry", []);
+        const facet = new TestFacet(
+            "workspace:cleanup-retry",
+            cleanupManifest,
+            [],
+            new Map(),
+            new Map(),
+            async () => {
+                startCalls += 1;
+            },
+            async () => {
+                stopCalls += 1;
+                if (failStop) {
+                    failStop = false;
+                    throw new TypeError("stop fails once");
+                }
+            }
+        );
+        const host = new FacetRuntimeHost([cleanupManifest], [facet]);
+        await host.activate();
+        await expect(host.dispose()).rejects.toMatchObject({ code: "facet.inactive" });
+        expect(stopCalls).toBe(1);
+        await expect(host.activate()).rejects.toMatchObject({ code: "facet.inactive" });
+        expect(startCalls).toBe(1);
+        await host.dispose();
+        expect(stopCalls).toBe(2);
+        await host.dispose();
+        expect(stopCalls).toBe(2);
+    });
+
+    test("hides Facets and holds the drain while runtime leases remain outstanding", { tags: "p1" }, async () => {
+        const stops: string[] = [];
+        const drainingManifest = manifest("acme.draining", []);
+        const facet = new TestFacet(
+            "workspace:draining",
+            drainingManifest,
+            [],
+            new Map(),
+            new Map(),
+            async () => {},
+            async () => {
+                stops.push("stop");
+            }
+        );
+        const host = new FacetRuntimeHost([drainingManifest], [facet]);
+        await host.activate();
+        const validated = host.facet(facet.ref)!;
+        const first = host.acquire(facet.ref, validated)!;
+        const second = host.acquire(facet.ref, validated)!;
+        const disposal = host.dispose();
+        expect(host.facet(facet.ref)).toBeUndefined();
+        first.release();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(stops).toEqual([]);
+        second.release();
+        await disposal;
+        expect(stops).toEqual(["stop"]);
+    });
+
+    test("rolls back a failed activation in reverse start order", { tags: "p1" }, async () => {
+        const stops: string[] = [];
+        const firstManifest = manifest("acme.reverse-first", []);
+        const secondManifest = manifest("acme.reverse-second", []);
+        const first = new TestFacet(
+            "workspace:reverse-first",
+            firstManifest,
+            [],
+            new Map(),
+            new Map(),
+            async () => {},
+            async () => {
+                stops.push("stop:first");
+            }
+        );
+        const second = new TestFacet(
+            "workspace:reverse-second",
+            secondManifest,
+            [],
+            new Map(),
+            new Map(),
+            async () => {
+                throw new TypeError("start failed");
+            },
+            async () => {
+                stops.push("stop:second");
+            }
+        );
+        const host = new FacetRuntimeHost([firstManifest, secondManifest], [first, second]);
+        await expect(host.activate()).rejects.toMatchObject({ code: "facet.inactive" });
+        expect(stops).toEqual(["stop:second", "stop:first"]);
         await host.dispose();
     });
 });
@@ -2035,6 +2284,636 @@ describe("Protected Operation gateway", () => {
             payload: { kind: "single", input: {} }
         });
         expect(calls).toEqual(["a", "b", "cross"]);
+        await host.dispose();
+    });
+
+    test("releases resolution authority exactly once for an idle disposed resolution", { tags: "p0" }, async () => {
+        const descriptor = operationDescriptor("run");
+        const facetManifest = manifest("acme.runtime", [descriptor]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+            new Map()
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const events: string[] = [];
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority(events, "direct"),
+            new TestInvocations(events)
+        );
+        const resolved = await gateway.resolve(new BindingName("runtime"));
+        expect(resolved.facet.equals(facet.ref)).toBe(true);
+        expect(events.filter((event) => event === "release")).toHaveLength(0);
+        resolved[Symbol.dispose]();
+        expect(events.filter((event) => event === "release")).toHaveLength(1);
+        resolved[Symbol.dispose]();
+        expect(events.filter((event) => event === "release")).toHaveLength(1);
+        await host.dispose();
+    });
+
+    test("holds authority release until every in-flight dispatch completes", { tags: "p0" }, async () => {
+        const events: string[] = [];
+        const releases = (): number => events.filter((event) => event === "release").length;
+        const gates = new Map<string, () => void>();
+        const waiting = new Map<string, Promise<void>>();
+        for (const key of ["one", "two"]) {
+            waiting.set(
+                key,
+                new Promise((resolve) => {
+                    gates.set(key, resolve);
+                })
+            );
+        }
+        let bothStarted!: () => void;
+        const started = new Promise<void>((resolve) => {
+            bothStarted = resolve;
+        });
+        let executing = 0;
+        const descriptor = operationDescriptor("run");
+        const runtime = new TestOperation(descriptor, async (input) => {
+            executing += 1;
+            if (executing === 2) bothStarted();
+            await waiting.get(String(requireObject(input)["key"]));
+            return input;
+        });
+        const facetManifest = manifest("acme.runtime", [descriptor]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", runtime]]),
+            new Map()
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority(events, "direct"),
+            new TestInvocations(events)
+        );
+        const resolved = await gateway.resolve(new BindingName("runtime"));
+        const first = resolved.dispatch({
+            requestKey: new OperationRequestKey("in-flight-1"),
+            operation: new OperationName("run"),
+            payload: { kind: "single", input: { key: "one" } }
+        });
+        const second = resolved.dispatch({
+            requestKey: new OperationRequestKey("in-flight-2"),
+            operation: new OperationName("run"),
+            payload: { kind: "single", input: { key: "two" } }
+        });
+        await started;
+        resolved[Symbol.dispose]();
+        expect(releases()).toBe(0);
+        gates.get("one")!();
+        await first;
+        expect(releases()).toBe(0);
+        gates.get("two")!();
+        await second;
+        expect(releases()).toBe(1);
+        await host.dispose();
+    });
+
+    test("rejects invalid input before consulting mediated authorization", { tags: "p0" }, async () => {
+        const descriptor = operationDescriptor("run", "mutate");
+        const facetManifest = manifest("acme.runtime", [descriptor]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+            new Map()
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const events: string[] = [];
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority(events, "mediated"),
+            new TestInvocations(events)
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await expect(
+            resolved.dispatch({
+                requestKey: new OperationRequestKey("invalid-before-authority"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: null }
+            })
+        ).rejects.toMatchObject({ code: "operation.invalid-input" });
+        expect(events).toEqual(["resolve"]);
+        await host.dispose();
+    });
+
+    test("rejects invalid raw output before after-interceptors can repair it", { tags: "p0" }, async () => {
+        const descriptor = operationDescriptor("run");
+        const declaration = new InterceptorDeclaration(
+            new InterceptorId("repair"),
+            "operation.after",
+            OperationSelector.own("run"),
+            1
+        );
+        let repairs = 0;
+        const facetManifest = manifest("acme.runtime", [descriptor], [declaration]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async () => null)]]),
+            new Map([
+                [
+                    "repair",
+                    new TestInterceptor(declaration, () => {
+                        repairs += 1;
+                        return { proceed: true, value: {} };
+                    })
+                ]
+            ])
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            new TestInvocations([])
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await expect(
+            resolved.dispatch({
+                requestKey: new OperationRequestKey("invalid-raw-output"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            })
+        ).rejects.toMatchObject({ code: "operation.invalid-output" });
+        expect(repairs).toBe(0);
+        await host.dispose();
+    });
+
+    test("refuses descriptors once the host no longer runs the resolved Facet", { tags: "p1" }, async () => {
+        const descriptor = operationDescriptor("run");
+        const facetManifest = manifest("acme.runtime", [descriptor]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+            new Map()
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            new TestInvocations([])
+        );
+        const resolved = await gateway.resolve(new BindingName("runtime"));
+        expect(resolved.descriptor(new OperationName("run"))).toBeDefined();
+        await host.dispose();
+        expect(() => resolved.descriptor(new OperationName("run"))).toThrowError(
+            expect.objectContaining({ code: "facet.inactive" })
+        );
+        resolved[Symbol.dispose]();
+    });
+
+    test("rejects payloads with an unknown kind or non-array batch inputs", { tags: "p0" }, async () => {
+        const descriptor = operationDescriptor("run");
+        const facetManifest = manifest("acme.runtime", [descriptor]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+            new Map()
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            new TestInvocations([])
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await expect(
+            resolved.dispatch({
+                requestKey: new OperationRequestKey("bogus-kind"),
+                operation: new OperationName("run"),
+                payload: { kind: "bogus", inputs: [{}] } as unknown as OperationPayload
+            })
+        ).rejects.toMatchObject({ code: "invocation.invalid" });
+        await expect(
+            resolved.dispatch({
+                requestKey: new OperationRequestKey("non-array-batch"),
+                operation: new OperationName("run"),
+                payload: { kind: "batch", inputs: "ab" } as unknown as OperationPayload
+            })
+        ).rejects.toMatchObject({ code: "invocation.invalid" });
+        await host.dispose();
+    });
+
+    test("records attributable direct interception evidence for both cut points", { tags: "p0" }, async () => {
+        class EvidenceInvocations extends TestInvocations {
+            public readonly evidence: OperationInterceptionEvidence[] = [];
+
+            public override recordDirectInterceptions(
+                evidence: OperationInterceptionEvidence
+            ): void {
+                this.evidence.push(evidence);
+            }
+        }
+        const descriptor = operationDescriptor("run");
+        const declaration = new InterceptorDeclaration(
+            new InterceptorId("rewrite"),
+            "operation.before",
+            OperationSelector.own("run"),
+            1
+        );
+        const facetManifest = manifest("acme.runtime", [descriptor], [declaration]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+            new Map([
+                [
+                    "rewrite",
+                    new TestInterceptor(declaration, (value) => ({
+                        proceed: true,
+                        value: { ...requireObject(value), rewritten: true }
+                    }))
+                ]
+            ])
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const invocations = new EvidenceInvocations([]);
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            invocations
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await resolved.dispatch({
+            requestKey: new OperationRequestKey("evidence"),
+            operation: new OperationName("run"),
+            payload: { kind: "single", input: { value: 1 } }
+        });
+        expect(invocations.evidence).toHaveLength(2);
+        const [prepared, presented] = invocations.evidence;
+        expect(prepared?.requestKey.value).toBe("evidence");
+        expect(prepared?.facet.value).toBe("workspace:runtime");
+        expect(prepared?.descriptor.name.value).toBe("run");
+        expect(prepared?.shape).toEqual({ kind: "single" });
+        expect(prepared?.traces).toHaveLength(1);
+        expect(prepared?.traces[0]).toHaveLength(1);
+        expect(prepared?.traces[0]?.[0]).toMatchObject({
+            interceptor: "rewrite",
+            contributor: "workspace:runtime",
+            cutPoint: "operation.before",
+            itemIndex: 0,
+            outcome: "rewritten"
+        });
+        expect(presented?.traces).toEqual([[]]);
+        await host.dispose();
+    });
+
+    test("reports interceptor applicability to the authority tier decision", { tags: "p0" }, async () => {
+        class TierProbeAuthority implements OperationAuthorityPort<
+            { readonly caller: string },
+            string,
+            string,
+            string
+        > {
+            public readonly flags: unknown[] = [];
+
+            public async resolve(): Promise<AuthorityResolution<string>> {
+                return { facet: facetRef("workspace:runtime"), resolution: "resolution" };
+            }
+
+            public tier(
+                _resolution: string,
+                _descriptor: OperationDescriptor,
+                hasInterceptors: boolean
+            ): "direct" | "mediated" {
+                this.flags.push(hasInterceptors);
+                return "direct";
+            }
+
+            public authorizeDirect(): string {
+                return "direct-authorization";
+            }
+
+            public async authorizeMediated(): Promise<string> {
+                return "mediated-authorization";
+            }
+
+            public replayBinding(): ReturnType<typeof replayBinding> {
+                return replayBinding();
+            }
+
+            public allowsInterception(): boolean {
+                return true;
+            }
+
+            public release(): void {}
+        }
+        const guarded = operationDescriptor("guarded");
+        const watched = operationDescriptor("watched");
+        const plain = operationDescriptor("plain");
+        const beforeDeclaration = new InterceptorDeclaration(
+            new InterceptorId("before-probe"),
+            "operation.before",
+            OperationSelector.own("guarded"),
+            1
+        );
+        const afterDeclaration = new InterceptorDeclaration(
+            new InterceptorId("after-probe"),
+            "operation.after",
+            OperationSelector.own("watched"),
+            1
+        );
+        const facetManifest = manifest(
+            "acme.runtime",
+            [guarded, watched, plain],
+            [beforeDeclaration, afterDeclaration]
+        );
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([
+                ["guarded", new TestOperation(guarded, async (input) => input)],
+                ["watched", new TestOperation(watched, async (input) => input)],
+                ["plain", new TestOperation(plain, async (input) => input)]
+            ]),
+            new Map([
+                [
+                    "before-probe",
+                    new TestInterceptor(beforeDeclaration, (value) => ({ proceed: true, value }))
+                ],
+                [
+                    "after-probe",
+                    new TestInterceptor(afterDeclaration, (value) => ({ proceed: true, value }))
+                ]
+            ])
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const authority = new TierProbeAuthority();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            authority,
+            new TestInvocations([])
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        for (const operation of ["guarded", "watched", "plain"]) {
+            await resolved.dispatch({
+                requestKey: new OperationRequestKey(`tier-${operation}`),
+                operation: new OperationName(operation),
+                payload: { kind: "single", input: {} }
+            });
+        }
+        expect(authority.flags).toEqual([true, true, false]);
+        await host.dispose();
+    });
+
+    test("presents the full intercept context to each interceptor", { tags: "p1" }, async () => {
+        class ContextProbeInterceptor extends Interceptor {
+            public readonly contexts: InterceptContext[] = [];
+
+            public constructor(public readonly declaration: InterceptorDeclaration) {
+                super();
+            }
+
+            public intercept(context: InterceptContext, value: FacetData): InterceptResult {
+                this.contexts.push(context);
+                return { proceed: true, value };
+            }
+        }
+        const descriptor = operationDescriptor("run");
+        const declaration = new InterceptorDeclaration(
+            new InterceptorId("aware"),
+            "operation.before",
+            OperationSelector.own("run"),
+            1
+        );
+        const probe = new ContextProbeInterceptor(declaration);
+        const facetManifest = manifest("acme.runtime", [descriptor], [declaration]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+            new Map([["aware", probe]])
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            new TestInvocations([])
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await resolved.dispatch({
+            requestKey: new OperationRequestKey("context"),
+            operation: new OperationName("run"),
+            payload: { kind: "single", input: {} }
+        });
+        expect(probe.contexts).toHaveLength(1);
+        const context = probe.contexts[0];
+        expect(context?.cutPoint).toBe("operation.before");
+        expect(context?.operation.name.value).toBe("run");
+        expect(context?.target.value).toBe("workspace:runtime");
+        expect(context?.interceptor.id.value).toBe("aware");
+        await host.dispose();
+    });
+
+    test("fails closed on non-object results and non-boolean proceed flags", { tags: "p0" }, async () => {
+        let behavior: "function" | "text-proceed" = "function";
+        const descriptor = operationDescriptor("run");
+        const declaration = new InterceptorDeclaration(
+            new InterceptorId("shape"),
+            "operation.before",
+            OperationSelector.own("run"),
+            1
+        );
+        const facetManifest = manifest("acme.runtime", [descriptor], [declaration]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+            new Map([
+                [
+                    "shape",
+                    new TestInterceptor(declaration, (value) =>
+                        behavior === "function"
+                            ? (Object.assign(() => value, {
+                                  proceed: true,
+                                  value
+                              }) as unknown as InterceptResult)
+                            : ({ proceed: "yes", value } as unknown as InterceptResult)
+                    )
+                ]
+            ])
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            new TestInvocations([])
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await expect(
+            resolved.dispatch({
+                requestKey: new OperationRequestKey("function-result"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            })
+        ).rejects.toMatchObject({ code: "authority.denied" });
+        behavior = "text-proceed";
+        await expect(
+            resolved.dispatch({
+                requestKey: new OperationRequestKey("text-proceed"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            })
+        ).rejects.toMatchObject({ code: "authority.denied" });
+        await host.dispose();
+    });
+
+    test("applies a selector when any pattern matches and never prefix-matches exact names", { tags: "p0" }, async () => {
+        const calls: string[] = [];
+        const run = operationDescriptor("run");
+        const runx = operationDescriptor("runx");
+        const declaration = new InterceptorDeclaration(
+            new InterceptorId("multi"),
+            "operation.before",
+            new OperationSelector([new OperationPattern("other"), new OperationPattern("run")]),
+            1
+        );
+        const facetManifest = manifest("acme.runtime", [run, runx], [declaration]);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([
+                ["run", new TestOperation(run, async (input) => input)],
+                ["runx", new TestOperation(runx, async (input) => input)]
+            ]),
+            new Map([
+                [
+                    "multi",
+                    new TestInterceptor(declaration, (value) => {
+                        calls.push("multi");
+                        return { proceed: true, value };
+                    })
+                ]
+            ])
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            new TestInvocations([])
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await resolved.dispatch({
+            requestKey: new OperationRequestKey("any-pattern"),
+            operation: new OperationName("run"),
+            payload: { kind: "single", input: {} }
+        });
+        expect(calls).toEqual(["multi"]);
+        await resolved.dispatch({
+            requestKey: new OperationRequestKey("exact-only"),
+            operation: new OperationName("runx"),
+            payload: { kind: "single", input: {} }
+        });
+        expect(calls).toEqual(["multi"]);
+        await host.dispose();
+    });
+
+    test("orders interceptors by priority before contributor and id", { tags: "p1" }, async () => {
+        const calls: string[] = [];
+        const run = operationDescriptor("run");
+        const other = operationDescriptor("other");
+        const samePriority = ["a", "b", "c"].map(
+            (id) =>
+                new InterceptorDeclaration(
+                    new InterceptorId(id),
+                    "operation.before",
+                    OperationSelector.own("run"),
+                    5
+                )
+        );
+        const laterButHigher = new InterceptorDeclaration(
+            new InterceptorId("y"),
+            "operation.before",
+            OperationSelector.own("other"),
+            2
+        );
+        const earlierPriority = new InterceptorDeclaration(
+            new InterceptorId("z"),
+            "operation.before",
+            OperationSelector.own("other"),
+            1
+        );
+        const declarations = [...samePriority, laterButHigher, earlierPriority];
+        const facetManifest = manifest("acme.runtime", [run, other], declarations);
+        const facet = new TestFacet(
+            "workspace:runtime",
+            facetManifest,
+            [],
+            new Map([
+                ["run", new TestOperation(run, async (input) => input)],
+                ["other", new TestOperation(other, async (input) => input)]
+            ]),
+            new Map(
+                declarations.map((declaration) => [
+                    declaration.id.value,
+                    new TestInterceptor(declaration, (value) => {
+                        calls.push(declaration.id.value);
+                        return { proceed: true, value };
+                    })
+                ])
+            )
+        );
+        const host = new FacetRuntimeHost([facetManifest], [facet]);
+        await host.activate();
+        const gateway = new OperationGatewayHost(
+            { caller: "authenticated" },
+            host,
+            new TestAuthority([], "direct"),
+            new TestInvocations([])
+        );
+        using resolved = await gateway.resolve(new BindingName("runtime"));
+        await resolved.dispatch({
+            requestKey: new OperationRequestKey("id-tiebreak"),
+            operation: new OperationName("run"),
+            payload: { kind: "single", input: {} }
+        });
+        expect(calls).toEqual(["a", "b", "c"]);
+        await resolved.dispatch({
+            requestKey: new OperationRequestKey("priority-first"),
+            operation: new OperationName("other"),
+            payload: { kind: "single", input: {} }
+        });
+        expect(calls).toEqual(["a", "b", "c", "z", "y"]);
         await host.dispose();
     });
 });

@@ -1802,6 +1802,19 @@ describe("MemoryActorStore readonly view members", () => {
         );
     });
 
+    test("keeps plain arrays array-like through read views", { tags: "p1" }, () => {
+        const store = new MemoryActorStore<{ list: number[] }>({ list: [1, 2, 3] }, structuredClone);
+
+        store.transaction((transaction) =>
+            store.read(transaction, (view) => {
+                expect(Array.isArray(view.list)).toBe(true);
+                expect(view.list.map((value) => value + 1)).toEqual([2, 3, 4]);
+                expect([...view.list]).toEqual([1, 2, 3]);
+                expect(view.list.length).toBe(3);
+            })
+        );
+    });
+
     test("exposes data members and denies behavior through read views", { tags: "p0" }, () => {
         class ReadBox implements ActorCloneOwnedState {
             public readonly length = 3;
@@ -2056,6 +2069,16 @@ describe("MemoryActorStore snapshot and transaction guards", () => {
         });
     });
 
+    test("keeps reads stale-callback outside any transaction", { tags: "p0" }, () => {
+        const store = new MemoryActorStore<{ value: number }>({ value: 1 }, structuredClone);
+
+        expectOperationalFailure(
+            () => store.read(undefined as never, (view) => view.value),
+            "actor.stale-callback",
+            "Actor reads require the active transaction"
+        );
+    });
+
     test("rejects a second Actor identity bound inside a transaction", { tags: "p0" }, () => {
         const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
 
@@ -2250,6 +2273,24 @@ describe("MemoryActorStore ownership walk", () => {
         );
     });
 
+    test("detects aliases held beside a callable snapshot key", { tags: "p0" }, () => {
+        const owned = (): unknown => ({ tracked: true });
+
+        expect(
+            () =>
+                new MemoryActorStore(
+                    { nested: { value: 1 }, [ACTOR_STATE_SNAPSHOT]: owned },
+                    (source) => ({ nested: source.nested, [ACTOR_STATE_SNAPSHOT]: owned })
+                )
+        ).toThrow("Memory Actor clones must detach all mutable state");
+
+        const store = new MemoryActorStore(
+            { nested: { value: 1 }, [ACTOR_STATE_SNAPSHOT]: owned },
+            (source) => ({ nested: { ...source.nested }, [ACTOR_STATE_SNAPSHOT]: owned })
+        );
+        expect(store.snapshot().state.nested.value).toBe(1);
+    });
+
     test("requires custom state objects to be frozen and clone-owned", { tags: "p0" }, () => {
         const message = "Memory Actor custom state objects must be frozen and clone-owned";
         class FrozenBox {
@@ -2374,6 +2415,16 @@ describe("Actor mailbox admission and commit poisoning", () => {
         await expect(harness.actor.close()).resolves.toBeUndefined();
 
         expect(harness.recovery()?.epoch).toBe(fence.epoch + 1);
+    });
+
+    test("rejects fence reads after a completed close", { tags: "p0" }, async () => {
+        const harness = createMemoryHarness();
+
+        await expect(harness.actor.close()).resolves.toBeUndefined();
+
+        await expect(harness.actor.currentFence()).rejects.toMatchObject(
+            new AgentCoreError("actor.closed", "Actor is closed")
+        );
     });
 
     test("propagates non-stale faults raised while closing", { tags: "p1" }, async () => {

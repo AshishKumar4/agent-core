@@ -291,3 +291,14 @@ describe("payload mapping", () => {
         expect(Object.hasOwn({}, "x")).toBe(false);
     });
 });
+
+describe("payload mapping array creation", () => {
+    test("a freshly created nested array admits no sparse positions", { tags: "p1" }, () => {
+        expectSubscriptionInvalid(
+            () => applyPayloadMapping(mappingOf(new FieldMove("/a/0/1", { literal: 5 })), {}),
+            "Mapping cannot create sparse arrays"
+        );
+        const dense = applyPayloadMapping(mappingOf(new FieldMove("/a/0/0", { literal: 5 })), {});
+        expect(dense).toStrictEqual({ a: [[5]] });
+    });
+});

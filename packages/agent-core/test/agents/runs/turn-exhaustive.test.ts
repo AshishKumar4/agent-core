@@ -307,3 +307,31 @@ describe("checkpoint and inbox codecs", () => {
         ).toThrow(/digest/);
     });
 });
+
+describe("decode and constructor trust boundaries", () => {
+    it("rejects a queued Turn whose lease claims a holder without an expiration", { tags: "p1" }, () => {
+        const forged = { turn: ids.turn, holder: ids.holder, epoch: 0, expiresAt: undefined };
+        expect(() => queued({ lease: forged as never })).toThrow(TypeError);
+    });
+
+    it("rejects an unknown Turn status on decode", { tags: "p2" }, () => {
+        const data = { ...(queued().toData() as object), status: "bogus" };
+        expect(() => Turn.fromData(data as never)).toThrow(TypeError);
+    });
+
+    it("rejects a negative inbox timestamp on decode", { tags: "p2" }, () => {
+        const entry = new TurnInboxEntry(
+            new TurnInboxEntryId("decode-timestamp"),
+            ids.turn,
+            0,
+            "message",
+            content("e"),
+            digest("e"),
+            "decode-timestamp-key",
+            undefined,
+            new Date(1)
+        );
+        const data = { ...(entry.toData() as object), recordedAt: -1 };
+        expect(() => TurnInboxEntry.fromData(data as never)).toThrow(TypeError);
+    });
+});

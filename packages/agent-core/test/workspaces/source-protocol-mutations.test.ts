@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { ActorRef, type ActorKind } from "../../src/actors";
 import { Digest, Revision } from "../../src/core";
-import { EventKind, EventPattern, FacetPackageId } from "../../src/facets";
+import { BindingName, EventKind, EventPattern, FacetPackageId } from "../../src/facets";
+import { TenantId } from "../../src/identity";
 import {
     CommandCallerPolicy,
     CommandEnvelope,
@@ -38,13 +39,13 @@ import {
     type ContentRetentionPort
 } from "../../src/workspaces/retention";
 import {
+    PreparedEventRouting,
     SOURCE_EVENT_COMMAND,
     SourceEventCommandPort,
     SourceEventProtocol,
     createSourceEventProtocolCommand,
     type EventAcceptanceResult,
-    type EventDraft,
-    type PreparedEventRouting
+    type EventDraft
 } from "../../src/workspaces/source-protocol";
 import { Subscription } from "../../src/workspaces/subscription";
 import {
@@ -132,6 +133,7 @@ class MutableTrust {
 
 class RecordedRoutes implements SourceRoutePort<State> {
     public decision: SourceRouteDecision | undefined;
+    public preparedTenants: PreparedRouteMaterial["tenants"] = { kind: "same", tenant };
     public readonly preparations: RouteMaterialPreparation[] = [];
 
     public async prepare(input: RouteMaterialPreparation): Promise<PreparedRouteMaterial> {
@@ -139,7 +141,7 @@ class RecordedRoutes implements SourceRoutePort<State> {
         const projected = content(`prepared-${input.reservation.value}`);
         return {
             targetActor,
-            tenants: { kind: "same", tenant },
+            tenants: this.preparedTenants,
             content: projected.ref,
             digest: projected.digest,
             retention: new ContentRetentionReference({
@@ -681,3 +683,64 @@ function authenticateIntent(intent: EventDraft): AuthenticatedEventIntent {
 function intentEvidence(message: Uint8Array): Uint8Array {
     return new TextEncoder().encode(Digest.sha256(message).value);
 }
+
+describe("source commit trust boundary kills", () => {
+    test("commit rejects a routing handle this runtime did not prepare", { tags: "p0" }, () => {
+        const setup = sourceSetup("forged-prepared");
+        const forged = Object.create(PreparedEventRouting.prototype) as PreparedEventRouting;
+        expect(() => setup.protocol.commit(setup.state, forged)).toThrow(
+            expect.objectContaining({ name: "AgentCoreError", code: "protocol.invalid-state" })
+        );
+    });
+
+    test("commit rejects same-tenant relation drift after preparation", { tags: "p0" }, async () => {
+        const setup = sourceSetup("tenant-drift");
+        const prepared = await setup.protocol.prepare(
+            setup.protocol.snapshot(setup.state, authenticateIntent(draft("tenant-drift")))
+        );
+        setup.routes.decision = {
+            kind: "accepted",
+            targetActor,
+            tenants: { kind: "same", tenant: new TenantId("tenant-drifted") },
+            operation: setup.subscription.target
+        };
+        expect(() => setup.protocol.commit(setup.state, prepared)).toThrow(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.invalid-state",
+                message: "Prepared route target changed before source commit"
+            })
+        );
+    });
+
+    test("commit rejects cross-tenant relation drift after preparation", { tags: "p0" }, async () => {
+        const setup = sourceSetup("tenant-cross-drift");
+        setup.routes.preparedTenants = {
+            kind: "cross",
+            source: tenant,
+            target: new TenantId("tenant-cross-target"),
+            authority: new BindingName("binding.route")
+        };
+        const prepared = await setup.protocol.prepare(
+            setup.protocol.snapshot(setup.state, authenticateIntent(draft("tenant-cross-drift")))
+        );
+        setup.routes.decision = {
+            kind: "accepted",
+            targetActor,
+            tenants: {
+                kind: "cross",
+                source: tenant,
+                target: new TenantId("tenant-cross-target"),
+                authority: new BindingName("binding.other")
+            },
+            operation: setup.subscription.target
+        };
+        expect(() => setup.protocol.commit(setup.state, prepared)).toThrow(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.invalid-state",
+                message: "Prepared route target changed before source commit"
+            })
+        );
+    });
+});

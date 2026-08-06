@@ -6,6 +6,7 @@ import {
     MemoryInvalidationWatermarkStore,
     PathEpochEvidence,
     ScopeEpoch,
+    type InvalidationWatermark,
     type InvalidationWatermarkStore
 } from "../../src/authority";
 import {
@@ -13,20 +14,22 @@ import {
     ResolvedOperationAuthority,
     TenantOperationAuthority,
     type ActorAuthorityHost,
-    type OperationResolutionCandidate,
-    type OperationResolutionState
+    type OperationResolutionCandidate
 } from "../../src/composition";
+import { OperationResolutionState } from "../../src/composition/authority";
 import { Digest, JsonSchema, SemVer } from "../../src/core";
 import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { AgentCoreError } from "../../src/errors";
 import {
     BindingName,
     CapabilitySpec,
     FacetRef,
+    InterceptorDeclaration,
+    InterceptorId,
     OperationDescriptor,
     OperationName,
     ProtectionDomain,
-    type FacetData,
-    type InterceptorDeclaration
+    type FacetData
 } from "../../src/facets";
 import {
     PrincipalId,
@@ -460,3 +463,249 @@ authorityStateContract(
     "sqlite",
     () => new SqliteInvalidationWatermarkStore(new TestSqlite(), tenant, owner)
 );
+
+class RecordingWatermarkStore implements InvalidationWatermarkStore {
+    public saves = 0;
+    readonly #delegate = new MemoryInvalidationWatermarkStore(tenant, owner);
+
+    public load(key: string): InvalidationWatermark | undefined {
+        return this.#delegate.load(key);
+    }
+
+    public save(watermark: InvalidationWatermark): void {
+        this.saves += 1;
+        this.#delegate.save(watermark);
+    }
+
+    public join(key: string, entries: readonly ScopeEpoch[]): InvalidationWatermark {
+        return this.#delegate.join(key, entries);
+    }
+}
+
+class MiscastDenialHarness extends StateHarness {
+    public override denialEvidence(resolution: OperationResolutionState): {
+        readonly receipt: PreEffectReceipt;
+        readonly audit: AuditRecord;
+    } {
+        const evidence = super.denialEvidence(resolution);
+        return {
+            receipt: new PreEffectReceipt(
+                evidence.receipt.id,
+                evidence.receipt.invocation,
+                0,
+                "cancelledPreEffect",
+                this.now,
+                "cancelled instead of denied"
+            ),
+            audit: evidence.audit
+        };
+    }
+}
+
+describe("production authority state seams (memory)", () => {
+    const createStore = (): InvalidationWatermarkStore =>
+        new MemoryInvalidationWatermarkStore(tenant, owner);
+
+    test(
+        "serves repeated resolutions from the cache until release invalidates them",
+        { tags: "p0" },
+        async () => {
+            const harness = new StateHarness(createStore());
+            const resolution = await harness.resolved();
+            expect(harness.resolves).toBe(1);
+
+            // A second resolve for the same Principal and Binding is a cache hit.
+            await harness.resolved();
+            expect(harness.resolves).toBe(1);
+
+            // Release invalidates the cached candidate, so the next resolve rebuilds.
+            harness.authority.release(resolution);
+            await harness.resolved();
+            expect(harness.resolves).toBe(2);
+        }
+    );
+
+    test(
+        "authorizes a fresh mediated intent through the composed Actor state",
+        { tags: "p0" },
+        async () => {
+            const harness = new StateHarness(createStore());
+            const resolution = await harness.resolved();
+
+            expect(harness.state.currentBinding("any-key")).toBe(harness.binding);
+            expect(harness.state.admits(resolution, readDescriptor, inputs, harness.now)).toBe(
+                true
+            );
+
+            const intent = await harness.authority.authorizeMediated(
+                resolution,
+                readDescriptor,
+                inputs
+            );
+            expect(intent.principal.equals(principal)).toBe(true);
+            expect(intent.binding).toBe(resolution.binding);
+            expect(intent.domain).toBe(resolution.binding.domain);
+            expect(intent.lease?.turn.equals(harness.token.turn)).toBe(true);
+            expect(harness.log.receipts).toHaveLength(0);
+        }
+    );
+
+    test(
+        "delegates interception admission and contributor domains to the host",
+        { tags: "p0" },
+        async () => {
+            const harness = new StateHarness(createStore());
+            const resolution = await harness.resolved();
+            const interceptable = new OperationDescriptor(
+                new OperationName("read"),
+                "observe",
+                schema,
+                schema,
+                undefined,
+                true
+            );
+            const declaration = new InterceptorDeclaration(
+                new InterceptorId("authority-state-interceptor"),
+                "operation.before",
+                0
+            );
+            const contributor = new FacetRef("workspace:interceptor-contributor");
+
+            expect(harness.state.contributorDomain(contributor)).toBe(domain);
+            expect(
+                harness.state.admitsInterception(
+                    resolution,
+                    contributor,
+                    declaration,
+                    interceptable
+                )
+            ).toBe(true);
+            expect(
+                harness.authority.allowsInterception(
+                    resolution,
+                    contributor,
+                    declaration,
+                    facetRef,
+                    interceptable
+                )
+            ).toBe(true);
+        }
+    );
+
+    test(
+        "requires at least one Scope epoch for invalidation delivery",
+        { tags: "p0" },
+        () => {
+            const harness = new StateHarness(createStore());
+            let thrown: unknown;
+            try {
+                harness.state.deliverInvalidation(principal, []);
+            } catch (error) {
+                thrown = error;
+            }
+
+            expect(thrown).toBeInstanceOf(AgentCoreError);
+            expect(thrown).toMatchObject({ code: "protocol.invalid-state" });
+        }
+    );
+
+    test(
+        "requires a deniedPreEffect Receipt before persisting a stale denial",
+        { tags: "p0" },
+        async () => {
+            const harness = new MiscastDenialHarness(createStore());
+            const resolution = await harness.resolved();
+            let thrown: unknown;
+            try {
+                harness.state.observeStale(resolution, readDescriptor, inputs);
+            } catch (error) {
+                thrown = error;
+            }
+
+            expect(thrown).toBeInstanceOf(AgentCoreError);
+            expect(thrown).toMatchObject({ code: "protocol.invalid-state" });
+            expect(harness.log.receipts).toHaveLength(0);
+            expect(harness.log.audits).toHaveLength(0);
+        }
+    );
+
+    test(
+        "persists only watermark records that establish or advance holder state",
+        { tags: "p0" },
+        () => {
+            const store = new RecordingWatermarkStore();
+            const harness = new StateHarness(store);
+
+            // A holder's first record establishes revision zero, then the advanced join.
+            harness.state.deliverInvalidation(principal, [new ScopeEpoch(workspaceScope, 1)]);
+            expect(store.saves).toBe(2);
+
+            // An established holder persists only the advanced join.
+            harness.state.deliverInvalidation(principal, [new ScopeEpoch(workspaceScope, 2)]);
+            expect(store.saves).toBe(3);
+
+            // An unchanged join persists nothing.
+            harness.state.deliverInvalidation(principal, [new ScopeEpoch(workspaceScope, 2)]);
+            expect(store.saves).toBe(3);
+        }
+    );
+
+    test(
+        "mints operation resolution states only under the Tenant authority capability",
+        { tags: "p0" },
+        () => {
+            const harness = new StateHarness(createStore());
+            const candidate = harness.resolve(principal)!;
+
+            expect(
+                () =>
+                    new OperationResolutionState(
+                        candidate,
+                        harness.now,
+                        new Date(LEASE_EXPIRY),
+                        new Date(DEADLINE),
+                        Symbol("forged-authority")
+                    )
+            ).toThrow(TypeError);
+        }
+    );
+
+    test(
+        "resolves mediated-only candidates that carry no direct authority evidence",
+        { tags: "p0" },
+        async () => {
+            const harness = new StateHarness(createStore());
+            const base = harness.resolve(principal)!;
+            const authority = new TenantOperationAuthority<PrincipalRef>(
+                {
+                    resolve: () => ({ ...base, directAuthority: undefined }),
+                    currentBinding: (key) => harness.state.currentBinding(key),
+                    currentPath: (binding) => harness.state.currentPath(binding),
+                    currentWatermark: (holder) => harness.state.currentWatermark(holder),
+                    currentLease: (token) => harness.state.currentLease(token),
+                    admits: (resolution, descriptor, operationInputs, at) =>
+                        harness.state.admits(resolution, descriptor, operationInputs, at),
+                    contributorDomain: (facet) => harness.state.contributorDomain(facet),
+                    admitsInterception: (resolution, contributor, declaration, descriptor) =>
+                        harness.state.admitsInterception(
+                            resolution,
+                            contributor,
+                            declaration,
+                            descriptor
+                        ),
+                    release: (resolution) => harness.state.release(resolution),
+                    observeStale: (resolution, descriptor, operationInputs) =>
+                        harness.state.observeStale(resolution, descriptor, operationInputs)
+                },
+                () => harness.now
+            );
+
+            const resolved = await authority.resolve(principal, bindingName);
+            expect(resolved.facet.equals(facetRef)).toBe(true);
+            expect(resolved.resolution.directAuthority).toBeUndefined();
+            expect(
+                authority.authorizeDirect(resolved.resolution, readDescriptor, inputs)
+            ).toBeUndefined();
+        }
+    );
+});

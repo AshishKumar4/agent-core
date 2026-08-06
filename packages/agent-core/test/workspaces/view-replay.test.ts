@@ -337,3 +337,53 @@ describe("ViewReplayProtocol", () => {
         ]);
     });
 });
+
+describe("replay divergence detection", () => {
+    test("falls back to the durable snapshot when replay bytes diverge", { tags: "p1" }, () => {
+        const records = new MemoryWorkspaceRecords();
+        const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
+            (value) => value,
+            { verify: () => true, release: () => {}, discard: () => {} },
+            sourceActor,
+            tenant
+        );
+        const protocol = new ViewReplayProtocol(
+            persistence,
+            new DeterministicJsonPatchEngine(),
+            sourceActor,
+            tenant
+        );
+        const initial = viewFixture(0, "diverged");
+        const delta = viewDeltaFixture(initial, 9);
+        protocol.publishSnapshot(records, initial, []);
+        protocol.publish(records, delta, [], []);
+
+        const divergent = new View({
+            surface: initial.surface,
+            revision: delta.revision,
+            body: { count: 7, nested: { enabled: true } },
+            actions: initial.actions,
+            cursor: delta.cursor
+        });
+        const snapshot = records.snapshot();
+        const currentId = `${initial.surface.value}@${delta.revision.value}`;
+        const stored = snapshot.records.find(
+            (record) => record.kind === "view" && record.id === currentId
+        );
+        const divergentBytes = View.codec.encode(divergent);
+        expect(stored).toBeDefined();
+        expect(divergentBytes.byteLength).toBe(stored?.bytes.byteLength);
+        const tampered = new MemoryWorkspaceRecords({
+            ...snapshot,
+            records: snapshot.records.map((record) =>
+                record.kind === "view" && record.id === currentId
+                    ? { ...record, bytes: divergentBytes }
+                    : record
+            )
+        });
+
+        const replay = protocol.replay(tampered, initial.surface, Revision.initial());
+        expect(replay.kind).toBe("snapshot");
+        expect(replay.view.body).toEqual({ count: 7, nested: { enabled: true } });
+    });
+});

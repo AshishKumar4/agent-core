@@ -531,3 +531,15 @@ describe("Run commit decode guards", () => {
         ]);
     });
 });
+
+describe("commit kind decode guard", () => {
+    test("rejects an unknown commit kind before shape validation", { tags: "p2" }, () => {
+        expectTypeError(
+            "unknown kind",
+            decodeMutated(turnAuthored("kind-unknown", "message"), (data) => {
+                data["kind"] = "bogus";
+            }),
+            "Run commit kind is invalid"
+        );
+    });
+});

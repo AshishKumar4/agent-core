@@ -14,6 +14,7 @@ import {
     TurnLease,
     type LeaseToken
 } from "../../../src/agents/runs";
+import { leaseTokenFromData } from "../../../src/agents/runs/lease";
 import { content, digest, seedRunningTurn } from "./fixture";
 
 const turn = new TurnId("turn-lease-test");
@@ -245,5 +246,20 @@ describe("TurnLease", () => {
         expect(() =>
             TurnLease.restore(turn, undefined, Number.MAX_SAFE_INTEGER, undefined).fence()
         ).toThrow(/exhausted/);
+    });
+});
+
+describe("lease admission trust boundary", () => {
+    test("rejects a structural holder clone that is not a PrincipalRef", { tags: "p0" }, () => {
+        const held = TurnLease.restore(turn, holder, 1, at(5_000));
+        expect(held.admits(token(), at(1_000))).toBe(true);
+        const forged = { turn, holder: { tenantId: tenant, principalId: holderId }, epoch: 1 };
+        expect(held.admits(forged as never, at(1_000))).toBe(false);
+    });
+
+    test("decoding a token with a null holder reports codec corruption", { tags: "p2" }, () => {
+        expect(() => leaseTokenFromData({ epoch: 1, holder: null, turn: turn.value })).toThrow(
+            new AgentCoreError("codec.invalid", "Lease holder is malformed")
+        );
     });
 });

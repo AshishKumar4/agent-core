@@ -11,6 +11,7 @@ import {
     RouteProjection,
     RouteProjectionAuthenticator,
     RouteReservation,
+    requireAuthenticatedRouteProjection,
     routeProjectionEnvelopeBytes
 } from "../../src/workspaces/route";
 import { principal, projectionFixture, reservationFixture, tenant } from "./fixtures";
@@ -306,3 +307,14 @@ function crossReservation(suffix: string): RouteReservation {
         trust: "external"
     });
 }
+
+describe("authenticated projection provenance", () => {
+    test("a prototype-forged projection lacks host authentication", { tags: "p0" }, () => {
+        const forged = Object.create(
+            AuthenticatedRouteProjection.prototype
+        ) as AuthenticatedRouteProjection;
+        expect(() => requireAuthenticatedRouteProjection(forged)).toThrow(
+            expect.objectContaining({ name: "AgentCoreError", code: "authority.denied" })
+        );
+    });
+});

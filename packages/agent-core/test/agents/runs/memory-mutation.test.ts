@@ -470,3 +470,10 @@ describe("RunRepository over MemoryRunStorage mutation kills", () => {
         expect(restored.transaction((tx) => restored.loadRun(tx, ids.run))).toBeDefined();
     });
 });
+
+describe("transaction result forwarding", () => {
+    test("returns a null transaction result unchanged", { tags: "p1" }, () => {
+        const storage = new MemoryRunStorage();
+        expect(storage.transaction(() => null)).toBeNull();
+    });
+});
