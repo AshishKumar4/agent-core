@@ -42,7 +42,7 @@ export type {
 } from "./reconciliation.js";
 export { operationalFailure } from "./error.js";
 export type { CloudflareErrorPort, CloudflareOperationalErrorCode } from "./error.js";
-export { ReconciliationOutboxId } from "./id.js";
+export { QueueMessageId, ReconciliationOutboxId } from "./id.js";
 export {
     DurableObjectEnvironmentProvider,
     environmentProviderMigration

@@ -1,6 +1,7 @@
 import { AgentCoreError } from "@agent-core/core";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalError, operationalFailure } from "./error.js";
+import { QueueMessageId } from "./id.js";
 
 export interface QueueRetryOptionsLike {
     readonly delaySeconds?: number;
@@ -42,7 +43,7 @@ export interface AuthoritativeQueueTarget<DeliveryId, Payload = unknown> {
 
 /** A message whose body carries no decodable delivery, kept with the decoding cause. */
 export interface PoisonQueueMessage {
-    readonly messageId: string;
+    readonly messageId: QueueMessageId;
     readonly cause: AgentCoreError;
 }
 
@@ -69,8 +70,9 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
                 // An undecodable body never becomes deliverable, but acknowledging it here
                 // would destroy it: retrying hands it to the queue's own dead-letter policy
                 // while the rest of the batch keeps its own dispositions.
-                this.dispose(`message ${message.id}`, () => message.retry());
-                poisonMessages.push(Object.freeze({ messageId: message.id, cause: delivery }));
+                const messageId = requireMessageId(message.id, this.errors);
+                this.dispose(`message ${messageId}`, () => message.retry());
+                poisonMessages.push(Object.freeze({ messageId, cause: delivery }));
                 continue;
             }
             let result: QueueTargetResult;
@@ -146,6 +148,17 @@ function decodeDelivery<DeliveryId, Payload>(
             cause
         );
     }
+}
+
+function requireMessageId(value: unknown, errors: CloudflareErrorPort): QueueMessageId {
+    if (typeof value !== "string" || value.length === 0) {
+        operationalFailure(
+            errors,
+            "operation.invalid-input",
+            "Queue message carries no usable message ID"
+        );
+    }
+    return new QueueMessageId(value);
 }
 
 function decodeResult(value: unknown, errors: CloudflareErrorPort): QueueTargetResult {

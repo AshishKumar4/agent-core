@@ -1,4 +1,4 @@
-import { AtLeastOnceQueueAdapter } from "../src/index.js";
+import { AtLeastOnceQueueAdapter, QueueMessageId } from "../src/index.js";
 import { RouteReservationId } from "@agent-core/core";
 import { FakeQueueMessage, fakeErrors } from "./fakes.js";
 import { queueCodecs } from "./queue-codecs.js";
@@ -82,7 +82,7 @@ describe("AtLeastOnceQueueAdapter", () => {
             const result = await adapter.handle({ messages: [poison, healthy] });
             expect(result.acknowledgedDeliveryIds).toEqual([new RouteReservationId("delivery")]);
             expect(result.poisonMessages.map((message) => message.messageId)).toEqual([
-                "platform-poison"
+                new QueueMessageId("platform-poison")
             ]);
             expect(result.poisonMessages[0]?.cause).toMatchObject({
                 code: "operation.invalid-input"
