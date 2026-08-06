@@ -689,8 +689,10 @@ Rules:
 4. A thrown error blocks — scoped to the interceptor's `appliesTo`, surfaced as a
    typed operation error, never as a silent global veto.
 5. Mutating interceptions are attributable: the host records interceptor identity plus
-   before/after value digests through the invocation's tier-appropriate audit channel
-   (§7.2).
+   before/after value digests through the mediated audit channel. There is no second
+   channel to choose between, because an applicable interceptor raises the call to
+   mediated (§7.2); a direct invocation that presented interception evidence would be an
+   invalid state rather than a case to record.
 6. `operation.before` completes before preparation. Its final rewritten input is what
    the PreparedInvocation freezes and structurally digests. No interceptor may rewrite
    a PreparedInvocation, Approval, EffectAttempt, or effect arguments afterward.

@@ -230,7 +230,7 @@
       "id": "C13-INTERCEPTOR-REPLAY",
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-REPLAY",
-      "specTextSha256": "sha256:f08009da49c1d99197e8b060779566d25a4ff326f49770e53fc2b87afffb3558",
+      "specTextSha256": "sha256:c81400f848a6086c2c05af1b4d23423888120d6276268acb6834349da2cd3c8f",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],

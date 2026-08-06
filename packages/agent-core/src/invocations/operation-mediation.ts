@@ -197,7 +197,20 @@ export class ReplayOperationInvocationPort<
         });
     }
 
-    public recordDirectInterceptions(_evidence: OperationInterceptionEvidence): void {}
+    /**
+     * The direct tier carries no interceptions to attribute: an applicable
+     * `operation.before` or `operation.after` interceptor forces the mediated tier (§7.2),
+     * and the gateway asks the same candidate set that runs them. Asserting that here keeps
+     * the invariant from decaying into silently discarded attribution evidence.
+     */
+    public recordDirectInterceptions(evidence: OperationInterceptionEvidence): void {
+        if (evidence.traces.some((traces) => traces.length > 0)) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Direct invocation carries interception evidence, which only the mediated tier attributes"
+            );
+        }
+    }
 
     public async presentMediated(
         evidence: FacetData,

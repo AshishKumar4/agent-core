@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
+import { Digest, JsonSchema } from "../../src/core";
+import { FacetRef, OperationDescriptor, OperationName } from "../../src/facets";
+import { OperationRequestKey } from "../../src/operations";
+import type { InterceptorTrace, OperationInterceptionEvidence } from "../../src/operations";
 import {
     InvocationPlacementPin,
     OperationPin,
+    ReplayOperationInvocationPort,
     requireObject,
     sameJson
 } from "../../src/invocations";
@@ -73,4 +78,47 @@ describe("Operation pin placement and decoding", () => {
             /^Approval requirement must be boolean$/
         );
     });
+
+    test(
+        "[C13-INTERCEPTOR-REPLAY] refuses interception evidence offered on the direct tier",
+        { tags: "p1" },
+        () => {
+            const port = Object.create(
+                ReplayOperationInvocationPort.prototype
+            ) as ReplayOperationInvocationPort<unknown, unknown, unknown>;
+            const schema = new JsonSchema({ type: "object", additionalProperties: true });
+            const evidence = (
+                traces: readonly (readonly InterceptorTrace[])[]
+            ): OperationInterceptionEvidence => ({
+                requestKey: new OperationRequestKey("direct-attribution"),
+                facet: new FacetRef("workspace:runtime.instance"),
+                descriptor: new OperationDescriptor(
+                    new OperationName("run"),
+                    "observe",
+                    schema,
+                    schema,
+                    "aa"
+                ),
+                shape: { kind: "single" },
+                traces
+            });
+            const trace: InterceptorTrace = {
+                itemIndex: 0,
+                interceptor: "rewriter",
+                contributor: "contributor",
+                cutPoint: "operation.before",
+                before: Digest.sha256(new Uint8Array([1])),
+                after: Digest.sha256(new Uint8Array([2])),
+                outcome: "rewritten"
+            };
+
+            // An applicable interceptor raises the call to mediated (§7.2), so the direct
+            // tier can only ever offer empty evidence. Accepting a trace here would discard
+            // the one record that attributes a rewrite.
+            expect(() => port.recordDirectInterceptions(evidence([[]]))).not.toThrow();
+            expect(() => port.recordDirectInterceptions(evidence([[trace]]))).toThrow(
+                /only the mediated tier attributes/u
+            );
+        }
+    );
 });
