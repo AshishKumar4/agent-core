@@ -107,18 +107,25 @@ function deploy() {
 }
 
 async function awaitReady(url) {
-    // A first-ever workers.dev route can lag deployment; wait until the deployed
-    // harness answers with the exact commit this run is evidencing.
-    for (let attempt = 0; attempt < 30; attempt += 1) {
+    // A workers.dev route can lag deployment; wait until the deployed harness answers
+    // with the exact commit this run is evidencing. Three minutes because a 60-second
+    // window timed out on a version that then served the right commit moments later.
+    let observed = "no response";
+    for (let attempt = 0; attempt < 90; attempt += 1) {
         try {
             const response = await fetch(`${url}/meta`);
-            if (response.ok && (await response.json()).commit === commit) return;
+            if (response.ok) {
+                observed = (await response.json()).commit;
+                if (observed === commit) return;
+            }
         } catch {
             // Edge not ready yet.
         }
         await new Promise((settle) => setTimeout(settle, 2000));
     }
-    throw new TypeError(`Live harness at ${url} never became ready for ${commit}`);
+    throw new TypeError(
+        `Live harness at ${url} never became ready for ${commit}; it last served ${observed}`
+    );
 }
 
 function runPhase(url, phase, stateFile, reportPath) {
@@ -162,15 +169,28 @@ console.log(`deploying live harness at ${commit}${dirty ? " (dirty sources)" : "
 const firstDeployment = deploy();
 await awaitReady(firstDeployment.url);
 console.log(`phase 1 against ${firstDeployment.url} (version ${firstDeployment.versionId})`);
-const phase1 = runPhase(firstDeployment.url, 1, stateFile, resolve(evidenceRoot, "phase-1.vitest.json"));
+const phase1 = runPhase(
+    firstDeployment.url,
+    1,
+    stateFile,
+    resolve(evidenceRoot, "phase-1.vitest.json")
+);
 console.log(`phase 1: ${phase1.numPassedTests} passed; redeploying for phase 2`);
 const secondDeployment = deploy();
-if (secondDeployment.versionId !== null && secondDeployment.versionId === firstDeployment.versionId) {
+if (
+    secondDeployment.versionId !== null &&
+    secondDeployment.versionId === firstDeployment.versionId
+) {
     throw new TypeError("Redeployment did not produce a new worker version");
 }
 await awaitReady(secondDeployment.url);
 console.log(`phase 2 against ${secondDeployment.url} (version ${secondDeployment.versionId})`);
-const phase2 = runPhase(secondDeployment.url, 2, stateFile, resolve(evidenceRoot, "phase-2.vitest.json"));
+const phase2 = runPhase(
+    secondDeployment.url,
+    2,
+    stateFile,
+    resolve(evidenceRoot, "phase-2.vitest.json")
+);
 console.log(`phase 2: ${phase2.numPassedTests} passed`);
 
 const manifest = {
@@ -183,7 +203,10 @@ const manifest = {
     url: secondDeployment.url,
     deployments: [firstDeployment, secondDeployment],
     sourceFingerprints: Object.fromEntries(
-        fingerprintSources.map((path) => [path, sha256(readFileSync(resolve(repositoryRoot, path)))])
+        fingerprintSources.map((path) => [
+            path,
+            sha256(readFileSync(resolve(repositoryRoot, path)))
+        ])
     ),
     reports: {
         "phase-1.vitest.json": sha256(readFileSync(resolve(evidenceRoot, "phase-1.vitest.json"))),
