@@ -70,10 +70,16 @@ export async function call<Result = LiveResult>(
         body: JSON.stringify(body)
     });
     if (response.status === 204) return { ok: true, result: null };
-    if (!response.ok && response.status !== 409) {
+    if (!response.ok && response.status !== 409 && response.status !== 500) {
         throw new TypeError(`Live harness ${operation} failed with HTTP ${response.status}`);
     }
-    return (await response.json()) as LiveOutcome<Result>;
+    const outcome = (await response.json()) as LiveOutcome<Result>;
+    if (response.status === 500) {
+        throw new TypeError(
+            `Live harness ${operation} raised an unhandled failure: ${outcome.message ?? "no cause reported"}`
+        );
+    }
+    return outcome;
 }
 
 /** The successful result of a lane call, or a failure carrying the lane's own cause. */

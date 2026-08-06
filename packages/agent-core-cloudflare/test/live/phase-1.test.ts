@@ -542,7 +542,11 @@ describe("live Cloudflare platform-semantics evidence", () => {
             socket.send({ ack: 2 });
             const acknowledged = JSON.parse(String((await socket.take(1))[0])) as AttachmentProbe;
             expect(acknowledged.before.ackedRevision).toBe(0);
-            expect(acknowledged.after).toEqual({ channel: "live", ackedRevision: 2 });
+            expect(acknowledged.after).toEqual({
+                version: 1,
+                channel: "live",
+                ackedRevision: 2
+            });
             // Nothing is left to replay once every revision is acknowledged.
             await sleep(1_000);
             expect(socket.pending()).toBe(0);
@@ -558,7 +562,9 @@ describe("live Cloudflare platform-semantics evidence", () => {
             socket.send({ append: true });
             const woken = await socket.take(2);
             const probe = JSON.parse(String(woken[0])) as AttachmentProbe;
-            expect(probe.before).toEqual({ channel: "live", ackedRevision: 2 });
+            // The persisted envelope keeps its version across the eviction, which is what
+            // makes the attachment decodable at all in the isolate that resumed it.
+            expect(probe.before).toEqual({ version: 1, channel: "live", ackedRevision: 2 });
             expect(probe.currentRevision).toBe(3);
             expect(typeof probe.isolate).toBe("string");
             expect(decodeViewStreamFrame(String(woken[1]))).toMatchObject({

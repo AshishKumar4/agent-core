@@ -55,8 +55,25 @@ export async function handleResponse(operation: () => Promise<Response>): Promis
                 }
             );
         }
-        throw error;
+        // Anything outside the taxonomy is a defect in the harness or the platform, and a
+        // rethrow reaches the lane as a bare 500 with the cause left in the runtime's logs.
+        // Reporting it as a body keeps a rare failure diagnosable from the archived run.
+        return Response.json(
+            {
+                ok: false,
+                code: "unhandled",
+                message: describeUnhandled(error)
+            },
+            { status: 500 }
+        );
     }
+}
+
+function describeUnhandled(error: unknown): string {
+    if (!(error instanceof Error)) return `${typeof error}: ${String(error)}`;
+    const stack = error.stack === undefined ? "" : `\n${error.stack}`;
+    const cause = error.cause === undefined ? "" : `\ncaused by ${String(error.cause)}`;
+    return `${error.name}: ${error.message}${stack}${cause}`;
 }
 
 export async function handle(operation: () => Promise<JsonValue>): Promise<Response> {
