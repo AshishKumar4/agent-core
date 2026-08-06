@@ -14,7 +14,7 @@ import {
     ViewReplayProtocol,
     WorkspacePersistence
 } from "../../../src/workspaces";
-import { EventCursor } from "../../../src/workspaces/id";
+import { EventCursor } from "../../../src/workspaces";
 import { expectAgentCoreError } from "../../protocol/error-assertion";
 import { StressRandom } from "./stress-support";
 import {

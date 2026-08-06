@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { Revision } from "../../../src/core";
 import { SqliteProtocolPersistence, SqliteWorkspaceEventRecords } from "../../../src/substrates";
 import { WorkspacePersistence } from "../../../src/workspaces";
-import type { Event } from "../../../src/workspaces/event";
+import type { Event } from "../../../src/workspaces";
 import { FileSqlite } from "../../helpers/sqlite";
 import { expectAgentCoreError } from "../../protocol/error-assertion";
 import { SqliteCounterHarness } from "../../protocol/sqlite-counter-fixture";

@@ -4,10 +4,10 @@ import {
     TurnInboxEntry,
     TurnInboxEntryId,
     type LeaseToken
-} from "../../../src/agents/runs";
+} from "../../../src/agents";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { Revision } from "../../../src/core";
-import type { Turn } from "../../../src/agents/runs/turn";
+import type { Turn } from "../../../src/agents";
 import { content, digest, ids, seedRunningTurn } from "../../agents/runs/fixture";
 import { expectAgentCoreError } from "../../protocol/error-assertion";
 import { SqliteCounterHarness } from "../../protocol/sqlite-counter-fixture";

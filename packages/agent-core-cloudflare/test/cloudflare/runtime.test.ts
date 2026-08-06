@@ -39,6 +39,10 @@ describe("Cloudflare runtime integration", () => {
                 {
                     version: 1,
                     name: "cloudflare-runtime-views-and-outbox"
+                },
+                {
+                    version: 2,
+                    name: "cloudflare-runtime-alarm-claims"
                 }
             ]);
         });
@@ -154,7 +158,7 @@ describe("Cloudflare runtime integration", () => {
                     "SELECT version FROM agent_core_migrations ORDER BY version"
                 )
             ];
-            expect(migrations).toEqual([{ version: 1 }]);
+            expect(migrations).toEqual([{ version: 1 }, { version: 2 }]);
         });
     });
 

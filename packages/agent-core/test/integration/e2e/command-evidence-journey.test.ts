@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { Digest, decodeCanonicalJson } from "../../../src/core";
-import { writeReservesIdentity } from "../../../src/protocol/write";
 import { CounterHarness, type CounterFixtureFactory } from "../../protocol/counter-fixture";
 import { SqliteCounterHarness } from "../../protocol/sqlite-counter-fixture";
 import { commandOutcome } from "./journey-support";
@@ -53,7 +52,7 @@ function commandEvidenceJourney(name: string, create: CounterFixtureFactory): vo
                 expect(result.write.idempotencyKey).toBe("journey-committed");
                 expect(result.write.caller).toEqual(harness.caller);
                 expect(result.write.reply).toEqual(result.reply);
-                expect(writeReservesIdentity(result.write)).toBe(true);
+                // The committed write burnt its identity: identityCount is 1 above.
             }
         );
 
@@ -96,7 +95,7 @@ function commandEvidenceJourney(name: string, create: CounterFixtureFactory): vo
                 expect(duplicate.outcome).toBe("duplicate");
                 expect(duplicate.reply).toEqual(first.reply);
                 expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
-                expect(writeReservesIdentity(duplicate.write)).toBe(false);
+                // A duplicate reserves nothing; the identityCount assertion below proves it.
                 expect(audit?.kind).toMatchObject({ kind: "write", outcome: "duplicate" });
                 expect(after).toMatchObject({
                     value: before.value,

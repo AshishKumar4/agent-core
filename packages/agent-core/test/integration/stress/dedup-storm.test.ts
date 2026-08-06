@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { AuditRecord } from "../../../src/invocations";
-import type { CommandDispatchResult } from "../../../src/protocol/dispatcher";
-import type { WriteRecord } from "../../../src/protocol/write";
+import type { CommandDispatchResult } from "../../../src/protocol";
+import type { WriteRecord } from "../../../src/protocol";
 import { CounterHarness, type CounterFixture } from "../../protocol/counter-fixture";
 import { SqliteCounterHarness } from "../../protocol/sqlite-counter-fixture";
 import { StressRandom } from "./stress-support";

@@ -298,9 +298,9 @@ describe("Cloudflare operational failure mapping", () => {
         await expect(outbox.acknowledge("" as never)).rejects.toMatchObject({
             code: "operation.invalid-input"
         });
-        await expect(outbox.reschedule(new ReconciliationOutboxId("id"), -1)).rejects.toMatchObject(
-            { code: "operation.invalid-input" }
-        );
+        await expect(
+            outbox.reschedule({ id: new ReconciliationOutboxId("id"), scheduledAt: 0 }, -1)
+        ).rejects.toMatchObject({ code: "operation.invalid-input" });
     });
 
     test("maps Loader and Dispatch failures and validates explicit inputs", () => {
