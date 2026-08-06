@@ -952,7 +952,8 @@ independently identified FacetManifests.
   terminal Receipt, route delivery, or commit. Every captured Approval must resolve for
   its exact Invocation as consumed, denied, or expired. Every captured reconciliation
   must resolve the exact captured indeterminate Receipt to one final Receipt for the
-  same EffectAttempt with the required `receiptSuperseded` lineage. BatchOutcome is available when every item has
+  same EffectAttempt with the required `receiptSuperseded` lineage. Every captured
+  acceptance criterion must hold a current satisfying verdict. BatchOutcome is available when every item has
   a current Receipt; its terminal form additionally requires non-indeterminate outcome.
   This maps to **C13-RUN-SETTLED-DERIVED**.
 - `spawn` creates a child Run under attenuated authority (`delegate` impact, §11 Self
@@ -1482,8 +1483,14 @@ Enforcement is a floor, not a bidirectional override. The floor is: `observe` �
 Turn-owned session `execute` → direct; every other `execute`, plus `mutate`,
 `externalSend`, `delegate`, and `administer` → mediated. Policy MAY raise a direct floor
 to mediated and MAY add approval. It MUST NOT lower a mediated floor or remove an
-approval required by a profile, Operation, Package, or ancestor policy. Lack of bundled
-co-location also raises direct to mediated. These tightenings are monotone.
+approval required by a profile, Operation, Package, or ancestor policy. Three conditions
+also raise direct to mediated: lack of bundled co-location; an applicable `operation.before`
+or `operation.after` interceptor, whose rewrite evidence (§4.4 rule 3) has no direct
+channel to be recorded through; and the absence of a configured
+`maxDirectRevocationWindowMs`, without which §3.4 rule 6 can bound no revocation window.
+An interceptor contributed over an `observe` operation therefore moves that read onto the
+mediated path, and a host SHOULD surface that consequence at contribution time rather than
+leave it to be discovered as latency. These tightenings are monotone.
 
 Every mediated effect, including an internal mutation or execution, uses the one final
 authority-admission linearization point in §3.4 rule 7. Actor-local admission performs
