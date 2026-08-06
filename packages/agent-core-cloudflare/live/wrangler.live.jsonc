@@ -9,14 +9,38 @@
   "durable_objects": {
     "bindings": [
       { "name": "ENVIRONMENTS", "class_name": "LiveEnvironmentHarness" },
-      { "name": "SLATES", "class_name": "LiveSlateHarness" }
+      { "name": "SLATES", "class_name": "LiveSlateHarness" },
+      { "name": "RUNTIME", "class_name": "LiveRuntimeHarness" }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["LiveEnvironmentHarness", "LiveSlateHarness"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["LiveRuntimeHarness"]
     }
   ],
-  "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-live-evidence" }]
+  "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-live-evidence" }],
+  "queues": {
+    "producers": [{ "binding": "DELIVERIES", "queue": "agent-core-live-evidence-deliveries" }],
+    "consumers": [
+      {
+        "queue": "agent-core-live-evidence-deliveries",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+        "max_retries": 2,
+        "retry_delay": 0,
+        "dead_letter_queue": "agent-core-live-evidence-poison"
+      },
+      {
+        "queue": "agent-core-live-evidence-poison",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+        "max_retries": 0
+      }
+    ]
+  }
 }

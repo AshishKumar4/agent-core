@@ -121,8 +121,9 @@ export async function poll<Value>(
 }
 
 export async function events(instance: string): Promise<readonly LiveEvent[]> {
-    return resultOf(await call<{ readonly events: readonly LiveEvent[] }>("runtime", instance, "events"))
-        .events;
+    return resultOf(
+        await call<{ readonly events: readonly LiveEvent[] }>("runtime", instance, "events")
+    ).events;
 }
 
 export async function awaitEvent(
@@ -133,7 +134,10 @@ export async function awaitEvent(
 ): Promise<LiveEvent> {
     return poll(
         `${kind} for ${subject} on ${instance}`,
-        async () => (await events(instance)).find((event) => event.kind === kind && event.subject === subject),
+        async () =>
+            (await events(instance)).find(
+                (event) => event.kind === kind && event.subject === subject
+            ),
         timeoutMs
     );
 }

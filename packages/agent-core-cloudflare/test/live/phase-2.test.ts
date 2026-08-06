@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { awaitEvent, call, loadState, resultOf, type LiveAlarmState, type LiveOutboxState } from "./harness";
+import {
+    awaitEvent,
+    call,
+    loadState,
+    resultOf,
+    type LiveAlarmState,
+    type LiveOutboxState
+} from "./harness";
+
+/** Matches phase 1: the arming response must still describe an unswept outbox. */
+const ARM_DELAY_MS = 500;
 
 interface EnqueueResult extends LiveOutboxState {
     readonly scheduledAt: number;
@@ -69,7 +79,7 @@ describe("live Cloudflare substrate evidence after redeployment", () => {
         const due = resultOf(
             await call<EnqueueResult>("runtime", "redeploy", "enqueue", {
                 id: armed.id,
-                delayMs: 0
+                delayMs: ARM_DELAY_MS
             })
         );
         expect(due.physicalAlarm).toBe(due.scheduledAt);

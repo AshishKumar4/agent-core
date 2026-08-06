@@ -20,11 +20,23 @@ const evidenceRoot = resolve(
 );
 const wranglerConfig = resolve(packageRoot, "live/wrangler.live.jsonc");
 const bucket = "agent-core-live-evidence";
+const deliveryQueue = "agent-core-live-evidence-deliveries";
+const poisonQueue = "agent-core-live-evidence-poison";
 
 const fingerprintSources = [
+    "packages/agent-core-cloudflare/src/alarm-claims.ts",
+    "packages/agent-core-cloudflare/src/durable-object.ts",
     "packages/agent-core-cloudflare/src/environment-provider.ts",
+    "packages/agent-core-cloudflare/src/queue.ts",
+    "packages/agent-core-cloudflare/src/reconciliation.ts",
+    "packages/agent-core-cloudflare/src/revision-log.ts",
     "packages/agent-core-cloudflare/src/slate-provider.ts",
+    "packages/agent-core-cloudflare/src/websocket.ts",
+    "packages/agent-core-cloudflare/live/protocol.ts",
+    "packages/agent-core-cloudflare/live/runtime-harness.ts",
     "packages/agent-core-cloudflare/live/worker.ts",
+    "packages/agent-core-cloudflare/live/wrangler.live.jsonc",
+    "packages/agent-core-cloudflare/test/live/harness.ts",
     "packages/agent-core-cloudflare/test/live/phase-1.test.ts",
     "packages/agent-core-cloudflare/test/live/phase-2.test.ts"
 ];
@@ -61,10 +73,18 @@ const dirty =
         cwd: repositoryRoot
     }).stdout.trim().length > 0;
 
-const bucketCreate = wrangler(["r2", "bucket", "create", bucket], { allowFailure: true });
-if (bucketCreate.status !== 0 && !/already (exists|owns)/iu.test(bucketCreate.stderr + bucketCreate.stdout)) {
-    throw new TypeError(`R2 bucket provisioning failed:\n${bucketCreate.stderr}`);
+function provision(label, args) {
+    const result = wrangler(args, { allowFailure: true });
+    const output = result.stdout + result.stderr;
+    if (result.status !== 0 && !/already (exists|owns)|409/iu.test(output)) {
+        throw new TypeError(`${label} provisioning failed:\n${output}`);
+    }
 }
+
+provision("R2 bucket", ["r2", "bucket", "create", bucket]);
+// The consumer registration in the deploy below fails outright unless both queues exist.
+provision("Delivery queue", ["queues", "create", deliveryQueue]);
+provision("Dead-letter queue", ["queues", "create", poisonQueue]);
 
 function deploy() {
     const result = wrangler([

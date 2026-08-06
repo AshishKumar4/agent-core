@@ -1,5 +1,4 @@
 import {
-    AgentCoreError,
     ContentRef,
     Digest,
     InvocationId,
@@ -31,6 +30,7 @@ import {
 import { DurableObject } from "cloudflare:workers";
 import { encodeBase64 } from "../src/base64.js";
 import {
+    AtLeastOnceQueueAdapter,
     CloudflareSqlite,
     DurableObjectEnvironmentProvider,
     DurableObjectSlateProvider,
@@ -38,24 +38,34 @@ import {
     SqliteApplicationMigrator,
     environmentProviderMigration,
     slateProviderMigration,
-    type CloudflareErrorPort
+    type QueueDeliveryCodecs,
+    type QueueTargetResult
 } from "../src/index.js";
+import {
+    errors,
+    field,
+    flagField,
+    handle,
+    numberField,
+    readBody,
+    type LiveBody
+} from "./protocol.js";
+import { LiveRuntimeHarness, type LiveRuntimeEnvironment } from "./runtime-harness.js";
 
-interface LiveEnvironment {
+export { LiveRuntimeHarness };
+
+interface LiveEnvironment extends LiveRuntimeEnvironment {
     readonly CONTENT: R2Bucket;
     readonly ENVIRONMENTS: DurableObjectNamespace<LiveEnvironmentHarness>;
     readonly SLATES: DurableObjectNamespace<LiveSlateHarness>;
-    readonly GIT_COMMIT?: string;
+    readonly RUNTIME: DurableObjectNamespace<LiveRuntimeHarness>;
+    readonly DELIVERIES: Queue<LiveQueueBody>;
 }
 
 const LIVE_TENANT = "agent-core-live-evidence";
 const PREVIEW_HOST = "preview.agent-core-live.test";
-
-const errors: CloudflareErrorPort = {
-    raise(code, message): never {
-        throw new AgentCoreError(code, message);
-    }
-};
+/** Must match `queues.consumers[].dead_letter_queue` in live/wrangler.live.jsonc. */
+const POISON_QUEUE = "agent-core-live-evidence-poison";
 
 const providerDescriptor = new ProviderDescriptor(
     new ProviderId("cloudflare-do-live"),
@@ -63,31 +73,13 @@ const providerDescriptor = new ProviderDescriptor(
     ContentRef.fromDigest(Digest.sha256(new Uint8Array([0])))
 );
 
-function field(body: Record<string, JsonValue>, key: string): string {
-    const value = body[key];
-    if (typeof value !== "string" || value.length === 0) {
-        throw new AgentCoreError("operation.invalid-input", `Live request needs string ${key}`);
-    }
-    return value;
-}
-
-function numberField(body: Record<string, JsonValue>, key: string): number {
-    const value = body[key];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new AgentCoreError("operation.invalid-input", `Live request needs number ${key}`);
-    }
-    return value;
-}
-
 function sessionRequest(body: Record<string, JsonValue>): OpenSessionRequest {
     return Object.freeze({
         environmentId: new EnvironmentId(field(body, "environmentId")),
         environmentRevision: new Revision(numberField(body, "environmentRevision")),
         generation: numberField(body, "generation"),
         sessionId: new EnvironmentSessionId(field(body, "sessionId")),
-        ...(typeof body["restore"] === "string"
-            ? { restore: new ContentRef(body["restore"]) }
-            : {})
+        ...(typeof body["restore"] === "string" ? { restore: new ContentRef(body["restore"]) } : {})
     });
 }
 
@@ -164,19 +156,6 @@ function resourceRequest(body: Record<string, JsonValue>): SlateProviderResource
     });
 }
 
-async function handle(operation: () => Promise<JsonValue>): Promise<Response> {
-    try {
-        return Response.json({ ok: true, result: await operation() });
-    } catch (error) {
-        if (error instanceof AgentCoreError) {
-            return Response.json({ ok: false, code: error.code, message: error.message }, {
-                status: 409
-            });
-        }
-        throw error;
-    }
-}
-
 export class LiveEnvironmentHarness extends DurableObject<LiveEnvironment> {
     readonly #environments: DurableObjectEnvironmentProvider;
 
@@ -196,10 +175,7 @@ export class LiveEnvironmentHarness extends DurableObject<LiveEnvironment> {
 
     public async fetch(request: Request): Promise<Response> {
         const url = new URL(request.url);
-        const body =
-            request.method === "POST"
-                ? ((await request.json()) as Record<string, JsonValue>)
-                : {};
+        const body = await readBody(request);
         switch (url.pathname) {
             case "/abort":
                 // Genuine instance kill: state persisted in Durable Object storage must
@@ -207,11 +183,17 @@ export class LiveEnvironmentHarness extends DurableObject<LiveEnvironment> {
                 this.ctx.abort();
                 return new Response(null, { status: 204 });
             case "/open":
-                return handle(async () => outcome(await this.#environments.openSession(sessionRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.openSession(sessionRequest(body)))
+                );
             case "/inspect":
-                return handle(async () => outcome(await this.#environments.inspectSession(sessionRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.inspectSession(sessionRequest(body)))
+                );
             case "/close":
-                return handle(async () => outcome(await this.#environments.closeSession(sessionRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.closeSession(sessionRequest(body)))
+                );
             case "/write-file": {
                 const content = Uint8Array.from(atob(field(body, "contentBase64")), (c) =>
                     c.charCodeAt(0)
@@ -234,15 +216,25 @@ export class LiveEnvironmentHarness extends DurableObject<LiveEnvironment> {
                     return content === undefined ? null : encodeBase64(content);
                 });
             case "/snapshot":
-                return handle(async () => outcome(await this.#environments.createSnapshot(snapshotRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.createSnapshot(snapshotRequest(body)))
+                );
             case "/inspect-snapshot":
-                return handle(async () => outcome(await this.#environments.inspectSnapshot(snapshotRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.inspectSnapshot(snapshotRequest(body)))
+                );
             case "/expose":
-                return handle(async () => outcome(await this.#environments.exposePort(exposureRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.exposePort(exposureRequest(body)))
+                );
             case "/inspect-exposure":
-                return handle(async () => outcome(await this.#environments.inspectExposure(exposureRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.inspectExposure(exposureRequest(body)))
+                );
             case "/revoke":
-                return handle(async () => outcome(await this.#environments.revokeExposure(exposureRequest(body))));
+                return handle(async () =>
+                    outcome(await this.#environments.revokeExposure(exposureRequest(body)))
+                );
             default:
                 return new Response("not found", { status: 404 });
         }
@@ -266,10 +258,7 @@ export class LiveSlateHarness extends DurableObject<LiveEnvironment> {
 
     public async fetch(request: Request): Promise<Response> {
         const url = new URL(request.url);
-        const body =
-            request.method === "POST"
-                ? ((await request.json()) as Record<string, JsonValue>)
-                : {};
+        const body = await readBody(request);
         switch (url.pathname) {
             case "/abort":
                 this.ctx.abort();
@@ -286,7 +275,9 @@ export class LiveSlateHarness extends DurableObject<LiveEnvironment> {
                 });
             case "/materialize-resource":
                 return handle(async () => {
-                    const materialized = await this.#slates.materializeResource(resourceRequest(body));
+                    const materialized = await this.#slates.materializeResource(
+                        resourceRequest(body)
+                    );
                     return { materialization: materialized.materialization.value };
                 });
             case "/reconcile-resource":
@@ -300,16 +291,137 @@ export class LiveSlateHarness extends DurableObject<LiveEnvironment> {
     }
 }
 
-function outcome(value: {
-    readonly name: string;
-    readonly value?: unknown;
-}): JsonValue {
+function outcome(value: { readonly name: string; readonly value?: unknown }): JsonValue {
     if (!("value" in value) || value.value === undefined) return { name: value.name };
     const inner = value.value;
     if (inner instanceof ContentRef) return { name: value.name, value: inner.value };
     if (typeof inner === "string") return { name: value.name, value: inner };
     // LiveEnvironmentSession handles carry no serializable payload.
     return { name: value.name };
+}
+
+interface LiveStub {
+    fetch(request: Request): Promise<Response>;
+}
+
+interface LiveQueuePayload {
+    readonly instance: string;
+    readonly mode: string;
+}
+
+/**
+ * A poison body carries the same fields plus one more, so the delivery decoder rejects
+ * it on shape alone while the harness can still route it to the instance under test.
+ */
+interface LiveQueueBody {
+    readonly deliveryId: string;
+    readonly payload: LiveQueuePayload;
+    readonly poison?: true;
+}
+
+const liveQueueCodecs: QueueDeliveryCodecs<string, LiveQueuePayload> = Object.freeze({
+    deliveryId: Object.freeze({
+        decode(value: unknown): string {
+            if (typeof value !== "string" || value.length === 0) {
+                throw new TypeError("Live delivery ID must be non-empty text");
+            }
+            return value;
+        }
+    }),
+    payload: Object.freeze({
+        decode(value: unknown): LiveQueuePayload {
+            if (
+                typeof value !== "object" ||
+                value === null ||
+                !("instance" in value) ||
+                typeof value.instance !== "string" ||
+                !("mode" in value) ||
+                typeof value.mode !== "string"
+            ) {
+                throw new TypeError("Live queue payload must name an instance and a mode");
+            }
+            return Object.freeze({ instance: value.instance, mode: value.mode });
+        }
+    })
+});
+
+function laneStub(
+    environment: LiveEnvironment,
+    lane: string | undefined,
+    instance: string
+): LiveStub | undefined {
+    switch (lane) {
+        case "env":
+            return environment.ENVIRONMENTS.getByName(instance);
+        case "slate":
+            return environment.SLATES.getByName(instance);
+        case "runtime":
+            return environment.RUNTIME.getByName(instance);
+        default:
+            return undefined;
+    }
+}
+
+async function runtimeCall(
+    environment: LiveEnvironment,
+    instance: string,
+    operation: string,
+    body: LiveBody
+): Promise<LiveBody> {
+    const response = await environment.RUNTIME.getByName(instance).fetch(
+        new Request(`https://agent-core-live-harness/${operation}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body)
+        })
+    );
+    const decoded = (await response.json()) as {
+        readonly ok?: unknown;
+        readonly result?: LiveBody;
+    };
+    if (decoded.ok !== true || decoded.result === undefined) {
+        throw new TypeError(`Live runtime lane ${operation} failed for ${instance}`);
+    }
+    return decoded.result;
+}
+
+async function publish(
+    environment: LiveEnvironment,
+    instance: string,
+    body: LiveBody
+): Promise<JsonValue> {
+    const poison = flagField(body, "poison");
+    const deliveryId = field(body, "deliveryId");
+    await environment.DELIVERIES.send({
+        deliveryId,
+        payload: { instance, mode: field(body, "mode") },
+        ...(poison ? { poison: true as const } : {})
+    });
+    return { deliveryId, poison };
+}
+
+async function recordPoison(
+    environment: LiveEnvironment,
+    messageId: string,
+    body: unknown
+): Promise<void> {
+    if (
+        typeof body !== "object" ||
+        body === null ||
+        !("deliveryId" in body) ||
+        typeof body.deliveryId !== "string" ||
+        !("payload" in body) ||
+        typeof body.payload !== "object" ||
+        body.payload === null ||
+        !("instance" in body.payload) ||
+        typeof body.payload.instance !== "string"
+    ) {
+        throw new TypeError(`Dead-lettered message ${messageId} carries no live routing`);
+    }
+    await runtimeCall(environment, body.payload.instance, "queue-poison", {
+        messageId,
+        deliveryId: body.deliveryId
+    });
 }
 
 export default {
@@ -323,13 +435,43 @@ export default {
             });
         }
         const [, lane, instance, ...rest] = url.pathname.split("/");
-        if ((lane === "env" || lane === "slate") && instance !== undefined && rest.length > 0) {
-            const namespace = lane === "env" ? environment.ENVIRONMENTS : environment.SLATES;
-            const stub = namespace.getByName(instance);
-            const forwarded = new URL(request.url);
-            forwarded.pathname = `/${rest.join("/")}`;
-            return stub.fetch(new Request(forwarded, request));
+        if (instance === undefined || rest.length === 0) {
+            return new Response("not found", { status: 404 });
         }
-        return new Response("not found", { status: 404 });
+        if (lane === "queue" && rest[0] === "publish") {
+            return handle(async () => publish(environment, instance, await readBody(request)));
+        }
+        const stub = laneStub(environment, lane, instance);
+        if (stub === undefined) return new Response("not found", { status: 404 });
+        const forwarded = new URL(request.url);
+        forwarded.pathname = `/${rest.join("/")}`;
+        return stub.fetch(new Request(forwarded, request));
+    },
+
+    async queue(batch: MessageBatch<unknown>, environment: LiveEnvironment): Promise<void> {
+        if (batch.queue === POISON_QUEUE) {
+            for (const message of batch.messages) {
+                await recordPoison(environment, message.id, message.body);
+                message.ack();
+            }
+            return;
+        }
+        await new AtLeastOnceQueueAdapter<string, LiveQueuePayload>(
+            {
+                async deliver(deliveryId, payload): Promise<QueueTargetResult> {
+                    const result = await runtimeCall(
+                        environment,
+                        payload.instance,
+                        "queue-delivery",
+                        { deliveryId, mode: payload.mode }
+                    );
+                    return result["disposition"] === "retry"
+                        ? { disposition: "retry", retryDelaySeconds: 1 }
+                        : { disposition: "ack" };
+                }
+            },
+            liveQueueCodecs,
+            errors
+        ).handle(batch);
     }
 };

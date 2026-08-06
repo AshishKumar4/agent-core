@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { encodeCanonicalJson } from "@agent-core/core";
 import { decodeViewStreamFrame } from "../../src/index.js";
+import { SQL_BLOB_LIMIT_BYTES } from "../../src/sqlite.js";
 import {
     abortInstance,
     awaitEvent,
@@ -238,7 +239,10 @@ describe("live Cloudflare substrate evidence", () => {
                 ...request,
                 attemptOrdinal: 1
             })
-        ).toMatchObject({ ok: true, result: { materialization: attempted.result?.materialization } });
+        ).toMatchObject({
+            ok: true,
+            result: { materialization: attempted.result?.materialization }
+        });
         expect(
             await call("slate", "mediated", "reconcile-deploy", {
                 ...request,
@@ -268,6 +272,12 @@ describe("live Cloudflare substrate evidence", () => {
         });
     });
 });
+
+/**
+ * Far enough out that the arming response still describes an unswept outbox, near
+ * enough that the alarm fires immediately afterwards.
+ */
+const ARM_DELAY_MS = 500;
 
 interface EnqueueResult extends LiveOutboxState {
     readonly scheduledAt: number;
@@ -320,12 +330,10 @@ describe("live Cloudflare platform-semantics evidence", () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "alarm-sweep", "enqueue", {
                 id: "due-now",
-                delayMs: 0
+                delayMs: ARM_DELAY_MS
             })
         );
-        expect(enqueued.entries).toEqual([
-            { id: "due-now", scheduledAt: enqueued.scheduledAt }
-        ]);
+        expect(enqueued.entries).toEqual([{ id: "due-now", scheduledAt: enqueued.scheduledAt }]);
         // The physical alarm is the earliest live claim, and the reconciler holds one.
         expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
         expect(enqueued.claims).toEqual([
@@ -372,7 +380,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "alarm-retry", "enqueue", {
                 id: "faulty",
-                delayMs: 0,
+                delayMs: ARM_DELAY_MS,
                 faults: 1
             })
         );
@@ -381,7 +389,8 @@ describe("live Cloudflare platform-semantics evidence", () => {
         const failed = await awaitEvent("alarm-retry", "reconcile.failed", "faulty");
         const finished = await awaitEvent("alarm-retry", "reconcile.finished", "faulty");
         // The retry is the outbox's own reschedule, one configured delay after the failure.
-        expect(finished.at - failed.at).toBeGreaterThanOrEqual(2_000);
+        // The reschedule is measured from the sweep's start, a few milliseconds earlier.
+        expect(finished.at - failed.at).toBeGreaterThanOrEqual(1_900);
         expect(
             (await events("alarm-retry")).filter(
                 (event) => event.kind === "reconcile.started" && event.subject === "faulty"
@@ -475,14 +484,14 @@ describe("live Cloudflare platform-semantics evidence", () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "fence", "enqueue", {
                 id: "fenced",
-                delayMs: 0,
+                delayMs: ARM_DELAY_MS,
                 hold: true
             })
         );
         expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
 
         // The sweep is now awaiting inside reconcile with the object's input gate open.
-        await awaitEvent("fence", "reconcile.started", "fenced");
+        const started = await awaitEvent("fence", "reconcile.started", "fenced");
         const rescheduled = resultOf(
             await call<EnqueueResult>("runtime", "fence", "enqueue", {
                 id: "fenced",
@@ -490,14 +499,24 @@ describe("live Cloudflare platform-semantics evidence", () => {
                 release: true
             })
         );
-        await awaitEvent("fence", "reconcile.finished", "fenced");
+        const finished = await awaitEvent("fence", "reconcile.finished", "fenced");
+
+        // The reschedule landed strictly inside the sweep, which is the only ordering
+        // that puts the acknowledgement fence under test at all.
+        const midflight = (await events("fence")).find(
+            (event) =>
+                event.kind === "outbox.enqueued" &&
+                event.subject === "fenced" &&
+                event.detail === rescheduled.scheduledAt
+        );
+        expect(midflight).toBeDefined();
+        expect(midflight?.ordinal).toBeGreaterThan(started.ordinal);
+        expect(midflight?.ordinal).toBeLessThan(finished.ordinal);
 
         // The acknowledgement fenced on the schedule the sweep observed, so the newer
         // schedule survived and the alarm still points at it.
         const settled = resultOf(await call<LiveOutboxState>("runtime", "fence", "outbox"));
-        expect(settled.entries).toEqual([
-            { id: "fenced", scheduledAt: rescheduled.scheduledAt }
-        ]);
+        expect(settled.entries).toEqual([{ id: "fenced", scheduledAt: rescheduled.scheduledAt }]);
         expect(settled.physicalAlarm).toBe(rescheduled.scheduledAt);
 
         // The fence is not merely permissive: the matching schedule does clear the entry.
@@ -593,22 +612,26 @@ describe("live Cloudflare platform-semantics evidence", () => {
         expect(await attempts("queue-live", "q-poison")).toBeUndefined();
     });
 
-    it("[P11-STORAGE-LIMIT] rejects a row past the platform blob limit without losing the object", async () => {
+    it("[P11-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it", async () => {
+        // The seam's limit is only correct if production actually accepts a row that
+        // large, row overhead included — the one thing workerd cannot answer for it.
+        const nearLimit = SQL_BLOB_LIMIT_BYTES - 1_000;
         expect(
             resultOf(
                 await call<BlobResult>("runtime", "blob", "blob", {
                     channel: "limits",
-                    bytes: 1_000_000
+                    bytes: nearLimit
                 })
             )
-        ).toEqual({ revision: 1, byteLength: 1_000_000 });
+        ).toEqual({ revision: 1, byteLength: nearLimit });
 
         const oversized = await call<BlobResult>("runtime", "blob", "blob", {
             channel: "limits",
-            bytes: 3_000_000
+            bytes: SQL_BLOB_LIMIT_BYTES + 1
         });
         expect(oversized.ok).toBe(false);
-        expect(oversized.code).toBe("protocol.invalid-state");
+        // Refused as invalid input at the seam, before any transaction opens.
+        expect(oversized.code).toBe("operation.invalid-input");
 
         // The rejection is contained: the object still serves and the log is intact.
         expect(
@@ -619,9 +642,9 @@ describe("live Cloudflare platform-semantics evidence", () => {
                 })
             )
         ).toEqual({ revision: 2, byteLength: 1_000 });
-        expect(resultOf(await call<BlobRead>("runtime", "blob", "blob-read", { channel: "limits" }))).toEqual(
-            { currentRevision: 2, lastByteLength: 1_000 }
-        );
+        expect(
+            resultOf(await call<BlobRead>("runtime", "blob", "blob-read", { channel: "limits" }))
+        ).toEqual({ currentRevision: 2, lastByteLength: 1_000 });
     });
 
     it("[P11-ALARM-REDEPLOY] arms durable reconciliation work for the redeployed worker to finish", async () => {
