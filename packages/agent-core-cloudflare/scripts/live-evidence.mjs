@@ -76,7 +76,8 @@ const dirty =
 function provision(label, args) {
     const result = wrangler(args, { allowFailure: true });
     const output = result.stdout + result.stderr;
-    if (result.status !== 0 && !/already (exists|owns)|409/iu.test(output)) {
+    // R2 says "already exists" or "already owns"; Queues says "is already taken".
+    if (result.status !== 0 && !/already (exists|owns|taken)|409/iu.test(output)) {
         throw new TypeError(`${label} provisioning failed:\n${output}`);
     }
 }
