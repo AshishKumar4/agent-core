@@ -1799,7 +1799,8 @@ source RouteReservation ═ authenticated projection ═> target RouteProjected(
 The permitted local typed edges are exactly: Invocation → Approval, EffectAttempt,
 pre-effect Receipt, or WriteRecord; approved Approval → EffectAttempt; denied Approval
 → denied Receipt; expired Approval → cancelled Receipt; EffectAttempt → attempted
-Receipt; Receipt → Event or Commit; ReceiptSuperseded → Event or Commit; Event →
+Receipt; indeterminate Receipt → ReceiptSuperseded; Receipt → Event or Commit;
+ReceiptSuperseded → Event or Commit; Event →
 RouteReserved; RouteProjected → Delivery; Delivery → Commit. ReceiptSuperseded is a
 specialized append caused by its prior indeterminate Receipt and names the final next
 Receipt. Every cause MUST exist before append and share tenant and correlation; append
