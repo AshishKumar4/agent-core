@@ -9,6 +9,7 @@ import {
 } from "../../src/environments";
 import { AgentCoreError } from "../../src/errors";
 import { InvocationId, ReceiptId } from "../../src/invocations";
+import { expectAgentCoreError } from "../protocol/error-assertion";
 import {
     MemorySlateStore,
     Slate,
@@ -30,44 +31,48 @@ import {
 import { WorkspaceId } from "../../src/workspaces";
 
 describe("MemorySlateStore", () => {
-    test("[P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
-        const slate = Slate.initial(
-            new SlateId("slate-history"),
-            new WorkspaceId("workspace-history"),
-            ref("source-one")
-        );
-        expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
-        const updated = slate.update(ref("source-two"));
-        expect(store.compareAndSetSlate(slate.revision, updated)).toBe(true);
-        const version = new SlateVersion(
-            new SlateVersionId("version-history"),
-            slate.workspaceId,
-            slate.id,
-            updated.source
-        );
-        store.addVersion(version);
-        const committed = updated.commit(version.id);
-        expect(store.compareAndSetSlate(updated.revision, committed)).toBe(true);
-        const editedAfterCommit = committed.update(ref("source-three"));
-        expect(store.compareAndSetSlate(committed.revision, editedAfterCommit)).toBe(true);
+    test(
+        "[P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes",
+        { tags: "p0" },
+        () => {
+            const store = new MemorySlateStore();
+            const slate = Slate.initial(
+                new SlateId("slate-history"),
+                new WorkspaceId("workspace-history"),
+                ref("source-one")
+            );
+            expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
+            const updated = slate.update(ref("source-two"));
+            expect(store.compareAndSetSlate(slate.revision, updated)).toBe(true);
+            const version = new SlateVersion(
+                new SlateVersionId("version-history"),
+                slate.workspaceId,
+                slate.id,
+                updated.source
+            );
+            store.addVersion(version);
+            const committed = updated.commit(version.id);
+            expect(store.compareAndSetSlate(updated.revision, committed)).toBe(true);
+            const editedAfterCommit = committed.update(ref("source-three"));
+            expect(store.compareAndSetSlate(committed.revision, editedAfterCommit)).toBe(true);
 
-        expect(store.listSlateHistory(slate.id).map((item) => item.revision.value)).toEqual([
-            0, 1, 2, 3
-        ]);
-        expect(
-            store.getSlateRevision(slate.id, Revision.initial())?.source.equals(slate.source)
-        ).toBe(true);
+            expect(store.listSlateHistory(slate.id).map((item) => item.revision.value)).toEqual([
+                0, 1, 2, 3
+            ]);
+            expect(
+                store.getSlateRevision(slate.id, Revision.initial())?.source.equals(slate.source)
+            ).toBe(true);
 
-        const snapshot = store.snapshot();
-        const restored = new MemorySlateStore(snapshot);
-        snapshot.slates[0]!.bytes.fill(0);
-        snapshot.versions[0]!.bytes.fill(0);
+            const snapshot = store.snapshot();
+            const restored = new MemorySlateStore(snapshot);
+            snapshot.slates[0]!.bytes.fill(0);
+            snapshot.versions[0]!.bytes.fill(0);
 
-        expect(restored.getSlate(slate.id)?.headVersionId?.equals(version.id)).toBe(true);
-        expect(restored.getVersion(version.id)?.source.equals(updated.source)).toBe(true);
-        expect(store.getSlate(slate.id)?.revision.value).toBe(3);
-    });
+            expect(restored.getSlate(slate.id)?.headVersionId?.equals(version.id)).toBe(true);
+            expect(restored.getVersion(version.id)?.source.equals(updated.source)).toBe(true);
+            expect(store.getSlate(slate.id)?.revision.value).toBe(3);
+        }
+    );
 
     test("enforces CAS and immutable record replay", { tags: "p0" }, () => {
         const store = new MemorySlateStore();
@@ -99,220 +104,254 @@ describe("MemorySlateStore", () => {
         );
     });
 
-    test("rejects projection corruption and non-contiguous replay snapshots", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
-        const slate = Slate.initial(
-            new SlateId("slate-corrupt"),
-            new WorkspaceId("workspace-corrupt"),
-            ref("corrupt")
-        );
-        store.compareAndSetSlate(undefined, slate);
-        const snapshot = store.snapshot();
+    test(
+        "rejects projection corruption and non-contiguous replay snapshots",
+        { tags: "p0" },
+        () => {
+            const store = new MemorySlateStore();
+            const slate = Slate.initial(
+                new SlateId("slate-corrupt"),
+                new WorkspaceId("workspace-corrupt"),
+                ref("corrupt")
+            );
+            store.compareAndSetSlate(undefined, slate);
+            const snapshot = store.snapshot();
 
-        expect(
-            () =>
-                new MemorySlateStore({
-                    ...snapshot,
-                    slates: [{ ...snapshot.slates[0]!, workspaceId: new WorkspaceId("wrong") }]
-                })
-        ).toThrow(
-            new AgentCoreError(
-                "protocol.invalid-state",
-                "Stored Slate projection does not match its codec bytes"
-            )
-        );
-        expect(
-            () =>
-                new MemorySlateStore({
-                    ...snapshot,
-                    slates: [{ ...snapshot.slates[0]!, revision: 1 }]
-                } as MemorySlateSnapshot)
-        ).toThrow(
-            new AgentCoreError(
-                "protocol.invalid-state",
-                "Stored Slate projection does not match its codec bytes"
-            )
-        );
-    });
-
-    test("commits synchronous transactions atomically and rolls back failed or async drafts", { tags: "p0" }, async () => {
-        const store = new MemorySlateStore();
-        const slate = Slate.initial(
-            new SlateId("slate-transaction"),
-            new WorkspaceId("workspace-transaction"),
-            ref("transaction")
-        );
-        store.compareAndSetSlate(undefined, slate);
-        const failedVersion = new SlateVersion(
-            new SlateVersionId("version-failed"),
-            slate.workspaceId,
-            slate.id,
-            slate.source
-        );
-
-        expect(() =>
-            store.transaction((transaction) => {
-                transaction.addVersion(failedVersion);
-                throw new TypeError("abort transaction");
-            })
-        ).toThrow(/abort transaction/);
-        expect(store.getVersion(failedVersion.id)).toBeUndefined();
-
-        const asyncVersion = new SlateVersion(
-            new SlateVersionId("version-async"),
-            slate.workspaceId,
-            slate.id,
-            slate.source
-        );
-        expect(() =>
-            store.transaction(async (transaction) => {
-                transaction.addVersion(asyncVersion);
-                await Promise.resolve();
-            })
-        ).toThrow(/synchronous/);
-        expect(store.getVersion(asyncVersion.id)).toBeUndefined();
-        await Promise.resolve();
-        expect(store.getVersion(asyncVersion.id)).toBeUndefined();
-
-        const committedVersion = new SlateVersion(
-            new SlateVersionId("version-committed"),
-            slate.workspaceId,
-            slate.id,
-            slate.source
-        );
-        store.transaction((transaction) => {
-            transaction.addVersion(committedVersion);
             expect(
-                transaction.compareAndSetSlate(slate.revision, slate.commit(committedVersion.id))
-            ).toBe(true);
-        });
-        expect(store.getVersion(committedVersion.id)).toBeDefined();
-        expect(store.getSlate(slate.id)?.headVersionId?.equals(committedVersion.id)).toBe(true);
-    });
-
-    test("lists and clones a complete owned Slate graph without leaking mutable storage", { tags: "p0" }, () => {
-        const graph = completeGraph("lists");
-        const clone = graph.store.clone();
-
-        expect(clone.listSlates().map((record) => record.id.value)).toEqual([graph.slate.id.value]);
-        expect(clone.listSlates(graph.workspace)).toHaveLength(1);
-        expect(clone.listSlates(new WorkspaceId("workspace-other"))).toEqual([]);
-        expect(clone.listVersions(graph.slate.id).map((record) => record.id.value)).toEqual([
-            graph.version.id.value
-        ]);
-        expect(clone.listPublications(graph.slate.id).map((record) => record.id.value)).toEqual([
-            graph.publication.id.value
-        ]);
-        expect(clone.listDeployments(graph.slate.id).map((record) => record.id.value)).toEqual([
-            graph.deployment.id.value
-        ]);
-        expect(clone.listResources(graph.deployment.id).map((record) => record.id.value)).toEqual([
-            graph.resource.id.value
-        ]);
-        expect(clone.listPreviews(graph.slate.id).map((record) => record.id.value)).toEqual([
-            graph.preview.id.value
-        ]);
-        expect(
-            clone.getPreview(graph.preview.id)?.exposureId.equals(graph.preview.exposureId)
-        ).toBe(true);
-
-        clone.compareAndSetSlate(graph.current.revision, graph.current.update(ref("clone-only")));
-        expect(graph.store.getSlate(graph.slate.id)?.revision.value).toBe(
-            graph.current.revision.value
-        );
-    });
-
-    test("rejects broken graph projections and dangling reservations during restore", { tags: "p0" }, () => {
-        const graph = completeGraph("restore-corruption");
-        const snapshot = graph.store.snapshot();
-        expect(
-            () =>
-                new MemorySlateStore({
-                    ...snapshot,
-                    versions: snapshot.versions.map((row) => ({ ...row, id: "wrong-version" }))
-                })
-        ).toThrow(
-            new AgentCoreError(
-                "protocol.invalid-state",
-                "Stored Slate projection does not match its codec bytes"
-            )
-        );
-        expect(
-            () =>
-                new MemorySlateStore({
-                    ...snapshot,
-                    deploymentReservations: snapshot.deploymentReservations.map((row) => ({
-                        ...row,
-                        invocationId: new InvocationId("wrong-invocation")
-                    }))
-                })
-        ).toThrow(
-            new AgentCoreError(
-                "protocol.invalid-state",
-                "Stored Slate reservation invocation does not match its codec bytes"
-            )
-        );
-        expect(() => new MemorySlateStore({ ...snapshot, deployments: [] })).toThrow(
-            new AgentCoreError(
-                "protocol.invalid-state",
-                "Slate active deployment must be a successful owned deployment"
-            )
-        );
-        expect(
-            () =>
-                new MemorySlateStore({
-                    ...snapshot,
-                    versions: [...snapshot.versions, snapshot.versions[0]!]
-                })
-        ).toThrow(
-            new AgentCoreError(
-                "protocol.duplicate",
-                "Slate versions snapshot contains duplicate IDs"
-            )
-        );
-    });
-
-    test("rejects noncontiguous CAS updates and immutable ownership changes", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
-        const slate = Slate.initial(
-            new SlateId("slate-invalid-cas"),
-            new WorkspaceId("workspace-cas"),
-            ref("one")
-        );
-        expect(() => store.compareAndSetSlate(undefined, slate.update(ref("two")))).toThrow(
-            new AgentCoreError("protocol.invalid-state", "A new Slate must start at revision zero")
-        );
-        expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
-        expect(() =>
-            store.compareAndSetSlate(
-                slate.revision,
-                new Slate({
-                    id: slate.id,
-                    workspaceId: new WorkspaceId("workspace-moved"),
-                    source: ref("two"),
-                    revision: slate.revision.next()
-                })
-            )
-        ).toThrow(
-            new AgentCoreError("protocol.invalid-state", "Slate workspace ownership is immutable")
-        );
-        expect(() =>
-            store.addVersion(
-                new SlateVersion(
-                    new SlateVersionId("version-dangling-parent"),
-                    slate.workspaceId,
-                    slate.id,
-                    slate.source,
-                    new SlateVersionId("version-missing")
+                () =>
+                    new MemorySlateStore({
+                        ...snapshot,
+                        slates: [{ ...snapshot.slates[0]!, workspaceId: new WorkspaceId("wrong") }]
+                    })
+            ).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Stored Slate projection does not match its codec bytes"
                 )
-            )
-        ).toThrow(
-            new AgentCoreError(
-                "slate.invalid-version",
-                "Slate version parent must exist in the same Slate"
-            )
-        );
-    });
+            );
+            expect(
+                () =>
+                    new MemorySlateStore({
+                        ...snapshot,
+                        slates: [{ ...snapshot.slates[0]!, revision: 1 }]
+                    } as MemorySlateSnapshot)
+            ).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Stored Slate projection does not match its codec bytes"
+                )
+            );
+        }
+    );
+
+    test(
+        "commits synchronous transactions atomically and rolls back failed or async drafts",
+        { tags: "p0" },
+        async () => {
+            const store = new MemorySlateStore();
+            const slate = Slate.initial(
+                new SlateId("slate-transaction"),
+                new WorkspaceId("workspace-transaction"),
+                ref("transaction")
+            );
+            store.compareAndSetSlate(undefined, slate);
+            const failedVersion = new SlateVersion(
+                new SlateVersionId("version-failed"),
+                slate.workspaceId,
+                slate.id,
+                slate.source
+            );
+
+            expect(() =>
+                store.transaction((transaction) => {
+                    transaction.addVersion(failedVersion);
+                    throw new TypeError("abort transaction");
+                })
+            ).toThrow(/abort transaction/);
+            expect(store.getVersion(failedVersion.id)).toBeUndefined();
+
+            const asyncVersion = new SlateVersion(
+                new SlateVersionId("version-async"),
+                slate.workspaceId,
+                slate.id,
+                slate.source
+            );
+            expect(() =>
+                store.transaction(async (transaction) => {
+                    transaction.addVersion(asyncVersion);
+                    await Promise.resolve();
+                })
+            ).toThrow(/synchronous/);
+            expect(store.getVersion(asyncVersion.id)).toBeUndefined();
+            await Promise.resolve();
+            expect(store.getVersion(asyncVersion.id)).toBeUndefined();
+
+            const committedVersion = new SlateVersion(
+                new SlateVersionId("version-committed"),
+                slate.workspaceId,
+                slate.id,
+                slate.source
+            );
+            store.transaction((transaction) => {
+                transaction.addVersion(committedVersion);
+                expect(
+                    transaction.compareAndSetSlate(
+                        slate.revision,
+                        slate.commit(committedVersion.id)
+                    )
+                ).toBe(true);
+            });
+            expect(store.getVersion(committedVersion.id)).toBeDefined();
+            expect(store.getSlate(slate.id)?.headVersionId?.equals(committedVersion.id)).toBe(true);
+        }
+    );
+
+    test(
+        "lists and clones a complete owned Slate graph without leaking mutable storage",
+        { tags: "p0" },
+        () => {
+            const graph = completeGraph("lists");
+            const clone = graph.store.clone();
+
+            expect(clone.listSlates().map((record) => record.id.value)).toEqual([
+                graph.slate.id.value
+            ]);
+            expect(clone.listSlates(graph.workspace)).toHaveLength(1);
+            expect(clone.listSlates(new WorkspaceId("workspace-other"))).toEqual([]);
+            expect(clone.listVersions(graph.slate.id).map((record) => record.id.value)).toEqual([
+                graph.version.id.value
+            ]);
+            expect(clone.listPublications(graph.slate.id).map((record) => record.id.value)).toEqual(
+                [graph.publication.id.value]
+            );
+            expect(clone.listDeployments(graph.slate.id).map((record) => record.id.value)).toEqual([
+                graph.deployment.id.value
+            ]);
+            expect(
+                clone.listResources(graph.deployment.id).map((record) => record.id.value)
+            ).toEqual([graph.resource.id.value]);
+            expect(clone.listPreviews(graph.slate.id).map((record) => record.id.value)).toEqual([
+                graph.preview.id.value
+            ]);
+            expect(
+                clone.getPreview(graph.preview.id)?.exposureId.equals(graph.preview.exposureId)
+            ).toBe(true);
+
+            clone.compareAndSetSlate(
+                graph.current.revision,
+                graph.current.update(ref("clone-only"))
+            );
+            expect(graph.store.getSlate(graph.slate.id)?.revision.value).toBe(
+                graph.current.revision.value
+            );
+        }
+    );
+
+    test(
+        "rejects broken graph projections and dangling reservations during restore",
+        { tags: "p0" },
+        () => {
+            const graph = completeGraph("restore-corruption");
+            const snapshot = graph.store.snapshot();
+            expect(
+                () =>
+                    new MemorySlateStore({
+                        ...snapshot,
+                        versions: snapshot.versions.map((row) => ({ ...row, id: "wrong-version" }))
+                    })
+            ).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Stored Slate projection does not match its codec bytes"
+                )
+            );
+            expect(
+                () =>
+                    new MemorySlateStore({
+                        ...snapshot,
+                        deploymentReservations: snapshot.deploymentReservations.map((row) => ({
+                            ...row,
+                            invocationId: new InvocationId("wrong-invocation")
+                        }))
+                    })
+            ).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Stored Slate reservation invocation does not match its codec bytes"
+                )
+            );
+            expect(() => new MemorySlateStore({ ...snapshot, deployments: [] })).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Slate active deployment must be a successful owned deployment"
+                )
+            );
+            expect(
+                () =>
+                    new MemorySlateStore({
+                        ...snapshot,
+                        versions: [...snapshot.versions, snapshot.versions[0]!]
+                    })
+            ).toThrow(
+                new AgentCoreError(
+                    "protocol.duplicate",
+                    "Slate versions snapshot contains duplicate IDs"
+                )
+            );
+        }
+    );
+
+    test(
+        "rejects noncontiguous CAS updates and immutable ownership changes",
+        { tags: "p0" },
+        () => {
+            const store = new MemorySlateStore();
+            const slate = Slate.initial(
+                new SlateId("slate-invalid-cas"),
+                new WorkspaceId("workspace-cas"),
+                ref("one")
+            );
+            expect(() => store.compareAndSetSlate(undefined, slate.update(ref("two")))).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "A new Slate must start at revision zero"
+                )
+            );
+            expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
+            expect(() =>
+                store.compareAndSetSlate(
+                    slate.revision,
+                    new Slate({
+                        id: slate.id,
+                        workspaceId: new WorkspaceId("workspace-moved"),
+                        source: ref("two"),
+                        revision: slate.revision.next()
+                    })
+                )
+            ).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Slate workspace ownership is immutable"
+                )
+            );
+            expect(() =>
+                store.addVersion(
+                    new SlateVersion(
+                        new SlateVersionId("version-dangling-parent"),
+                        slate.workspaceId,
+                        slate.id,
+                        slate.source,
+                        new SlateVersionId("version-missing")
+                    )
+                )
+            ).toThrow(
+                new AgentCoreError(
+                    "slate.invalid-version",
+                    "Slate version parent must exist in the same Slate"
+                )
+            );
+        }
+    );
 
     test("uses the shared taxonomy for graph and reservation invariants", { tags: "p1" }, () => {
         const store = new MemorySlateStore();
@@ -320,7 +359,7 @@ describe("MemorySlateStore", () => {
         const slate = Slate.initial(new SlateId("slate-invariants"), workspace, ref("source"));
         store.compareAndSetSlate(undefined, slate);
 
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.compareAndSetSlate(
                     slate.revision,
@@ -331,9 +370,10 @@ describe("MemorySlateStore", () => {
                         revision: new Revision(2)
                     })
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "A Slate CAS must append the next revision"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addVersion(
                     new SlateVersion(
@@ -343,9 +383,10 @@ describe("MemorySlateStore", () => {
                         slate.source
                     )
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "Slate record must be owned by its Slate workspace"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addPublication(
                     new SlatePublication(
@@ -356,11 +397,12 @@ describe("MemorySlateStore", () => {
                         ref("publication")
                     )
                 ),
-            "slate.invalid-version"
+            "slate.invalid-version",
+            "Slate publication version must exist in the same Slate"
         );
 
         const invocation = new InvocationId("invocation-invariants");
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.reserveDeployment(
                     new SlateDeploymentReservation({
@@ -374,9 +416,10 @@ describe("MemorySlateStore", () => {
                         invocationId: invocation
                     })
                 ),
-            "slate.unpublished"
+            "slate.unpublished",
+            "Slate deployment publication must exist in the same Slate"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addDeployment(
                     new SlateDeployment(
@@ -390,9 +433,10 @@ describe("MemorySlateStore", () => {
                         new ReceiptId("receipt-unreserved")
                     )
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "Slate deployment must match its frozen reservation"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.reserveResource(
                     new SlateResourceReservation({
@@ -406,7 +450,8 @@ describe("MemorySlateStore", () => {
                         invocationId: invocation
                     })
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "Slate resource deployment must exist in the same Slate"
         );
 
         const capability = new EnvironmentSessionCapability(
@@ -415,7 +460,7 @@ describe("MemorySlateStore", () => {
             Revision.initial(),
             0
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addPreview(
                     new SlatePreview(
@@ -427,9 +472,10 @@ describe("MemorySlateStore", () => {
                         ref("stale")
                     )
                 ),
-            "protocol.revision-conflict"
+            "protocol.revision-conflict",
+            "Working Slate preview source must match the current source"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addPreview(
                     new SlatePreview(
@@ -442,18 +488,20 @@ describe("MemorySlateStore", () => {
                         new SlateVersionId("version-missing")
                     )
                 ),
-            "slate.invalid-version"
+            "slate.invalid-version",
+            "Versioned Slate preview must reference its exact source"
         );
 
-        expectCode(
+        expectAgentCoreError(
             () =>
                 new MemorySlateStore({
                     ...store.snapshot(),
                     slates: [...store.snapshot().slates, store.snapshot().slates[0]!]
                 }),
-            "protocol.duplicate"
+            "protocol.duplicate",
+            "Slate snapshot contains duplicate history"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 new MemorySlateStore({
                     ...store.snapshot(),
@@ -475,9 +523,10 @@ describe("MemorySlateStore", () => {
                         }
                     ]
                 }),
-            "slate.invalid-version"
+            "slate.invalid-version",
+            "Slate head must reference an owned version"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.compareAndSetSlate(
                     undefined,
@@ -489,83 +538,93 @@ describe("MemorySlateStore", () => {
                         revision: Revision.initial()
                     })
                 ),
-            "slate.unpublished"
+            "slate.unpublished",
+            "Slate latest publication must be an owned publication"
         );
     });
 
-    test("[slate.deployment-reservation] [slate.resource-reservation] validates reservation constructors and immutable reservation replay", { tags: "p0" }, () => {
-        const graph = completeGraph("reservation-replay");
-        expect(
-            () =>
-                new SlateDeploymentReservation({
-                    id: graph.deployment.id,
-                    workspaceId: graph.workspace,
-                    slateId: graph.slate.id,
-                    publicationId: graph.publication.id,
-                    publicationMaterialization: graph.publication.materialization,
-                    target: graph.deployment.target,
-                    externalKey: "external-invalid-invocation",
-                    invocationId: "invalid" as unknown as InvocationId
-                })
-        ).toThrow(TypeError);
-        expect(
-            () =>
-                new SlateResourceReservation({
-                    id: graph.resource.id,
-                    workspaceId: graph.workspace,
-                    slateId: graph.slate.id,
-                    deploymentId: graph.deployment.id,
-                    deploymentMaterialization: graph.deployment.materialization,
-                    name: graph.resource.name,
-                    source: graph.resource.source,
-                    invocationId: "invalid" as unknown as InvocationId
-                })
-        ).toThrow(TypeError);
+    test(
+        "[slate.deployment-reservation] [slate.resource-reservation] validates reservation constructors and immutable reservation replay",
+        { tags: "p0" },
+        () => {
+            const graph = completeGraph("reservation-replay");
+            expect(
+                () =>
+                    new SlateDeploymentReservation({
+                        id: graph.deployment.id,
+                        workspaceId: graph.workspace,
+                        slateId: graph.slate.id,
+                        publicationId: graph.publication.id,
+                        publicationMaterialization: graph.publication.materialization,
+                        target: graph.deployment.target,
+                        externalKey: "external-invalid-invocation",
+                        invocationId: "invalid" as unknown as InvocationId
+                    })
+            ).toThrow(TypeError);
+            expect(
+                () =>
+                    new SlateResourceReservation({
+                        id: graph.resource.id,
+                        workspaceId: graph.workspace,
+                        slateId: graph.slate.id,
+                        deploymentId: graph.deployment.id,
+                        deploymentMaterialization: graph.deployment.materialization,
+                        name: graph.resource.name,
+                        source: graph.resource.source,
+                        invocationId: "invalid" as unknown as InvocationId
+                    })
+            ).toThrow(TypeError);
 
-        const deploymentReservation = graph.store.getDeploymentReservation(graph.deployment.id)!;
-        expect(Object.isFrozen(deploymentReservation)).toBe(true);
-        expect(
-            SlateDeploymentReservation.decode(
-                SlateDeploymentReservation.encode(deploymentReservation)
-            )
-        ).toEqual(deploymentReservation);
-        graph.store.reserveDeployment(deploymentReservation);
-        expect(() =>
-            graph.store.reserveDeployment(
-                new SlateDeploymentReservation({
-                    id: deploymentReservation.id,
-                    workspaceId: deploymentReservation.workspaceId,
-                    slateId: deploymentReservation.slateId,
-                    publicationId: deploymentReservation.publicationId,
-                    publicationMaterialization: deploymentReservation.publicationMaterialization,
-                    target: "different",
-                    externalKey: `external-${externalKeyCounter++}`,
-                    invocationId: deploymentReservation.invocationId
-                })
-            )
-        ).toThrowError(expect.objectContaining({ code: "protocol.duplicate" }));
+            const deploymentReservation = graph.store.getDeploymentReservation(
+                graph.deployment.id
+            )!;
+            expect(Object.isFrozen(deploymentReservation)).toBe(true);
+            expect(
+                SlateDeploymentReservation.decode(
+                    SlateDeploymentReservation.encode(deploymentReservation)
+                )
+            ).toEqual(deploymentReservation);
+            graph.store.reserveDeployment(deploymentReservation);
+            expect(() =>
+                graph.store.reserveDeployment(
+                    new SlateDeploymentReservation({
+                        id: deploymentReservation.id,
+                        workspaceId: deploymentReservation.workspaceId,
+                        slateId: deploymentReservation.slateId,
+                        publicationId: deploymentReservation.publicationId,
+                        publicationMaterialization:
+                            deploymentReservation.publicationMaterialization,
+                        target: "different",
+                        externalKey: `external-${externalKeyCounter++}`,
+                        invocationId: deploymentReservation.invocationId
+                    })
+                )
+            ).toThrowError(expect.objectContaining({ code: "protocol.duplicate" }));
 
-        const resourceReservation = graph.store.getResourceReservation(graph.resource.id)!;
-        expect(Object.isFrozen(resourceReservation)).toBe(true);
-        expect(
-            SlateResourceReservation.decode(SlateResourceReservation.encode(resourceReservation))
-        ).toEqual(resourceReservation);
-        graph.store.reserveResource(resourceReservation);
-        expect(() =>
-            graph.store.reserveResource(
-                new SlateResourceReservation({
-                    id: resourceReservation.id,
-                    workspaceId: resourceReservation.workspaceId,
-                    slateId: resourceReservation.slateId,
-                    deploymentId: resourceReservation.deploymentId,
-                    deploymentMaterialization: resourceReservation.deploymentMaterialization,
-                    name: "different",
-                    source: resourceReservation.source,
-                    invocationId: resourceReservation.invocationId
-                })
-            )
-        ).toThrowError(expect.objectContaining({ code: "protocol.duplicate" }));
-    });
+            const resourceReservation = graph.store.getResourceReservation(graph.resource.id)!;
+            expect(Object.isFrozen(resourceReservation)).toBe(true);
+            expect(
+                SlateResourceReservation.decode(
+                    SlateResourceReservation.encode(resourceReservation)
+                )
+            ).toEqual(resourceReservation);
+            graph.store.reserveResource(resourceReservation);
+            expect(() =>
+                graph.store.reserveResource(
+                    new SlateResourceReservation({
+                        id: resourceReservation.id,
+                        workspaceId: resourceReservation.workspaceId,
+                        slateId: resourceReservation.slateId,
+                        deploymentId: resourceReservation.deploymentId,
+                        deploymentMaterialization: resourceReservation.deploymentMaterialization,
+                        name: "different",
+                        source: resourceReservation.source,
+                        invocationId: resourceReservation.invocationId
+                    })
+                )
+            ).toThrowError(expect.objectContaining({ code: "protocol.duplicate" }));
+        }
+    );
 
     test("rejects missing replay roots and dangling owned graph records", { tags: "p0" }, () => {
         const graph = completeGraph("dangling-replay");
@@ -593,190 +652,208 @@ describe("MemorySlateStore", () => {
         }
     });
 
-    test("rejects fork-origin mutation and accepts exact parent-version lineage", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
-        const workspace = new WorkspaceId("workspace-lineage");
-        const slate = Slate.initial(new SlateId("slate-lineage"), workspace, ref("source"));
-        store.compareAndSetSlate(undefined, slate);
-        const parent = new SlateVersion(
-            new SlateVersionId("version-lineage-parent"),
-            workspace,
-            slate.id,
-            slate.source
-        );
-        store.addVersion(parent);
-        const child = new SlateVersion(
-            new SlateVersionId("version-lineage-child"),
-            workspace,
-            slate.id,
-            slate.source,
-            parent.id
-        );
-        expect(() => store.addVersion(child)).not.toThrow();
+    test(
+        "rejects fork-origin mutation and accepts exact parent-version lineage",
+        { tags: "p0" },
+        () => {
+            const store = new MemorySlateStore();
+            const workspace = new WorkspaceId("workspace-lineage");
+            const slate = Slate.initial(new SlateId("slate-lineage"), workspace, ref("source"));
+            store.compareAndSetSlate(undefined, slate);
+            const parent = new SlateVersion(
+                new SlateVersionId("version-lineage-parent"),
+                workspace,
+                slate.id,
+                slate.source
+            );
+            store.addVersion(parent);
+            const child = new SlateVersion(
+                new SlateVersionId("version-lineage-child"),
+                workspace,
+                slate.id,
+                slate.source,
+                parent.id
+            );
+            expect(() => store.addVersion(child)).not.toThrow();
 
-        const fork = new Slate({
-            id: new SlateId("slate-lineage-fork"),
-            workspaceId: workspace,
-            source: parent.source,
-            forkedFrom: { slateId: slate.id, versionId: parent.id },
-            revision: Revision.initial()
-        });
-        store.compareAndSetSlate(undefined, fork);
-        expect(() =>
-            store.compareAndSetSlate(
-                fork.revision,
-                new Slate({
-                    id: fork.id,
-                    workspaceId: workspace,
-                    source: ref("changed"),
-                    revision: fork.revision.next()
-                })
-            )
-        ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
-        expect(store.getSlateRevision(slate.id, new Revision(99))).toBeUndefined();
-
-        const graph = completeGraph("resource-reservation-mismatch");
-        expect(() =>
-            graph.store.addResource(
-                new SlateResource(
-                    graph.resource.id,
-                    graph.workspace,
-                    graph.slate.id,
-                    graph.deployment.id,
-                    "different",
-                    graph.resource.source,
-                    graph.resource.materialization,
-                    graph.resource.invocationId,
-                    graph.resource.receiptId
+            const fork = new Slate({
+                id: new SlateId("slate-lineage-fork"),
+                workspaceId: workspace,
+                source: parent.source,
+                forkedFrom: { slateId: slate.id, versionId: parent.id },
+                revision: Revision.initial()
+            });
+            store.compareAndSetSlate(undefined, fork);
+            expect(() =>
+                store.compareAndSetSlate(
+                    fork.revision,
+                    new Slate({
+                        id: fork.id,
+                        workspaceId: workspace,
+                        source: ref("changed"),
+                        revision: fork.revision.next()
+                    })
                 )
-            )
-        ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
-    });
+            ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
+            expect(store.getSlateRevision(slate.id, new Revision(99))).toBeUndefined();
 
-    test("restores unordered history and rejects dangling parent, deployment, resource, and preview graphs", { tags: "p0" }, () => {
-        const complete = completeGraph("restart-edges");
-        const completeSnapshot = complete.store.snapshot();
-        expect(
-            new MemorySlateStore({
-                ...completeSnapshot,
-                slates: [...completeSnapshot.slates].reverse()
-            }).getSlate(complete.slate.id)?.revision
-        ).toEqual(complete.current.revision);
+            const graph = completeGraph("resource-reservation-mismatch");
+            expect(() =>
+                graph.store.addResource(
+                    new SlateResource(
+                        graph.resource.id,
+                        graph.workspace,
+                        graph.slate.id,
+                        graph.deployment.id,
+                        "different",
+                        graph.resource.source,
+                        graph.resource.materialization,
+                        graph.resource.invocationId,
+                        graph.resource.receiptId
+                    )
+                )
+            ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
+        }
+    );
 
-        const lineageStore = new MemorySlateStore();
-        const lineageWorkspace = new WorkspaceId("workspace-dangling-parent");
-        const lineageSlate = Slate.initial(
-            new SlateId("slate-dangling-parent"),
-            lineageWorkspace,
-            ref("dangling-parent")
-        );
-        lineageStore.compareAndSetSlate(undefined, lineageSlate);
-        const parent = new SlateVersion(
-            new SlateVersionId("version-dangling-parent-root"),
-            lineageWorkspace,
-            lineageSlate.id,
-            lineageSlate.source
-        );
-        const child = new SlateVersion(
-            new SlateVersionId("version-dangling-parent-child"),
-            lineageWorkspace,
-            lineageSlate.id,
-            lineageSlate.source,
-            parent.id
-        );
-        lineageStore.addVersion(parent);
-        lineageStore.addVersion(child);
-        const lineageSnapshot = lineageStore.snapshot();
-        expect(
-            () =>
-                new MemorySlateStore({
-                    ...lineageSnapshot,
-                    versions: lineageSnapshot.versions.filter((row) => row.id !== parent.id.value)
-                })
-        ).toThrow(/dangling parent/);
-
-        const publishedHistory = completeSnapshot.slates.slice(0, -1);
-        expect(
-            () =>
+    test(
+        "restores unordered history and rejects dangling parent, deployment, resource, and preview graphs",
+        { tags: "p0" },
+        () => {
+            const complete = completeGraph("restart-edges");
+            const completeSnapshot = complete.store.snapshot();
+            expect(
                 new MemorySlateStore({
                     ...completeSnapshot,
-                    slates: publishedHistory,
-                    deployments: []
-                })
-        ).toThrow(/dangling deployment/);
-        expect(
-            () =>
-                new MemorySlateStore({
-                    ...completeSnapshot,
-                    slates: publishedHistory,
-                    deployments: [],
-                    resources: []
-                })
-        ).toThrow(/resource reservation has a dangling deployment/);
+                    slates: [...completeSnapshot.slates].reverse()
+                }).getSlate(complete.slate.id)?.revision
+            ).toEqual(complete.current.revision);
 
-        const previewStore = new MemorySlateStore();
-        const previewWorkspace = new WorkspaceId("workspace-versioned-preview");
-        const previewSlate = Slate.initial(
-            new SlateId("slate-versioned-preview"),
-            previewWorkspace,
-            ref("versioned-preview")
-        );
-        previewStore.compareAndSetSlate(undefined, previewSlate);
-        const previewVersion = new SlateVersion(
-            new SlateVersionId("version-versioned-preview"),
-            previewWorkspace,
-            previewSlate.id,
-            previewSlate.source
-        );
-        previewStore.addVersion(previewVersion);
-        previewStore.addPreview(
-            new SlatePreview(
-                new SlatePreviewId("preview-versioned"),
+            const lineageStore = new MemorySlateStore();
+            const lineageWorkspace = new WorkspaceId("workspace-dangling-parent");
+            const lineageSlate = Slate.initial(
+                new SlateId("slate-dangling-parent"),
+                lineageWorkspace,
+                ref("dangling-parent")
+            );
+            lineageStore.compareAndSetSlate(undefined, lineageSlate);
+            const parent = new SlateVersion(
+                new SlateVersionId("version-dangling-parent-root"),
+                lineageWorkspace,
+                lineageSlate.id,
+                lineageSlate.source
+            );
+            const child = new SlateVersion(
+                new SlateVersionId("version-dangling-parent-child"),
+                lineageWorkspace,
+                lineageSlate.id,
+                lineageSlate.source,
+                parent.id
+            );
+            lineageStore.addVersion(parent);
+            lineageStore.addVersion(child);
+            const lineageSnapshot = lineageStore.snapshot();
+            expect(
+                () =>
+                    new MemorySlateStore({
+                        ...lineageSnapshot,
+                        versions: lineageSnapshot.versions.filter(
+                            (row) => row.id !== parent.id.value
+                        )
+                    })
+            ).toThrow(/dangling parent/);
+
+            const publishedHistory = completeSnapshot.slates.slice(0, -1);
+            expect(
+                () =>
+                    new MemorySlateStore({
+                        ...completeSnapshot,
+                        slates: publishedHistory,
+                        deployments: []
+                    })
+            ).toThrow(/dangling deployment/);
+            expect(
+                () =>
+                    new MemorySlateStore({
+                        ...completeSnapshot,
+                        slates: publishedHistory,
+                        deployments: [],
+                        resources: []
+                    })
+            ).toThrow(/resource reservation has a dangling deployment/);
+
+            const previewStore = new MemorySlateStore();
+            const previewWorkspace = new WorkspaceId("workspace-versioned-preview");
+            const previewSlate = Slate.initial(
+                new SlateId("slate-versioned-preview"),
+                previewWorkspace,
+                ref("versioned-preview")
+            );
+            previewStore.compareAndSetSlate(undefined, previewSlate);
+            const previewVersion = new SlateVersion(
+                new SlateVersionId("version-versioned-preview"),
                 previewWorkspace,
                 previewSlate.id,
-                new EnvironmentSessionCapability(
-                    new EnvironmentId("environment-versioned"),
-                    new EnvironmentSessionId("session-versioned"),
-                    Revision.initial(),
-                    0
-                ),
-                new PortExposureId("exposure-versioned"),
-                previewVersion.source,
-                previewVersion.id
-            )
-        );
-        const previewSnapshot = previewStore.snapshot();
-        expect(() => new MemorySlateStore({ ...previewSnapshot, versions: [] })).toThrow(
-            /preview has a dangling or inexact source/
-        );
-    });
+                previewSlate.source
+            );
+            previewStore.addVersion(previewVersion);
+            previewStore.addPreview(
+                new SlatePreview(
+                    new SlatePreviewId("preview-versioned"),
+                    previewWorkspace,
+                    previewSlate.id,
+                    new EnvironmentSessionCapability(
+                        new EnvironmentId("environment-versioned"),
+                        new EnvironmentSessionId("session-versioned"),
+                        Revision.initial(),
+                        0
+                    ),
+                    new PortExposureId("exposure-versioned"),
+                    previewVersion.source,
+                    previewVersion.id
+                )
+            );
+            const previewSnapshot = previewStore.snapshot();
+            expect(() => new MemorySlateStore({ ...previewSnapshot, versions: [] })).toThrow(
+                /preview has a dangling or inexact source/
+            );
+        }
+    );
 
-    test("rejects fork closure and resource finalization after their durable dependencies disappear", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
-        const workspace = new WorkspaceId("workspace-fork-closure");
-        const source = Slate.initial(new SlateId("slate-fork-source"), workspace, ref("source"));
-        store.compareAndSetSlate(undefined, source);
-        expect(() =>
-            store.compareAndSetSlate(
-                undefined,
-                new Slate({
-                    id: new SlateId("slate-invalid-fork"),
-                    workspaceId: workspace,
-                    source: source.source,
-                    forkedFrom: {
-                        slateId: source.id,
-                        versionId: new SlateVersionId("version-missing-fork")
-                    },
-                    revision: Revision.initial()
-                })
-            )
-        ).toThrowError(expect.objectContaining({ code: "slate.invalid-version" }));
+    test(
+        "rejects fork closure and resource finalization after their durable dependencies disappear",
+        { tags: "p0" },
+        () => {
+            const store = new MemorySlateStore();
+            const workspace = new WorkspaceId("workspace-fork-closure");
+            const source = Slate.initial(
+                new SlateId("slate-fork-source"),
+                workspace,
+                ref("source")
+            );
+            store.compareAndSetSlate(undefined, source);
+            expect(() =>
+                store.compareAndSetSlate(
+                    undefined,
+                    new Slate({
+                        id: new SlateId("slate-invalid-fork"),
+                        workspaceId: workspace,
+                        source: source.source,
+                        forkedFrom: {
+                            slateId: source.id,
+                            versionId: new SlateVersionId("version-missing-fork")
+                        },
+                        revision: Revision.initial()
+                    })
+                )
+            ).toThrowError(expect.objectContaining({ code: "slate.invalid-version" }));
 
-        const graph = completeGraph("resource-dependency-loss");
-        const hidden = new HiddenDeploymentSlateStore(graph.store.snapshot());
-        hidden.hideDeployments = true;
-        expect(() => hidden.addResource(graph.resource)).toThrow(/deployment must exist/);
-    });
+            const graph = completeGraph("resource-dependency-loss");
+            const hidden = new HiddenDeploymentSlateStore(graph.store.snapshot());
+            hidden.hideDeployments = true;
+            expect(() => hidden.addResource(graph.resource)).toThrow(/deployment must exist/);
+        }
+    );
 });
 
 class HiddenDeploymentSlateStore extends MemorySlateStore {
@@ -890,15 +967,4 @@ function completeGraph(label: string) {
 
 function ref(label: string): ContentRef {
     return ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode(label)));
-}
-
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
-    let error: unknown;
-    try {
-        operation();
-    } catch (caught) {
-        error = caught;
-    }
-    expect(error).toBeInstanceOf(AgentCoreError);
-    expect((error as AgentCoreError).code).toBe(code);
 }

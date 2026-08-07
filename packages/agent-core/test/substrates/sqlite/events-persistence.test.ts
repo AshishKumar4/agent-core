@@ -87,16 +87,25 @@ test("verifies initial pointer compare-and-set postconditions", { tags: "p0" }, 
     ).toThrow(/lost a concurrent race/);
 });
 
-test("refuses to compact non-compactable record kinds and keeps them stored", { tags: "p0" }, () => {
-    const database = new TestSqlite();
-    const records = new SqliteWorkspaceEventRecords(database);
-    records.insertRecord({ kind: "event", id: "guarded", bytes: Uint8Array.of(1) });
+test(
+    "refuses to compact non-compactable record kinds and keeps them stored",
+    { tags: "p0" },
+    () => {
+        const database = new TestSqlite();
+        const records = new SqliteWorkspaceEventRecords(database);
+        records.insertRecord({ kind: "event", id: "guarded", bytes: Uint8Array.of(1) });
 
-    expect(() =>
-        records.deleteCompactedRecords("event" as CompactableWorkspaceRecordKind, ["guarded"])
-    ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
-    expect(records.findRecord("event", "guarded")?.bytes).toEqual(Uint8Array.of(1));
-});
+        expect(() =>
+            records.deleteCompactedRecords("event" as CompactableWorkspaceRecordKind, ["guarded"])
+        ).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Record kind is not compactable"
+            })
+        );
+        expect(records.findRecord("event", "guarded")?.bytes).toEqual(Uint8Array.of(1));
+    }
+);
 
 test("duplicate records are rejected before the insert executes", { tags: "p1" }, () => {
     const database = new TestSqlite();
@@ -282,10 +291,7 @@ class BlobRecordingSqlite extends TestSqlite {
 class RecordCachingSqlite extends TestSqlite {
     readonly #cache = new Map<string, readonly SqliteRow[]>();
 
-    public override all(
-        statement: string,
-        bindings: readonly SqliteValue[]
-    ): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (!statement.includes("FROM workspace_event_records")) {
             return super.all(statement, bindings);
         }

@@ -21,7 +21,7 @@ import {
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
-import { expectAgentCoreDiagnostic } from "./retention-contract";
+import { expectAgentCoreError } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const digest = Digest.sha256(encode("record"));
@@ -91,65 +91,75 @@ describe("content record codecs", () => {
         }
     ];
 
-    test("[content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds", { tags: "p1" }, () => {
-        for (const codec of codecs) {
-            const decoded = codec.decode(codec.bytes);
-            const encoded =
-                codec.name === "content stat"
-                    ? ContentStat.encode(decoded as ContentStat)
-                    : codec.name === "owner edge"
-                      ? ContentOwnerEdge.encode(decoded as ContentOwnerEdge)
-                      : TransientContentLeaseState.encode(decoded as TransientContentLeaseState);
-            expect(encoded).toEqual(codec.bytes);
-            expect(typeof envelope(encoded)["kind"]).toBe("string");
+    test(
+        "[content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds",
+        { tags: "p1" },
+        () => {
+            for (const codec of codecs) {
+                const decoded = codec.decode(codec.bytes);
+                const encoded =
+                    codec.name === "content stat"
+                        ? ContentStat.encode(decoded as ContentStat)
+                        : codec.name === "owner edge"
+                          ? ContentOwnerEdge.encode(decoded as ContentOwnerEdge)
+                          : TransientContentLeaseState.encode(
+                                decoded as TransientContentLeaseState
+                            );
+                expect(encoded).toEqual(codec.bytes);
+                expect(typeof envelope(encoded)["kind"]).toBe("string");
+            }
         }
-    });
+    );
 
     for (const codec of codecs) {
-        test(`${codec.name} rejects every malformed envelope and version class`, { tags: "p1" }, () => {
-            const valid = envelope(codec.bytes);
-            const malformed: readonly JsonValue[] = [
-                null,
-                [],
-                "record",
-                { ...valid, extra: true },
-                { ...valid, kind: 1 },
-                { ...valid, version: null },
-                { ...valid, version: { major: 1 } },
-                { ...valid, version: { major: 1, minor: 0, patch: 0 } },
-                { ...valid, version: { major: "1", minor: 0 } },
-                { ...valid, version: { major: -1, minor: 0 } },
-                { ...valid, version: { major: 1.5, minor: 0 } },
-                { ...valid, version: { major: 1, minor: "0" } },
-                { ...valid, version: { major: 1, minor: -1 } },
-                { ...valid, version: { major: 1, minor: 0.5 } }
-            ];
-            for (const value of malformed) {
-                expectCodecInvalid(() => codec.decode(encodeCanonicalJson(value)));
-            }
-            expectCodecInvalid(() => codec.decode(Uint8Array.of(0xff)));
-            expectCodecInvalid(() =>
-                codec.decode(encodeCanonicalJson({ ...valid, kind: "other" }))
-            );
-            expectCodecInvalid(
-                () =>
+        test(
+            `${codec.name} rejects every malformed envelope and version class`,
+            { tags: "p1" },
+            () => {
+                const valid = envelope(codec.bytes);
+                const malformed: readonly JsonValue[] = [
+                    null,
+                    [],
+                    "record",
+                    { ...valid, extra: true },
+                    { ...valid, kind: 1 },
+                    { ...valid, version: null },
+                    { ...valid, version: { major: 1 } },
+                    { ...valid, version: { major: 1, minor: 0, patch: 0 } },
+                    { ...valid, version: { major: "1", minor: 0 } },
+                    { ...valid, version: { major: -1, minor: 0 } },
+                    { ...valid, version: { major: 1.5, minor: 0 } },
+                    { ...valid, version: { major: 1, minor: "0" } },
+                    { ...valid, version: { major: 1, minor: -1 } },
+                    { ...valid, version: { major: 1, minor: 0.5 } }
+                ];
+                for (const value of malformed) {
+                    expectCodecInvalid(() => codec.decode(encodeCanonicalJson(value)));
+                }
+                expectCodecInvalid(() => codec.decode(Uint8Array.of(0xff)));
+                expectCodecInvalid(() =>
+                    codec.decode(encodeCanonicalJson({ ...valid, kind: "other" }))
+                );
+                expectCodecInvalid(
+                    () =>
+                        codec.decode(
+                            encodeCanonicalJson({
+                                ...valid,
+                                version: { major: 2, minor: 0 }
+                            })
+                        ),
+                    "codec.unknown-major"
+                );
+                expectCodecInvalid(() =>
                     codec.decode(
                         encodeCanonicalJson({
                             ...valid,
-                            version: { major: 2, minor: 0 }
+                            version: { major: 1, minor: 1 }
                         })
-                    ),
-                "codec.unknown-major"
-            );
-            expectCodecInvalid(() =>
-                codec.decode(
-                    encodeCanonicalJson({
-                        ...valid,
-                        version: { major: 1, minor: 1 }
-                    })
-                )
-            );
-        });
+                    )
+                );
+            }
+        );
     }
 
     test("content stat rejects every malformed field and invalid value", { tags: "p1" }, () => {
@@ -275,80 +285,92 @@ describe("content record codecs", () => {
 });
 
 describe("content value contracts", () => {
-    test("preserves programmer TypeError for invalid media, stat, owner, and time values", { tags: "p2" }, () => {
-        expect(() => new MediaHint(" ")).toThrow(TypeError);
-        expect(() => new MediaHint("x".repeat(256))).toThrow(TypeError);
-        expect(() => new ContentStat(ref, digest, -1)).toThrow(TypeError);
-        expect(() => new ContentStat(ref, digest, 1.5)).toThrow(TypeError);
-        expect(() => new ContentStat(ref, Digest.sha256(encode("different")), 6)).toThrow(
-            TypeError
-        );
-        expect(() => new ContentOwnerEdge(tenant, actor, " ", ref)).toThrow(TypeError);
-        expect(() => new ContentOwnerEdge(tenant, actor, "x".repeat(513), ref)).toThrow(TypeError);
-        for (const value of [
-            new Date(-1),
-            new Date(Number.NaN),
-            new Date(Number.MAX_SAFE_INTEGER)
-        ]) {
-            expect(() => requireOperationTime(value)).toThrow(TypeError);
-            expect(() => requireCollectionTime(value)).toThrow(TypeError);
+    test(
+        "preserves programmer TypeError for invalid media, stat, owner, and time values",
+        { tags: "p2" },
+        () => {
+            expect(() => new MediaHint(" ")).toThrow(TypeError);
+            expect(() => new MediaHint("x".repeat(256))).toThrow(TypeError);
+            expect(() => new ContentStat(ref, digest, -1)).toThrow(TypeError);
+            expect(() => new ContentStat(ref, digest, 1.5)).toThrow(TypeError);
+            expect(() => new ContentStat(ref, Digest.sha256(encode("different")), 6)).toThrow(
+                TypeError
+            );
+            expect(() => new ContentOwnerEdge(tenant, actor, " ", ref)).toThrow(TypeError);
+            expect(() => new ContentOwnerEdge(tenant, actor, "x".repeat(513), ref)).toThrow(
+                TypeError
+            );
+            for (const value of [
+                new Date(-1),
+                new Date(Number.NaN),
+                new Date(Number.MAX_SAFE_INTEGER)
+            ]) {
+                expect(() => requireOperationTime(value)).toThrow(TypeError);
+                expect(() => requireCollectionTime(value)).toThrow(TypeError);
+            }
+            expect(requireOperationTime(new Date(12))).not.toBe(requireOperationTime(new Date(12)));
         }
-        expect(requireOperationTime(new Date(12))).not.toBe(requireOperationTime(new Date(12)));
-    });
+    );
 
-    test("models active, released, expired, and idempotently closed lease orders", { tags: "p1" }, () => {
-        const state = new TransientContentLeaseState(
-            tenant,
-            actor,
-            Digest.sha256(encode("lease-order")),
-            ref,
-            digest,
-            new Date(10),
-            new Date(30)
-        );
-        const binding: TransientContentBinding = {
-            tenant,
-            actor,
-            envelopeDigest: state.envelopeDigest,
-            ref,
-            digest,
-            expiresAt: new Date(30)
-        };
+    test(
+        "models active, released, expired, and idempotently closed lease orders",
+        { tags: "p1" },
+        () => {
+            const state = new TransientContentLeaseState(
+                tenant,
+                actor,
+                Digest.sha256(encode("lease-order")),
+                ref,
+                digest,
+                new Date(10),
+                new Date(30)
+            );
+            const binding: TransientContentBinding = {
+                tenant,
+                actor,
+                envelopeDigest: state.envelopeDigest,
+                ref,
+                digest,
+                expiresAt: new Date(30)
+            };
 
-        expect(state.closedAt).toBeUndefined();
-        expect(state.inactiveAt).toBeUndefined();
-        expect(state.isActive(new Date(29))).toBe(true);
-        expect(state.isActive(new Date(30))).toBe(false);
-        expect(state.matches(binding)).toBe(true);
-        expect(state.matches({ ...binding, tenant: new TenantId("foreign") })).toBe(false);
-        expect(
-            state.matches({
-                ...binding,
-                actor: new ActorRef("workspace", new ActorId("foreign"))
-            })
-        ).toBe(false);
-        expect(
-            state.matches({
-                ...binding,
-                envelopeDigest: Digest.sha256(encode("foreign-envelope"))
-            })
-        ).toBe(false);
-        const otherDigest = Digest.sha256(encode("different"));
-        expect(state.matches({ ...binding, ref: ContentRef.fromDigest(otherDigest) })).toBe(false);
-        expect(state.matches({ ...binding, digest: otherDigest })).toBe(false);
-        expect(state.matches({ ...binding, expiresAt: new Date(31) })).toBe(false);
+            expect(state.closedAt).toBeUndefined();
+            expect(state.inactiveAt).toBeUndefined();
+            expect(state.isActive(new Date(29))).toBe(true);
+            expect(state.isActive(new Date(30))).toBe(false);
+            expect(state.matches(binding)).toBe(true);
+            expect(state.matches({ ...binding, tenant: new TenantId("foreign") })).toBe(false);
+            expect(
+                state.matches({
+                    ...binding,
+                    actor: new ActorRef("workspace", new ActorId("foreign"))
+                })
+            ).toBe(false);
+            expect(
+                state.matches({
+                    ...binding,
+                    envelopeDigest: Digest.sha256(encode("foreign-envelope"))
+                })
+            ).toBe(false);
+            const otherDigest = Digest.sha256(encode("different"));
+            expect(state.matches({ ...binding, ref: ContentRef.fromDigest(otherDigest) })).toBe(
+                false
+            );
+            expect(state.matches({ ...binding, digest: otherDigest })).toBe(false);
+            expect(state.matches({ ...binding, expiresAt: new Date(31) })).toBe(false);
 
-        const released = state.close(new Date(20));
-        expect(released.closedAt).toEqual(new Date(20));
-        expect(released.inactiveAt).toEqual(new Date(20));
-        expect(released.isActive(new Date(19))).toBe(false);
-        expect(released.close(new Date(25))).toBe(released);
-        const releasedAfterExpiry = state.close(new Date(40));
-        expect(releasedAfterExpiry.inactiveAt).toEqual(new Date(30));
-        expect(() => state.close(new Date(9))).toThrow(TypeError);
-        expect(() => state.isActive(new Date(-1))).toThrow(TypeError);
-        expect(() => state.matches({ ...binding, expiresAt: new Date(-1) })).toThrow(TypeError);
-    });
+            const released = state.close(new Date(20));
+            expect(released.closedAt).toEqual(new Date(20));
+            expect(released.inactiveAt).toEqual(new Date(20));
+            expect(released.isActive(new Date(19))).toBe(false);
+            expect(released.close(new Date(25))).toBe(released);
+            const releasedAfterExpiry = state.close(new Date(40));
+            expect(releasedAfterExpiry.inactiveAt).toEqual(new Date(30));
+            expect(() => state.close(new Date(9))).toThrow(TypeError);
+            expect(() => state.isActive(new Date(-1))).toThrow(TypeError);
+            expect(() => state.matches({ ...binding, expiresAt: new Date(-1) })).toThrow(TypeError);
+        }
+    );
 });
 
 describe("content record diagnostics", () => {
@@ -424,7 +446,7 @@ describe("content record diagnostics", () => {
 
         for (const codec of cases) {
             for (const payload of codec.payloads) {
-                expectAgentCoreDiagnostic(
+                expectAgentCoreError(
                     () => codec.decode(withPayload(codec.bytes, payload)),
                     "codec.invalid",
                     codec.message
@@ -469,7 +491,7 @@ describe("content record diagnostics", () => {
     test("names the out-of-bounds byte range diagnostic exactly", { tags: "p2" }, () => {
         const bytes = encode("abc");
         for (const range of [ByteRange.from(4), ByteRange.slice(2, 2), ByteRange.slice(0, 4)]) {
-            expectAgentCoreDiagnostic(
+            expectAgentCoreError(
                 () => range.read(bytes),
                 "content.invalid-range",
                 "Byte range exceeds content bounds"

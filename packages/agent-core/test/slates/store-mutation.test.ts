@@ -281,8 +281,7 @@ describe("MemorySlateStore mutation kills", () => {
             workspaceId: resourceGraph.resourceReservation.workspaceId,
             slateId: resourceGraph.resourceReservation.slateId,
             deploymentId: resourceGraph.resourceReservation.deploymentId,
-            deploymentMaterialization:
-                resourceGraph.resourceReservation.deploymentMaterialization,
+            deploymentMaterialization: resourceGraph.resourceReservation.deploymentMaterialization,
             name: "different-name",
             source: resourceGraph.resourceReservation.source,
             invocationId: resourceGraph.resourceReservation.invocationId
@@ -469,7 +468,10 @@ describe("MemorySlateStore mutation kills", () => {
             ["resources", "Slate resources snapshot contains duplicate IDs"],
             ["previews", "Slate previews snapshot contains duplicate IDs"],
             ["versions", "Slate versions snapshot contains duplicate IDs"],
-            ["deploymentReservations", "Slate deployment reservations snapshot contains duplicate IDs"],
+            [
+                "deploymentReservations",
+                "Slate deployment reservations snapshot contains duplicate IDs"
+            ],
             ["resourceReservations", "Slate resource reservations snapshot contains duplicate IDs"]
         ] as const;
 
@@ -531,10 +533,20 @@ describe("MemorySlateStore mutation kills", () => {
         const slate = Slate.initial(new SlateId("slate-insertion-order"), workspace, ref("one"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
         store.addVersion(
-            new SlateVersion(new SlateVersionId("version-order-z"), workspace, slate.id, slate.source)
+            new SlateVersion(
+                new SlateVersionId("version-order-z"),
+                workspace,
+                slate.id,
+                slate.source
+            )
         );
         store.addVersion(
-            new SlateVersion(new SlateVersionId("version-order-a"), workspace, slate.id, slate.source)
+            new SlateVersion(
+                new SlateVersionId("version-order-a"),
+                workspace,
+                slate.id,
+                slate.source
+            )
         );
 
         expect(store.listVersions(slate.id).map((version) => version.id.value)).toEqual([
@@ -578,7 +590,10 @@ describe("MemorySlateStore mutation kills", () => {
         );
 
         expect(() => store.addResource(resource)).toThrowError(
-            expect.objectContaining({ code: "protocol.invalid-state" })
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Slate resource must match its frozen reservation"
+            })
         );
         expect(store.getResource(resource.id)).toBeUndefined();
     });
@@ -648,7 +663,10 @@ describe("MemorySlateStore mutation kills", () => {
                 overrides.invocationId ?? invocation,
                 new ReceiptId("receipt-deployment-fields")
             );
-        const error = expect.objectContaining({ code: "protocol.invalid-state" });
+        const error = expect.objectContaining({
+            code: "protocol.invalid-state",
+            message: "Slate deployment must match its frozen reservation"
+        });
 
         expect(() => store.addDeployment(deployment({ slateId: other.id }))).toThrowError(error);
         expect(() =>
@@ -731,7 +749,10 @@ describe("MemorySlateStore mutation kills", () => {
                 overrides.invocationId ?? invocation,
                 new ReceiptId("receipt-resource-fields")
             );
-        const error = expect.objectContaining({ code: "protocol.invalid-state" });
+        const error = expect.objectContaining({
+            code: "protocol.invalid-state",
+            message: "Slate resource must match its frozen reservation"
+        });
 
         expect(() => store.addResource(resource({ slateId: other.id }))).toThrowError(error);
         expect(() =>

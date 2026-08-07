@@ -1,11 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ACTOR_STATE_SNAPSHOT } from "../../src/actors";
 import { Revision } from "../../src/core";
-import {
-    EventId,
-    RouteReservationId,
-    SubscriptionId
-} from "../../src/interaction-references";
+import { EventId, RouteReservationId, SubscriptionId } from "../../src/interaction-references";
 import { Event } from "../../src/workspaces/event";
 import { MemoryWorkspaceRecords, type MemoryWorkspaceSnapshot } from "../../src/workspaces/memory";
 import {
@@ -209,24 +205,28 @@ describe("memory workspace records", () => {
 });
 
 describe("event persistence", () => {
-    test("rejects a conflicting event with an exact duplicate-identity error", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = persistenceWith();
-        const event = eventFixture("dup-a");
-        persistence.appendEvent(records, event, eventRetention(event));
-        const conflict = eventVariant(eventFixture("dup-b"), {
-            idempotencyKey: event.idempotencyKey
-        });
-        expect(() =>
-            persistence.appendEvent(records, conflict, eventRetention(conflict))
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.duplicate",
-                message: "Event idempotency identity is already reserved"
-            })
-        );
-        expect(persistence.findEventByIdentity(records, event.idempotencyKey)).toEqual(event);
-    });
+    test(
+        "rejects a conflicting event with an exact duplicate-identity error",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = persistenceWith();
+            const event = eventFixture("dup-a");
+            persistence.appendEvent(records, event, eventRetention(event));
+            const conflict = eventVariant(eventFixture("dup-b"), {
+                idempotencyKey: event.idempotencyKey
+            });
+            expect(() =>
+                persistence.appendEvent(records, conflict, eventRetention(conflict))
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.duplicate",
+                    message: "Event idempotency identity is already reserved"
+                })
+            );
+            expect(persistence.findEventByIdentity(records, event.idempotencyKey)).toEqual(event);
+        }
+    );
 
     test("rejects re-appending an event record id as immutable", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
@@ -253,7 +253,9 @@ describe("event persistence", () => {
         const tampered = new MemoryWorkspaceRecords({
             ...snapshot,
             uniques: snapshot.uniques.map((unique) =>
-                unique.namespace === "event.idempotency" ? { ...unique, key: "tampered-key" } : unique
+                unique.namespace === "event.idempotency"
+                    ? { ...unique, key: "tampered-key" }
+                    : unique
             )
         });
         expect(() => persistence.findEventByIdentity(tampered, "tampered-key")).toThrow(
@@ -370,24 +372,28 @@ describe("subscription persistence", () => {
 });
 
 describe("reservation persistence", () => {
-    test("rejects a conflicting dedupe identity with the exact duplicate error", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = persistenceWith();
-        const reservation = reservationFixture("dupres");
-        persistence.appendReservation(records, reservation, reservationRetention(reservation));
-        const rival = new RouteReservation({
-            ...reservation.init,
-            id: new RouteReservationId("reservation-dupres-rival")
-        });
-        expect(() =>
-            persistence.appendReservation(records, rival, reservationRetention(rival))
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.duplicate",
-                message: "Route dedupe identity is already reserved"
-            })
-        );
-    });
+    test(
+        "rejects a conflicting dedupe identity with the exact duplicate error",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = persistenceWith();
+            const reservation = reservationFixture("dupres");
+            persistence.appendReservation(records, reservation, reservationRetention(reservation));
+            const rival = new RouteReservation({
+                ...reservation.init,
+                id: new RouteReservationId("reservation-dupres-rival")
+            });
+            expect(() =>
+                persistence.appendReservation(records, rival, reservationRetention(rival))
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.duplicate",
+                    message: "Route dedupe identity is already reserved"
+                })
+            );
+        }
+    );
 
     test("fails closed when the reciprocal dedupe index is missing", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
@@ -403,52 +409,56 @@ describe("reservation persistence", () => {
         expect(() => persistence.listReservations(missingIndex)).toThrow(corrupt);
     });
 
-    test("fails closed when the dedupe index disagrees with its reservation", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = persistenceWith();
-        const first = reservationFixture("dda");
-        const second = reservationFixture("ddb");
-        persistence.appendReservation(records, first, reservationRetention(first));
-        persistence.appendReservation(records, second, reservationRetention(second));
-        const snapshot = records.snapshot();
-        const mismatch = expect.objectContaining({
-            code: "codec.invalid",
-            message: "Route dedupe index does not match its reservation"
-        });
-        const crossWired = new MemoryWorkspaceRecords({
-            ...snapshot,
-            uniques: snapshot.uniques.map((unique) =>
-                unique.namespace === "route.dedupe:subscription-dda"
-                    ? { ...unique, recordKey: "reservation-ddb" }
-                    : unique
-            )
-        });
-        expect(() =>
-            persistence.findReservationByDedupe(
-                crossWired,
-                new SubscriptionId("subscription-dda"),
-                "event:event-dda"
-            )
-        ).toThrow(mismatch);
-        const wrongKey = new MemoryWorkspaceRecords({
-            ...snapshot,
-            uniques: [
-                ...snapshot.uniques,
-                {
-                    namespace: "route.dedupe:subscription-dda",
-                    key: "other-key",
-                    recordKey: "reservation-dda"
-                }
-            ]
-        });
-        expect(() =>
-            persistence.findReservationByDedupe(
-                wrongKey,
-                new SubscriptionId("subscription-dda"),
-                "other-key"
-            )
-        ).toThrow(mismatch);
-    });
+    test(
+        "fails closed when the dedupe index disagrees with its reservation",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = persistenceWith();
+            const first = reservationFixture("dda");
+            const second = reservationFixture("ddb");
+            persistence.appendReservation(records, first, reservationRetention(first));
+            persistence.appendReservation(records, second, reservationRetention(second));
+            const snapshot = records.snapshot();
+            const mismatch = expect.objectContaining({
+                code: "codec.invalid",
+                message: "Route dedupe index does not match its reservation"
+            });
+            const crossWired = new MemoryWorkspaceRecords({
+                ...snapshot,
+                uniques: snapshot.uniques.map((unique) =>
+                    unique.namespace === "route.dedupe:subscription-dda"
+                        ? { ...unique, recordKey: "reservation-ddb" }
+                        : unique
+                )
+            });
+            expect(() =>
+                persistence.findReservationByDedupe(
+                    crossWired,
+                    new SubscriptionId("subscription-dda"),
+                    "event:event-dda"
+                )
+            ).toThrow(mismatch);
+            const wrongKey = new MemoryWorkspaceRecords({
+                ...snapshot,
+                uniques: [
+                    ...snapshot.uniques,
+                    {
+                        namespace: "route.dedupe:subscription-dda",
+                        key: "other-key",
+                        recordKey: "reservation-dda"
+                    }
+                ]
+            });
+            expect(() =>
+                persistence.findReservationByDedupe(
+                    wrongKey,
+                    new SubscriptionId("subscription-dda"),
+                    "other-key"
+                )
+            ).toThrow(mismatch);
+        }
+    );
 
     test("lists reservations sorted by id regardless of storage order", { tags: "p1" }, () => {
         const storage = new ReversedListingStorage(new MemoryWorkspaceRecords());
@@ -470,7 +480,11 @@ describe("projection and delivery persistence", () => {
         const authenticated = authenticatedProjectionFixture(reservation);
         const retention = projectionRetention(projectionFixture(reservation));
         expect(() =>
-            persistenceWith().appendProjection(new MemoryWorkspaceRecords(), authenticated, retention)
+            persistenceWith().appendProjection(
+                new MemoryWorkspaceRecords(),
+                authenticated,
+                retention
+            )
         ).toThrow(
             expect.objectContaining({
                 code: "authority.denied",
@@ -498,38 +512,42 @@ describe("projection and delivery persistence", () => {
         );
     });
 
-    test("fails closed when the projection index disagrees with its reservation", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = persistenceWith(targetActor);
-        for (const suffix of ["pa", "pb"]) {
-            const reservation = reservationFixture(suffix);
-            persistence.appendProjection(
-                records,
-                authenticatedProjectionFixture(reservation),
-                projectionRetention(projectionFixture(reservation))
+    test(
+        "fails closed when the projection index disagrees with its reservation",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = persistenceWith(targetActor);
+            for (const suffix of ["pa", "pb"]) {
+                const reservation = reservationFixture(suffix);
+                persistence.appendProjection(
+                    records,
+                    authenticatedProjectionFixture(reservation),
+                    projectionRetention(projectionFixture(reservation))
+                );
+            }
+            const snapshot = records.snapshot();
+            const tampered = new MemoryWorkspaceRecords({
+                ...snapshot,
+                uniques: snapshot.uniques.map((unique) =>
+                    unique.namespace === "route.projection" && unique.key === "reservation-pa"
+                        ? { ...unique, recordKey: "projection-pb" }
+                        : unique
+                )
+            });
+            expect(() =>
+                persistence.findProjectionByReservation(
+                    tampered,
+                    new RouteReservationId("reservation-pa")
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: "Projection index does not match its reservation"
+                })
             );
         }
-        const snapshot = records.snapshot();
-        const tampered = new MemoryWorkspaceRecords({
-            ...snapshot,
-            uniques: snapshot.uniques.map((unique) =>
-                unique.namespace === "route.projection" && unique.key === "reservation-pa"
-                    ? { ...unique, recordKey: "projection-pb" }
-                    : unique
-            )
-        });
-        expect(() =>
-            persistence.findProjectionByReservation(
-                tampered,
-                new RouteReservationId("reservation-pa")
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "codec.invalid",
-                message: "Projection index does not match its reservation"
-            })
-        );
-    });
+    );
 
     test("keeps deliveries terminal exactly once", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
@@ -549,36 +567,40 @@ describe("projection and delivery persistence", () => {
         );
     });
 
-    test("fails closed when the delivery index disagrees with its reservation", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = persistenceWith(targetActor);
-        for (const suffix of ["da", "db"]) {
-            const reservation = reservationFixture(suffix);
-            persistence.appendProjection(
-                records,
-                authenticatedProjectionFixture(reservation),
-                projectionRetention(projectionFixture(reservation))
+    test(
+        "fails closed when the delivery index disagrees with its reservation",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = persistenceWith(targetActor);
+            for (const suffix of ["da", "db"]) {
+                const reservation = reservationFixture(suffix);
+                persistence.appendProjection(
+                    records,
+                    authenticatedProjectionFixture(reservation),
+                    projectionRetention(projectionFixture(reservation))
+                );
+                persistence.appendDelivery(records, deliveryFixture(reservation));
+            }
+            const snapshot = records.snapshot();
+            const tampered = new MemoryWorkspaceRecords({
+                ...snapshot,
+                uniques: snapshot.uniques.map((unique) =>
+                    unique.namespace === "route.delivery" && unique.key === "reservation-da"
+                        ? { ...unique, recordKey: "reservation-db" }
+                        : unique
+                )
+            });
+            expect(() =>
+                persistence.findDelivery(tampered, new RouteReservationId("reservation-da"))
+            ).toThrow(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: "Delivery index does not match its reservation"
+                })
             );
-            persistence.appendDelivery(records, deliveryFixture(reservation));
         }
-        const snapshot = records.snapshot();
-        const tampered = new MemoryWorkspaceRecords({
-            ...snapshot,
-            uniques: snapshot.uniques.map((unique) =>
-                unique.namespace === "route.delivery" && unique.key === "reservation-da"
-                    ? { ...unique, recordKey: "reservation-db" }
-                    : unique
-            )
-        });
-        expect(() =>
-            persistence.findDelivery(tampered, new RouteReservationId("reservation-da"))
-        ).toThrow(
-            expect.objectContaining({
-                code: "codec.invalid",
-                message: "Delivery index does not match its reservation"
-            })
-        );
-    });
+    );
 });
 
 describe("view persistence", () => {
@@ -683,32 +705,41 @@ describe("view persistence", () => {
         expect(persistence.currentView(records, "surface-nulls")).toEqual(view);
     });
 
-    test("lists deltas strictly after the revision, surface-exact and ascending", { tags: "p1" }, () => {
-        const storage = new ReversedListingStorage(new MemoryWorkspaceRecords());
-        const persistence = persistenceWith();
-        const engine = new DeterministicJsonPatchEngine();
-        let surface = viewFixture(0, "lvd-s");
-        persistence.saveView(storage, surface, undefined, []);
-        for (let step = 0; step < 3; step += 1) {
-            surface = persistence.appendViewDelta(
-                storage,
-                viewDeltaFixture(surface),
-                engine,
-                [],
-                []
+    test(
+        "lists deltas strictly after the revision, surface-exact and ascending",
+        { tags: "p1" },
+        () => {
+            const storage = new ReversedListingStorage(new MemoryWorkspaceRecords());
+            const persistence = persistenceWith();
+            const engine = new DeterministicJsonPatchEngine();
+            let surface = viewFixture(0, "lvd-s");
+            persistence.saveView(storage, surface, undefined, []);
+            for (let step = 0; step < 3; step += 1) {
+                surface = persistence.appendViewDelta(
+                    storage,
+                    viewDeltaFixture(surface),
+                    engine,
+                    [],
+                    []
+                );
+            }
+            let other = viewFixture(0, "lvd-o");
+            persistence.saveView(storage, other, undefined, []);
+            for (let step = 0; step < 2; step += 1) {
+                other = persistence.appendViewDelta(
+                    storage,
+                    viewDeltaFixture(other),
+                    engine,
+                    [],
+                    []
+                );
+            }
+            const deltas = persistence.listViewDeltas(storage, "surface-lvd-s", new Revision(1));
+            expect(deltas.map((delta) => `${delta.surface.value}@${delta.revision.value}`)).toEqual(
+                ["surface-lvd-s@2", "surface-lvd-s@3"]
             );
         }
-        let other = viewFixture(0, "lvd-o");
-        persistence.saveView(storage, other, undefined, []);
-        for (let step = 0; step < 2; step += 1) {
-            other = persistence.appendViewDelta(storage, viewDeltaFixture(other), engine, [], []);
-        }
-        const deltas = persistence.listViewDeltas(storage, "surface-lvd-s", new Revision(1));
-        expect(deltas.map((delta) => `${delta.surface.value}@${delta.revision.value}`)).toEqual([
-            "surface-lvd-s@2",
-            "surface-lvd-s@3"
-        ]);
-    });
+    );
 
     test("compacts surface-exact records and requires an available floor", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
@@ -727,7 +758,13 @@ describe("view persistence", () => {
         }
         let untouched = viewFixture(0, "cb");
         persistence.saveView(records, untouched, undefined, []);
-        untouched = persistence.appendViewDelta(records, viewDeltaFixture(untouched), engine, [], []);
+        untouched = persistence.appendViewDelta(
+            records,
+            viewDeltaFixture(untouched),
+            engine,
+            [],
+            []
+        );
         persistence.compactView(records, "surface-ca", new Revision(1));
         expect(records.listRecords("view").map((record) => record.id)).toEqual([
             "surface-ca@1",
@@ -805,9 +842,17 @@ describe("retention listing", () => {
         const crossEvent = eventVariant(eventFixture("lr-cross"), {
             id: new EventId("surface-lr@0")
         });
-        persistence.appendEvent(records, crossEvent, eventRetention(crossEvent, "retention-lr-event"));
+        persistence.appendEvent(
+            records,
+            crossEvent,
+            eventRetention(crossEvent, "retention-lr-event")
+        );
         const otherEvent = eventFixture("lr-other");
-        persistence.appendEvent(records, otherEvent, eventRetention(otherEvent, "retention-lr-other"));
+        persistence.appendEvent(
+            records,
+            otherEvent,
+            eventRetention(otherEvent, "retention-lr-other")
+        );
         const listed = persistence.listRetentionsFor(
             records,
             RetainedRecordKind.event(),
@@ -867,22 +912,26 @@ describe("stored record decoding", () => {
         );
     });
 
-    test("decodes a defensive copy and reports uncopyable bytes as malformed", { tags: "p0" }, () => {
-        const inner = new MemoryWorkspaceRecords();
-        const persistence = persistenceWith();
-        const event = eventFixture("refuse");
-        persistence.appendEvent(inner, event, eventRetention(event));
-        const refusing = new RecordTamperingStorage(inner, (record) => ({
-            ...record,
-            bytes: new ThrowingSliceBytes(record.bytes)
-        }));
-        expect(() => persistence.findEvent(refusing, event.id)).toThrow(
-            expect.objectContaining({
-                code: "codec.invalid",
-                message: "Stored workspace record bytes are malformed"
-            })
-        );
-    });
+    test(
+        "decodes a defensive copy and reports uncopyable bytes as malformed",
+        { tags: "p0" },
+        () => {
+            const inner = new MemoryWorkspaceRecords();
+            const persistence = persistenceWith();
+            const event = eventFixture("refuse");
+            persistence.appendEvent(inner, event, eventRetention(event));
+            const refusing = new RecordTamperingStorage(inner, (record) => ({
+                ...record,
+                bytes: new ThrowingSliceBytes(record.bytes)
+            }));
+            expect(() => persistence.findEvent(refusing, event.id)).toThrow(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: "Stored workspace record bytes are malformed"
+                })
+            );
+        }
+    );
 });
 
 describe("workspace validators", () => {
@@ -907,8 +956,7 @@ describe("workspace validators", () => {
                 message: "Workspace record key length is invalid"
             },
             {
-                run: () =>
-                    validateWorkspaceUnique({ namespace: "", key: "k", recordKey: "r" }),
+                run: () => validateWorkspaceUnique({ namespace: "", key: "k", recordKey: "r" }),
                 message: "Workspace unique namespace length is invalid"
             },
             {
@@ -1027,7 +1075,11 @@ describe("storage trust boundary kills", () => {
         const records = new MemoryWorkspaceRecords();
         records.insertRecord({ kind: "event", id: "event-keep", bytes: Uint8Array.of(1) });
         expect(() => records.deleteCompactedRecords("event" as never, ["event-keep"])).toThrow(
-            expect.objectContaining({ name: "AgentCoreError", code: "protocol.invalid-state" })
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.invalid-state",
+                message: "Record kind is not compactable"
+            })
         );
         expect(records.findRecord("event", "event-keep")).toBeDefined();
     });
@@ -1036,7 +1088,13 @@ describe("storage trust boundary kills", () => {
         const records = new MemoryWorkspaceRecords();
         expect(() =>
             records.insertRecord({ kind: "event", id: "event-bad", bytes: "nope" } as never)
-        ).toThrow(expect.objectContaining({ name: "AgentCoreError", code: "codec.invalid" }));
+        ).toThrow(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Workspace record bytes are malformed"
+            })
+        );
     });
 
     test("pointer record keys must carry a parseable revision", { tags: "p1" }, () => {

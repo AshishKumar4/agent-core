@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, test, vi } from "vitest";
 import { AgentCoreError } from "../../src/errors";
 import {
@@ -69,40 +70,44 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("rejects hostile, cyclic, and non-plain runtime values before encoding", { tags: "p0" }, () => {
-        const sparse: JsonValue[] = ["present"];
-        sparse.length = 2;
-        const extended = ["present"] as JsonValue[] & { extra?: boolean };
-        extended.extra = true;
-        const cycle: { self?: unknown } = {};
-        cycle.self = cycle;
-        const accessor = Object.defineProperty({}, "value", {
-            enumerable: true,
-            get: () => "hidden"
-        });
-        const symbolKeyed = { value: "visible", [Symbol("hidden")]: true };
-        class JsonLike {
-            public readonly value = "not plain";
-        }
+    test(
+        "rejects hostile, cyclic, and non-plain runtime values before encoding",
+        { tags: "p0" },
+        () => {
+            const sparse: JsonValue[] = ["present"];
+            sparse.length = 2;
+            const extended = ["present"] as JsonValue[] & { extra?: boolean };
+            extended.extra = true;
+            const cycle: { self?: unknown } = {};
+            cycle.self = cycle;
+            const accessor = Object.defineProperty({}, "value", {
+                enumerable: true,
+                get: () => "hidden"
+            });
+            const symbolKeyed = { value: "visible", [Symbol("hidden")]: true };
+            class JsonLike {
+                public readonly value = "not plain";
+            }
 
-        for (const value of [
-            sparse,
-            extended,
-            cycle,
-            accessor,
-            symbolKeyed,
-            new Date("2026-01-01T00:00:00.000Z"),
-            new Uint8Array([1, 2, 3]),
-            Number.NaN,
-            Number.POSITIVE_INFINITY,
-            1n,
-            new JsonLike(),
-            Object.create(null) as object,
-            Object.create({ inherited: true }) as object
-        ]) {
-            expectCodecError(() => encodeCanonicalJson(value as JsonValue), "codec.invalid");
+            for (const value of [
+                sparse,
+                extended,
+                cycle,
+                accessor,
+                symbolKeyed,
+                new Date("2026-01-01T00:00:00.000Z"),
+                new Uint8Array([1, 2, 3]),
+                Number.NaN,
+                Number.POSITIVE_INFINITY,
+                1n,
+                new JsonLike(),
+                Object.create(null) as object,
+                Object.create({ inherited: true }) as object
+            ]) {
+                expectCodecError(() => encodeCanonicalJson(value as JsonValue), "codec.invalid");
+            }
         }
-    });
+    );
 
     test("rejects values that become hostile after validation", { tags: "p0" }, () => {
         let ownKeysCalls = 0;
@@ -166,33 +171,43 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("checks exact fields by own property rather than the prototype chain", { tags: "p0" }, () => {
-        const hostile = Object.assign(Object.create({ expected: true }), { extra: true }) as {
-            readonly [key: string]: JsonValue;
-        };
+    test(
+        "checks exact fields by own property rather than the prototype chain",
+        { tags: "p0" },
+        () => {
+            const hostile = Object.assign(Object.create({ expected: true }), { extra: true }) as {
+                readonly [key: string]: JsonValue;
+            };
 
-        expect(hasExactJsonKeys({ expected: true }, ["expected"])).toBe(true);
-        expect(hasExactJsonKeys(hostile, ["expected"])).toBe(false);
-    });
+            expect(hasExactJsonKeys({ expected: true }, ["expected"])).toBe(true);
+            expect(hasExactJsonKeys(hostile, ["expected"])).toBe(false);
+        }
+    );
 
-    test("rejects throwing proxies and accessor-backed array entries as JSON", { tags: "p0" }, () => {
-        const throwing = new Proxy(
-            {},
-            {
-                getPrototypeOf: () => {
-                    throw new TypeError("hostile prototype");
+    test(
+        "rejects throwing proxies and accessor-backed array entries as JSON",
+        { tags: "p0" },
+        () => {
+            const throwing = new Proxy(
+                {},
+                {
+                    getPrototypeOf: () => {
+                        throw new TypeError("hostile prototype");
+                    }
                 }
-            }
-        );
-        const accessor: JsonValue[] = [];
-        Object.defineProperty(accessor, "0", {
-            enumerable: true,
-            get: () => "hidden"
-        });
+            );
+            const accessor: JsonValue[] = [];
+            Object.defineProperty(accessor, "0", {
+                enumerable: true,
+                get: () => "hidden"
+            });
 
-        expect(encodeCanonicalJson.bind(undefined, throwing as JsonValue)).toThrow(AgentCoreError);
-        expect(encodeCanonicalJson.bind(undefined, accessor)).toThrow(AgentCoreError);
-    });
+            expect(encodeCanonicalJson.bind(undefined, throwing as JsonValue)).toThrow(
+                AgentCoreError
+            );
+            expect(encodeCanonicalJson.bind(undefined, accessor)).toThrow(AgentCoreError);
+        }
+    );
 
     test("uses canonical padded RFC 4648 base64", { tags: "p0" }, () => {
         expect(encodeBase64(new Uint8Array())).toBe("");
@@ -223,14 +238,18 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("still rejects invalid base64 digits if runtime validation is compromised", { tags: "p1" }, () => {
-        const regexTest = vi.spyOn(RegExp.prototype, "test").mockReturnValue(true);
-        try {
-            expect(() => decodeBase64("!!!!")).toThrow(TypeError);
-        } finally {
-            regexTest.mockRestore();
+    test(
+        "still rejects invalid base64 digits if runtime validation is compromised",
+        { tags: "p1" },
+        () => {
+            const regexTest = vi.spyOn(RegExp.prototype, "test").mockReturnValue(true);
+            try {
+                expect(() => decodeBase64("!!!!")).toThrow(TypeError);
+            } finally {
+                regexTest.mockRestore();
+            }
         }
-    });
+    );
 
     test("detaches and freezes codec metadata", { tags: "p0" }, () => {
         const metadata = { major: 1, minor: 1 };
@@ -664,6 +683,271 @@ describe("JSON value classification", () => {
         expect(isJsonValue(hostile)).toBe(false);
     });
 });
+
+describe("Canonical value properties", () => {
+    test(
+        "serializes every value exactly as an independent canonical serializer does",
+        { tags: "p0" },
+        () => {
+            fc.assert(
+                fc.property(canonicalValue, (value) => {
+                    expect(new TextDecoder().decode(encodeCanonicalJson(value))).toBe(
+                        referenceCanonicalJson(value)
+                    );
+                }),
+                { numRuns: 500 }
+            );
+        }
+    );
+
+    test(
+        "reorders sibling keys into code-unit order whatever order they were built in",
+        { tags: "p0" },
+        () => {
+            fc.assert(
+                fc.property(
+                    fc.uniqueArray(jsonKey, { minLength: 2, maxLength: 8 }),
+                    canonicalValue,
+                    (keys, leaf) => {
+                        const forward = Object.fromEntries(keys.map((key) => [key, leaf]));
+                        const reversed = Object.fromEntries(
+                            [...keys].reverse().map((key) => [key, leaf])
+                        );
+                        fc.pre(isJsonValue(forward));
+
+                        expect(encodeCanonicalJson(reversed)).toStrictEqual(
+                            encodeCanonicalJson(forward)
+                        );
+                        expect(new TextDecoder().decode(encodeCanonicalJson(forward))).toBe(
+                            referenceCanonicalJson(forward)
+                        );
+                    }
+                ),
+                { numRuns: 500 }
+            );
+        }
+    );
+
+    test("round-trips every canonical value through its encoding", { tags: "p0" }, () => {
+        fc.assert(
+            fc.property(canonicalValue, (value) => {
+                const encoded = encodeCanonicalJson(value);
+                const decoded = decodeCanonicalJson(encoded);
+
+                expect(encodeCanonicalJson(decoded)).toStrictEqual(encoded);
+                expect(referenceCanonicalJson(decoded)).toBe(referenceCanonicalJson(value));
+            }),
+            { numRuns: 500 }
+        );
+    });
+
+    test(
+        "accepts bytes only when they are exactly the canonical form of what they decode to",
+        { tags: "p0" },
+        () => {
+            fc.assert(
+                fc.property(hostileJsonBytes(), (candidate) => {
+                    let decoded: JsonValue;
+                    try {
+                        decoded = decodeCanonicalJson(candidate);
+                    } catch (error) {
+                        expect(error).toBeInstanceOf(AgentCoreError);
+                        expect(error).toMatchObject({ code: "codec.invalid" });
+                        return;
+                    }
+                    expect(encodeCanonicalJson(decoded)).toStrictEqual(candidate);
+                }),
+                { numRuns: 1000 }
+            );
+        }
+    );
+
+    test("round-trips every byte string through its base64 encoding", { tags: "p0" }, () => {
+        fc.assert(
+            fc.property(fc.uint8Array({ maxLength: 64 }), (value) => {
+                const encoded = encodeBase64(value);
+
+                expect(encoded.length % 4).toBe(0);
+                expect(decodeBase64(encoded)).toStrictEqual(value);
+            }),
+            { numRuns: 1000 }
+        );
+    });
+
+    test(
+        "accepts base64 only when it is exactly the encoding of what it decodes to",
+        { tags: "p0" },
+        () => {
+            fc.assert(
+                fc.property(hostileBase64(), (candidate) => {
+                    let decoded: Uint8Array;
+                    try {
+                        decoded = decodeBase64(candidate);
+                    } catch (error) {
+                        expect(error).toBeInstanceOf(TypeError);
+                        return;
+                    }
+                    expect(encodeBase64(decoded)).toBe(candidate);
+                }),
+                { numRuns: 2000 }
+            );
+        }
+    );
+
+    test("rejects non-string base64 input verbatim, without coercing it", { tags: "p1" }, () => {
+        for (const hostile of [
+            null,
+            undefined,
+            42,
+            true,
+            ["Q", "Q", "=", "="],
+            { length: 4, toString: () => "QQ==" },
+            { length: 4 },
+            new String("QQ=="),
+            new String("Zm9vYmFy"),
+            Object.assign(Object.create(null) as object, { length: 4 })
+        ]) {
+            expectTypeFailure(
+                () => decodeBase64(hostile as unknown as string),
+                "Base64 value must use canonical RFC 4648 encoding"
+            );
+        }
+    });
+
+    test("rejects non-Uint8Array base64 input verbatim", { tags: "p1" }, () => {
+        for (const hostile of [
+            null,
+            undefined,
+            [1, 2, 3],
+            "abc",
+            new Uint16Array(2),
+            new ArrayBuffer(2),
+            { length: 3, 0: 1, 1: 2, 2: 3 }
+        ]) {
+            expectTypeFailure(
+                () => encodeBase64(hostile as unknown as Uint8Array),
+                "Base64 input must be a Uint8Array"
+            );
+        }
+    });
+});
+
+// Keys chosen to collide with prototype machinery and to straddle the boundaries
+// of UTF-16 code-unit ordering, where canonical key order is easiest to get wrong.
+const hostileKeys = [
+    "__proto__",
+    "constructor",
+    "prototype",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+    "",
+    "a",
+    "A",
+    "Z",
+    "z",
+    "[",
+    "é",
+    "é",
+    "\u{1f600}",
+    "ﬃ"
+] as const;
+
+const jsonKey = fc.oneof(fc.constantFrom(...hostileKeys), fc.string());
+
+const jsonValue = fc.letrec<{ value: JsonValue }>((tie) => ({
+    value: fc.oneof(
+        { depthSize: "small", withCrossShrink: true },
+        fc.constant(null),
+        fc.boolean(),
+        fc.double({ noNaN: true, noDefaultInfinity: true }),
+        fc.string(),
+        fc.constantFrom(...hostileKeys),
+        fc.array(tie("value"), { maxLength: 6 }),
+        fc
+            .array(fc.tuple(jsonKey, tie("value")), { maxLength: 6 })
+            // Object.fromEntries defines own data properties, so "__proto__" stays
+            // a real key instead of reassigning the prototype.
+            .map((entries) => Object.fromEntries(entries) as JsonValue)
+    )
+})).value;
+
+// Only values the public predicate already admits are legal inputs; generated lone
+// surrogates and other non-JSON shapes are filtered rather than asserted on.
+const canonicalValue = jsonValue.filter(isJsonValue);
+
+// An independent canonical serializer. Key order comes from the default Array#sort,
+// which the language defines as ascending UTF-16 code-unit order, so it shares no
+// comparison logic with the implementation under test.
+function referenceCanonicalJson(value: JsonValue): string {
+    if (value === null || typeof value === "boolean" || typeof value === "string") {
+        return JSON.stringify(value);
+    }
+    if (typeof value === "number") {
+        return JSON.stringify(Object.is(value, -0) ? 0 : value);
+    }
+    if (Array.isArray(value)) {
+        return `[${value.map(referenceCanonicalJson).join(",")}]`;
+    }
+    const record = value as { readonly [key: string]: JsonValue };
+    const keys = Object.keys(record).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${referenceCanonicalJson(record[key]!)}`).join(",")}}`;
+}
+
+// Canonical encodings, near-misses of them, and free-form bytes, so the totality
+// properties see far more accepted inputs than uniform random bytes would yield.
+function hostileJsonBytes(): fc.Arbitrary<Uint8Array> {
+    const canonical = canonicalValue.map(encodeCanonicalJson);
+    const perturbed = fc
+        .tuple(canonical, fc.nat(), fc.nat({ max: 255 }), fc.nat({ max: 3 }))
+        .map(([encoded, position, byte, operation]) => {
+            if (encoded.length === 0) return encoded;
+            const index = position % encoded.length;
+            switch (operation) {
+                case 0:
+                    return encoded.slice(0, index);
+                case 1: {
+                    const flipped = new Uint8Array(encoded);
+                    flipped[index] = byte;
+                    return flipped;
+                }
+                case 2:
+                    return new TextEncoder().encode(` ${new TextDecoder().decode(encoded)}`);
+                default:
+                    return new Uint8Array([...encoded, byte]);
+            }
+        });
+    const looseJson = jsonValue.map((value) =>
+        new TextEncoder().encode(JSON.stringify(value, null, 1))
+    );
+    return fc.oneof(canonical, perturbed, looseJson, fc.uint8Array({ maxLength: 24 }));
+}
+
+function hostileBase64(): fc.Arbitrary<string> {
+    const canonical = fc.uint8Array({ maxLength: 32 }).map(encodeBase64);
+    const perturbed = fc
+        .tuple(canonical, fc.nat(), fc.constantFrom("A", "B", "=", "/", "+", "-", "\n", "0", ""))
+        .map(([encoded, position, character]) => {
+            if (encoded.length === 0) return character;
+            const index = position % encoded.length;
+            return `${encoded.slice(0, index)}${character}${encoded.slice(index + 1)}`;
+        });
+    const truncated = fc
+        .tuple(canonical, fc.nat())
+        .map(([encoded, position]) =>
+            encoded.length === 0 ? encoded : encoded.slice(0, position % encoded.length)
+        );
+    const padded = fc
+        .tuple(canonical, fc.nat({ max: 4 }))
+        .map(([encoded, count]) => `${encoded}${"=".repeat(count)}`);
+    return fc.oneof(
+        canonical,
+        perturbed,
+        truncated,
+        padded,
+        fc.string({ unit: fc.constantFrom("A", "B", "z", "9", "+", "/", "=", "!") })
+    );
+}
 
 class RejectingFixtureCodec extends RecordCodec<FixtureRecord> {
     public constructor(private readonly failure: unknown) {
