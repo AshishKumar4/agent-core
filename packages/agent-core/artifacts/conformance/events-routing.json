@@ -275,6 +275,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-VIEW-APPROVAL-PROVENANCE",
+      "owner": "W7",
+      "specAnchor": "C13-VIEW-APPROVAL-PROVENANCE",
+      "specTextSha256": "sha256:cfd40e8040e695712bd1905312980594bf1d6a69af44bd8c38abf724a8bf5cd5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-VIEW-DELTA-REPLAY",
       "owner": "W7",
       "specAnchor": "C13-VIEW-DELTA-REPLAY",

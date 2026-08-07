@@ -1462,6 +1462,14 @@ Operations. Aggregating surfaces — dashboards — compose slot-contributed chi
 per §4.2. Token-level model-output streaming is an executor and transport concern
 (§5.6), not Events.
 
+A View that presents an intent for a human decision carries the provenance of what it
+shows. Every body value the host did not originate MUST be marked with the TrustTier of the
+Event or Operation input it came from (§6.1), and the View MUST name the exact
+`intentDigest` (§7.3) the decision authorizes. A Surface MUST render a marked value as
+data and never as platform voice. Without this the last step of the chain — a person
+reading rendered text — is the one step decided on unattributed input. This maps to
+**C13-VIEW-APPROVAL-PROVENANCE**.
+
 ---
 
 ## 7. Mediation (L4)
@@ -2640,6 +2648,7 @@ A conforming implementation provides:
 - **C13-TURN-TERMINAL-RESULT-WRITER** Terminal-result writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
+- **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier and names the exact `intentDigest` it authorizes.
 - **C13-CONTENT-RESOLUTION** Every ContentRef resolves through ContentStore.
 - **C13-CONTENT-CUSTODY** Stored content is owned by one Tenant, and every record naming a `ContentRef` retains it until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
