@@ -536,8 +536,9 @@ describe("Declarative facet vocabulary", () => {
             expect(() =>
                 FieldMove.fromData({ from: "/source", literal: true, to: "/target" })
             ).toThrow(/exactly one/);
-            for (const pointer of ["target", "/bad~", "/bad~2"]) {
+            for (const pointer of ["target", "/bad~", "/bad~2", "/a~2b"]) {
                 expect(() => new FieldMove(pointer, { literal: true })).toThrow(/JSON Pointer/);
+                expect(() => new FieldMove("/valid", { from: pointer })).toThrow(/JSON Pointer/);
             }
             expect(new FieldMove("", { literal: null }).toData()).toEqual({
                 literal: null,
