@@ -48,8 +48,9 @@ the blast radius of any single compromise small and revocable.
 A conversation is stored as an append-only commit graph with named branches, so
 branching a conversation, undoing a step, and exploring in parallel are just graph
 operations. An execution attempt is a Turn holding a lease with a fencing epoch,
-which means a crashed executor that comes back later simply cannot write anything —
-its writes carry a stale epoch and get rejected. And a webhook, a cron tick, a slash
+which means a crashed executor that comes back later cannot corrupt anything — past its
+expiry the lease admits nothing, and once anyone reclaims or fences the Turn its epoch is
+stale and its writes are rejected. And a webhook, a cron tick, a slash
 command, and a button press are all the same thing — an Event, routed by a
 Subscription — so automation becomes configuration rather than extra plumbing.
 
@@ -81,7 +82,7 @@ the loop.
 
 ### 1.3 How to read this document
 
-Sections 2–10 are normative; §11–§12 define profiles and sketches; §13–§14 cover
+Sections 1.4, 1.5, and 2–10 are normative; §11–§12 define profiles and sketches; §13–§14 cover
 conformance and the formal model. MUST, SHOULD, and MAY are RFC 2119 keywords.
 Behavioral contracts appear as abstract TypeScript classes; pure data shapes as
 interfaces. Sections marked *(informative)* explain; everything else binds. Short
@@ -312,8 +313,9 @@ delegated only to an equal or narrower capability; a deny is not callable or
 delegable. A **Binding** associates a subject-local name with an allow-Grant-backed
 Facet instance in one protection domain. Binding resolution evaluates all matching
 allow and deny Grants through §3.3 precedence. There is no deny list or role check
-beside this plane. Callable access requires a **ResolvedFacet** produced by that
-resolver; identifiers alone confer nothing.
+beside this plane. Callable access requires a **ResolvedFacet** produced by that resolver;
+identifiers alone confer nothing. A Binding authorizes only the Operations of the Facet it
+names; an Invocation whose Operation belongs to another Facet is not authorized by it.
 
 ![One authority plane](diagrams/authority.svg)
 
@@ -476,9 +478,9 @@ abstract class Operation<I, O> {
 
 The host verifies at install time that the runtime provides every implementation the
 manifest declares and refuses contributions the manifest does not declare. Placement
-uses the deterministic admissible-set rule in §9.2. A manifest can exclude modes but
-cannot admit itself to `bundled`; platform trust policy remains an independent
-constraint.
+uses the deterministic admissible-set rule in §9.2. A manifest listing `bundled` does not
+thereby obtain it — the trust set independently excludes `bundled` for untrusted Packages
+(§9.2) — and a manifest may exclude modes it will not accept.
 
 Facet lifecycle hooks are idempotent from the caller's perspective. Protected
 invocation requires an active, undisposed Facet whose Grant, Binding, lease, and
@@ -608,8 +610,9 @@ The lifecycle, end to end:
    value that validates against `arguments` before any Event is emitted. CLI token
    ordering, quoting, and flags belong to the CLI Surface profile, not this core
    contract. With no `mapping`, the validated value is passed through unchanged;
-   otherwise the declared pure mapping produces the Operation input. The resulting
-   value MUST validate against the Operation input schema at install and execution.
+   otherwise the declared pure mapping produces the Operation input. The mapping and both
+   schemas MUST be checked at install; the produced value MUST validate against the
+   Operation input schema at execution.
 4. **Invocation.** The surface emits `Event(command.invoked)` whose correlation MUST
    carry the originating `SurfaceId` and, when invoked from a conversation, the
    `RunRef`/branch. The derived Subscription routes it to the target Operation.
@@ -1192,8 +1195,9 @@ result commit unless Run terminalization records it as a captured system obligat
 
 ![Turn lease lifecycle](diagrams/turn-lease.svg)
 
-The point of all this machinery is that a crashed executor which comes back later
-cannot corrupt anything: every write it attempts carries a stale epoch and gets
+The point of all this machinery is that a crashed executor which comes back later cannot
+corrupt anything: past its expiry the lease admits nothing, and once another holder
+reclaims or a fence advances the epoch, every write it attempts is stale and gets
 rejected. The lease is also deliberately application-visible — your code can hand the
 epoch to an external system and ask it to check, and that check is the only kind of
 fencing that still works across a network partition.
@@ -1327,6 +1331,7 @@ A **Subscription** is a durable route from matching Events to an Operation:
 type DedupePolicy = "none" | "event" | "causation" | "payload";
 
 interface Subscription {
+  readonly id: SubscriptionId;
   readonly source: EventPattern;             // which Events match
   readonly target: OperationRef;
   readonly mapping: PayloadMapping;          // event payload → operation input
@@ -1439,7 +1444,7 @@ snapshot of it.
 ```ts
 interface View {
   readonly surface: SurfaceId;
-  readonly revision: Revision;               // §6.3 replay is keyed on this
+  readonly revision: Revision;               // replay is keyed on this (§10.3)
   readonly body: ViewBody;                   // JSON data only — no live handles
   readonly actions: readonly ActionDescriptor[];
   readonly cursor: EventCursor;              // opaque resume position in the Event log
@@ -1934,9 +1939,9 @@ alone, so a record cannot outlive the bytes it names. This maps to
 
 Durable records are data. Every record type defines a stable serialized form with a
 **versioned codec**, used identically for storage, the command protocol, and
-export/import. A codec tolerantly reads and upcasts records of any older version
-within the same major, and rejects records of an unknown newer major with a typed
-error — never a silent truncation. Live behavior wraps records; it never *is* the
+export/import. A codec upcasts records of an older minor within the same major, and rejects
+an unknown major — newer or older — and an unknown newer minor with a typed error, never a
+silent truncation. Live behavior wraps records; it never *is* the
 record, and durable records never own live substrate resources.
 
 ### 8.4 State-ownership rules
@@ -2344,7 +2349,7 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-MCP-PROMPTS** Discovered prompts become prompt contributions.
 - **P11-MCP-SCHEMA-BOUNDARY** Tools, resources, and prompts are schema-validated at discovery.
 - **P11-MCP-LIFECYCLE** MCP start, health, and stop are the Facet lifecycle.
-- **P11-MCP-REVISION** Agent Core edition 1.0.0 targets exact MCP protocol revision `2025-11-25`; any other negotiated revision rejects discovery.
+- **P11-MCP-REVISION** The profile targets exact MCP protocol revision `2025-11-25`; any other negotiated revision rejects discovery.
 - **P11-MCP-PROMPT-COUNT** A server contributes at most 32 prompt items per discovery.
 - **P11-MCP-PROMPT-BYTES** The canonical UTF-8 encoding of all contributed prompt titles and bodies is at most 262144 bytes per discovery.
 - **P11-MCP-POSITIVE-BOUNDS** Both MCP prompt maxima are positive, finite, and enforced before materialization.
@@ -2428,7 +2433,7 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-DEVICE-CONSENT-REVOCATION** Consent revocation committed before that final check denies without an EffectAttempt.
 - **P11-DEVICE-CONSENT-ADMITTED** Revocation does not cancel an external effect already admitted by an EffectAttempt.
 - **P11-DEVICE-CONSENT-ISOLATION** One device's consent never authorizes another device.
-- **P11-DEVICE-SCHEMA-VERSION** All six Device Operation input schemas are codec-versioned and reject unknown major versions.
+- **P11-DEVICE-SCHEMA-VERSION** All six Device Operation input schemas are codec-versioned and follow §8.3.
 
 ### 11.11 Slate
 
@@ -2501,8 +2506,8 @@ fan-out is `delegate`-impact spawning under attenuated Grants.
 
 ## 13. Conformance
 
-The bold labels below are the stable atomic conformance map for binding prose in
-§§2–10 and §13. Repeated explanations and cross-references map to the same concept
+The bold labels below are the stable atomic conformance map for binding prose in §§1.4–1.5,
+§§2–10, and §13. Repeated explanations and cross-references map to the same concept
 label rather than creating duplicate requirements; modified clauses carry an inline
 map where their primary atom would otherwise be ambiguous. Every §11 atom carries its
 own authoritative `P11-*` label. Label order has no semantic meaning.
@@ -2512,7 +2517,7 @@ A conforming implementation provides:
 - **C13-AUTH-PLANE** One durable allow/deny Grant plane.
 - **C13-AUTH-ROLE-MATERIALIZATION** Idempotent Role-rule materialization.
 - **C13-AUTH-DENY-PATH** The `AuthorityService.deny` path.
-- **C13-AUTH-BINDING-RESOLUTION** Binding-only resolution.
+- **C13-AUTH-BINDING-RESOLUTION** Binding-only resolution, and a Binding authorizes only its own Facet's Operations.
 - **C13-AUTH-DENY-PRECEDENCE** Deny-overrides precedence.
 - **C13-AUTH-DIRECT-SUBJECT** Direct Principal authority cases.
 - **C13-AUTH-TEAM-SUBJECT** Team-derived authority cases.

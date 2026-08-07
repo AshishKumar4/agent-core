@@ -88,7 +88,7 @@
       "id": "C13-AUTH-BINDING-RESOLUTION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-BINDING-RESOLUTION",
-      "specTextSha256": "sha256:39d23e804aa147c08a268b2a0a2d8472d511fb3ed23714fef4177027aab1b554",
+      "specTextSha256": "sha256:1ee55df596a4468da771593d1f1a2a4b1de75487dc2372f632a9aa2e9c7e77f8",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
