@@ -1,3 +1,4 @@
+import fc, { type Command } from "fast-check";
 import { afterEach, describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { ContentRef, Digest } from "../../src/core";
@@ -26,9 +27,12 @@ import {
     RouteReservationId,
     auditEvidenceIdentity,
     validateAuditAppend,
+    type AttemptReceiptOutcome,
     type AuditAppendContext,
     type AuditKind,
-    type InvocationEvidencePersistence
+    type BatchOutcome,
+    type InvocationEvidencePersistence,
+    type PreEffectReceiptOutcome
 } from "../../src/invocations";
 import {
     admissionFor,
@@ -5000,7 +5004,938 @@ export function invocationLedgerContract<Transaction>(
                 ).toBe("Stryker was here");
             }
         );
+
+        test(
+            "generated approval, claim, recovery, attempt and Receipt histories preserve every item lineage",
+            // Long generated histories re-resolve every record after every step;
+            // instrumented runs need far more than the interactive budget.
+            { tags: "p0", timeout: 180_000 },
+            () => {
+                const index = fc.constantFrom<ItemIndex>(0, 1);
+                const attemptOutcome = fc.constantFrom<AttemptReceiptOutcome>(
+                    "succeeded",
+                    "failed",
+                    "indeterminate"
+                );
+                const commands = fc.commands<LedgerModel, LedgerSystem<Transaction>>(
+                    [
+                        fc.constant(new PrepareInvocation()),
+                        fc.constant(new RequestApproval()),
+                        fc.constant(new RejectSecondApprovalRequest()),
+                        fc
+                            .constantFrom<ApprovalDecision>("approve", "deny", "expire")
+                            .map((decision) => new SettleApproval(decision)),
+                        fc.constant(new RejectReplayedApprovalRevision()),
+                        index.map((slot) => new ClaimItem(slot)),
+                        index.map((slot) => new RejectContendedClaim(slot)),
+                        index.map((slot) => new RejectPrematureRetry(slot)),
+                        index.map((slot) => new RecoverClaim(slot)),
+                        index.map((slot) => new RejectPrematureRecovery(slot)),
+                        index.map((slot) => new RejectPostAttemptRecovery(slot)),
+                        index.map((slot) => new AdmitAttempt(slot)),
+                        index.map((slot) => new RejectDisplacedClaimAttempt(slot)),
+                        index.map((slot) => new RejectUnapprovedAttempt(slot)),
+                        fc
+                            .tuple(index, attemptOutcome)
+                            .map(([slot, outcome]) => new RecordReceipt(slot, outcome)),
+                        index.map((slot) => new RejectReplayedReceipt(slot)),
+                        fc
+                            .tuple(index, fc.constantFrom<FinalOutcome>("succeeded", "failed"))
+                            .map(([slot, outcome]) => new SupersedeReceipt(slot, outcome)),
+                        index.map((slot) => new RejectFinalSupersession(slot)),
+                        fc
+                            .tuple(
+                                index,
+                                fc.constantFrom<PreEffectReceiptOutcome>(
+                                    "deniedPreEffect",
+                                    "cancelledPreEffect"
+                                )
+                            )
+                            .map(([slot, outcome]) => new RecordPreEffect(slot, outcome)),
+                        fc.integer({ min: 1, max: 5 }).map((seconds) => new AdvanceClock(seconds)),
+                        fc.constant(new Restart()),
+                        fc.constant(new Probe())
+                    ],
+                    { maxCommands: 400, size: "max" }
+                );
+
+                fc.assert(
+                    fc.property(commands, (history) => {
+                        const harness = open();
+                        fc.modelRun(
+                            () => ({ model: emptyLedgerModel(), real: { harness } }),
+                            history
+                        );
+                    }),
+                    // A pinned seed keeps the recorded mutation survivors stable across runs.
+                    { numRuns: 60, seed: 20_260_806 }
+                );
+            }
+        );
     });
+}
+
+const modelInvocation = prepared("model-run", [{ item: 0 }, { item: 1 }], { lease: "lease:1" });
+const modelApprovalId = new ApprovalId("approval:model-run");
+const modelClaimSeconds = 3;
+const modelApprovalExpirySeconds = 15;
+
+type ItemIndex = 0 | 1;
+type ApprovalDecision = "approve" | "deny" | "expire";
+type FinalOutcome = Exclude<AttemptReceiptOutcome, "indeterminate">;
+
+interface LedgerModel {
+    prepared: boolean;
+    now: number;
+    sequence: number;
+    approval: Approval | undefined;
+    continuation: EffectAttemptId | undefined;
+    readonly items: readonly [ItemModel, ItemModel];
+}
+
+interface ItemModel {
+    readonly claims: ItemClaim<string>[];
+    readonly attempts: EffectAttempt<string, string>[];
+    readonly receipts: (AttemptReceipt | PreEffectReceipt)[];
+    live: ItemClaim<string> | undefined;
+    displaced: ItemClaim<string> | undefined;
+}
+
+interface LedgerSystem<Transaction> {
+    readonly harness: InvocationHarness<Transaction>;
+}
+
+class PrepareInvocation<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public check(model: Readonly<LedgerModel>): boolean {
+        return !model.prepared;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.prepare(transaction, modelInvocation);
+        });
+        model.prepared = true;
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "prepare";
+    }
+}
+
+class RequestApproval<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public check(model: Readonly<LedgerModel>): boolean {
+        return model.prepared && model.approval === undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const approval = Approval.pending(
+            modelApprovalId,
+            modelInvocation.header.id,
+            modelInvocation.intentDigest,
+            time(0),
+            time(modelApprovalExpirySeconds)
+        );
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.requestApproval(transaction, approval);
+        });
+        model.approval = approval;
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "requestApproval";
+    }
+}
+
+class RejectSecondApprovalRequest<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public check(model: Readonly<LedgerModel>): boolean {
+        return model.approval !== undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const contender = Approval.pending(
+            new ApprovalId("approval:model-run:contender"),
+            modelInvocation.header.id,
+            modelInvocation.intentDigest,
+            time(0),
+            time(modelApprovalExpirySeconds)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.requestApproval(transaction, contender);
+                }),
+            /fresh exact PreparedInvocation/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "rejectSecondApprovalRequest";
+    }
+}
+
+class SettleApproval<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(private readonly decision: ApprovalDecision) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        if (model.approval?.state.kind !== "pending") return false;
+        return this.decision === "expire"
+            ? model.now >= modelApprovalExpirySeconds
+            : model.now < modelApprovalExpirySeconds;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const current = present(model.approval, "a pending Approval");
+        const at = time(model.now);
+        const approver = new PrincipalId("approver:model-run");
+        const next =
+            this.decision === "approve"
+                ? current.approve(approver, at)
+                : this.decision === "deny"
+                  ? current.deny(approver, at, "generated denial")
+                  : current.expire(at);
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.appendApprovalRevision(transaction, next);
+        });
+        model.approval = next;
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `settleApproval(${this.decision})`;
+    }
+}
+
+class RejectReplayedApprovalRevision<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public check(model: Readonly<LedgerModel>): boolean {
+        return model.approval !== undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const current = present(model.approval, "an Approval");
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.appendApprovalRevision(transaction, current);
+                }),
+            /next legal transition/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "rejectReplayedApprovalRevision";
+    }
+}
+
+class ClaimItem<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        return model.prepared && claimable(model.items[this.index]);
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const item = model.items[this.index];
+        const claim = nextClaim(model, this.index, item.attempts.length);
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.claimItem(transaction, claim, time(model.now));
+        });
+        item.claims.push(claim);
+        item.live = claim;
+        item.displaced = undefined;
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `claim(${this.index})`;
+    }
+}
+
+class RejectContendedClaim<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        return model.items[this.index].live !== undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const live = present(model.items[this.index].live, "a live ItemClaim");
+        const contender = executorClaim(
+            modelInvocation.header.id,
+            this.index,
+            live.attemptOrdinal,
+            `claim:contended:${this.index}`,
+            `worker:contended:${this.index}`,
+            time(model.now + modelClaimSeconds)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.claimItem(transaction, contender, time(model.now));
+                }),
+            /already has an unattempted claim/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectContendedClaim(${this.index})`;
+    }
+}
+
+// A new ordinal is claimable only after the prior ordinal carries a final failed
+// Receipt: an outstanding attempt or a nonfailed current Receipt refuses it.
+class RejectPrematureRetry<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        const item = model.items[this.index];
+        return model.prepared && item.live === undefined && !claimable(item);
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const item = model.items[this.index];
+        const retry = executorClaim(
+            modelInvocation.header.id,
+            this.index,
+            item.attempts.length,
+            `claim:premature:${this.index}`,
+            `worker:premature:${this.index}`,
+            time(model.now + modelClaimSeconds)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.claimItem(transaction, retry, time(model.now));
+                }),
+            /unresolved EffectAttempt|final failed Receipt/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectPrematureRetry(${this.index})`;
+    }
+}
+
+class RecoverClaim<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        return expired(model.items[this.index].live, model.now);
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const item = model.items[this.index];
+        const previous = present(item.live, "an expired ItemClaim");
+        const replacement = nextClaim(model, this.index, previous.attemptOrdinal);
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.recoverClaim(
+                transaction,
+                previous.id,
+                replacement,
+                time(model.now)
+            );
+        });
+        item.claims.push(replacement);
+        item.live = replacement;
+        item.displaced = previous;
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `recoverClaim(${this.index})`;
+    }
+}
+
+class RejectPrematureRecovery<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        const live = model.items[this.index].live;
+        return live !== undefined && !expired(live, model.now);
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const previous = present(model.items[this.index].live, "a live ItemClaim");
+        const replacement = executorClaim(
+            modelInvocation.header.id,
+            this.index,
+            previous.attemptOrdinal,
+            `claim:early:${this.index}`,
+            `worker:early:${this.index}`,
+            time(model.now + modelClaimSeconds)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.recoverClaim(
+                        transaction,
+                        previous.id,
+                        replacement,
+                        time(model.now)
+                    );
+                }),
+            /Only an expired claim may be recovered/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectPrematureRecovery(${this.index})`;
+    }
+}
+
+// Recovery is scoped to the ordinal: once the ordinal carries an EffectAttempt its
+// claim leaves the recovery path and follows Receipt reconciliation instead.
+class RejectPostAttemptRecovery<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        return model.items[this.index].attempts.length !== 0;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const attempt = present(
+            model.items[this.index].attempts.at(-1),
+            "an admitted EffectAttempt"
+        );
+        const replacement = executorClaim(
+            modelInvocation.header.id,
+            this.index,
+            attempt.ordinal,
+            `claim:attempted:${this.index}`,
+            `worker:attempted:${this.index}`,
+            time(model.now + modelClaimSeconds)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.recoverClaim(
+                        transaction,
+                        attempt.claim,
+                        replacement,
+                        time(model.now)
+                    );
+                }),
+            /exact current no-attempt claim/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectPostAttemptRecovery(${this.index})`;
+    }
+}
+
+class AdmitAttempt<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        const live = model.items[this.index].live;
+        return live !== undefined && !expired(live, model.now) && approvalAdmits(model);
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const item = model.items[this.index];
+        const claim = present(item.live, "a live ItemClaim");
+        model.sequence += 1;
+        const attempt = effectAttempt(
+            modelInvocation,
+            claim,
+            `attempt:${model.sequence}`,
+            time(model.now)
+        );
+        const consumed = system.harness.transaction((transaction) =>
+            system.harness.ledger.admitAttempt(transaction, attempt, time(model.now))
+        );
+        if (model.approval?.state.kind === "approved") {
+            expect(consumed?.state.kind).toBe("consumed");
+            model.approval = present(consumed, "the consumed Approval");
+            model.continuation = attempt.id;
+        } else {
+            expect(consumed).toBeUndefined();
+        }
+        item.attempts.push(attempt);
+        item.live = undefined;
+        item.displaced = undefined;
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `admitAttempt(${this.index})`;
+    }
+}
+
+// Only the current claim owner may append the ordinal's one EffectAttempt, so an
+// attempt bound to a claim a recovery displaced is refused.
+class RejectDisplacedClaimAttempt<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        return model.items[this.index].displaced !== undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const displaced = present(model.items[this.index].displaced, "a displaced ItemClaim");
+        const attempt = effectAttempt(
+            modelInvocation,
+            displaced,
+            `attempt:displaced:${this.index}`,
+            time(model.now)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) =>
+                    system.harness.ledger.admitAttempt(transaction, attempt, time(model.now))
+                ),
+            /does not match the live current claim/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectDisplacedClaimAttempt(${this.index})`;
+    }
+}
+
+class RejectUnapprovedAttempt<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        const live = model.items[this.index].live;
+        return (
+            live !== undefined &&
+            !expired(live, model.now) &&
+            model.approval !== undefined &&
+            !approvalAdmits(model)
+        );
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const claim = present(model.items[this.index].live, "a live ItemClaim");
+        const attempt = effectAttempt(
+            modelInvocation,
+            claim,
+            `attempt:unapproved:${this.index}`,
+            time(model.now)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) =>
+                    system.harness.ledger.admitAttempt(transaction, attempt, time(model.now))
+                ),
+            /[Aa]pproved continuation/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectUnapprovedAttempt(${this.index})`;
+    }
+}
+
+class RecordReceipt<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(
+        private readonly index: ItemIndex,
+        private readonly outcome: AttemptReceiptOutcome
+    ) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        return unreceiptedAttempt(model.items[this.index]) !== undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const item = model.items[this.index];
+        const attempt = present(unreceiptedAttempt(item), "an unreceipted EffectAttempt");
+        const receipt = nextReceipt(model, attempt.id, this.outcome, undefined);
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.recordAttemptReceipt(transaction, receipt);
+        });
+        item.receipts.push(receipt);
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `recordReceipt(${this.index}, ${this.outcome})`;
+    }
+}
+
+class RejectReplayedReceipt<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        const item = model.items[this.index];
+        return item.attempts.length !== 0 && unreceiptedAttempt(item) === undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const attempt = present(
+            model.items[this.index].attempts.at(-1),
+            "a receipted EffectAttempt"
+        );
+        const replay = new AttemptReceipt(
+            new ReceiptId(`receipt:replayed:${this.index}`),
+            attempt.id,
+            "succeeded",
+            undefined,
+            time(model.now),
+            content(`receipt:replayed:${this.index}`)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.recordAttemptReceipt(transaction, replay);
+                }),
+            /one existing unreceipted EffectAttempt/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectReplayedReceipt(${this.index})`;
+    }
+}
+
+class SupersedeReceipt<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(
+        private readonly index: ItemIndex,
+        private readonly outcome: FinalOutcome
+    ) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        return indeterminateHead(model.items[this.index]) !== undefined;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const item = model.items[this.index];
+        const previous = present(indeterminateHead(item), "an indeterminate Receipt");
+        const receipt = nextReceipt(model, previous.attempt, this.outcome, previous.id);
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.supersedeReceipt(transaction, receipt);
+        });
+        item.receipts.push(receipt);
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `supersedeReceipt(${this.index}, ${this.outcome})`;
+    }
+}
+
+class RejectFinalSupersession<Transaction> implements Command<
+    LedgerModel,
+    LedgerSystem<Transaction>
+> {
+    public constructor(private readonly index: ItemIndex) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        const current = currentReceiptOf(model.items[this.index]);
+        return current instanceof AttemptReceipt && current.outcome !== "indeterminate";
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const current = currentReceiptOf(model.items[this.index]);
+        if (!(current instanceof AttemptReceipt))
+            throw new Error("Expected a final AttemptReceipt");
+        const successor = new AttemptReceipt(
+            new ReceiptId(`receipt:successor:${this.index}`),
+            current.attempt,
+            "succeeded",
+            current.id,
+            time(model.now),
+            content(`receipt:successor:${this.index}`)
+        );
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.ledger.supersedeReceipt(transaction, successor);
+                }),
+            /current indeterminate Receipt may be superseded once/
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectFinalSupersession(${this.index})`;
+    }
+}
+
+class RecordPreEffect<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(
+        private readonly index: ItemIndex,
+        private readonly outcome: PreEffectReceiptOutcome
+    ) {}
+
+    public check(model: Readonly<LedgerModel>): boolean {
+        const item = model.items[this.index];
+        return model.prepared && item.claims.length === 0 && item.receipts.length === 0;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        const item = model.items[this.index];
+        model.sequence += 1;
+        const receipt = new PreEffectReceipt(
+            new ReceiptId(`receipt:${model.sequence}`),
+            modelInvocation.header.id,
+            this.index,
+            this.outcome,
+            time(model.now),
+            "generated pre-effect policy decision"
+        );
+        system.harness.transaction((transaction) => {
+            system.harness.ledger.recordPreEffect(transaction, receipt);
+        });
+        item.receipts.push(receipt);
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `recordPreEffect(${this.index}, ${this.outcome})`;
+    }
+}
+
+class AdvanceClock<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public constructor(private readonly seconds: number) {}
+
+    public check(): boolean {
+        return true;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        model.now += this.seconds;
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `advanceClock(${this.seconds})`;
+    }
+}
+
+class Restart<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public check(): boolean {
+        return true;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        system.harness.restart();
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "restart";
+    }
+}
+
+class Probe<Transaction> implements Command<LedgerModel, LedgerSystem<Transaction>> {
+    public check(): boolean {
+        return true;
+    }
+
+    public run(model: LedgerModel, system: LedgerSystem<Transaction>): void {
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "probe";
+    }
+}
+
+function assertResolvable<Transaction>(
+    model: Readonly<LedgerModel>,
+    system: LedgerSystem<Transaction>
+): void {
+    const invocation = modelInvocation.header.id;
+    system.harness.transaction((transaction) => {
+        const { persistence, ledger } = system.harness;
+        const stored = persistence.prepared(transaction, invocation);
+        if (!model.prepared) {
+            expect(stored).toBeUndefined();
+            return;
+        }
+        expect(stored?.intentDigest.value).toBe(modelInvocation.intentDigest.value);
+
+        const approval = persistence.approvalForInvocation(transaction, invocation);
+        expect(approval?.id.value).toBe(model.approval?.id.value);
+        expect(approval?.state.kind).toBe(model.approval?.state.kind);
+        expect(persistence.approval(transaction, modelApprovalId)?.revision.value).toBe(
+            model.approval?.revision.value
+        );
+        expect(persistence.continuation(transaction, invocation)?.firstAttempt.value).toBe(
+            model.continuation?.value
+        );
+
+        for (const [index, item] of model.items.entries()) {
+            expect(
+                persistence
+                    .claimsForItem(transaction, invocation, index)
+                    .map((claim) => [
+                        claim.id.value,
+                        claim.attemptOrdinal,
+                        claim.owner.worker.value
+                    ])
+            ).toEqual(
+                item.claims.map((claim) => [
+                    claim.id.value,
+                    claim.attemptOrdinal,
+                    claim.owner.worker.value
+                ])
+            );
+            for (const claim of item.claims) {
+                expect(persistence.claim(transaction, claim.id)?.expiresAt.getTime()).toBe(
+                    claim.expiresAt.getTime()
+                );
+                expect(persistence.attemptForClaim(transaction, claim.id)?.id.value).toBe(
+                    item.attempts.find((attempt) => attempt.claim.equals(claim.id))?.id.value
+                );
+            }
+
+            expect(
+                persistence
+                    .attemptsForItem(transaction, invocation, index)
+                    .map((attempt) => [attempt.id.value, attempt.ordinal])
+            ).toEqual(item.attempts.map((attempt, ordinal) => [attempt.id.value, ordinal]));
+
+            expect(
+                persistence
+                    .receiptsForItem(transaction, invocation, index)
+                    .map((receipt) => receipt.id.value)
+                    .sort()
+            ).toEqual(item.receipts.map((receipt) => receipt.id.value).sort());
+
+            const current = currentReceiptOf(item);
+            const resolved = ledger.currentReceipt(transaction, invocation, index);
+            expect(resolved?.id.value).toBe(current?.id.value);
+            expect(resolved?.outcome).toBe(current?.outcome);
+        }
+
+        expect(ledger.batchOutcome(transaction, invocation)).toBe(modelBatchOutcome(model));
+    });
+}
+
+function emptyLedgerModel(): LedgerModel {
+    const item = (): ItemModel => ({
+        claims: [],
+        attempts: [],
+        receipts: [],
+        live: undefined,
+        displaced: undefined
+    });
+    return {
+        prepared: false,
+        now: 1,
+        sequence: 0,
+        approval: undefined,
+        continuation: undefined,
+        items: [item(), item()]
+    };
+}
+
+function nextClaim(model: LedgerModel, index: ItemIndex, ordinal: number): ItemClaim<string> {
+    model.sequence += 1;
+    return executorClaim(
+        modelInvocation.header.id,
+        index,
+        ordinal,
+        `claim:${model.sequence}`,
+        `worker:${model.sequence}`,
+        time(model.now + modelClaimSeconds)
+    );
+}
+
+function nextReceipt(
+    model: LedgerModel,
+    attempt: EffectAttemptId,
+    outcome: AttemptReceiptOutcome,
+    previous: ReceiptId | undefined
+): AttemptReceipt {
+    model.sequence += 1;
+    const id = `receipt:${model.sequence}`;
+    return new AttemptReceipt(
+        new ReceiptId(id),
+        attempt,
+        outcome,
+        previous,
+        time(model.now),
+        outcome === "succeeded" ? content(id) : undefined
+    );
+}
+
+function currentReceiptOf(item: ItemModel): AttemptReceipt | PreEffectReceipt | undefined {
+    const head = item.receipts.at(-1);
+    if (head === undefined || head instanceof PreEffectReceipt) return head;
+    const attempt = item.attempts.at(-1);
+    return attempt !== undefined && head.attempt.equals(attempt.id) ? head : undefined;
+}
+
+function indeterminateHead(item: ItemModel): AttemptReceipt | undefined {
+    const current = currentReceiptOf(item);
+    return current instanceof AttemptReceipt && current.outcome === "indeterminate"
+        ? current
+        : undefined;
+}
+
+function unreceiptedAttempt(item: ItemModel): EffectAttempt<string, string> | undefined {
+    return currentReceiptOf(item) === undefined ? item.attempts.at(-1) : undefined;
+}
+
+function claimable(item: ItemModel): boolean {
+    if (item.live !== undefined) return false;
+    const current = currentReceiptOf(item);
+    return current === undefined
+        ? item.attempts.length === 0
+        : current instanceof AttemptReceipt && current.outcome === "failed";
+}
+
+function expired(claim: ItemClaim<string> | undefined, now: number): boolean {
+    return claim !== undefined && claim.expiresAt.getTime() <= time(now).getTime();
+}
+
+function approvalAdmits(model: Readonly<LedgerModel>): boolean {
+    const state = model.approval?.state.kind;
+    if (state === undefined || state === "consumed") return true;
+    return state === "approved" && model.now < modelApprovalExpirySeconds;
+}
+
+function modelBatchOutcome(model: Readonly<LedgerModel>): BatchOutcome | undefined {
+    const receipts = model.items.map(currentReceiptOf);
+    if (receipts.some((receipt) => receipt === undefined)) return undefined;
+    const outcomes = receipts.map((receipt) => receipt?.outcome);
+    if (outcomes.includes("indeterminate")) return "indeterminate";
+    if (outcomes.every((outcome) => outcome === "succeeded")) return "succeeded";
+    if (outcomes.includes("succeeded")) return "partiallySucceeded";
+    if (outcomes.includes("failed")) return "failed";
+    if (outcomes.includes("cancelledPreEffect")) return "cancelled";
+    return "denied";
+}
+
+function present<Value>(value: Value | undefined, subject: string): Value {
+    if (value === undefined) throw new Error(`Generated history requires ${subject}`);
+    return value;
 }
 
 function attemptLineage<Transaction>(
