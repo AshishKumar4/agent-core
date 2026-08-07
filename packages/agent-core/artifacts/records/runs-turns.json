@@ -219,6 +219,34 @@
       "tests": [
         "test/agents/runs/lease.test.ts#TurnLease [turn-lease] preserves the tenant-qualified holder through the canonical codec"
       ]
+    },
+    {
+      "symbol": "AcceptanceCriterion",
+      "kind": "run.acceptance-criterion",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/acceptance.ts#AcceptanceCriterion",
+      "codec": "src/agents/runs/acceptance.ts#AcceptanceCriterion.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] round-trips exact records and rejects malformed identities",
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] persists criteria, verdicts, and completion across a memory restart",
+        "test/substrates/sqlite/run-acceptance.test.ts#SQLite Run acceptance storage [run.acceptance-criterion] [run.acceptance-verdict] survive file-backed close and reopen with exact identities intact"
+      ]
+    },
+    {
+      "symbol": "AcceptanceVerdict",
+      "kind": "run.acceptance-verdict",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/acceptance.ts#AcceptanceVerdict",
+      "codec": "src/agents/runs/acceptance.ts#AcceptanceVerdict.codec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] round-trips exact records and rejects malformed identities",
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] persists criteria, verdicts, and completion across a memory restart",
+        "test/substrates/sqlite/run-acceptance.test.ts#SQLite Run acceptance storage [run.acceptance-criterion] [run.acceptance-verdict] survive file-backed close and reopen with exact identities intact"
+      ]
     }
   ]
 }

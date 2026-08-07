@@ -163,6 +163,7 @@
       "packages/agent-core/test/agents/**",
       "packages/agent-core/test/protocol/run-commands.test.ts",
       "packages/agent-core/test/runs/**",
+      "packages/agent-core/test/substrates/sqlite/run-acceptance.test.ts",
       "packages/agent-core/test/substrates/sqlite/run.test.ts",
       "packages/agent-core/artifacts/integration/request-archive/W5/**"
     ],

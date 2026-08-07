@@ -178,28 +178,39 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-ACCEPTANCE-OBLIGATION",
       "specTextSha256": "sha256:102b57566eaa6b620c3670f785e1eb97a4090160201ffb0537b7cd6cb12fd5af",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/acceptance.ts#AcceptanceCriterion",
+        "src/agents/runs/runtime.ts#RunRuntime.createRunInTransaction",
+        "src/agents/runs/runtime.ts#RunRuntime.recordAcceptanceVerdictInTransaction"
+      ],
+      "testSelectors": [
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] reserves each declared criterion at open and completes only through a succeeded current-subject verdict",
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] snapshots an unsatisfied criterion into the terminal frontier and blocks Settled until a current satisfying verdict",
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] leaves a Run declaring no criteria on the exact prior genesis bytes"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-ACCEPTANCE-SUBJECT",
       "owner": "W5",
       "specAnchor": "C13-RUN-ACCEPTANCE-SUBJECT",
       "specTextSha256": "sha256:eb488be75bbbbe860a9f0b148741cc06e936c13ce721432c6c0f8c86f88f8f1e",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/acceptance.ts#AcceptanceVerdict",
+        "src/agents/runs/runtime.ts#RunRuntime.recordAcceptanceVerdictInTransaction",
+        "src/agents/runs/runtime.ts#RunRuntime.acceptanceAttemptAdmissibleInTransaction"
+      ],
+      "testSelectors": [
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-SUBJECT] treats a verdict as evidence for its exact subject and admits a further attempt only against an unnamed head tree digest",
+        "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-SUBJECT] withholds admission and completion while the head names no tree digest"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-ADMISSION-REGISTRY",

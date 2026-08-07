@@ -19,8 +19,18 @@ import {
 } from "../../../src/agents/runs/admission";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import type { AcceptanceReceiptEvidence } from "../../../src/agents/runs/evidence";
-import { AcceptanceId } from "../../../src/agents/runs/id";
-import { content, digest, genesis, harness, ids, pins, seedRunningTurn } from "./fixture";
+import { AcceptanceId, RunBranchId, RunId } from "../../../src/agents/runs/id";
+import { Run, RunBranch } from "../../../src/agents/runs/run";
+import {
+    configuration,
+    content,
+    digest,
+    genesis,
+    harness,
+    ids,
+    pins,
+    seedRunningTurn
+} from "./fixture";
 
 const operation = new OperationRef("verifier-package:verify");
 const firstId = new AcceptanceId("acceptance-first");
@@ -80,6 +90,36 @@ function treeMessage(
         content: content("1"),
         ...(tree === undefined ? {} : { treeCheckpoint: content(tree) })
     });
+}
+
+function otherRunGenesis() {
+    const snapshot = configuration();
+    const run = new RunId("run-2");
+    const branch = new RunBranchId("branch-main-2");
+    const root = new RunCommit({
+        id: new RunCommitId("commit-root-2"),
+        run,
+        branch,
+        kind: "root",
+        parents: [],
+        pins: snapshot.pins,
+        writer: { kind: "root" },
+        content: content("4"),
+        treeCheckpoint: content("e")
+    });
+    return {
+        run: new Run({
+            id: run,
+            agent: ids.agent,
+            configuration: snapshot.id,
+            root: root.id,
+            initialBranch: branch,
+            revision: new Revision(0)
+        }),
+        configuration: snapshot,
+        branch: new RunBranch(branch, run, "main", root.id, new Revision(0)),
+        root
+    };
 }
 
 describe("Run acceptance criteria", () => {
@@ -144,6 +184,19 @@ describe("Run acceptance criteria", () => {
                     value.runtime.recordAcceptanceVerdict(
                         ids.run,
                         verdict(firstId, digest("2"), "unattempted-receipt")
+                    ),
+                "authority.denied"
+            );
+            value.evidence.acceptances.set("mismatched-receipt", {
+                kind: "acceptanceReceipt",
+                receipt: new ReceiptId("some-other-receipt"),
+                outcome: "succeeded"
+            });
+            expectCode(
+                () =>
+                    value.runtime.recordAcceptanceVerdict(
+                        ids.run,
+                        verdict(firstId, digest("2"), "mismatched-receipt")
                     ),
                 "authority.denied"
             );
@@ -284,7 +337,8 @@ describe("Run acceptance criteria", () => {
                     pins: pins(),
                     writer: { kind: "turn", token: value.token },
                     subjectTurn: ids.turn,
-                    content: content("f")
+                    content: content("f"),
+                    treeCheckpoint: content("3")
                 }),
                 siblingCancellations: new Map(),
                 now: new Date(2000)
@@ -302,6 +356,14 @@ describe("Run acceptance criteria", () => {
             value.runtime.completeRunObligation(approved);
             value.settlement.approvals.add(approval.value);
             expect(value.runtime.settled(ids.run)).toBe(false);
+
+            attempted(value, "late-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(secondId, digest("3"), "late-pass")
+            );
+            expect(frontierKeys(value)).toEqual([]);
+            expect(value.runtime.acceptanceSatisfied(ids.run, secondId)).toBe(true);
             value.settlement.acceptances.add(secondId.value);
             expect(value.runtime.settled(ids.run)).toBe(true);
         }
@@ -328,7 +390,7 @@ describe("Run acceptance criteria", () => {
     );
 
     it(
-        "persists criteria, verdicts, and completion across a memory restart",
+        "[run.acceptance-criterion] [run.acceptance-verdict] persists criteria, verdicts, and completion across a memory restart",
         { tags: "p0" },
         () => {
             const value = harness();
@@ -352,8 +414,37 @@ describe("Run acceptance criteria", () => {
             ).toEqual(verdict(firstId, digest("e"), "durable-pass"));
             expect(frontierKeys(restarted)).toEqual([]);
             expect(restarted.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(false);
+            expect(restarted.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(false);
+            attempted(restarted, "durable-pass", "succeeded");
+            expect(restarted.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(true);
         }
     );
+
+    it("binds a verdict to the declaring Run's own reserved criterion", { tags: "p1" }, () => {
+        const value = harness();
+        value.runtime.createRun({ ...genesis(), acceptanceCriteria: [criterion(firstId)] });
+        const other = otherRunGenesis();
+        expectCode(
+            () =>
+                value.runtime.createRun({
+                    ...other,
+                    acceptanceCriteria: [criterion(firstId)]
+                }),
+            "run.invalid-state"
+        );
+        value.runtime.createRun(other);
+
+        expectCode(
+            () =>
+                value.runtime.recordAcceptanceVerdict(
+                    other.run.id,
+                    verdict(firstId, digest("e"), "foreign-pass")
+                ),
+            "run.invalid-state"
+        );
+        expect(value.runtime.acceptanceAttemptAdmissible(other.run.id, firstId)).toBe(false);
+        expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(true);
+    });
 
     it("rejects duplicate and preexisting criterion identities at genesis", { tags: "p1" }, () => {
         const value = harness();
@@ -411,6 +502,14 @@ describe("Run acceptance criteria", () => {
                         acceptance: firstId,
                         subject: content("e") as never,
                         receipt: new ReceiptId("codec-receipt")
+                    })
+            ).toThrow(/exact context classes/);
+            expect(
+                () =>
+                    new AcceptanceVerdict({
+                        acceptance: firstId,
+                        subject: digest("e"),
+                        receipt: ids.run as never
                     })
             ).toThrow(/exact context classes/);
             expect(() => AcceptanceCriterion.fromData({ id: firstId.value } as never)).toThrow(
