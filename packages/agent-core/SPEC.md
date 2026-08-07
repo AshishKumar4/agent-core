@@ -997,9 +997,10 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   commit. The interval until the next non-undo commit is the **pending revert**: it is
   durable and reversible. Prior heads remain reachable; ancestry
   queries are unaffected.
-- Undo targeting a branch whose Turn holds an unexpired lease MUST first fence that
-  Turn (§5.3); an undo that would orphan an in-flight Turn is rejected until the Turn
-  is fenced or completes.
+- Undo targeting a branch with a held Turn MUST first fence that Turn (§5.3), whether or
+  not its lease has expired — an expired lease is still reclaimable until someone fences
+  it. An undo that would orphan an in-flight Turn is rejected until the Turn is fenced or
+  completes.
 - `merge` is binary: it appends one RunCommit whose ordered parents are exactly the
   target branch's current head followed by the distinct source branch's current head.
   Multiway merge is a deterministic left fold of binary merges in caller-supplied
@@ -2646,6 +2647,7 @@ A conforming implementation provides:
 - **C13-RUN-BINARY-MERGE** Run merge is binary.
 - **C13-RUN-BINARY-TREE-MERGE** Tree merge is binary.
 - **C13-RUN-UNDO-REDO** Undo and redo are append-only selection.
+- **C13-RUN-UNDO-FENCE** Undo fences a held Turn before appending, regardless of lease expiry.
 - **C13-RUN-ANCESTRY** Run storage supports ancestry queries.
 - **C13-WRITER-MATRIX** Run commits enforce the exact root/Turn/system CommitWriter matrix.
 - **C13-WRITER-POST-FENCE-EVIDENCE** Receipt and delivery evidence may complete after fencing only as specified.
