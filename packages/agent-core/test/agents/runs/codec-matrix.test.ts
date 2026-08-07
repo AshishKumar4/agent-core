@@ -11,7 +11,6 @@ import {
     isSettled,
     type SettlementAuditObligation
 } from "../../../src/agents/runs/settlement";
-import { RunLifecycle } from "../../../src/agents/runs/run";
 import { content, genesis, ids, pins, refs } from "./fixture";
 
 function roundTrip(commit: RunCommit): RunCommit {
@@ -304,7 +303,6 @@ describe("Settlement codec and lifecycle", () => {
             expect(terminal.recordEvidence().revision.value).toBe(2);
             expect(() => terminal.terminalize(terminal.terminal!)).toThrow(/Terminal/);
             expect(() => genesis().run.recordEvidence()).toThrow(/terminal/);
-            expect(RunLifecycle.from("active").kind).toBe("active");
         }
     );
 });

@@ -26,10 +26,6 @@ export abstract class RunLifecycle {
     }
     public abstract readonly kind: "active" | "terminal";
     public abstract terminalize(): RunLifecycle;
-
-    public static from(kind: "active" | "terminal"): RunLifecycle {
-        return kind === "active" ? RunLifecycle.active : RunLifecycle.terminal;
-    }
 }
 
 class ActiveRun extends RunLifecycle {
@@ -54,7 +50,6 @@ export interface RunInit {
     readonly root: RunCommitId;
     readonly initialBranch: RunBranchId;
     readonly parent?: RunId;
-    readonly lifecycle?: RunLifecycle;
     readonly terminal?: TerminalSnapshot;
     readonly revision: Revision;
 }
@@ -93,12 +88,11 @@ export class Run extends CodecRecord {
         this.root = init.root;
         this.initialBranch = init.initialBranch;
         this.parent = init.parent;
-        this.lifecycle = init.lifecycle ?? RunLifecycle.active;
         this.terminal = init.terminal;
+        // A Run is terminal exactly when it holds its terminal snapshot. Storing the
+        // state beside the evidence would only create two ways to answer one question.
+        this.lifecycle = init.terminal === undefined ? RunLifecycle.active : RunLifecycle.terminal;
         this.revision = init.revision;
-        if ((this.lifecycle.kind === "terminal") !== (this.terminal !== undefined)) {
-            throw new TypeError("Run terminal state requires exactly one terminal snapshot");
-        }
         if (this.terminal !== undefined && !this.terminal.run.equals(this.id)) {
             throw new TypeError("Terminal snapshot belongs to a different Run");
         }
@@ -112,7 +106,8 @@ export class Run extends CodecRecord {
                 "Terminal snapshot belongs to another Run"
             );
         }
-        return this.transition(this.lifecycle.terminalize(), snapshot);
+        this.lifecycle.terminalize();
+        return this.transition(snapshot);
     }
 
     public revise(): Run {
@@ -122,7 +117,7 @@ export class Run extends CodecRecord {
                 "Terminal Runs reject ordinary mutations"
             );
         }
-        return this.transition(this.lifecycle, this.terminal);
+        return this.transition(this.terminal);
     }
 
     public recordEvidence(): Run {
@@ -132,7 +127,7 @@ export class Run extends CodecRecord {
                 "Only terminal Runs record captured evidence"
             );
         }
-        return this.transition(this.lifecycle, this.terminal);
+        return this.transition(this.terminal);
     }
 
     public recordConfiguration(configuration: Digest): Run {
@@ -143,10 +138,7 @@ export class Run extends CodecRecord {
             );
         }
         if (this.configurations.some((value) => value.equals(configuration))) return this;
-        return this.transition(this.lifecycle, this.terminal, [
-            ...this.configurations,
-            configuration
-        ]);
+        return this.transition(this.terminal, [...this.configurations, configuration]);
     }
 
     public toData(): JsonValue {
@@ -156,7 +148,6 @@ export class Run extends CodecRecord {
             configurations: this.configurations.map((value) => value.value),
             id: this.id.value,
             initialBranch: this.initialBranch.value,
-            lifecycle: this.lifecycle.kind,
             parent: this.parent?.value ?? null,
             revision: revisionData(this.revision),
             root: this.root.value,
@@ -174,7 +165,6 @@ export class Run extends CodecRecord {
                 "configurations",
                 "id",
                 "initialBranch",
-                "lifecycle",
                 "parent",
                 "revision",
                 "root",
@@ -183,9 +173,6 @@ export class Run extends CodecRecord {
             [],
             "Run"
         );
-        const lifecycle = object["lifecycle"];
-        if (lifecycle !== "active" && lifecycle !== "terminal")
-            throw new TypeError("Run lifecycle is invalid");
         const parent = requireOptionalString(object["parent"], "Parent Run");
         return new Run({
             id: new RunId(requireString(object["id"], "Run ID")),
@@ -199,7 +186,6 @@ export class Run extends CodecRecord {
                 requireString(object["initialBranch"], "Initial branch")
             ),
             ...(parent === undefined ? {} : { parent: new RunId(parent) }),
-            lifecycle: RunLifecycle.from(lifecycle),
             ...(object["terminal"] === null
                 ? {}
                 : { terminal: TerminalSnapshot.fromData(object["terminal"]!) }),
@@ -208,7 +194,6 @@ export class Run extends CodecRecord {
     }
 
     private transition(
-        lifecycle: RunLifecycle,
         terminal: TerminalSnapshot | undefined,
         configurations: readonly Digest[] = this.configurations
     ): Run {
@@ -220,7 +205,6 @@ export class Run extends CodecRecord {
             root: this.root,
             initialBranch: this.initialBranch,
             ...(this.parent === undefined ? {} : { parent: this.parent }),
-            lifecycle,
             ...(terminal === undefined ? {} : { terminal }),
             revision: nextRunRevision(this.revision)
         });

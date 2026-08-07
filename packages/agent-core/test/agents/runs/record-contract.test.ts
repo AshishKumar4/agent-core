@@ -379,19 +379,19 @@ describe("Run lifecycle record errors", () => {
                 }),
                 new Date(1000)
             );
+            // A Run carrying its terminal snapshot is terminal by construction, so the
+            // state and the evidence can no longer be handed to it in disagreement.
             expect(
-                () =>
-                    new Run({
-                        id: ids.run,
-                        agent: ids.agent,
-                        configuration: configuration().id,
-                        root: ids.root,
-                        initialBranch: ids.branch,
-                        lifecycle: genesis().run.lifecycle,
-                        terminal,
-                        revision: new Revision(0)
-                    })
-            ).toThrow(TypeError);
+                new Run({
+                    id: ids.run,
+                    agent: ids.agent,
+                    configuration: configuration().id,
+                    root: ids.root,
+                    initialBranch: ids.branch,
+                    terminal,
+                    revision: new Revision(0)
+                }).lifecycle.kind
+            ).toBe("terminal");
             const foreign = new TerminalSnapshot(
                 new RunId("foreign"),
                 ids.turn,
@@ -410,7 +410,7 @@ describe("Run lifecycle record errors", () => {
             }
             const data = structuredClone(genesis().run.toData()) as Record<string, unknown>;
             data["lifecycle"] = "unknown";
-            expect(() => Run.fromData(data as never)).toThrow(/lifecycle/);
+            expect(() => Run.fromData(data as never)).toThrow(/unknown fields/);
             expect(
                 () => new RunBranch(genesis().branch.id, ids.run, " ", ids.root, new Revision(0))
             ).toThrow(/blank/);

@@ -12,7 +12,7 @@ import {
 } from "../../../src/agents/runs/id";
 import { RunPins } from "../../../src/agents/runs/pins";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
-import { Run, RunBranch, RunLifecycle } from "../../../src/agents/runs/run";
+import { Run, RunBranch } from "../../../src/agents/runs/run";
 import { RunAdmissionRegistry } from "../../../src/agents/runs/admission";
 import { SpawnReservation } from "../../../src/agents/runs/spawn";
 import { SettlementObligation, TerminalSnapshot } from "../../../src/agents/runs/settlement";
@@ -136,7 +136,6 @@ function terminalRun(): Run {
         configuration: base.configuration,
         root: base.root,
         initialBranch: base.initialBranch,
-        lifecycle: RunLifecycle.terminal,
         terminal: new TerminalSnapshot(
             base.id,
             ids.turn,
