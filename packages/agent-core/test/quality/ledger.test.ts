@@ -308,7 +308,9 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(run?.theorems).toContain("AgentCore.forced_cancellation_is_system_fence");
         expect(run?.theorems).toContain("AgentCore.terminal_snapshot_has_no_omission_or_extra");
         expect(run?.theorems).toContain("AgentCore.migration_requires_valid_target_pins");
-        expect(run?.boundary).toContain("Concrete remote reservation enforcement");
+        expect(run?.boundary).toContain("remote reservation enforcement");
+        expect(run?.theorems).toContain("AgentCore.acceptance_unsatisfied_not_settled");
+        expect(run?.theorems).toContain("AgentCore.acceptance_verdict_only_for_its_subject");
         expect(approval?.definitions).toContain("AgentCore.ApprovalLedger.Continues");
         expect(approval?.theorems).toContain(
             "AgentCore.approval_continuation_validates_persisted_exact_intent"
@@ -412,9 +414,9 @@ async function planOneRequirement(root: string): Promise<void> {
     const fragments = await Promise.all(
         index.fragments.map(async (name) => ({
             name,
-            document: JSON.parse(
-                await readFile(resolve(root, "conformance", name), "utf8")
-            ) as { requirements: Record<string, unknown>[] }
+            document: JSON.parse(await readFile(resolve(root, "conformance", name), "utf8")) as {
+                requirements: Record<string, unknown>[];
+            }
         }))
     );
     const prerequisites = new Set(
