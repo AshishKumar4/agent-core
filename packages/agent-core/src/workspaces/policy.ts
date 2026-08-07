@@ -125,7 +125,7 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
     let current: JsonValue = document;
     for (const token of parsePointer(pointer)) {
         if (Array.isArray(current)) {
-            const index = parseArrayIndex(token, false);
+            const index = parseArrayIndex(token);
             if (index >= current.length) throw missingPointer(pointer);
             current = current[index]!;
         } else if (isObject(current) && Object.hasOwn(current, token)) {
@@ -215,7 +215,7 @@ function parsePointer(pointer: string): readonly string[] {
         });
 }
 
-function parseArrayIndex(token: string, _allowAppend?: false): number {
+function parseArrayIndex(token: string): number {
     if (!/^(?:0|[1-9][0-9]*)$/u.test(token)) {
         throw new TypeError("JSON Pointer array index is invalid");
     }
