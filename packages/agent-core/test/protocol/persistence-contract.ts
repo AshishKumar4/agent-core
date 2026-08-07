@@ -1,3 +1,4 @@
+import fc, { type Command } from "fast-check";
 import { afterEach, describe, expect, test } from "vitest";
 import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors";
 import { RunCommitId } from "../../src/agents";
@@ -632,6 +633,234 @@ export function protocolPersistenceContract<Transaction>(
                 });
             }
         );
+
+        test(
+            "generated append, repair and restart histories preserve every reserved identity",
+            { tags: "p0" },
+            () => {
+                const prefix = fc.integer({ min: 0, max: 5 }).map((slot) => `model-${slot}`);
+                const commands = fc.commands<ProtocolModel, ProtocolSystem<Transaction>>(
+                    [
+                        prefix.map((slot) => new AppendRecords(slot)),
+                        prefix.map((slot) => new RejectReplayedWrite(slot)),
+                        prefix.map((slot) => new RejectReplayedAudit(slot)),
+                        prefix.map((slot) => new RejectReservedIdentity(slot)),
+                        fc.constant(new Repair()),
+                        fc.constant(new Restart()),
+                        fc.constant(new Probe())
+                    ],
+                    { maxCommands: 40 }
+                );
+
+                fc.assert(
+                    fc.property(commands, (history) => {
+                        const harness = open();
+                        fc.modelRun(
+                            () => ({ model: { appended: new Map() }, real: { harness } }),
+                            history
+                        );
+                    }),
+                    { numRuns: 60 }
+                );
+            }
+        );
+    });
+}
+
+interface ProtocolModel {
+    readonly appended: Map<string, ProtocolTestRecords>;
+}
+
+interface ProtocolSystem<Transaction> {
+    readonly harness: ProtocolPersistenceHarness<Transaction>;
+}
+
+class AppendRecords<Transaction> implements Command<ProtocolModel, ProtocolSystem<Transaction>> {
+    public constructor(private readonly slot: string) {}
+
+    public check(model: Readonly<ProtocolModel>): boolean {
+        return !model.appended.has(this.slot);
+    }
+
+    public run(model: ProtocolModel, system: ProtocolSystem<Transaction>): void {
+        const records = protocolTestRecords(this.slot);
+        system.harness.transaction((transaction) => {
+            appendProtocolTestRecords(system.harness.persistence, transaction, records);
+        });
+        model.appended.set(this.slot, records);
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `append(${this.slot})`;
+    }
+}
+
+class RejectReplayedWrite<Transaction> implements Command<
+    ProtocolModel,
+    ProtocolSystem<Transaction>
+> {
+    public constructor(private readonly slot: string) {}
+
+    public check(model: Readonly<ProtocolModel>): boolean {
+        return model.appended.has(this.slot);
+    }
+
+    public run(model: ProtocolModel, system: ProtocolSystem<Transaction>): void {
+        const records = model.appended.get(this.slot)!;
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.persistence.appendWrite(transaction, records.write);
+                }),
+            "protocol.invalid-state"
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectReplayedWrite(${this.slot})`;
+    }
+}
+
+class RejectReplayedAudit<Transaction> implements Command<
+    ProtocolModel,
+    ProtocolSystem<Transaction>
+> {
+    public constructor(private readonly slot: string) {}
+
+    public check(model: Readonly<ProtocolModel>): boolean {
+        return model.appended.has(this.slot);
+    }
+
+    public run(model: ProtocolModel, system: ProtocolSystem<Transaction>): void {
+        const records = model.appended.get(this.slot)!;
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    system.harness.persistence.appendAudit(transaction, records.audit);
+                }),
+            "protocol.invalid-state"
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectReplayedAudit(${this.slot})`;
+    }
+}
+
+// A second original write reusing an already reserved idempotency key must be
+// refused whatever order the surrounding history ran in.
+class RejectReservedIdentity<Transaction> implements Command<
+    ProtocolModel,
+    ProtocolSystem<Transaction>
+> {
+    public constructor(private readonly slot: string) {}
+
+    public check(model: Readonly<ProtocolModel>): boolean {
+        return model.appended.has(this.slot);
+    }
+
+    public run(model: ProtocolModel, system: ProtocolSystem<Transaction>): void {
+        const contender = protocolTestRecords(`${this.slot}-contender`, defaultCaller, {
+            key: `${this.slot}-key`
+        });
+        expectAgentCoreError(
+            () =>
+                system.harness.transaction((transaction) => {
+                    appendProtocolTestRecords(
+                        system.harness.persistence,
+                        transaction,
+                        contender,
+                        null
+                    );
+                }),
+            "protocol.invalid-state"
+        );
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return `rejectReservedIdentity(${this.slot})`;
+    }
+}
+
+class Repair<Transaction> implements Command<ProtocolModel, ProtocolSystem<Transaction>> {
+    public check(): boolean {
+        return true;
+    }
+
+    public run(model: ProtocolModel, system: ProtocolSystem<Transaction>): void {
+        system.harness.transaction((transaction) => {
+            system.harness.persistence.repair(transaction);
+        });
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "repair";
+    }
+}
+
+class Restart<Transaction> implements Command<ProtocolModel, ProtocolSystem<Transaction>> {
+    public check(): boolean {
+        return true;
+    }
+
+    public run(model: ProtocolModel, system: ProtocolSystem<Transaction>): void {
+        system.harness.restart();
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "restart";
+    }
+}
+
+class Probe<Transaction> implements Command<ProtocolModel, ProtocolSystem<Transaction>> {
+    public check(): boolean {
+        return true;
+    }
+
+    public run(model: ProtocolModel, system: ProtocolSystem<Transaction>): void {
+        assertResolvable(model, system);
+    }
+
+    public toString(): string {
+        return "probe";
+    }
+}
+
+function assertResolvable<Transaction>(
+    model: Readonly<ProtocolModel>,
+    system: ProtocolSystem<Transaction>
+): void {
+    system.harness.transaction((transaction) => {
+        for (const records of model.appended.values()) {
+            const byIdentity = system.harness.persistence.findWrite(transaction, records.identity);
+            expect(byIdentity?.id.equals(records.write.id)).toBe(true);
+            expect(byIdentity?.reply).toEqual(records.write.reply);
+
+            const byId = system.harness.persistence.findWriteById(transaction, records.write.id);
+            expect(byId?.audit.equals(records.audit.id)).toBe(true);
+
+            const audit = system.harness.persistence.findAudit(transaction, records.audit.id);
+            expect(audit?.kind).toMatchObject({
+                kind: "write",
+                id: records.write.id,
+                outcome: records.write.outcome
+            });
+            expect(
+                system.harness.persistence.findAudit(transaction, records.root.id)?.id.value
+            ).toBe(records.root.id.value);
+        }
+
+        const absent = protocolTestRecords("model-never-appended");
+        expect(system.harness.persistence.findWrite(transaction, absent.identity)).toBeUndefined();
+        expect(
+            system.harness.persistence.findWriteById(transaction, absent.write.id)
+        ).toBeUndefined();
     });
 }
 
