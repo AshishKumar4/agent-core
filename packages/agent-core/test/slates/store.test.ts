@@ -9,6 +9,7 @@ import {
 } from "../../src/environments";
 import { AgentCoreError } from "../../src/errors";
 import { InvocationId, ReceiptId } from "../../src/invocations";
+import { expectAgentCoreError } from "../protocol/error-assertion";
 import {
     MemorySlateStore,
     Slate,
@@ -358,7 +359,7 @@ describe("MemorySlateStore", () => {
         const slate = Slate.initial(new SlateId("slate-invariants"), workspace, ref("source"));
         store.compareAndSetSlate(undefined, slate);
 
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.compareAndSetSlate(
                     slate.revision,
@@ -369,9 +370,10 @@ describe("MemorySlateStore", () => {
                         revision: new Revision(2)
                     })
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "A Slate CAS must append the next revision"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addVersion(
                     new SlateVersion(
@@ -381,9 +383,10 @@ describe("MemorySlateStore", () => {
                         slate.source
                     )
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "Slate record must be owned by its Slate workspace"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addPublication(
                     new SlatePublication(
@@ -394,11 +397,12 @@ describe("MemorySlateStore", () => {
                         ref("publication")
                     )
                 ),
-            "slate.invalid-version"
+            "slate.invalid-version",
+            "Slate publication version must exist in the same Slate"
         );
 
         const invocation = new InvocationId("invocation-invariants");
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.reserveDeployment(
                     new SlateDeploymentReservation({
@@ -412,9 +416,10 @@ describe("MemorySlateStore", () => {
                         invocationId: invocation
                     })
                 ),
-            "slate.unpublished"
+            "slate.unpublished",
+            "Slate deployment publication must exist in the same Slate"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addDeployment(
                     new SlateDeployment(
@@ -428,9 +433,10 @@ describe("MemorySlateStore", () => {
                         new ReceiptId("receipt-unreserved")
                     )
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "Slate deployment must match its frozen reservation"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.reserveResource(
                     new SlateResourceReservation({
@@ -444,7 +450,8 @@ describe("MemorySlateStore", () => {
                         invocationId: invocation
                     })
                 ),
-            "protocol.invalid-state"
+            "protocol.invalid-state",
+            "Slate resource deployment must exist in the same Slate"
         );
 
         const capability = new EnvironmentSessionCapability(
@@ -453,7 +460,7 @@ describe("MemorySlateStore", () => {
             Revision.initial(),
             0
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addPreview(
                     new SlatePreview(
@@ -465,9 +472,10 @@ describe("MemorySlateStore", () => {
                         ref("stale")
                     )
                 ),
-            "protocol.revision-conflict"
+            "protocol.revision-conflict",
+            "Working Slate preview source must match the current source"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.addPreview(
                     new SlatePreview(
@@ -480,18 +488,20 @@ describe("MemorySlateStore", () => {
                         new SlateVersionId("version-missing")
                     )
                 ),
-            "slate.invalid-version"
+            "slate.invalid-version",
+            "Versioned Slate preview must reference its exact source"
         );
 
-        expectCode(
+        expectAgentCoreError(
             () =>
                 new MemorySlateStore({
                     ...store.snapshot(),
                     slates: [...store.snapshot().slates, store.snapshot().slates[0]!]
                 }),
-            "protocol.duplicate"
+            "protocol.duplicate",
+            "Slate snapshot contains duplicate history"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 new MemorySlateStore({
                     ...store.snapshot(),
@@ -513,9 +523,10 @@ describe("MemorySlateStore", () => {
                         }
                     ]
                 }),
-            "slate.invalid-version"
+            "slate.invalid-version",
+            "Slate head must reference an owned version"
         );
-        expectCode(
+        expectAgentCoreError(
             () =>
                 store.compareAndSetSlate(
                     undefined,
@@ -527,7 +538,8 @@ describe("MemorySlateStore", () => {
                         revision: Revision.initial()
                     })
                 ),
-            "slate.unpublished"
+            "slate.unpublished",
+            "Slate latest publication must be an owned publication"
         );
     });
 
@@ -955,15 +967,4 @@ function completeGraph(label: string) {
 
 function ref(label: string): ContentRef {
     return ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode(label)));
-}
-
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
-    let error: unknown;
-    try {
-        operation();
-    } catch (caught) {
-        error = caught;
-    }
-    expect(error).toBeInstanceOf(AgentCoreError);
-    expect((error as AgentCoreError).code).toBe(code);
 }

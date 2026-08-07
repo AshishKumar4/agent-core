@@ -590,7 +590,10 @@ describe("MemorySlateStore mutation kills", () => {
         );
 
         expect(() => store.addResource(resource)).toThrowError(
-            expect.objectContaining({ code: "protocol.invalid-state" })
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Slate resource must match its frozen reservation"
+            })
         );
         expect(store.getResource(resource.id)).toBeUndefined();
     });
@@ -660,7 +663,10 @@ describe("MemorySlateStore mutation kills", () => {
                 overrides.invocationId ?? invocation,
                 new ReceiptId("receipt-deployment-fields")
             );
-        const error = expect.objectContaining({ code: "protocol.invalid-state" });
+        const error = expect.objectContaining({
+            code: "protocol.invalid-state",
+            message: "Slate deployment must match its frozen reservation"
+        });
 
         expect(() => store.addDeployment(deployment({ slateId: other.id }))).toThrowError(error);
         expect(() =>
@@ -743,7 +749,10 @@ describe("MemorySlateStore mutation kills", () => {
                 overrides.invocationId ?? invocation,
                 new ReceiptId("receipt-resource-fields")
             );
-        const error = expect.objectContaining({ code: "protocol.invalid-state" });
+        const error = expect.objectContaining({
+            code: "protocol.invalid-state",
+            message: "Slate resource must match its frozen reservation"
+        });
 
         expect(() => store.addResource(resource({ slateId: other.id }))).toThrowError(error);
         expect(() =>
