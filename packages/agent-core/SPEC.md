@@ -1691,7 +1691,9 @@ An **Approval** authorizes exactly one InvocationId and its `intentDigest`; an
 Invocation has at most one Approval record. An `InvocationContinuation` MUST be absent
 before first consumption. This maps to **C13-PREPARED-APPROVAL-UNIQUE** and
 **C13-PREPARED-CONTINUATION-ABSENT**.
-Approval is invocation-level, single-use, and MAY expire. Pending state survives process death, but resume
+Approval is invocation-level, single-use, and MAY expire; expiry is terminal from `pending`
+and from `approved`, so an approved Approval its Invocation never consumed still resolves.
+Pending state survives process death, but resume
 requires the exact token only when the header carries one. Denial or authority/digest
 mismatch emits one `deniedPreEffect` Receipt per untouched item; expiry, cancellation,
 or loss of a required Turn emits `cancelledPreEffect`. Neither creates an EffectAttempt.
@@ -1702,11 +1704,12 @@ index, ordinal, claim id/owner, and item key, and the persisted attempt MUST exa
 all of them. That EffectAttempt's `invocation` MUST equal the continuation InvocationId,
 and its item index/key MUST identify an item in the bound PreparedInvocation. A malformed
 or substituted firstAttempt makes the continuation invalid. The Approval is consumed
-exactly once, not once per item. Every
+exactly once, not once per item. Where an Approval was required, every
 later batch item and retry validates the persisted continuation's InvocationId,
 whole-intent digest, ApprovalId, and exact persisted first-attempt identity before its own normal
 authority, epoch, claim, and effect admission; it neither consumes nor recreates an
-Approval. This maps to **C13-PREPARED-APPROVAL-FIRST-ATTEMPT** and
+Approval. Where none was required no continuation exists, and later items and retries
+proceed on that same normal admission alone. This maps to **C13-PREPARED-APPROVAL-FIRST-ATTEMPT** and
 **C13-PREPARED-APPROVAL-CONTINUATION**.
 
 ### 7.4 EffectAttempt, Receipt, AuditRecord, reconciliation
@@ -2590,7 +2593,7 @@ A conforming implementation provides:
 - **C13-PREPARED-APPROVAL-UNIQUE** At most one Approval exists per Invocation.
 - **C13-PREPARED-CONTINUATION-ABSENT** Invocation continuation is absent before first Approval consumption.
 - **C13-PREPARED-APPROVAL-FIRST-ATTEMPT** Approval consumption is atomic with the first admitted EffectAttempt and persisted continuation.
-- **C13-PREPARED-APPROVAL-CONTINUATION** Later batch items and retries validate that the exact first EffectAttempt belongs to the continuation Invocation and PreparedInvocation item without consuming another Approval.
+- **C13-PREPARED-APPROVAL-CONTINUATION** Where an Approval was required, later batch items and retries validate that the exact first EffectAttempt belongs to the continuation Invocation and PreparedInvocation item without consuming another Approval; where none was required, no continuation exists.
 - **C13-RECEIPT-PRE-EFFECT** Terminal pre-effect Receipts are distinct from attempted Receipts.
 - **C13-EFFECT-ATTEMPT-IMMUTABLE** EffectAttempts are immutable.
 - **C13-RECEIPT-ATTEMPT-CHAIN** Attempted Receipts form the specified attempt chains.
