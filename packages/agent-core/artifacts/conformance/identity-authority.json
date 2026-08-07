@@ -88,7 +88,7 @@
       "id": "C13-AUTH-BINDING-RESOLUTION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-BINDING-RESOLUTION",
-      "specTextSha256": "sha256:39d23e804aa147c08a268b2a0a2d8472d511fb3ed23714fef4177027aab1b554",
+      "specTextSha256": "sha256:1ee55df596a4468da771593d1f1a2a4b1de75487dc2372f632a9aa2e9c7e77f8",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
@@ -240,10 +240,24 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-AUTH-GUEST-VERIFICATION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-GUEST-VERIFICATION",
+      "specTextSha256": "sha256:52a60e060b1592a09943e54e31d8ec5cd477642d19988fbfc1755ce91a3ea117",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-AUTH-MEDIATED-ADMISSION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",
-      "specTextSha256": "sha256:83b9f393db4e29ca47fa6611d447de3e3d56bce41d61e811766877fd3392345e",
+      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
@@ -257,7 +271,7 @@
       "id": "C13-AUTH-MEDIATED-STALE",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-STALE",
-      "specTextSha256": "sha256:83b9f393db4e29ca47fa6611d447de3e3d56bce41d61e811766877fd3392345e",
+      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -270,7 +284,7 @@
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence",
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (\u00a73.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
+        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -321,7 +335,7 @@
       "id": "C13-AUTH-PRINCIPAL-REF",
       "owner": "W2",
       "specAnchor": "C13-AUTH-PRINCIPAL-REF",
-      "specTextSha256": "sha256:ada6218fb2cf27037eb1311f84131fc60876b2497601ae1cce2526dbe6d143e8",
+      "specTextSha256": "sha256:72786f2dee68cc90c9f4a1a16f13fab22decb4dd018dcbe7a59ef84c44b17f77",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/identity/principal-ref.ts#PrincipalRef"],
@@ -332,6 +346,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-AUTH-RESOLUTION-LIFETIME",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-RESOLUTION-LIFETIME",
+      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "C13-AUTH-ROLE-MATERIALIZATION",

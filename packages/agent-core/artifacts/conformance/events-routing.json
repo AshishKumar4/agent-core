@@ -132,6 +132,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-ROUTE-DELIVERY-ONCE",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-DELIVERY-ONCE",
+      "specTextSha256": "sha256:127df38b07d46269e5cf447ad6e699a96911ad7185b8b9cd9ccefca8cf277f71",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-ROUTE-PROJECTION-DIGEST",
       "owner": "W7",
       "specAnchor": "C13-ROUTE-PROJECTION-DIGEST",
@@ -273,6 +287,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-VIEW-APPROVAL-PROVENANCE",
+      "owner": "W7",
+      "specAnchor": "C13-VIEW-APPROVAL-PROVENANCE",
+      "specTextSha256": "sha256:cfd40e8040e695712bd1905312980594bf1d6a69af44bd8c38abf724a8bf5cd5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "C13-VIEW-DELTA-REPLAY",
