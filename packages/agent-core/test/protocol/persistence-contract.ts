@@ -162,41 +162,45 @@ export function protocolPersistenceContract<Transaction>(
             }
         );
 
-        test("[C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links", { tags: "p0" }, () => {
-            const harness = open();
-            const linked = protocolTestRecords("write-audit-link", defaultCaller);
-            harness.transaction((transaction) => {
-                appendProtocolTestRecords(harness.persistence, transaction, linked);
-            });
-            harness.restart();
-            harness.transaction((transaction) => {
-                const write = harness.persistence.findWriteById(transaction, linked.write.id);
-                const audit = harness.persistence.findAudit(transaction, linked.audit.id);
-                expect(write?.audit.equals(linked.audit.id)).toBe(true);
-                expect(audit?.kind).toMatchObject({
-                    kind: "write",
-                    id: linked.write.id,
-                    outcome: linked.write.outcome
-                });
-            });
-
-            const mismatched = protocolTestRecords("write-audit-mismatch", defaultCaller, {
-                auditWriteId: new WriteRecordId("write-audit-other")
-            });
-            expect(() =>
+        test(
+            "[C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const linked = protocolTestRecords("write-audit-link", defaultCaller);
                 harness.transaction((transaction) => {
-                    appendProtocolTestRecords(harness.persistence, transaction, mismatched);
-                })
-            ).toThrow(/not reciprocal/);
-            harness.transaction((transaction) => {
-                expect(
-                    harness.persistence.findWriteById(transaction, mismatched.write.id)
-                ).toBeUndefined();
-                expect(
-                    harness.persistence.findAudit(transaction, mismatched.audit.id)
-                ).toBeUndefined();
-            });
-        });
+                    appendProtocolTestRecords(harness.persistence, transaction, linked);
+                });
+                harness.restart();
+                harness.transaction((transaction) => {
+                    const write = harness.persistence.findWriteById(transaction, linked.write.id);
+                    const audit = harness.persistence.findAudit(transaction, linked.audit.id);
+                    expect(write?.audit.equals(linked.audit.id)).toBe(true);
+                    expect(audit?.kind).toMatchObject({
+                        kind: "write",
+                        id: linked.write.id,
+                        outcome: linked.write.outcome
+                    });
+                });
+
+                const mismatched = protocolTestRecords("write-audit-mismatch", defaultCaller, {
+                    auditWriteId: new WriteRecordId("write-audit-other")
+                });
+                expect(() =>
+                    harness.transaction((transaction) => {
+                        appendProtocolTestRecords(harness.persistence, transaction, mismatched);
+                    })
+                ).toThrow(/not reciprocal/);
+                harness.transaction((transaction) => {
+                    expect(
+                        harness.persistence.findWriteById(transaction, mismatched.write.id)
+                    ).toBeUndefined();
+                    expect(
+                        harness.persistence.findAudit(transaction, mismatched.audit.id)
+                    ).toBeUndefined();
+                });
+            }
+        );
 
         test("keeps caller and idempotency identity structurally distinct", { tags: "p0" }, () => {
             const harness = open();
@@ -261,30 +265,34 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("reserves only the original write and leaves duplicate lookup unchanged", { tags: "p0" }, () => {
-            const harness = open();
-            const original = protocolTestRecords("original", defaultCaller);
-            const duplicate = protocolTestRecords("duplicate", defaultCaller, {
-                outcome: "duplicate",
-                duplicateOf: original.write.id,
-                key: original.identity.idempotencyKey,
-                reply: original.write.reply
-            });
+        test(
+            "reserves only the original write and leaves duplicate lookup unchanged",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const original = protocolTestRecords("original", defaultCaller);
+                const duplicate = protocolTestRecords("duplicate", defaultCaller, {
+                    outcome: "duplicate",
+                    duplicateOf: original.write.id,
+                    key: original.identity.idempotencyKey,
+                    reply: original.write.reply
+                });
 
-            harness.transaction((transaction) => {
-                appendProtocolTestRecords(harness.persistence, transaction, original);
-                appendProtocolTestRecords(harness.persistence, transaction, duplicate);
-            });
+                harness.transaction((transaction) => {
+                    appendProtocolTestRecords(harness.persistence, transaction, original);
+                    appendProtocolTestRecords(harness.persistence, transaction, duplicate);
+                });
 
-            harness.transaction((transaction) => {
-                expect(
-                    harness.persistence.findWrite(transaction, original.identity)?.id.value
-                ).toBe(original.write.id.value);
-                expect(
-                    harness.persistence.findWriteById(transaction, duplicate.write.id)?.outcome
-                ).toBe("duplicate");
-            });
-        });
+                harness.transaction((transaction) => {
+                    expect(
+                        harness.persistence.findWrite(transaction, original.identity)?.id.value
+                    ).toBe(original.write.id.value);
+                    expect(
+                        harness.persistence.findWriteById(transaction, duplicate.write.id)?.outcome
+                    ).toBe("duplicate");
+                });
+            }
+        );
 
         test("rejects a duplicate that does not name a reserved original", { tags: "p0" }, () => {
             const harness = open();
@@ -311,100 +319,119 @@ export function protocolPersistenceContract<Transaction>(
             });
         });
 
-        test("rejects identity replacement and rolls back its staged audit and write", { tags: "p0" }, () => {
-            const harness = open();
-            const original = protocolTestRecords("identity-original", defaultCaller);
-            const replacement = protocolTestRecords("identity-replacement", defaultCaller, {
-                key: original.identity.idempotencyKey
-            });
-            harness.transaction((transaction) => {
-                appendProtocolTestRecords(harness.persistence, transaction, original);
-            });
+        test(
+            "rejects identity replacement and rolls back its staged audit and write",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const original = protocolTestRecords("identity-original", defaultCaller);
+                const replacement = protocolTestRecords("identity-replacement", defaultCaller, {
+                    key: original.identity.idempotencyKey
+                });
+                harness.transaction((transaction) => {
+                    appendProtocolTestRecords(harness.persistence, transaction, original);
+                });
 
-            expectAgentCoreError(
-                () =>
-                    harness.transaction((transaction) => {
-                        appendProtocolTestRecords(harness.persistence, transaction, replacement);
-                    }),
-                "protocol.invalid-state"
-            );
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) => {
+                            appendProtocolTestRecords(
+                                harness.persistence,
+                                transaction,
+                                replacement
+                            );
+                        }),
+                    "protocol.invalid-state"
+                );
 
-            harness.restart();
-            harness.transaction((transaction) => {
-                expect(
-                    harness.persistence.findWrite(transaction, original.identity)?.id.value
-                ).toBe(original.write.id.value);
-                expect(
-                    harness.persistence.findAudit(transaction, replacement.root.id)
-                ).toBeUndefined();
-                expect(
-                    harness.persistence.findAudit(transaction, replacement.audit.id)
-                ).toBeUndefined();
-                expect(
-                    harness.persistence.findWriteById(transaction, replacement.write.id)
-                ).toBeUndefined();
-            });
-        });
-
-        test("keeps malformed and unauthenticated writes out of the identity index", { tags: "p0" }, () => {
-            const harness = open();
-            const records = [
-                protocolTestRecords("malformed", defaultCaller, { outcome: "rejectedMalformed" }),
-                protocolTestRecords("unauthenticated", defaultCaller, {
-                    outcome: "rejectedAuthentication"
-                })
-            ];
-
-            harness.transaction((transaction) => {
-                for (const record of records) {
-                    appendProtocolTestRecords(harness.persistence, transaction, record, null);
-                }
-            });
-
-            harness.transaction((transaction) => {
-                for (const record of records) {
+                harness.restart();
+                harness.transaction((transaction) => {
                     expect(
-                        harness.persistence.findWrite(transaction, record.identity)
+                        harness.persistence.findWrite(transaction, original.identity)?.id.value
+                    ).toBe(original.write.id.value);
+                    expect(
+                        harness.persistence.findAudit(transaction, replacement.root.id)
                     ).toBeUndefined();
                     expect(
-                        harness.persistence.findWriteById(transaction, record.write.id)?.id.value
-                    ).toBe(record.write.id.value);
-                }
-            });
-        });
+                        harness.persistence.findAudit(transaction, replacement.audit.id)
+                    ).toBeUndefined();
+                    expect(
+                        harness.persistence.findWriteById(transaction, replacement.write.id)
+                    ).toBeUndefined();
+                });
+            }
+        );
 
-        test("reserves authenticated malformed writes and replays through duplicate lineage", { tags: "p0" }, () => {
-            const harness = open();
-            const malformed = protocolTestRecords("authenticated-malformed", defaultCaller, {
-                outcome: "rejectedMalformed",
-                reserveIdentity: true
-            });
-            const duplicate = protocolTestRecords(
-                "authenticated-malformed-duplicate",
-                defaultCaller,
-                {
-                    outcome: "duplicate",
-                    duplicateOf: malformed.write.id,
-                    key: malformed.identity.idempotencyKey,
-                    reply: malformed.write.reply
-                }
-            );
+        test(
+            "keeps malformed and unauthenticated writes out of the identity index",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const records = [
+                    protocolTestRecords("malformed", defaultCaller, {
+                        outcome: "rejectedMalformed"
+                    }),
+                    protocolTestRecords("unauthenticated", defaultCaller, {
+                        outcome: "rejectedAuthentication"
+                    })
+                ];
 
-            harness.transaction((transaction) => {
-                appendProtocolTestRecords(harness.persistence, transaction, malformed);
-                appendProtocolTestRecords(harness.persistence, transaction, duplicate);
-            });
+                harness.transaction((transaction) => {
+                    for (const record of records) {
+                        appendProtocolTestRecords(harness.persistence, transaction, record, null);
+                    }
+                });
 
-            harness.transaction((transaction) => {
-                expect(
-                    harness.persistence.findWrite(transaction, malformed.identity)?.id.value
-                ).toBe(malformed.write.id.value);
-                expect(
-                    harness.persistence.findWriteById(transaction, duplicate.write.id)?.duplicateOf
-                        ?.value
-                ).toBe(malformed.write.id.value);
-            });
-        });
+                harness.transaction((transaction) => {
+                    for (const record of records) {
+                        expect(
+                            harness.persistence.findWrite(transaction, record.identity)
+                        ).toBeUndefined();
+                        expect(
+                            harness.persistence.findWriteById(transaction, record.write.id)?.id
+                                .value
+                        ).toBe(record.write.id.value);
+                    }
+                });
+            }
+        );
+
+        test(
+            "reserves authenticated malformed writes and replays through duplicate lineage",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const malformed = protocolTestRecords("authenticated-malformed", defaultCaller, {
+                    outcome: "rejectedMalformed",
+                    reserveIdentity: true
+                });
+                const duplicate = protocolTestRecords(
+                    "authenticated-malformed-duplicate",
+                    defaultCaller,
+                    {
+                        outcome: "duplicate",
+                        duplicateOf: malformed.write.id,
+                        key: malformed.identity.idempotencyKey,
+                        reply: malformed.write.reply
+                    }
+                );
+
+                harness.transaction((transaction) => {
+                    appendProtocolTestRecords(harness.persistence, transaction, malformed);
+                    appendProtocolTestRecords(harness.persistence, transaction, duplicate);
+                });
+
+                harness.transaction((transaction) => {
+                    expect(
+                        harness.persistence.findWrite(transaction, malformed.identity)?.id.value
+                    ).toBe(malformed.write.id.value);
+                    expect(
+                        harness.persistence.findWriteById(transaction, duplicate.write.id)
+                            ?.duplicateOf?.value
+                    ).toBe(malformed.write.id.value);
+                });
+            }
+        );
 
         test("enforces append-only audit and write identifiers", { tags: "p0" }, () => {
             const harness = open();
@@ -540,61 +567,71 @@ export function protocolPersistenceContract<Transaction>(
             }
         );
 
-        test("retains committed records and rollback absence across restart", { tags: "p0" }, () => {
-            const harness = open();
-            const committed = protocolTestRecords("restart-committed", defaultCaller);
-            const rolledBack = protocolTestRecords("restart-rolled-back", defaultCaller);
-            harness.transaction((transaction) => {
-                appendProtocolTestRecords(harness.persistence, transaction, committed);
-            });
-
-            expect(() =>
+        test(
+            "retains committed records and rollback absence across restart",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const committed = protocolTestRecords("restart-committed", defaultCaller);
+                const rolledBack = protocolTestRecords("restart-rolled-back", defaultCaller);
                 harness.transaction((transaction) => {
-                    appendProtocolTestRecords(harness.persistence, transaction, rolledBack);
-                    throw new Error("Injected pre-restart failure");
-                })
-            ).toThrow("Injected pre-restart failure");
+                    appendProtocolTestRecords(harness.persistence, transaction, committed);
+                });
 
-            harness.restart();
-            harness.transaction((transaction) => {
-                expect(
-                    harness.persistence.findWrite(transaction, committed.identity)?.id.value
-                ).toBe(committed.write.id.value);
-                expect(
-                    harness.persistence.findAudit(transaction, rolledBack.root.id)
-                ).toBeUndefined();
-                expect(
-                    harness.persistence.findAudit(transaction, rolledBack.audit.id)
-                ).toBeUndefined();
-                expect(
-                    harness.persistence.findWriteById(transaction, rolledBack.write.id)
-                ).toBeUndefined();
-                expect(
-                    harness.persistence.findWrite(transaction, rolledBack.identity)
-                ).toBeUndefined();
-            });
-        });
+                expect(() =>
+                    harness.transaction((transaction) => {
+                        appendProtocolTestRecords(harness.persistence, transaction, rolledBack);
+                        throw new Error("Injected pre-restart failure");
+                    })
+                ).toThrow("Injected pre-restart failure");
 
-        test("rejects a codec-representable unsupported causal path without persistence", { tags: "p1" }, () => {
-            const harness = open();
-            const unsupported = protocolUnsupportedAuditRecords("unsupported").find(
-                (record) => record.kind.kind === "commit"
-            );
-            if (unsupported === undefined) {
-                throw new TypeError("Expected an unsupported commit audit fixture");
+                harness.restart();
+                harness.transaction((transaction) => {
+                    expect(
+                        harness.persistence.findWrite(transaction, committed.identity)?.id.value
+                    ).toBe(committed.write.id.value);
+                    expect(
+                        harness.persistence.findAudit(transaction, rolledBack.root.id)
+                    ).toBeUndefined();
+                    expect(
+                        harness.persistence.findAudit(transaction, rolledBack.audit.id)
+                    ).toBeUndefined();
+                    expect(
+                        harness.persistence.findWriteById(transaction, rolledBack.write.id)
+                    ).toBeUndefined();
+                    expect(
+                        harness.persistence.findWrite(transaction, rolledBack.identity)
+                    ).toBeUndefined();
+                });
             }
+        );
 
-            expect(() =>
+        test(
+            "rejects a codec-representable unsupported causal path without persistence",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const unsupported = protocolUnsupportedAuditRecords("unsupported").find(
+                    (record) => record.kind.kind === "commit"
+                );
+                if (unsupported === undefined) {
+                    throw new TypeError("Expected an unsupported commit audit fixture");
+                }
+
+                expect(() =>
+                    harness.transaction((transaction) => {
+                        harness.persistence.appendAudit(transaction, unsupported);
+                    })
+                ).toThrow("not an admitted root");
+
+                harness.restart();
                 harness.transaction((transaction) => {
-                    harness.persistence.appendAudit(transaction, unsupported);
-                })
-            ).toThrow("not an admitted root");
-
-            harness.restart();
-            harness.transaction((transaction) => {
-                expect(harness.persistence.findAudit(transaction, unsupported.id)).toBeUndefined();
-            });
-        });
+                    expect(
+                        harness.persistence.findAudit(transaction, unsupported.id)
+                    ).toBeUndefined();
+                });
+            }
+        );
     });
 }
 
