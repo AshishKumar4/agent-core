@@ -9,14 +9,8 @@ import {
 } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 import { contentStoreContract } from "./contract";
-import {
-    at,
-    bindingFor,
-    contentOwner,
-    contentRetentionContract,
-    expectAgentCoreError,
-    expectAgentCoreRejection
-} from "./retention-contract";
+import { at, bindingFor, contentOwner, contentRetentionContract } from "./retention-contract";
+import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 

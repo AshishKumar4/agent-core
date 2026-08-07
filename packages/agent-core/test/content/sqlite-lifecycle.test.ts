@@ -13,13 +13,8 @@ import {
     type SqliteValue
 } from "../../src/substrates";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
-import {
-    at,
-    bindingFor,
-    contentOwner,
-    expectAgentCoreError,
-    expectAgentCoreRejection
-} from "./retention-contract";
+import { at, bindingFor, contentOwner } from "./retention-contract";
+import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 

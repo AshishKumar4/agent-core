@@ -21,7 +21,7 @@ import {
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
-import { expectAgentCoreDiagnostic } from "./retention-contract";
+import { expectAgentCoreError } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const digest = Digest.sha256(encode("record"));
@@ -446,7 +446,7 @@ describe("content record diagnostics", () => {
 
         for (const codec of cases) {
             for (const payload of codec.payloads) {
-                expectAgentCoreDiagnostic(
+                expectAgentCoreError(
                     () => codec.decode(withPayload(codec.bytes, payload)),
                     "codec.invalid",
                     codec.message
@@ -491,7 +491,7 @@ describe("content record diagnostics", () => {
     test("names the out-of-bounds byte range diagnostic exactly", { tags: "p2" }, () => {
         const bytes = encode("abc");
         for (const range of [ByteRange.from(4), ByteRange.slice(2, 2), ByteRange.slice(0, 4)]) {
-            expectAgentCoreDiagnostic(
+            expectAgentCoreError(
                 () => range.read(bytes),
                 "content.invalid-range",
                 "Byte range exceeds content bounds"

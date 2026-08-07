@@ -4,7 +4,8 @@ import {
     MemoryContentStore,
     type MemoryContentSnapshot
 } from "../../src/content";
-import { at, contentOwner, expectAgentCoreError } from "../content/retention-contract";
+import { at, contentOwner } from "../content/retention-contract";
+import { expectAgentCoreError } from "../protocol/error-assertion";
 
 const bytes = new TextEncoder().encode("retained-across-restart");
 

@@ -8,15 +8,8 @@ import { ContentStat } from "../../src/content/stat";
 import { TransientContentLeaseState } from "../../src/content/transient";
 import { decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
 import { contentStoreContract } from "./contract";
-import {
-    at,
-    bindingFor,
-    contentOwner,
-    contentRetentionContract,
-    expectAgentCoreDiagnostic,
-    expectAgentCoreError,
-    expectAgentCoreRejectionDiagnostic
-} from "./retention-contract";
+import { at, bindingFor, contentOwner, contentRetentionContract } from "./retention-contract";
+import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -622,7 +615,7 @@ describe("MemoryContentStore collection and lease generations", () => {
         const access = store.transient(owner.tenant, owner.actor, () => now);
         const binding = bindingFor("binding-bytes", "binding-bytes", at(50));
 
-        await expectAgentCoreRejectionDiagnostic(
+        await expectAgentCoreRejection(
             access.acquire(binding, encode("contradiction")),
             "codec.invalid",
             "Transient content binding does not match bytes"
@@ -631,7 +624,7 @@ describe("MemoryContentStore collection and lease generations", () => {
 
         const lease = defined(await access.acquire(binding, encode("binding-bytes")));
         now = at(20);
-        await expectAgentCoreRejectionDiagnostic(
+        await expectAgentCoreRejection(
             access.acquire(binding, encode("contradiction")),
             "codec.invalid",
             "Transient content binding does not match bytes"
@@ -656,7 +649,7 @@ describe("MemoryContentStore collection and lease generations", () => {
                 shift === "acquisition" ? binding : { ...binding, expiresAt: at(50) };
             expect(await access.acquire(replacement)).toBeDefined();
 
-            expectAgentCoreDiagnostic(
+            expectAgentCoreError(
                 () => lease.read(),
                 "protocol.invalid-state",
                 "Transient content lease handle refers to a replaced generation"

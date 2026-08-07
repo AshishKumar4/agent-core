@@ -9,8 +9,8 @@ import {
 import type { ContentStore } from "../../src/content/store";
 import type { TransientContentAccess, TransientContentBinding } from "../../src/content/transient";
 import { ContentRef, Digest } from "../../src/core";
-import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { TenantId } from "../../src/identity";
+import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const tenant = new TenantId("tenant-a");
@@ -527,72 +527,6 @@ export function bindingFor(
 
 export function at(milliseconds: number): Date {
     return new Date(milliseconds);
-}
-
-export function expectAgentCoreError(operation: () => unknown, code: AgentCoreErrorCode): void {
-    let failure: unknown;
-    try {
-        operation();
-    } catch (error) {
-        failure = error;
-    }
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).not.toBeInstanceOf(TypeError);
-    expect(failure).toMatchObject({ code });
-}
-
-export async function expectAgentCoreRejection(
-    operation: Promise<unknown>,
-    code: AgentCoreErrorCode
-): Promise<void> {
-    let failure: unknown;
-    try {
-        await operation;
-    } catch (error) {
-        failure = error;
-    }
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).not.toBeInstanceOf(TypeError);
-    expect(failure).toMatchObject({ code });
-}
-
-export function expectAgentCoreDiagnostic(
-    operation: () => unknown,
-    code: AgentCoreErrorCode,
-    message: string
-): void {
-    let failure: unknown;
-    try {
-        operation();
-    } catch (error) {
-        failure = error;
-    }
-    assertAgentCoreDiagnostic(failure, code, message);
-}
-
-export async function expectAgentCoreRejectionDiagnostic(
-    operation: Promise<unknown>,
-    code: AgentCoreErrorCode,
-    message: string
-): Promise<void> {
-    let failure: unknown;
-    try {
-        await operation;
-    } catch (error) {
-        failure = error;
-    }
-    assertAgentCoreDiagnostic(failure, code, message);
-}
-
-function assertAgentCoreDiagnostic(
-    failure: unknown,
-    code: AgentCoreErrorCode,
-    message: string
-): void {
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    if (!(failure instanceof AgentCoreError)) return;
-    expect(failure.code).toBe(code);
-    expect(failure.message).toBe(message);
 }
 
 function collect<TTransaction>(
