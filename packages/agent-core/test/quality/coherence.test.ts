@@ -69,19 +69,23 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         expect(leakedResult.stderr).toContain("Undefined wave codename W7 in §1.4 normative prose");
 
         // The §3.3 Grant-precedence example names Workspaces W1 and W2, which the
-        // allowlisted sentence exempts without exempting the leaks in §1.4 and §5.6.
-        const clean = run(await fixture({}));
-        expect(clean.stderr).not.toContain("§3.3 normative prose");
-        expect(clean.stderr).toContain("Undefined wave codename W3 in §1.4 normative prose");
+        // allowlisted sentence exempts, so the injected §1.4 leak above is the only
+        // codename the leaked fixture reports.
+        expect(leakedResult.stderr).not.toContain("§3.3 normative prose");
 
         const fenced = await fixture({
-            spec: original.replace(
-                "```ts\ninterface PathEpochEvidence {",
-                "```ts\n// W7 names an example, not prose\ninterface PathEpochEvidence {"
-            )
+            spec: original
+                .replace(
+                    "The order is always the same: identify,",
+                    "The W8 order is always the same: identify,"
+                )
+                .replace(
+                    "```ts\ninterface PathEpochEvidence {",
+                    "```ts\n// W7 names an example, not prose\ninterface PathEpochEvidence {"
+                )
         });
         const fencedResult = run(fenced);
-        expect(fencedResult.stderr).toContain("Undefined wave codename W3");
+        expect(fencedResult.stderr).toContain("Undefined wave codename W8");
         expect(fencedResult.stderr).not.toContain("W7");
     });
 
@@ -114,7 +118,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         const relaxed = run(root, ["--max-shared-atoms", "20"]);
-        expect(relaxed.stderr).toContain("COH-UNDEFINED-TOKEN");
+        expect(relaxed.stderr).toContain("COH-SECTION-NO-ATOM");
         expect(relaxed.stderr).not.toContain("COH-SHARED-BLOCK");
     });
 
