@@ -69,40 +69,44 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("rejects hostile, cyclic, and non-plain runtime values before encoding", { tags: "p0" }, () => {
-        const sparse: JsonValue[] = ["present"];
-        sparse.length = 2;
-        const extended = ["present"] as JsonValue[] & { extra?: boolean };
-        extended.extra = true;
-        const cycle: { self?: unknown } = {};
-        cycle.self = cycle;
-        const accessor = Object.defineProperty({}, "value", {
-            enumerable: true,
-            get: () => "hidden"
-        });
-        const symbolKeyed = { value: "visible", [Symbol("hidden")]: true };
-        class JsonLike {
-            public readonly value = "not plain";
-        }
+    test(
+        "rejects hostile, cyclic, and non-plain runtime values before encoding",
+        { tags: "p0" },
+        () => {
+            const sparse: JsonValue[] = ["present"];
+            sparse.length = 2;
+            const extended = ["present"] as JsonValue[] & { extra?: boolean };
+            extended.extra = true;
+            const cycle: { self?: unknown } = {};
+            cycle.self = cycle;
+            const accessor = Object.defineProperty({}, "value", {
+                enumerable: true,
+                get: () => "hidden"
+            });
+            const symbolKeyed = { value: "visible", [Symbol("hidden")]: true };
+            class JsonLike {
+                public readonly value = "not plain";
+            }
 
-        for (const value of [
-            sparse,
-            extended,
-            cycle,
-            accessor,
-            symbolKeyed,
-            new Date("2026-01-01T00:00:00.000Z"),
-            new Uint8Array([1, 2, 3]),
-            Number.NaN,
-            Number.POSITIVE_INFINITY,
-            1n,
-            new JsonLike(),
-            Object.create(null) as object,
-            Object.create({ inherited: true }) as object
-        ]) {
-            expectCodecError(() => encodeCanonicalJson(value as JsonValue), "codec.invalid");
+            for (const value of [
+                sparse,
+                extended,
+                cycle,
+                accessor,
+                symbolKeyed,
+                new Date("2026-01-01T00:00:00.000Z"),
+                new Uint8Array([1, 2, 3]),
+                Number.NaN,
+                Number.POSITIVE_INFINITY,
+                1n,
+                new JsonLike(),
+                Object.create(null) as object,
+                Object.create({ inherited: true }) as object
+            ]) {
+                expectCodecError(() => encodeCanonicalJson(value as JsonValue), "codec.invalid");
+            }
         }
-    });
+    );
 
     test("rejects values that become hostile after validation", { tags: "p0" }, () => {
         let ownKeysCalls = 0;
@@ -166,33 +170,43 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("checks exact fields by own property rather than the prototype chain", { tags: "p0" }, () => {
-        const hostile = Object.assign(Object.create({ expected: true }), { extra: true }) as {
-            readonly [key: string]: JsonValue;
-        };
+    test(
+        "checks exact fields by own property rather than the prototype chain",
+        { tags: "p0" },
+        () => {
+            const hostile = Object.assign(Object.create({ expected: true }), { extra: true }) as {
+                readonly [key: string]: JsonValue;
+            };
 
-        expect(hasExactJsonKeys({ expected: true }, ["expected"])).toBe(true);
-        expect(hasExactJsonKeys(hostile, ["expected"])).toBe(false);
-    });
+            expect(hasExactJsonKeys({ expected: true }, ["expected"])).toBe(true);
+            expect(hasExactJsonKeys(hostile, ["expected"])).toBe(false);
+        }
+    );
 
-    test("rejects throwing proxies and accessor-backed array entries as JSON", { tags: "p0" }, () => {
-        const throwing = new Proxy(
-            {},
-            {
-                getPrototypeOf: () => {
-                    throw new TypeError("hostile prototype");
+    test(
+        "rejects throwing proxies and accessor-backed array entries as JSON",
+        { tags: "p0" },
+        () => {
+            const throwing = new Proxy(
+                {},
+                {
+                    getPrototypeOf: () => {
+                        throw new TypeError("hostile prototype");
+                    }
                 }
-            }
-        );
-        const accessor: JsonValue[] = [];
-        Object.defineProperty(accessor, "0", {
-            enumerable: true,
-            get: () => "hidden"
-        });
+            );
+            const accessor: JsonValue[] = [];
+            Object.defineProperty(accessor, "0", {
+                enumerable: true,
+                get: () => "hidden"
+            });
 
-        expect(encodeCanonicalJson.bind(undefined, throwing as JsonValue)).toThrow(AgentCoreError);
-        expect(encodeCanonicalJson.bind(undefined, accessor)).toThrow(AgentCoreError);
-    });
+            expect(encodeCanonicalJson.bind(undefined, throwing as JsonValue)).toThrow(
+                AgentCoreError
+            );
+            expect(encodeCanonicalJson.bind(undefined, accessor)).toThrow(AgentCoreError);
+        }
+    );
 
     test("uses canonical padded RFC 4648 base64", { tags: "p0" }, () => {
         expect(encodeBase64(new Uint8Array())).toBe("");
@@ -223,14 +237,18 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("still rejects invalid base64 digits if runtime validation is compromised", { tags: "p1" }, () => {
-        const regexTest = vi.spyOn(RegExp.prototype, "test").mockReturnValue(true);
-        try {
-            expect(() => decodeBase64("!!!!")).toThrow(TypeError);
-        } finally {
-            regexTest.mockRestore();
+    test(
+        "still rejects invalid base64 digits if runtime validation is compromised",
+        { tags: "p1" },
+        () => {
+            const regexTest = vi.spyOn(RegExp.prototype, "test").mockReturnValue(true);
+            try {
+                expect(() => decodeBase64("!!!!")).toThrow(TypeError);
+            } finally {
+                regexTest.mockRestore();
+            }
         }
-    });
+    );
 
     test("detaches and freezes codec metadata", { tags: "p0" }, () => {
         const metadata = { major: 1, minor: 1 };
