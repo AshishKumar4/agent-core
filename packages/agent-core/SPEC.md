@@ -358,8 +358,8 @@ Authority rules:
 
 1. Missing authority denies.
 2. Child authority is always attenuated — delegation can only narrow.
-3. Raw credentials remain in Tenant custody; delegation moves capability stubs, not
-   secrets.
+3. Raw credentials remain in Tenant custody under §3.5; delegation moves capability stubs,
+   not secrets.
 4. Discovery is policy-controlled: a Turn receives a redacted view of installed Facets
    under the same policy that governs direct reads.
 5. **Path evidence is complete.** Each Scope carries a monotonically increasing
@@ -404,7 +404,8 @@ Authority rules:
    to **C13-AUTH-MEDIATED-ADMISSION** and **C13-AUTH-MEDIATED-STALE**.
 8. Resolved-facet lifetime follows the isolation mode: `bundled` resolutions last no
    longer than their exact Turn and deadline; `provider`/`dynamic` resolutions last one
-   Turn step and are mediated with current path epochs (§10.2).
+   Turn step and are mediated with current path epochs (§10.2). This maps to
+   **C13-AUTH-RESOLUTION-LIFETIME**.
 
 *Why bounded-window rather than instantaneous:* no distributed substrate can update
 every live holder atomically. Rules 6–7 give direct calls a safety bound without a
@@ -2525,6 +2526,7 @@ A conforming implementation provides:
 - **C13-AUTH-DIRECT-WATERMARK** Direct admission requires an unstaled watermark.
 - **C13-AUTH-MEDIATED-STALE** A mediated stale comparison atomically advances the watermark before recording pre-effect denial.
 - **C13-AUTH-MEDIATED-ADMISSION** Cross-DO permit issuance after exact claim identity is the final authority-admission linearization point.
+- **C13-AUTH-RESOLUTION-LIFETIME** A `bundled` resolution expires with its Turn and deadline; a `provider` or `dynamic` resolution lasts one Turn step and re-resolves against current path epochs.
 - **C13-PLACEMENT-INTERSECTION** Deterministic placement by admissible-set intersection over manifest, policy, substrate, and trust sets.
 - **C13-PLACEMENT-ORDER** Placement uses the one fixed preference order.
 - **C13-PLACEMENT-EMPTY** An empty placement intersection is rejected.

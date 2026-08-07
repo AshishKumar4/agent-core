@@ -257,7 +257,7 @@
       "id": "C13-AUTH-MEDIATED-ADMISSION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",
-      "specTextSha256": "sha256:83b9f393db4e29ca47fa6611d447de3e3d56bce41d61e811766877fd3392345e",
+      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
@@ -271,7 +271,7 @@
       "id": "C13-AUTH-MEDIATED-STALE",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-STALE",
-      "specTextSha256": "sha256:83b9f393db4e29ca47fa6611d447de3e3d56bce41d61e811766877fd3392345e",
+      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -346,6 +346,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-AUTH-RESOLUTION-LIFETIME",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-RESOLUTION-LIFETIME",
+      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "C13-AUTH-ROLE-MATERIALIZATION",
