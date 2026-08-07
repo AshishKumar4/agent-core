@@ -2,15 +2,16 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { artifactRoot, packageRoot, readCanonicalJson, sha256 } from "./project.mjs";
 
+const profileAtomPattern = /^- \*\*(P11-[A-Z0-9-]+)\*\* (.+)$/u;
+
 export async function specRequirements(path = resolve(packageRoot, "SPEC.md")) {
     const source = await readFile(path, "utf8");
     const policy = await readCanonicalJson(resolve(artifactRoot, "quality/policy.json"));
     const normativeMap = await readCanonicalJson(
         resolve(artifactRoot, "quality/normative-map.json")
     );
-    const summaries = section13(source);
     const requirements = [
-        ...authoritativeRequirements(source, summaries, normativeMap),
+        ...authoritativeRequirements(source, normativeMap),
         ...profiles(source, policy.finalRequiredProfiles)
     ];
     const ids = requirements.map((item) => item.id);
@@ -23,33 +24,57 @@ export async function specRequirements(path = resolve(packageRoot, "SPEC.md")) {
     return requirements.sort((left, right) => left.id.localeCompare(right.id));
 }
 
-function authoritativeRequirements(source, summaries, normativeMap) {
-    const section13Start = source.indexOf("## 13. Conformance");
-    const normativeSource = source.slice(0, section13Start);
-    const requiredOutside = new Set(normativeMap.authoritativeOutsideSection13);
+/**
+ * Every §13 atom with the prose block that is its hash input, how many times its bold
+ * anchor occurs outside §13, and whether the normative map reviewed it as authoritative
+ * there. Classification only: the anchor rules are applied by the callers so a document
+ * checker can report a contradiction that the ledger refuses to parse past.
+ */
+export function specAtoms(source, normativeMap) {
+    const reviewed = new Set(normativeMap.authoritativeOutsideSection13);
     if (
         !Array.isArray(normativeMap.authoritativeOutsideSection13) ||
-        requiredOutside.size !== normativeMap.authoritativeOutsideSection13.length
+        reviewed.size !== normativeMap.authoritativeOutsideSection13.length
     ) {
         throw new TypeError("Normative map outside-section labels must be a unique array");
     }
+    const summaries = section13(source);
     const summaryIds = new Set(summaries.map((item) => item.id));
-    for (const id of requiredOutside) {
+    for (const id of reviewed) {
         if (!summaryIds.has(id)) throw new TypeError(`Normative map references unknown atom ${id}`);
     }
+    const normativeSource = source.slice(0, source.indexOf("## 13. Conformance"));
     return summaries.map((summary) => {
         const marker = `**${summary.id}**`;
         const occurrences = normativeSource.split(marker).length - 1;
-        if (requiredOutside.has(summary.id) && occurrences !== 1) {
+        const text = occurrences === 1 ? containingBlock(normativeSource, marker) : summary.text;
+        return {
+            ...requirement(summary.id, normalizeNormativeText(text), summary.owner),
+            reviewed: reviewed.has(summary.id),
+            occurrences
+        };
+    });
+}
+
+/** The explicit `P11-*` labels of §11, in document order. */
+export function profileLabels(source) {
+    return between(source, "## 11. Profiles", "## 12. Assembly sketches")
+        .split("\n")
+        .map((line) => profileAtomPattern.exec(line)?.[1])
+        .filter((id) => id !== undefined);
+}
+
+function authoritativeRequirements(source, normativeMap) {
+    return specAtoms(source, normativeMap).map(({ reviewed, occurrences, ...atom }) => {
+        if (reviewed && occurrences !== 1) {
             throw new TypeError(
-                `Authoritative normative atom ${summary.id} must appear exactly once outside §13`
+                `Authoritative normative atom ${atom.id} must appear exactly once outside §13`
             );
         }
-        if (!requiredOutside.has(summary.id) && occurrences > 0) {
-            throw new TypeError(`Unreviewed outside-§13 normative mapping for ${summary.id}`);
+        if (!reviewed && occurrences > 0) {
+            throw new TypeError(`Unreviewed outside-§13 normative mapping for ${atom.id}`);
         }
-        const text = occurrences === 1 ? containingBlock(normativeSource, marker) : summary.text;
-        return requirement(summary.id, normalizeNormativeText(text), summary.owner);
+        return atom;
     });
 }
 
@@ -111,7 +136,7 @@ function explicitProfileAtoms(body, family, name) {
     for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index];
         if (line.trim().length === 0 || line.trim() === "---") continue;
-        const match = /^- \*\*(P11-[A-Z0-9-]+)\*\* (.+)$/.exec(line);
+        const match = profileAtomPattern.exec(line);
         if (match === null) {
             throw new TypeError(`SPEC profile ${family} contains unlabeled normative prose`);
         }
