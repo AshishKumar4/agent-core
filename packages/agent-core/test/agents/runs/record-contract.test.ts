@@ -53,101 +53,113 @@ function assertRecord<Value extends object>(type: StaticCodec<Value>, value: Val
 }
 
 describe("uniform durable record contract", () => {
-    it("[agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records", { tags: "p1" }, () => {
-        const source = sourceRecords();
-        assertRecord(AgentRevisionRecord, source.agent);
-        assertRecord(AgentPolicyRevisionRecord, source.policy);
-        assertRecord(ModelPolicyRevisionRecord, source.model);
-    });
+    it(
+        "[agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records",
+        { tags: "p1" },
+        () => {
+            const source = sourceRecords();
+            assertRecord(AgentRevisionRecord, source.agent);
+            assertRecord(AgentPolicyRevisionRecord, source.policy);
+            assertRecord(ModelPolicyRevisionRecord, source.model);
+        }
+    );
 
-    it("[run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record", { tags: "p1" }, () => {
-        const base = genesis();
-        const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
-        const turn = new Turn({
-            id: ids.turn,
-            run: ids.run,
-            branch: ids.branch,
-            startHead: ids.root,
-            effectiveInput: ids.root,
-            pins: pins(),
-            placement: placement.digest,
-            input: content("a"),
-            revision: new Revision(0)
-        });
-        const checkpoint = new RunCheckpoint(
-            new RunCheckpointId("record-checkpoint"),
-            ids.turn,
-            ids.root,
-            content("b"),
-            0,
-            undefined
-        );
-        const inbox = new TurnInboxEntry(
-            new TurnInboxEntryId("record-inbox"),
-            ids.turn,
-            0,
-            "message",
-            content("c"),
-            digest("c"),
-            "record-key",
-            undefined,
-            new Date(1000)
-        );
-        const obligation = new SettlementObligation({
-            registryEpoch: 1,
-            obligations: [
-                {
-                    kind: "invocationItem",
-                    invocation: refs.invocation,
-                    itemIndex: 0,
-                    itemKey: "record-item"
-                },
-                { kind: "route", reservation: refs.route },
-                { kind: "systemCommit", commit: new RunCommitId("required") }
-            ]
-        });
-        const terminal = new TerminalSnapshot(
-            ids.run,
-            ids.turn,
-            ids.root,
-            new RunCommitId("terminal"),
-            "succeeded",
-            obligation,
-            new Date(2000)
-        );
-        const spawn = new SpawnReservation(
-            new SpawnReservationId("spawn-record"),
-            ids.run,
-            ids.turn,
-            new RunId("child-record"),
-            { turn: ids.turn, holder: ids.holder, epoch: 1 },
-            configuration().id,
-            content("d"),
-            refs.invocation,
-            refs.receipt,
-            digest("d"),
-            new Date(3000)
-        );
+    it(
+        "[run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record",
+        { tags: "p1" },
+        () => {
+            const base = genesis();
+            const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
+            const turn = new Turn({
+                id: ids.turn,
+                run: ids.run,
+                branch: ids.branch,
+                startHead: ids.root,
+                effectiveInput: ids.root,
+                pins: pins(),
+                placement: placement.digest,
+                input: content("a"),
+                revision: new Revision(0)
+            });
+            const checkpoint = new RunCheckpoint(
+                new RunCheckpointId("record-checkpoint"),
+                ids.turn,
+                ids.root,
+                content("b"),
+                0,
+                undefined
+            );
+            const inbox = new TurnInboxEntry(
+                new TurnInboxEntryId("record-inbox"),
+                ids.turn,
+                0,
+                "message",
+                content("c"),
+                digest("c"),
+                "record-key",
+                undefined,
+                new Date(1000)
+            );
+            const obligation = new SettlementObligation({
+                registryEpoch: 1,
+                obligations: [
+                    {
+                        kind: "invocationItem",
+                        invocation: refs.invocation,
+                        itemIndex: 0,
+                        itemKey: "record-item"
+                    },
+                    { kind: "route", reservation: refs.route },
+                    { kind: "systemCommit", commit: new RunCommitId("required") }
+                ]
+            });
+            const terminal = new TerminalSnapshot(
+                ids.run,
+                ids.turn,
+                ids.root,
+                new RunCommitId("terminal"),
+                "succeeded",
+                obligation,
+                new Date(2000)
+            );
+            const spawn = new SpawnReservation(
+                new SpawnReservationId("spawn-record"),
+                ids.run,
+                ids.turn,
+                new RunId("child-record"),
+                { turn: ids.turn, holder: ids.holder, epoch: 1 },
+                configuration().id,
+                content("d"),
+                refs.invocation,
+                refs.receipt,
+                digest("d"),
+                new Date(3000)
+            );
 
-        assertRecord(RunPins, pins());
-        assertRecord(RunConfigurationSnapshot, configuration());
-        assertRecord(RunCommit, base.root);
-        assertRecord(Run, base.run);
-        assertRecord(RunBranch, base.branch);
-        assertRecord(Turn, turn);
-        assertRecord(TurnPlacementSnapshot, placement);
-        assertRecord(RunCheckpoint, checkpoint);
-        assertRecord(TurnInboxEntry, inbox);
-        assertRecord(RunAdmissionRegistry, RunAdmissionRegistry.initial(ids.run));
-        assertRecord(SettlementObligation, obligation);
-        assertRecord(TerminalSnapshot, terminal);
-        const decodedSpawn = assertRecord<SpawnReservation>(SpawnReservation, spawn);
-        expect(decodedSpawn.recordedAt.getTime()).toBe(3000);
-        expect(
-            TurnLease.decode(TurnLease.encode(TurnLease.unclaimed(ids.turn))).turn.equals(ids.turn)
-        ).toBe(true);
-        expect((turn.toData() as { lease: unknown }).lease).toEqual(TurnLease.toData(turn.lease));
-    });
+            assertRecord(RunPins, pins());
+            assertRecord(RunConfigurationSnapshot, configuration());
+            assertRecord(RunCommit, base.root);
+            assertRecord(Run, base.run);
+            assertRecord(RunBranch, base.branch);
+            assertRecord(Turn, turn);
+            assertRecord(TurnPlacementSnapshot, placement);
+            assertRecord(RunCheckpoint, checkpoint);
+            assertRecord(TurnInboxEntry, inbox);
+            assertRecord(RunAdmissionRegistry, RunAdmissionRegistry.initial(ids.run));
+            assertRecord(SettlementObligation, obligation);
+            assertRecord(TerminalSnapshot, terminal);
+            const decodedSpawn = assertRecord<SpawnReservation>(SpawnReservation, spawn);
+            expect(decodedSpawn.recordedAt.getTime()).toBe(3000);
+            expect(
+                TurnLease.decode(TurnLease.encode(TurnLease.unclaimed(ids.turn))).turn.equals(
+                    ids.turn
+                )
+            ).toBe(true);
+            expect((turn.toData() as { lease: unknown }).lease).toEqual(
+                TurnLease.toData(turn.lease)
+            );
+        }
+    );
 
     it("defensively copies arrays, nested evidence, tokens, and dates", { tags: "p1" }, () => {
         const packages = [...pins().packages];
@@ -351,55 +363,59 @@ describe("constituent shape validation", () => {
 });
 
 describe("Run lifecycle record errors", () => {
-    it("separates constructor shape errors from operational transition errors", { tags: "p2" }, () => {
-        const terminal = new TerminalSnapshot(
-            ids.run,
-            ids.turn,
-            ids.root,
-            new RunCommitId("terminal-shape"),
-            "failed",
-            new SettlementObligation({
-                registryEpoch: 1,
-                obligations: []
-            }),
-            new Date(1000)
-        );
-        expect(
-            () =>
-                new Run({
-                    id: ids.run,
-                    agent: ids.agent,
-                    configuration: configuration().id,
-                    root: ids.root,
-                    initialBranch: ids.branch,
-                    lifecycle: genesis().run.lifecycle,
-                    terminal,
-                    revision: new Revision(0)
-                })
-        ).toThrow(TypeError);
-        const foreign = new TerminalSnapshot(
-            new RunId("foreign"),
-            ids.turn,
-            ids.root,
-            new RunCommitId("foreign-terminal"),
-            "failed",
-            terminal.obligation,
-            new Date(1000)
-        );
-        try {
-            genesis().run.terminalize(foreign);
-            throw new Error("Expected terminalization failure");
-        } catch (error) {
-            expect(error).toBeInstanceOf(AgentCoreError);
-            expect((error as AgentCoreError).code).toBe("run.invalid-state");
+    it(
+        "separates constructor shape errors from operational transition errors",
+        { tags: "p2" },
+        () => {
+            const terminal = new TerminalSnapshot(
+                ids.run,
+                ids.turn,
+                ids.root,
+                new RunCommitId("terminal-shape"),
+                "failed",
+                new SettlementObligation({
+                    registryEpoch: 1,
+                    obligations: []
+                }),
+                new Date(1000)
+            );
+            expect(
+                () =>
+                    new Run({
+                        id: ids.run,
+                        agent: ids.agent,
+                        configuration: configuration().id,
+                        root: ids.root,
+                        initialBranch: ids.branch,
+                        lifecycle: genesis().run.lifecycle,
+                        terminal,
+                        revision: new Revision(0)
+                    })
+            ).toThrow(TypeError);
+            const foreign = new TerminalSnapshot(
+                new RunId("foreign"),
+                ids.turn,
+                ids.root,
+                new RunCommitId("foreign-terminal"),
+                "failed",
+                terminal.obligation,
+                new Date(1000)
+            );
+            try {
+                genesis().run.terminalize(foreign);
+                throw new Error("Expected terminalization failure");
+            } catch (error) {
+                expect(error).toBeInstanceOf(AgentCoreError);
+                expect((error as AgentCoreError).code).toBe("run.invalid-state");
+            }
+            const data = structuredClone(genesis().run.toData()) as Record<string, unknown>;
+            data["lifecycle"] = "unknown";
+            expect(() => Run.fromData(data as never)).toThrow(/lifecycle/);
+            expect(
+                () => new RunBranch(genesis().branch.id, ids.run, " ", ids.root, new Revision(0))
+            ).toThrow(/blank/);
         }
-        const data = structuredClone(genesis().run.toData()) as Record<string, unknown>;
-        data["lifecycle"] = "unknown";
-        expect(() => Run.fromData(data as never)).toThrow(/lifecycle/);
-        expect(
-            () => new RunBranch(genesis().branch.id, ids.run, " ", ids.root, new Revision(0))
-        ).toThrow(/blank/);
-    });
+    );
 
     it("reports revision exhaustion with closed domain errors", { tags: "p2" }, () => {
         const run = new Run({

@@ -58,10 +58,16 @@ function must<Value>(value: Value | undefined): Value {
     return value;
 }
 
-function leaseToken(
-    over: Partial<{ turn: TurnId; holder: PrincipalRef; epoch: number }> = {}
-): { turn: TurnId; holder: PrincipalRef; epoch: number } {
-    return { turn: over.turn ?? ids.turn, holder: over.holder ?? ids.holder, epoch: over.epoch ?? 1 };
+function leaseToken(over: Partial<{ turn: TurnId; holder: PrincipalRef; epoch: number }> = {}): {
+    turn: TurnId;
+    holder: PrincipalRef;
+    epoch: number;
+} {
+    return {
+        turn: over.turn ?? ids.turn,
+        holder: over.holder ?? ids.holder,
+        epoch: over.epoch ?? 1
+    };
 }
 
 function messageCommit(id: string, over: Partial<RunCommitInit> = {}): RunCommit {
@@ -227,9 +233,7 @@ describe("spawn reservation guards", () => {
         { tags: "p0" },
         () => {
             const value = seedRunningTurn();
-            value.repository.transaction((tx) =>
-                value.repository.insertSpawn(tx, reservation())
-            );
+            value.repository.transaction((tx) => value.repository.insertSpawn(tx, reservation()));
             expectCode(
                 () => value.runtime.spawnRun(reservation(), childGenesis(), new Date(1500)),
                 "run.invalid-state",
@@ -283,7 +287,13 @@ describe("spawn reservation guards", () => {
                             revision: new Revision(0)
                         }),
                         configuration: snapshot,
-                        branch: new RunBranch(otherBranch, other, "main", otherRootId, new Revision(0)),
+                        branch: new RunBranch(
+                            otherBranch,
+                            other,
+                            "main",
+                            otherRootId,
+                            new Revision(0)
+                        ),
                         root
                     });
                 },
@@ -349,31 +359,32 @@ describe("spawn reservation guards", () => {
 
 describe("Run genesis guards", () => {
     test("rejects each non-canonical genesis record field", { tags: "p1" }, () => {
-        const cases: readonly ((value: ReturnType<typeof genesis>) => ReturnType<typeof genesis>)[] =
-            [
-                (base) => ({ ...base, run: terminalRun() }),
-                (base) => {
-                    const { parent, terminal, ...required } = base.run;
-                    return {
-                        ...base,
-                        run: new Run({
-                            ...required,
-                            ...(parent === undefined ? {} : { parent }),
-                            ...(terminal === undefined ? {} : { terminal }),
-                            revision: new Revision(1)
-                        })
-                    };
-                },
-                (base) => ({
+        const cases: readonly ((
+            value: ReturnType<typeof genesis>
+        ) => ReturnType<typeof genesis>)[] = [
+            (base) => ({ ...base, run: terminalRun() }),
+            (base) => {
+                const { parent, terminal, ...required } = base.run;
+                return {
                     ...base,
-                    branch: new RunBranch(ids.branch, ids.run, "main", ids.root, new Revision(1))
-                }),
-                (base) => ({ ...base, root: { ...base.root, kind: "message" } as RunCommit }),
-                (base) => ({
-                    ...base,
-                    root: { ...base.root, writer: { kind: "turn", token: leaseToken() } } as RunCommit
-                })
-            ];
+                    run: new Run({
+                        ...required,
+                        ...(parent === undefined ? {} : { parent }),
+                        ...(terminal === undefined ? {} : { terminal }),
+                        revision: new Revision(1)
+                    })
+                };
+            },
+            (base) => ({
+                ...base,
+                branch: new RunBranch(ids.branch, ids.run, "main", ids.root, new Revision(1))
+            }),
+            (base) => ({ ...base, root: { ...base.root, kind: "message" } as RunCommit }),
+            (base) => ({
+                ...base,
+                root: { ...base.root, writer: { kind: "turn", token: leaseToken() } } as RunCommit
+            })
+        ];
         for (const mutate of cases) {
             const value = harness();
             expectCode(
@@ -404,9 +415,7 @@ describe("Run genesis guards", () => {
     test("rejects each preexisting genesis identifier individually", { tags: "p1" }, () => {
         const seeds: readonly ((value: ReturnType<typeof harness>) => void)[] = [
             (value) =>
-                value.repository.transaction((tx) =>
-                    value.repository.insertRun(tx, genesis().run)
-                ),
+                value.repository.transaction((tx) => value.repository.insertRun(tx, genesis().run)),
             (value) =>
                 value.repository.transaction((tx) =>
                     value.repository.insertCommit(tx, genesis().root)
@@ -503,7 +512,13 @@ describe("branch creation guards", () => {
         value.runtime.createRun(genesis());
         value.runtime.createBranch(
             ids.run,
-            new RunBranch(new RunBranchId("branch-feature"), ids.run, "feature", ids.root, new Revision(0)),
+            new RunBranch(
+                new RunBranchId("branch-feature"),
+                ids.run,
+                "feature",
+                ids.root,
+                new Revision(0)
+            ),
             new Revision(0)
         );
         expectCode(
@@ -562,7 +577,12 @@ describe("migration guards", () => {
         const forgedKind = { ...messageCommit("forged-migration"), kind: "migration" } as RunCommit;
         expectCode(
             () =>
-                value.runtime.migrateRun(forgedKind, configuration(), new Revision(0), new Date(1000)),
+                value.runtime.migrateRun(
+                    forgedKind,
+                    configuration(),
+                    new Revision(0),
+                    new Date(1000)
+                ),
             "run.invalid-state",
             "Migration target does not resolve an exact authoritative configuration"
         );
@@ -583,19 +603,29 @@ describe("migration guards", () => {
         );
     });
 
-    test("rejects migration evidence whose from pins differ from the parent", { tags: "p1" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const commit = migrationCommit("migration-wrong-from", {
-            migration: { from: differentPins(), to: pins() }
-        });
-        withControl(value, commit);
-        expectCode(
-            () => value.runtime.migrateRun(commit, configuration(), new Revision(0), new Date(1000)),
-            "run.invalid-state",
-            "Migration from pins do not match the parent"
-        );
-    });
+    test(
+        "rejects migration evidence whose from pins differ from the parent",
+        { tags: "p1" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const commit = migrationCommit("migration-wrong-from", {
+                migration: { from: differentPins(), to: pins() }
+            });
+            withControl(value, commit);
+            expectCode(
+                () =>
+                    value.runtime.migrateRun(
+                        commit,
+                        configuration(),
+                        new Revision(0),
+                        new Date(1000)
+                    ),
+                "run.invalid-state",
+                "Migration from pins do not match the parent"
+            );
+        }
+    );
 
     test("rejects migration ahead of an admitted Turn on the branch", { tags: "p1" }, () => {
         const value = harness();
@@ -604,7 +634,8 @@ describe("migration guards", () => {
         const commit = migrationCommit("migration-admitted");
         withControl(value, commit);
         expectCode(
-            () => value.runtime.migrateRun(commit, configuration(), new Revision(0), new Date(1000)),
+            () =>
+                value.runtime.migrateRun(commit, configuration(), new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Migration rejects an admitted Turn on its branch"
         );
@@ -612,7 +643,11 @@ describe("migration guards", () => {
 });
 
 describe("captured evidence guards", () => {
-    function invocationCommit(id: string, parent: RunCommitId, over: Partial<RunCommitInit> = {}): RunCommit {
+    function invocationCommit(
+        id: string,
+        parent: RunCommitId,
+        over: Partial<RunCommitInit> = {}
+    ): RunCommit {
         return new RunCommit({
             id: new RunCommitId(id),
             run: ids.run,
@@ -652,8 +687,8 @@ describe("captured evidence guards", () => {
         value.runtime.terminalizeRun({
             run: ids.run,
             turn: ids.turn,
-            expectedRunRevision: value.repository.transaction((tx) =>
-                must(value.repository.loadRun(tx, ids.run)).revision
+            expectedRunRevision: value.repository.transaction(
+                (tx) => must(value.repository.loadRun(tx, ids.run)).revision
             ),
             expectedTurnRevision: value.running.revision,
             expectedBranchRevision: new Revision(0),
@@ -727,8 +762,8 @@ describe("captured evidence guards", () => {
         value.runtime.terminalizeRun({
             run: ids.run,
             turn: ids.turn,
-            expectedRunRevision: value.repository.transaction((tx) =>
-                must(value.repository.loadRun(tx, ids.run)).revision
+            expectedRunRevision: value.repository.transaction(
+                (tx) => must(value.repository.loadRun(tx, ids.run)).revision
             ),
             expectedTurnRevision: value.running.revision,
             expectedBranchRevision: new Revision(0),
@@ -1269,17 +1304,20 @@ describe("completion guards", () => {
 
     test("rejects each non-result completion commit individually", { tags: "p0" }, () => {
         const cases: readonly ((fixture: ReturnType<typeof completeFixture>) => RunCommit)[] = [
-            (fixture) => messageCommit("complete-not-result", { writer: { kind: "turn", token: fixture.value.token } }),
-            (fixture) => ({ ...fixture.commit, content: undefined } as RunCommit),
-            (fixture) => ({ ...fixture.commit, subjectTurn: undefined } as RunCommit),
             (fixture) =>
-                ({ ...fixture.commit, subjectTurn: new TurnId("turn-elsewhere") } as RunCommit),
-            (fixture) => ({ ...fixture.commit, writer: { kind: "root" } } as RunCommit),
+                messageCommit("complete-not-result", {
+                    writer: { kind: "turn", token: fixture.value.token }
+                }),
+            (fixture) => ({ ...fixture.commit, content: undefined }) as RunCommit,
+            (fixture) => ({ ...fixture.commit, subjectTurn: undefined }) as RunCommit,
+            (fixture) =>
+                ({ ...fixture.commit, subjectTurn: new TurnId("turn-elsewhere") }) as RunCommit,
+            (fixture) => ({ ...fixture.commit, writer: { kind: "root" } }) as RunCommit,
             (fixture) =>
                 ({
                     ...fixture.commit,
                     writer: { kind: "turn", token: leaseToken({ epoch: 2 }) }
-                } as RunCommit)
+                }) as RunCommit
         ];
         for (const build of cases) {
             const fixture = completeFixture();
@@ -1307,7 +1345,12 @@ describe("append guards", () => {
     test("names the missing Run exactly", { tags: "p2" }, () => {
         const value = harness();
         expectCode(
-            () => value.runtime.appendCommit(messageCommit("append-no-run"), new Revision(0), new Date(1000)),
+            () =>
+                value.runtime.appendCommit(
+                    messageCommit("append-no-run"),
+                    new Revision(0),
+                    new Date(1000)
+                ),
             "run.invalid-state",
             "Run does not exist"
         );
@@ -1317,7 +1360,12 @@ describe("append guards", () => {
         const value = harness();
         value.repository.transaction((tx) => value.repository.insertRun(tx, terminalRun()));
         expectCode(
-            () => value.runtime.appendCommit(messageCommit("append-terminal"), new Revision(0), new Date(1000)),
+            () =>
+                value.runtime.appendCommit(
+                    messageCommit("append-terminal"),
+                    new Revision(0),
+                    new Date(1000)
+                ),
             "run.invalid-state",
             "Terminal Runs reject ordinary commits"
         );
@@ -1479,7 +1527,13 @@ describe("append guards", () => {
         const branched = seedRunningTurn();
         branched.runtime.createBranch(
             ids.run,
-            new RunBranch(new RunBranchId("branch-second"), ids.run, "second", ids.root, new Revision(0)),
+            new RunBranch(
+                new RunBranchId("branch-second"),
+                ids.run,
+                "second",
+                ids.root,
+                new Revision(0)
+            ),
             new Revision(2)
         );
         expectCode(
@@ -1572,7 +1626,13 @@ describe("merge validation", () => {
         value.runtime.createRun(genesis());
         value.runtime.createBranch(
             ids.run,
-            new RunBranch(new RunBranchId("branch-source"), ids.run, "source", ids.root, new Revision(0)),
+            new RunBranch(
+                new RunBranchId("branch-source"),
+                ids.run,
+                "source",
+                ids.root,
+                new Revision(0)
+            ),
             new Revision(0)
         );
         const sourceHead = new RunCommit({
@@ -1595,7 +1655,11 @@ describe("merge validation", () => {
         return { value, sourceHead };
     }
 
-    function mergeCommit(id: string, source: RunCommitId, over: Partial<RunCommitInit> = {}): RunCommit {
+    function mergeCommit(
+        id: string,
+        source: RunCommitId,
+        over: Partial<RunCommitInit> = {}
+    ): RunCommit {
         return new RunCommit({
             id: new RunCommitId(id),
             run: ids.run,
@@ -1818,7 +1882,9 @@ describe("merge validation", () => {
         });
         withControl(copied.value, pick);
         copied.value.runtime.appendCommit(pick, new Revision(0), new Date(1000));
-        expect(copied.value.runtime.effectiveCommit(ids.run, ids.branch).equals(pick.id)).toBe(true);
+        expect(copied.value.runtime.effectiveCommit(ids.run, ids.branch).equals(pick.id)).toBe(
+            true
+        );
     });
 
     test("concat resolution requires canonical parent-order verification", { tags: "p0" }, () => {
@@ -1961,7 +2027,8 @@ describe("merge validation", () => {
         });
         withControl(theirs.value, theirsMismatch);
         expectCode(
-            () => theirs.value.runtime.appendCommit(theirsMismatch, new Revision(0), new Date(1000)),
+            () =>
+                theirs.value.runtime.appendCommit(theirsMismatch, new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Tree side resolution must copy the selected parent tree"
         );

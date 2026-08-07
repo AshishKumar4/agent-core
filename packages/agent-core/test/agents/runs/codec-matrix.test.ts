@@ -198,105 +198,113 @@ function auditKey(audit: SettlementAuditObligation): string {
 }
 
 describe("Settlement codec and lifecycle", () => {
-    it("derives every typed audit obligation from the frontier and round-trips", { tags: "p1" }, () => {
-        const obligation = new SettlementObligation({
-            registryEpoch: 4,
-            obligations: [
-                {
-                    kind: "invocationItem",
-                    invocation: refs.invocation,
-                    itemIndex: 0,
-                    itemKey: "matrix-item"
-                },
-                { kind: "route", reservation: refs.route },
-                { kind: "systemCommit", commit: new RunCommitId("required") }
-            ]
-        });
-        const snapshot = new TerminalSnapshot(
-            ids.run,
-            ids.turn,
-            ids.root,
-            new RunCommitId("terminal"),
-            "failed",
-            obligation,
-            new Date(1000)
-        );
-        const decoded = TerminalSnapshotCodec.decode(TerminalSnapshotCodec.encode(snapshot));
-        expect(decoded.recordedAt.getTime()).toBe(1000);
-        expect(decoded.obligation.requiredAudits.map((value) => value.kind)).toEqual([
-            "commit",
-            "delivery",
-            "receipt"
-        ]);
-        const port = new MatrixSettlementPort();
-        expect(isSettled({}, decoded.obligation, port)).toBe(true);
-        for (const missing of [
-            `invocation:${refs.invocation.value}:0:matrix-item`,
-            `route:${refs.route.value}`,
-            "commit:required",
-            `audit:receipt:${refs.invocation.value}:0:matrix-item`,
-            `audit:delivery:${refs.route.value}`,
-            "audit:commit:required"
-        ]) {
-            port.missing.clear();
-            port.missing.add(missing);
-            expect(isSettled({}, decoded.obligation, port)).toBe(false);
+    it(
+        "derives every typed audit obligation from the frontier and round-trips",
+        { tags: "p1" },
+        () => {
+            const obligation = new SettlementObligation({
+                registryEpoch: 4,
+                obligations: [
+                    {
+                        kind: "invocationItem",
+                        invocation: refs.invocation,
+                        itemIndex: 0,
+                        itemKey: "matrix-item"
+                    },
+                    { kind: "route", reservation: refs.route },
+                    { kind: "systemCommit", commit: new RunCommitId("required") }
+                ]
+            });
+            const snapshot = new TerminalSnapshot(
+                ids.run,
+                ids.turn,
+                ids.root,
+                new RunCommitId("terminal"),
+                "failed",
+                obligation,
+                new Date(1000)
+            );
+            const decoded = TerminalSnapshotCodec.decode(TerminalSnapshotCodec.encode(snapshot));
+            expect(decoded.recordedAt.getTime()).toBe(1000);
+            expect(decoded.obligation.requiredAudits.map((value) => value.kind)).toEqual([
+                "commit",
+                "delivery",
+                "receipt"
+            ]);
+            const port = new MatrixSettlementPort();
+            expect(isSettled({}, decoded.obligation, port)).toBe(true);
+            for (const missing of [
+                `invocation:${refs.invocation.value}:0:matrix-item`,
+                `route:${refs.route.value}`,
+                "commit:required",
+                `audit:receipt:${refs.invocation.value}:0:matrix-item`,
+                `audit:delivery:${refs.route.value}`,
+                "audit:commit:required"
+            ]) {
+                port.missing.clear();
+                port.missing.add(missing);
+                expect(isSettled({}, decoded.obligation, port)).toBe(false);
+            }
+            expect(
+                () =>
+                    new SettlementObligation({
+                        registryEpoch: 1,
+                        obligations: [
+                            { kind: "route", reservation: refs.route },
+                            { kind: "route", reservation: refs.route }
+                        ]
+                    })
+            ).toThrow(/unique/);
+            expect(SettlementObligation.decode(SettlementObligation.encode(obligation))).toEqual(
+                obligation
+            );
+            const invalidObligation = structuredClone(obligation.toData()) as {
+                obligations: Array<{ kind: string }>;
+            };
+            invalidObligation.obligations[0]!.kind = "unknown";
+            expect(() => SettlementObligation.fromData(invalidObligation as never)).toThrow(/kind/);
+            const invalidOutcome = structuredClone(snapshot.toData()) as Record<string, unknown>;
+            invalidOutcome["outcome"] = "unknown";
+            expect(() => TerminalSnapshot.fromData(invalidOutcome as never)).toThrow(/outcome/);
+            expect(
+                () =>
+                    new TerminalSnapshot(
+                        ids.run,
+                        ids.turn,
+                        ids.root,
+                        new RunCommitId("invalid-outcome"),
+                        "unknown" as never,
+                        obligation,
+                        new Date(1)
+                    )
+            ).toThrow(/outcome/);
         }
-        expect(
-            () =>
-                new SettlementObligation({
-                    registryEpoch: 1,
-                    obligations: [
-                        { kind: "route", reservation: refs.route },
-                        { kind: "route", reservation: refs.route }
-                    ]
-                })
-        ).toThrow(/unique/);
-        expect(SettlementObligation.decode(SettlementObligation.encode(obligation))).toEqual(
-            obligation
-        );
-        const invalidObligation = structuredClone(obligation.toData()) as {
-            obligations: Array<{ kind: string }>;
-        };
-        invalidObligation.obligations[0]!.kind = "unknown";
-        expect(() => SettlementObligation.fromData(invalidObligation as never)).toThrow(/kind/);
-        const invalidOutcome = structuredClone(snapshot.toData()) as Record<string, unknown>;
-        invalidOutcome["outcome"] = "unknown";
-        expect(() => TerminalSnapshot.fromData(invalidOutcome as never)).toThrow(/outcome/);
-        expect(
-            () =>
+    );
+
+    it(
+        "keeps terminal state immutable and permits only captured evidence revision",
+        { tags: "p0" },
+        () => {
+            const obligation = new SettlementObligation({
+                registryEpoch: 1,
+                obligations: []
+            });
+            const terminal = genesis().run.terminalize(
                 new TerminalSnapshot(
                     ids.run,
                     ids.turn,
                     ids.root,
-                    new RunCommitId("invalid-outcome"),
-                    "unknown" as never,
+                    new RunCommitId("terminal-2"),
+                    "cancelled",
                     obligation,
-                    new Date(1)
+                    new Date(2000)
                 )
-        ).toThrow(/outcome/);
-    });
-
-    it("keeps terminal state immutable and permits only captured evidence revision", { tags: "p0" }, () => {
-        const obligation = new SettlementObligation({
-            registryEpoch: 1,
-            obligations: []
-        });
-        const terminal = genesis().run.terminalize(
-            new TerminalSnapshot(
-                ids.run,
-                ids.turn,
-                ids.root,
-                new RunCommitId("terminal-2"),
-                "cancelled",
-                obligation,
-                new Date(2000)
-            )
-        );
-        expect(terminal.lifecycle.kind).toBe("terminal");
-        expect(terminal.recordEvidence().revision.value).toBe(2);
-        expect(() => terminal.terminalize(terminal.terminal!)).toThrow(/Terminal/);
-        expect(() => genesis().run.recordEvidence()).toThrow(/terminal/);
-        expect(RunLifecycle.from("active").kind).toBe("active");
-    });
+            );
+            expect(terminal.lifecycle.kind).toBe("terminal");
+            expect(terminal.recordEvidence().revision.value).toBe(2);
+            expect(() => terminal.terminalize(terminal.terminal!)).toThrow(/Terminal/);
+            expect(() => genesis().run.recordEvidence()).toThrow(/terminal/);
+            expect(RunLifecycle.from("active").kind).toBe("active");
+        }
+    );
 });
