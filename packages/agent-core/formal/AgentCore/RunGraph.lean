@@ -149,12 +149,28 @@ structure RunCommit where
   kind : RunCommitKind
   deriving DecidableEq, Repr
 
+/-- An acceptance criterion a Run declares when it opens: an ordinary Operation that
+    decides whether the work is done (§5.2). -/
+structure AcceptanceCriterion where
+  id : AcceptanceId
+  operation : OperationId
+  deriving DecidableEq, Repr
+
+/-- An acceptance verdict earned by the verifier: it names the head tree digest the
+    verifier saw and the attempted Receipt that carries the §7 admission and audit chain. -/
+structure AcceptanceVerdict where
+  acceptance : AcceptanceId
+  subject : TreeId
+  receipt : ReceiptId
+  deriving DecidableEq, Repr
+
 inductive OpenObligation where
   | approval (id : ApprovalId)
   | item (invocation : InvocationId) (index : Nat) (key : ItemKey)
   | route (reservation : ReservationId)
   | reconciliation (attempt : AttemptId)
   | systemCommit (commit : CommitId)
+  | acceptance (id : AcceptanceId)
   deriving DecidableEq, Repr
 
 structure TerminalSnapshot where
@@ -210,12 +226,15 @@ structure GraphStore where
   terminalSnapshots : RunId → Option TerminalSnapshot
   forcedCancellations : TurnId → Option ForcedCancellation
   terminalizing : RunId → Option TerminalizationControl
+  headTree : RunId → Option TreeId
+  acceptanceCriteria : RunId → List AcceptanceCriterion
+  acceptanceVerdicts : AcceptanceId → List AcceptanceVerdict
   conflicts : RunId → Prop
 
 instance : Inhabited GraphStore where
   default := ⟨fun _ => none, fun _ => none, fun _ => none, fun _ => none,
     fun _ => none, fun _ => none, fun _ => none, fun _ => none, fun _ => none,
-    fun _ => False⟩
+    fun _ => none, fun _ => [], fun _ => [], fun _ => False⟩
 
 def AdmissionReservation.ValidIn (reservation : AdmissionReservation)
     (store : GraphStore) : Prop :=

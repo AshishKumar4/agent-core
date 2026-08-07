@@ -2565,4 +2565,79 @@ theorem nonvacuous_midturn_stale_injection_rejected :
     ¬ injectionLease.Admits staleInjectionToken ⟨5⟩ :=
   Representation.Reaction.stale_injection_rejected (by decide)
 
+/-! Acceptance criteria (§5.2). A concrete Run that declares one criterion, holds a
+    succeeded verifier Receipt, and is inspected once at the criterion's own head digest and
+    once at a stale digest. -/
+
+private def acceptanceId : AcceptanceId := ⟨0⟩
+private def verifierOperation : OperationId := ⟨facet, "verify", 1⟩
+private def acceptanceCriterion : AcceptanceCriterion := ⟨acceptanceId, verifierOperation⟩
+private def acceptanceHead : TreeId := ⟨0⟩
+private def acceptanceOtherHead : TreeId := ⟨1⟩
+private def acceptanceReceipt : ReceiptId := ⟨20⟩
+private def acceptanceEffects : EffectLedger :=
+  { (default : EffectLedger) with
+    attemptReceipts := tableSet (default : EffectLedger).attemptReceipts acceptanceReceipt
+      ⟨⟨1⟩, .succeeded, none⟩ }
+private def verdictAtHead : AcceptanceVerdict := ⟨acceptanceId, acceptanceHead, acceptanceReceipt⟩
+private def verdictAtOther : AcceptanceVerdict := ⟨acceptanceId, acceptanceOtherHead, acceptanceReceipt⟩
+private def acceptanceSnapshot : TerminalSnapshot :=
+  ⟨runId, turnId, rootCommitId, terminalCommitId, .succeeded, 0, [.acceptance acceptanceId]⟩
+
+private def acceptanceUnsettledGraph : GraphStore :=
+  { (default : GraphStore) with
+    terminalSnapshots := tableSet (default : GraphStore).terminalSnapshots runId acceptanceSnapshot
+    headTree := fun _ => some acceptanceHead
+    acceptanceCriteria := fun _ => [acceptanceCriterion]
+    acceptanceVerdicts := fun _ => [verdictAtOther] }
+private def acceptanceUnsettledState : SystemState :=
+  { (default : SystemState) with effects := acceptanceEffects, graph := acceptanceUnsettledGraph }
+
+private def acceptanceDischargedGraph : GraphStore :=
+  { (default : GraphStore) with
+    headTree := fun _ => some acceptanceHead
+    acceptanceCriteria := fun _ => [acceptanceCriterion]
+    acceptanceVerdicts := fun _ => [verdictAtHead] }
+private def acceptanceDischargedState : SystemState :=
+  { (default : SystemState) with effects := acceptanceEffects, graph := acceptanceDischargedGraph }
+
+/-- A stale verdict (subject ≠ current head) does not discharge the criterion, though a
+    succeeded Receipt backs it: the head has moved past what any verdict names. -/
+theorem nonvacuous_acceptance_verdict_wrong_subject :
+    ¬ AcceptanceObligationDischarged acceptanceUnsettledState runId acceptanceId := by
+  apply acceptance_verdict_only_for_its_subject (subject := acceptanceHead)
+  · simp [acceptanceUnsettledState, acceptanceUnsettledGraph]
+  · intro verdict verdictMem _
+    simp only [acceptanceUnsettledState, acceptanceUnsettledGraph, List.mem_singleton] at verdictMem
+    subst verdictMem
+    decide
+
+/-- The undischarged acceptance obligation is captured in the terminal snapshot, so the Run
+    is genuinely not Settled. -/
+theorem nonvacuous_unsatisfied_acceptance_blocks_settled :
+    ¬ Settled acceptanceUnsettledState runId :=
+  acceptance_unsatisfied_not_settled
+    (snapshot := acceptanceSnapshot)
+    (by simp [acceptanceUnsettledState, acceptanceUnsettledGraph, runId])
+    (by simp [acceptanceSnapshot])
+    nonvacuous_acceptance_verdict_wrong_subject
+
+/-- A verdict naming exactly the current head, backed by a succeeded Receipt, discharges the
+    criterion: the discharge predicate is inhabited, so its refutations above are not vacuous. -/
+theorem nonvacuous_acceptance_discharged_at_head :
+    AcceptanceObligationDischarged acceptanceDischargedState runId acceptanceId :=
+  ⟨acceptanceCriterion, acceptanceHead, verdictAtHead,
+    by simp [acceptanceDischargedState, acceptanceDischargedGraph], rfl,
+    by simp [acceptanceDischargedState, acceptanceDischargedGraph],
+    by simp [acceptanceDischargedState, acceptanceDischargedGraph],
+    rfl, rfl, ⟨⟨1⟩, .succeeded, none⟩,
+    by simp [acceptanceDischargedState, acceptanceEffects, verdictAtHead, tableSet_self], rfl⟩
+
+/-- While that current verdict stands, a further verifier attempt against the same head is
+    inadmissible: the system must not run the verifier again against unmoved inputs. -/
+theorem nonvacuous_acceptance_verdict_blocks_retry :
+    ¬ AcceptanceRetryAdmissible acceptanceDischargedState acceptanceId acceptanceHead :=
+  acceptance_current_verdict_blocks_retry (verdict := verdictAtHead)
+    (by simp [acceptanceDischargedState, acceptanceDischargedGraph]) rfl rfl
+
 end AgentCore.Examples

@@ -133,6 +133,10 @@ import AgentCore
 #print axioms AgentCore.stale_mediated_denial_matches_intent
 #print axioms AgentCore.settled_has_coherent_snapshot_and_exact_obligations
 #print axioms AgentCore.item_obligation_uses_exact_audit
+#print axioms AgentCore.acceptance_unsatisfied_not_settled
+#print axioms AgentCore.acceptance_discharge_requires_succeeded_verdict_at_head
+#print axioms AgentCore.acceptance_verdict_only_for_its_subject
+#print axioms AgentCore.acceptance_current_verdict_blocks_retry
 #print axioms AgentCore.reachable_attempts_have_guarded_admission
 #print axioms AgentCore.first_attempt_and_exact_audit_are_one_transition
 #print axioms AgentCore.approved_attempt_and_exact_audit_are_one_transition
@@ -171,6 +175,10 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_system_synthesis_writer
 #print axioms AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot
 #print axioms AgentCore.Examples.nonvacuous_audit_complete_derived_settled
+#print axioms AgentCore.Examples.nonvacuous_acceptance_verdict_wrong_subject
+#print axioms AgentCore.Examples.nonvacuous_unsatisfied_acceptance_blocks_settled
+#print axioms AgentCore.Examples.nonvacuous_acceptance_discharged_at_head
+#print axioms AgentCore.Examples.nonvacuous_acceptance_verdict_blocks_retry
 #print axioms AgentCore.Examples.nonvacuous_request_approve_start_trace
 #print axioms AgentCore.Examples.nonvacuous_persisted_approval_continuation
 #print axioms AgentCore.Examples.nonvacuous_approval_start_then_continue
