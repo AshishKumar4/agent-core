@@ -261,6 +261,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-CHECKPOINT-KINDS",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-CHECKPOINT-KINDS",
+      "specTextSha256": "sha256:68d92df0f54f00c2a831180e616216e664e59ee259164084697b2911828d209f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-RUN-EQUAL-PIN-MERGE",
       "owner": "W5",
       "specAnchor": "C13-RUN-EQUAL-PIN-MERGE",
@@ -375,6 +389,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-PIN-IDENTITY-TYPES",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-PIN-IDENTITY-TYPES",
+      "specTextSha256": "sha256:d73015f2fb379d5c2e9d8ef145ec04277f89e6ba0b68b5127c685c1f742fb2a7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "C13-RUN-PINS-BLUEPRINT",
@@ -534,6 +562,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-TREE-CONFLICT-EXPLICIT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-TREE-CONFLICT-EXPLICIT",
+      "specTextSha256": "sha256:85325f46d0e0866d5a28c3275f34524a427c7ebe674394b14f0a2babe5630cbc",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-RUN-UNDO-REDO",
       "owner": "W5",
       "specAnchor": "C13-RUN-UNDO-REDO",
@@ -647,6 +689,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-MODEL-CALL",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-MODEL-CALL",
+      "specTextSha256": "sha256:94e942a35574c3fcd437bbd0b86a42236a1642de47ff3fbfa0b194e89d3edef9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "C13-TURN-NO-RETRY",

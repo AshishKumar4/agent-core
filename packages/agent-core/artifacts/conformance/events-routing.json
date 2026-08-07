@@ -132,6 +132,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-ROUTE-DELIVERY-ONCE",
+      "owner": "W7",
+      "specAnchor": "C13-ROUTE-DELIVERY-ONCE",
+      "specTextSha256": "sha256:127df38b07d46269e5cf447ad6e699a96911ad7185b8b9cd9ccefca8cf277f71",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-ROUTE-PROJECTION-DIGEST",
       "owner": "W7",
       "specAnchor": "C13-ROUTE-PROJECTION-DIGEST",

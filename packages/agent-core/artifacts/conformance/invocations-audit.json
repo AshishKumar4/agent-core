@@ -473,6 +473,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-AUDIT-TELEMETRY-EXCLUDED",
+      "owner": "W6",
+      "specAnchor": "C13-AUDIT-TELEMETRY-EXCLUDED",
+      "specTextSha256": "sha256:dbd9d1a19d55f52eb161fe517e2a7b8c58cd9a39dd43f3837ecfe18740b2c728",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-BATCH-OUTCOME-COMPLETE",
       "owner": "W6",
       "specAnchor": "C13-BATCH-OUTCOME-COMPLETE",
@@ -953,6 +967,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-RECEIPT-IMMUTABLE",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-IMMUTABLE",
+      "specTextSha256": "sha256:283bfbcea5510586275fb5174f58a69808b7e4635e812a96937eec2f876179ad",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "C13-RECEIPT-INDETERMINATE-SUPERSESSION",

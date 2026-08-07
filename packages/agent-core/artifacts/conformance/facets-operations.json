@@ -115,6 +115,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-FACET-DISPOSAL",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-DISPOSAL",
+      "specTextSha256": "sha256:21e197907a85ada71eb00129342078c36ec69fd09a442da1bd5d761d244ff955",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-FACET-MANIFEST",
       "owner": "W3",
       "specAnchor": "C13-FACET-MANIFEST",
