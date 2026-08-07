@@ -162,7 +162,7 @@
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
       "testSelectors": [
-        "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-OBSERVE] mediates observe with observe impact and returns the authorized resource"
+        "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-OBSERVE] mediates observe at externalSend impact and returns the authorized resource"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
