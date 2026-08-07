@@ -1075,7 +1075,11 @@ describe("storage trust boundary kills", () => {
         const records = new MemoryWorkspaceRecords();
         records.insertRecord({ kind: "event", id: "event-keep", bytes: Uint8Array.of(1) });
         expect(() => records.deleteCompactedRecords("event" as never, ["event-keep"])).toThrow(
-            expect.objectContaining({ name: "AgentCoreError", code: "protocol.invalid-state" })
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.invalid-state",
+                message: "Record kind is not compactable"
+            })
         );
         expect(records.findRecord("event", "event-keep")).toBeDefined();
     });
@@ -1084,7 +1088,13 @@ describe("storage trust boundary kills", () => {
         const records = new MemoryWorkspaceRecords();
         expect(() =>
             records.insertRecord({ kind: "event", id: "event-bad", bytes: "nope" } as never)
-        ).toThrow(expect.objectContaining({ name: "AgentCoreError", code: "codec.invalid" }));
+        ).toThrow(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message: "Workspace record bytes are malformed"
+            })
+        );
     });
 
     test("pointer record keys must carry a parseable revision", { tags: "p1" }, () => {

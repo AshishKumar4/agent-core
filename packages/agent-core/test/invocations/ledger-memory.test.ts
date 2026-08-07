@@ -839,6 +839,7 @@ test(
         ledger.prepare(state, invocation);
         const error = rejects(() => ledger.claimItem(state, claim, new Date(1000)), AgentCoreError);
         expect(error.code).toBe("invocation.invalid");
+        expect(error.message).toBe("Invocation transition time is not trusted");
         expect(persistence.claim(state, claim.id)).toBeUndefined();
         ledger.claimItem(state, claim, new Date(2000));
         expect(persistence.claim(state, claim.id)?.id.value).toBe(claim.id.value);

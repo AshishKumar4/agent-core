@@ -1548,7 +1548,10 @@ describe("W6 replay operation invocation port", () => {
                 port.prepareMediated(request, () => {
                     throw new TypeError("before must not run");
                 })
-            ).rejects.toMatchObject({ code: "invocation.invalid" });
+            ).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Replay evidence requires an Invocation"
+            });
         }
     );
 });

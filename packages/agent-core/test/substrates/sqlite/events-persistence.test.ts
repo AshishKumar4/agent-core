@@ -97,7 +97,12 @@ test(
 
         expect(() =>
             records.deleteCompactedRecords("event" as CompactableWorkspaceRecordKind, ["guarded"])
-        ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
+        ).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Record kind is not compactable"
+            })
+        );
         expect(records.findRecord("event", "guarded")?.bytes).toEqual(Uint8Array.of(1));
     }
 );
