@@ -21,6 +21,7 @@ import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import {
     RunEvidencePort,
+    type AcceptanceReceiptEvidence,
     type AdministerControlEvidence,
     type ControlCommitEvidence,
     type DeliveryCommitEvidence,
@@ -39,7 +40,7 @@ import {
     type SettlementAuditObligation
 } from "../../../src/agents/runs/settlement";
 import { RunRepository } from "../../../src/agents/runs/store";
-import { RunBranchId, RunId } from "../../../src/agents/runs/id";
+import { AcceptanceId, RunBranchId, RunId } from "../../../src/agents/runs/id";
 import { Turn, type TurnInit } from "../../../src/agents/runs/turn";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 
@@ -144,6 +145,7 @@ export class TestEvidencePort<Transaction = object> extends RunEvidencePort<Tran
     public readonly syntheses = new Map<string, SynthesisCommitEvidence>();
     public readonly administers = new Map<string, AdministerControlEvidence>();
     public readonly cancellations = new Map<string, ForcedCancellationEvidence>();
+    public readonly acceptances = new Map<string, AcceptanceReceiptEvidence>();
 
     public receipt(_tx: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
         return this.receipts.get(`${receipt.value}:${audit.value}`);
@@ -162,6 +164,9 @@ export class TestEvidencePort<Transaction = object> extends RunEvidencePort<Tran
     }
     public forcedCancellation(_tx: Transaction, event: EventId, audit: AuditRecordId) {
         return this.cancellations.get(`${event.value}:${audit.value}`);
+    }
+    public acceptance(_tx: Transaction, receipt: ReceiptId) {
+        return this.acceptances.get(receipt.value);
     }
 }
 
@@ -206,6 +211,7 @@ export class TestSettlementPort<Transaction = object> extends SettlementEvidence
     public terminalRoutes = new Set<string>();
     public reconciliations = new Set<string>();
     public commits = new Set<string>();
+    public acceptances = new Set<string>();
     public audits = new Set<string>();
     public approvalResolved(_tx: Transaction, value: ApprovalId): boolean {
         return this.approvals.has(value.value);
@@ -226,6 +232,9 @@ export class TestSettlementPort<Transaction = object> extends SettlementEvidence
     }
     public commitExists(_tx: Transaction, value: RunCommitId): boolean {
         return this.commits.has(value.value);
+    }
+    public acceptanceSatisfied(_tx: Transaction, value: AcceptanceId): boolean {
+        return this.acceptances.has(value.value);
     }
     public auditSatisfied(_tx: Transaction, value: SettlementAuditObligation): boolean {
         return this.audits.has(settlementAuditKey(value));

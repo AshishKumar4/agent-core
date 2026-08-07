@@ -12,6 +12,7 @@ import {
     type SettlementAuditObligation
 } from "../../../src/agents/runs/settlement";
 import { RunLifecycle } from "../../../src/agents/runs/run";
+import { AcceptanceId } from "../../../src/agents/runs/id";
 import { content, genesis, ids, pins, refs } from "./fixture";
 
 function roundTrip(commit: RunCommit): RunCommit {
@@ -180,6 +181,9 @@ class MatrixSettlementPort extends SettlementEvidencePort<object> {
     }
     public commitExists(_tx: object, value: RunCommitId): boolean {
         return !this.missing.has(`commit:${value.value}`);
+    }
+    public acceptanceSatisfied(_tx: object, value: AcceptanceId): boolean {
+        return !this.missing.has(`acceptance:${value.value}`);
     }
     public auditSatisfied(_tx: object, value: SettlementAuditObligation): boolean {
         return !this.missing.has(`audit:${auditKey(value)}`);

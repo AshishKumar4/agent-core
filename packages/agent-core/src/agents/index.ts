@@ -7,6 +7,11 @@ export {
     RunSourceRevisionPort
 } from "./source";
 export {
+    AcceptanceCriterion,
+    AcceptanceCriterionCodec,
+    AcceptanceId,
+    AcceptanceVerdict,
+    AcceptanceVerdictCodec,
     MemoryRunStorage,
     Run,
     RunBranch,
@@ -42,6 +47,9 @@ export { RunCheckpointId } from "./runs/id";
 export { RunPins } from "./runs/pins";
 export type { LeaseToken, RunStoragePort, TurnLeaseVerifier } from "./runs";
 export type {
+    AcceptanceCriterionInit,
+    AcceptanceReceiptEvidence,
+    AcceptanceVerdictInit,
     AdministerControlEvidence,
     ControlCommitEvidence,
     DeliveryCommitEvidence,

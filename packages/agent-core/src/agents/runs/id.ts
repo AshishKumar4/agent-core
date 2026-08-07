@@ -1,6 +1,12 @@
 import { TextId } from "../../core";
 export { RunCommitId, RunId, TurnId } from "../../execution-references";
 
+export class AcceptanceId extends TextId {
+    public constructor(value: string) {
+        super(value, "Acceptance ID");
+    }
+}
+
 export class RunBranchId extends TextId {
     public constructor(value: string) {
         super(value, "Run branch ID");
