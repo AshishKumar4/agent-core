@@ -140,10 +140,10 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
 function writePointer(document: MutableJson, pointer: string, value: MutableJson): MutableJson {
     const tokens = parsePointer(pointer);
     if (tokens.length === 0) return value;
-    if (document === null || typeof document !== "object") {
-        throw invalidSubscription("Mapping cannot write a child beneath a scalar root");
-    }
-    let current: MutableJson[] | { [key: string]: MutableJson } = document;
+    // validatePayloadMapping rejects a root ("") target alongside any sibling move, and a
+    // solo root target returned at the empty-token check above; a non-empty pointer therefore
+    // always descends into the object accumulator, never a scalar.
+    let current = document as MutableJson[] | { [key: string]: MutableJson };
     for (let index = 0; index < tokens.length - 1; index += 1) {
         const token = tokens[index]!;
         const nextToken = tokens[index + 1]!;
