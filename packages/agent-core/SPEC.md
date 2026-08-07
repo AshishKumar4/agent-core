@@ -1229,8 +1229,8 @@ failed or cancelled Turn is never resurrected. A product may request another exe
 through ordinary Run/Turn admission, but no retry linkage or inherited authority is
 created by this specification. Conforming runtime, protocol command, package export,
 and record registries MUST contain no Turn-retry operation, command family, public
-symbol, durable record, or migration/upcast that can recreate it. Later W5 integration
-must delete such extension surfaces rather than adapt them. This maps to
+symbol, durable record, or migration/upcast that can recreate it. A later integration that
+finds such an extension surface deletes it rather than adapting it. This maps to
 **C13-TURN-NO-RETRY**, **C13-TURN-NO-RETRY-RUNTIME**,
 **C13-TURN-NO-RETRY-PROTOCOL**, **C13-TURN-NO-RETRY-EXPORT**, and
 **C13-TURN-NO-RETRY-RECORD**.
