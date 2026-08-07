@@ -73,6 +73,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
+      "specTextSha256": "sha256:df1be0fd85dd2b1f75d769f2f8fe1912dc4ec9ae31e2a705e67949aea8f92b28",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-PLACEMENT-EMPTY",
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-EMPTY",

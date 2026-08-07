@@ -133,12 +133,24 @@ then name, then resolve. This clause maps to **C13-FACET-REF-CANONICAL**.
 
 ### 1.5 Protection domains
 
-A **protection domain** is an isolation boundary. Inside one, calls are plain
-in-process calls and carry no security cost. Across one, nothing passes except
-explicitly delegated capabilities and asynchronous Events. Platform policy places
-facet code into a domain (§9.2, §10.2) using three isolation modes: `bundled`
-(in-process with the hosting Actor), `provider` (a separate service behind a capability
-stub), and `dynamic` (loaded code in a fresh isolate with zero ambient authority).
+A **protection domain** is an isolation boundary with exactly one **owning Actor** (§8.1):
+the Actor whose process the domain's code runs in, and whose authority that code would
+inherit if nothing stopped it. Inside one, calls are plain in-process calls and carry no
+security cost. Across one, nothing passes except explicitly delegated capabilities and
+asynchronous Events. **Ambient authority** is anything code inside a domain can reach
+without presenting a capability: a Binding it was not given, a credential it did not
+resolve, a network destination nobody passed it. Platform policy places facet code into a
+domain (§9.2, §10.2) using three isolation modes: `bundled` (in-process with the hosting
+Actor), `provider` (a separate service behind a capability stub), and `dynamic` (loaded
+code in a fresh isolate with zero ambient authority).
+
+Zero ambient authority includes zero ambient egress. A `dynamic` domain MUST start with no
+network reach of its own: every destination its code can address arrives as an explicitly
+passed Binding, and a domain in which code can open a connection the platform did not give
+it is not a `dynamic` domain. The rule is at the substrate and not in a policy layer
+because an outbound policy that code can reach around is advice; every `externalSend`
+obligation in §11 rests on the difference. This maps to
+**C13-PLACEMENT-DYNAMIC-NO-EGRESS**.
 
 ---
 
@@ -2120,11 +2132,11 @@ tax with no security benefit:
    epochs each step (§3.4 rules 7–8). Revocation drops the stub; so do platform
    lifecycle events; re-resolution is the uniform recovery for both.
 3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: agent-generated
-   facets and Slate backends. Hosts pass `globalOutbound: null` (or equivalent), so
-   dynamic isolates inherit no ambient network; capabilities arrive only as
-   explicitly passed Bindings. Worker Loader is in open beta at the time of writing;
-   Workers-for-Platforms dispatch namespaces serve as the GA fallback for
-   pre-deployed Slate backends, with identical authority semantics.
+   facets and Slate backends. Hosts pass `globalOutbound: null` (or equivalent); this is
+   how the substrate satisfies §1.5's no-ambient-egress requirement, and capabilities
+   arrive only as explicitly passed Bindings. Worker Loader is in open beta at the time of
+   writing; Workers-for-Platforms dispatch namespaces serve as the GA fallback for
+   pre-deployed Slate backends, with identical authority semantics, including that one.
 
 ### 10.3 Implementation constraints
 
@@ -2353,6 +2365,7 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-ENVIRONMENT-EPHEMERAL-DURABILITY** It specifies ephemeral-filesystem durability.
 - **P11-ENVIRONMENT-PREVIEW** It specifies an authenticated preview URL per exposed port.
 - **P11-ENVIRONMENT-CREDENTIAL-SEAM** It specifies the credential-isolation seam.
+- **P11-ENVIRONMENT-NO-AMBIENT-EGRESS** A Session starts with no network reach of its own; every destination its child Facets can address arrives as an explicitly passed Binding, so code written inside the Session cannot route around the outbound policy its `externalSend` Operations enforce.
 - **P11-ENVIRONMENT-NO-BASE-OPERATIONS** The base profile declares no Operations.
 - **P11-ENVIRONMENT-NO-BASE-EVENTS** The base profile declares no Events.
 - **P11-ENVIRONMENT-NO-BASE-IMPACTS** Impacts are inapplicable to the base profile.
@@ -2393,7 +2406,7 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-SLATE-ROLLBACK** Operation `rollback` has `mutate` impact.
 - **P11-SLATE-SPECIFICATION** The Slate profile is specified with §4.6.
 - **P11-SLATE-SOURCE** Source is content-addressed with immutable version history.
-- **P11-SLATE-DYNAMIC** The backend runs in a `dynamic` domain with zero ambient authority.
+- **P11-SLATE-DYNAMIC** The backend's manifest admits `dynamic` only, so §9.2 selects a `dynamic` domain for it: zero ambient authority and, per §1.5, zero ambient egress.
 - **P11-SLATE-PREVIEW** Live preview is an Environment Session.
 - **P11-SLATE-IMMUTABLE-PUBLICATION** A published version is immutable.
 - **P11-SLATE-MEDIATED-DEPLOY** `deploy` is a mediated Invocation.
@@ -2485,6 +2498,7 @@ A conforming implementation provides:
 - **C13-PLACEMENT-ORDER** Placement uses the one fixed preference order.
 - **C13-PLACEMENT-EMPTY** An empty placement intersection is rejected.
 - **C13-PLACEMENT-UNTRUSTED-BUNDLED** Untrusted placement excludes `bundled`.
+- **C13-PLACEMENT-DYNAMIC-NO-EGRESS** A `dynamic` domain starts with no ambient network reach; every destination arrives as an explicitly passed Binding.
 - **C13-POLICY-DIRECT-COLOCATION** The `direct`-tier co-location requirement is enforced.
 - **C13-POLICY-DIRECT-ESCALATION** A direct call that cannot be co-located escalates to `mediated` (§7.2).
 - **C13-POLICY-MEDIATION-FLOOR** No policy can make non-session `execute`, `mutate`, `externalSend`, `delegate`, or `administer` direct.

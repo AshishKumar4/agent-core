@@ -693,6 +693,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
+      "owner": "W8",
+      "specAnchor": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
+      "specTextSha256": "sha256:b3605943c875bf3d7857c592628b94f19fbaacda3fcfc0f23ee5d5b25ed2cb90",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "P11-ENVIRONMENT-NO-BASE-EVENTS",
       "owner": "W8",
       "specAnchor": "P11-ENVIRONMENT-NO-BASE-EVENTS",
@@ -2096,7 +2110,7 @@
       "id": "P11-SLATE-DYNAMIC",
       "owner": "W8",
       "specAnchor": "P11-SLATE-DYNAMIC",
-      "specTextSha256": "sha256:8ab98b12adc2a56df94d1d61d3a1818ff032599cf0f7d5a61f689a9a2846b74a",
+      "specTextSha256": "sha256:a5a877e51bd54fa34a0d3b123b4c868c4a56bcadfbe4909f8d85a4687762f7f7",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/slate/facet.ts#SlateFacet"],
