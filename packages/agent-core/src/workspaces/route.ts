@@ -222,17 +222,18 @@ export interface RouteProjectionInit {
     readonly authenticationDigest?: Digest;
 }
 
-class RouteProjectionCodecV1 extends RecordCodec<RouteProjection> {
+class RouteProjectionCodecV2 extends RecordCodec<RouteProjection> {
     public constructor() {
-        super("workspace.route-projection", { major: 1, minor: 0 });
+        super("workspace.route-projection", { major: 2, minor: 0 });
     }
 
     protected encodePayload(projection: RouteProjection): JsonValue {
+        // `authenticated` is the presence of `authenticationDigest`, so the wire carries
+        // the evidence and derives the marker rather than storing both and reconciling.
         return {
             id: projection.id.value,
             reservation: projection.reservation.value,
             content: encodeContent(projection.content, projection.digest),
-            authenticated: projection.authenticated,
             authenticationDigest: projection.authenticationDigest?.value ?? null
         };
     }
@@ -241,21 +242,14 @@ class RouteProjectionCodecV1 extends RecordCodec<RouteProjection> {
         const object = requireObject(payload, "Route projection payload");
         requireFields(
             object,
-            ["authenticated", "authenticationDigest", "content", "id", "reservation"],
+            ["authenticationDigest", "content", "id", "reservation"],
             "Route projection payload"
         );
         const content = decodeContent(object["content"]!, "Route projection content");
-        const authenticated = object["authenticated"];
-        if (typeof authenticated !== "boolean") {
-            throw new TypeError("Route projection authentication marker is invalid");
-        }
         const authenticationDigest = requireNullableString(
             object["authenticationDigest"],
             "Route projection authentication digest"
         );
-        if (authenticated !== (authenticationDigest !== undefined)) {
-            throw new TypeError("Route projection authentication evidence is inconsistent");
-        }
         return new RouteProjection({
             id: new RouteProjectionId(requireString(object["id"], "Route projection ID")),
             reservation: new RouteReservationId(
@@ -271,7 +265,7 @@ class RouteProjectionCodecV1 extends RecordCodec<RouteProjection> {
 }
 
 export class RouteProjection {
-    public static readonly codec: RecordCodec<RouteProjection> = new RouteProjectionCodecV1();
+    public static readonly codec: RecordCodec<RouteProjection> = new RouteProjectionCodecV2();
 
     public static encode(projection: RouteProjection): Uint8Array {
         return RouteProjection.codec.encode(projection);

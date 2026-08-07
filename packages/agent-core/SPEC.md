@@ -1351,7 +1351,7 @@ interface RouteProjection {
   readonly reservation: RouteReservationId;
   readonly content: ContentRef;
   readonly digest: Digest;
-  readonly authenticated: true;
+  readonly authenticationDigest?: Digest;   // present exactly when authenticated
 }
 
 interface RouteDelivery {

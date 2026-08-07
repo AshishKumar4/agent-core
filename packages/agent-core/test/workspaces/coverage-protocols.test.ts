@@ -680,30 +680,21 @@ describe("route records and authentication", () => {
                         digest: content("wrong-projection-digest").digest
                     })
             ).toThrow(/reference and digest/);
-            expect(() =>
-                RouteProjection.decode(
-                    mutatePayload(RouteProjection.encode(projection), (payload) => {
-                        payload["authenticated"] = "yes";
-                    })
-                )
-            ).toThrow(/marker is invalid/);
+            // Authentication is the presence of the digest, so a payload carrying a
+            // separate marker is rejected as an unknown field rather than reconciled
+            // against the evidence it duplicates.
             expect(() =>
                 RouteProjection.decode(
                     mutatePayload(RouteProjection.encode(projection), (payload) => {
                         payload["authenticated"] = true;
                     })
                 )
-            ).toThrow(/evidence is inconsistent/);
+            ).toThrow(/missing or unknown fields/);
             const authenticated = projection.authenticate(
                 Digest.sha256(new TextEncoder().encode("auth"))
             );
-            expect(() =>
-                RouteProjection.decode(
-                    mutatePayload(RouteProjection.encode(authenticated), (payload) => {
-                        payload["authenticated"] = false;
-                    })
-                )
-            ).toThrow(/evidence is inconsistent/);
+            expect(projection.authenticated).toBe(false);
+            expect(authenticated.authenticated).toBe(true);
             expect(() =>
                 authenticated.authenticate(Digest.sha256(new TextEncoder().encode("again")))
             ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
