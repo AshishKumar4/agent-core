@@ -123,8 +123,10 @@ digest, SHA-256 or stronger; `ContentRef` — resolvable through a ContentStore 
 
 A `FacetRef` *identifies* a facet instance; a `Binding` *names* a Grant-backed instance
 in one protection domain; a `ResolvedFacet` is the *live capability* returned by
-resolution. The W3-owned canonical serialized `FacetRef` is exactly
-`<scope>:<instance>`. It contains one and only one `:` separator, and each segment
+resolution. The canonical serialized `FacetRef` is exactly
+`<package-namespace>:<instance>`, where the first segment is the Package namespace of §4.1
+(`core.fs`, `acme.deploy`) and not a §3.2 Scope. It contains one and only one `:`
+separator, and each segment
 matches `^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$`; empty, noncanonical, or additionally
 separated forms reject rather than normalize. The order is always the same: identify,
 then name, then resolve. This clause maps to **C13-FACET-REF-CANONICAL**.
@@ -2500,7 +2502,7 @@ A conforming implementation provides:
 - **C13-POLICY-EPOCH-RECHECK** Every mediated effect performs the current-epoch check.
 - **C13-CONFIG-SECRET-REF** Configuration is SecretRef-only, with no raw credentials in manifests or Blueprints.
 - **C13-FACET-MANIFEST** Facet manifests are implemented.
-- **C13-FACET-REF-CANONICAL** Every FacetRef uses the one W3-owned canonical `<scope>:<instance>` identity.
+- **C13-FACET-REF-CANONICAL** Every FacetRef uses the one canonical `<package-namespace>:<instance>` identity.
 - **C13-FACET-CONTRIBUTION-MATERIALIZATION** Facet contributions materialize through the specified primitive paths.
 - **C13-FACET-SLOT-AUTHORITY** Slot contribute-authority is enforced.
 - **C13-FACET-SLOT-VISIBILITY** `SlotCatalog.query` is viewer-filtered.

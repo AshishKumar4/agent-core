@@ -132,7 +132,7 @@
       "id": "C13-FACET-REF-CANONICAL",
       "owner": "W3",
       "specAnchor": "C13-FACET-REF-CANONICAL",
-      "specTextSha256": "sha256:7795ad273055316bd20e51de7a057102222a07e0774f880f815e9f092dd30636",
+      "specTextSha256": "sha256:dff26e9c2e61bcaef623a663cde3f4d3572b8009a3942a5a7cf000d8a8625c82",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/facets/id.ts#FacetRef"],
