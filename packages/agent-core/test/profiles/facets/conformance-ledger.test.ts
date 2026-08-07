@@ -54,12 +54,12 @@ function impact(
     requirement(id, () => expect(operation(operations, name).impact).toBe(expected));
 }
 
-impact("P11-APPROVAL-GATEWAY-OBSERVE", APPROVAL_GATEWAY_OPERATIONS, "observe", "observe");
+impact("P11-APPROVAL-GATEWAY-OBSERVE", APPROVAL_GATEWAY_OPERATIONS, "observe", "externalSend");
 requirement("P11-APPROVAL-GATEWAY-PROVIDER", () => {
     expect(APPROVAL_GATEWAY_ISOLATION).toEqual(["provider"]);
 });
 requirement("P11-APPROVAL-GATEWAY-READS", () => {
-    expect(APPROVAL_GATEWAY_OPERATION_CONTRACTS.observe.descriptor.impact).toBe("observe");
+    expect(APPROVAL_GATEWAY_OPERATION_CONTRACTS.observe.descriptor.impact).toBe("externalSend");
 });
 requirement("P11-APPROVAL-GATEWAY-RECEIPTS", () => {
     expect(APPROVAL_GATEWAY_OPERATION_CONTRACTS.applyAction.resultMode).toBe("output");
@@ -233,7 +233,17 @@ requirement("P11-MCP-RESOURCES", () => {
         resources: [{ name: "resource", outputSchema: {} }]
     });
     expect(discovered.operations.map((value) => [value.name.value, value.impact])).toEqual([
-        ["resource", "observe"]
+        ["resource", "execute"]
+    ]);
+    const remote = new McpDiscoveryBackend(mcpConfig(true), {
+        assertSchema: () => undefined
+    }).discover({
+        ...mcpDocument(),
+        tools: [],
+        resources: [{ name: "resource", outputSchema: {} }]
+    });
+    expect(remote.operations.map((value) => [value.name.value, value.impact])).toEqual([
+        ["resource", "externalSend"]
     ]);
 });
 requirement("P11-MCP-PROMPTS", () => {

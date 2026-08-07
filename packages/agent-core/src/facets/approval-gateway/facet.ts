@@ -95,7 +95,14 @@ const inputCodec = profileWireCodec<GatewayObservationInput | GatewayActionInput
 export const APPROVAL_GATEWAY_OPERATION_CONTRACTS = Object.freeze({
     observe: new ProfileOperationContract<"observe", GatewayObservationInput, JsonValue>(
         "observe",
-        new OperationDescriptor(new OperationName("observe"), "observe", inputSchema, schema({})),
+        // The read reaches the credential-holding external resource, so it crosses the
+        // trust boundary; only a cached platform-side projection of a completed read is observe.
+        new OperationDescriptor(
+            new OperationName("observe"),
+            "externalSend",
+            inputSchema,
+            schema({})
+        ),
         inputCodec,
         facetDataWireCodec<JsonValue>(),
         "output"

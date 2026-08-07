@@ -279,7 +279,9 @@ export class McpDiscoveryBackend {
             operations.push(
                 new OperationDescriptor(
                     new OperationName(resource.name),
-                    "observe",
+                    // Reading a discovered resource crosses the same seam a tool call does;
+                    // only a platform-side cached projection of a completed read is observe.
+                    this.config.remote ? "externalSend" : "execute",
                     new JsonSchema({ type: "object", additionalProperties: false }),
                     new JsonSchema(resource.outputSchema)
                 )
@@ -572,11 +574,16 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
         throw new McpDiscoveryError("impact.invalid", "MCP tool metadata must be an object");
     }
     const value = (metadata as Record<string, unknown>)[MCP_IMPACT_ANNOTATION];
-    if (value === undefined) return remote ? "externalSend" : "execute";
+    const derived = remote ? "externalSend" : "execute";
+    if (value === undefined) return derived;
     if (typeof value !== "string") {
         throw new McpDiscoveryError("impact.invalid", "MCP tool impact metadata must be a string");
     }
-    return requireImpact(value as Impact);
+    // The annotation is a claim by the discovered server (C13-POLICY-IMPACT-BOUNDARY):
+    // it may raise or shift within the mediated floor, never lower the derived floor.
+    // At discovery time no Session exists, so observe is the only direct-floor impact.
+    const annotated = requireImpact(value as Impact);
+    return annotated === "observe" ? derived : annotated;
 }
 
 function requireDiscoveryDocument(document: McpDiscoveryDocument): void {

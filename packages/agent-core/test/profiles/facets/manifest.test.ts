@@ -163,7 +163,7 @@ const expectedProfileOperations: Readonly<Record<string, Readonly<Record<string,
     task: { create: "mutate", update: "mutate", list: "observe" },
     web: { fetch: "externalSend", search: "externalSend", readCached: "observe" },
     mcp: {},
-    approval: { observe: "observe", applyAction: "externalSend" },
+    approval: { observe: "externalSend", applyAction: "externalSend" },
     self: {
         checkpoint: "mutate",
         commitMessage: "mutate",
@@ -226,210 +226,262 @@ describe("W8 internal profile manifest/runtime correspondence", () => {
         }
     );
 
-    test("fixes provider-only Approval placement and dynamic zero-ambient Slate constraints", { tags: "p1" }, () => {
-        const approval = createApprovalGatewayManifest(manifestInit("approval"));
-        expect(approval.isolation).toEqual(["provider"]);
+    test(
+        "fixes provider-only Approval placement and dynamic zero-ambient Slate constraints",
+        { tags: "p1" },
+        () => {
+            const approval = createApprovalGatewayManifest(manifestInit("approval"));
+            expect(approval.isolation).toEqual(["provider"]);
 
-        const slate = createSlateManifest(manifestInit("slate", [SLATE_ENVIRONMENT_BINDING]));
-        expect(slate.isolation).toEqual(["dynamic"]);
-        expect(slate.bindings.map((binding) => binding.name.value)).toContain(
-            SLATE_ENVIRONMENT_BINDING
-        );
-        expect(
-            slate.configSchema?.accepts({
-                backendIsolation: "dynamic",
-                ambientAuthority: false
-            })
-        ).toBe(true);
-        expect(
-            slate.configSchema?.accepts({
-                backendIsolation: "dynamic",
-                ambientAuthority: true
-            })
-        ).toBe(false);
-    });
-
-    test("[P11-SLATE-DYNAMIC] rejects ambient authority from the dynamic backend configuration", { tags: "p0" }, () => {
-        const slate = createSlateManifest(
-            manifestInit("slate-dynamic", [SLATE_ENVIRONMENT_BINDING])
-        );
-        expect(slate.isolation).toEqual(["dynamic"]);
-        expect(
-            slate.configSchema?.accepts({ backendIsolation: "dynamic", ambientAuthority: false })
-        ).toBe(true);
-        expect(
-            slate.configSchema?.accepts({ backendIsolation: "dynamic", ambientAuthority: true })
-        ).toBe(false);
-        expect(
-            slate.configSchema?.accepts({ backendIsolation: "provider", ambientAuthority: false })
-        ).toBe(false);
-    });
-
-    test("[P11-SLATE-BINDINGS] requires the Environment capability as an explicit Binding", { tags: "p1" }, () => {
-        expect(() => createSlateManifest(manifestInit("slate-unbound"))).toThrow(
-            /requires binding/u
-        );
-        const bound = createSlateManifest(manifestInit("slate-bound", [SLATE_ENVIRONMENT_BINDING]));
-        expect(bound.bindings.map((binding) => binding.name.value)).toEqual([
-            SLATE_ENVIRONMENT_BINDING
-        ]);
-    });
-
-    test("declares MCP parent controls/config without static discovered Operations", { tags: "p1" }, () => {
-        const manifest = createMcpManifest(manifestInit("mcp", [MCP_PARENT_BINDING]));
-        expect(contributedOperations(manifest)).toEqual([]);
-        expect(manifest.contributions.entries.map((entry) => entry.slot.value)).toEqual([
-            "mcp.parent",
-            "slots"
-        ]);
-        expect(MCP_PARENT_SLOT.entrySchema.accepts(MCP_PARENT_CONTRIBUTION)).toBe(true);
-        expect(
-            manifest.configSchema?.accepts({
-                remote: true,
-                maximumPrompts: 2,
-                maximumPromptBytes: 100
-            })
-        ).toBe(true);
-        for (const contract of Object.values(MCP_CONTROL_CONTRACTS)) {
-            contract.input.assertValid();
-            contract.output.assertValid();
+            const slate = createSlateManifest(manifestInit("slate", [SLATE_ENVIRONMENT_BINDING]));
+            expect(slate.isolation).toEqual(["dynamic"]);
+            expect(slate.bindings.map((binding) => binding.name.value)).toContain(
+                SLATE_ENVIRONMENT_BINDING
+            );
+            expect(
+                slate.configSchema?.accepts({
+                    backendIsolation: "dynamic",
+                    ambientAuthority: false
+                })
+            ).toBe(true);
+            expect(
+                slate.configSchema?.accepts({
+                    backendIsolation: "dynamic",
+                    ambientAuthority: true
+                })
+            ).toBe(false);
         }
-        for (const contract of Object.values(ENVIRONMENT_CONTROL_CONTRACTS)) {
-            contract.input.assertValid();
-            contract.output.assertValid();
+    );
+
+    test(
+        "[P11-SLATE-DYNAMIC] rejects ambient authority from the dynamic backend configuration",
+        { tags: "p0" },
+        () => {
+            const slate = createSlateManifest(
+                manifestInit("slate-dynamic", [SLATE_ENVIRONMENT_BINDING])
+            );
+            expect(slate.isolation).toEqual(["dynamic"]);
+            expect(
+                slate.configSchema?.accepts({
+                    backendIsolation: "dynamic",
+                    ambientAuthority: false
+                })
+            ).toBe(true);
+            expect(
+                slate.configSchema?.accepts({ backendIsolation: "dynamic", ambientAuthority: true })
+            ).toBe(false);
+            expect(
+                slate.configSchema?.accepts({
+                    backendIsolation: "provider",
+                    ambientAuthority: false
+                })
+            ).toBe(false);
         }
-    });
+    );
 
-    test("keeps Single-tenant explicitly policy-only with no Facet manifest factory", { tags: "p1" }, () => {
-        expect("createSingleTenantManifest" in SingleTenant).toBe(false);
-        expect(SingleTenant.SINGLE_TENANT_OPERATIONS).toEqual([]);
-    });
+    test(
+        "[P11-SLATE-BINDINGS] requires the Environment capability as an explicit Binding",
+        { tags: "p1" },
+        () => {
+            expect(() => createSlateManifest(manifestInit("slate-unbound"))).toThrow(
+                /requires binding/u
+            );
+            const bound = createSlateManifest(
+                manifestInit("slate-bound", [SLATE_ENVIRONMENT_BINDING])
+            );
+            expect(bound.bindings.map((binding) => binding.name.value)).toEqual([
+                SLATE_ENVIRONMENT_BINDING
+            ]);
+        }
+    );
 
-    test("exposes the W8 internal runtime contract from every actual Facet facade", { tags: "p1" }, () => {
-        const facades = [
-            FilesystemFacet,
-            ShellFacet,
-            MemoryFacet,
-            TaskFacet,
-            WebFacet,
-            ApprovalGatewayFacet,
-            SelfFacet,
-            EnvironmentFacet,
-            DeviceFacet,
-            SlateFacet
-        ];
-        expect(
-            facades.every((facade) => typeof facade.prototype.asInternalRuntime === "function")
-        ).toBe(true);
-        expect("asInternalRuntime" in McpFacet.prototype).toBe(false);
-    });
+    test(
+        "declares MCP parent controls/config without static discovered Operations",
+        { tags: "p1" },
+        () => {
+            const manifest = createMcpManifest(manifestInit("mcp", [MCP_PARENT_BINDING]));
+            expect(contributedOperations(manifest)).toEqual([]);
+            expect(manifest.contributions.entries.map((entry) => entry.slot.value)).toEqual([
+                "mcp.parent",
+                "slots"
+            ]);
+            expect(MCP_PARENT_SLOT.entrySchema.accepts(MCP_PARENT_CONTRIBUTION)).toBe(true);
+            expect(
+                manifest.configSchema?.accepts({
+                    remote: true,
+                    maximumPrompts: 2,
+                    maximumPromptBytes: 100
+                })
+            ).toBe(true);
+            for (const contract of Object.values(MCP_CONTROL_CONTRACTS)) {
+                contract.input.assertValid();
+                contract.output.assertValid();
+            }
+            for (const contract of Object.values(ENVIRONMENT_CONTROL_CONTRACTS)) {
+                contract.input.assertValid();
+                contract.output.assertValid();
+            }
+        }
+    );
 
-    test("coalesces concurrent lifecycle start/stop and gates the shared runtime", { tags: "p1" }, async () => {
-        const lifecyclePort = recordingRuntime("task").runtime;
-        lifecyclePort.deactivate();
-        const internal = new TaskFacet(lifecyclePort, new TaskBackend()).asInternalRuntime(
-            createTaskManifest(manifestInit("task"))
-        );
-        const context = { signal: new AbortController().signal };
-        await Promise.all([internal.start(context), internal.start(context)]);
-        expect(internal.active).toBe(true);
-        await Promise.all([internal.stop(context), internal.stop(context)]);
-        expect(internal.active).toBe(false);
-    });
+    test(
+        "keeps Single-tenant explicitly policy-only with no Facet manifest factory",
+        { tags: "p1" },
+        () => {
+            expect("createSingleTenantManifest" in SingleTenant).toBe(false);
+            expect(SingleTenant.SINGLE_TENANT_OPERATIONS).toEqual([]);
+        }
+    );
 
-    test("preserves caller identity/config/bindings but rejects undeclared contributions", { tags: "p1" }, () => {
-        const init = manifestInit("filesystem", ["caller.binding"]);
-        const manifest = createFilesystemManifest(init);
-        expect(manifest.id).toBe(init.id);
-        expect(manifest.version).toBe(init.version);
-        expect(manifest.compat).toBe(init.compat);
-        expect(manifest.configSchema).toBe(init.configSchema);
-        expect(manifest.bindings).toEqual(init.bindings);
+    test(
+        "exposes the W8 internal runtime contract from every actual Facet facade",
+        { tags: "p1" },
+        () => {
+            const facades = [
+                FilesystemFacet,
+                ShellFacet,
+                MemoryFacet,
+                TaskFacet,
+                WebFacet,
+                ApprovalGatewayFacet,
+                SelfFacet,
+                EnvironmentFacet,
+                DeviceFacet,
+                SlateFacet
+            ];
+            expect(
+                facades.every((facade) => typeof facade.prototype.asInternalRuntime === "function")
+            ).toBe(true);
+            expect("asInternalRuntime" in McpFacet.prototype).toBe(false);
+        }
+    );
 
-        expect(() =>
-            createStandardProfileManifest(init, {
-                isolation: ["dynamic"],
-                contributions: new Contributions([
-                    new Contribution(new SlotName("undeclared.profile-slot"), [{}])
-                ])
-            })
-        ).toThrow(/undeclared slot/u);
-    });
+    test(
+        "coalesces concurrent lifecycle start/stop and gates the shared runtime",
+        { tags: "p1" },
+        async () => {
+            const lifecyclePort = recordingRuntime("task").runtime;
+            lifecyclePort.deactivate();
+            const internal = new TaskFacet(lifecyclePort, new TaskBackend()).asInternalRuntime(
+                createTaskManifest(manifestInit("task"))
+            );
+            const context = { signal: new AbortController().signal };
+            await Promise.all([internal.start(context), internal.start(context)]);
+            expect(internal.active).toBe(true);
+            await Promise.all([internal.stop(context), internal.stop(context)]);
+            expect(internal.active).toBe(false);
+        }
+    );
 
-    test("validates optional config composition, prompt shape, and declared custom entries", { tags: "p1" }, () => {
-        const { configSchema: _configSchema, ...withoutConfig } = manifestInit("minimal");
-        const unconstrained = createStandardProfileManifest(withoutConfig, {
-            isolation: ["bundled"],
-            contributions: Contributions.empty()
-        });
-        expect(unconstrained.configSchema).toBeUndefined();
+    test(
+        "preserves caller identity/config/bindings but rejects undeclared contributions",
+        { tags: "p1" },
+        () => {
+            const init = manifestInit("filesystem", ["caller.binding"]);
+            const manifest = createFilesystemManifest(init);
+            expect(manifest.id).toBe(init.id);
+            expect(manifest.version).toBe(init.version);
+            expect(manifest.compat).toBe(init.compat);
+            expect(manifest.configSchema).toBe(init.configSchema);
+            expect(manifest.bindings).toEqual(init.bindings);
 
-        const constraint = new JsonSchema({
-            type: "object",
-            properties: { enabled: { type: "boolean" } },
-            required: ["enabled"]
-        });
-        const constrained = createStandardProfileManifest(withoutConfig, {
-            isolation: ["provider"],
-            contributions: Contributions.empty(),
-            configConstraint: constraint
-        });
-        expect(constrained.configSchema).toBe(constraint);
+            expect(() =>
+                createStandardProfileManifest(init, {
+                    isolation: ["dynamic"],
+                    contributions: new Contributions([
+                        new Contribution(new SlotName("undeclared.profile-slot"), [{}])
+                    ])
+                })
+            ).toThrow(/undeclared slot/u);
+        }
+    );
 
-        expect(() =>
-            createStandardProfileManifest(withoutConfig, {
+    test(
+        "validates optional config composition, prompt shape, and declared custom entries",
+        { tags: "p1" },
+        () => {
+            const { configSchema: _configSchema, ...withoutConfig } = manifestInit("minimal");
+            const unconstrained = createStandardProfileManifest(withoutConfig, {
                 isolation: ["bundled"],
-                contributions: new Contributions([new Contribution(new SlotName("prompt"), [{}])])
-            })
-        ).toThrow(/Prompt contribution must be an array/u);
+                contributions: Contributions.empty()
+            });
+            expect(unconstrained.configSchema).toBeUndefined();
 
-        const customSlot = new SlotDeclaration(
-            new SlotName("profile.custom"),
-            new JsonSchema({ type: "integer" }),
-            new SlotAuthorityPolicy(["installed"], ["scope.read"])
-        );
-        expect(() =>
-            createStandardProfileManifest(withoutConfig, {
-                isolation: ["bundled"],
-                contributions: new Contributions([
-                    new Contribution(new SlotName("slots"), [customSlot.toData()]),
-                    new Contribution(new SlotName("profile.custom"), ["wrong"])
-                ])
-            })
-        ).toThrow(/does not match slot/u);
-    });
+            const constraint = new JsonSchema({
+                type: "object",
+                properties: { enabled: { type: "boolean" } },
+                required: ["enabled"]
+            });
+            const constrained = createStandardProfileManifest(withoutConfig, {
+                isolation: ["provider"],
+                contributions: Contributions.empty(),
+                configConstraint: constraint
+            });
+            expect(constrained.configSchema).toBe(constraint);
 
-    test("provides internal lookup/surface/lifecycle/children without claiming the external Facet base", { tags: "p1" }, async () => {
-        const manifest = createTaskManifest(manifestInit("task"));
-        const { runtime } = recordingRuntime("task");
-        runtime.deactivate();
-        const facet = new TaskFacet(runtime, new TaskBackend());
-        const internal = facet.asInternalRuntime(manifest);
-        expect(internal.manifest).toBe(manifest);
-        expect(internal.operation(new OperationName("create"))?.descriptor.name.value).toBe(
-            "create"
-        );
-        expect(internal.operation(new OperationName("missing"))).toBeUndefined();
-        expect(internal.surface(TASK_BOARD_SURFACE.id)?.descriptor).toBe(TASK_BOARD_SURFACE);
-        expect(internal.children()).toEqual([]);
-        await expect(facet.list()).rejects.toMatchObject({ code: "facet.inactive" });
-        const context = { signal: new AbortController().signal };
-        await internal.start(context);
-        await internal.start(context);
-        expect(internal.active).toBe(true);
-        await expect(facet.list()).resolves.toEqual([]);
-        await internal.stop(context);
-        await internal.stop(context);
-        expect(internal.active).toBe(false);
-        await expect(facet.list()).rejects.toMatchObject({ code: "facet.inactive" });
-        const mismatchedFacade = new TaskFacet(
-            recordingRuntime("filesystem").runtime,
-            new TaskBackend()
-        );
-        expect(() =>
-            mismatchedFacade.asInternalRuntime(createFilesystemManifest(manifestInit("filesystem")))
-        ).toThrow(/declarations do not match/u);
-    });
+            expect(() =>
+                createStandardProfileManifest(withoutConfig, {
+                    isolation: ["bundled"],
+                    contributions: new Contributions([
+                        new Contribution(new SlotName("prompt"), [{}])
+                    ])
+                })
+            ).toThrow(/Prompt contribution must be an array/u);
+
+            const customSlot = new SlotDeclaration(
+                new SlotName("profile.custom"),
+                new JsonSchema({ type: "integer" }),
+                new SlotAuthorityPolicy(["installed"], ["scope.read"])
+            );
+            expect(() =>
+                createStandardProfileManifest(withoutConfig, {
+                    isolation: ["bundled"],
+                    contributions: new Contributions([
+                        new Contribution(new SlotName("slots"), [customSlot.toData()]),
+                        new Contribution(new SlotName("profile.custom"), ["wrong"])
+                    ])
+                })
+            ).toThrow(/does not match slot/u);
+        }
+    );
+
+    test(
+        "provides internal lookup/surface/lifecycle/children without claiming the external Facet base",
+        { tags: "p1" },
+        async () => {
+            const manifest = createTaskManifest(manifestInit("task"));
+            const { runtime } = recordingRuntime("task");
+            runtime.deactivate();
+            const facet = new TaskFacet(runtime, new TaskBackend());
+            const internal = facet.asInternalRuntime(manifest);
+            expect(internal.manifest).toBe(manifest);
+            expect(internal.operation(new OperationName("create"))?.descriptor.name.value).toBe(
+                "create"
+            );
+            expect(internal.operation(new OperationName("missing"))).toBeUndefined();
+            expect(internal.surface(TASK_BOARD_SURFACE.id)?.descriptor).toBe(TASK_BOARD_SURFACE);
+            expect(internal.children()).toEqual([]);
+            await expect(facet.list()).rejects.toMatchObject({ code: "facet.inactive" });
+            const context = { signal: new AbortController().signal };
+            await internal.start(context);
+            await internal.start(context);
+            expect(internal.active).toBe(true);
+            await expect(facet.list()).resolves.toEqual([]);
+            await internal.stop(context);
+            await internal.stop(context);
+            expect(internal.active).toBe(false);
+            await expect(facet.list()).rejects.toMatchObject({ code: "facet.inactive" });
+            const mismatchedFacade = new TaskFacet(
+                recordingRuntime("filesystem").runtime,
+                new TaskBackend()
+            );
+            expect(() =>
+                mismatchedFacade.asInternalRuntime(
+                    createFilesystemManifest(manifestInit("filesystem"))
+                )
+            ).toThrow(/declarations do not match/u);
+        }
+    );
 });
 
 describe("Facet manifest data validation", () => {

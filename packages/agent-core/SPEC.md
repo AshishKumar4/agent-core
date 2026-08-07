@@ -2293,7 +2293,7 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 
 - **P11-MCP-ADAPTER** MCP is an adapter Facet.
 - **P11-MCP-TOOLS** Discovered MCP tools become Operations.
-- **P11-MCP-RESOURCES** Discovered resources become `observe` Operations.
+- **P11-MCP-RESOURCES** Discovered resources become Operations whose impact the host derives the same way: reading one from a remote server is `externalSend`, and only a platform-side cached projection of a completed read is `observe`.
 - **P11-MCP-PROMPTS** Discovered prompts become prompt contributions.
 - **P11-MCP-SCHEMA-BOUNDARY** Tools, resources, and prompts are schema-validated at discovery.
 - **P11-MCP-LIFECYCLE** MCP start, health, and stop are the Facet lifecycle.
@@ -2302,18 +2302,18 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-MCP-PROMPT-BYTES** The canonical UTF-8 encoding of all contributed prompt titles and bodies is at most 262144 bytes per discovery.
 - **P11-MCP-POSITIVE-BOUNDS** Both MCP prompt maxima are positive, finite, and enforced before materialization.
 - **P11-MCP-INVOCATION** An MCP tool call is an ordinary Invocation.
-- **P11-MCP-IMPACT-ANNOTATION** Tool `_meta["io.agent-core/impact"]`, when present, is the exact Agent Core `Impact` annotation.
+- **P11-MCP-IMPACT-ANNOTATION** Tool `_meta["io.agent-core/impact"]` is a claim by the discovered server, so the host applies it only when it does not lower the §7.2 enforcement floor of the impact the host derived under `C13-POLICY-IMPACT-BOUNDARY` (§7.1); otherwise the derived impact stands.
 - **P11-MCP-IMPACT-UNKNOWN** An annotation value outside the closed `Impact` set rejects discovery.
-- **P11-MCP-IMPACT-DEFAULT-REMOTE** A remote tool with no impact annotation defaults to `externalSend`.
-- **P11-MCP-IMPACT-DEFAULT-LOCAL** A local tool with no impact annotation defaults to `execute`.
+- **P11-MCP-IMPACT-DEFAULT-REMOTE** A remote tool's host-derived impact is `externalSend`.
+- **P11-MCP-IMPACT-DEFAULT-LOCAL** A local tool's host-derived impact is `execute`.
 - **P11-MCP-MALFORMED-SCHEMA** A malformed tool schema rejects at discovery.
 - **P11-MCP-NO-LATE-SCHEMA** Schema rejection does not wait until call time.
 
 ### 11.7 Approval gateway
 
-- **P11-APPROVAL-GATEWAY-OBSERVE** Operation `observe` has `observe` impact.
+- **P11-APPROVAL-GATEWAY-OBSERVE** Operation `observe` reads the credential-holding external resource, so it has `externalSend` impact; only a platform-side cached projection of a completed read is `observe`.
 - **P11-APPROVAL-GATEWAY-APPLY** Operation `applyAction` has `externalSend` impact and is always mediated.
-- **P11-APPROVAL-GATEWAY-PROVIDER** The gateway is a provider-mode Facet mediating a credential-holding external resource.
+- **P11-APPROVAL-GATEWAY-PROVIDER** The gateway's manifest admits `provider` only, so §9.2 can select nothing else for it; it mediates a credential-holding external resource.
 - **P11-APPROVAL-GATEWAY-READS** Observations are authorized reads.
 - **P11-APPROVAL-GATEWAY-CONTINUATION** Actions are whole-intent-digest-bound Invocations through the invocation-level approval continuation.
 - **P11-APPROVAL-GATEWAY-RECEIPTS** The gateway persists canonical Receipts.

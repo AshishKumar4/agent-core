@@ -25,75 +25,92 @@ import { describe, expect, test } from "vitest";
 import { denyingRuntime, operationDeclarationEvidence, recordingRuntime } from "./harness";
 
 operationDeclarationEvidence("Approval gateway", APPROVAL_GATEWAY_OPERATIONS, {
-    observe: "observe",
+    observe: "externalSend",
     applyAction: "externalSend"
 });
 
 describe("Approval gateway protected provider profile", () => {
-    test("[P11-APPROVAL-GATEWAY-OBSERVE] mediates observe with observe impact and returns the authorized resource", { tags: "p1" }, async () => {
-        const backend = new TestGatewayBackend();
-        const { runtime, admission } = recordingRuntime("approval-observe");
-        const facet = new ApprovalGatewayFacet(
-            runtime,
-            new ApprovalGatewayAction(
-                new InvocationId("observe-unused-action"),
-                new Digest("a".repeat(64)),
-                "account",
-                {}
-            ),
-            backend
-        );
+    test(
+        "[P11-APPROVAL-GATEWAY-OBSERVE] mediates observe at externalSend impact and returns the authorized resource",
+        { tags: "p1" },
+        async () => {
+            const backend = new TestGatewayBackend();
+            const { runtime, admission } = recordingRuntime("approval-observe");
+            const facet = new ApprovalGatewayFacet(
+                runtime,
+                new ApprovalGatewayAction(
+                    new InvocationId("observe-unused-action"),
+                    new Digest("a".repeat(64)),
+                    "account",
+                    {}
+                ),
+                backend
+            );
 
-        await expect(facet.observe({ resource: "account" })).resolves.toEqual({
-            resource: "account"
-        });
-        expect(admission.calls).toMatchObject([
-            { kind: "invoke", name: "observe", impact: "observe", input: { resource: "account" } }
-        ]);
-    });
+            await expect(facet.observe({ resource: "account" })).resolves.toEqual({
+                resource: "account"
+            });
+            expect(admission.calls).toMatchObject([
+                {
+                    kind: "invoke",
+                    name: "observe",
+                    impact: "externalSend",
+                    input: { resource: "account" }
+                }
+            ]);
+        }
+    );
 
-    test("[P11-APPROVAL-GATEWAY-READS] denies an observation before the provider read", { tags: "p0" }, async () => {
-        const backend = new TestGatewayBackend();
-        const facet = new ApprovalGatewayFacet(
-            denyingRuntime("approval-read").runtime,
-            new ApprovalGatewayAction(
-                new InvocationId("read-unused-action"),
-                new Digest("b".repeat(64)),
-                "account",
-                {}
-            ),
-            backend
-        );
+    test(
+        "[P11-APPROVAL-GATEWAY-READS] denies an observation before the provider read",
+        { tags: "p0" },
+        async () => {
+            const backend = new TestGatewayBackend();
+            const facet = new ApprovalGatewayFacet(
+                denyingRuntime("approval-read").runtime,
+                new ApprovalGatewayAction(
+                    new InvocationId("read-unused-action"),
+                    new Digest("b".repeat(64)),
+                    "account",
+                    {}
+                ),
+                backend
+            );
 
-        await expect(facet.observe({ resource: "account" })).rejects.toMatchObject({
-            code: "authority.denied"
-        });
-        expect(backend.observations).toEqual([]);
-    });
+            await expect(facet.observe({ resource: "account" })).rejects.toMatchObject({
+                code: "authority.denied"
+            });
+            expect(backend.observations).toEqual([]);
+        }
+    );
 
-    test("[P11-APPROVAL-GATEWAY-PROVIDER] accesses the provider resource only inside admitted execution", { tags: "p0" }, async () => {
-        const backend = new TestGatewayBackend();
-        const { runtime, admission } = recordingRuntime("approval-provider");
-        const invocation = new InvocationId("profile-invocation-1");
-        const facet = new ApprovalGatewayFacet(
-            runtime,
-            new ApprovalGatewayAction(invocation, inputDigest("account"), "account", {
-                approved: true
-            }),
-            backend
-        );
+    test(
+        "[P11-APPROVAL-GATEWAY-PROVIDER] accesses the provider resource only inside admitted execution",
+        { tags: "p0" },
+        async () => {
+            const backend = new TestGatewayBackend();
+            const { runtime, admission } = recordingRuntime("approval-provider");
+            const invocation = new InvocationId("profile-invocation-1");
+            const facet = new ApprovalGatewayFacet(
+                runtime,
+                new ApprovalGatewayAction(invocation, inputDigest("account"), "account", {
+                    approved: true
+                }),
+                backend
+            );
 
-        await expect(facet.applyAction({ resource: "account" })).resolves.toEqual({
-            applied: true
-        });
-        expect(admission.calls[0]).toMatchObject({
-            kind: "invoke",
-            impact: "externalSend",
-            name: "applyAction"
-        });
-        expect(backend.actions).toEqual([{ approved: true }]);
-        expect(backend.dispatchKeys).toEqual(["profile-idempotency-1"]);
-    });
+            await expect(facet.applyAction({ resource: "account" })).resolves.toEqual({
+                applied: true
+            });
+            expect(admission.calls[0]).toMatchObject({
+                kind: "invoke",
+                impact: "externalSend",
+                name: "applyAction"
+            });
+            expect(backend.actions).toEqual([{ approved: true }]);
+            expect(backend.dispatchKeys).toEqual(["profile-idempotency-1"]);
+        }
+    );
 
     test("rejects noncanonical approved resource identities", { tags: "p0" }, () => {
         expect(
@@ -116,18 +133,22 @@ describe("Approval gateway protected provider profile", () => {
         ).toThrow("Approved resource must be canonical");
     });
 
-    test("releases the action only to the exactly admitted attempt identity", { tags: "p0" }, () => {
-        const digest = inputDigest("account");
-        const approval = new ApprovalGatewayAction(
-            new InvocationId("admitted"),
-            digest,
-            "account",
-            { approved: true }
-        );
-        expect(
-            approval.actionFor(effectContext(new InvocationId("admitted"), digest), "account")
-        ).toEqual({ approved: true });
-    });
+    test(
+        "releases the action only to the exactly admitted attempt identity",
+        { tags: "p0" },
+        () => {
+            const digest = inputDigest("account");
+            const approval = new ApprovalGatewayAction(
+                new InvocationId("admitted"),
+                digest,
+                "account",
+                { approved: true }
+            );
+            expect(
+                approval.actionFor(effectContext(new InvocationId("admitted"), digest), "account")
+            ).toEqual({ approved: true });
+        }
+    );
 
     test("rejects each single divergence from the admitted intent", { tags: "p0" }, () => {
         const digest = inputDigest("account");
@@ -182,96 +203,115 @@ describe("Approval gateway protected provider profile", () => {
         expect(caught).toMatchObject({ detailCode: "approval.mismatch" });
     });
 
-    test("internal runtime mediates observe and applyAction with the bound approval", { tags: "p0" }, async () => {
-        const backend = new TestGatewayBackend();
-        const { runtime } = recordingRuntime("approval-internal");
-        const digest = inputDigest("internal");
-        const invocation = new InvocationId("internal-invocation");
-        const approval = new ApprovalGatewayAction(invocation, digest, "account", {
-            approved: true
-        });
-        const internal = new ApprovalGatewayFacet(runtime, approval, backend).asInternalRuntime(
-            gatewayManifest()
-        );
-        await internal.start({ signal: new AbortController().signal });
-        expect(internal.active).toBe(true);
-        expect(internal.surface(APPROVAL_GATEWAY_SURFACE.id)?.descriptor).toBe(
-            APPROVAL_GATEWAY_SURFACE
-        );
+    test(
+        "internal runtime mediates observe and applyAction with the bound approval",
+        { tags: "p0" },
+        async () => {
+            const backend = new TestGatewayBackend();
+            const { runtime } = recordingRuntime("approval-internal");
+            const digest = inputDigest("internal");
+            const invocation = new InvocationId("internal-invocation");
+            const approval = new ApprovalGatewayAction(invocation, digest, "account", {
+                approved: true
+            });
+            const internal = new ApprovalGatewayFacet(runtime, approval, backend).asInternalRuntime(
+                gatewayManifest()
+            );
+            await internal.start({ signal: new AbortController().signal });
+            expect(internal.active).toBe(true);
+            expect(internal.surface(APPROVAL_GATEWAY_SURFACE.id)?.descriptor).toBe(
+                APPROVAL_GATEWAY_SURFACE
+            );
 
-        const context = internalContext(invocation, digest);
-        await expect(
-            internalOperation(internal, "observe").execute(context, { resource: "account" })
-        ).resolves.toEqual({ resource: "account" });
-        expect(backend.observations).toEqual(["account"]);
-        await expect(
-            internalOperation(internal, "applyAction").execute(context, { resource: "account" })
-        ).resolves.toEqual({ applied: true });
-        expect(backend.actions).toEqual([{ approved: true }]);
-        expect(backend.dispatchKeys).toEqual(["internal-idempotency"]);
-    });
+            const context = internalContext(invocation, digest);
+            await expect(
+                internalOperation(internal, "observe").execute(context, { resource: "account" })
+            ).resolves.toEqual({ resource: "account" });
+            expect(backend.observations).toEqual(["account"]);
+            await expect(
+                internalOperation(internal, "applyAction").execute(context, { resource: "account" })
+            ).resolves.toEqual({ applied: true });
+            expect(backend.actions).toEqual([{ approved: true }]);
+            expect(backend.dispatchKeys).toEqual(["internal-idempotency"]);
+        }
+    );
 
-    test("binds one frozen action to exact admitted Invocation, digest, and resource", { tags: "p0" }, async () => {
-        const backend = new TestGatewayBackend();
-        const { runtime, admission } = recordingRuntime("approval");
-        const continuation = new ApprovalGatewayAction(
-            new InvocationId("profile-invocation-2"),
-            inputDigest("account"),
-            "account",
-            { wholeIntent: true }
-        );
-        const facet = new ApprovalGatewayFacet(runtime, continuation, backend);
+    test(
+        "binds one frozen action to exact admitted Invocation, digest, and resource",
+        { tags: "p0" },
+        async () => {
+            const backend = new TestGatewayBackend();
+            const { runtime, admission } = recordingRuntime("approval");
+            const continuation = new ApprovalGatewayAction(
+                new InvocationId("profile-invocation-2"),
+                inputDigest("account"),
+                "account",
+                { wholeIntent: true }
+            );
+            const facet = new ApprovalGatewayFacet(runtime, continuation, backend);
 
-        await expect(facet.observe({ resource: "account" })).resolves.toEqual({
-            resource: "account"
-        });
-        await expect(facet.applyAction({ resource: "account" })).resolves.toEqual({
-            applied: true
-        });
-        expect(admission.calls.map((call) => call.name)).toEqual(["observe", "applyAction"]);
-        expect(backend.actions).toEqual([{ wholeIntent: true }]);
-    });
+            await expect(facet.observe({ resource: "account" })).resolves.toEqual({
+                resource: "account"
+            });
+            await expect(facet.applyAction({ resource: "account" })).resolves.toEqual({
+                applied: true
+            });
+            expect(admission.calls.map((call) => call.name)).toEqual(["observe", "applyAction"]);
+            expect(backend.actions).toEqual([{ wholeIntent: true }]);
+        }
+    );
 
-    test("[P11-APPROVAL-GATEWAY-CREDENTIAL] rejects mismatched digest or resource before credential effects", { tags: "p0" }, async () => {
-        const backend = new TestGatewayBackend();
-        const { runtime } = recordingRuntime("approval");
-        const continuation = new ApprovalGatewayAction(
-            new InvocationId("profile-invocation-1"),
-            new Digest("b".repeat(64)),
-            "other",
-            { denied: true }
-        );
-        const facet = new ApprovalGatewayFacet(runtime, continuation, backend);
-        await expect(facet.applyAction({ resource: "account" })).rejects.toMatchObject({
-            detailCode: "approval.mismatch"
-        });
-        expect(backend.actions).toEqual([]);
-    });
+    test(
+        "[P11-APPROVAL-GATEWAY-CREDENTIAL] rejects mismatched digest or resource before credential effects",
+        { tags: "p0" },
+        async () => {
+            const backend = new TestGatewayBackend();
+            const { runtime } = recordingRuntime("approval");
+            const continuation = new ApprovalGatewayAction(
+                new InvocationId("profile-invocation-1"),
+                new Digest("b".repeat(64)),
+                "other",
+                { denied: true }
+            );
+            const facet = new ApprovalGatewayFacet(runtime, continuation, backend);
+            await expect(facet.applyAction({ resource: "account" })).rejects.toMatchObject({
+                detailCode: "approval.mismatch"
+            });
+            expect(backend.actions).toEqual([]);
+        }
+    );
 
-    test("[P11-APPROVAL-GATEWAY-APPLY] protected admission denial prevents approval action access", { tags: "p0" }, async () => {
-        const denied = denyingRuntime("approval");
-        const continuation = new ApprovalGatewayAction(
-            new InvocationId("denied-invocation"),
-            new Digest("c".repeat(64)),
-            "account",
-            {}
-        );
-        const backend = new TestGatewayBackend();
-        const facet = new ApprovalGatewayFacet(denied.runtime, continuation, backend);
-        await expect(facet.applyAction({ resource: "account" })).rejects.toMatchObject({
-            code: "authority.denied"
-        });
-        expect(backend.actions).toEqual([]);
-    });
+    test(
+        "[P11-APPROVAL-GATEWAY-APPLY] protected admission denial prevents approval action access",
+        { tags: "p0" },
+        async () => {
+            const denied = denyingRuntime("approval");
+            const continuation = new ApprovalGatewayAction(
+                new InvocationId("denied-invocation"),
+                new Digest("c".repeat(64)),
+                "account",
+                {}
+            );
+            const backend = new TestGatewayBackend();
+            const facet = new ApprovalGatewayFacet(denied.runtime, continuation, backend);
+            await expect(facet.applyAction({ resource: "account" })).rejects.toMatchObject({
+                code: "authority.denied"
+            });
+            expect(backend.actions).toEqual([]);
+        }
+    );
 
-    test("[P11-APPROVAL-GATEWAY-SURFACE] declares provider isolation, approval Surface, and exact contributions", { tags: "p1" }, () => {
-        expect(APPROVAL_GATEWAY_ISOLATION).toEqual(["provider"]);
-        expect(APPROVAL_GATEWAY_SURFACE.id.value).toBe("approval.gateway");
-        expect(APPROVAL_GATEWAY_CONTRIBUTIONS.entries.map((entry) => entry.slot.value)).toEqual([
-            "operations",
-            "surfaces"
-        ]);
-    });
+    test(
+        "[P11-APPROVAL-GATEWAY-SURFACE] declares provider isolation, approval Surface, and exact contributions",
+        { tags: "p1" },
+        () => {
+            expect(APPROVAL_GATEWAY_ISOLATION).toEqual(["provider"]);
+            expect(APPROVAL_GATEWAY_SURFACE.id.value).toBe("approval.gateway");
+            expect(APPROVAL_GATEWAY_CONTRIBUTIONS.entries.map((entry) => entry.slot.value)).toEqual(
+                ["operations", "surfaces"]
+            );
+        }
+    );
 });
 
 class TestGatewayBackend extends ApprovalGatewayBackend {

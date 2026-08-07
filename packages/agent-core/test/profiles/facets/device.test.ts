@@ -49,48 +49,57 @@ operationDeclarationEvidence("Device", DEVICE_OPERATIONS, {
 });
 
 describe("Device protected Environment profile", () => {
-    test("[P11-DEVICE-LIVE-IMPACT] routes live and cached Operations through mediation", { tags: "p1" }, async () => {
-        const agent = principal("agent");
-        const consent = new MemoryDeviceConsentBackend(() => 10);
-        consent.grant(deviceId("phone"), agent, 20);
-        const transport = new TestDeviceTransport();
-        const { runtime, admission } = recordingRuntime("device", undefined, (_request, input) =>
-            consent.admit(undefined, inputDevice(input), agent)
-        );
-        const device = new DeviceFacet(
-            runtime,
-            new DeviceBackend(new LiveSession(), transport, { read: () => ({ cached: true }) })
-        );
+    test(
+        "[P11-DEVICE-LIVE-IMPACT] routes live and cached Operations through mediation",
+        { tags: "p1" },
+        async () => {
+            const agent = principal("agent");
+            const consent = new MemoryDeviceConsentBackend(() => 10);
+            consent.grant(deviceId("phone"), agent, 20);
+            const transport = new TestDeviceTransport();
+            const { runtime, admission } = recordingRuntime(
+                "device",
+                undefined,
+                (_request, input) => consent.admit(undefined, inputDevice(input), agent)
+            );
+            const device = new DeviceFacet(
+                runtime,
+                new DeviceBackend(new LiveSession(), transport, { read: () => ({ cached: true }) })
+            );
 
-        await device.pair({
-            deviceId: deviceId("phone"),
-            publicKey: "key",
-            operatorApproval: "approved"
-        });
-        await device.camera(cameraInput());
-        await device.location({ deviceId: deviceId("phone"), arguments: { accuracyMeters: 5 } });
-        await device.sms({
-            deviceId: deviceId("phone"),
-            arguments: { to: "+15550000", message: "hello" }
-        });
-        await device.screen({ deviceId: deviceId("phone"), arguments: { mode: "capture" } });
-        await device.systemRun({
-            deviceId: deviceId("phone"),
-            arguments: { command: "status", arguments: ["--json"] }
-        });
-        await device.readCached({ deviceId: deviceId("phone"), key: "last" });
+            await device.pair({
+                deviceId: deviceId("phone"),
+                publicKey: "key",
+                operatorApproval: "approved"
+            });
+            await device.camera(cameraInput());
+            await device.location({
+                deviceId: deviceId("phone"),
+                arguments: { accuracyMeters: 5 }
+            });
+            await device.sms({
+                deviceId: deviceId("phone"),
+                arguments: { to: "+15550000", message: "hello" }
+            });
+            await device.screen({ deviceId: deviceId("phone"), arguments: { mode: "capture" } });
+            await device.systemRun({
+                deviceId: deviceId("phone"),
+                arguments: { command: "status", arguments: ["--json"] }
+            });
+            await device.readCached({ deviceId: deviceId("phone"), key: "last" });
 
-        expect(admission.calls.map((call) => [call.kind, call.name])).toEqual([
-            ["control", "device.pair"],
-            ["invoke", "camera"],
-            ["invoke", "location"],
-            ["invoke", "sms"],
-            ["invoke", "screen"],
-            ["invoke", "system.run"],
-            ["invoke", "readCached"]
-        ]);
-        expect(transport.sent.every((request) => request.agentId.equals(agent))).toBe(true);
-    });
+            expect(admission.calls.map((call) => [call.kind, call.name])).toEqual([
+                ["control", "device.pair"],
+                ["invoke", "camera"],
+                ["invoke", "location"],
+                ["invoke", "sms"],
+                ["invoke", "screen"],
+                ["invoke", "system.run"],
+                ["invoke", "readCached"]
+            ]);
+            expect(transport.sent.every((request) => request.agentId.equals(agent))).toBe(true);
+        }
+    );
 
     test("denial prevents pairing and reverse transport", { tags: "p0" }, async () => {
         const transport = new TestDeviceTransport();
@@ -104,122 +113,146 @@ describe("Device protected Environment profile", () => {
         expect(transport.sent).toEqual([]);
     });
 
-    test("[P11-DEVICE-PAIRING] passes the admitted device key and operator approval to reverse transport", { tags: "p1" }, async () => {
-        const agent = principal("rewrite-agent");
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        consent.grant(deviceId("rewritten-phone"), agent, 2);
-        const transport = new TestDeviceTransport();
-        const cacheReads: Array<readonly string[]> = [];
-        const rewrite = (kind: "invoke" | "emit" | "control", name: string, input: JsonValue) => {
-            if (kind === "control" && name === "device.pair") {
-                return {
-                    deviceId: "rewritten-phone",
-                    publicKey: "rewritten-key",
-                    operatorApproval: "rewritten-approval"
-                };
-            }
-            if (kind === "invoke" && name === "camera") {
-                return { deviceId: "rewritten-phone", arguments: { facing: "rear" } };
-            }
-            if (kind === "invoke" && name === "readCached") {
-                return { deviceId: "rewritten-phone", key: "rewritten-cache" };
-            }
-            return input;
-        };
-        const { runtime } = recordingRuntime("device-rewrite", rewrite, (_request, input) =>
-            consent.admit(undefined, inputDevice(input), agent)
-        );
-        const facet = new DeviceFacet(
-            runtime,
-            new DeviceBackend(new LiveSession(), transport, {
-                read(device, key) {
-                    cacheReads.push([device.value, key]);
-                    return { rewritten: true };
+    test(
+        "[P11-DEVICE-PAIRING] passes the admitted device key and operator approval to reverse transport",
+        { tags: "p1" },
+        async () => {
+            const agent = principal("rewrite-agent");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            consent.grant(deviceId("rewritten-phone"), agent, 2);
+            const transport = new TestDeviceTransport();
+            const cacheReads: Array<readonly string[]> = [];
+            const rewrite = (
+                kind: "invoke" | "emit" | "control",
+                name: string,
+                input: JsonValue
+            ) => {
+                if (kind === "control" && name === "device.pair") {
+                    return {
+                        deviceId: "rewritten-phone",
+                        publicKey: "rewritten-key",
+                        operatorApproval: "rewritten-approval"
+                    };
                 }
-            })
-        );
+                if (kind === "invoke" && name === "camera") {
+                    return { deviceId: "rewritten-phone", arguments: { facing: "rear" } };
+                }
+                if (kind === "invoke" && name === "readCached") {
+                    return { deviceId: "rewritten-phone", key: "rewritten-cache" };
+                }
+                return input;
+            };
+            const { runtime } = recordingRuntime("device-rewrite", rewrite, (_request, input) =>
+                consent.admit(undefined, inputDevice(input), agent)
+            );
+            const facet = new DeviceFacet(
+                runtime,
+                new DeviceBackend(new LiveSession(), transport, {
+                    read(device, key) {
+                        cacheReads.push([device.value, key]);
+                        return { rewritten: true };
+                    }
+                })
+            );
 
-        await facet.pair({
-            deviceId: deviceId("caller-phone"),
-            publicKey: "caller-key",
-            operatorApproval: "caller-approval"
-        });
-        await facet.camera({
-            deviceId: deviceId("caller-phone"),
-            arguments: { facing: "front" }
-        });
-        await expect(
-            facet.readCached({ deviceId: deviceId("caller-phone"), key: "caller-cache" })
-        ).resolves.toEqual({ rewritten: true });
+            await facet.pair({
+                deviceId: deviceId("caller-phone"),
+                publicKey: "caller-key",
+                operatorApproval: "caller-approval"
+            });
+            await facet.camera({
+                deviceId: deviceId("caller-phone"),
+                arguments: { facing: "front" }
+            });
+            await expect(
+                facet.readCached({ deviceId: deviceId("caller-phone"), key: "caller-cache" })
+            ).resolves.toEqual({ rewritten: true });
 
-        expect(transport.paired).toEqual([
-            ["rewritten-phone", "rewritten-key", "rewritten-approval"]
-        ]);
-        expect(transport.sent[0]).toMatchObject({
-            deviceId: deviceId("rewritten-phone"),
-            operation: "camera",
-            arguments: { facing: "rear" }
-        });
-        expect(cacheReads).toEqual([["rewritten-phone", "rewritten-cache"]]);
-    });
+            expect(transport.paired).toEqual([
+                ["rewritten-phone", "rewritten-key", "rewritten-approval"]
+            ]);
+            expect(transport.sent[0]).toMatchObject({
+                deviceId: deviceId("rewritten-phone"),
+                operation: "camera",
+                arguments: { facing: "rear" }
+            });
+            expect(cacheReads).toEqual([["rewritten-phone", "rewritten-cache"]]);
+        }
+    );
 });
 
 describe("Device transport admission and declarations", () => {
-    test("[P11-DEVICE-ENVIRONMENT] checks the exact Environment before transport", { tags: "p0" }, async () => {
-        const agent = principal("environment-agent");
-        const phone = deviceId("environment-phone");
-        const checked: DeviceId[] = [];
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const admission = grantAndAdmit(consent, phone, agent, 2);
-        const transport = new TestDeviceTransport();
-        const backend = new DeviceBackend(
-            new RecordingSession((device) => checked.push(device)),
-            transport,
-            { read: () => undefined }
-        );
+    test(
+        "[P11-DEVICE-ENVIRONMENT] checks the exact Environment before transport",
+        { tags: "p0" },
+        async () => {
+            const agent = principal("environment-agent");
+            const phone = deviceId("environment-phone");
+            const checked: DeviceId[] = [];
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const admission = grantAndAdmit(consent, phone, agent, 2);
+            const transport = new TestDeviceTransport();
+            const backend = new DeviceBackend(
+                new RecordingSession((device) => checked.push(device)),
+                transport,
+                { read: () => undefined }
+            );
 
-        await backend.execute(
-            "camera",
-            { deviceId: phone, arguments: { facing: "front" } },
-            effectContext(admission)
-        );
+            await backend.execute(
+                "camera",
+                { deviceId: phone, arguments: { facing: "front" } },
+                effectContext(admission)
+            );
 
-        expect(checked).toEqual([phone]);
-        expect(transport.sent.map((request) => request.deviceId)).toEqual([phone]);
-    });
-
-    test("[P11-DEVICE-CONSENT-ABSENT] rejects absent, forged, and wrong-device admission evidence", { tags: "p0" }, async () => {
-        const agent = principal("bound-agent");
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const admission = grantAndAdmit(consent, deviceId("bound-phone"), agent, 2);
-        const transport = new TestDeviceTransport();
-        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
-
-        for (const context of [
-            effectContext(undefined),
-            effectContext({ ...admission }),
-            effectContext(admission)
-        ]) {
-            await expect(backend.execute("camera", cameraInput(), context)).rejects.toMatchObject({
-                detailCode: "consent.invalid"
-            });
+            expect(checked).toEqual([phone]);
+            expect(transport.sent.map((request) => request.deviceId)).toEqual([phone]);
         }
-        expect(transport.sent).toEqual([]);
-    });
+    );
 
-    test("[P11-DEVICE-CONSENT-PAIR] admits only the exact Device and Agent pair", { tags: "p0" }, () => {
-        const now = 10;
-        const agent = principal("live-agent", "tenant-a");
-        const other = principal("live-agent", "tenant-b");
-        const phone = deviceId("live-phone");
-        const consent = new MemoryDeviceConsentBackend(() => now);
-        consent.grant(phone, agent, 12);
+    test(
+        "[P11-DEVICE-CONSENT-ABSENT] rejects absent, forged, and wrong-device admission evidence",
+        { tags: "p0" },
+        async () => {
+            const agent = principal("bound-agent");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const admission = grantAndAdmit(consent, deviceId("bound-phone"), agent, 2);
+            const transport = new TestDeviceTransport();
+            const backend = new DeviceBackend(new LiveSession(), transport, {
+                read: () => undefined
+            });
 
-        expect(consent.admit(undefined, phone, agent).agentId.equals(agent)).toBe(true);
-        expect(() => consent.admit(undefined, phone, other)).toThrow(
-            expect.objectContaining({ detailCode: "consent.denied" })
-        );
-    });
+            for (const context of [
+                effectContext(undefined),
+                effectContext({ ...admission }),
+                effectContext(admission)
+            ]) {
+                await expect(
+                    backend.execute("camera", cameraInput(), context)
+                ).rejects.toMatchObject({
+                    detailCode: "consent.invalid"
+                });
+            }
+            expect(transport.sent).toEqual([]);
+        }
+    );
+
+    test(
+        "[P11-DEVICE-CONSENT-PAIR] admits only the exact Device and Agent pair",
+        { tags: "p0" },
+        () => {
+            const now = 10;
+            const agent = principal("live-agent", "tenant-a");
+            const other = principal("live-agent", "tenant-b");
+            const phone = deviceId("live-phone");
+            const consent = new MemoryDeviceConsentBackend(() => now);
+            consent.grant(phone, agent, 12);
+
+            expect(consent.admit(undefined, phone, agent).agentId.equals(agent)).toBe(true);
+            expect(() => consent.admit(undefined, phone, other)).toThrow(
+                expect.objectContaining({ detailCode: "consent.denied" })
+            );
+        }
+    );
 
     test("[P11-DEVICE-CONSENT-LIVE] rejects expired consent", { tags: "p0" }, () => {
         let now = 10;
@@ -233,66 +266,90 @@ describe("Device transport admission and declarations", () => {
         );
     });
 
-    test("[P11-DEVICE-CONSENT-ISOLATION] rejects another Device under the same Agent", { tags: "p0" }, () => {
-        const agent = principal("isolated-agent");
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        consent.grant(deviceId("authorized-phone"), agent, 2);
-        expect(() => consent.admit(undefined, deviceId("other-phone"), agent)).toThrow(
-            expect.objectContaining({ detailCode: "consent.denied" })
-        );
-    });
+    test(
+        "[P11-DEVICE-CONSENT-ISOLATION] rejects another Device under the same Agent",
+        { tags: "p0" },
+        () => {
+            const agent = principal("isolated-agent");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            consent.grant(deviceId("authorized-phone"), agent, 2);
+            expect(() => consent.admit(undefined, deviceId("other-phone"), agent)).toThrow(
+                expect.objectContaining({ detailCode: "consent.denied" })
+            );
+        }
+    );
 
-    test("[P11-DEVICE-CONSENT-FINAL-CHECK] returns exact immutable target admission evidence", { tags: "p0" }, () => {
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const device = deviceId("final-phone");
-        const boundAgent = principal("final-agent");
-        const admission = grantAndAdmit(consent, device, boundAgent, 2);
+    test(
+        "[P11-DEVICE-CONSENT-FINAL-CHECK] returns exact immutable target admission evidence",
+        { tags: "p0" },
+        () => {
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const device = deviceId("final-phone");
+            const boundAgent = principal("final-agent");
+            const admission = grantAndAdmit(consent, device, boundAgent, 2);
 
-        expect(admission.deviceId).toBe(device);
-        expect(admission.agentId).toBe(boundAgent);
-        expect(Object.isFrozen(admission)).toBe(true);
-    });
+            expect(admission.deviceId).toBe(device);
+            expect(admission.agentId).toBe(boundAgent);
+            expect(Object.isFrozen(admission)).toBe(true);
+        }
+    );
 
-    test("[P11-DEVICE-CONSENT-REVOCATION] rejects consent revoked before target admission", { tags: "p0" }, () => {
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const device = deviceId("revoked-phone");
-        const boundAgent = principal("revoked-agent");
-        consent.grant(device, boundAgent, 2);
-        consent.revoke(device, boundAgent);
+    test(
+        "[P11-DEVICE-CONSENT-REVOCATION] rejects consent revoked before target admission",
+        { tags: "p0" },
+        () => {
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const device = deviceId("revoked-phone");
+            const boundAgent = principal("revoked-agent");
+            consent.grant(device, boundAgent, 2);
+            consent.revoke(device, boundAgent);
 
-        expect(() => consent.admit(undefined, device, boundAgent)).toThrow(
-            expect.objectContaining({ detailCode: "consent.denied" })
-        );
-    });
+            expect(() => consent.admit(undefined, device, boundAgent)).toThrow(
+                expect.objectContaining({ detailCode: "consent.denied" })
+            );
+        }
+    );
 
-    test("[P11-DEVICE-CONSENT-ADMITTED] preserves a target admission across later revocation", { tags: "p0" }, async () => {
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const device = deviceId("admitted-phone");
-        const boundAgent = principal("admitted-agent");
-        const admission = grantAndAdmit(consent, device, boundAgent, 2);
-        consent.revoke(device, boundAgent);
-        const transport = new TestDeviceTransport();
-        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
+    test(
+        "[P11-DEVICE-CONSENT-ADMITTED] preserves a target admission across later revocation",
+        { tags: "p0" },
+        async () => {
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const device = deviceId("admitted-phone");
+            const boundAgent = principal("admitted-agent");
+            const admission = grantAndAdmit(consent, device, boundAgent, 2);
+            consent.revoke(device, boundAgent);
+            const transport = new TestDeviceTransport();
+            const backend = new DeviceBackend(new LiveSession(), transport, {
+                read: () => undefined
+            });
 
-        await backend.execute(
-            "camera",
-            { deviceId: device, arguments: { facing: "front" } },
-            effectContext(admission)
-        );
+            await backend.execute(
+                "camera",
+                { deviceId: device, arguments: { facing: "front" } },
+                effectContext(admission)
+            );
 
-        expect(transport.admissions).toEqual([admission]);
-    });
+            expect(transport.admissions).toEqual([admission]);
+        }
+    );
 
-    test("[P11-DEVICE-CACHED-READ] remains observe and requires no live admission", { tags: "p1" }, () => {
-        const backend = new DeviceBackend(new LiveSession(), new TestDeviceTransport(), {
-            read: (_device, key) => (key === "present" ? { nested: true } : undefined)
-        });
-        expect(DEVICE_OPERATION_CONTRACTS.readCached.descriptor.impact).toBe("observe");
-        expect(backend.readCached({ deviceId: deviceId("phone"), key: "missing" })).toBeUndefined();
-        expect(backend.readCached({ deviceId: deviceId("phone"), key: "present" })).toEqual({
-            nested: true
-        });
-    });
+    test(
+        "[P11-DEVICE-CACHED-READ] remains observe and requires no live admission",
+        { tags: "p1" },
+        () => {
+            const backend = new DeviceBackend(new LiveSession(), new TestDeviceTransport(), {
+                read: (_device, key) => (key === "present" ? { nested: true } : undefined)
+            });
+            expect(DEVICE_OPERATION_CONTRACTS.readCached.descriptor.impact).toBe("observe");
+            expect(
+                backend.readCached({ deviceId: deviceId("phone"), key: "missing" })
+            ).toBeUndefined();
+            expect(backend.readCached({ deviceId: deviceId("phone"), key: "present" })).toEqual({
+                nested: true
+            });
+        }
+    );
 
     test("declares typed commands and standard Events", { tags: "p1" }, () => {
         expect(DEVICE_COMMANDS.map((command) => command.name)).toEqual([
@@ -315,90 +372,123 @@ describe("Device transport admission and declarations", () => {
         ]);
     });
 
-    test("[P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions", { tags: "p1" }, () => {
-        for (const contract of Object.values(DEVICE_OPERATION_CONTRACTS)) {
-            expect(contract.inputCodec).toBeInstanceOf(VersionedProfileWireCodec);
-            const codec = contract.inputCodec as VersionedProfileWireCodec<unknown>;
-            expect(() => codec.decodeVersion({ major: 2, minor: 0 }, {})).toThrow(
-                expect.objectContaining({ code: "codec.unknown-major", detailCode: "wire.input" })
-            );
-        }
-    });
-
-    test("validates command identities, pairing, operation membership, and consent clocks", { tags: "p1" }, async () => {
-        const transport = new TestDeviceTransport();
-        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
-        expect(new DeviceCommandId("camera-request").value).toBe("camera-request");
-        expect(() => new DeviceCommandId(" camera-request")).toThrow(TypeError);
-        expect(() => new DeviceId(" ")).toThrow(TypeError);
-        expect(() =>
-            backend.pair({ deviceId: deviceId("phone"), publicKey: " ", operatorApproval: "ok" })
-        ).toThrow(expect.objectContaining({ detailCode: "command.invalid" }));
-        await expect(
-            backend.execute("outside" as never, cameraInput(), effectContext(undefined))
-        ).rejects.toMatchObject({ detailCode: "command.invalid" });
-
-        const invalidClock = new (class extends DeviceConsentBackend {
-            protected assertLive(): number {
-                return -1;
+    test(
+        "[P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions",
+        { tags: "p1" },
+        () => {
+            for (const contract of Object.values(DEVICE_OPERATION_CONTRACTS)) {
+                expect(contract.inputCodec).toBeInstanceOf(VersionedProfileWireCodec);
+                const codec = contract.inputCodec as VersionedProfileWireCodec<unknown>;
+                expect(() => codec.decodeVersion({ major: 2, minor: 0 }, {})).toThrow(
+                    expect.objectContaining({
+                        code: "codec.unknown-major",
+                        detailCode: "wire.input"
+                    })
+                );
             }
-        })();
-        expect(() => invalidClock.admit(undefined, deviceId("phone"), principal("agent"))).toThrow(
-            expect.objectContaining({ detailCode: "consent.invalid" })
-        );
-    });
+        }
+    );
+
+    test(
+        "validates command identities, pairing, operation membership, and consent clocks",
+        { tags: "p1" },
+        async () => {
+            const transport = new TestDeviceTransport();
+            const backend = new DeviceBackend(new LiveSession(), transport, {
+                read: () => undefined
+            });
+            expect(new DeviceCommandId("camera-request").value).toBe("camera-request");
+            expect(() => new DeviceCommandId(" camera-request")).toThrow(TypeError);
+            expect(() => new DeviceId(" ")).toThrow(TypeError);
+            expect(() =>
+                backend.pair({
+                    deviceId: deviceId("phone"),
+                    publicKey: " ",
+                    operatorApproval: "ok"
+                })
+            ).toThrow(expect.objectContaining({ detailCode: "command.invalid" }));
+            await expect(
+                backend.execute("outside" as never, cameraInput(), effectContext(undefined))
+            ).rejects.toMatchObject({ detailCode: "command.invalid" });
+
+            const invalidClock = new (class extends DeviceConsentBackend {
+                protected assertLive(): number {
+                    return -1;
+                }
+            })();
+            expect(() =>
+                invalidClock.admit(undefined, deviceId("phone"), principal("agent"))
+            ).toThrow(expect.objectContaining({ detailCode: "consent.invalid" }));
+        }
+    );
 });
 
 describe("Device effect identity to reverse transport", () => {
-    test("[P11-DEVICE-DISPATCH] delivers the canonical effect identity derived from the context", { tags: "p0" }, async () => {
-        const agent = principal("dispatch-agent");
-        const phone = deviceId("dispatch-phone");
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const admission = grantAndAdmit(consent, phone, agent, 2);
-        const transport = new TestDeviceTransport();
-        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
-        const context = effectContext(admission);
+    test(
+        "[P11-DEVICE-DISPATCH] delivers the canonical effect identity derived from the context",
+        { tags: "p0" },
+        async () => {
+            const agent = principal("dispatch-agent");
+            const phone = deviceId("dispatch-phone");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const admission = grantAndAdmit(consent, phone, agent, 2);
+            const transport = new TestDeviceTransport();
+            const backend = new DeviceBackend(new LiveSession(), transport, {
+                read: () => undefined
+            });
+            const context = effectContext(admission);
 
-        await backend.execute(
-            "camera",
-            { deviceId: phone, arguments: { facing: "front" } },
-            context
-        );
+            await backend.execute(
+                "camera",
+                { deviceId: phone, arguments: { facing: "front" } },
+                context
+            );
 
-        const delivered = transport.dispatched[0]!;
-        const expected = context.dispatch();
-        expect(Object.isFrozen(delivered)).toBe(true);
-        expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
-        expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
-        expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
-        expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
-    });
+            const delivered = transport.dispatched[0]!;
+            const expected = context.dispatch();
+            expect(Object.isFrozen(delivered)).toBe(true);
+            expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
+            expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
+            expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
+            expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(
+                true
+            );
+        }
+    );
 
-    test("[P11-DEVICE-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-delivering", { tags: "p0" }, async () => {
-        const agent = principal("crash-agent");
-        const phone = deviceId("crash-phone");
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const admission = grantAndAdmit(consent, phone, agent, 2);
-        const transport = new DedupDeviceTransport();
-        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
-        const context = effectContext(admission);
-        const input = { deviceId: phone, arguments: { facing: "front" } } as const;
+    test(
+        "[P11-DEVICE-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-delivering",
+        { tags: "p0" },
+        async () => {
+            const agent = principal("crash-agent");
+            const phone = deviceId("crash-phone");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const admission = grantAndAdmit(consent, phone, agent, 2);
+            const transport = new DedupDeviceTransport();
+            const backend = new DeviceBackend(new LiveSession(), transport, {
+                read: () => undefined
+            });
+            const context = effectContext(admission);
+            const input = { deviceId: phone, arguments: { facing: "front" } } as const;
 
-        await expect(backend.execute("camera", input, context)).rejects.toThrow("crash after send");
-        const retry = await backend.execute("camera", input, context);
+            await expect(backend.execute("camera", input, context)).rejects.toThrow(
+                "crash after send"
+            );
+            const retry = await backend.execute("camera", input, context);
 
-        expect(transport.attempts.map((dispatch) => dispatch.idempotencyKey)).toEqual([
-            "device-test-key",
-            "device-test-key"
-        ]);
-        expect(
-            transport.attempts.every((dispatch) =>
-                dispatch.attempt!.id.equals(new EffectAttemptId("device-test-attempt"))
-            )
-        ).toBe(true);
-        expect(transport.deliveries).toBe(1);
-        expect(retry).toEqual({ operation: "camera" });
-    });
+            expect(transport.attempts.map((dispatch) => dispatch.idempotencyKey)).toEqual([
+                "device-test-key",
+                "device-test-key"
+            ]);
+            expect(
+                transport.attempts.every((dispatch) =>
+                    dispatch.attempt!.id.equals(new EffectAttemptId("device-test-attempt"))
+                )
+            ).toBe(true);
+            expect(transport.deliveries).toBe(1);
+            expect(retry).toEqual({ operation: "camera" });
+        }
+    );
 });
 
 describe("Device consent boundaries and error identity", () => {
@@ -426,71 +516,83 @@ describe("Device consent boundaries and error identity", () => {
         }
     );
 
-    test("admits a consent clock at the epoch boundary and sequences admissions", {
-        tags: "p1"
-    }, () => {
-        const epochClock = new (class extends DeviceConsentBackend {
-            protected assertLive(): number {
-                return 0;
-            }
-        })();
-        const first = epochClock.admit(undefined, deviceId("epoch-phone"), principal("epoch"));
-        expect(first.admittedAt).toBe(0);
-        expect(first.sequence).toBe(1);
-        expect(
-            epochClock.admit(undefined, deviceId("epoch-phone"), principal("epoch")).sequence
-        ).toBe(2);
-    });
+    test(
+        "admits a consent clock at the epoch boundary and sequences admissions",
+        {
+            tags: "p1"
+        },
+        () => {
+            const epochClock = new (class extends DeviceConsentBackend {
+                protected assertLive(): number {
+                    return 0;
+                }
+            })();
+            const first = epochClock.admit(undefined, deviceId("epoch-phone"), principal("epoch"));
+            expect(first.admittedAt).toBe(0);
+            expect(first.sequence).toBe(1);
+            expect(
+                epochClock.admit(undefined, deviceId("epoch-phone"), principal("epoch")).sequence
+            ).toBe(2);
+        }
+    );
 
-    test("rejects consent grants expiring now, in the past, or at non-integer instants", {
-        tags: "p1"
-    }, () => {
-        const agent = principal("grant-agent");
-        const phone = deviceId("grant-phone");
-        const consent = new MemoryDeviceConsentBackend(() => 10);
-        for (const expiresAt of [10, 9, Number.POSITIVE_INFINITY, Number.NaN]) {
-            expect(() => consent.grant(phone, agent, expiresAt)).toThrow(
+    test(
+        "rejects consent grants expiring now, in the past, or at non-integer instants",
+        {
+            tags: "p1"
+        },
+        () => {
+            const agent = principal("grant-agent");
+            const phone = deviceId("grant-phone");
+            const consent = new MemoryDeviceConsentBackend(() => 10);
+            for (const expiresAt of [10, 9, Number.POSITIVE_INFINITY, Number.NaN]) {
+                expect(() => consent.grant(phone, agent, expiresAt)).toThrow(
+                    expect.objectContaining({
+                        detailCode: "consent.invalid",
+                        message: "Device consent expiration must be in the future"
+                    })
+                );
+            }
+            consent.grant(phone, agent, 11);
+            expect(consent.admit(undefined, phone, agent).admittedAt).toBe(10);
+        }
+    );
+
+    test(
+        "requires canonical pairing credentials before reverse transport",
+        {
+            tags: "p1"
+        },
+        () => {
+            const backend = new DeviceBackend(new LiveSession(), new TestDeviceTransport(), {
+                read: () => undefined
+            });
+            expect(() =>
+                backend.pair({
+                    deviceId: deviceId("phone"),
+                    publicKey: "key ",
+                    operatorApproval: "approved"
+                })
+            ).toThrow(
                 expect.objectContaining({
-                    detailCode: "consent.invalid",
-                    message: "Device consent expiration must be in the future"
+                    detailCode: "command.invalid",
+                    message: "Device public key must be canonical"
+                })
+            );
+            expect(() =>
+                backend.pair({
+                    deviceId: deviceId("phone"),
+                    publicKey: "key",
+                    operatorApproval: " approved"
+                })
+            ).toThrow(
+                expect.objectContaining({
+                    detailCode: "command.invalid",
+                    message: "Operator approval must be canonical"
                 })
             );
         }
-        consent.grant(phone, agent, 11);
-        expect(consent.admit(undefined, phone, agent).admittedAt).toBe(10);
-    });
-
-    test("requires canonical pairing credentials before reverse transport", {
-        tags: "p1"
-    }, () => {
-        const backend = new DeviceBackend(new LiveSession(), new TestDeviceTransport(), {
-            read: () => undefined
-        });
-        expect(() =>
-            backend.pair({
-                deviceId: deviceId("phone"),
-                publicKey: "key ",
-                operatorApproval: "approved"
-            })
-        ).toThrow(
-            expect.objectContaining({
-                detailCode: "command.invalid",
-                message: "Device public key must be canonical"
-            })
-        );
-        expect(() =>
-            backend.pair({
-                deviceId: deviceId("phone"),
-                publicKey: "key",
-                operatorApproval: " approved"
-            })
-        ).toThrow(
-            expect.objectContaining({
-                detailCode: "command.invalid",
-                message: "Operator approval must be canonical"
-            })
-        );
-    });
+    );
 
     test("rejects empty pairing credentials before reverse transport", { tags: "p0" }, () => {
         const transport = new TestDeviceTransport();
@@ -513,45 +615,55 @@ describe("Device consent boundaries and error identity", () => {
         expect(transport.paired).toEqual([]);
     });
 
-    test("rejects null and primitive admission evidence with the typed consent error", { tags: "p0" }, async () => {
-        const transport = new TestDeviceTransport();
-        const backend = new DeviceBackend(new LiveSession(), transport, { read: () => undefined });
-        for (const admission of [null, 42]) {
-            let caught: unknown;
-            try {
-                await backend.execute("camera", cameraInput(), effectContext(admission));
-            } catch (error) {
-                caught = error;
+    test(
+        "rejects null and primitive admission evidence with the typed consent error",
+        { tags: "p0" },
+        async () => {
+            const transport = new TestDeviceTransport();
+            const backend = new DeviceBackend(new LiveSession(), transport, {
+                read: () => undefined
+            });
+            for (const admission of [null, 42]) {
+                let caught: unknown;
+                try {
+                    await backend.execute("camera", cameraInput(), effectContext(admission));
+                } catch (error) {
+                    caught = error;
+                }
+                expect(caught).toBeInstanceOf(DeviceError);
+                expect(caught).toMatchObject({ detailCode: "consent.invalid" });
             }
-            expect(caught).toBeInstanceOf(DeviceError);
-            expect(caught).toMatchObject({ detailCode: "consent.invalid" });
+            expect(transport.sent).toEqual([]);
         }
-        expect(transport.sent).toEqual([]);
-    });
+    );
 
-    test("maps consent denial to authority.denied and every other detail to invalid input", {
-        tags: "p0"
-    }, () => {
-        const denied = new DeviceError("consent.denied", "denied");
-        expect(denied.code).toBe("authority.denied");
-        expect(denied.name).toBe("DeviceError");
-        expect(denied.detail).toEqual({ code: "consent.denied" });
-        for (const detailCode of [
-            "consent.invalid",
-            "consent.exhausted",
-            "command.invalid"
-        ] as const) {
-            expect(new DeviceError(detailCode, "invalid").code).toBe("operation.invalid-input");
-        }
-        const invalidClock = new (class extends DeviceConsentBackend {
-            protected assertLive(): number {
-                return -1;
+    test(
+        "maps consent denial to authority.denied and every other detail to invalid input",
+        {
+            tags: "p0"
+        },
+        () => {
+            const denied = new DeviceError("consent.denied", "denied");
+            expect(denied.code).toBe("authority.denied");
+            expect(denied.name).toBe("DeviceError");
+            expect(denied.detail).toEqual({ code: "consent.denied" });
+            for (const detailCode of [
+                "consent.invalid",
+                "consent.exhausted",
+                "command.invalid"
+            ] as const) {
+                expect(new DeviceError(detailCode, "invalid").code).toBe("operation.invalid-input");
             }
-        })();
-        expect(() => invalidClock.admit(undefined, deviceId("phone"), principal("agent"))).toThrow(
-            "Device consent admission time is invalid"
-        );
-    });
+            const invalidClock = new (class extends DeviceConsentBackend {
+                protected assertLive(): number {
+                    return -1;
+                }
+            })();
+            expect(() =>
+                invalidClock.admit(undefined, deviceId("phone"), principal("agent"))
+            ).toThrow("Device consent admission time is invalid");
+        }
+    );
 
     test("names Device identifiers in canonical identity errors", { tags: "p2" }, () => {
         expect(() => new DeviceId("")).toThrow(
@@ -627,59 +739,63 @@ describe("Device wire codecs", () => {
         ).toThrow("Operator approval must be a string");
     });
 
-    test("round-trips command Event payloads with exact kinds and optional results", {
-        tags: "p1"
-    }, () => {
-        const invoked = DEVICE_COMMAND_EVENT_CONTRACTS.invoked;
-        const encodedInvoked = invoked.encodePayload({
-            kind: "command.invoked",
-            commandId: new DeviceCommandId("cmd-1"),
-            operation: "camera",
-            deviceId: deviceId("phone"),
-            arguments: { facing: "front" }
-        });
-        expect(encodedInvoked).toEqual({
-            commandId: "cmd-1",
-            operation: "camera",
-            deviceId: "phone",
-            arguments: { facing: "front" }
-        });
-        const decodedInvoked = invoked.decodePayload(encodedInvoked);
-        expect(decodedInvoked.kind).toBe("command.invoked");
-        expect(decodedInvoked.commandId.value).toBe("cmd-1");
-        expect(decodedInvoked.operation).toBe("camera");
-        expect(decodedInvoked.deviceId.value).toBe("phone");
-        expect(decodedInvoked.arguments).toEqual({ facing: "front" });
-
-        const completed = DEVICE_COMMAND_EVENT_CONTRACTS.completed;
-        expect(
-            completed.encodePayload({
-                kind: "command.completed",
+    test(
+        "round-trips command Event payloads with exact kinds and optional results",
+        {
+            tags: "p1"
+        },
+        () => {
+            const invoked = DEVICE_COMMAND_EVENT_CONTRACTS.invoked;
+            const encodedInvoked = invoked.encodePayload({
+                kind: "command.invoked",
                 commandId: new DeviceCommandId("cmd-1"),
+                operation: "camera",
+                deviceId: deviceId("phone"),
+                arguments: { facing: "front" }
+            });
+            expect(encodedInvoked).toEqual({
+                commandId: "cmd-1",
+                operation: "camera",
+                deviceId: "phone",
+                arguments: { facing: "front" }
+            });
+            const decodedInvoked = invoked.decodePayload(encodedInvoked);
+            expect(decodedInvoked.kind).toBe("command.invoked");
+            expect(decodedInvoked.commandId.value).toBe("cmd-1");
+            expect(decodedInvoked.operation).toBe("camera");
+            expect(decodedInvoked.deviceId.value).toBe("phone");
+            expect(decodedInvoked.arguments).toEqual({ facing: "front" });
+
+            const completed = DEVICE_COMMAND_EVENT_CONTRACTS.completed;
+            expect(
+                completed.encodePayload({
+                    kind: "command.completed",
+                    commandId: new DeviceCommandId("cmd-1"),
+                    succeeded: true,
+                    result: { ok: true }
+                })
+            ).toEqual({ commandId: "cmd-1", succeeded: true, result: { ok: true } });
+            expect(
+                completed.encodePayload({
+                    kind: "command.completed",
+                    commandId: new DeviceCommandId("cmd-1"),
+                    succeeded: false
+                })
+            ).toEqual({ commandId: "cmd-1", succeeded: false });
+
+            const decodedCompleted = completed.decodePayload({
+                commandId: "cmd-1",
                 succeeded: true,
-                result: { ok: true }
-            })
-        ).toEqual({ commandId: "cmd-1", succeeded: true, result: { ok: true } });
-        expect(
-            completed.encodePayload({
-                kind: "command.completed",
-                commandId: new DeviceCommandId("cmd-1"),
-                succeeded: false
-            })
-        ).toEqual({ commandId: "cmd-1", succeeded: false });
-
-        const decodedCompleted = completed.decodePayload({
-            commandId: "cmd-1",
-            succeeded: true,
-            result: 5
-        });
-        expect(decodedCompleted.kind).toBe("command.completed");
-        expect(decodedCompleted.commandId.value).toBe("cmd-1");
-        expect(decodedCompleted.succeeded).toBe(true);
-        expect(decodedCompleted.result).toBe(5);
-        const withoutResult = completed.decodePayload({ commandId: "cmd-1", succeeded: true });
-        expect(Object.hasOwn(withoutResult, "result")).toBe(false);
-    });
+                result: 5
+            });
+            expect(decodedCompleted.kind).toBe("command.completed");
+            expect(decodedCompleted.commandId.value).toBe("cmd-1");
+            expect(decodedCompleted.succeeded).toBe(true);
+            expect(decodedCompleted.result).toBe(5);
+            const withoutResult = completed.decodePayload({ commandId: "cmd-1", succeeded: true });
+            expect(Object.hasOwn(withoutResult, "result")).toBe(false);
+        }
+    );
 
     test("rejects command Event payloads outside the typed surface", { tags: "p1" }, () => {
         const invoked = DEVICE_COMMAND_EVENT_CONTRACTS.invoked;
@@ -728,119 +844,129 @@ describe("Device wire codecs", () => {
 });
 
 describe("Device internal runtime and typed command flow", () => {
-    test("asInternalRuntime registers the six declared operations and command surface", {
-        tags: "p1"
-    }, async () => {
-        const agent = principal("internal-agent");
-        const phone = deviceId("internal-phone");
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        const admitted = grantAndAdmit(consent, phone, agent, 2);
-        const transport = new TestDeviceTransport();
-        const facet = new DeviceFacet(
-            recordingRuntime("device").runtime,
-            new DeviceBackend(new LiveSession(), transport, {
-                read: (_device, key) => (key === "present" ? { cached: true } : undefined)
-            })
-        );
+    test(
+        "asInternalRuntime registers the six declared operations and command surface",
+        {
+            tags: "p1"
+        },
+        async () => {
+            const agent = principal("internal-agent");
+            const phone = deviceId("internal-phone");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            const admitted = grantAndAdmit(consent, phone, agent, 2);
+            const transport = new TestDeviceTransport();
+            const facet = new DeviceFacet(
+                recordingRuntime("device").runtime,
+                new DeviceBackend(new LiveSession(), transport, {
+                    read: (_device, key) => (key === "present" ? { cached: true } : undefined)
+                })
+            );
 
-        const internal = facet.asInternalRuntime(deviceManifest());
+            const internal = facet.asInternalRuntime(deviceManifest());
 
-        expect(internal.surface(DEVICE_COMMAND_SURFACE.id)?.descriptor).toBe(
-            DEVICE_COMMAND_SURFACE
-        );
-        const invocations = [
-            ["camera", { facing: "front" }],
-            ["location", { accuracyMeters: 5 }],
-            ["sms", { to: "+15550000", message: "hello" }],
-            ["screen", { mode: "capture" }],
-            ["system.run", { command: "status" }]
-        ] as const;
-        for (const [name, operationArguments] of invocations) {
+            expect(internal.surface(DEVICE_COMMAND_SURFACE.id)?.descriptor).toBe(
+                DEVICE_COMMAND_SURFACE
+            );
+            const invocations = [
+                ["camera", { facing: "front" }],
+                ["location", { accuracyMeters: 5 }],
+                ["sms", { to: "+15550000", message: "hello" }],
+                ["screen", { mode: "capture" }],
+                ["system.run", { command: "status" }]
+            ] as const;
+            for (const [name, operationArguments] of invocations) {
+                await expect(
+                    requireOperation(internal, name).execute(operationContext(admitted), {
+                        deviceId: phone.value,
+                        arguments: operationArguments
+                    })
+                ).resolves.toEqual({ operation: name });
+            }
+            expect(transport.sent.map((request) => request.operation)).toEqual([
+                "camera",
+                "location",
+                "sms",
+                "screen",
+                "system.run"
+            ]);
             await expect(
-                requireOperation(internal, name).execute(operationContext(admitted), {
+                requireOperation(internal, "readCached").execute(operationContext(undefined), {
                     deviceId: phone.value,
-                    arguments: operationArguments
+                    key: "present"
                 })
-            ).resolves.toEqual({ operation: name });
+            ).resolves.toEqual({ cached: true });
         }
-        expect(transport.sent.map((request) => request.operation)).toEqual([
-            "camera",
-            "location",
-            "sms",
-            "screen",
-            "system.run"
-        ]);
-        await expect(
-            requireOperation(internal, "readCached").execute(operationContext(undefined), {
+    );
+
+    test(
+        "command() routes every typed operation and emits invoked/completed evidence",
+        {
+            tags: "p1"
+        },
+        async () => {
+            const agent = principal("command-agent");
+            const phone = deviceId("command-phone");
+            const consent = new MemoryDeviceConsentBackend(() => 1);
+            consent.grant(phone, agent, 1000);
+            const transport = new TestDeviceTransport();
+            const { runtime, admission } = recordingRuntime(
+                "device-command",
+                undefined,
+                (_request, input) => consent.admit(undefined, inputDevice(input), agent)
+            );
+            const facet = new DeviceFacet(
+                runtime,
+                new DeviceBackend(new LiveSession(), transport, { read: () => undefined })
+            );
+            const commands = [
+                ["camera", { facing: "front" }],
+                ["location", { accuracyMeters: 5 }],
+                ["sms", { to: "+15550000", message: "hello" }],
+                ["screen", { mode: "capture" }],
+                ["system.run", { command: "status" }]
+            ] as const;
+
+            for (const [operation, commandArguments] of commands) {
+                await expect(
+                    facet.command({
+                        commandId: new DeviceCommandId(`command-${operation}`),
+                        deviceId: phone,
+                        operation,
+                        arguments: commandArguments
+                    })
+                ).resolves.toEqual({ operation });
+            }
+
+            expect(transport.sent.map((request) => request.operation)).toEqual([
+                "camera",
+                "location",
+                "sms",
+                "screen",
+                "system.run"
+            ]);
+            expect(admission.calls.map((call) => [call.kind, call.name])).toEqual(
+                commands.flatMap(([operation]) => [
+                    ["invoke", operation],
+                    ["emit", "command.invoked"],
+                    ["emit", "command.completed"]
+                ])
+            );
+            const [invokedCall, completedCall] = admission.calls.slice(1, 3);
+            expect(invokedCall?.input).toEqual({
+                commandId: "command-camera",
+                operation: "camera",
                 deviceId: phone.value,
-                key: "present"
-            })
-        ).resolves.toEqual({ cached: true });
-    });
-
-    test("command() routes every typed operation and emits invoked/completed evidence", {
-        tags: "p1"
-    }, async () => {
-        const agent = principal("command-agent");
-        const phone = deviceId("command-phone");
-        const consent = new MemoryDeviceConsentBackend(() => 1);
-        consent.grant(phone, agent, 1000);
-        const transport = new TestDeviceTransport();
-        const { runtime, admission } = recordingRuntime("device-command", undefined, (_request, input) =>
-            consent.admit(undefined, inputDevice(input), agent)
-        );
-        const facet = new DeviceFacet(
-            runtime,
-            new DeviceBackend(new LiveSession(), transport, { read: () => undefined })
-        );
-        const commands = [
-            ["camera", { facing: "front" }],
-            ["location", { accuracyMeters: 5 }],
-            ["sms", { to: "+15550000", message: "hello" }],
-            ["screen", { mode: "capture" }],
-            ["system.run", { command: "status" }]
-        ] as const;
-
-        for (const [operation, commandArguments] of commands) {
-            await expect(
-                facet.command({
-                    commandId: new DeviceCommandId(`command-${operation}`),
-                    deviceId: phone,
-                    operation,
-                    arguments: commandArguments
-                })
-            ).resolves.toEqual({ operation });
+                arguments: { facing: "front" }
+            });
+            expect(completedCall?.input).toEqual({
+                commandId: "command-camera",
+                succeeded: true,
+                result: { operation: "camera" }
+            });
+            expect(invokedCall?.receipt).toBeDefined();
+            expect(invokedCall?.receipt).toBe(completedCall?.receipt);
         }
-
-        expect(transport.sent.map((request) => request.operation)).toEqual([
-            "camera",
-            "location",
-            "sms",
-            "screen",
-            "system.run"
-        ]);
-        expect(admission.calls.map((call) => [call.kind, call.name])).toEqual(
-            commands.flatMap(([operation]) => [
-                ["invoke", operation],
-                ["emit", "command.invoked"],
-                ["emit", "command.completed"]
-            ])
-        );
-        const [invokedCall, completedCall] = admission.calls.slice(1, 3);
-        expect(invokedCall?.input).toEqual({
-            commandId: "command-camera",
-            operation: "camera",
-            deviceId: phone.value,
-            arguments: { facing: "front" }
-        });
-        expect(completedCall?.input).toEqual({
-            commandId: "command-camera",
-            succeeded: true,
-            result: { operation: "camera" }
-        });
-        expect(invokedCall?.receipt).toBeDefined();
-        expect(invokedCall?.receipt).toBe(completedCall?.receipt);
-    });
+    );
 });
 
 class LiveSession extends DeviceEnvironmentSessionDependency {

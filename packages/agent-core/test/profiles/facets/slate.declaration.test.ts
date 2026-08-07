@@ -38,54 +38,58 @@ operationDeclarationEvidence("Slate", SLATE_OPERATIONS, {
 });
 
 describe("Slate protected profile", () => {
-    test("[P11-SLATE-PREVIEW] routes all six Operations and delegates preview to Environment control", { tags: "p1" }, async () => {
-        const slateRuntime = recordingRuntime("slate");
-        const environmentRuntime = recordingRuntime("environment");
-        const backend = new TestSlateBackend();
-        const environment = new EnvironmentFacet(
-            environmentRuntime.runtime,
-            new PreviewEnvironmentBackend()
-        );
-        const slate = new SlateFacet(slateRuntime.runtime, backend, environment);
+    test(
+        "[P11-SLATE-PREVIEW] routes all six Operations and delegates preview to Environment control",
+        { tags: "p1" },
+        async () => {
+            const slateRuntime = recordingRuntime("slate");
+            const environmentRuntime = recordingRuntime("environment");
+            const backend = new TestSlateBackend();
+            const environment = new EnvironmentFacet(
+                environmentRuntime.runtime,
+                new PreviewEnvironmentBackend()
+            );
+            const slate = new SlateFacet(slateRuntime.runtime, backend, environment);
 
-        await slate.update({
-            slate: "slate",
-            source: content().value,
-            expectedRevision: 1
-        });
-        await slate.commit({ slate: "slate", expectedRevision: 1 });
-        await slate.fork({
-            sourceVersion: "version",
-            workspace: "workspace"
-        });
-        await slate.publish({
-            version: "version",
-            materialization: content().value
-        });
-        await slate.deploy({
-            publication: "publication",
-            target: "production"
-        });
-        await slate.rollback({
-            slate: "slate",
-            deployment: "deployment"
-        });
-        await expect(slate.preview({ session: "preview", port: 8080 })).resolves.toBe(
-            "https://preview.test/"
-        );
+            await slate.update({
+                slate: "slate",
+                source: content().value,
+                expectedRevision: 1
+            });
+            await slate.commit({ slate: "slate", expectedRevision: 1 });
+            await slate.fork({
+                sourceVersion: "version",
+                workspace: "workspace"
+            });
+            await slate.publish({
+                version: "version",
+                materialization: content().value
+            });
+            await slate.deploy({
+                publication: "publication",
+                target: "production"
+            });
+            await slate.rollback({
+                slate: "slate",
+                deployment: "deployment"
+            });
+            await expect(slate.preview({ session: "preview", port: 8080 })).resolves.toBe(
+                "https://preview.test/"
+            );
 
-        expect(slateRuntime.admission.calls.map((call) => call.name)).toEqual([
-            "update",
-            "commit",
-            "fork",
-            "publish",
-            "deploy",
-            "rollback"
-        ]);
-        expect(environmentRuntime.admission.calls.map((call) => [call.kind, call.name])).toEqual([
-            ["control", "environment.exposePreview"]
-        ]);
-    });
+            expect(slateRuntime.admission.calls.map((call) => call.name)).toEqual([
+                "update",
+                "commit",
+                "fork",
+                "publish",
+                "deploy",
+                "rollback"
+            ]);
+            expect(
+                environmentRuntime.admission.calls.map((call) => [call.kind, call.name])
+            ).toEqual([["control", "environment.exposePreview"]]);
+        }
+    );
 
     test("denial prevents Slate backend mutation", { tags: "p0" }, async () => {
         const backend = new TestSlateBackend();
@@ -115,59 +119,90 @@ describe("Slate protected profile", () => {
         ]);
     });
 
-    test("internal runtime routes all six Operations and both Surfaces", { tags: "p1" }, async () => {
-        const { runtime } = recordingRuntime("slate");
-        const backend = new TestSlateBackend();
-        const environment = new EnvironmentFacet(
-            recordingRuntime("environment").runtime,
-            new PreviewEnvironmentBackend()
-        );
-        const internal = new SlateFacet(runtime, backend, environment).asInternalRuntime(
-            slateManifest()
-        );
-        await internal.start({ signal: new AbortController().signal });
-        expect(internal.active).toBe(true);
-        expect(
-            SLATE_SURFACES.every((surface) => internal.surface(surface.id)?.descriptor === surface)
-        ).toBe(true);
+    test(
+        "internal runtime routes all six Operations and both Surfaces",
+        { tags: "p1" },
+        async () => {
+            const { runtime } = recordingRuntime("slate");
+            const backend = new TestSlateBackend();
+            const environment = new EnvironmentFacet(
+                recordingRuntime("environment").runtime,
+                new PreviewEnvironmentBackend()
+            );
+            const internal = new SlateFacet(runtime, backend, environment).asInternalRuntime(
+                slateManifest()
+            );
+            await internal.start({ signal: new AbortController().signal });
+            expect(internal.active).toBe(true);
+            expect(
+                SLATE_SURFACES.every(
+                    (surface) => internal.surface(surface.id)?.descriptor === surface
+                )
+            ).toBe(true);
 
-        const context = internalContext();
-        await expect(
-            execute(internal, "update", {
-                slateId: "slate",
-                source: content().value,
-                expectedRevision: 1
-            }, context)
-        ).resolves.toEqual({ name: "update" });
-        await execute(internal, "commit", { slateId: "slate" }, context);
-        await execute(internal, "fork", {
-            sourceVersionId: "version",
-            workspaceId: "workspace"
-        }, context);
-        await execute(internal, "publish", {
-            versionId: "version",
-            materialization: content().value
-        }, context);
-        await execute(internal, "deploy", {
-            publicationId: "publication",
-            target: "production"
-        }, context);
-        await execute(internal, "rollback", {
-            slateId: "slate",
-            deploymentId: "deployment",
-            expectedActiveDeploymentId: "active"
-        }, context);
+            const context = internalContext();
+            await expect(
+                execute(
+                    internal,
+                    "update",
+                    {
+                        slateId: "slate",
+                        source: content().value,
+                        expectedRevision: 1
+                    },
+                    context
+                )
+            ).resolves.toEqual({ name: "update" });
+            await execute(internal, "commit", { slateId: "slate" }, context);
+            await execute(
+                internal,
+                "fork",
+                {
+                    sourceVersionId: "version",
+                    workspaceId: "workspace"
+                },
+                context
+            );
+            await execute(
+                internal,
+                "publish",
+                {
+                    versionId: "version",
+                    materialization: content().value
+                },
+                context
+            );
+            await execute(
+                internal,
+                "deploy",
+                {
+                    publicationId: "publication",
+                    target: "production"
+                },
+                context
+            );
+            await execute(
+                internal,
+                "rollback",
+                {
+                    slateId: "slate",
+                    deploymentId: "deployment",
+                    expectedActiveDeploymentId: "active"
+                },
+                context
+            );
 
-        expect(backend.calls).toEqual([
-            "update",
-            "commit",
-            "fork",
-            "publish",
-            "deploy",
-            "rollback"
-        ]);
-        expect(backend.dispatched[0]?.idempotencyKey).toBe("internal-idempotency");
-    });
+            expect(backend.calls).toEqual([
+                "update",
+                "commit",
+                "fork",
+                "publish",
+                "deploy",
+                "rollback"
+            ]);
+            expect(backend.dispatched[0]?.idempotencyKey).toBe("internal-idempotency");
+        }
+    );
 });
 
 describe("Slate wire codec evidence", () => {
@@ -188,28 +223,36 @@ describe("Slate wire codec evidence", () => {
         expect(wireKeys(commit.encodeInput({ slate: "slate" }))).toEqual(["slateId"]);
     });
 
-    test("update and commit decode expected revisions with the zero boundary", { tags: "p1" }, () => {
-        const update = SLATE_OPERATION_CONTRACTS.update;
-        expect(
-            update.decodeInput({ slateId: "slate", source: content().value, expectedRevision: 0 })
-        ).toEqual({ slate: "slate", source: content().value, expectedRevision: 0 });
-        expect(
-            Object.keys(update.decodeInput({ slateId: "slate", source: content().value }))
-        ).toEqual(["slate", "source"]);
-        const commit = SLATE_OPERATION_CONTRACTS.commit;
-        expect(commit.decodeInput({ slateId: "slate", expectedRevision: 3 })).toEqual({
-            slate: "slate",
-            expectedRevision: 3
-        });
-        expect(Object.keys(commit.decodeInput({ slateId: "slate" }))).toEqual(["slate"]);
-        expect(() =>
-            update.decodeInput({
-                slateId: "slate",
-                source: content().value,
-                expectedRevision: -1
-            })
-        ).toThrow("Expected Slate revision must not be negative");
-    });
+    test(
+        "update and commit decode expected revisions with the zero boundary",
+        { tags: "p1" },
+        () => {
+            const update = SLATE_OPERATION_CONTRACTS.update;
+            expect(
+                update.decodeInput({
+                    slateId: "slate",
+                    source: content().value,
+                    expectedRevision: 0
+                })
+            ).toEqual({ slate: "slate", source: content().value, expectedRevision: 0 });
+            expect(
+                Object.keys(update.decodeInput({ slateId: "slate", source: content().value }))
+            ).toEqual(["slate", "source"]);
+            const commit = SLATE_OPERATION_CONTRACTS.commit;
+            expect(commit.decodeInput({ slateId: "slate", expectedRevision: 3 })).toEqual({
+                slate: "slate",
+                expectedRevision: 3
+            });
+            expect(Object.keys(commit.decodeInput({ slateId: "slate" }))).toEqual(["slate"]);
+            expect(() =>
+                update.decodeInput({
+                    slateId: "slate",
+                    source: content().value,
+                    expectedRevision: -1
+                })
+            ).toThrow("Expected Slate revision must not be negative");
+        }
+    );
 
     test("fork, publish, and deploy inputs decode from their wire form", { tags: "p1" }, () => {
         expect(
@@ -245,9 +288,9 @@ describe("Slate wire codec evidence", () => {
             deploymentId: "deployment",
             expectedActiveDeploymentId: "active"
         });
-        expect(wireKeys(rollback.encodeInput({ slate: "slate", deployment: "deployment" }))).toEqual(
-            ["deploymentId", "slateId"]
-        );
+        expect(
+            wireKeys(rollback.encodeInput({ slate: "slate", deployment: "deployment" }))
+        ).toEqual(["deploymentId", "slateId"]);
         expect(
             rollback.decodeInput({
                 slateId: "slate",
@@ -276,54 +319,64 @@ describe("Slate wire codec evidence", () => {
 });
 
 describe("Slate effect identity to deployment backend", () => {
-    test("[P11-SLATE-DISPATCH] delivers the canonical effect identity derived from the context to deploy", { tags: "p0" }, async () => {
-        const { runtime, admission } = recordingRuntime("slate-dispatch");
-        const backend = new TestSlateBackend();
-        const environment = new EnvironmentFacet(
-            recordingRuntime("environment").runtime,
-            new PreviewEnvironmentBackend()
-        );
-        const slate = new SlateFacet(runtime, backend, environment);
+    test(
+        "[P11-SLATE-DISPATCH] delivers the canonical effect identity derived from the context to deploy",
+        { tags: "p0" },
+        async () => {
+            const { runtime, admission } = recordingRuntime("slate-dispatch");
+            const backend = new TestSlateBackend();
+            const environment = new EnvironmentFacet(
+                recordingRuntime("environment").runtime,
+                new PreviewEnvironmentBackend()
+            );
+            const slate = new SlateFacet(runtime, backend, environment);
 
-        await slate.deploy({ publication: "publication", target: "production" });
+            await slate.deploy({ publication: "publication", target: "production" });
 
-        const invoke = admission.calls.find((call) => call.kind === "invoke")!;
-        const expected = invoke.context!.dispatch();
-        const delivered = backend.dispatched[0]!;
-        expect(Object.isFrozen(delivered)).toBe(true);
-        expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
-        expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
-        expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
-        expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(true);
-    });
+            const invoke = admission.calls.find((call) => call.kind === "invoke")!;
+            const expected = invoke.context!.dispatch();
+            const delivered = backend.dispatched[0]!;
+            expect(Object.isFrozen(delivered)).toBe(true);
+            expect(delivered.idempotencyKey).toBe(expected.idempotencyKey);
+            expect(delivered.attempt?.id.equals(expected.attempt!.id)).toBe(true);
+            expect(delivered.attempt?.ordinal).toBe(expected.attempt!.ordinal);
+            expect(delivered.attempt?.intentDigest.equals(expected.attempt!.intentDigest)).toBe(
+                true
+            );
+        }
+    );
 
-    test("[P11-SLATE-CRASH-RETRY] a crash-after-send deploy retry reuses the key so the provider dedups instead of redeploying", { tags: "p0" }, async () => {
-        const backend = new DedupSlateBackend();
-        const dispatch = new EffectDispatch(
-            "slate-test-key",
-            new EffectDispatchAttempt(
-                new EffectAttemptId("slate-test-attempt"),
-                0,
-                Digest.sha256(new TextEncoder().encode("slate-test"))
-            )
-        );
-        const input = { publication: "publication", target: "production" };
+    test(
+        "[P11-SLATE-CRASH-RETRY] a crash-after-send deploy retry reuses the key so the provider dedups instead of redeploying",
+        { tags: "p0" },
+        async () => {
+            const backend = new DedupSlateBackend();
+            const dispatch = new EffectDispatch(
+                "slate-test-key",
+                new EffectDispatchAttempt(
+                    new EffectAttemptId("slate-test-attempt"),
+                    0,
+                    Digest.sha256(new TextEncoder().encode("slate-test"))
+                )
+            );
+            const input = { publication: "publication", target: "production" };
 
-        await expect(backend.deploy(input, dispatch)).rejects.toThrow("crash after send");
-        const retry = await backend.deploy(input, dispatch);
+            await expect(backend.deploy(input, dispatch)).rejects.toThrow("crash after send");
+            const retry = await backend.deploy(input, dispatch);
 
-        expect(backend.attempts.map((attempt) => attempt.idempotencyKey)).toEqual([
-            "slate-test-key",
-            "slate-test-key"
-        ]);
-        expect(
-            backend.attempts.every((attempt) =>
-                attempt.attempt!.id.equals(new EffectAttemptId("slate-test-attempt"))
-            )
-        ).toBe(true);
-        expect(backend.deliveries).toBe(1);
-        expect(retry).toEqual({ outcome: "succeeded" });
-    });
+            expect(backend.attempts.map((attempt) => attempt.idempotencyKey)).toEqual([
+                "slate-test-key",
+                "slate-test-key"
+            ]);
+            expect(
+                backend.attempts.every((attempt) =>
+                    attempt.attempt!.id.equals(new EffectAttemptId("slate-test-attempt"))
+                )
+            ).toBe(true);
+            expect(backend.deliveries).toBe(1);
+            expect(retry).toEqual({ outcome: "succeeded" });
+        }
+    );
 });
 
 class TestSlateBackend extends SlateBackend {

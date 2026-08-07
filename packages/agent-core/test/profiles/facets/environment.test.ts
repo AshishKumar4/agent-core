@@ -50,194 +50,217 @@ import { describe, expect, test } from "vitest";
 import { denyingRuntime, recordingRuntime } from "./harness";
 
 describe("Environment protected control profile", () => {
-    test("[P11-ENVIRONMENT-SPECIFICATION] declares no Operations or Events and routes lifecycle, durability, preview, and credentials through control", { tags: "p1" }, async () => {
-        const backend = new TestEnvironmentBackend();
-        const { runtime, admission } = recordingRuntime("environment");
-        const environment = new EnvironmentFacet(runtime, backend);
-        const session = await environment.open({ environment: "env" });
-        await environment.use({ session: session.session });
-        await environment.snapshot({ session: session.session, snapshot: "snapshot" });
-        await environment.restore({ environment: "env", snapshot: "snapshot" });
-        await environment.backupEphemeral({ session: session.session });
-        await environment.restoreEphemeral({ session: session.session, snapshot: "snapshot" });
-        await environment.exposePreview({ session: session.session, port: 8080 });
-        await environment.forwardCredential({
-            session: session.session,
-            credential: new SecretRef("tenant", "vault", "key"),
-            request: content("a")
-        });
-        await environment.close({ session: session.session });
+    test(
+        "[P11-ENVIRONMENT-SPECIFICATION] declares no Operations or Events and routes lifecycle, durability, preview, and credentials through control",
+        { tags: "p1" },
+        async () => {
+            const backend = new TestEnvironmentBackend();
+            const { runtime, admission } = recordingRuntime("environment");
+            const environment = new EnvironmentFacet(runtime, backend);
+            const session = await environment.open({ environment: "env" });
+            await environment.use({ session: session.session });
+            await environment.snapshot({ session: session.session, snapshot: "snapshot" });
+            await environment.restore({ environment: "env", snapshot: "snapshot" });
+            await environment.backupEphemeral({ session: session.session });
+            await environment.restoreEphemeral({ session: session.session, snapshot: "snapshot" });
+            await environment.exposePreview({ session: session.session, port: 8080 });
+            await environment.forwardCredential({
+                session: session.session,
+                credential: new SecretRef("tenant", "vault", "key"),
+                request: content("a")
+            });
+            await environment.close({ session: session.session });
 
-        expect(ENVIRONMENT_OPERATIONS).toEqual([]);
-        expect(ENVIRONMENT_EVENTS).toEqual([]);
-        expect(session.children).toContain("env.fs");
-        expect(admission.calls.map((call) => [call.kind, call.name])).toEqual([
-            ["control", "environment.open"],
-            ["control", "environment.use"],
-            ["control", "environment.snapshot"],
-            ["control", "environment.restore"],
-            ["control", "environment.backupEphemeral"],
-            ["control", "environment.restoreEphemeral"],
-            ["control", "environment.exposePreview"],
-            ["control", "environment.forwardCredential"],
-            ["control", "environment.close"]
-        ]);
-        expect(admission.calls[7]?.input).toEqual({
-            session: "session",
-            credential: { source: "tenant", provider: "vault", id: "key" },
-            request: content("a").value
-        });
-        expect(backend.calls).toEqual([
-            "open",
-            "use",
-            "snapshot",
-            "restore",
-            "backup",
-            "restoreFs",
-            "preview",
-            "credential",
-            "close"
-        ]);
-    });
+            expect(ENVIRONMENT_OPERATIONS).toEqual([]);
+            expect(ENVIRONMENT_EVENTS).toEqual([]);
+            expect(session.children).toContain("env.fs");
+            expect(admission.calls.map((call) => [call.kind, call.name])).toEqual([
+                ["control", "environment.open"],
+                ["control", "environment.use"],
+                ["control", "environment.snapshot"],
+                ["control", "environment.restore"],
+                ["control", "environment.backupEphemeral"],
+                ["control", "environment.restoreEphemeral"],
+                ["control", "environment.exposePreview"],
+                ["control", "environment.forwardCredential"],
+                ["control", "environment.close"]
+            ]);
+            expect(admission.calls[7]?.input).toEqual({
+                session: "session",
+                credential: { source: "tenant", provider: "vault", id: "key" },
+                request: content("a").value
+            });
+            expect(backend.calls).toEqual([
+                "open",
+                "use",
+                "snapshot",
+                "restore",
+                "backup",
+                "restoreFs",
+                "preview",
+                "credential",
+                "close"
+            ]);
+        }
+    );
 
-    test("[P11-ENVIRONMENT-FAIL-CLOSED] denial prevents session opening", { tags: "p0" }, async () => {
-        const backend = new TestEnvironmentBackend();
-        const environment = new EnvironmentFacet(denyingRuntime("environment").runtime, backend);
-        await expect(environment.open({ environment: "env" })).rejects.toMatchObject({
-            code: "authority.denied"
-        });
-        expect(backend.calls).toEqual([]);
-    });
+    test(
+        "[P11-ENVIRONMENT-FAIL-CLOSED] denial prevents session opening",
+        { tags: "p0" },
+        async () => {
+            const backend = new TestEnvironmentBackend();
+            const environment = new EnvironmentFacet(
+                denyingRuntime("environment").runtime,
+                backend
+            );
+            await expect(environment.open({ environment: "env" })).rejects.toMatchObject({
+                code: "authority.denied"
+            });
+            expect(backend.calls).toEqual([]);
+        }
+    );
 
-    test("[P11-ENVIRONMENT-CHILD-FACETS] validates canonical session bindings and freezes child capabilities", { tags: "p1" }, () => {
-        expect(() => new EnvironmentSessionBinding(" ", 0, [])).toThrow(TypeError);
-        expect(() => new EnvironmentSessionBinding("", 0, [])).toThrow(
-            "Environment session binding ID must be canonical"
-        );
-        expect(() => new EnvironmentSessionBinding(" padded", 0, [])).toThrow(
-            "Environment session binding ID must be canonical"
-        );
-        expect(() => new EnvironmentSessionBinding("padded ", 0, [])).toThrow(
-            "Environment session binding ID must be canonical"
-        );
-        expect(() => new EnvironmentSessionBinding("session", -1, [])).toThrow(TypeError);
-        expect(() => new EnvironmentSessionBinding("session", 0, ["env.fs", "env.fs"])).toThrow(
-            /unique/u
-        );
-        const children = ["env.fs"];
-        const binding = new EnvironmentSessionBinding("session", 0, children);
-        children[0] = "replaced";
-        expect(binding.children).toEqual(["env.fs"]);
-        expect(Object.isFrozen(binding.children)).toBe(true);
-    });
+    test(
+        "[P11-ENVIRONMENT-CHILD-FACETS] validates canonical session bindings and freezes child capabilities",
+        { tags: "p1" },
+        () => {
+            expect(() => new EnvironmentSessionBinding(" ", 0, [])).toThrow(TypeError);
+            expect(() => new EnvironmentSessionBinding("", 0, [])).toThrow(
+                "Environment session binding ID must be canonical"
+            );
+            expect(() => new EnvironmentSessionBinding(" padded", 0, [])).toThrow(
+                "Environment session binding ID must be canonical"
+            );
+            expect(() => new EnvironmentSessionBinding("padded ", 0, [])).toThrow(
+                "Environment session binding ID must be canonical"
+            );
+            expect(() => new EnvironmentSessionBinding("session", -1, [])).toThrow(TypeError);
+            expect(() => new EnvironmentSessionBinding("session", 0, ["env.fs", "env.fs"])).toThrow(
+                /unique/u
+            );
+            const children = ["env.fs"];
+            const binding = new EnvironmentSessionBinding("session", 0, children);
+            children[0] = "replaced";
+            expect(binding.children).toEqual(["env.fs"]);
+            expect(Object.isFrozen(binding.children)).toBe(true);
+        }
+    );
 
-    test("[P11-ENVIRONMENT-CHILD-CONTRACTS] adapts typed EnvironmentController lease, IDs, children, preview, and credentials", { tags: "p1" }, async () => {
-        const provider = new ReadyProvider();
-        const controller = new EnvironmentController(
-            new MemoryEnvironmentStore(),
-            new MemoryEnvironmentProviderRegistry([provider]),
-            { permits: (candidate) => candidate === environmentLease }
-        );
-        controller.provision(
-            new EnvironmentRevisionRecord(
-                environmentId,
-                Revision.initial(),
-                0,
-                provider.descriptor
-            ),
-            environmentLease
-        );
-        const ids = new TestEnvironmentIds();
-        const backend = new EnvironmentControllerBackend(
-            controller,
-            new FixedLease(),
-            ids,
-            new TestChildren(),
-            new EnvironmentControllerPreviewPort(controller),
-            new TestCredentials()
-        );
-
-        const opened = await backend.open({ environment: "environment-profile" });
-        expect(opened.children).toEqual(["env.fs", "env.shell"]);
-        await expect(backend.use({ session: opened.session })).resolves.toEqual(opened);
-        await expect(
-            backend.snapshot({ session: opened.session, snapshot: "snapshot" })
-        ).resolves.toEqual(provider.snapshotContent);
-        await expect(backend.backupEphemeral({ session: opened.session })).resolves.toEqual(
-            content("f")
-        );
-        await expect(
-            backend.restoreEphemeral({ session: opened.session, snapshot: "snapshot" })
-        ).resolves.toBeUndefined();
-        await expect(backend.exposePreview({ session: opened.session, port: 8080 })).resolves.toBe(
-            provider.previewUrl
-        );
-        await expect(
-            backend.forwardCredential({
-                session: opened.session,
-                credential: new SecretRef("tenant", "vault", "credential"),
-                request: content("e")
-            })
-        ).resolves.toEqual(content("e"));
-        await expect(
-            backend.restore({ environment: "environment-profile", snapshot: "snapshot" })
-        ).resolves.toMatchObject({ generation: 0, children: ["env.fs", "env.shell"] });
-        expect(provider.restores.map((restore) => restore?.value)).toEqual([
-            undefined,
-            provider.snapshotContent.value
-        ]);
-
-        provider.snapshotResult = ProviderResourceOutcome.indeterminate;
-        await expect(
-            backend.snapshot({ session: opened.session, snapshot: "pending-snapshot" })
-        ).rejects.toMatchObject({
-            code: "operation.invalid-output",
-            detailCode: "environment.output",
-            message: "Environment snapshot is not ready"
-        });
-        await backend.close({ session: opened.session });
-        await expect(backend.use({ session: opened.session })).rejects.toThrow(
-            /Environment session/u
-        );
-    });
-
-    test("round-trips optional restore and child wire data and rejects a preview without a URL", { tags: "p1" }, async () => {
-        const open = ENVIRONMENT_CONTROL_CONTRACTS.open;
-        expect(
-            open.decodeInput(
-                open.encodeInput({
-                    environment: "environment-profile",
-                    restoreFrom: "snapshot"
-                })
-            )
-        ).toEqual({ environment: "environment-profile", restoreFrom: "snapshot" });
-        expect(open.decodeInput({ environment: "environment-profile" })).toEqual({
-            environment: "environment-profile"
-        });
-        expect(
-            open.decodeOutput(
-                open.encodeOutput(
-                    new EnvironmentSessionBinding("session-wire", 2, ["env.fs", "env.shell"])
-                )
-            )
-        ).toEqual(new EnvironmentSessionBinding("session-wire", 2, ["env.fs", "env.shell"]));
-
-        const preview = new EnvironmentControllerPreviewPort({
-            expose: async () => ({ url: undefined })
-        } as unknown as EnvironmentController);
-        await expect(
-            preview.expose(
-                {} as import("../../../src/environments").EnvironmentSessionCapability,
-                new PortExposureId("preview-pending"),
-                8080,
+    test(
+        "[P11-ENVIRONMENT-CHILD-CONTRACTS] adapts typed EnvironmentController lease, IDs, children, preview, and credentials",
+        { tags: "p1" },
+        async () => {
+            const provider = new ReadyProvider();
+            const controller = new EnvironmentController(
+                new MemoryEnvironmentStore(),
+                new MemoryEnvironmentProviderRegistry([provider]),
+                { permits: (candidate) => candidate === environmentLease }
+            );
+            controller.provision(
+                new EnvironmentRevisionRecord(
+                    environmentId,
+                    Revision.initial(),
+                    0,
+                    provider.descriptor
+                ),
                 environmentLease
-            )
-        ).rejects.toMatchObject({
-            code: "operation.invalid-output",
-            detailCode: "environment.output",
-            message: "Environment preview exposure is not ready"
-        });
-    });
+            );
+            const ids = new TestEnvironmentIds();
+            const backend = new EnvironmentControllerBackend(
+                controller,
+                new FixedLease(),
+                ids,
+                new TestChildren(),
+                new EnvironmentControllerPreviewPort(controller),
+                new TestCredentials()
+            );
+
+            const opened = await backend.open({ environment: "environment-profile" });
+            expect(opened.children).toEqual(["env.fs", "env.shell"]);
+            await expect(backend.use({ session: opened.session })).resolves.toEqual(opened);
+            await expect(
+                backend.snapshot({ session: opened.session, snapshot: "snapshot" })
+            ).resolves.toEqual(provider.snapshotContent);
+            await expect(backend.backupEphemeral({ session: opened.session })).resolves.toEqual(
+                content("f")
+            );
+            await expect(
+                backend.restoreEphemeral({ session: opened.session, snapshot: "snapshot" })
+            ).resolves.toBeUndefined();
+            await expect(
+                backend.exposePreview({ session: opened.session, port: 8080 })
+            ).resolves.toBe(provider.previewUrl);
+            await expect(
+                backend.forwardCredential({
+                    session: opened.session,
+                    credential: new SecretRef("tenant", "vault", "credential"),
+                    request: content("e")
+                })
+            ).resolves.toEqual(content("e"));
+            await expect(
+                backend.restore({ environment: "environment-profile", snapshot: "snapshot" })
+            ).resolves.toMatchObject({ generation: 0, children: ["env.fs", "env.shell"] });
+            expect(provider.restores.map((restore) => restore?.value)).toEqual([
+                undefined,
+                provider.snapshotContent.value
+            ]);
+
+            provider.snapshotResult = ProviderResourceOutcome.indeterminate;
+            await expect(
+                backend.snapshot({ session: opened.session, snapshot: "pending-snapshot" })
+            ).rejects.toMatchObject({
+                code: "operation.invalid-output",
+                detailCode: "environment.output",
+                message: "Environment snapshot is not ready"
+            });
+            await backend.close({ session: opened.session });
+            await expect(backend.use({ session: opened.session })).rejects.toThrow(
+                /Environment session/u
+            );
+        }
+    );
+
+    test(
+        "round-trips optional restore and child wire data and rejects a preview without a URL",
+        { tags: "p1" },
+        async () => {
+            const open = ENVIRONMENT_CONTROL_CONTRACTS.open;
+            expect(
+                open.decodeInput(
+                    open.encodeInput({
+                        environment: "environment-profile",
+                        restoreFrom: "snapshot"
+                    })
+                )
+            ).toEqual({ environment: "environment-profile", restoreFrom: "snapshot" });
+            expect(open.decodeInput({ environment: "environment-profile" })).toEqual({
+                environment: "environment-profile"
+            });
+            expect(
+                open.decodeOutput(
+                    open.encodeOutput(
+                        new EnvironmentSessionBinding("session-wire", 2, ["env.fs", "env.shell"])
+                    )
+                )
+            ).toEqual(new EnvironmentSessionBinding("session-wire", 2, ["env.fs", "env.shell"]));
+
+            const preview = new EnvironmentControllerPreviewPort({
+                expose: async () => ({ url: undefined })
+            } as unknown as EnvironmentController);
+            await expect(
+                preview.expose(
+                    {} as import("../../../src/environments").EnvironmentSessionCapability,
+                    new PortExposureId("preview-pending"),
+                    8080,
+                    environmentLease
+                )
+            ).rejects.toMatchObject({
+                code: "operation.invalid-output",
+                detailCode: "environment.output",
+                message: "Environment preview exposure is not ready"
+            });
+        }
+    );
 
     test(
         "round-trips control wire inputs and labels malformed fields precisely",
@@ -285,9 +308,9 @@ describe("Environment protected control profile", () => {
             expect(() =>
                 contracts.restore.decodeInput({ environment: "wire-env", snapshot: 5 })
             ).toThrow("Environment snapshot ID must be a string");
-            expect(() =>
-                contracts.exposePreview.decodeInput({ session: 5, port: 8080 })
-            ).toThrow("Environment session ID must be a string");
+            expect(() => contracts.exposePreview.decodeInput({ session: 5, port: 8080 })).toThrow(
+                "Environment session ID must be a string"
+            );
             expect(() =>
                 contracts.forwardCredential.decodeInput({
                     session: 5,

@@ -64,17 +64,24 @@ describe("Protected profile runtime port", () => {
         expect(admission.calls.map((call) => call.name)).toEqual(["example"]);
     });
 
-    test("validates wire input before the protected port and output before release", { tags: "p1" }, async () => {
-        const { runtime, admission } = recordingRuntime("validation");
-        await expect(
-            runtime.invoke(contract, { value: 7 } as never, () => "unused")
-        ).rejects.toMatchObject({ code: "operation.invalid-input", detailCode: "wire.input" });
-        expect(admission.calls).toEqual([]);
+    test(
+        "validates wire input before the protected port and output before release",
+        { tags: "p1" },
+        async () => {
+            const { runtime, admission } = recordingRuntime("validation");
+            await expect(
+                runtime.invoke(contract, { value: 7 } as never, () => "unused")
+            ).rejects.toMatchObject({ code: "operation.invalid-input", detailCode: "wire.input" });
+            expect(admission.calls).toEqual([]);
 
-        await expect(
-            runtime.invoke(contract, { value: "valid" }, () => 7 as never)
-        ).rejects.toMatchObject({ code: "operation.invalid-output", detailCode: "wire.output" });
-    });
+            await expect(
+                runtime.invoke(contract, { value: "valid" }, () => 7 as never)
+            ).rejects.toMatchObject({
+                code: "operation.invalid-output",
+                detailCode: "wire.output"
+            });
+        }
+    );
 
     test("rejects result-kind substitution from the protected port", { tags: "p0" }, async () => {
         const { runtime: template } = recordingRuntime("kind-template");

@@ -247,19 +247,23 @@ export function operationDeclarationEvidence(
     expected: Readonly<Record<string, OperationDescriptor["impact"]>>
 ): void {
     describe(`${profile} operation declaration evidence`, () => {
-        test("declares exact names, impacts, valid schemas, and immutable descriptors", { tags: "p1" }, () => {
-            expect(
-                Object.fromEntries(
-                    operations.map((operation) => [operation.name.value, operation.impact])
-                )
-            ).toEqual(expected);
-            for (const operation of operations) {
-                operation.input.assertValid();
-                operation.output.assertValid();
-                expect(Object.isFrozen(operation)).toBe(true);
+        test(
+            "declares exact names, impacts, valid schemas, and immutable descriptors",
+            { tags: "p1" },
+            () => {
+                expect(
+                    Object.fromEntries(
+                        operations.map((operation) => [operation.name.value, operation.impact])
+                    )
+                ).toEqual(expected);
+                for (const operation of operations) {
+                    operation.input.assertValid();
+                    operation.output.assertValid();
+                    expect(Object.isFrozen(operation)).toBe(true);
+                }
+                expect(Object.isFrozen(operations)).toBe(true);
             }
-            expect(Object.isFrozen(operations)).toBe(true);
-        });
+        );
     });
 }
 
