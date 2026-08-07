@@ -31,6 +31,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-CONTENT-CUSTODY",
+      "owner": "W1",
+      "specAnchor": "C13-CONTENT-CUSTODY",
+      "specTextSha256": "sha256:5a28b06b98da8174b5c06871745a467ec1ef556b825bc40f915f78b7465f9711",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-CONTENT-RESOLUTION",
       "owner": "W1",
       "specAnchor": "C13-CONTENT-RESOLUTION",

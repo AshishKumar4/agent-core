@@ -204,8 +204,8 @@ direct and team Memberships under the precedence rule of §3.3.
 `Tenant ⊇ Project ⊇ Workspace`, with Project optional:
 
 - a **Tenant** is the ownership and isolation boundary. It owns Projects, Workspaces,
-  Teams, credentials, installed Packages, quotas, and retention. A single-user
-  installation still has a Tenant — one Principal, one personal Tenant.
+  Teams, credentials, stored content, installed Packages, quotas, and retention. A
+  single-user installation still has a Tenant — one Principal, one personal Tenant.
 - a **Project** groups Workspaces for organization, policy, and sharing. It is a
   record owned by the Tenant's Actor, not a coordination unit of its own (§8.1,
   §10.1) — grouping your workspaces costs nothing at runtime.
@@ -1898,8 +1898,15 @@ abstract class ContentStore {
 ```
 
 Every `ContentRef` in this specification resolves through a ContentStore — run inputs,
-checkpoints, instructions, results, slate sources — so there can never be a reference
-that nothing is able to load. Retention and GC follow Tenant policy.
+checkpoints, instructions, results, slate sources. A ContentStore belongs to exactly one
+Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller whose authority
+reaches that Tenant; there is no cross-Tenant content read without a Grant that says so.
+
+A reference alone keeps nothing alive. Every durable record that names a `ContentRef` is a
+retained owner of that content; collection offers only content no record owns, and removing
+a record releases its ownership. Retention and GC follow Tenant policy over unowned content
+alone, so a record cannot outlive the bytes it names. This maps to
+**C13-CONTENT-CUSTODY**.
 
 ### 8.3 Records and codecs
 
@@ -2103,12 +2110,12 @@ against those facts.
 | Construct | Hosting |
 | --- | --- |
 | Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
-| Workspace Actor | one DO per Workspace (SQLite): facet installs, bindings, its event log, subscriptions, runs (default) or run index (dedicated), tasks, slate records |
+| Workspace Actor | one DO per Workspace (SQLite): facet installs, bindings, its event log, subscriptions, runs (default) or run index (dedicated), tasks |
 | Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2. |
 | Turn execution | in the Run-owning DO; each Turn retains a placement snapshot, and offloaded callbacks carry exact Turn, holder, and epoch — delivery is at-least-once and mismatches reject |
 | Environment | Sandbox SDK container or session DO; tree checkpoints and filesystem durability via R2 snapshots; preview via authenticated exposed ports |
 | Slate | records in the owning DO; frontend on static assets; backend as dynamic-mode code (§10.2) |
-| ContentStore | R2, with DO SQLite for small content, content-addressed |
+| ContentStore | R2, with DO SQLite for small content, content-addressed; the store and its owner edges are owned by the Tenant Actor |
 | Events | owned by the accepting Actor. Cross-Actor delivery uses a source-owned authenticated RouteReservation with stable InvocationId and a target-local delivery record; Queues/RPC may redeliver but cannot remap or duplicate intent. |
 
 Projects are records in the Tenant DO — grouping adds zero DOs. Authority resolution
@@ -2634,6 +2641,7 @@ A conforming implementation provides:
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
 - **C13-CONTENT-RESOLUTION** Every ContentRef resolves through ContentStore.
+- **C13-CONTENT-CUSTODY** Stored content is owned by one Tenant, and every record naming a `ContentRef` retains it until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
 - **C13-PROTOCOL-EXACT-ENVELOPE** The command dispatcher enforces exact caller and optional LeaseToken envelopes.
 - **C13-PROTOCOL-OUTCOMES** The command dispatcher produces deterministic complete outcomes.
