@@ -307,7 +307,10 @@ describe("Facet runtime", () => {
             );
             await explicitValidatorHost.activate();
             await explicitValidatorHost.dispose();
-            await expect(inactiveHost.activate()).rejects.toMatchObject({ code: "facet.inactive" });
+            await expect(inactiveHost.activate()).rejects.toMatchObject({
+                code: "facet.inactive",
+                message: "Facet host is disposed"
+            });
 
             const stopped: string[] = [];
             const firstManifest = manifest("acme.first", []);
@@ -375,7 +378,10 @@ describe("Facet runtime", () => {
             );
             const host = new FacetRuntimeHost([firstManifest, secondManifest], [first, second]);
 
-            await expect(host.activate()).rejects.toMatchObject({ code: "facet.inactive" });
+            await expect(host.activate()).rejects.toMatchObject({
+                code: "facet.inactive",
+                message: "Facet activation failed: start failed"
+            });
             expect(order).toEqual(["start:first", "stop:first"]);
             expect(host.active).toBe(false);
             await host.dispose();
@@ -482,8 +488,14 @@ describe("Facet runtime", () => {
             await entered;
             const disposal = cancelling.dispose();
             expect(reentrantDisposal).toBe(disposal);
-            await expect(cancelling.activate()).rejects.toMatchObject({ code: "facet.inactive" });
-            await expect(activation).rejects.toMatchObject({ code: "facet.inactive" });
+            await expect(cancelling.activate()).rejects.toMatchObject({
+                code: "facet.inactive",
+                message: "Facet host is stopping"
+            });
+            await expect(activation).rejects.toMatchObject({
+                code: "facet.inactive",
+                message: "Facet activation failed: Facet activation was cancelled"
+            });
             await disposal;
 
             const cleanupManifest = manifest("acme.cleanup", []);
@@ -631,7 +643,10 @@ describe("Facet runtime", () => {
                 }
             );
             const host = new FacetRuntimeHost([retryManifest], [facet]);
-            await expect(host.activate()).rejects.toMatchObject({ code: "facet.inactive" });
+            await expect(host.activate()).rejects.toMatchObject({
+                code: "facet.inactive",
+                message: "Facet activation failed: first start fails"
+            });
             await host.activate();
             expect(host.active).toBe(true);
             expect(attempts).toBe(2);
@@ -827,7 +842,10 @@ describe("Facet runtime", () => {
             }
         );
         const host = new FacetRuntimeHost([firstManifest, secondManifest], [first, second]);
-        await expect(host.activate()).rejects.toMatchObject({ code: "facet.inactive" });
+        await expect(host.activate()).rejects.toMatchObject({
+            code: "facet.inactive",
+            message: "Facet activation failed: start failed"
+        });
         expect(stops).toEqual(["stop:second", "stop:first"]);
         await host.dispose();
     });
@@ -1331,7 +1349,10 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "single", input: {} }
                 })
-            ).rejects.toMatchObject({ code: "facet.inactive" });
+            ).rejects.toMatchObject({
+                code: "facet.inactive",
+                message: "Resolved Facet is no longer active"
+            });
             resolved[Symbol.dispose]();
         }
     );
@@ -1511,7 +1532,10 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "single", input: {} }
                 })
-            ).rejects.toMatchObject({ code: "authority.denied" });
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message: "Direct operation denied"
+            });
 
             const directGateway = new OperationGatewayHost(
                 { caller: "authenticated" },
@@ -1692,7 +1716,10 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "batch", inputs: [] as unknown as [FacetData, ...FacetData[]] }
                 })
-            ).rejects.toMatchObject({ code: "invocation.invalid" });
+            ).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Operation payload is malformed or empty"
+            });
 
             invalidBefore = true;
             await expect(
@@ -1776,7 +1803,11 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "single", input: {} }
                 })
-            ).rejects.toMatchObject({ code: "authority.denied" });
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message:
+                    "Interceptor invalid blocked the operation: Interceptor returned an invalid result"
+            });
             behavior = "throw";
             await expect(
                 resolved.dispatch({
@@ -1784,7 +1815,10 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "single", input: {} }
                 })
-            ).rejects.toMatchObject({ code: "authority.denied" });
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message: "Interceptor invalid blocked the operation: unknown interceptor failure"
+            });
             behavior = "valid";
             await expect(
                 resolved.dispatch({
@@ -1919,7 +1953,10 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "single", input: {} }
                 })
-            ).rejects.toMatchObject({ code: "invocation.invalid" });
+            ).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Mediated replay returned a direct result"
+            });
             invocations.replay = {
                 kind: "mediated",
                 output: [],
@@ -2672,7 +2709,10 @@ describe("Protected Operation gateway", () => {
             expect(resolved.descriptor(new OperationName("run"))).toBeDefined();
             await host.dispose();
             expect(() => resolved.descriptor(new OperationName("run"))).toThrowError(
-                expect.objectContaining({ code: "facet.inactive" })
+                expect.objectContaining({
+                    code: "facet.inactive",
+                    message: "Resolved Facet is no longer active"
+                })
             );
             resolved[Symbol.dispose]();
         }
@@ -2706,7 +2746,10 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "bogus", inputs: [{}] } as unknown as OperationPayload
                 })
-            ).rejects.toMatchObject({ code: "invocation.invalid" });
+            ).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Operation payload is malformed or empty"
+            });
             await expect(
                 resolved.dispatch({
                     requestKey: new OperationRequestKey("non-array-batch"),
