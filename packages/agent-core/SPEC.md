@@ -757,7 +757,7 @@ digest-logged.
 
 An **Environment** is an execution endpoint that opens live **Sessions**; a Session
 exposes session-scoped child Facets (`env.fs`, `env.shell`, `env.ports`, `env.proc`).
-An Environment is essentially the agent's computer.
+An Environment is the agent's computer.
 
 Rules: stale Sessions fail; closing a Session disposes its child Facets; rotation
 changes future Sessions without retargeting open ones. Environment profiles further
@@ -1027,7 +1027,9 @@ proves rather than something it asserts. Each criterion names an Operation that 
 whether the work is done, and the Run-owning Actor reserves its `AcceptanceId` as an
 `acceptance` RunObligation. The obligation completes exactly when an `AcceptanceVerdict`
 for that `AcceptanceId` names an attempted Receipt whose outcome is `succeeded` and whose
-`subject` equals the Run's current head tree digest. The verifier is an ordinary
+`subject` equals the Run's current head tree digest — the tree digest of the head of the
+Run's `initialBranch`, the one branch the Run record itself names, so that completion is
+never selectable by the caller that asks. The verifier is an ordinary
 Operation, so its Receipt carries the whole §7 admission and audit chain and no actor can
 assert a verdict it did not earn. An unsatisfied acceptance obligation is exactly as
 unfinished as an outstanding Approval: it is snapshotted into the SettlementObligation and
@@ -1218,12 +1220,9 @@ result commit unless Run terminalization records it as a captured system obligat
 
 ![Turn lease lifecycle](diagrams/turn-lease.svg)
 
-A crashed executor that comes back cannot corrupt anything: past its expiry the lease
-admits nothing, and once another holder reclaims or a fence advances the epoch, every
-write it attempts is stale and gets rejected. The lease is deliberately
-application-visible — your code can hand the
-epoch to an external system and ask it to check, and that check is the only kind of
-fencing that still works across a network partition.
+The lease is deliberately application-visible: your code can hand the epoch to an
+external system and ask it to check, and that check is the only kind of fencing that
+still works across a network partition.
 
 ### 5.4 Checkpoints
 
