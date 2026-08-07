@@ -40,6 +40,7 @@
             "tests"
         ],
         "architecture": [],
+        "coherence": [],
         "tests": [
             "types",
             "dag",
@@ -48,7 +49,8 @@
             "scope",
             "imports",
             "requests",
-            "architecture"
+            "architecture",
+            "coherence"
         ],
         "test-priorities": [
             "tests",
@@ -151,6 +153,7 @@
         "seams": true,
         "migrations": true,
         "architecture": true,
+        "coherence": true,
         "tests": true,
         "test-priorities": true,
         "coverage": true,

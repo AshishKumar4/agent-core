@@ -13,6 +13,7 @@ const checkerEntrypoints = new Set([
         "agents",
         "architecture",
         "attest",
+        "coherence",
         "coverage",
         "format",
         "governance",

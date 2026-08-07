@@ -81,6 +81,7 @@
     "build": "node ./scripts/build.mjs",
     "quality": "node ./scripts/quality/run.mjs",
     "check:architecture": "node ./scripts/quality/architecture.mjs --stage building",
+    "check:coherence": "node ./scripts/quality/coherence.mjs --stage building",
     "check:conformance": "node ./scripts/quality/run.mjs --stage building --target conformance",
     "check:imports": "node ./scripts/check-import-boundaries.mjs",
     "check:records": "node ./scripts/quality/records.mjs --stage building",
