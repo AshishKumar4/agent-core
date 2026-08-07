@@ -202,17 +202,10 @@ function defineDataProperty(
 
 function parsePointer(pointer: string): readonly string[] {
     if (pointer === "") return [];
-    if (!pointer.startsWith("/"))
-        throw new TypeError("JSON Pointer must be empty or begin with '/'");
     return pointer
         .slice(1)
         .split("/")
-        .map((token) => {
-            if (/~(?:[^01]|$)/u.test(token)) {
-                throw new TypeError("JSON Pointer contains an invalid escape");
-            }
-            return token.replaceAll("~1", "/").replaceAll("~0", "~");
-        });
+        .map((token) => token.replaceAll("~1", "/").replaceAll("~0", "~"));
 }
 
 function parseArrayIndex(token: string): number {
