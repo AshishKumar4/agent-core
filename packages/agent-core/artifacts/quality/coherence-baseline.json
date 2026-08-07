@@ -11,13 +11,6 @@
     {
       "rule": "COH-SECTION-NO-ATOM",
       "file": "packages/agent-core/SPEC.md",
-      "symbol": "3.3",
-      "message": "Normative §3.3 carries no conformance atom",
-      "fingerprint": "COH-SECTION-NO-ATOM:packages/agent-core/SPEC.md:3.3:1c9ba60a9cf8"
-    },
-    {
-      "rule": "COH-SECTION-NO-ATOM",
-      "file": "packages/agent-core/SPEC.md",
       "symbol": "4.3",
       "message": "Normative §4.3 carries no conformance atom",
       "fingerprint": "COH-SECTION-NO-ATOM:packages/agent-core/SPEC.md:4.3:b07b5acb893b"
@@ -25,30 +18,9 @@
     {
       "rule": "COH-SECTION-NO-ATOM",
       "file": "packages/agent-core/SPEC.md",
-      "symbol": "5.4",
-      "message": "Normative §5.4 carries no conformance atom",
-      "fingerprint": "COH-SECTION-NO-ATOM:packages/agent-core/SPEC.md:5.4:e2b752babde5"
-    },
-    {
-      "rule": "COH-SECTION-NO-ATOM",
-      "file": "packages/agent-core/SPEC.md",
       "symbol": "5.5",
       "message": "Normative §5.5 carries no conformance atom",
       "fingerprint": "COH-SECTION-NO-ATOM:packages/agent-core/SPEC.md:5.5:c49635974f02"
-    },
-    {
-      "rule": "COH-SECTION-NO-ATOM",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "6.2",
-      "message": "Normative §6.2 carries no conformance atom",
-      "fingerprint": "COH-SECTION-NO-ATOM:packages/agent-core/SPEC.md:6.2:6b535dd26f77"
-    },
-    {
-      "rule": "COH-SECTION-NO-ATOM",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "7.4",
-      "message": "Normative §7.4 carries no conformance atom",
-      "fingerprint": "COH-SECTION-NO-ATOM:packages/agent-core/SPEC.md:7.4:4933134476c8"
     },
     {
       "rule": "COH-SECTION-NO-ATOM",
@@ -217,20 +189,6 @@
       "symbol": "P11-WEB-DISPATCH",
       "message": "Test title labels undefined atom P11-WEB-DISPATCH",
       "fingerprint": "COH-TEST-LABEL:packages/agent-core/test/profiles/facets/web.test.ts:P11-WEB-DISPATCH:025149bc024e"
-    },
-    {
-      "rule": "COH-UNDEFINED-TOKEN",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "1.4 W3",
-      "message": "Undefined wave codename W3 in §1.4 normative prose",
-      "fingerprint": "COH-UNDEFINED-TOKEN:packages/agent-core/SPEC.md:1.4 W3:f698ab0854ce"
-    },
-    {
-      "rule": "COH-UNDEFINED-TOKEN",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "5.6 W5",
-      "message": "Undefined wave codename W5 in §5.6 normative prose",
-      "fingerprint": "COH-UNDEFINED-TOKEN:packages/agent-core/SPEC.md:5.6 W5:d3b7b32506d9"
     }
   ]
 }
