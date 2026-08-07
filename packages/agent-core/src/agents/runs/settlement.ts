@@ -19,7 +19,7 @@ import {
     runObligationKey,
     type RunObligation
 } from "./admission";
-import { RunId } from "./id";
+import { AcceptanceId, RunId } from "./id";
 import { requireTerminalOutcome, type TerminalOutcome } from "./outcome";
 
 export type SettlementAuditObligation =
@@ -188,6 +188,10 @@ export abstract class SettlementEvidencePort<Transaction> {
         attempt: EffectAttemptId
     ): boolean;
     public abstract commitExists(transaction: Transaction, commit: RunCommitId): boolean;
+    public abstract acceptanceSatisfied(
+        transaction: Transaction,
+        acceptance: AcceptanceId
+    ): boolean;
     public abstract auditSatisfied(
         transaction: Transaction,
         obligation: SettlementAuditObligation
@@ -235,6 +239,12 @@ export function isSettled<Transaction>(
                     return (
                         requireSynchronousResult(
                             evidence.commitExists(transaction, value.commit)
+                        ) === true
+                    );
+                case "acceptance":
+                    return (
+                        requireSynchronousResult(
+                            evidence.acceptanceSatisfied(transaction, value.acceptance)
                         ) === true
                     );
             }

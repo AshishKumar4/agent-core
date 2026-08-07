@@ -1,0 +1,557 @@
+import { describe, expect, it } from "vitest";
+import { Digest, Revision } from "../../../src/core";
+import { AgentCoreError } from "../../../src/errors";
+import { OperationRef } from "../../../src/facets";
+import { RunCommitId } from "../../../src/execution-references";
+import { ApprovalId, ReceiptId } from "../../../src/invocation-references";
+import {
+    AcceptanceCriterion,
+    AcceptanceCriterionCodec,
+    AcceptanceVerdict,
+    AcceptanceVerdictCodec
+} from "../../../src/agents/runs/acceptance";
+import {
+    RunAdmissionRegistry,
+    RunAdmissionRegistryCodec,
+    decodeRunObligation,
+    runObligationKey,
+    type RunObligation
+} from "../../../src/agents/runs/admission";
+import { RunCommit } from "../../../src/agents/runs/commit";
+import type { AcceptanceReceiptEvidence } from "../../../src/agents/runs/evidence";
+import { AcceptanceId, RunBranchId, RunId } from "../../../src/agents/runs/id";
+import { Run, RunBranch } from "../../../src/agents/runs/run";
+import {
+    configuration,
+    content,
+    digest,
+    genesis,
+    harness,
+    ids,
+    pins,
+    seedRunningTurn
+} from "./fixture";
+
+const operation = new OperationRef("verifier-package:verify");
+const firstId = new AcceptanceId("acceptance-first");
+const secondId = new AcceptanceId("acceptance-second");
+
+function criterion(id: AcceptanceId): AcceptanceCriterion {
+    return new AcceptanceCriterion({ id, operation });
+}
+
+function verdict(acceptance: AcceptanceId, subject: Digest, receipt: string): AcceptanceVerdict {
+    return new AcceptanceVerdict({ acceptance, subject, receipt: new ReceiptId(receipt) });
+}
+
+function attempted(
+    value: ReturnType<typeof harness>,
+    receipt: string,
+    outcome: AcceptanceReceiptEvidence["outcome"]
+): void {
+    value.evidence.acceptances.set(receipt, {
+        kind: "acceptanceReceipt",
+        receipt: new ReceiptId(receipt),
+        outcome
+    });
+}
+
+function frontierKeys(value: ReturnType<typeof harness>): readonly string[] {
+    return value.repository
+        .transaction((tx) => value.repository.loadAdmission(tx, ids.run)!.frontier())
+        .map(runObligationKey);
+}
+
+function expectCode(operationUnderTest: () => unknown, code: AgentCoreError["code"]): void {
+    try {
+        operationUnderTest();
+        throw new Error("Expected operation to fail");
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        expect((error as AgentCoreError).code).toBe(code);
+    }
+}
+
+function treeMessage(
+    id: string,
+    parent: RunCommitId,
+    token: { turn: typeof ids.turn; holder: typeof ids.holder; epoch: number },
+    tree?: string
+): RunCommit {
+    return new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "message",
+        parents: [parent],
+        pins: pins(),
+        writer: { kind: "turn", token },
+        subjectTurn: token.turn,
+        content: content("1"),
+        ...(tree === undefined ? {} : { treeCheckpoint: content(tree) })
+    });
+}
+
+function otherRunGenesis() {
+    const snapshot = configuration();
+    const run = new RunId("run-2");
+    const branch = new RunBranchId("branch-main-2");
+    const root = new RunCommit({
+        id: new RunCommitId("commit-root-2"),
+        run,
+        branch,
+        kind: "root",
+        parents: [],
+        pins: snapshot.pins,
+        writer: { kind: "root" },
+        content: content("4"),
+        treeCheckpoint: content("e")
+    });
+    return {
+        run: new Run({
+            id: run,
+            agent: ids.agent,
+            configuration: snapshot.id,
+            root: root.id,
+            initialBranch: branch,
+            revision: new Revision(0)
+        }),
+        configuration: snapshot,
+        branch: new RunBranch(branch, run, "main", root.id, new Revision(0)),
+        root
+    };
+}
+
+describe("Run acceptance criteria", () => {
+    it(
+        "[C13-RUN-ACCEPTANCE-OBLIGATION] reserves each declared criterion at open and completes only through a succeeded current-subject verdict",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun({
+                ...genesis(),
+                acceptanceCriteria: [criterion(firstId), criterion(secondId)]
+            });
+
+            const obligations: readonly RunObligation[] = [
+                { kind: "acceptance", acceptance: firstId },
+                { kind: "acceptance", acceptance: secondId }
+            ];
+            expect(frontierKeys(value)).toEqual(
+                [...obligations]
+                    .map(runObligationKey)
+                    .sort((left, right) => left.localeCompare(right))
+            );
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.loadAcceptanceCriterion(tx, firstId)
+                )
+            ).toEqual(criterion(firstId));
+            const duplicate = value.runtime.reserveRunObligation(ids.run, obligations[0]!);
+            expect(duplicate.registryEpoch).toBe(0);
+            expect(value.runtime.acceptsRunAdmission(duplicate)).toBe(true);
+
+            attempted(value, "verifier-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("e"), "verifier-pass")
+            );
+            expect(frontierKeys(value)).toEqual([runObligationKey(obligations[1]!)]);
+
+            attempted(value, "verifier-fail", "failed");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(secondId, digest("e"), "verifier-fail")
+            );
+            expect(frontierKeys(value)).toEqual([runObligationKey(obligations[1]!)]);
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.loadAcceptanceVerdict(tx, secondId, digest("e"))
+                )
+            ).toEqual(verdict(secondId, digest("e"), "verifier-fail"));
+            expect(value.runtime.acceptanceAttemptAdmissible(ids.run, secondId)).toBe(false);
+
+            expectCode(
+                () =>
+                    value.runtime.recordAcceptanceVerdict(
+                        ids.run,
+                        verdict(new AcceptanceId("undeclared"), digest("e"), "verifier-pass")
+                    ),
+                "run.invalid-state"
+            );
+            expectCode(
+                () =>
+                    value.runtime.recordAcceptanceVerdict(
+                        ids.run,
+                        verdict(firstId, digest("2"), "unattempted-receipt")
+                    ),
+                "authority.denied"
+            );
+            value.evidence.acceptances.set("mismatched-receipt", {
+                kind: "acceptanceReceipt",
+                receipt: new ReceiptId("some-other-receipt"),
+                outcome: "succeeded"
+            });
+            expectCode(
+                () =>
+                    value.runtime.recordAcceptanceVerdict(
+                        ids.run,
+                        verdict(firstId, digest("2"), "mismatched-receipt")
+                    ),
+                "authority.denied"
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-ACCEPTANCE-SUBJECT] treats a verdict as evidence for its exact subject and admits a further attempt only against an unnamed head tree digest",
+        { tags: "p0" },
+        () => {
+            const base = harness();
+            base.runtime.createRun({ ...genesis(), acceptanceCriteria: [criterion(firstId)] });
+            const value = seedRunningTurn(base);
+            const obligation: RunObligation = { kind: "acceptance", acceptance: firstId };
+            expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(true);
+
+            attempted(value, "stale-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("f"), "stale-pass")
+            );
+            expect(frontierKeys(value)).toEqual([runObligationKey(obligation)]);
+            expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(true);
+            expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(false);
+
+            attempted(value, "current-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("e"), "current-pass")
+            );
+            expect(frontierKeys(value)).toEqual([]);
+            expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(true);
+            expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(false);
+
+            attempted(value, "verifier-rerun", "succeeded");
+            expectCode(
+                () =>
+                    value.runtime.recordAcceptanceVerdict(
+                        ids.run,
+                        verdict(firstId, digest("e"), "verifier-rerun")
+                    ),
+                "run.invalid-state"
+            );
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("e"), "current-pass")
+            );
+
+            value.runtime.appendCommit(
+                treeMessage("advance-tree", ids.root, value.token, "2"),
+                new Revision(0),
+                new Date(1500)
+            );
+            expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(true);
+            expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(false);
+
+            attempted(value, "moved-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("2"), "moved-pass")
+            );
+            expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(true);
+        }
+    );
+
+    it(
+        "[C13-RUN-ACCEPTANCE-SUBJECT] withholds admission and completion while the head names no tree digest",
+        { tags: "p1" },
+        () => {
+            const base = genesis();
+            const bare = new RunCommit({
+                id: ids.root,
+                run: ids.run,
+                branch: ids.branch,
+                kind: "root",
+                parents: [],
+                pins: base.configuration.pins,
+                writer: { kind: "root" },
+                content: content("4")
+            });
+            const value = harness();
+            value.runtime.createRun({
+                ...base,
+                root: bare,
+                acceptanceCriteria: [criterion(firstId)]
+            });
+            expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(false);
+            expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(false);
+
+            attempted(value, "no-subject-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("e"), "no-subject-pass")
+            );
+            expect(frontierKeys(value)).toEqual([
+                runObligationKey({ kind: "acceptance", acceptance: firstId })
+            ]);
+        }
+    );
+
+    it(
+        "[C13-RUN-ACCEPTANCE-OBLIGATION] snapshots an unsatisfied criterion into the terminal frontier and blocks Settled until a current satisfying verdict",
+        { tags: "p0" },
+        () => {
+            const base = harness();
+            base.runtime.createRun({
+                ...genesis(),
+                acceptanceCriteria: [criterion(firstId), criterion(secondId)]
+            });
+            const value = seedRunningTurn(base);
+            const approval = new ApprovalId("acceptance-approval");
+            const approved = value.runtime.reserveRunObligation(ids.run, {
+                kind: "approval",
+                approval
+            });
+            attempted(value, "first-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("e"), "first-pass")
+            );
+
+            const snapshot = value.runtime.terminalizeRun({
+                run: ids.run,
+                turn: ids.turn,
+                expectedRunRevision: value.repository.transaction(
+                    (tx) => value.repository.loadRun(tx, ids.run)!.revision
+                ),
+                expectedTurnRevision: value.running.revision,
+                expectedBranchRevision: new Revision(0),
+                token: value.token,
+                outcome: "succeeded",
+                commit: new RunCommit({
+                    id: new RunCommitId("acceptance-terminal"),
+                    run: ids.run,
+                    branch: ids.branch,
+                    kind: "result",
+                    parents: [ids.root],
+                    pins: pins(),
+                    writer: { kind: "turn", token: value.token },
+                    subjectTurn: ids.turn,
+                    content: content("f"),
+                    treeCheckpoint: content("3")
+                }),
+                siblingCancellations: new Map(),
+                now: new Date(2000)
+            });
+
+            expect(snapshot.obligation.obligations.map(runObligationKey)).toEqual(
+                [
+                    { kind: "acceptance", acceptance: secondId } as const,
+                    { kind: "approval", approval } as const
+                ]
+                    .map(runObligationKey)
+                    .sort((left, right) => left.localeCompare(right))
+            );
+            expect(snapshot.obligation.requiredAudits).toEqual([]);
+            value.runtime.completeRunObligation(approved);
+            value.settlement.approvals.add(approval.value);
+            expect(value.runtime.settled(ids.run)).toBe(false);
+
+            attempted(value, "late-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(secondId, digest("3"), "late-pass")
+            );
+            expect(frontierKeys(value)).toEqual([]);
+            expect(value.runtime.acceptanceSatisfied(ids.run, secondId)).toBe(true);
+            value.settlement.acceptances.add(secondId.value);
+            expect(value.runtime.settled(ids.run)).toBe(true);
+        }
+    );
+
+    it(
+        "[C13-RUN-ACCEPTANCE-OBLIGATION] leaves a Run declaring no criteria on the exact prior genesis bytes",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const snapshot = value.storage.snapshot();
+
+            expect(
+                snapshot.records.some(
+                    (record) => record.kind === "acceptance" || record.kind === "verdict"
+                )
+            ).toBe(false);
+            const stored = snapshot.records.find((record) => record.kind === "admission")!;
+            expect([...stored.bytes]).toEqual([
+                ...RunAdmissionRegistryCodec.encode(RunAdmissionRegistry.initial(ids.run))
+            ]);
+        }
+    );
+
+    it(
+        "[run.acceptance-criterion] [run.acceptance-verdict] persists criteria, verdicts, and completion across a memory restart",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun({ ...genesis(), acceptanceCriteria: [criterion(firstId)] });
+            attempted(value, "durable-pass", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("e"), "durable-pass")
+            );
+
+            const restarted = harness(value.storage.snapshot());
+            expect(
+                restarted.repository.transaction((tx) =>
+                    restarted.repository.loadAcceptanceCriterion(tx, firstId)
+                )
+            ).toEqual(criterion(firstId));
+            expect(
+                restarted.repository.transaction((tx) =>
+                    restarted.repository.loadAcceptanceVerdict(tx, firstId, digest("e"))
+                )
+            ).toEqual(verdict(firstId, digest("e"), "durable-pass"));
+            expect(frontierKeys(restarted)).toEqual([]);
+            expect(restarted.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(false);
+            expect(restarted.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(false);
+            attempted(restarted, "durable-pass", "succeeded");
+            expect(restarted.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(true);
+        }
+    );
+
+    it("binds a verdict to the declaring Run's own reserved criterion", { tags: "p1" }, () => {
+        const value = harness();
+        value.runtime.createRun({ ...genesis(), acceptanceCriteria: [criterion(firstId)] });
+        const other = otherRunGenesis();
+        expectCode(
+            () =>
+                value.runtime.createRun({
+                    ...other,
+                    acceptanceCriteria: [criterion(firstId)]
+                }),
+            "run.invalid-state"
+        );
+        value.runtime.createRun(other);
+
+        expectCode(
+            () =>
+                value.runtime.recordAcceptanceVerdict(
+                    other.run.id,
+                    verdict(firstId, digest("e"), "foreign-pass")
+                ),
+            "run.invalid-state"
+        );
+        expect(value.runtime.acceptanceAttemptAdmissible(other.run.id, firstId)).toBe(false);
+        expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(true);
+    });
+
+    it("rejects duplicate and preexisting criterion identities at genesis", { tags: "p1" }, () => {
+        const value = harness();
+        expectCode(
+            () =>
+                value.runtime.createRun({
+                    ...genesis(),
+                    acceptanceCriteria: [criterion(firstId), criterion(firstId)]
+                }),
+            "run.invalid-state"
+        );
+        expect(
+            value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run))
+        ).toBeUndefined();
+        expect(
+            value.repository.transaction((tx) =>
+                value.repository.loadAcceptanceCriterion(tx, firstId)
+            )
+        ).toBeUndefined();
+    });
+
+    it(
+        "[run.acceptance-criterion] [run.acceptance-verdict] round-trips exact records and rejects malformed identities",
+        { tags: "p1" },
+        () => {
+            const decodedCriterion = AcceptanceCriterionCodec.decode(
+                AcceptanceCriterionCodec.encode(criterion(firstId))
+            );
+            expect(decodedCriterion).toEqual(criterion(firstId));
+            expect(Object.isFrozen(decodedCriterion)).toBe(true);
+            const recorded = verdict(firstId, digest("e"), "codec-receipt");
+            const decodedVerdict = AcceptanceVerdictCodec.decode(
+                AcceptanceVerdictCodec.encode(recorded)
+            );
+            expect(decodedVerdict).toEqual(recorded);
+            expect(Object.isFrozen(decodedVerdict)).toBe(true);
+
+            expect(() => new AcceptanceCriterion({ id: ids.run as never, operation })).toThrow(
+                /exact context classes/
+            );
+            expect(
+                () => new AcceptanceCriterion({ id: firstId, operation: ids.run as never })
+            ).toThrow(/exact context classes/);
+            expect(
+                () =>
+                    new AcceptanceVerdict({
+                        acceptance: ids.run as never,
+                        subject: digest("e"),
+                        receipt: new ReceiptId("codec-receipt")
+                    })
+            ).toThrow(/exact context classes/);
+            expect(
+                () =>
+                    new AcceptanceVerdict({
+                        acceptance: firstId,
+                        subject: content("e") as never,
+                        receipt: new ReceiptId("codec-receipt")
+                    })
+            ).toThrow(/exact context classes/);
+            expect(
+                () =>
+                    new AcceptanceVerdict({
+                        acceptance: firstId,
+                        subject: digest("e"),
+                        receipt: ids.run as never
+                    })
+            ).toThrow(/exact context classes/);
+            expect(() => AcceptanceCriterion.fromData({ id: firstId.value } as never)).toThrow(
+                /missing or unknown fields/
+            );
+            expect(() =>
+                AcceptanceCriterion.fromData({
+                    id: firstId.value,
+                    operation: operation.value,
+                    extra: true
+                } as never)
+            ).toThrow(/missing or unknown fields/);
+            expect(() =>
+                AcceptanceVerdict.fromData({
+                    acceptance: firstId.value,
+                    receipt: "codec-receipt",
+                    subject: "not-a-digest"
+                } as never)
+            ).toThrow(/lowercase SHA-256/);
+
+            const obligation: RunObligation = { kind: "acceptance", acceptance: firstId };
+            const registry = RunAdmissionRegistry.initial(ids.run).reserve(obligation).registry;
+            const decoded = RunAdmissionRegistryCodec.decode(
+                RunAdmissionRegistryCodec.encode(registry)
+            );
+            expect(decoded.reserved.map(runObligationKey)).toEqual([runObligationKey(obligation)]);
+            expect(decodeRunObligation({ acceptance: firstId.value, kind: "acceptance" })).toEqual(
+                obligation
+            );
+            expect(() =>
+                decodeRunObligation({
+                    acceptance: firstId.value,
+                    kind: "acceptance",
+                    extra: 1
+                } as never)
+            ).toThrow(/missing or unknown fields/);
+            expect(() =>
+                RunAdmissionRegistry.initial(ids.run).reserve({
+                    kind: "acceptance",
+                    acceptance: ids.run as never
+                })
+            ).toThrow(/exact canonical ID/);
+        }
+    );
+});

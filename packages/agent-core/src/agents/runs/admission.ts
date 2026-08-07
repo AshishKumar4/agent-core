@@ -11,7 +11,7 @@ import {
     requireObject,
     requireString
 } from "../record-data";
-import { RunId } from "./id";
+import { AcceptanceId, RunId } from "./id";
 
 export type RunObligation =
     | { readonly kind: "approval"; readonly approval: ApprovalId }
@@ -23,7 +23,8 @@ export type RunObligation =
       }
     | { readonly kind: "route"; readonly reservation: RouteReservationId }
     | { readonly kind: "reconciliation"; readonly attempt: EffectAttemptId }
-    | { readonly kind: "systemCommit"; readonly commit: RunCommitId };
+    | { readonly kind: "systemCommit"; readonly commit: RunCommitId }
+    | { readonly kind: "acceptance"; readonly acceptance: AcceptanceId };
 
 export interface RunAdmissionReservation {
     readonly run: RunId;
@@ -138,6 +139,17 @@ export class RunAdmissionRegistry extends CodecRecord {
             if (error instanceof TypeError) return false;
             throw error;
         }
+    }
+
+    public reservation(obligation: RunObligation): RunAdmissionReservation | undefined {
+        const key = runObligationKey(obligation);
+        const reserved = this.reserved.find((value) => runObligationKey(value) === key);
+        if (reserved === undefined) return undefined;
+        return Object.freeze({
+            run: this.run,
+            registryEpoch: this.accepting ? this.epoch : this.epoch - 1,
+            obligation: reserved
+        });
     }
 
     public complete(reservation: RunAdmissionReservation): RunAdmissionRegistry {
@@ -291,6 +303,11 @@ export function copyRunObligation(obligation: RunObligation): RunObligation {
                 requireExactIdentity("Run commit");
             }
             return Object.freeze({ kind: obligation.kind, commit: obligation.commit });
+        case "acceptance":
+            if (obligation.acceptance.constructor !== AcceptanceId) {
+                requireExactIdentity("Acceptance");
+            }
+            return Object.freeze({ kind: obligation.kind, acceptance: obligation.acceptance });
         default:
             throw new TypeError("Run obligation kind is invalid");
     }
@@ -313,6 +330,8 @@ export function runObligationData(obligation: RunObligation): JsonValue {
             return { attempt: obligation.attempt.value, kind: obligation.kind };
         case "systemCommit":
             return { commit: obligation.commit.value, kind: obligation.kind };
+        case "acceptance":
+            return { acceptance: obligation.acceptance.value, kind: obligation.kind };
     }
 }
 
@@ -362,6 +381,14 @@ export function decodeRunObligation(value: JsonValue): RunObligation {
             return copyRunObligation({
                 kind,
                 commit: new RunCommitId(requireString(object["commit"], "System commit obligation"))
+            });
+        case "acceptance":
+            requireExactFields(object, ["acceptance", "kind"], [], "Acceptance obligation");
+            return copyRunObligation({
+                kind,
+                acceptance: new AcceptanceId(
+                    requireString(object["acceptance"], "Acceptance obligation")
+                )
             });
         default:
             throw new TypeError("Run obligation kind is invalid");

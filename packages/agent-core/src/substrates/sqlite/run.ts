@@ -18,7 +18,9 @@ const RECORD_KINDS = [
     "inbox",
     "spawn",
     "admission",
-    "forcedCancellation"
+    "forcedCancellation",
+    "acceptance",
+    "verdict"
 ] as const;
 
 export type SqliteRunRecordKind = (typeof RECORD_KINDS)[number];

@@ -1,5 +1,6 @@
 import { ContentRef } from "../../core";
 import type { ReceiptId } from "../../invocation-references";
+import type { AttemptReceiptOutcome } from "../../invocations";
 import type {
     AuditRecordId,
     EventId,
@@ -53,6 +54,12 @@ export interface AdministerControlEvidence {
     readonly outcome: "succeeded";
 }
 
+export interface AcceptanceReceiptEvidence {
+    readonly kind: "acceptanceReceipt";
+    readonly receipt: ReceiptId;
+    readonly outcome: AttemptReceiptOutcome;
+}
+
 export interface ForcedCancellationEvidence {
     readonly kind: "turnCancellation";
     readonly eventKind: "turn.cancel";
@@ -103,6 +110,11 @@ export abstract class RunEvidencePort<Transaction> {
         event: EventId,
         audit: AuditRecordId
     ): ForcedCancellationEvidence | undefined;
+
+    public abstract acceptance(
+        transaction: Transaction,
+        receipt: ReceiptId
+    ): AcceptanceReceiptEvidence | undefined;
 }
 
 export abstract class RunMergePort<Transaction> {

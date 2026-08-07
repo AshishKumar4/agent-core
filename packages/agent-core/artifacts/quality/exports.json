@@ -419,6 +419,11 @@
             "ScopeEpoch"
         ],
         "@agent-core/core/agents/runs": [
+            "AcceptanceCriterion",
+            "AcceptanceCriterionCodec",
+            "AcceptanceId",
+            "AcceptanceVerdict",
+            "AcceptanceVerdictCodec",
             "ForcedTurnCancellation",
             "ForcedTurnCancellationCodec",
             "MemoryRunStorage",
@@ -1451,6 +1456,14 @@
             "ScopeEpoch"
         ],
         "@agent-core/core/agents/runs": [
+            "AcceptanceCriterion",
+            "AcceptanceCriterionCodec",
+            "AcceptanceCriterionInit",
+            "AcceptanceId",
+            "AcceptanceReceiptEvidence",
+            "AcceptanceVerdict",
+            "AcceptanceVerdictCodec",
+            "AcceptanceVerdictInit",
             "AdministerControlEvidence",
             "ControlCommitEvidence",
             "DeliveryCommitEvidence",

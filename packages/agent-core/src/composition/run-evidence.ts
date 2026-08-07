@@ -4,6 +4,8 @@ import {
     RunSourceRevisionPort,
     RunSpawnPort,
     SettlementEvidencePort,
+    type AcceptanceId,
+    type AcceptanceReceiptEvidence,
     type ControlCommitEvidence,
     type AdministerControlEvidence,
     type DeliveryCommitEvidence,
@@ -51,6 +53,10 @@ export interface CanonicalRunEvidenceSource<Transaction> {
         event: EventId,
         audit: AuditRecordId
     ): ForcedCancellationEvidence | undefined;
+    acceptance?(
+        transaction: Transaction,
+        receipt: ReceiptId
+    ): AcceptanceReceiptEvidence | undefined;
 }
 
 export class CanonicalRunEvidencePort<Transaction> extends RunEvidencePort<Transaction> {
@@ -79,6 +85,9 @@ export class CanonicalRunEvidencePort<Transaction> extends RunEvidencePort<Trans
     public forcedCancellation(transaction: Transaction, event: EventId, audit: AuditRecordId) {
         return this.source.forcedCancellation?.(transaction, event, audit);
     }
+    public acceptance(transaction: Transaction, receipt: ReceiptId) {
+        return this.source.acceptance?.(transaction, receipt);
+    }
 }
 
 export interface CanonicalSettlementSource<Transaction> {
@@ -92,6 +101,7 @@ export interface CanonicalSettlementSource<Transaction> {
     routeTerminal(transaction: Transaction, route: RouteReservationId): boolean;
     reconciliationSuperseded(transaction: Transaction, attempt: EffectAttemptId): boolean;
     commitExists(transaction: Transaction, commit: RunCommitId): boolean;
+    acceptanceSatisfied?(transaction: Transaction, acceptance: AcceptanceId): boolean;
     auditSatisfied(transaction: Transaction, obligation: SettlementAuditObligation): boolean;
 }
 
@@ -120,6 +130,9 @@ export class CanonicalSettlementEvidencePort<
     }
     public commitExists(transaction: Transaction, commit: RunCommitId): boolean {
         return this.source.commitExists(transaction, commit);
+    }
+    public acceptanceSatisfied(transaction: Transaction, acceptance: AcceptanceId): boolean {
+        return this.source.acceptanceSatisfied?.(transaction, acceptance) === true;
     }
     public auditSatisfied(
         transaction: Transaction,

@@ -1,6 +1,12 @@
 import type { SynchronousResultGuard } from "../../actors";
-import { Revision, type RecordCodec } from "../../core";
+import { Revision, type Digest, type RecordCodec } from "../../core";
 import { AgentCoreError } from "../../errors";
+import {
+    AcceptanceCriterion,
+    AcceptanceCriterionCodec,
+    AcceptanceVerdict,
+    AcceptanceVerdictCodec
+} from "./acceptance";
 import { RunCommit, RunCommitCodec } from "./commit";
 import { RunConfigurationSnapshot, RunConfigurationSnapshotCodec } from "./pins";
 import { Run, RunBranch, RunBranchCodec, RunCodec } from "./run";
@@ -15,6 +21,7 @@ import {
 import { TurnPlacementSnapshot, TurnPlacementSnapshotCodec } from "./placement";
 import { SpawnReservation, SpawnReservationCodec } from "./spawn";
 import type {
+    AcceptanceId,
     RunBranchId,
     RunCheckpointId,
     RunId,
@@ -36,7 +43,9 @@ export const RUN_RECORD_KINDS = Object.freeze([
     "inbox",
     "spawn",
     "admission",
-    "forcedCancellation"
+    "forcedCancellation",
+    "acceptance",
+    "verdict"
 ] as const);
 
 export type RunRecordKind = (typeof RUN_RECORD_KINDS)[number];
@@ -315,6 +324,41 @@ export class RunRepository<Transaction> {
         ).filter((value) => value.run.equals(run));
     }
 
+    public insertAcceptanceCriterion(tx: Transaction, value: AcceptanceCriterion): void {
+        this.insert(tx, "acceptance", value.id.value, value, AcceptanceCriterionCodec);
+    }
+
+    public loadAcceptanceCriterion(
+        tx: Transaction,
+        id: AcceptanceId
+    ): AcceptanceCriterion | undefined {
+        return this.load(
+            tx,
+            "acceptance",
+            id.value,
+            AcceptanceCriterionCodec,
+            (value) => value.id.value
+        );
+    }
+
+    public insertAcceptanceVerdict(tx: Transaction, value: AcceptanceVerdict): void {
+        this.insert(tx, "verdict", acceptanceVerdictKey(value), value, AcceptanceVerdictCodec);
+    }
+
+    public loadAcceptanceVerdict(
+        tx: Transaction,
+        acceptance: AcceptanceId,
+        subject: Digest
+    ): AcceptanceVerdict | undefined {
+        return this.load(
+            tx,
+            "verdict",
+            `${acceptance.value}:${subject.value}`,
+            AcceptanceVerdictCodec,
+            acceptanceVerdictKey
+        );
+    }
+
     public isAncestor(tx: Transaction, ancestor: RunCommitId, descendant: RunCommitId): boolean {
         const target = this.loadCommit(tx, ancestor);
         const child = this.loadCommit(tx, descendant);
@@ -433,4 +477,8 @@ export class RunRepository<Transaction> {
 
 function admissionRevision(value: RunAdmissionRegistry): number {
     return value.reserved.length + value.completed.length + (value.accepting ? 0 : 1);
+}
+
+function acceptanceVerdictKey(value: AcceptanceVerdict): string {
+    return `${value.acceptance.value}:${value.subject.value}`;
 }

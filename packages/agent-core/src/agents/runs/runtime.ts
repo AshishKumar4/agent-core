@@ -1,4 +1,4 @@
-import { Revision } from "../../core";
+import { Revision, type Digest } from "../../core";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
 import type { PrincipalRef } from "../../identity";
@@ -7,6 +7,7 @@ import type { ReceiptId } from "../../invocation-references";
 import type { AuditRecordId, EventId } from "../../interaction-references";
 import type { RunSourceRevisionPort } from "../source";
 import { bytesEqual } from "../record-data";
+import type { AcceptanceCriterion, AcceptanceVerdict } from "./acceptance";
 import { RunCommit, validateCommitWriter } from "./commit";
 import {
     RunAdmissionRegistry,
@@ -15,7 +16,7 @@ import {
 } from "./admission";
 import type { RunEvidencePort, RunMergePort } from "./evidence";
 import { ForcedTurnCancellation } from "./forced-cancellation";
-import type { RunBranchId, RunId } from "./id";
+import type { AcceptanceId, RunBranchId, RunId } from "./id";
 import type { LeaseToken } from "./lease";
 import { RunConfigurationSnapshot, RunPins } from "./pins";
 import { TurnPlacementSnapshot } from "./placement";
@@ -36,6 +37,7 @@ export interface RunGenesis {
     readonly configuration: RunConfigurationSnapshot;
     readonly branch: RunBranch;
     readonly root: RunCommit;
+    readonly acceptanceCriteria?: readonly AcceptanceCriterion[];
 }
 
 export interface TurnGenesis {
@@ -193,7 +195,22 @@ export class RunRuntime<Transaction> {
         this.repository.insertRun(tx, genesis.run);
         this.repository.insertCommit(tx, genesis.root);
         this.repository.insertBranch(tx, genesis.branch);
-        this.repository.insertAdmission(tx, RunAdmissionRegistry.initial(genesis.run.id));
+        let registry = RunAdmissionRegistry.initial(genesis.run.id);
+        for (const criterion of genesis.acceptanceCriteria ?? []) {
+            if (this.repository.loadAcceptanceCriterion(tx, criterion.id) !== undefined) {
+                throw new AgentCoreError(
+                    "run.invalid-state",
+                    "Run genesis identifiers already exist"
+                );
+            }
+            const reserved = registry.reserve({ kind: "acceptance", acceptance: criterion.id });
+            if (reserved.registry === registry) {
+                throw invalidRun("Acceptance criteria must declare unique identities");
+            }
+            registry = reserved.registry;
+            this.repository.insertAcceptanceCriterion(tx, criterion);
+        }
+        this.repository.insertAdmission(tx, registry);
     }
 
     public reserveRunObligation(run: RunId, obligation: RunObligation): RunAdmissionReservation {
@@ -242,6 +259,94 @@ export class RunRuntime<Transaction> {
         reservation: RunAdmissionReservation
     ): boolean {
         return this.repository.loadAdmission(tx, reservation.run)?.accepts(reservation) === true;
+    }
+
+    public recordAcceptanceVerdict(run: RunId, verdict: AcceptanceVerdict): void {
+        this.repository.transaction((tx) =>
+            this.recordAcceptanceVerdictInTransaction(tx, run, verdict)
+        );
+    }
+
+    public recordAcceptanceVerdictInTransaction(
+        tx: Transaction,
+        runId: RunId,
+        verdict: AcceptanceVerdict
+    ): void {
+        const run = requireValue(this.repository.loadRun(tx, runId), "Run does not exist");
+        requireValue(
+            this.repository.loadAcceptanceCriterion(tx, verdict.acceptance),
+            "Acceptance criterion does not exist"
+        );
+        const registry = this.requireAdmission(tx, runId);
+        const reservation = registry.reservation({
+            kind: "acceptance",
+            acceptance: verdict.acceptance
+        });
+        if (reservation === undefined) {
+            throw invalidRun("Acceptance verdict requires this Run's reserved criterion");
+        }
+        const evidence = requireSynchronousResult(this.evidence.acceptance(tx, verdict.receipt));
+        if (evidence === undefined || !evidence.receipt.equals(verdict.receipt)) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Acceptance verdict requires its exact attempted verifier Receipt"
+            );
+        }
+        const existing = this.repository.loadAcceptanceVerdict(
+            tx,
+            verdict.acceptance,
+            verdict.subject
+        );
+        if (existing !== undefined && !existing.receipt.equals(verdict.receipt)) {
+            throw invalidRun("Acceptance subject already holds a recorded verdict");
+        }
+        this.repository.insertAcceptanceVerdict(tx, verdict);
+        if (
+            evidence.outcome === "succeeded" &&
+            this.headTreeDigestInTransaction(tx, run)?.equals(verdict.subject) === true
+        ) {
+            const completed = registry.complete(reservation);
+            if (completed !== registry) this.repository.replaceAdmission(tx, registry, completed);
+        }
+    }
+
+    public acceptanceAttemptAdmissible(run: RunId, acceptance: AcceptanceId): boolean {
+        return this.repository.transaction((tx) =>
+            this.acceptanceAttemptAdmissibleInTransaction(tx, run, acceptance)
+        );
+    }
+
+    public acceptanceAttemptAdmissibleInTransaction(
+        tx: Transaction,
+        runId: RunId,
+        acceptance: AcceptanceId
+    ): boolean {
+        const run = requireValue(this.repository.loadRun(tx, runId), "Run does not exist");
+        const registry = this.requireAdmission(tx, runId);
+        if (registry.reservation({ kind: "acceptance", acceptance }) === undefined) return false;
+        const subject = this.headTreeDigestInTransaction(tx, run);
+        if (subject === undefined) return false;
+        return this.repository.loadAcceptanceVerdict(tx, acceptance, subject) === undefined;
+    }
+
+    public acceptanceSatisfied(run: RunId, acceptance: AcceptanceId): boolean {
+        return this.repository.transaction((tx) =>
+            this.acceptanceSatisfiedInTransaction(tx, run, acceptance)
+        );
+    }
+
+    public acceptanceSatisfiedInTransaction(
+        tx: Transaction,
+        runId: RunId,
+        acceptance: AcceptanceId
+    ): boolean {
+        const run = requireValue(this.repository.loadRun(tx, runId), "Run does not exist");
+        const subject = this.headTreeDigestInTransaction(tx, run);
+        if (subject === undefined) return false;
+        const verdict = this.repository.loadAcceptanceVerdict(tx, acceptance, subject);
+        if (verdict === undefined) return false;
+        const evidence = requireSynchronousResult(this.evidence.acceptance(tx, verdict.receipt));
+        return evidence !== undefined && evidence.outcome === "succeeded";
     }
 
     public createBranch(runId: RunId, branch: RunBranch, expectedRunRevision: Revision): void {
@@ -1159,6 +1264,18 @@ export class RunRuntime<Transaction> {
         );
         requireRevision(branch.revision, branchRevision);
         return turn;
+    }
+
+    private headTreeDigestInTransaction(tx: Transaction, run: Run): Digest | undefined {
+        const branch = requireValue(
+            this.repository.loadBranch(tx, run.initialBranch),
+            "Run initial branch does not exist"
+        );
+        const head = requireValue(
+            this.repository.loadCommit(tx, branch.head),
+            "Run head commit does not exist"
+        );
+        return head.treeCheckpoint?.digest;
     }
 
     private effectiveCommitInTransaction(tx: Transaction, head: RunCommitId): RunCommitId {
