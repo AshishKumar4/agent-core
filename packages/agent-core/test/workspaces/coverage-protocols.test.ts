@@ -342,28 +342,34 @@ describe("policy branch coverage", () => {
         ).toEqual({ tier: "external" });
     });
 
-    test("distinguishes exact and wildcard kind, facet, actor, and trust matching", { tags: "p1" }, () => {
-        const facet = eventFixture("policy-facet", { kind: "task.created" });
-        const actor = eventFixture("policy-actor", { source: "actor" });
-        expect(eventMatches(new EventPattern("task.created", ["authenticated"]), facet)).toBe(true);
-        expect(eventMatches(new EventPattern("task.deleted", ["authenticated"]), facet)).toBe(
-            false
-        );
-        expect(
-            eventMatches(new EventPattern("task.*", ["authenticated"], "facet.test"), facet)
-        ).toBe(true);
-        expect(
-            eventMatches(new EventPattern("task.*", ["authenticated"], "facet.other"), facet)
-        ).toBe(false);
-        expect(
-            eventMatches(new EventPattern("task.*", ["authenticated"], "workspace-*"), actor)
-        ).toBe(true);
-        expect(
-            eventMatches(new EventPattern("task.*", ["external"], "workspace-source"), actor)
-        ).toBe(false);
-        expect(trustAccepted(["owner", "self"], "self")).toBe(true);
-        expect(trustAccepted(["owner", "self"], "external")).toBe(false);
-    });
+    test(
+        "distinguishes exact and wildcard kind, facet, actor, and trust matching",
+        { tags: "p1" },
+        () => {
+            const facet = eventFixture("policy-facet", { kind: "task.created" });
+            const actor = eventFixture("policy-actor", { source: "actor" });
+            expect(eventMatches(new EventPattern("task.created", ["authenticated"]), facet)).toBe(
+                true
+            );
+            expect(eventMatches(new EventPattern("task.deleted", ["authenticated"]), facet)).toBe(
+                false
+            );
+            expect(
+                eventMatches(new EventPattern("task.*", ["authenticated"], "facet.test"), facet)
+            ).toBe(true);
+            expect(
+                eventMatches(new EventPattern("task.*", ["authenticated"], "facet.other"), facet)
+            ).toBe(false);
+            expect(
+                eventMatches(new EventPattern("task.*", ["authenticated"], "workspace-*"), actor)
+            ).toBe(true);
+            expect(
+                eventMatches(new EventPattern("task.*", ["external"], "workspace-source"), actor)
+            ).toBe(false);
+            expect(trustAccepted(["owner", "self"], "self")).toBe(true);
+            expect(trustAccepted(["owner", "self"], "external")).toBe(false);
+        }
+    );
 
     test("derives all dedupe modes and rejects unstable inputs", { tags: "p0" }, () => {
         const cause = new EventId("event-policy-cause");
@@ -380,336 +386,373 @@ describe("policy branch coverage", () => {
         }
     });
 
-    test("maps roots, objects, arrays, append, replace, escapes, and prototype names", { tags: "p1" }, () => {
-        const source = JSON.parse(
-            '{"items":[{"name":"first"},{"name":"second"}],"a/b":{"~name":7},"constructor":"safe"}'
-        ) as JsonValue;
-        expect(
-            applyPayloadMapping(new PayloadMapping([new FieldMove("", { from: "/items" })]), source)
-        ).toEqual([{ name: "first" }, { name: "second" }]);
-        const mapped = applyPayloadMapping(
-            new PayloadMapping([
-                new FieldMove("/rows/-", { from: "/items/0" }),
-                new FieldMove("/rows/0/name", { from: "/items/1/name" }),
-                new FieldMove("/escaped", { from: "/a~1b/~0name" }),
-                new FieldMove("/__proto__/polluted", { literal: true }),
-                new FieldMove("/constructorValue", { from: "/constructor" })
-            ]),
-            source
-        ) as { readonly rows: readonly JsonValue[]; readonly __proto__: JsonValue };
-        expect(mapped.rows).toEqual([{ name: "second" }]);
-        expect(mapped.__proto__).toEqual({ polluted: true });
-        expect(Object.hasOwn(mapped, "__proto__")).toBe(true);
-        expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
-
-        expect(
-            applyPayloadMapping(
+    test(
+        "maps roots, objects, arrays, append, replace, escapes, and prototype names",
+        { tags: "p1" },
+        () => {
+            const source = JSON.parse(
+                '{"items":[{"name":"first"},{"name":"second"}],"a/b":{"~name":7},"constructor":"safe"}'
+            ) as JsonValue;
+            expect(
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("", { from: "/items" })]),
+                    source
+                )
+            ).toEqual([{ name: "first" }, { name: "second" }]);
+            const mapped = applyPayloadMapping(
                 new PayloadMapping([
-                    new FieldMove("/values/-", { literal: "old" }),
-                    new FieldMove("/values/0", { literal: "new" })
+                    new FieldMove("/rows/-", { from: "/items/0" }),
+                    new FieldMove("/rows/0/name", { from: "/items/1/name" }),
+                    new FieldMove("/escaped", { from: "/a~1b/~0name" }),
+                    new FieldMove("/__proto__/polluted", { literal: true }),
+                    new FieldMove("/constructorValue", { from: "/constructor" })
                 ]),
-                {}
-            )
-        ).toEqual({ values: ["new"] });
-        expect(
-            applyPayloadMapping(
-                new PayloadMapping([
-                    new FieldMove("/rows/0/left", { literal: 1 }),
-                    new FieldMove("/rows/0/right", { literal: 2 })
-                ]),
-                {}
-            )
-        ).toEqual({ rows: [{ left: 1, right: 2 }] });
-        expect(
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/rows/-/0", { literal: "nested" })]),
-                {}
-            )
-        ).toEqual({ rows: [["nested"]] });
-    });
+                source
+            ) as { readonly rows: readonly JsonValue[]; readonly __proto__: JsonValue };
+            expect(mapped.rows).toEqual([{ name: "second" }]);
+            expect(mapped.__proto__).toEqual({ polluted: true });
+            expect(Object.hasOwn(mapped, "__proto__")).toBe(true);
+            expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
 
-    test("rejects overlap, malformed pointers, missing values, sparse arrays, and scalar traversal", { tags: "p2" }, () => {
-        for (const moves of [
-            [new FieldMove("/x", { literal: 1 }), new FieldMove("/x", { literal: 2 })],
-            [new FieldMove("/x", { literal: 1 }), new FieldMove("/x/y", { literal: 2 })],
-            [new FieldMove("/x/y", { literal: 1 }), new FieldMove("/x", { literal: 2 })]
-        ]) {
-            expect(() => validatePayloadMapping(new PayloadMapping(moves))).toThrow(/overlap/);
+            expect(
+                applyPayloadMapping(
+                    new PayloadMapping([
+                        new FieldMove("/values/-", { literal: "old" }),
+                        new FieldMove("/values/0", { literal: "new" })
+                    ]),
+                    {}
+                )
+            ).toEqual({ values: ["new"] });
+            expect(
+                applyPayloadMapping(
+                    new PayloadMapping([
+                        new FieldMove("/rows/0/left", { literal: 1 }),
+                        new FieldMove("/rows/0/right", { literal: 2 })
+                    ]),
+                    {}
+                )
+            ).toEqual({ rows: [{ left: 1, right: 2 }] });
+            expect(
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("/rows/-/0", { literal: "nested" })]),
+                    {}
+                )
+            ).toEqual({ rows: [["nested"]] });
         }
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/value", { from: "/items/2" })]),
-                { items: [1] }
-            )
-        ).toThrow(/source pointer does not exist/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/value", { from: "/items/-" })]),
-                { items: [1] }
-            )
-        ).toThrow(/array index is invalid/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/value", { from: "/items/01" })]),
-                { items: [1] }
-            )
-        ).toThrow(/array index is invalid/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/value", { from: "/items/9007199254740992" })]),
-                { items: [1] }
-            )
-        ).toThrow(/array index is too large/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/value", { from: "/scalar/child" })]),
-                { scalar: 1 }
-            )
-        ).toThrow(/source pointer does not exist/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/rows/1", { literal: true })]),
-                {}
-            )
-        ).toThrow(/sparse arrays/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([new FieldMove("/rows/1/name", { literal: true })]),
-                {}
-            )
-        ).toThrow(/sparse arrays/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([
-                    new FieldMove("/rows/-", { literal: 1 }),
-                    new FieldMove("/rows/0/child", { literal: 2 })
-                ]),
-                {}
-            )
-        ).toThrow(/traverses a scalar/);
-        expect(() =>
-            applyPayloadMapping(
-                new PayloadMapping([
-                    new FieldMove("/rows/-", { literal: 1 }),
-                    new FieldMove("/rows/name", { literal: 2 })
-                ]),
-                {}
-            )
-        ).toThrow(/array index is invalid/);
-        expect(() =>
-            applyPayloadMapping(forgedMapping([{ to: "not-a-pointer", literal: 1 }]), {})
-        ).toThrow(/toData|begin with/);
-        expect(() =>
-            applyPayloadMapping(forgedMapping([{ to: "/bad~2escape", literal: 1 }]), {})
-        ).toThrow(/toData|invalid escape/);
-    });
+    );
 
-    test("rejects a child write after an adversarial move replaces the root with a scalar", { tags: "p1" }, () => {
-        let reads = 0;
-        const first = {
-            get to(): string {
-                reads += 1;
-                return reads === 1 ? "/validated-root" : "";
-            },
-            from: undefined,
-            literal: 1
-        };
-        const second = {
-            get to(): string {
-                reads += 1;
-                return reads === 2 ? "/validated-child" : "/child";
-            },
-            from: undefined,
-            literal: 2
-        };
-        expect(() => applyPayloadMapping(forgedMapping([first, second]), {})).toThrow(
-            /toData|beneath a scalar root/
-        );
+    test(
+        "rejects overlap, malformed pointers, missing values, sparse arrays, and scalar traversal",
+        { tags: "p2" },
+        () => {
+            for (const moves of [
+                [new FieldMove("/x", { literal: 1 }), new FieldMove("/x", { literal: 2 })],
+                [new FieldMove("/x", { literal: 1 }), new FieldMove("/x/y", { literal: 2 })],
+                [new FieldMove("/x/y", { literal: 1 }), new FieldMove("/x", { literal: 2 })]
+            ]) {
+                expect(() => validatePayloadMapping(new PayloadMapping(moves))).toThrow(/overlap/);
+            }
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("/value", { from: "/items/2" })]),
+                    { items: [1] }
+                )
+            ).toThrow(/source pointer does not exist/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("/value", { from: "/items/-" })]),
+                    { items: [1] }
+                )
+            ).toThrow(/array index is invalid/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("/value", { from: "/items/01" })]),
+                    { items: [1] }
+                )
+            ).toThrow(/array index is invalid/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([
+                        new FieldMove("/value", { from: "/items/9007199254740992" })
+                    ]),
+                    { items: [1] }
+                )
+            ).toThrow(/array index is too large/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("/value", { from: "/scalar/child" })]),
+                    { scalar: 1 }
+                )
+            ).toThrow(/source pointer does not exist/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("/rows/1", { literal: true })]),
+                    {}
+                )
+            ).toThrow(/sparse arrays/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([new FieldMove("/rows/1/name", { literal: true })]),
+                    {}
+                )
+            ).toThrow(/sparse arrays/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([
+                        new FieldMove("/rows/-", { literal: 1 }),
+                        new FieldMove("/rows/0/child", { literal: 2 })
+                    ]),
+                    {}
+                )
+            ).toThrow(/traverses a scalar/);
+            expect(() =>
+                applyPayloadMapping(
+                    new PayloadMapping([
+                        new FieldMove("/rows/-", { literal: 1 }),
+                        new FieldMove("/rows/name", { literal: 2 })
+                    ]),
+                    {}
+                )
+            ).toThrow(/array index is invalid/);
+            expect(() =>
+                applyPayloadMapping(forgedMapping([{ to: "not-a-pointer", literal: 1 }]), {})
+            ).toThrow(/toData|begin with/);
+            expect(() =>
+                applyPayloadMapping(forgedMapping([{ to: "/bad~2escape", literal: 1 }]), {})
+            ).toThrow(/toData|invalid escape/);
+        }
+    );
 
-        const scalar = dynamicTarget("/validated-scalar", "/container/scalar", 1);
-        const child = dynamicTarget("/validated-child", "/container/scalar/child", 2);
-        expect(() => applyPayloadMapping(forgedMapping([scalar, child]), {})).toThrow(
-            /toData|traverses a scalar/
-        );
-    });
+    test(
+        "rejects a child write after an adversarial move replaces the root with a scalar",
+        { tags: "p1" },
+        () => {
+            let reads = 0;
+            const first = {
+                get to(): string {
+                    reads += 1;
+                    return reads === 1 ? "/validated-root" : "";
+                },
+                from: undefined,
+                literal: 1
+            };
+            const second = {
+                get to(): string {
+                    reads += 1;
+                    return reads === 2 ? "/validated-child" : "/child";
+                },
+                from: undefined,
+                literal: 2
+            };
+            expect(() => applyPayloadMapping(forgedMapping([first, second]), {})).toThrow(
+                /toData|beneath a scalar root/
+            );
+
+            const scalar = dynamicTarget("/validated-scalar", "/container/scalar", 1);
+            const child = dynamicTarget("/validated-child", "/container/scalar/child", 2);
+            expect(() => applyPayloadMapping(forgedMapping([scalar, child]), {})).toThrow(
+                /toData|traverses a scalar/
+            );
+        }
+    );
 });
 
 describe("route records and authentication", () => {
-    test("validates reservation invariants and round-trips authority, tenant, trust, and initiator variants", { tags: "p1" }, () => {
-        const reservation = reservationFixture("route-invariants");
-        const different = content("different-route-content");
-        expect(
-            () =>
-                new RouteReservation({
-                    ...reservation.init,
-                    projectionDigest: different.digest
-                })
-        ).toThrow(/reference and digest/);
-        for (const dedupeKey of ["", " padded "]) {
-            expect(() => new RouteReservation({ ...reservation.init, dedupeKey })).toThrow(
-                /dedupe key/
-            );
-        }
-        expect(
-            () =>
-                new RouteReservation({
-                    ...withoutInitiator(reservation.init)
-                })
-        ).toThrow(/authenticated Principal/);
+    test(
+        "validates reservation invariants and round-trips authority, tenant, trust, and initiator variants",
+        { tags: "p1" },
+        () => {
+            const reservation = reservationFixture("route-invariants");
+            const different = content("different-route-content");
+            expect(
+                () =>
+                    new RouteReservation({
+                        ...reservation.init,
+                        projectionDigest: different.digest
+                    })
+            ).toThrow(/reference and digest/);
+            for (const dedupeKey of ["", " padded "]) {
+                expect(() => new RouteReservation({ ...reservation.init, dedupeKey })).toThrow(
+                    /dedupe key/
+                );
+            }
+            expect(
+                () =>
+                    new RouteReservation({
+                        ...withoutInitiator(reservation.init)
+                    })
+            ).toThrow(/authenticated Principal/);
 
-        const cross = crossReservation("route-cross");
-        expect(RouteReservation.decode(RouteReservation.encode(cross))).toMatchObject({
-            trust: "external",
-            initiator: undefined,
-            authority: { kind: "delegated" },
-            tenants: { kind: "cross" }
-        });
-        for (const trust of ["owner", "authenticated", "external", "self"] as const) {
-            const authority =
-                trust === "external"
-                    ? { kind: "delegated" as const, binding: new BindingName("binding.route") }
-                    : reservation.authority;
-            const variant =
-                trust === "external"
-                    ? new RouteReservation({
-                          ...withoutInitiator(reservation.init),
-                          trust,
-                          authority
-                      })
-                    : new RouteReservation({
-                          ...reservation.init,
-                          trust,
-                          authority,
-                          initiator: principal
-                      });
-            expect(RouteReservation.decode(RouteReservation.encode(variant)).trust).toBe(trust);
+            const cross = crossReservation("route-cross");
+            expect(RouteReservation.decode(RouteReservation.encode(cross))).toMatchObject({
+                trust: "external",
+                initiator: undefined,
+                authority: { kind: "delegated" },
+                tenants: { kind: "cross" }
+            });
+            for (const trust of ["owner", "authenticated", "external", "self"] as const) {
+                const authority =
+                    trust === "external"
+                        ? { kind: "delegated" as const, binding: new BindingName("binding.route") }
+                        : reservation.authority;
+                const variant =
+                    trust === "external"
+                        ? new RouteReservation({
+                              ...withoutInitiator(reservation.init),
+                              trust,
+                              authority
+                          })
+                        : new RouteReservation({
+                              ...reservation.init,
+                              trust,
+                              authority,
+                              initiator: principal
+                          });
+                expect(RouteReservation.decode(RouteReservation.encode(variant)).trust).toBe(trust);
+            }
         }
-    });
+    );
 
-    test("rejects malformed reservation authority, tenant relation, and trust codecs", { tags: "p2" }, () => {
-        const reservation = reservationFixture("route-codec-invalid");
-        expect(() =>
-            RouteReservation.decode(
-                mutatePayload(RouteReservation.encode(reservation), (payload) => {
-                    payload["authority"] = { kind: "root", binding: "binding.route" };
-                })
-            )
-        ).toThrow(/authority kind/);
-        expect(() =>
-            RouteReservation.decode(
-                mutatePayload(RouteReservation.encode(reservation), (payload) => {
-                    payload["authority"] = {
-                        kind: "initiator",
-                        binding: "binding.route",
-                        extra: true
-                    };
-                })
-            )
-        ).toThrow(/fields/);
-        expect(() =>
-            RouteReservation.decode(
-                mutatePayload(RouteReservation.encode(reservation), (payload) => {
-                    payload["tenants"] = { kind: "unknown" };
-                })
-            )
-        ).toThrow(/relation kind/);
-        expect(() =>
-            RouteReservation.decode(
-                mutatePayload(RouteReservation.encode(reservation), (payload) => {
-                    payload["trust"] = "root";
-                })
-            )
-        ).toThrow(/trust is invalid/);
-        expect(() =>
-            RouteReservation.decode(
-                mutatePayload(
-                    RouteReservation.encode(crossReservation("route-cross-codec")),
-                    (payload) => {
-                        payload["tenants"] = { kind: "cross", source: "source", target: "target" };
-                    }
+    test(
+        "rejects malformed reservation authority, tenant relation, and trust codecs",
+        { tags: "p2" },
+        () => {
+            const reservation = reservationFixture("route-codec-invalid");
+            expect(() =>
+                RouteReservation.decode(
+                    mutatePayload(RouteReservation.encode(reservation), (payload) => {
+                        payload["authority"] = { kind: "root", binding: "binding.route" };
+                    })
                 )
-            )
-        ).toThrow(/fields/);
-    });
-
-    test("validates projection content, codec authentication markers, and one-time authentication", { tags: "p0" }, () => {
-        const reservation = reservationFixture("projection-codec");
-        const projection = projectionFixture(reservation);
-        expect(
-            () =>
-                new RouteProjection({
-                    ...projection.init,
-                    digest: content("wrong-projection-digest").digest
-                })
-        ).toThrow(/reference and digest/);
-        expect(() =>
-            RouteProjection.decode(
-                mutatePayload(RouteProjection.encode(projection), (payload) => {
-                    payload["authenticated"] = "yes";
-                })
-            )
-        ).toThrow(/marker is invalid/);
-        expect(() =>
-            RouteProjection.decode(
-                mutatePayload(RouteProjection.encode(projection), (payload) => {
-                    payload["authenticated"] = true;
-                })
-            )
-        ).toThrow(/evidence is inconsistent/);
-        const authenticated = projection.authenticate(
-            Digest.sha256(new TextEncoder().encode("auth"))
-        );
-        expect(() =>
-            RouteProjection.decode(
-                mutatePayload(RouteProjection.encode(authenticated), (payload) => {
-                    payload["authenticated"] = false;
-                })
-            )
-        ).toThrow(/evidence is inconsistent/);
-        expect(() =>
-            authenticated.authenticate(Digest.sha256(new TextEncoder().encode("again")))
-        ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
-    });
-
-    test("authenticates only exact envelopes and rejects source assertions, bad evidence, and forgeries", { tags: "p0" }, () => {
-        const reservation = reservationFixture("projection-auth");
-        const projection = projectionFixture(reservation);
-        const envelope = { reservation, projection };
-        const authenticator = new ConfigurableProjectionAuthenticator();
-        const authenticated = authenticator.authenticate(envelope, new Uint8Array([1]));
-        expect(() => requireAuthenticatedRouteProjection(authenticated)).not.toThrow();
-        expect(
-            authenticated.digest.equals(Digest.sha256(routeProjectionEnvelopeBytes(envelope)))
-        ).toBe(true);
-
-        authenticator.valid = false;
-        expect(() => authenticator.authenticate(envelope, new Uint8Array([1]))).toThrow(
-            /authentication failed/
-        );
-        authenticator.valid = true;
-        expect(() =>
-            authenticator.authenticate(
-                {
-                    reservation,
-                    projection: projection.authenticate(
-                        Digest.sha256(new TextEncoder().encode("source-auth"))
+            ).toThrow(/authority kind/);
+            expect(() =>
+                RouteReservation.decode(
+                    mutatePayload(RouteReservation.encode(reservation), (payload) => {
+                        payload["authority"] = {
+                            kind: "initiator",
+                            binding: "binding.route",
+                            extra: true
+                        };
+                    })
+                )
+            ).toThrow(/fields/);
+            expect(() =>
+                RouteReservation.decode(
+                    mutatePayload(RouteReservation.encode(reservation), (payload) => {
+                        payload["tenants"] = { kind: "unknown" };
+                    })
+                )
+            ).toThrow(/relation kind/);
+            expect(() =>
+                RouteReservation.decode(
+                    mutatePayload(RouteReservation.encode(reservation), (payload) => {
+                        payload["trust"] = "root";
+                    })
+                )
+            ).toThrow(/trust is invalid/);
+            expect(() =>
+                RouteReservation.decode(
+                    mutatePayload(
+                        RouteReservation.encode(crossReservation("route-cross-codec")),
+                        (payload) => {
+                            payload["tenants"] = {
+                                kind: "cross",
+                                source: "source",
+                                target: "target"
+                            };
+                        }
                     )
-                },
-                new Uint8Array([1])
-            )
-        ).toThrow(/cannot assert target authentication/);
-        expect(() =>
-            requireAuthenticatedRouteProjection({
-                envelope
-            } as unknown as AuthenticatedRouteProjection)
-        ).toThrow(/lacks host authentication/);
+                )
+            ).toThrow(/fields/);
+        }
+    );
 
-        const Constructor = AuthenticatedRouteProjection as unknown as new (
-            token: symbol,
-            value: RouteProjectionEnvelope
-        ) => AuthenticatedRouteProjection;
-        expect(() => new Constructor(Symbol("forged"), envelope)).toThrow(/host-only/);
-    });
+    test(
+        "validates projection content, codec authentication markers, and one-time authentication",
+        { tags: "p0" },
+        () => {
+            const reservation = reservationFixture("projection-codec");
+            const projection = projectionFixture(reservation);
+            expect(
+                () =>
+                    new RouteProjection({
+                        ...projection.init,
+                        digest: content("wrong-projection-digest").digest
+                    })
+            ).toThrow(/reference and digest/);
+            expect(() =>
+                RouteProjection.decode(
+                    mutatePayload(RouteProjection.encode(projection), (payload) => {
+                        payload["authenticated"] = "yes";
+                    })
+                )
+            ).toThrow(/marker is invalid/);
+            expect(() =>
+                RouteProjection.decode(
+                    mutatePayload(RouteProjection.encode(projection), (payload) => {
+                        payload["authenticated"] = true;
+                    })
+                )
+            ).toThrow(/evidence is inconsistent/);
+            const authenticated = projection.authenticate(
+                Digest.sha256(new TextEncoder().encode("auth"))
+            );
+            expect(() =>
+                RouteProjection.decode(
+                    mutatePayload(RouteProjection.encode(authenticated), (payload) => {
+                        payload["authenticated"] = false;
+                    })
+                )
+            ).toThrow(/evidence is inconsistent/);
+            expect(() =>
+                authenticated.authenticate(Digest.sha256(new TextEncoder().encode("again")))
+            ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
+        }
+    );
+
+    test(
+        "authenticates only exact envelopes and rejects source assertions, bad evidence, and forgeries",
+        { tags: "p0" },
+        () => {
+            const reservation = reservationFixture("projection-auth");
+            const projection = projectionFixture(reservation);
+            const envelope = { reservation, projection };
+            const authenticator = new ConfigurableProjectionAuthenticator();
+            const authenticated = authenticator.authenticate(envelope, new Uint8Array([1]));
+            expect(() => requireAuthenticatedRouteProjection(authenticated)).not.toThrow();
+            expect(
+                authenticated.digest.equals(Digest.sha256(routeProjectionEnvelopeBytes(envelope)))
+            ).toBe(true);
+
+            authenticator.valid = false;
+            expect(() => authenticator.authenticate(envelope, new Uint8Array([1]))).toThrow(
+                /authentication failed/
+            );
+            authenticator.valid = true;
+            expect(() =>
+                authenticator.authenticate(
+                    {
+                        reservation,
+                        projection: projection.authenticate(
+                            Digest.sha256(new TextEncoder().encode("source-auth"))
+                        )
+                    },
+                    new Uint8Array([1])
+                )
+            ).toThrow(/cannot assert target authentication/);
+            expect(() =>
+                requireAuthenticatedRouteProjection({
+                    envelope
+                } as unknown as AuthenticatedRouteProjection)
+            ).toThrow(/lacks host authentication/);
+
+            const Constructor = AuthenticatedRouteProjection as unknown as new (
+                token: symbol,
+                value: RouteProjectionEnvelope
+            ) => AuthenticatedRouteProjection;
+            expect(() => new Constructor(Symbol("forged"), envelope)).toThrow(/host-only/);
+        }
+    );
 
     test("rejects each projection envelope identity or content mismatch", { tags: "p0" }, () => {
         const reservation = reservationFixture("projection-mismatch");
@@ -736,709 +779,812 @@ describe("route records and authentication", () => {
         }
     });
 
-    test("covers delivered and rejected states, reasons, equality, constructors, and codecs", { tags: "p1" }, () => {
-        const reservation = reservationFixture("delivery");
-        const delivered = RouteDeliveryState.delivered();
-        const rejected = RouteDeliveryState.rejected("authority denied");
-        expect(delivered.equals(RouteDeliveryState.delivered())).toBe(true);
-        expect(delivered.equals(rejected)).toBe(false);
-        expect(rejected.equals(RouteDeliveryState.rejected("authority denied"))).toBe(true);
-        expect(rejected.equals(RouteDeliveryState.rejected("other"))).toBe(false);
-        for (const reason of ["", " padded "]) {
-            expect(() => RouteDeliveryState.rejected(reason)).toThrow(/canonical/);
-        }
-        for (const state of [delivered, rejected]) {
-            const delivery = new RouteDelivery({
-                reservation: reservation.id,
-                state,
-                targetAudit: new AuditRecordId(`audit-${state.kind}`)
-            });
-            expect(RouteDelivery.decode(RouteDelivery.encode(delivery)).state.equals(state)).toBe(
-                true
+    test(
+        "covers delivered and rejected states, reasons, equality, constructors, and codecs",
+        { tags: "p1" },
+        () => {
+            const reservation = reservationFixture("delivery");
+            const delivered = RouteDeliveryState.delivered();
+            const rejected = RouteDeliveryState.rejected("authority denied");
+            expect(delivered.equals(RouteDeliveryState.delivered())).toBe(true);
+            expect(delivered.equals(rejected)).toBe(false);
+            expect(rejected.equals(RouteDeliveryState.rejected("authority denied"))).toBe(true);
+            expect(rejected.equals(RouteDeliveryState.rejected("other"))).toBe(false);
+            for (const reason of ["", " padded "]) {
+                expect(() => RouteDeliveryState.rejected(reason)).toThrow(/canonical/);
+            }
+            for (const state of [delivered, rejected]) {
+                const delivery = new RouteDelivery({
+                    reservation: reservation.id,
+                    state,
+                    targetAudit: new AuditRecordId(`audit-${state.kind}`)
+                });
+                expect(
+                    RouteDelivery.decode(RouteDelivery.encode(delivery)).state.equals(state)
+                ).toBe(true);
+            }
+            const encoded = RouteDelivery.encode(
+                new RouteDelivery({
+                    reservation: reservation.id,
+                    state: delivered,
+                    targetAudit: new AuditRecordId("audit-delivery-codec")
+                })
             );
+            expect(() =>
+                RouteDelivery.decode(
+                    mutatePayload(encoded, (payload) => {
+                        payload["outcome"] = "pending";
+                    })
+                )
+            ).toThrow(/outcome is invalid/);
+            expect(() =>
+                RouteDelivery.decode(
+                    mutatePayload(encoded, (payload) => {
+                        payload["outcome"] = "rejected";
+                        payload["reason"] = null;
+                    })
+                )
+            ).toThrow();
         }
-        const encoded = RouteDelivery.encode(
-            new RouteDelivery({
-                reservation: reservation.id,
-                state: delivered,
-                targetAudit: new AuditRecordId("audit-delivery-codec")
-            })
-        );
-        expect(() =>
-            RouteDelivery.decode(
-                mutatePayload(encoded, (payload) => {
-                    payload["outcome"] = "pending";
-                })
-            )
-        ).toThrow(/outcome is invalid/);
-        expect(() =>
-            RouteDelivery.decode(
-                mutatePayload(encoded, (payload) => {
-                    payload["outcome"] = "rejected";
-                    payload["reason"] = null;
-                })
-            )
-        ).toThrow();
-    });
+    );
 });
 
 describe("source protocol adversarial coverage", () => {
-    test("[C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents", { tags: "p0" }, () => {
-        const setup = sourceSetup("snapshot-options");
-        const lease = leaseToken("snapshot-options");
-        const cause = new EventId("event-snapshot-cause");
-        const snapshot = setup.protocol.snapshot(
-            setup.state,
-            authenticateIntent({
-                ...draft("snapshot-options"),
-                causation: cause,
-                lease
-            })
-        );
-        expect(snapshot.event.causation?.equals(cause)).toBe(true);
-        expect(snapshot.lease).toEqual(lease);
-
-        setup.trust.current = { tier: "external" };
-        const anonymous = setup.protocol.snapshot(
-            setup.state,
-            authenticateIntent(draft("snapshot-anonymous"))
-        );
-        expect(anonymous.event.initiator).toBeUndefined();
-        expect(anonymous.lease).toBeUndefined();
-
-        const assertedTrust = {
-            ...draft("snapshot-asserted-trust"),
-            trust: "self"
-        } as EventDraft;
-        expect(() =>
-            setup.protocol.snapshot(
-                setup.state,
-                assertedTrust as unknown as AuthenticatedEventIntent
-            )
-        ).toThrow(/lacks host authentication/);
-        expect(() =>
-            setup.protocol.snapshot(setup.state, {
-                intent: assertedTrust,
-                digest: Digest.sha256(eventIntentBytes(assertedTrust))
-            } as unknown as AuthenticatedEventIntent)
-        ).toThrow(/lacks host authentication/);
-
-        const authenticator = new ExactEventIntentAuthenticator();
-        const original = draft("snapshot-evidence-reuse");
-        const evidence = authenticator.evidence(original);
-        expect(() =>
-            authenticator.authenticate(
-                {
-                    ...original,
-                    lease: leaseToken("snapshot-evidence-reuse")
-                },
-                evidence
-            )
-        ).toThrow(/authentication failed/);
-
-        expect(() =>
-            setup.protocol.snapshot(
+    test(
+        "[C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents",
+        { tags: "p0" },
+        () => {
+            const setup = sourceSetup("snapshot-options");
+            const lease = leaseToken("snapshot-options");
+            const cause = new EventId("event-snapshot-cause");
+            const snapshot = setup.protocol.snapshot(
                 setup.state,
                 authenticateIntent({
-                    ...draft("snapshot-wrong-actor"),
-                    sourceActor: targetActor
+                    ...draft("snapshot-options"),
+                    causation: cause,
+                    lease
                 })
-            )
-        ).toThrow(/accepting Actor/);
-    });
+            );
+            expect(snapshot.event.causation?.equals(cause)).toBe(true);
+            expect(snapshot.lease).toEqual(lease);
 
-    test("[C13-TRUST-ASSERTION-REJECTION] rejects structurally forged intent trust", { tags: "p0" }, () => {
-        const setup = sourceSetup("forged-intent-trust");
-        expect(() =>
-            setup.protocol.snapshot(setup.state, {
-                intent: draft("forged-intent-trust")
-            } as unknown as AuthenticatedEventIntent)
-        ).toThrow(expect.objectContaining({ code: "authority.denied" }));
-    });
-
-    test("prepares only matches, uses logical keys for no-dedupe, and rejects foreign snapshots", { tags: "p1" }, async () => {
-        const setup = sourceSetup(
-            "prepare-none",
-            subscriptionFixture("prepare-none", { dedupe: "none" })
-        );
-        const snapshot = setup.protocol.snapshot(
-            setup.state,
-            authenticateIntent(draft("prepare-none"))
-        );
-        const prepared = await setup.protocol.prepare(snapshot);
-        const result = setup.protocol.commit(setup.state, prepared);
-        expect(result.reservations[0]?.dedupeKey).toMatch(/^none:logical-delivery-/u);
-        expect(setup.routes.preparations).toHaveLength(1);
-
-        const noMatch = sourceSetup("prepare-no-match", subscriptionFixture("prepare-no-match"));
-        const noMatchSnapshot = noMatch.protocol.snapshot(
-            noMatch.state,
-            authenticateIntent({
-                ...draft("prepare-no-match"),
-                kind: new EventKind("other.created")
-            })
-        );
-        expect(await noMatch.protocol.prepare(noMatchSnapshot)).toBeInstanceOf(
-            PreparedEventRouting
-        );
-        expect(noMatch.routes.preparations).toEqual([]);
-        const noMatchPrepared = await noMatch.protocol.prepare(noMatchSnapshot);
-        expect(() => noMatch.protocol.commit(noMatch.state, noMatchPrepared)).not.toThrow();
-        await expect(setup.protocol.prepare({ ...snapshot })).rejects.toMatchObject({
-            code: "protocol.invalid-state"
-        });
-
-        const Constructor = PreparedEventRouting as unknown as new (
-            token: symbol,
-            owner: object,
-            snapshot: EventRoutingSnapshot,
-            routes: readonly []
-        ) => PreparedEventRouting;
-        expect(() => new Constructor(Symbol("forged"), setup.protocol, snapshot, [])).toThrow(
-            /host-only/
-        );
-
-        const partial = sourceSetup("prepare-partial-first");
-        partial.persistence.saveSubscription(
-            partial.state,
-            subscriptionFixture("prepare-partial-second"),
-            undefined
-        );
-        partial.routes.failPrepareAfter = 1;
-        const partialSnapshot = partial.protocol.snapshot(
-            partial.state,
-            authenticateIntent(draft("prepare-partial"))
-        );
-        await expect(partial.protocol.prepare(partialSnapshot)).rejects.toThrow(/partial route/);
-        expect(partial.retention.discarded).toEqual([
-            `retention-${partial.routes.preparations[0]?.reservation.value}`
-        ]);
-    });
-
-    test("[C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity", { tags: "p0" }, async () => {
-        const setup = sourceSetup("event-replay");
-        const snapshot = setup.protocol.snapshot(
-            setup.state,
-            authenticateIntent(draft("event-replay"))
-        );
-        const prepared = await setup.protocol.prepare(snapshot);
-        const first = setup.protocol.commit(setup.state, prepared);
-        const replay = setup.protocol.commit(setup.state, prepared);
-        expect(first.duplicate).toBe(false);
-        expect(replay).toMatchObject({ duplicate: true });
-        expect(replay.reservations).toHaveLength(1);
-        expect(setup.retention.discarded).toEqual([
-            `retention-${setup.routes.preparations[0]?.reservation.value}`
-        ]);
-
-        const payloadSetup = sourceSetup(
-            "payload-dedupe",
-            subscriptionFixture("payload-dedupe", { dedupe: "payload" })
-        );
-        const firstDraft = draft("payload-first");
-        payloadSetup.protocol.commit(
-            payloadSetup.state,
-            await payloadSetup.protocol.prepare(
-                payloadSetup.protocol.snapshot(payloadSetup.state, authenticateIntent(firstDraft))
-            )
-        );
-        const secondDraft = draft("payload-second");
-        const samePayload = {
-            ...secondDraft,
-            payload: firstDraft.payload,
-            payloadDigest: firstDraft.payloadDigest,
-            payloadRetention: eventRetentionFor(
-                "payload-second",
-                firstDraft.payload,
-                firstDraft.payloadDigest
-            )
-        };
-        const second = payloadSetup.protocol.commit(
-            payloadSetup.state,
-            await payloadSetup.protocol.prepare(
-                payloadSetup.protocol.snapshot(payloadSetup.state, authenticateIntent(samePayload))
-            )
-        );
-        expect(second.reservations).toEqual([]);
-        expect(payloadSetup.retention.discarded).toEqual([]);
-
-        const base = subscriptionFixture("external-route");
-        const externalSubscription = new Subscription({
-            id: base.id,
-            revision: base.revision,
-            source: new EventPattern("task.*", ["external"], "facet.*"),
-            target: base.target,
-            mapping: base.mapping,
-            dedupe: base.dedupe,
-            authority: { kind: "delegated", binding: base.authority.binding }
-        });
-        const external = sourceSetup("external-route", externalSubscription);
-        external.trust.current = { tier: "external" };
-        const externalResult = external.protocol.commit(
-            external.state,
-            await external.protocol.prepare(
-                external.protocol.snapshot(
-                    external.state,
-                    authenticateIntent(draft("external-route"))
-                )
-            )
-        );
-        expect(externalResult.reservations[0]?.initiator).toBeUndefined();
-    });
-
-    test("rejects an idempotency replay whose authenticated provenance changed", { tags: "p0" }, async () => {
-        const setup = sourceSetup("provenance-conflict");
-        const original = draft("provenance-conflict");
-        setup.protocol.commit(
-            setup.state,
-            await setup.protocol.prepare(
-                setup.protocol.snapshot(setup.state, authenticateIntent(original))
-            )
-        );
-        const changed = {
-            ...original,
-            provenance: new EventProvenance({
-                verification: EventVerification.verified(),
-                principal,
-                claims: { source: "different-authenticated-provenance" }
-            })
-        };
-
-        expect(() => setup.protocol.snapshot(setup.state, authenticateIntent(changed))).toThrow(
-            expect.objectContaining({ code: "protocol.duplicate" })
-        );
-    });
-
-    test("replays an Event safely after its retention index cache is lost", { tags: "p0" }, async () => {
-        const setup = sourceSetup("retention-cache-loss");
-        const snapshot = setup.protocol.snapshot(
-            setup.state,
-            authenticateIntent(draft("retention-cache-loss"))
-        );
-        const prepared = await setup.protocol.prepare(snapshot);
-        setup.protocol.commit(setup.state, prepared);
-        setup.state.records.deleteCompactedRecords(
-            "contentRetention",
-            setup.state.records.listRecords("contentRetention").map((record) => record.id)
-        );
-
-        const replay = setup.protocol.commit(setup.state, prepared);
-        expect(replay).toMatchObject({ duplicate: true });
-        expect(replay.reservations).toHaveLength(1);
-        expect(setup.retention.discarded).toEqual([
-            snapshot.payloadRetention.id.value,
-            `retention-${setup.routes.preparations[0]?.reservation.value}`
-        ]);
-    });
-
-    test("discards a prepared source route when its dedupe reservation wins the commit race", { tags: "p0" }, async () => {
-        const setup = sourceSetup("source-route-race");
-        const snapshot = setup.protocol.snapshot(
-            setup.state,
-            authenticateIntent(draft("source-route-race"))
-        );
-        const prepared = await setup.protocol.prepare(snapshot);
-        const winner = reservationFixture("source-route-race");
-        setup.persistence.appendReservation(setup.state, winner, reservationRetention(winner));
-
-        const result = setup.protocol.commit(setup.state, prepared);
-        expect(result.duplicate).toBe(false);
-        expect(result.reservations).toEqual([]);
-        expect(setup.retention.discarded).toEqual([
-            `retention-${setup.routes.preparations[0]?.reservation.value}`
-        ]);
-    });
-
-    test("[C13-ROUTE-SOURCE-OWNED] source protocol owns the committed reservation", { tags: "p1" }, async () => {
-        const setup = sourceSetup("source-owned-proof");
-        const prepared = await setup.protocol.prepare(
-            setup.protocol.snapshot(setup.state, authenticateIntent(draft("source-owned-proof")))
-        );
-        const reservation = setup.protocol.commit(setup.state, prepared).reservations[0]!;
-        expect(reservation.sourceActor.equals(sourceActor)).toBe(true);
-        expect(reservation.targetActor.equals(targetActor)).toBe(true);
-    });
-
-    test("[C13-ROUTE-SOURCE-EVENT] committed reservation cites the authenticated Event", { tags: "p1" }, async () => {
-        const setup = sourceSetup("source-event-proof");
-        const intent = authenticateIntent(draft("source-event-proof"));
-        const prepared = await setup.protocol.prepare(setup.protocol.snapshot(setup.state, intent));
-        const result = setup.protocol.commit(setup.state, prepared);
-        expect(result.reservations[0]?.event.equals(intent.intent.id)).toBe(true);
-    });
-
-    test("[C13-ROUTE-AUDIT-CAUSE] committed reservation cites its preexisting source Event audit", { tags: "p1" }, async () => {
-        const setup = sourceSetup("source-audit-cause-proof");
-        const prepared = await setup.protocol.prepare(
-            setup.protocol.snapshot(
+            setup.trust.current = { tier: "external" };
+            const anonymous = setup.protocol.snapshot(
                 setup.state,
-                authenticateIntent(draft("source-audit-cause-proof"))
-            )
-        );
-        const reservation = setup.protocol.commit(setup.state, prepared).reservations[0];
-        const eventAudit = setup.audit.events[0];
-        const reservationAudit = setup.audit.reservations[0];
-        if (
-            reservation === undefined ||
-            eventAudit === undefined ||
-            reservationAudit === undefined
-        ) {
-            throw new TypeError("Source commit did not append complete route audit evidence");
+                authenticateIntent(draft("snapshot-anonymous"))
+            );
+            expect(anonymous.event.initiator).toBeUndefined();
+            expect(anonymous.lease).toBeUndefined();
+
+            const assertedTrust = {
+                ...draft("snapshot-asserted-trust"),
+                trust: "self"
+            } as EventDraft;
+            expect(() =>
+                setup.protocol.snapshot(
+                    setup.state,
+                    assertedTrust as unknown as AuthenticatedEventIntent
+                )
+            ).toThrow(/lacks host authentication/);
+            expect(() =>
+                setup.protocol.snapshot(setup.state, {
+                    intent: assertedTrust,
+                    digest: Digest.sha256(eventIntentBytes(assertedTrust))
+                } as unknown as AuthenticatedEventIntent)
+            ).toThrow(/lacks host authentication/);
+
+            const authenticator = new ExactEventIntentAuthenticator();
+            const original = draft("snapshot-evidence-reuse");
+            const evidence = authenticator.evidence(original);
+            expect(() =>
+                authenticator.authenticate(
+                    {
+                        ...original,
+                        lease: leaseToken("snapshot-evidence-reuse")
+                    },
+                    evidence
+                )
+            ).toThrow(/authentication failed/);
+
+            expect(() =>
+                setup.protocol.snapshot(
+                    setup.state,
+                    authenticateIntent({
+                        ...draft("snapshot-wrong-actor"),
+                        sourceActor: targetActor
+                    })
+                )
+            ).toThrow(/accepting Actor/);
         }
+    );
 
-        expect(setup.state.audit).toEqual(["event", "reservation"]);
-        expect(eventAudit.event.id.equals(reservation.event)).toBe(true);
-        expect(reservation.sourceAuditCause.equals(eventAudit.audit)).toBe(true);
-        expect(reservationAudit.reservation).toBe(reservation);
-    });
+    test(
+        "[C13-TRUST-ASSERTION-REJECTION] rejects structurally forged intent trust",
+        { tags: "p0" },
+        () => {
+            const setup = sourceSetup("forged-intent-trust");
+            expect(() =>
+                setup.protocol.snapshot(setup.state, {
+                    intent: draft("forged-intent-trust")
+                } as unknown as AuthenticatedEventIntent)
+            ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+        }
+    );
 
-    test("[C13-ROUTE-STABLE-INVOCATION] duplicate commit preserves InvocationId", { tags: "p0" }, async () => {
-        const setup = sourceSetup("stable-invocation-proof");
-        const prepared = await setup.protocol.prepare(
-            setup.protocol.snapshot(
+    test(
+        "prepares only matches, uses logical keys for no-dedupe, and rejects foreign snapshots",
+        { tags: "p1" },
+        async () => {
+            const setup = sourceSetup(
+                "prepare-none",
+                subscriptionFixture("prepare-none", { dedupe: "none" })
+            );
+            const snapshot = setup.protocol.snapshot(
                 setup.state,
-                authenticateIntent(draft("stable-invocation-proof"))
-            )
-        );
-        const first = setup.protocol.commit(setup.state, prepared).reservations[0]!;
-        const duplicate = setup.protocol.commit(setup.state, prepared).reservations[0]!;
-        expect(duplicate.id.equals(first.id)).toBe(true);
-        expect(duplicate.invocation.equals(first.invocation)).toBe(true);
-    });
-
-    test("[C13-ROUTE-TENANT-RELATION] source protocol preserves admitted tenant relation", { tags: "p0" }, async () => {
-        const setup = sourceSetup("tenant-relation-proof");
-        const prepared = await setup.protocol.prepare(
-            setup.protocol.snapshot(setup.state, authenticateIntent(draft("tenant-relation-proof")))
-        );
-        const relation = setup.protocol.commit(setup.state, prepared).reservations[0]!.tenants;
-        expect(relation.kind).toBe("same");
-        if (relation.kind === "same") expect(relation.tenant.equals(tenant)).toBe(true);
-    });
-
-    test("rejects foreign preparations, stale subscriptions, and each trust change", { tags: "p0" }, async () => {
-        const first = sourceSetup("foreign-first");
-        const second = sourceSetup("foreign-second");
-        const prepared = await first.protocol.prepare(
-            first.protocol.snapshot(first.state, authenticateIntent(draft("foreign")))
-        );
-        expect(() => second.protocol.commit(second.state, prepared)).toThrow(/not prepared/);
-
-        const actorMutation = sourceSetup("foreign-actor");
-        const actorPrepared = await actorMutation.protocol.prepare(
-            actorMutation.protocol.snapshot(
-                actorMutation.state,
-                authenticateIntent(draft("foreign-actor"))
-            )
-        );
-        (actorMutation.protocol as unknown as { actor: ActorRef }).actor = targetActor;
-        expect(() => actorMutation.protocol.commit(actorMutation.state, actorPrepared)).toThrow(
-            /another Actor/
-        );
-
-        const stale = sourceSetup("stale-subscription");
-        const stalePrepared = await stale.protocol.prepare(
-            stale.protocol.snapshot(stale.state, authenticateIntent(draft("stale-subscription")))
-        );
-        stale.persistence.saveSubscription(
-            stale.state,
-            stale.subscription.revise({
-                source: stale.subscription.source,
-                target: stale.subscription.target,
-                mapping: stale.subscription.mapping,
-                dedupe: "payload",
-                authority: stale.subscription.authority
-            }),
-            stale.subscription.revision
-        );
-        expect(() => stale.protocol.commit(stale.state, stalePrepared)).toThrow(/snapshot changed/);
-
-        for (const [suffix, changed] of [
-            ["tier", { tier: "external" }],
-            ["missing-initiator", { tier: "authenticated" }],
-            [
-                "different-initiator",
-                {
-                    tier: "authenticated",
-                    initiator: new PrincipalRef(tenant, new PrincipalId("principal-different"))
-                }
-            ]
-        ] as const) {
-            const trust = sourceSetup(`trust-${suffix}`);
-            const trustPrepared = await trust.protocol.prepare(
-                trust.protocol.snapshot(trust.state, authenticateIntent(draft(`trust-${suffix}`)))
+                authenticateIntent(draft("prepare-none"))
             );
-            trust.trust.current = changed;
-            expect(() => trust.protocol.commit(trust.state, trustPrepared)).toThrow(
-                /trust changed/
+            const prepared = await setup.protocol.prepare(snapshot);
+            const result = setup.protocol.commit(setup.state, prepared);
+            expect(result.reservations[0]?.dedupeKey).toMatch(/^none:logical-delivery-/u);
+            expect(setup.routes.preparations).toHaveLength(1);
+
+            const noMatch = sourceSetup(
+                "prepare-no-match",
+                subscriptionFixture("prepare-no-match")
             );
+            const noMatchSnapshot = noMatch.protocol.snapshot(
+                noMatch.state,
+                authenticateIntent({
+                    ...draft("prepare-no-match"),
+                    kind: new EventKind("other.created")
+                })
+            );
+            expect(await noMatch.protocol.prepare(noMatchSnapshot)).toBeInstanceOf(
+                PreparedEventRouting
+            );
+            expect(noMatch.routes.preparations).toEqual([]);
+            const noMatchPrepared = await noMatch.protocol.prepare(noMatchSnapshot);
+            expect(() => noMatch.protocol.commit(noMatch.state, noMatchPrepared)).not.toThrow();
+            await expect(setup.protocol.prepare({ ...snapshot })).rejects.toMatchObject({
+                code: "protocol.invalid-state"
+            });
+
+            const Constructor = PreparedEventRouting as unknown as new (
+                token: symbol,
+                owner: object,
+                snapshot: EventRoutingSnapshot,
+                routes: readonly []
+            ) => PreparedEventRouting;
+            expect(() => new Constructor(Symbol("forged"), setup.protocol, snapshot, [])).toThrow(
+                /host-only/
+            );
+
+            const partial = sourceSetup("prepare-partial-first");
+            partial.persistence.saveSubscription(
+                partial.state,
+                subscriptionFixture("prepare-partial-second"),
+                undefined
+            );
+            partial.routes.failPrepareAfter = 1;
+            const partialSnapshot = partial.protocol.snapshot(
+                partial.state,
+                authenticateIntent(draft("prepare-partial"))
+            );
+            await expect(partial.protocol.prepare(partialSnapshot)).rejects.toThrow(
+                /partial route/
+            );
+            expect(partial.retention.discarded).toEqual([
+                `retention-${partial.routes.preparations[0]?.reservation.value}`
+            ]);
         }
-    });
+    );
 
-    test("rejects event and projection retention failures and ownership mismatch", { tags: "p0" }, async () => {
-        const notDurable = sourceSetup("event-not-durable");
-        const prepared = await notDurable.protocol.prepare(
-            notDurable.protocol.snapshot(
-                notDurable.state,
-                authenticateIntent(draft("event-not-durable"))
-            )
-        );
-        notDurable.retention.durable = false;
-        expect(() => notDurable.protocol.commit(notDurable.state, prepared)).toThrow(
-            /payload retention is not durable/
-        );
-
-        for (const [suffix, alter] of [
-            [
-                "actor",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, { actor: targetActor })
-            ],
-            [
-                "tenant",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, {
-                        tenant: new TenantId("tenant-other")
-                    })
-            ],
-            [
-                "kind",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, {
-                        recordKind: RetainedRecordKind.routeReservation()
-                    })
-            ],
-            [
-                "record",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, {
-                        record: new RetainedRecordRef("event-other")
-                    })
-            ]
-        ] as const) {
-            const setup = sourceSetup(`event-retention-${suffix}`);
-            const input = draft(`event-retention-${suffix}`);
-            const invalidDraft = { ...input, payloadRetention: alter(input.payloadRetention) };
-            const invalidPrepared = await setup.protocol.prepare(
-                setup.protocol.snapshot(setup.state, authenticateIntent(invalidDraft))
+    test(
+        "[C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity",
+        { tags: "p0" },
+        async () => {
+            const setup = sourceSetup("event-replay");
+            const snapshot = setup.protocol.snapshot(
+                setup.state,
+                authenticateIntent(draft("event-replay"))
             );
-            expect(() => setup.protocol.commit(setup.state, invalidPrepared)).toThrow(
-                /another Actor or record/
+            const prepared = await setup.protocol.prepare(snapshot);
+            const first = setup.protocol.commit(setup.state, prepared);
+            const replay = setup.protocol.commit(setup.state, prepared);
+            expect(first.duplicate).toBe(false);
+            expect(replay).toMatchObject({ duplicate: true });
+            expect(replay.reservations).toHaveLength(1);
+            expect(setup.retention.discarded).toEqual([
+                `retention-${setup.routes.preparations[0]?.reservation.value}`
+            ]);
+
+            const payloadSetup = sourceSetup(
+                "payload-dedupe",
+                subscriptionFixture("payload-dedupe", { dedupe: "payload" })
             );
-        }
-
-        const routeNotDurable = sourceSetup("route-not-durable");
-        const routePrepared = await routeNotDurable.protocol.prepare(
-            routeNotDurable.protocol.snapshot(
-                routeNotDurable.state,
-                authenticateIntent(draft("route-not-durable"))
-            )
-        );
-        let verifies = 0;
-        routeNotDurable.retention.verify = (): boolean => {
-            verifies += 1;
-            return verifies < 3;
-        };
-        expect(() => routeNotDurable.protocol.commit(routeNotDurable.state, routePrepared)).toThrow(
-            /projection retention is not durable/
-        );
-
-        const wrongRouteOwner = sourceSetup("route-wrong-owner");
-        wrongRouteOwner.routes.durableActor = targetActor;
-        const wrongRoutePrepared = await wrongRouteOwner.protocol.prepare(
-            wrongRouteOwner.protocol.snapshot(
-                wrongRouteOwner.state,
-                authenticateIntent(draft("route-wrong-owner"))
-            )
-        );
-        expect(() =>
-            wrongRouteOwner.protocol.commit(wrongRouteOwner.state, wrongRoutePrepared)
-        ).toThrow(/another Actor or record/);
-    });
-
-    test("rejects source authority, target, tenant, and operation changes", { tags: "p0" }, async () => {
-        const rejected = sourceSetup("route-rejected");
-        const rejectedSnapshot = rejected.protocol.snapshot(
-            rejected.state,
-            authenticateIntent(draft("route-rejected"))
-        );
-        const rejectedPrepared = await rejected.protocol.prepare(rejectedSnapshot);
-        rejected.routes.decision = { kind: "rejected" };
-        expect(() => rejected.protocol.commit(rejected.state, rejectedPrepared)).toThrow(
-            /authority rejected/
-        );
-        expect(rejected.retention.discarded).toEqual([
-            rejectedSnapshot.payloadRetention.id.value,
-            `retention-${rejected.routes.preparations[0]?.reservation.value}`
-        ]);
-
-        const wrongTarget = sourceSetup("route-target-change");
-        const targetPrepared = await wrongTarget.protocol.prepare(
-            wrongTarget.protocol.snapshot(
-                wrongTarget.state,
-                authenticateIntent(draft("route-target-change"))
-            )
-        );
-        wrongTarget.routes.decision = {
-            kind: "accepted",
-            targetActor: sourceActor,
-            tenants: { kind: "same", tenant },
-            operation: wrongTarget.subscription.target
-        };
-        expect(() => wrongTarget.protocol.commit(wrongTarget.state, targetPrepared)).toThrow(
-            /target changed/
-        );
-
-        const wrongTenant = sourceSetup("route-tenant-change");
-        const tenantPrepared = await wrongTenant.protocol.prepare(
-            wrongTenant.protocol.snapshot(
-                wrongTenant.state,
-                authenticateIntent(draft("route-tenant-change"))
-            )
-        );
-        wrongTenant.routes.decision = {
-            kind: "accepted",
-            targetActor,
-            tenants: { kind: "same", tenant: new TenantId("tenant-changed") },
-            operation: wrongTenant.subscription.target
-        };
-        expect(() => wrongTenant.protocol.commit(wrongTenant.state, tenantPrepared)).toThrow(
-            /target changed/
-        );
-
-        const wrongOperation = sourceSetup("route-operation-change");
-        const operationPrepared = await wrongOperation.protocol.prepare(
-            wrongOperation.protocol.snapshot(
-                wrongOperation.state,
-                authenticateIntent(draft("route-operation-change"))
-            )
-        );
-        wrongOperation.routes.decision = {
-            kind: "accepted",
-            targetActor,
-            tenants: { kind: "same", tenant },
-            operation: new OperationRef("facet.test:changed")
-        };
-        expect(() =>
-            wrongOperation.protocol.commit(wrongOperation.state, operationPrepared)
-        ).toThrow(/target changed/);
-    });
-
-    test("[C13-ROUTE-CROSS-TENANT-BINDING] accepts an unchanged cross-tenant route and detects every cross relation change", { tags: "p0" }, async () => {
-        const sourceTenant = tenant;
-        const destination = new TenantId("tenant-destination");
-        const authority = new BindingName("binding.cross-tenant");
-        const relation = {
-            kind: "cross" as const,
-            source: sourceTenant,
-            target: destination,
-            authority
-        };
-        const accepted = sourceSetup("cross-accepted");
-        accepted.routes.materialTenants = relation;
-        const result = accepted.protocol.commit(
-            accepted.state,
-            await accepted.protocol.prepare(
-                accepted.protocol.snapshot(
-                    accepted.state,
-                    authenticateIntent(draft("cross-accepted"))
-                )
-            )
-        );
-        expect(result.reservations[0]?.tenants).toMatchObject({ kind: "cross" });
-
-        for (const [suffix, tenants] of [
-            ["same", { kind: "same" as const, tenant }],
-            ["source", { ...relation, source: new TenantId("tenant-other-source") }],
-            ["target", { ...relation, target: new TenantId("tenant-other-target") }],
-            ["authority", { ...relation, authority: new BindingName("binding.other") }]
-        ] as const) {
-            const changed = sourceSetup(`cross-${suffix}`);
-            changed.routes.materialTenants = relation;
-            const prepared = await changed.protocol.prepare(
-                changed.protocol.snapshot(
-                    changed.state,
-                    authenticateIntent(draft(`cross-${suffix}`))
+            const firstDraft = draft("payload-first");
+            payloadSetup.protocol.commit(
+                payloadSetup.state,
+                await payloadSetup.protocol.prepare(
+                    payloadSetup.protocol.snapshot(
+                        payloadSetup.state,
+                        authenticateIntent(firstDraft)
+                    )
                 )
             );
-            changed.routes.decision = {
-                kind: "accepted",
-                targetActor,
-                tenants,
-                operation: changed.subscription.target
+            const secondDraft = draft("payload-second");
+            const samePayload = {
+                ...secondDraft,
+                payload: firstDraft.payload,
+                payloadDigest: firstDraft.payloadDigest,
+                payloadRetention: eventRetentionFor(
+                    "payload-second",
+                    firstDraft.payload,
+                    firstDraft.payloadDigest
+                )
             };
-            expect(() => changed.protocol.commit(changed.state, prepared)).toThrow(
+            const second = payloadSetup.protocol.commit(
+                payloadSetup.state,
+                await payloadSetup.protocol.prepare(
+                    payloadSetup.protocol.snapshot(
+                        payloadSetup.state,
+                        authenticateIntent(samePayload)
+                    )
+                )
+            );
+            expect(second.reservations).toEqual([]);
+            expect(payloadSetup.retention.discarded).toEqual([]);
+
+            const base = subscriptionFixture("external-route");
+            const externalSubscription = new Subscription({
+                id: base.id,
+                revision: base.revision,
+                source: new EventPattern("task.*", ["external"], "facet.*"),
+                target: base.target,
+                mapping: base.mapping,
+                dedupe: base.dedupe,
+                authority: { kind: "delegated", binding: base.authority.binding }
+            });
+            const external = sourceSetup("external-route", externalSubscription);
+            external.trust.current = { tier: "external" };
+            const externalResult = external.protocol.commit(
+                external.state,
+                await external.protocol.prepare(
+                    external.protocol.snapshot(
+                        external.state,
+                        authenticateIntent(draft("external-route"))
+                    )
+                )
+            );
+            expect(externalResult.reservations[0]?.initiator).toBeUndefined();
+        }
+    );
+
+    test(
+        "rejects an idempotency replay whose authenticated provenance changed",
+        { tags: "p0" },
+        async () => {
+            const setup = sourceSetup("provenance-conflict");
+            const original = draft("provenance-conflict");
+            setup.protocol.commit(
+                setup.state,
+                await setup.protocol.prepare(
+                    setup.protocol.snapshot(setup.state, authenticateIntent(original))
+                )
+            );
+            const changed = {
+                ...original,
+                provenance: new EventProvenance({
+                    verification: EventVerification.verified(),
+                    principal,
+                    claims: { source: "different-authenticated-provenance" }
+                })
+            };
+
+            expect(() => setup.protocol.snapshot(setup.state, authenticateIntent(changed))).toThrow(
+                expect.objectContaining({ code: "protocol.duplicate" })
+            );
+        }
+    );
+
+    test(
+        "replays an Event safely after its retention index cache is lost",
+        { tags: "p0" },
+        async () => {
+            const setup = sourceSetup("retention-cache-loss");
+            const snapshot = setup.protocol.snapshot(
+                setup.state,
+                authenticateIntent(draft("retention-cache-loss"))
+            );
+            const prepared = await setup.protocol.prepare(snapshot);
+            setup.protocol.commit(setup.state, prepared);
+            setup.state.records.deleteCompactedRecords(
+                "contentRetention",
+                setup.state.records.listRecords("contentRetention").map((record) => record.id)
+            );
+
+            const replay = setup.protocol.commit(setup.state, prepared);
+            expect(replay).toMatchObject({ duplicate: true });
+            expect(replay.reservations).toHaveLength(1);
+            expect(setup.retention.discarded).toEqual([
+                snapshot.payloadRetention.id.value,
+                `retention-${setup.routes.preparations[0]?.reservation.value}`
+            ]);
+        }
+    );
+
+    test(
+        "discards a prepared source route when its dedupe reservation wins the commit race",
+        { tags: "p0" },
+        async () => {
+            const setup = sourceSetup("source-route-race");
+            const snapshot = setup.protocol.snapshot(
+                setup.state,
+                authenticateIntent(draft("source-route-race"))
+            );
+            const prepared = await setup.protocol.prepare(snapshot);
+            const winner = reservationFixture("source-route-race");
+            setup.persistence.appendReservation(setup.state, winner, reservationRetention(winner));
+
+            const result = setup.protocol.commit(setup.state, prepared);
+            expect(result.duplicate).toBe(false);
+            expect(result.reservations).toEqual([]);
+            expect(setup.retention.discarded).toEqual([
+                `retention-${setup.routes.preparations[0]?.reservation.value}`
+            ]);
+        }
+    );
+
+    test(
+        "[C13-ROUTE-SOURCE-OWNED] source protocol owns the committed reservation",
+        { tags: "p1" },
+        async () => {
+            const setup = sourceSetup("source-owned-proof");
+            const prepared = await setup.protocol.prepare(
+                setup.protocol.snapshot(
+                    setup.state,
+                    authenticateIntent(draft("source-owned-proof"))
+                )
+            );
+            const reservation = setup.protocol.commit(setup.state, prepared).reservations[0]!;
+            expect(reservation.sourceActor.equals(sourceActor)).toBe(true);
+            expect(reservation.targetActor.equals(targetActor)).toBe(true);
+        }
+    );
+
+    test(
+        "[C13-ROUTE-SOURCE-EVENT] committed reservation cites the authenticated Event",
+        { tags: "p1" },
+        async () => {
+            const setup = sourceSetup("source-event-proof");
+            const intent = authenticateIntent(draft("source-event-proof"));
+            const prepared = await setup.protocol.prepare(
+                setup.protocol.snapshot(setup.state, intent)
+            );
+            const result = setup.protocol.commit(setup.state, prepared);
+            expect(result.reservations[0]?.event.equals(intent.intent.id)).toBe(true);
+        }
+    );
+
+    test(
+        "[C13-ROUTE-AUDIT-CAUSE] committed reservation cites its preexisting source Event audit",
+        { tags: "p1" },
+        async () => {
+            const setup = sourceSetup("source-audit-cause-proof");
+            const prepared = await setup.protocol.prepare(
+                setup.protocol.snapshot(
+                    setup.state,
+                    authenticateIntent(draft("source-audit-cause-proof"))
+                )
+            );
+            const reservation = setup.protocol.commit(setup.state, prepared).reservations[0];
+            const eventAudit = setup.audit.events[0];
+            const reservationAudit = setup.audit.reservations[0];
+            if (
+                reservation === undefined ||
+                eventAudit === undefined ||
+                reservationAudit === undefined
+            ) {
+                throw new TypeError("Source commit did not append complete route audit evidence");
+            }
+
+            expect(setup.state.audit).toEqual(["event", "reservation"]);
+            expect(eventAudit.event.id.equals(reservation.event)).toBe(true);
+            expect(reservation.sourceAuditCause.equals(eventAudit.audit)).toBe(true);
+            expect(reservationAudit.reservation).toBe(reservation);
+        }
+    );
+
+    test(
+        "[C13-ROUTE-STABLE-INVOCATION] duplicate commit preserves InvocationId",
+        { tags: "p0" },
+        async () => {
+            const setup = sourceSetup("stable-invocation-proof");
+            const prepared = await setup.protocol.prepare(
+                setup.protocol.snapshot(
+                    setup.state,
+                    authenticateIntent(draft("stable-invocation-proof"))
+                )
+            );
+            const first = setup.protocol.commit(setup.state, prepared).reservations[0]!;
+            const duplicate = setup.protocol.commit(setup.state, prepared).reservations[0]!;
+            expect(duplicate.id.equals(first.id)).toBe(true);
+            expect(duplicate.invocation.equals(first.invocation)).toBe(true);
+        }
+    );
+
+    test(
+        "[C13-ROUTE-TENANT-RELATION] source protocol preserves admitted tenant relation",
+        { tags: "p0" },
+        async () => {
+            const setup = sourceSetup("tenant-relation-proof");
+            const prepared = await setup.protocol.prepare(
+                setup.protocol.snapshot(
+                    setup.state,
+                    authenticateIntent(draft("tenant-relation-proof"))
+                )
+            );
+            const relation = setup.protocol.commit(setup.state, prepared).reservations[0]!.tenants;
+            expect(relation.kind).toBe("same");
+            if (relation.kind === "same") expect(relation.tenant.equals(tenant)).toBe(true);
+        }
+    );
+
+    test(
+        "rejects foreign preparations, stale subscriptions, and each trust change",
+        { tags: "p0" },
+        async () => {
+            const first = sourceSetup("foreign-first");
+            const second = sourceSetup("foreign-second");
+            const prepared = await first.protocol.prepare(
+                first.protocol.snapshot(first.state, authenticateIntent(draft("foreign")))
+            );
+            expect(() => second.protocol.commit(second.state, prepared)).toThrow(/not prepared/);
+
+            const actorMutation = sourceSetup("foreign-actor");
+            const actorPrepared = await actorMutation.protocol.prepare(
+                actorMutation.protocol.snapshot(
+                    actorMutation.state,
+                    authenticateIntent(draft("foreign-actor"))
+                )
+            );
+            (actorMutation.protocol as unknown as { actor: ActorRef }).actor = targetActor;
+            expect(() => actorMutation.protocol.commit(actorMutation.state, actorPrepared)).toThrow(
+                /another Actor/
+            );
+
+            const stale = sourceSetup("stale-subscription");
+            const stalePrepared = await stale.protocol.prepare(
+                stale.protocol.snapshot(
+                    stale.state,
+                    authenticateIntent(draft("stale-subscription"))
+                )
+            );
+            stale.persistence.saveSubscription(
+                stale.state,
+                stale.subscription.revise({
+                    source: stale.subscription.source,
+                    target: stale.subscription.target,
+                    mapping: stale.subscription.mapping,
+                    dedupe: "payload",
+                    authority: stale.subscription.authority
+                }),
+                stale.subscription.revision
+            );
+            expect(() => stale.protocol.commit(stale.state, stalePrepared)).toThrow(
+                /snapshot changed/
+            );
+
+            for (const [suffix, changed] of [
+                ["tier", { tier: "external" }],
+                ["missing-initiator", { tier: "authenticated" }],
+                [
+                    "different-initiator",
+                    {
+                        tier: "authenticated",
+                        initiator: new PrincipalRef(tenant, new PrincipalId("principal-different"))
+                    }
+                ]
+            ] as const) {
+                const trust = sourceSetup(`trust-${suffix}`);
+                const trustPrepared = await trust.protocol.prepare(
+                    trust.protocol.snapshot(
+                        trust.state,
+                        authenticateIntent(draft(`trust-${suffix}`))
+                    )
+                );
+                trust.trust.current = changed;
+                expect(() => trust.protocol.commit(trust.state, trustPrepared)).toThrow(
+                    /trust changed/
+                );
+            }
+        }
+    );
+
+    test(
+        "rejects event and projection retention failures and ownership mismatch",
+        { tags: "p0" },
+        async () => {
+            const notDurable = sourceSetup("event-not-durable");
+            const prepared = await notDurable.protocol.prepare(
+                notDurable.protocol.snapshot(
+                    notDurable.state,
+                    authenticateIntent(draft("event-not-durable"))
+                )
+            );
+            notDurable.retention.durable = false;
+            expect(() => notDurable.protocol.commit(notDurable.state, prepared)).toThrow(
+                /payload retention is not durable/
+            );
+
+            for (const [suffix, alter] of [
+                [
+                    "actor",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, { actor: targetActor })
+                ],
+                [
+                    "tenant",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, {
+                            tenant: new TenantId("tenant-other")
+                        })
+                ],
+                [
+                    "kind",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, {
+                            recordKind: RetainedRecordKind.routeReservation()
+                        })
+                ],
+                [
+                    "record",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, {
+                            record: new RetainedRecordRef("event-other")
+                        })
+                ]
+            ] as const) {
+                const setup = sourceSetup(`event-retention-${suffix}`);
+                const input = draft(`event-retention-${suffix}`);
+                const invalidDraft = { ...input, payloadRetention: alter(input.payloadRetention) };
+                const invalidPrepared = await setup.protocol.prepare(
+                    setup.protocol.snapshot(setup.state, authenticateIntent(invalidDraft))
+                );
+                expect(() => setup.protocol.commit(setup.state, invalidPrepared)).toThrow(
+                    /another Actor or record/
+                );
+            }
+
+            const routeNotDurable = sourceSetup("route-not-durable");
+            const routePrepared = await routeNotDurable.protocol.prepare(
+                routeNotDurable.protocol.snapshot(
+                    routeNotDurable.state,
+                    authenticateIntent(draft("route-not-durable"))
+                )
+            );
+            let verifies = 0;
+            routeNotDurable.retention.verify = (): boolean => {
+                verifies += 1;
+                return verifies < 3;
+            };
+            expect(() =>
+                routeNotDurable.protocol.commit(routeNotDurable.state, routePrepared)
+            ).toThrow(/projection retention is not durable/);
+
+            const wrongRouteOwner = sourceSetup("route-wrong-owner");
+            wrongRouteOwner.routes.durableActor = targetActor;
+            const wrongRoutePrepared = await wrongRouteOwner.protocol.prepare(
+                wrongRouteOwner.protocol.snapshot(
+                    wrongRouteOwner.state,
+                    authenticateIntent(draft("route-wrong-owner"))
+                )
+            );
+            expect(() =>
+                wrongRouteOwner.protocol.commit(wrongRouteOwner.state, wrongRoutePrepared)
+            ).toThrow(/another Actor or record/);
+        }
+    );
+
+    test(
+        "rejects source authority, target, tenant, and operation changes",
+        { tags: "p0" },
+        async () => {
+            const rejected = sourceSetup("route-rejected");
+            const rejectedSnapshot = rejected.protocol.snapshot(
+                rejected.state,
+                authenticateIntent(draft("route-rejected"))
+            );
+            const rejectedPrepared = await rejected.protocol.prepare(rejectedSnapshot);
+            rejected.routes.decision = { kind: "rejected" };
+            expect(() => rejected.protocol.commit(rejected.state, rejectedPrepared)).toThrow(
+                /authority rejected/
+            );
+            expect(rejected.retention.discarded).toEqual([
+                rejectedSnapshot.payloadRetention.id.value,
+                `retention-${rejected.routes.preparations[0]?.reservation.value}`
+            ]);
+
+            const wrongTarget = sourceSetup("route-target-change");
+            const targetPrepared = await wrongTarget.protocol.prepare(
+                wrongTarget.protocol.snapshot(
+                    wrongTarget.state,
+                    authenticateIntent(draft("route-target-change"))
+                )
+            );
+            wrongTarget.routes.decision = {
+                kind: "accepted",
+                targetActor: sourceActor,
+                tenants: { kind: "same", tenant },
+                operation: wrongTarget.subscription.target
+            };
+            expect(() => wrongTarget.protocol.commit(wrongTarget.state, targetPrepared)).toThrow(
                 /target changed/
             );
+
+            const wrongTenant = sourceSetup("route-tenant-change");
+            const tenantPrepared = await wrongTenant.protocol.prepare(
+                wrongTenant.protocol.snapshot(
+                    wrongTenant.state,
+                    authenticateIntent(draft("route-tenant-change"))
+                )
+            );
+            wrongTenant.routes.decision = {
+                kind: "accepted",
+                targetActor,
+                tenants: { kind: "same", tenant: new TenantId("tenant-changed") },
+                operation: wrongTenant.subscription.target
+            };
+            expect(() => wrongTenant.protocol.commit(wrongTenant.state, tenantPrepared)).toThrow(
+                /target changed/
+            );
+
+            const wrongOperation = sourceSetup("route-operation-change");
+            const operationPrepared = await wrongOperation.protocol.prepare(
+                wrongOperation.protocol.snapshot(
+                    wrongOperation.state,
+                    authenticateIntent(draft("route-operation-change"))
+                )
+            );
+            wrongOperation.routes.decision = {
+                kind: "accepted",
+                targetActor,
+                tenants: { kind: "same", tenant },
+                operation: new OperationRef("facet.test:changed")
+            };
+            expect(() =>
+                wrongOperation.protocol.commit(wrongOperation.state, operationPrepared)
+            ).toThrow(/target changed/);
         }
-    });
+    );
+
+    test(
+        "[C13-ROUTE-CROSS-TENANT-BINDING] accepts an unchanged cross-tenant route and detects every cross relation change",
+        { tags: "p0" },
+        async () => {
+            const sourceTenant = tenant;
+            const destination = new TenantId("tenant-destination");
+            const authority = new BindingName("binding.cross-tenant");
+            const relation = {
+                kind: "cross" as const,
+                source: sourceTenant,
+                target: destination,
+                authority
+            };
+            const accepted = sourceSetup("cross-accepted");
+            accepted.routes.materialTenants = relation;
+            const result = accepted.protocol.commit(
+                accepted.state,
+                await accepted.protocol.prepare(
+                    accepted.protocol.snapshot(
+                        accepted.state,
+                        authenticateIntent(draft("cross-accepted"))
+                    )
+                )
+            );
+            expect(result.reservations[0]?.tenants).toMatchObject({ kind: "cross" });
+
+            for (const [suffix, tenants] of [
+                ["same", { kind: "same" as const, tenant }],
+                ["source", { ...relation, source: new TenantId("tenant-other-source") }],
+                ["target", { ...relation, target: new TenantId("tenant-other-target") }],
+                ["authority", { ...relation, authority: new BindingName("binding.other") }]
+            ] as const) {
+                const changed = sourceSetup(`cross-${suffix}`);
+                changed.routes.materialTenants = relation;
+                const prepared = await changed.protocol.prepare(
+                    changed.protocol.snapshot(
+                        changed.state,
+                        authenticateIntent(draft(`cross-${suffix}`))
+                    )
+                );
+                changed.routes.decision = {
+                    kind: "accepted",
+                    targetActor,
+                    tenants,
+                    operation: changed.subscription.target
+                };
+                expect(() => changed.protocol.commit(changed.state, prepared)).toThrow(
+                    /target changed/
+                );
+            }
+        }
+    );
 });
 
 describe("target protocol and port outcomes", () => {
-    test("rejects structural authentication and projections for another actor", { tags: "p0" }, () => {
-        const setup = targetSetup();
-        const admission = authenticatedAdmission("target-structural");
-        expect(() =>
-            setup.protocol.admit(setup.state, {
-                ...admission,
-                projection: {
-                    envelope: admission.projection.envelope
-                } as AuthenticatedRouteProjection
-            })
-        ).toThrow(/lacks host authentication/);
-
-        const wrong = authenticatedAdmission("target-wrong-actor", sourceActor);
-        expect(() => setup.protocol.admit(setup.state, wrong)).toThrow(/another Actor/);
-    });
-
-    test("rejects nondurable retention and every retention ownership mismatch", { tags: "p0" }, () => {
-        const notDurable = targetSetup();
-        notDurable.retention.durable = false;
-        expect(() =>
-            notDurable.protocol.admit(
-                notDurable.state,
-                authenticatedAdmission("target-not-durable")
-            )
-        ).toThrow(/not durable/);
-
-        for (const [suffix, alter] of [
-            [
-                "actor",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, { actor: sourceActor })
-            ],
-            [
-                "tenant",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, {
-                        tenant: new TenantId("tenant-other")
-                    })
-            ],
-            [
-                "kind",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, {
-                        recordKind: RetainedRecordKind.event()
-                    })
-            ],
-            [
-                "record",
-                (reference: ContentRetentionReference) =>
-                    retentionCopy(reference, {
-                        record: new RetainedRecordRef("projection-other")
-                    })
-            ]
-        ] as const) {
+    test(
+        "rejects structural authentication and projections for another actor",
+        { tags: "p0" },
+        () => {
             const setup = targetSetup();
-            const admission = authenticatedAdmission(`target-retention-${suffix}`);
+            const admission = authenticatedAdmission("target-structural");
             expect(() =>
                 setup.protocol.admit(setup.state, {
-                    projection: admission.projection,
-                    retention: alter(admission.retention)
+                    ...admission,
+                    projection: {
+                        envelope: admission.projection.envelope
+                    } as AuthenticatedRouteProjection
                 })
-            ).toThrow(/another Actor or record/);
+            ).toThrow(/lacks host authentication/);
+
+            const wrong = authenticatedAdmission("target-wrong-actor", sourceActor);
+            expect(() => setup.protocol.admit(setup.state, wrong)).toThrow(/another Actor/);
         }
-    });
+    );
+
+    test(
+        "rejects nondurable retention and every retention ownership mismatch",
+        { tags: "p0" },
+        () => {
+            const notDurable = targetSetup();
+            notDurable.retention.durable = false;
+            expect(() =>
+                notDurable.protocol.admit(
+                    notDurable.state,
+                    authenticatedAdmission("target-not-durable")
+                )
+            ).toThrow(/not durable/);
+
+            for (const [suffix, alter] of [
+                [
+                    "actor",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, { actor: sourceActor })
+                ],
+                [
+                    "tenant",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, {
+                            tenant: new TenantId("tenant-other")
+                        })
+                ],
+                [
+                    "kind",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, {
+                            recordKind: RetainedRecordKind.event()
+                        })
+                ],
+                [
+                    "record",
+                    (reference: ContentRetentionReference) =>
+                        retentionCopy(reference, {
+                            record: new RetainedRecordRef("projection-other")
+                        })
+                ]
+            ] as const) {
+                const setup = targetSetup();
+                const admission = authenticatedAdmission(`target-retention-${suffix}`);
+                expect(() =>
+                    setup.protocol.admit(setup.state, {
+                        projection: admission.projection,
+                        retention: alter(admission.retention)
+                    })
+                ).toThrow(/another Actor or record/);
+            }
+        }
+    );
 
     test("uses the target tenant for cross-tenant admissions", { tags: "p0" }, () => {
         const reservation = crossReservation("target-cross");
@@ -1456,108 +1602,121 @@ describe("target protocol and port outcomes", () => {
         ).toBe("delivered");
     });
 
-    test("records authority and invocation acceptance or every rejection reason", { tags: "p1" }, () => {
-        const accepted = targetSetup();
-        expect(
-            accepted.protocol.admit(accepted.state, authenticatedAdmission("target-accepted")).state
-        ).toMatchObject({ kind: "delivered", reason: undefined });
+    test(
+        "records authority and invocation acceptance or every rejection reason",
+        { tags: "p1" },
+        () => {
+            const accepted = targetSetup();
+            expect(
+                accepted.protocol.admit(accepted.state, authenticatedAdmission("target-accepted"))
+                    .state
+            ).toMatchObject({ kind: "delivered", reason: undefined });
 
-        const authority = targetSetup();
-        authority.authority.decision = { kind: "rejected", reason: "authority denied" };
-        expect(
-            authority.protocol.admit(
-                authority.state,
-                authenticatedAdmission("target-authority-denied")
-            ).state
-        ).toMatchObject({ kind: "rejected", reason: "authority denied" });
+            const authority = targetSetup();
+            authority.authority.decision = { kind: "rejected", reason: "authority denied" };
+            expect(
+                authority.protocol.admit(
+                    authority.state,
+                    authenticatedAdmission("target-authority-denied")
+                ).state
+            ).toMatchObject({ kind: "rejected", reason: "authority denied" });
 
-        const invocation = targetSetup();
-        invocation.invocations.decision = { kind: "rejected", reason: "invocation denied" };
-        expect(
-            invocation.protocol.admit(
-                invocation.state,
-                authenticatedAdmission("target-invocation-denied")
-            ).state
-        ).toMatchObject({ kind: "rejected", reason: "invocation denied" });
-    });
+            const invocation = targetSetup();
+            invocation.invocations.decision = { kind: "rejected", reason: "invocation denied" };
+            expect(
+                invocation.protocol.admit(
+                    invocation.state,
+                    authenticatedAdmission("target-invocation-denied")
+                ).state
+            ).toMatchObject({ kind: "rejected", reason: "invocation denied" });
+        }
+    );
 
-    test("rejects invocation substitution and returns exact terminal duplicates", { tags: "p0" }, () => {
-        const substitution = targetSetup();
-        substitution.invocations.decision = {
-            kind: "accepted",
-            invocation: new InvocationId("invocation-substituted")
-        };
-        expect(() =>
-            substitution.protocol.admit(
-                substitution.state,
-                authenticatedAdmission("target-substitution")
-            )
-        ).toThrow(/substituted/);
+    test(
+        "rejects invocation substitution and returns exact terminal duplicates",
+        { tags: "p0" },
+        () => {
+            const substitution = targetSetup();
+            substitution.invocations.decision = {
+                kind: "accepted",
+                invocation: new InvocationId("invocation-substituted")
+            };
+            expect(() =>
+                substitution.protocol.admit(
+                    substitution.state,
+                    authenticatedAdmission("target-substitution")
+                )
+            ).toThrow(/substituted/);
 
-        const replay = targetSetup();
-        const admission = authenticatedAdmission("target-replay");
-        const first = replay.protocol.admit(replay.state, admission);
-        expect(replay.protocol.admit(replay.state, admission)).toEqual(first);
-        expect(replay.state.audit).toEqual(["projection", "delivery"]);
-    });
+            const replay = targetSetup();
+            const admission = authenticatedAdmission("target-replay");
+            const first = replay.protocol.admit(replay.state, admission);
+            expect(replay.protocol.admit(replay.state, admission)).toEqual(first);
+            expect(replay.state.audit).toEqual(["projection", "delivery"]);
+        }
+    );
 
-    test("rejects replay when delivery lacks a projection or projection bytes conflict", { tags: "p0" }, () => {
-        const missing = targetSetup();
-        const missingAdmission = authenticatedAdmission("target-missing-projection");
-        expect(() =>
-            missing.persistence.appendDelivery(
-                missing.state,
-                new RouteDelivery({
-                    reservation: missingAdmission.projection.envelope.reservation.id,
-                    state: RouteDeliveryState.delivered(),
-                    targetAudit: new AuditRecordId("audit-missing-projection")
+    test(
+        "rejects replay when delivery lacks a projection or projection bytes conflict",
+        { tags: "p0" },
+        () => {
+            const missing = targetSetup();
+            const missingAdmission = authenticatedAdmission("target-missing-projection");
+            expect(() =>
+                missing.persistence.appendDelivery(
+                    missing.state,
+                    new RouteDelivery({
+                        reservation: missingAdmission.projection.envelope.reservation.id,
+                        state: RouteDeliveryState.delivered(),
+                        targetAudit: new AuditRecordId("audit-missing-projection")
+                    })
+                )
+            ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
+
+            const sameLength = targetSetup();
+            const original = authenticatedAdmission("target-byte-conflict");
+            sameLength.protocol.admit(sameLength.state, original);
+            const changedReservation = new RouteReservation({
+                ...original.projection.envelope.reservation.init,
+                operation: new OperationRef("facet.test:different")
+            });
+            const changedProjection = projectionFixture(changedReservation);
+            expect(() =>
+                sameLength.protocol.admit(sameLength.state, {
+                    projection: authenticate(changedReservation, changedProjection),
+                    retention: projectionRetention(changedProjection)
                 })
-            )
-        ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
+            ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
 
-        const sameLength = targetSetup();
-        const original = authenticatedAdmission("target-byte-conflict");
-        sameLength.protocol.admit(sameLength.state, original);
-        const changedReservation = new RouteReservation({
-            ...original.projection.envelope.reservation.init,
-            operation: new OperationRef("facet.test:different")
-        });
-        const changedProjection = projectionFixture(changedReservation);
-        expect(() =>
-            sameLength.protocol.admit(sameLength.state, {
-                projection: authenticate(changedReservation, changedProjection),
-                retention: projectionRetention(changedProjection)
-            })
-        ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
-
-        const differentLength = targetSetup();
-        const incoming = authenticatedAdmission("target-length-conflict");
-        const reservation = incoming.projection.envelope.reservation;
-        const otherContent = content("short");
-        const storedRoute = new RouteReservation({
-            ...reservation.init,
-            projection: new RouteProjectionId("projection-with-a-much-longer-identifier"),
-            projectionRef: otherContent.ref,
-            projectionDigest: otherContent.digest
-        });
-        const stored = projectionFixture(storedRoute);
-        differentLength.persistence.appendProjection(
-            differentLength.state,
-            authenticatedProjectionFixture(storedRoute),
-            projectionRetention(stored)
-        );
-        differentLength.persistence.appendDelivery(
-            differentLength.state,
-            new RouteDelivery({
-                reservation: reservation.id,
-                state: RouteDeliveryState.delivered(),
-                targetAudit: new AuditRecordId("audit-length-conflict")
-            })
-        );
-        expect(() => differentLength.protocol.admit(differentLength.state, incoming)).toThrow(
-            expect.objectContaining({ code: "protocol.duplicate" })
-        );
-    });
+            const differentLength = targetSetup();
+            const incoming = authenticatedAdmission("target-length-conflict");
+            const reservation = incoming.projection.envelope.reservation;
+            const otherContent = content("short");
+            const storedRoute = new RouteReservation({
+                ...reservation.init,
+                projection: new RouteProjectionId("projection-with-a-much-longer-identifier"),
+                projectionRef: otherContent.ref,
+                projectionDigest: otherContent.digest
+            });
+            const stored = projectionFixture(storedRoute);
+            differentLength.persistence.appendProjection(
+                differentLength.state,
+                authenticatedProjectionFixture(storedRoute),
+                projectionRetention(stored)
+            );
+            differentLength.persistence.appendDelivery(
+                differentLength.state,
+                new RouteDelivery({
+                    reservation: reservation.id,
+                    state: RouteDeliveryState.delivered(),
+                    targetAudit: new AuditRecordId("audit-length-conflict")
+                })
+            );
+            expect(() => differentLength.protocol.admit(differentLength.state, incoming)).toThrow(
+                expect.objectContaining({ code: "protocol.duplicate" })
+            );
+        }
+    );
 });
 
 describe("inbox protocol outcomes", () => {
@@ -1579,19 +1738,23 @@ describe("inbox protocol outcomes", () => {
         }
     });
 
-    test("rejects reference turn and epoch mismatches before calling the run port", { tags: "p0" }, () => {
-        const turn = new TurnId("turn-inbox-exact");
-        const lease: LeaseToken = { turn, holder: principal, epoch: 3 };
-        const runs = new FixedInbox({ kind: "appended" });
-        const protocol = new InboxProtocol(runs);
-        expect(() => protocol.append({}, inboxFixture("wrong-turn", 0, 3), lease)).toThrow(
-            expect.objectContaining({ code: "lease.invalid" })
-        );
-        expect(() => protocol.append({}, inboxFixture("wrong-epoch", 0, 2, turn), lease)).toThrow(
-            expect.objectContaining({ code: "lease.invalid" })
-        );
-        expect(runs.calls).toBe(0);
-    });
+    test(
+        "rejects reference turn and epoch mismatches before calling the run port",
+        { tags: "p0" },
+        () => {
+            const turn = new TurnId("turn-inbox-exact");
+            const lease: LeaseToken = { turn, holder: principal, epoch: 3 };
+            const runs = new FixedInbox({ kind: "appended" });
+            const protocol = new InboxProtocol(runs);
+            expect(() => protocol.append({}, inboxFixture("wrong-turn", 0, 3), lease)).toThrow(
+                expect.objectContaining({ code: "lease.invalid" })
+            );
+            expect(() =>
+                protocol.append({}, inboxFixture("wrong-epoch", 0, 2, turn), lease)
+            ).toThrow(expect.objectContaining({ code: "lease.invalid" }));
+            expect(runs.calls).toBe(0);
+        }
+    );
 });
 
 class FixedInbox implements RunInboxPort<object> {
