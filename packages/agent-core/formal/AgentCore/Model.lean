@@ -47,6 +47,7 @@ structure AuditId where value : Nat deriving DecidableEq, Repr
 structure BlueprintId where value : Nat deriving DecidableEq, Repr
 structure PackageId where value : Nat deriving DecidableEq, Repr
 structure TreeId where value : Nat deriving DecidableEq, Repr
+structure AcceptanceId where value : Nat deriving DecidableEq, Repr
 
 inductive GrantId where
   | manual (value : Nat)
