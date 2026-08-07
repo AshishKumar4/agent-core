@@ -1389,6 +1389,20 @@
       ]
     },
     {
+      "id": "C13-CONFIG-SECRET-CUSTODY",
+      "owner": "W4",
+      "specAnchor": "C13-CONFIG-SECRET-CUSTODY",
+      "specTextSha256": "sha256:a07db11cfab584b266cfe8459474789abba52d5cbacb7f9bdc1b01f48318afa0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-CONFIG-SECRET-REF",
       "owner": "W4",
       "specAnchor": "C13-CONFIG-SECRET-REF",

@@ -419,6 +419,16 @@ readable in an agent-visible filesystem, the ref does not protect it. Substrates
 SHOULD provide credential-injecting seams — proxy-injected headers, masked environment
 variables — so raw values never enter agent-visible domains at all.
 
+Custody is about who may present a credential, not only about where the bytes live. A
+SecretRef resolves only inside the Tenant named by its `source`, and only for the exact
+Binding and target endpoint that Tenant recorded when it accepted the credential:
+repointing an integration at a new endpoint invalidates the old resolution rather than
+presenting the old credential to the new place. A delegation, a guest Membership, and a
+cross-tenant reservation each carry the ref and never the value, and a resolution attempted
+outside that custody denies rather than degrading to the raw value. §3.4 rule 3 and §3.3's
+guest prohibition are consequences of this clause, which is the only place it is stated.
+This maps to **C13-CONFIG-SECRET-CUSTODY**.
+
 ---
 
 ## 4. Facets and composition (L1)
@@ -2499,6 +2509,7 @@ A conforming implementation provides:
 - **C13-POLICY-APPROVAL-FLOOR** No policy can remove mandatory approval.
 - **C13-POLICY-EPOCH-RECHECK** Every mediated effect performs the current-epoch check.
 - **C13-CONFIG-SECRET-REF** Configuration is SecretRef-only, with no raw credentials in manifests or Blueprints.
+- **C13-CONFIG-SECRET-CUSTODY** A SecretRef resolves only inside its owning Tenant and only for the recorded Binding and target; delegation carries the ref, never the value.
 - **C13-FACET-MANIFEST** Facet manifests are implemented.
 - **C13-FACET-REF-CANONICAL** Every FacetRef uses the one W3-owned canonical `<scope>:<instance>` identity.
 - **C13-FACET-CONTRIBUTION-MATERIALIZATION** Facet contributions materialize through the specified primitive paths.
