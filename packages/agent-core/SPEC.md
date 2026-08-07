@@ -93,19 +93,23 @@ reasoning itself can be checked and challenged, not just the rules.
 
 Identifiers ending in `Id` or `Name` (`PrincipalId`, `SurfaceId`, `BindingName`,
 `SlotName`) are opaque, codec-stable identifier types, as are the simple reference
-types `ContentRef`, `OperationRef`, `FacetRef`, `RunRef`, and `TurnRef`. Three `Ref`
-types are structured records: `PrincipalRef`, `SecretRef` (§3.5), and
-`ForeignPrincipalRef` (§3.3). `PrincipalRef` is always tenant-qualified:
+types `ContentRef`, `OperationRef`, `FacetRef`, `RunRef`, `TurnRef`, `ScopeRef`, and
+`ActorRef`. The structured record `Ref` types are `PrincipalRef`, `SecretRef` (§3.5),
+`ForeignPrincipalRef` (§3.3), and `SubjectRef` — the `Principal | Team |
+ForeignPrincipalRef` union a Membership or Grant names (§3.1, §3.3). `PrincipalRef` is
+always tenant-qualified:
 `{ tenant: TenantId, id: PrincipalId }`. Every caller, authority initiator or delegate, lease
 holder, route initiator, and cross-Actor permit carries this canonical form; an
 unqualified id or mismatched tenant rejects rather than being inferred. This maps to
-**C13-AUTH-PRINCIPAL-REF**. Types ending in `Schema`, `Spec`, `Policy`, `Template`,
-`Mapping` (declarative field maps: `FieldMapping`, `PayloadMapping`,
-`ProvenanceMapping`), `Selector` (predicate sets over descriptors:
-`OperationSelector`), `Entry` (`SlotEntry` — a validated contribution instance plus its
-contributor), or `Requirement` (`BindingRequirement` — a named capability a facet needs
-bound before start) are JSON-Schema-validated records. The unions the prose depends
-on:
+**C13-AUTH-PRINCIPAL-REF**. Types ending in `Schema`, `Spec`, `Template`, `Mapping`
+(declarative field maps over JSON Pointers: `FieldMapping` and `PayloadMapping` are one
+shape, defined at §6.2, and `ProvenanceMapping`), `Selector` (predicate sets over
+descriptors: `OperationSelector`), `Entry` (`SlotEntry` — a validated contribution instance
+plus its contributor), or `Requirement` (`BindingRequirement` — a named capability a facet
+needs bound before start) are JSON-Schema-validated records. A type ending in `Policy` is a
+declared policy shape, which may be a record or a closed string union (`DedupePolicy`).
+`FacetData` is any JSON value: it is what a Surface renders, what an interceptor sees, and
+what preparation structurally digests. The unions the prose depends on:
 
 ```ts
 type Impact          = "observe" | "mutate" | "externalSend" | "execute" | "delegate" | "administer";
@@ -470,8 +474,17 @@ abstract class Facet {
   abstract stop(ctx: OperationContext): Promise<void>;    // stops children first
 }
 
+interface OperationDescriptor<I = unknown, O = unknown> {
+  readonly name: OperationName;
+  readonly impact: Impact;                     // host-derived (§7.1)
+  readonly input: JsonSchema;
+  readonly output: JsonSchema;
+  readonly help?: string;
+  readonly interceptable?: boolean;            // opt-in for cross-facet interception (§4.4)
+}
+
 abstract class Operation<I, O> {
-  abstract readonly descriptor: OperationDescriptor<I, O>; // name, impact, schemas, help
+  abstract readonly descriptor: OperationDescriptor<I, O>;
   abstract execute(ctx: OperationContext, input: I): Promise<O>;
 }
 ```
@@ -1462,6 +1475,8 @@ interface ActionDescriptor {
   readonly emits: EventKind;                 // the Event kind this action produces
   readonly arguments?: JsonSchema;           // shape of the action's payload
 }
+
+// EventKind is the Event's `kind` string (§6.1); `EventPattern.kind` matches it.
 
 // An EventCursor is an opaque, codec-stable position in the owning Actor's Event log.
 // A reconnecting client presents its last cursor to resume ViewDelta replay (§10.3).

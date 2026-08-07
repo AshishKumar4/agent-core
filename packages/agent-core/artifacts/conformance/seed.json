@@ -1098,7 +1098,7 @@
       "id": "C13-AUTH-PRINCIPAL-REF",
       "owner": "W2",
       "specAnchor": "C13-AUTH-PRINCIPAL-REF",
-      "specTextSha256": "sha256:ada6218fb2cf27037eb1311f84131fc60876b2497601ae1cce2526dbe6d143e8",
+      "specTextSha256": "sha256:72786f2dee68cc90c9f4a1a16f13fab22decb4dd018dcbe7a59ef84c44b17f77",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
