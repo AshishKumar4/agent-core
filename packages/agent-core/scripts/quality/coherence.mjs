@@ -237,8 +237,8 @@ function exemptSpans() {
 function sections() {
     if (sectionCache === undefined) {
         const found = [];
-        for (const match of prose.matchAll(/^(#{2,3}) (\d+(?:\.\d+)?)[.\s]/gmu)) {
-            found.push({ id: match[2], start: match.index + match[0].length, end: prose.length });
+        for (const match of prose.matchAll(/^#{2,3} (\d+(?:\.\d+)?)[.\s]/gmu)) {
+            found.push({ id: match[1], start: match.index + match[0].length, end: prose.length });
             if (found.length > 1) found[found.length - 2].end = match.index;
         }
         sectionCache = found;
@@ -246,8 +246,9 @@ function sections() {
     return sectionCache;
 }
 
+/** The innermost numbered section an offset falls in; "0" is the front matter before §1. */
 function sectionAt(offset) {
-    return [...sections()].reverse().find((section) => section.start <= offset)?.id ?? "0";
+    return sections().findLast((section) => section.start <= offset)?.id ?? "0";
 }
 
 /**
@@ -284,7 +285,7 @@ function visit(node, inspect) {
 }
 
 function range(from, to) {
-    return Array.from({ length: to - from + 1 }, (value, index) => String(from + index));
+    return Array.from({ length: to - from + 1 }, (_, index) => String(from + index));
 }
 
 function issue(rule, file, symbol, message) {
