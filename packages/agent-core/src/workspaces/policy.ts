@@ -125,7 +125,7 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
     let current: JsonValue = document;
     for (const token of parsePointer(pointer)) {
         if (Array.isArray(current)) {
-            const index = parseArrayIndex(token, false);
+            const index = parseArrayIndex(token);
             if (index >= current.length) throw missingPointer(pointer);
             current = current[index]!;
         } else if (isObject(current) && Object.hasOwn(current, token)) {
@@ -140,10 +140,10 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
 function writePointer(document: MutableJson, pointer: string, value: MutableJson): MutableJson {
     const tokens = parsePointer(pointer);
     if (tokens.length === 0) return value;
-    if (document === null || typeof document !== "object") {
-        throw invalidSubscription("Mapping cannot write a child beneath a scalar root");
-    }
-    let current: MutableJson[] | { [key: string]: MutableJson } = document;
+    // validatePayloadMapping rejects a root ("") target alongside any sibling move, and a
+    // solo root target returned at the empty-token check above; a non-empty pointer therefore
+    // always descends into the object accumulator, never a scalar.
+    let current = document as MutableJson[] | { [key: string]: MutableJson };
     for (let index = 0; index < tokens.length - 1; index += 1) {
         const token = tokens[index]!;
         const nextToken = tokens[index + 1]!;
@@ -202,20 +202,13 @@ function defineDataProperty(
 
 function parsePointer(pointer: string): readonly string[] {
     if (pointer === "") return [];
-    if (!pointer.startsWith("/"))
-        throw new TypeError("JSON Pointer must be empty or begin with '/'");
     return pointer
         .slice(1)
         .split("/")
-        .map((token) => {
-            if (/~(?:[^01]|$)/u.test(token)) {
-                throw new TypeError("JSON Pointer contains an invalid escape");
-            }
-            return token.replaceAll("~1", "/").replaceAll("~0", "~");
-        });
+        .map((token) => token.replaceAll("~1", "/").replaceAll("~0", "~"));
 }
 
-function parseArrayIndex(token: string, _allowAppend?: false): number {
+function parseArrayIndex(token: string): number {
     if (!/^(?:0|[1-9][0-9]*)$/u.test(token)) {
         throw new TypeError("JSON Pointer array index is invalid");
     }
