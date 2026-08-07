@@ -189,8 +189,7 @@ INTERACTION  input → Event → RouteReservation → Subscription target → Pr
 AUTHORITY    Role allow/deny rules ⇒ Grants → Binding resolver + path epochs → ResolvedFacet
 ```
 
-Learn these three paths before reading further. Every feature in the assembly sketches
-of §12 is just a composition of them.
+Every feature in the assembly sketches of §12 is a composition of these three paths.
 
 ---
 
@@ -640,8 +639,7 @@ not a spec change.
 ### 4.4 Interceptors
 
 An **Interceptor** is an ordered, synchronous, in-process hook at a spec-defined cut
-point that can observe, block, or rewrite the value in flight. Every serious local
-agent runtime converged on this mechanism independently, because it is the one thing
+point that can observe, block, or rewrite the value in flight. It is the one thing
 asynchronous events cannot express — a veto or a transform has to return a value
 *now*. The value in flight at each cut point:
 
@@ -724,8 +722,7 @@ An Environment is essentially the agent's computer.
 
 Rules: a stale Session fails; closing a Session disposes its child Facets; rotation
 changes future Sessions without retargeting open ones. Environment profiles further
-define **snapshot/restore** (boot from a known image — the reliability lever every
-production platform converged on), **ephemeral-filesystem durability** (backup and
+define **snapshot/restore** (boot from a known image), **ephemeral-filesystem durability** (backup and
 restore for container-backed environments), **preview exposure** (how a port becomes an
 authenticated URL), and the **credential-isolation seam** (secrets injected by proxy,
 never present inside the environment).
@@ -767,9 +764,7 @@ A **Run** is a branchable, durable work session and conversation lineage. It own
 input history, RunBranches (named movable heads), RunCommits (immutable records:
 root, message, checkpoint, invocation, event delivery, result, merge, verdict, undo,
 migration), status, an optional parent Run, and results. There is no separate
-conversation primitive. Conversation state *is* the Run's branch/commit graph, which
-is why branching a conversation, undoing a step, and running parallel attempts are
-graph operations here rather than product features bolted on later.
+conversation primitive. Conversation state *is* the Run's branch/commit graph.
 
 ```ts
 interface RunPins {
@@ -1148,9 +1143,7 @@ result commit unless Run terminalization records it as a captured system obligat
 
 ![Turn lease lifecycle](diagrams/turn-lease.svg)
 
-The point of all this machinery is that a crashed executor which comes back later
-cannot corrupt anything. Every write it attempts carries a stale epoch and gets
-rejected. The lease is also deliberately application-visible — your code can hand the
+The lease is deliberately application-visible — your code can hand the
 epoch to an external system and ask it to check, and that check is the only kind of
 fencing that still works across a network partition.
 
@@ -1167,10 +1160,9 @@ conversation and undoing files are separate operations. A RunCommit MAY carry
 
 A Turn MAY carry an advisory `cacheLineage` hint. The hint identifies the Turn and
 prompt prefix it descends from, so executors can preserve provider-side prefix caches
-across forked or parallel attempts. Purely advisory; no correctness semantics. The savings
-are real — systems that exploit prefix-cache sharing across forks have measured
-roughly a quarter of inference cost saved — which is why it is worth a dedicated
-field.
+across forked or parallel attempts. Purely advisory; no correctness semantics. Systems
+that exploit prefix-cache sharing across forks have measured roughly a quarter of
+inference cost saved, which is what earns this a dedicated field.
 
 ### 5.6 The executor seam
 
@@ -1215,9 +1207,9 @@ must delete such extension surfaces rather than adapt them. This maps to
 An **Event** is an immutable occurrence record: scope, source (Facet or Actor),
 category, payload reference and digest, idempotency key, correlation and causation,
 **provenance**, derived **TrustTier**, and visibility policy. A webhook, a schedule
-firing, a chat message, a button press, and a command invocation are all Events.
-Unifying them gives you one input model, one routing mechanism, and one audit trail
-for everything that enters the system.
+firing, a chat message, a button press, and a command invocation are all Events: one
+input model, one routing mechanism, and one audit trail for everything that enters the
+system.
 
 **Trust tiers are host-derived, never facet-asserted.** A Facet supplies raw
 provenance — authenticated identity, channel, group, transport verification result —
@@ -1234,9 +1226,8 @@ TrustTier is categorical, not ordered. Consumers declare an explicit accepted se
 there is no minimum-tier comparison.
 
 An Event whose tier was set by a non-host source is rejected. If a channel adapter
-could stamp its own trust tier, then a compromised adapter could mark an attacker's
-message as `owner` and defeat every policy keyed on the tier. Deriving the tier in the
-host closes that hole.
+could stamp its own trust tier, a compromised adapter could mark an attacker's message
+as `owner` and defeat every policy keyed on the tier.
 
 **Ingress.** External input enters through `ingress` contributions:
 
@@ -1249,8 +1240,7 @@ interface IngressDeclaration {
 ```
 
 The host exposes declared endpoints, verifies per `verification`, and mints Events
-with derived provenance; unverified requests never mint Events. This is how a
-messaging channel's inbound webhook becomes a trusted Event stream.
+with derived provenance; unverified requests never mint Events.
 
 The standard source actions enter through ordinary mediated host Operations and the
 closed Receipt-to-Event causal edge; they do not create a WriteRecord-to-Event edge or
