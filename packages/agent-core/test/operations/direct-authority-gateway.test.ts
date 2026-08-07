@@ -160,7 +160,12 @@ describe("direct authority through the protected Operation gateway", () => {
             candidateToken.epoch = 99;
             candidatePolicies[0] = new PolicySet({ maxDirectRevocationWindowMs: 1_000 });
 
-            harness.state.lease = harness.state.lease.renew(principal, 1, new Date(20), new Date(500));
+            harness.state.lease = harness.state.lease.renew(
+                principal,
+                1,
+                new Date(20),
+                new Date(500)
+            );
             harness.now = 29;
             await expect(harness.dispatch(resolved, "read", "before")).resolves.toMatchObject({
                 kind: "direct"
@@ -372,12 +377,7 @@ class DirectGatewayHarness {
             OperationResolutionState,
             ResolutionStamp,
             import("../../src/composition").MediatedAuthorityIntent
-        >(
-            principal,
-            this.#host,
-            this.authority,
-            this.invocations
-        );
+        >(principal, this.#host, this.authority, this.invocations);
     }
 
     public static async create(
@@ -398,11 +398,7 @@ class DirectGatewayHarness {
         return harness;
     }
 
-    public async dispatch(
-        resolved: ResolvedFacet,
-        operation: string,
-        marker: string
-    ) {
+    public async dispatch(resolved: ResolvedFacet, operation: string, marker: string) {
         const result = await resolved.dispatch({
             requestKey: new OperationRequestKey(`direct-${operation}-${marker}`),
             operation: new OperationName(operation),
@@ -416,13 +412,10 @@ class DirectGatewayHarness {
     }
 }
 
-class GatewayInvocations
-    implements
-        OperationInvocationPort<
-            ResolutionStamp,
-            import("../../src/composition").MediatedAuthorityIntent
-        >
-{
+class GatewayInvocations implements OperationInvocationPort<
+    ResolutionStamp,
+    import("../../src/composition").MediatedAuthorityIntent
+> {
     public directCalls = 0;
     public mediatedCalls = 0;
     public lastDirect: ResolutionStamp | undefined;
@@ -439,7 +432,9 @@ class GatewayInvocations
     }
 
     public async prepareMediated(
-        _request: MediatedInvocationPreflight<import("../../src/composition").MediatedAuthorityIntent>,
+        _request: MediatedInvocationPreflight<
+            import("../../src/composition").MediatedAuthorityIntent
+        >,
         prepare: () => import("../../src/operations/gateway").MediatedInvocationPreparation
     ): Promise<MediatedPreflightResult> {
         return { kind: "new", preparation: prepare() };
@@ -519,12 +514,7 @@ class GatewayOperation extends Operation {
 }
 
 function descriptor(name: string): OperationDescriptor {
-    return new OperationDescriptor(
-        new OperationName(name),
-        "observe",
-        objectSchema,
-        objectSchema
-    );
+    return new OperationDescriptor(new OperationName(name), "observe", objectSchema, objectSchema);
 }
 
 function operationManifest(descriptors: readonly OperationDescriptor[]): FacetManifest {
@@ -555,7 +545,12 @@ function bundledPlacement(): InvocationPlacementPin {
 
 function packagePin(): PackagePin {
     const digest = new Digest("d".repeat(64));
-    return new PackagePin(new PackageId("direct-gateway-package"), new SemVer("1.0.0"), digest, digest);
+    return new PackagePin(
+        new PackageId("direct-gateway-package"),
+        new SemVer("1.0.0"),
+        digest,
+        digest
+    );
 }
 
 function operationContext(requestKey: OperationRequestKey, itemIndex: number): OperationContext {
