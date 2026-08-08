@@ -1025,7 +1025,9 @@ the target branch head. Commit records and parent order never change.
 A Run MAY declare **acceptance criteria** when it opens, so that finishing is something it
 proves rather than something it asserts. Each criterion names an Operation that decides
 whether the work is done, and the Run-owning Actor reserves its `AcceptanceId` as an
-`acceptance` RunObligation. The obligation is never completed as bookkeeping: it stays
+`acceptance` RunObligation. An `AcceptanceId` is unique across the store, so two Runs
+cannot declare the same criterion identity with different verifiers and a verdict names
+exactly one criterion. The obligation is never completed as bookkeeping: it stays
 outstanding and is snapshotted at terminalization like any other, and it is discharged only
 by evaluation at settlement. It is satisfied exactly when an `AcceptanceVerdict` for that
 `AcceptanceId` names an attempted Receipt whose outcome is `succeeded` and whose `subject`

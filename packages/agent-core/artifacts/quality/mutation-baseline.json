@@ -2,8 +2,8 @@
   "edition": "1.0.0",
   "areas": {
     "authority": {
-      "measuredAt": "c2031f062b71074c6aadb75addd0389654d722b1",
-      "fingerprint": "sha256:5eabbd846bfd8a72f695375dd0140512119cbc53898edd0050a204cf11fd7100",
+      "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",
+      "fingerprint": "sha256:be2e57700202d4d934525492de73474b34fb3da2e1fae4c292b714de5596c3a4",
       "mutants": 4301,
       "killed": 4032,
       "score": 93.7,
@@ -11,8 +11,8 @@
       "tolerated": 137
     },
     "composition": {
-      "measuredAt": "c2031f062b71074c6aadb75addd0389654d722b1",
-      "fingerprint": "sha256:649c07512b2a6c9912b1d57b6afa8ee6b6dbcbbe8e22edaf309b0f8370613592",
+      "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",
+      "fingerprint": "sha256:f387a82c92087c9352616241a49e90286881a0fb6e4309946d994ad925b90611",
       "mutants": 1041,
       "killed": 990,
       "score": 95.1,
@@ -101,8 +101,8 @@
       "tolerated": 161
     },
     "actors": {
-      "measuredAt": "c2031f062b71074c6aadb75addd0389654d722b1",
-      "fingerprint": "sha256:138460f23406a6fcc432b27a87c2838bea61341c7ae9aa8791bf64ce6d593303",
+      "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",
+      "fingerprint": "sha256:61344e5c945e8bddf39b9fa0f0cbdb7fb9e2988a43c31c15f759a850732e131a",
       "mutants": 1025,
       "killed": 965,
       "score": 94.1,
@@ -110,8 +110,8 @@
       "tolerated": 5
     },
     "content": {
-      "measuredAt": "c2031f062b71074c6aadb75addd0389654d722b1",
-      "fingerprint": "sha256:068117fef973780fbd41c05b3b6083a53765546af78b775e8ffc64a8471ca589",
+      "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",
+      "fingerprint": "sha256:cb8b5ba9ac39c85742fb86464d1a6154df7ae485d0b66a3222a0a049e48d7126",
       "mutants": 1090,
       "killed": 993,
       "score": 91.1,
@@ -137,8 +137,8 @@
       "tolerated": 0
     },
     "authority-public": {
-      "measuredAt": "c2031f062b71074c6aadb75addd0389654d722b1",
-      "fingerprint": "sha256:77d30d709caf7b762589b4bd290f101a135722aa1366d39a40aabf5fa853f870",
+      "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",
+      "fingerprint": "sha256:1df14b842b31d2b821625b4429ab1b05f6e0d16bab69f5f5ccc147b0fc939c46",
       "mutants": 0,
       "killed": 0,
       "score": 100,
