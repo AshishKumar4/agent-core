@@ -209,6 +209,29 @@ describe("Run acceptance criteria", () => {
             // The criterion names the Operation that decides it, so a succeeded Receipt
             // from some other Operation is not evidence for this criterion — otherwise
             // the declared verifier would be decoration and any success would discharge.
+            // One subject holds one verdict. Redelivering the identical verdict is
+            // idempotent, but a second verdict naming a different Receipt for the same
+            // subject is a contradiction about the same tree and is refused.
+            attempted(value, "first-at-subject", "succeeded");
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("7"), "first-at-subject")
+            );
+            value.runtime.recordAcceptanceVerdict(
+                ids.run,
+                verdict(firstId, digest("7"), "first-at-subject")
+            );
+            attempted(value, "second-at-subject", "succeeded");
+            // Assert the message, not just the code: the record store rejects the same
+            // write generically, so only the exact text proves this rule is the one that
+            // fired and that a caller learns which invariant it broke.
+            expect(() =>
+                value.runtime.recordAcceptanceVerdict(
+                    ids.run,
+                    verdict(firstId, digest("7"), "second-at-subject")
+                )
+            ).toThrow("Acceptance subject already holds a recorded verdict");
+
             attempted(value, "foreign-verifier", "succeeded", new OperationRef("other:verify"));
             expectCode(
                 () =>
