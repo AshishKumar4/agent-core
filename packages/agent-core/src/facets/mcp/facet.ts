@@ -581,9 +581,12 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
     }
     // The annotation is a claim by the discovered server (C13-POLICY-IMPACT-BOUNDARY):
     // it may raise or shift within the mediated floor, never lower the derived floor.
-    // At discovery time no Session exists, so observe is the only direct-floor impact.
+    // Impact freezes at discovery but the floor is evaluated per call, so the claim is
+    // refused when it could yield `direct` for any session condition the derived impact
+    // would have mediated — enumerating one impact would miss `execute`, whose floor is
+    // direct on a Turn-owned Session.
     const annotated = requireImpact(value as Impact);
-    return annotated === "observe" ? derived : annotated;
+    return lowersEnforcementFloor(annotated, derived) ? derived : annotated;
 }
 
 function requireDiscoveryDocument(document: McpDiscoveryDocument): void {
@@ -699,4 +702,20 @@ function decodeDiscoveryResult(data: import("../data").FacetData): McpDiscoveryR
             )
         )
     });
+}
+
+/**
+ * The §7.2 floor, restated here because the definition plane sits above facets and
+ * importing it would close a definition -> facets -> identity cycle. `observe` is direct
+ * always; `execute` is direct on a Turn-owned Session; everything else is mediated.
+ */
+function directFloor(impact: Impact, turnOwnedSession: boolean): boolean {
+    return impact === "observe" || (impact === "execute" && turnOwnedSession);
+}
+
+/** True when the claimed impact would be admitted directly where the derived one is mediated. */
+function lowersEnforcementFloor(annotated: Impact, derived: Impact): boolean {
+    return [true, false].some(
+        (session) => directFloor(annotated, session) && !directFloor(derived, session)
+    );
 }

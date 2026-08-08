@@ -194,12 +194,31 @@ describe("MCP normative discovery", () => {
                 document({ _meta: { [MCP_IMPACT_ANNOTATION]: "mutate" } })
             );
             expect(annotated.operations[0]?.impact).toBe("mutate");
-            // The annotation is a claim by the discovered server: a remote tool declaring
-            // observe would lower the derived externalSend floor, so the derivation stands.
-            const lowering = createDiscovery().discover(
-                document({ _meta: { [MCP_IMPACT_ANNOTATION]: "observe" } })
+            // The annotation is a claim by the discovered server: one that would admit the
+            // call directly where the derived impact is mediated is refused. That is a
+            // floor comparison, not a single forbidden value — `execute` is direct-floor
+            // on a Turn-owned Session, so a remote tool cannot relabel into it either.
+            for (const lowering of ["observe", "execute"]) {
+                expect(
+                    createDiscovery().discover(
+                        document({ _meta: { [MCP_IMPACT_ANNOTATION]: lowering } })
+                    ).operations[0]?.impact
+                ).toBe("externalSend");
+            }
+            // A local tool derives `execute`, itself direct-floor, so `observe` still
+            // lowers it while a mediated claim is honoured.
+            const local = new McpDiscoveryBackend(
+                { ...config(), remote: false },
+                strictJsonSchemaValidator
             );
-            expect(lowering.operations[0]?.impact).toBe("externalSend");
+            expect(
+                local.discover(document({ _meta: { [MCP_IMPACT_ANNOTATION]: "observe" } }))
+                    .operations[0]?.impact
+            ).toBe("execute");
+            expect(
+                local.discover(document({ _meta: { [MCP_IMPACT_ANNOTATION]: "mutate" } }))
+                    .operations[0]?.impact
+            ).toBe("mutate");
             expect(createDiscovery().discover(document()).operations[0]?.impact).toBe(
                 "externalSend"
             );
