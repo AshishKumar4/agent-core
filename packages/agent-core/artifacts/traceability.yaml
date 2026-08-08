@@ -799,7 +799,7 @@
       "id": "AC-RUN-001",
       "summary": "Valid Run pins/migration, stable-identity admission reserve/complete/close, exact outstanding frontier, sibling cancellation, settlement, and acceptance criteria reserved at Run open and dischargeable only through a recorded verdict of the criterion's declared verifier at the Run's own head tree",
       "status": "proved-component",
-      "boundary": "RunPins validate Agent identity and unique closure at creation and migration; source-record resolvability remains external. Registry obligations contain only pre-remote Approval, item-key, route, attempt, planned-commit, or acceptance-criterion identities; completion is reserved-only, and terminalization snapshots exactly reserved minus completed with membership equivalence. Acceptance criteria are declared on the Run record, reserved by the startRun and spawnChild transitions, and refused by the generic reserve and complete transitions; the only discharge is the dischargeAcceptance transition, whose precondition is a recorded verdict for the criterion whose subject is the Run's own root-branch head tree checkpoint and whose named attempt Receipt succeeded under the criterion's declared verifier Operation, and a further verdict is admissible only against a subject no recorded verdict names. The verifier Receipt's own domain binding, its audit chain, and concrete remote reservation enforcement and durable transactions remain refinement obligations.",
+      "boundary": "RunPins validate Agent identity and unique closure at creation and migration; source-record resolvability remains external. Registry obligations contain only pre-remote Approval, item-key, route, attempt, planned-commit, or acceptance-criterion identities; completion is reserved-only, and terminalization snapshots exactly reserved minus completed with membership equivalence. Acceptance criteria are declared on the Run record, reserved by the startRun and spawnChild transitions, and refused by the generic reserve and complete transitions; the only discharge is the dischargeAcceptance transition, whose precondition is a recorded verdict for the criterion whose subject is the Run's own root-branch head tree checkpoint and whose named attempt Receipt succeeded under the criterion's declared verifier Operation, and a further verdict is admissible only against a subject no recorded verdict names. Both invariants are preserved by every GraphStep and therefore by every reachable graph, so a Settled Run's declared criteria each retain that verifier evidence. Head-tree movement after a discharge is modelled but not re-checked at settlement, matching the implementation; the verifier Receipt's own domain binding, its audit chain, and concrete remote reservation enforcement and durable transactions remain refinement obligations.",
       "definitions": [
         "AgentCore.RunPins",
         "AgentCore.RunPins.Valid",
@@ -839,13 +839,16 @@
         "AgentCore.AcceptanceVerdict.Satisfies",
         "AgentCore.AcceptanceObligationDischarged",
         "AgentCore.GraphLabel",
+        "AgentCore.GraphReachable",
         "AgentCore.OpenObligation.NotAcceptance",
         "AgentCore.GraphStore.acceptanceCriteria",
         "AgentCore.GraphStore.HeadTree",
         "AgentCore.GraphStore.recordVerdict",
         "AgentCore.GraphStore.AcceptanceRetryAdmissible",
         "AgentCore.VerifierReceipt",
-        "AgentCore.AcceptanceDischargeEvidenced"
+        "AgentCore.AcceptanceDischargeEvidenced",
+        "AgentCore.AcceptanceObligationsSound",
+        "AgentCore.TerminalSnapshotsMatchRegistry"
       ],
       "theorems": [
         "AgentCore.terminal_snapshot_is_coherent",
@@ -872,7 +875,13 @@
         "AgentCore.acceptance_verdict_step_requires_declared_verifier_receipt",
         "AgentCore.recorded_verdict_blocks_repeat_verdict_step",
         "AgentCore.acceptance_discharge_step_requires_satisfying_verdict",
-        "AgentCore.acceptance_discharge_leaves_evidence"
+        "AgentCore.acceptance_discharge_leaves_evidence",
+        "AgentCore.graph_step_preserves_acceptance_soundness",
+        "AgentCore.graph_reachable_preserves_acceptance_soundness",
+        "AgentCore.graph_step_preserves_snapshot_registry_agreement",
+        "AgentCore.graph_reachable_preserves_snapshot_registry_agreement",
+        "AgentCore.settled_run_acceptance_is_evidenced",
+        "AgentCore.graph_reachable_settled_acceptance_is_evidenced"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_audit_complete_derived_settled",
@@ -895,7 +904,11 @@
         "AgentCore.Examples.nonvacuous_acceptance_verdict_recorded",
         "AgentCore.Examples.nonvacuous_acceptance_repeat_verdict_step_rejected",
         "AgentCore.Examples.nonvacuous_acceptance_discharge_step",
-        "AgentCore.Examples.nonvacuous_acceptance_discharge_evidence"
+        "AgentCore.Examples.nonvacuous_acceptance_discharge_evidence",
+        "AgentCore.Examples.nonvacuous_acceptance_open_verdict_discharge_trace",
+        "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace",
+        "AgentCore.Examples.nonvacuous_acceptance_verdict_settles_run",
+        "AgentCore.Examples.nonvacuous_acceptance_settlement_invariants"
       ],
       "witnessCoverage": {
         "AgentCore.terminal_snapshot_is_coherent": [
@@ -977,6 +990,28 @@
         ],
         "AgentCore.acceptance_discharge_leaves_evidence": [
           "AgentCore.Examples.nonvacuous_acceptance_discharge_evidence"
+        ],
+        "AgentCore.graph_step_preserves_acceptance_soundness": [
+          "AgentCore.Examples.nonvacuous_acceptance_open_verdict_discharge_trace",
+          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
+        ],
+        "AgentCore.graph_reachable_preserves_acceptance_soundness": [
+          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
+        ],
+        "AgentCore.graph_step_preserves_snapshot_registry_agreement": [
+          "AgentCore.Examples.nonvacuous_acceptance_open_verdict_discharge_trace",
+          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
+        ],
+        "AgentCore.graph_reachable_preserves_snapshot_registry_agreement": [
+          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
+        ],
+        "AgentCore.settled_run_acceptance_is_evidenced": [
+          "AgentCore.Examples.nonvacuous_acceptance_verdict_settles_run",
+          "AgentCore.Examples.nonvacuous_acceptance_settlement_invariants"
+        ],
+        "AgentCore.graph_reachable_settled_acceptance_is_evidenced": [
+          "AgentCore.Examples.nonvacuous_acceptance_verdict_settles_run",
+          "AgentCore.Examples.nonvacuous_acceptance_open_verdict_discharge_trace"
         ]
       },
       "remainingEvidence": [

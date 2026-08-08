@@ -2734,6 +2734,22 @@ theorem nonvacuous_acceptance_discharge_evidence :
     AcceptanceDischargeEvidenced acceptanceVerdictGraph mixedEffects runId acceptanceId :=
   acceptance_discharge_leaves_evidence acceptanceOpenDischarged
 
+/-- Open, record, discharge: a reachable graph that exercises all three acceptance
+    transitions from the empty graph. -/
+theorem nonvacuous_acceptance_open_verdict_discharge_trace :
+    GraphReachable mixedEffects (default : EventStore) auditOne (default : GraphStore)
+      acceptanceDischargedGraph :=
+  .step (.step (.step (.refl _) acceptanceOpenStep) acceptanceVerdictStep) acceptanceDischargeStep
+
+/-- Both invariants survive that trace, so neither is vacuously preserved. -/
+theorem nonvacuous_acceptance_invariants_along_trace :
+    AcceptanceObligationsSound acceptanceDischargedGraph mixedEffects ∧
+    TerminalSnapshotsMatchRegistry acceptanceDischargedGraph :=
+  ⟨graph_reachable_preserves_acceptance_soundness empty_graph_is_acceptance_sound
+      nonvacuous_acceptance_open_verdict_discharge_trace,
+    graph_reachable_preserves_snapshot_registry_agreement empty_graph_snapshots_match_registry
+      nonvacuous_acceptance_open_verdict_discharge_trace⟩
+
 /-- Once a subject holds a verdict, the recording transition against that same subject is no
     longer available: changed input, never elapsed time, unblocks the verifier. -/
 theorem nonvacuous_acceptance_verdict_blocks_retry :
@@ -2903,5 +2919,53 @@ theorem nonvacuous_acceptance_discharged_at_head :
   ⟨acceptanceCriterion, acceptanceHead, verdictAtHead, acceptanceSettlementCriterion _, rfl,
     acceptanceSettlementHeadTree _, by simp [acceptanceSettledState, acceptanceSettlementGraph],
     rfl, rfl, acceptanceVerifierReceipt⟩
+
+/-- The same graph with the current verdict is Settled. Since the two states differ only in
+    the recorded verdict list, the refusal above is caused by the acceptance obligation
+    alone. -/
+theorem nonvacuous_acceptance_verdict_settles_run : Settled acceptanceSettledState runId := by
+  refine ⟨acceptanceSettlementCoherent _, nonvacuous_audit_complete_derived_settled.2.1,
+    nonvacuous_audit_complete_derived_settled.2.2.1,
+    nonvacuous_audit_complete_derived_settled.2.2.2.1, ?_,
+    nonvacuous_audit_complete_derived_settled.2.2.2.2.2⟩
+  intro snapshot snapshotLookup obligation member
+  obtain rfl : snapshot = acceptanceTerminalSnapshot :=
+    Option.some.inj (snapshotLookup.symm.trans (acceptanceSettlementSnapshot [verdictAtHead]))
+  have exactly : obligation = .acceptance acceptanceId := by
+    simpa [acceptanceTerminalSnapshot] using member
+  subst exactly
+  exact nonvacuous_acceptance_discharged_at_head
+
+/-- Both invariants hold of the settled state, so the settlement theorem's hypotheses are
+    jointly satisfiable rather than vacuous. -/
+theorem nonvacuous_acceptance_settlement_invariants :
+    AcceptanceObligationsSound acceptanceSettledState.graph acceptanceSettledState.effects ∧
+    TerminalSnapshotsMatchRegistry acceptanceSettledState.graph := by
+  constructor
+  · intro candidate criterion declared
+    by_cases same : candidate = runId
+    · subst same
+      have exactly : criterion = acceptanceCriterion := by
+        simpa [GraphStore.acceptanceCriteria, acceptanceSettledState,
+          acceptanceSettlementRun [verdictAtHead], acceptanceTerminalRun] using declared
+      subst exactly
+      exact ⟨acceptanceClosedRegistry, by simp [acceptanceSettledState, acceptanceSettlementGraph],
+        by simp [acceptanceClosedRegistry, acceptanceCriterion],
+        by simp [acceptanceClosedRegistry]⟩
+    · exact absurd declared (by
+        simp [GraphStore.acceptanceCriteria, acceptanceSettledState, acceptanceSettlementGraph,
+          settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, same])
+  · intro candidate snapshot snapshotLookup
+    by_cases same : candidate = runId
+    · subst same
+      obtain rfl : snapshot = acceptanceTerminalSnapshot :=
+        Option.some.inj (snapshotLookup.symm.trans (acceptanceSettlementSnapshot [verdictAtHead]))
+      refine ⟨acceptanceClosedRegistry, by simp [acceptanceSettledState, acceptanceSettlementGraph],
+        rfl, fun obligation => ?_⟩
+      simp [acceptanceTerminalSnapshot, acceptanceClosedRegistry]
+    · exact absurd snapshotLookup (by
+        simp [acceptanceSettledState, acceptanceSettlementGraph, settledGraph, terminalBefore,
+          rootGraph, tableSet_other _ _ _ same, same])
+
 
 end AgentCore.Examples

@@ -947,4 +947,41 @@ theorem acceptance_unsatisfied_not_settled {state run accId snapshot}
   obtain ⟨_, _, _, _, obligations, _⟩ := settled
   exact unsatisfied (obligations snapshot snapshotLookup _ captured)
 
+/-- The settlement invariant, stated against any graph the invariants hold of: a Settled Run
+    has, for every acceptance criterion it declared, a recorded verdict backed by a succeeded
+    Receipt of that criterion's own declared verifier Operation, whose subject is a tree one
+    of the Run's own commits checkpointed. Either the obligation was discharged while the Run
+    was open, and the store still carries that evidence, or it stayed outstanding, was
+    captured in the terminal snapshot, and settlement itself had to satisfy it. -/
+theorem settled_run_acceptance_is_evidenced {state run criterion}
+    (sound : AcceptanceObligationsSound state.graph state.effects)
+    (agreed : TerminalSnapshotsMatchRegistry state.graph)
+    (declared : criterion ∈ state.graph.acceptanceCriteria run)
+    (settled : Settled state run) :
+    AcceptanceDischargeEvidenced state.graph state.effects run criterion.id := by
+  obtain ⟨registry, registryLookup, reserved, completed⟩ := sound run criterion declared
+  by_cases discharged : OpenObligation.acceptance criterion.id ∈ registry.completed
+  · exact completed discharged
+  · obtain ⟨⟨_, snapshot, _, _, snapshotLookup, _, _⟩, _, _, _, obligations, _⟩ := settled
+    obtain ⟨closedRegistry, closedLookup, _, exactly⟩ := agreed run snapshot snapshotLookup
+    rw [registryLookup] at closedLookup
+    cases Option.some.inj closedLookup
+    exact acceptance_discharge_leaves_evidence
+      (obligations snapshot snapshotLookup _ ((exactly _).mpr ⟨reserved, discharged⟩))
+
+/-- The same statement over the transition system: in any graph reachable from the empty graph
+    by `GraphStep`, no Run is Settled while one of its declared acceptance criteria lacks its
+    verifier's evidence. -/
+theorem graph_reachable_settled_acceptance_is_evidenced
+    {state : SystemState} {events audit run criterion}
+    (reachable : GraphReachable state.effects events audit default state.graph)
+    (declared : criterion ∈ state.graph.acceptanceCriteria run)
+    (settled : Settled state run) :
+    AcceptanceDischargeEvidenced state.graph state.effects run criterion.id :=
+  settled_run_acceptance_is_evidenced
+    (graph_reachable_preserves_acceptance_soundness empty_graph_is_acceptance_sound reachable)
+    (graph_reachable_preserves_snapshot_registry_agreement empty_graph_snapshots_match_registry
+      reachable)
+    declared settled
+
 end AgentCore
