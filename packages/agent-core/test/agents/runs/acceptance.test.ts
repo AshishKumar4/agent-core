@@ -173,14 +173,16 @@ describe("Run acceptance criteria", () => {
                 ids.run,
                 verdict(firstId, digest("e"), "verifier-pass")
             );
-            expect(frontierKeys(value)).toEqual([runObligationKey(obligations[1]!)]);
+            // The criterion stays outstanding: it is a condition evaluated against the
+            // head the Run finishes on, not a box ticked at the instant of the verdict.
+            expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(true);
 
             attempted(value, "verifier-fail", "failed");
             value.runtime.recordAcceptanceVerdict(
                 ids.run,
                 verdict(secondId, digest("e"), "verifier-fail")
             );
-            expect(frontierKeys(value)).toEqual([runObligationKey(obligations[1]!)]);
+            expect(value.runtime.acceptanceSatisfied(ids.run, secondId)).toBe(false);
             expect(
                 value.repository.transaction((tx) =>
                     value.repository.loadAcceptanceVerdict(tx, secondId, digest("e"))
@@ -240,15 +242,18 @@ describe("Run acceptance criteria", () => {
             const base = harness();
             base.runtime.createRun({ ...genesis(), acceptanceCriteria: [criterion(firstId)] });
             const value = seedRunningTurn(base);
-            const obligation: RunObligation = { kind: "acceptance", acceptance: firstId };
             expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(true);
+            // The criterion is outstanding for the Run's whole life; what changes is
+            // whether a verdict for the current head satisfies it.
+            expect(frontierKeys(value)).toEqual([
+                runObligationKey({ kind: "acceptance", acceptance: firstId })
+            ]);
 
             attempted(value, "stale-pass", "succeeded");
             value.runtime.recordAcceptanceVerdict(
                 ids.run,
                 verdict(firstId, digest("f"), "stale-pass")
             );
-            expect(frontierKeys(value)).toEqual([runObligationKey(obligation)]);
             expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(true);
             expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(false);
 
@@ -257,7 +262,6 @@ describe("Run acceptance criteria", () => {
                 ids.run,
                 verdict(firstId, digest("e"), "current-pass")
             );
-            expect(frontierKeys(value)).toEqual([]);
             expect(value.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(true);
             expect(value.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(false);
 
@@ -376,6 +380,7 @@ describe("Run acceptance criteria", () => {
 
             expect(snapshot.obligation.obligations.map(runObligationKey)).toEqual(
                 [
+                    { kind: "acceptance", acceptance: firstId } as const,
                     { kind: "acceptance", acceptance: secondId } as const,
                     { kind: "approval", approval } as const
                 ]
@@ -392,8 +397,12 @@ describe("Run acceptance criteria", () => {
                 ids.run,
                 verdict(secondId, digest("3"), "late-pass")
             );
-            expect(frontierKeys(value)).toEqual([]);
+            // The obligation is still snapshotted — settlement is what evaluates it, and it
+            // now evaluates against the head the Run finished on.
             expect(value.runtime.acceptanceSatisfied(ids.run, secondId)).toBe(true);
+            // Both declared criteria are snapshotted, so both must be satisfied at the
+            // head the Run finished on — the first one's verdict is still current.
+            value.settlement.acceptances.add(firstId.value);
             value.settlement.acceptances.add(secondId.value);
             expect(value.runtime.settled(ids.run)).toBe(true);
         }
@@ -442,7 +451,9 @@ describe("Run acceptance criteria", () => {
                     restarted.repository.loadAcceptanceVerdict(tx, firstId, digest("e"))
                 )
             ).toEqual(verdict(firstId, digest("e"), "durable-pass"));
-            expect(frontierKeys(restarted)).toEqual([]);
+            expect(frontierKeys(restarted)).toEqual([
+                runObligationKey({ kind: "acceptance", acceptance: firstId })
+            ]);
             expect(restarted.runtime.acceptanceAttemptAdmissible(ids.run, firstId)).toBe(false);
             expect(restarted.runtime.acceptanceSatisfied(ids.run, firstId)).toBe(false);
             attempted(restarted, "durable-pass", "succeeded");

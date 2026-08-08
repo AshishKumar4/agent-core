@@ -280,7 +280,7 @@ export class RunRuntime<Transaction> {
         runId: RunId,
         verdict: AcceptanceVerdict
     ): void {
-        const run = requireValue(this.repository.loadRun(tx, runId), "Run does not exist");
+        requireValue(this.repository.loadRun(tx, runId), "Run does not exist");
         const criterion = requireValue(
             this.repository.loadAcceptanceCriterion(tx, verdict.acceptance),
             "Acceptance criterion does not exist"
@@ -317,14 +317,13 @@ export class RunRuntime<Transaction> {
         if (existing !== undefined && !existing.receipt.equals(verdict.receipt)) {
             throw invalidRun("Acceptance subject already holds a recorded verdict");
         }
+        // The verdict is recorded, never "completed". Completing it would freeze the
+        // obligation against the tree that happened to be current at that instant, and a
+        // later commit carrying a new treeCheckpoint would move the head while the Run
+        // still counted the stale verdict as evidence — settling on a proof about a tree
+        // it no longer has. Leaving the obligation outstanding makes settlement evaluate
+        // it against the head the Run actually finishes on.
         this.repository.insertAcceptanceVerdict(tx, verdict);
-        if (
-            evidence.outcome === "succeeded" &&
-            this.headTreeDigestInTransaction(tx, run)?.equals(verdict.subject) === true
-        ) {
-            const completed = registry.complete(reservation);
-            if (completed !== registry) this.repository.replaceAdmission(tx, registry, completed);
-        }
     }
 
     public acceptanceAttemptAdmissible(run: RunId, acceptance: AcceptanceId): boolean {

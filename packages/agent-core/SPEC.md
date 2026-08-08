@@ -1025,11 +1025,15 @@ the target branch head. Commit records and parent order never change.
 A Run MAY declare **acceptance criteria** when it opens, so that finishing is something it
 proves rather than something it asserts. Each criterion names an Operation that decides
 whether the work is done, and the Run-owning Actor reserves its `AcceptanceId` as an
-`acceptance` RunObligation. The obligation completes exactly when an `AcceptanceVerdict`
-for that `AcceptanceId` names an attempted Receipt whose outcome is `succeeded` and whose
-`subject` equals the Run's current head tree digest — the tree digest of the head of the
-Run's `initialBranch`, the one branch the Run record itself names, so that completion is
-never selectable by the caller that asks. The verifier is an ordinary
+`acceptance` RunObligation. The obligation is never completed as bookkeeping: it stays
+outstanding and is snapshotted at terminalization like any other, and it is discharged only
+by evaluation at settlement. It is satisfied exactly when an `AcceptanceVerdict` for that
+`AcceptanceId` names an attempted Receipt whose outcome is `succeeded` and whose `subject`
+equals the Run's current head tree digest — the tree digest of the head of the Run's
+`initialBranch`, the one branch the Run record itself names, so that satisfaction is never
+selectable by the caller that asks. Completing it when the verdict arrives would freeze it
+against whatever tree was current at that instant, and a later commit carrying a new
+`treeCheckpoint` would leave the Run settling on a proof about a tree it no longer has. The verifier is an ordinary
 Operation, so its Receipt carries the whole §7 admission and audit chain, and the Receipt
 MUST come from the exact Operation the criterion names — a succeeded Receipt from any other
 Operation is not evidence for this criterion, or the declared verifier would be decoration

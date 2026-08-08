@@ -177,7 +177,7 @@
       "id": "C13-RUN-ACCEPTANCE-OBLIGATION",
       "owner": "W5",
       "specAnchor": "C13-RUN-ACCEPTANCE-OBLIGATION",
-      "specTextSha256": "sha256:77035236b1b2b3ff43ca469fefa8abcd66fab85ab2b30b6fc49835c0ab4116fa",
+      "specTextSha256": "sha256:b7ef2261df2077272dfea25a3a3a9ff18fd61c458cae422734d96a9283f280b1",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
