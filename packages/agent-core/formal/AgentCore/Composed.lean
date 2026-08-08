@@ -561,7 +561,7 @@ def ObligationDischarged (state : SystemState) (run : RunId) : OpenObligation �
       entry.actor = .run (actorTenantOf entry.actor) commit.run ∧
       entry.kind = .commit commitId evidence ∧ LocalCauseValid state.audit entry ∧
       CausalChain state.events state.audit auditId
-  | .acceptance accId => AcceptanceObligationDischarged state.graph state.effects run accId
+  | .acceptance accId => AcceptanceSatisfied state.graph state.effects run accId
 
 def Settled (state : SystemState) (run : RunId) : Prop :=
   (∃ record snapshot, state.graph.runs run = some record ∧ record.status = .terminal ∧
@@ -941,45 +941,67 @@ theorem settled_has_coherent_snapshot_and_exact_obligations {state run}
 theorem acceptance_unsatisfied_not_settled {state run accId snapshot}
     (snapshotLookup : state.graph.terminalSnapshots run = some snapshot)
     (captured : OpenObligation.acceptance accId ∈ snapshot.obligations)
-    (unsatisfied : ¬ AcceptanceObligationDischarged state.graph state.effects run accId) :
+    (unsatisfied : ¬ AcceptanceSatisfied state.graph state.effects run accId) :
     ¬ Settled state run := by
   intro settled
   obtain ⟨_, _, _, _, obligations, _⟩ := settled
   exact unsatisfied (obligations snapshot snapshotLookup _ captured)
 
-/-- The settlement invariant, stated against any graph the invariants hold of: a Settled Run
-    has, for every acceptance criterion it declared, a recorded verdict backed by a succeeded
-    Receipt of that criterion's own declared verifier Operation, whose subject is a tree one
-    of the Run's own commits checkpointed. Either the obligation was discharged while the Run
-    was open, and the store still carries that evidence, or it stayed outstanding, was
-    captured in the terminal snapshot, and settlement itself had to satisfy it. -/
-theorem settled_run_acceptance_is_evidenced {state run criterion}
-    (sound : AcceptanceObligationsSound state.graph state.effects)
+/-- The settlement property, stated against any graph the acceptance invariants hold of: if a
+    Run is Settled then every acceptance criterion it declared holds a recorded verdict whose
+    subject *is* the Run's current head tree digest, whose named Receipt succeeded, and which
+    came from that criterion's own declared verifier Operation.
+
+    Nothing ever completes an acceptance obligation, so the criterion is still in the closed
+    registry's outstanding frontier, so it is in the captured snapshot, so settlement had to
+    evaluate it -- and settlement evaluates it against the head the Run actually finished on,
+    not against whatever tree happened to be current when the verdict arrived. The Operation
+    binding is not part of that evaluation; it comes from the invariant that a verdict can only
+    be recorded against its own criterion's verifier (§5.2, C13-RUN-ACCEPTANCE-OBLIGATION). -/
+theorem settled_run_acceptance_holds_at_current_head {state run criterion}
+    (outstanding : AcceptanceObligationsOutstanding state.graph)
+    (unique : AcceptanceCriteriaUnique state.graph)
+    (earned : AcceptanceVerdictsEarned state.graph state.effects)
     (agreed : TerminalSnapshotsMatchRegistry state.graph)
     (declared : criterion ∈ state.graph.acceptanceCriteria run)
     (settled : Settled state run) :
-    AcceptanceDischargeEvidenced state.graph state.effects run criterion.id := by
-  obtain ⟨registry, registryLookup, reserved, completed⟩ := sound run criterion declared
-  by_cases discharged : OpenObligation.acceptance criterion.id ∈ registry.completed
-  · exact completed discharged
-  · obtain ⟨⟨_, snapshot, _, _, snapshotLookup, _, _⟩, _, _, _, obligations, _⟩ := settled
-    obtain ⟨closedRegistry, closedLookup, _, exactly⟩ := agreed run snapshot snapshotLookup
-    rw [registryLookup] at closedLookup
-    cases Option.some.inj closedLookup
-    exact acceptance_discharge_leaves_evidence
-      (obligations snapshot snapshotLookup _ ((exactly _).mpr ⟨reserved, discharged⟩))
+    ∃ subject verdict,
+      state.graph.HeadTree run subject ∧
+      verdict ∈ state.graph.acceptanceVerdicts criterion.id ∧
+      verdict.acceptance = criterion.id ∧ verdict.subject = subject ∧
+      VerifierReceipt state.effects verdict.receipt criterion.operation .succeeded := by
+  obtain ⟨registry, registryLookup, reserved, notCompleted⟩ := outstanding run criterion declared
+  obtain ⟨⟨_, snapshot, _, _, snapshotLookup, _, _⟩, _, _, _, obligations, _⟩ := settled
+  obtain ⟨closedRegistry, closedLookup, _, exactly⟩ := agreed run snapshot snapshotLookup
+  rw [registryLookup] at closedLookup
+  cases Option.some.inj closedLookup
+  obtain ⟨subject, verdict, verifier, headTree, verdictMem, vAcc, vSubj, succeeded⟩ :=
+    obligations snapshot snapshotLookup _ ((exactly _).mpr ⟨reserved, notCompleted⟩)
+  obtain ⟨owner, declaredCriterion, outcome, ownerDeclared, sameId, receipt⟩ :=
+    earned criterion.id verdict verdictMem
+  cases unique owner run declaredCriterion criterion ownerDeclared declared sameId
+  exact ⟨subject, verdict, headTree, verdictMem, vAcc, vSubj,
+    (verifier_receipt_is_functional receipt succeeded).2 ▸ receipt⟩
 
 /-- The same statement over the transition system: in any graph reachable from the empty graph
-    by `GraphStep`, no Run is Settled while one of its declared acceptance criteria lacks its
-    verifier's evidence. -/
-theorem graph_reachable_settled_acceptance_is_evidenced
+    by `GraphStep`, a Settled Run's every declared acceptance criterion holds a verdict of its
+    own verifier at the Run's current head. -/
+theorem graph_reachable_settled_acceptance_holds_at_current_head
     {state : SystemState} {events audit run criterion}
     (reachable : GraphReachable state.effects events audit default state.graph)
     (declared : criterion ∈ state.graph.acceptanceCriteria run)
     (settled : Settled state run) :
-    AcceptanceDischargeEvidenced state.graph state.effects run criterion.id :=
-  settled_run_acceptance_is_evidenced
-    (graph_reachable_preserves_acceptance_soundness empty_graph_is_acceptance_sound reachable)
+    ∃ subject verdict,
+      state.graph.HeadTree run subject ∧
+      verdict ∈ state.graph.acceptanceVerdicts criterion.id ∧
+      verdict.acceptance = criterion.id ∧ verdict.subject = subject ∧
+      VerifierReceipt state.effects verdict.receipt criterion.operation .succeeded :=
+  settled_run_acceptance_holds_at_current_head
+    (graph_reachable_preserves_acceptance_outstanding empty_graph_acceptance_is_outstanding
+      reachable)
+    (graph_reachable_preserves_acceptance_criteria_unique empty_graph_acceptance_criteria_unique
+      reachable)
+    (graph_reachable_preserves_earned_verdicts empty_graph_verdicts_earned reachable)
     (graph_reachable_preserves_snapshot_registry_agreement empty_graph_snapshots_match_registry
       reachable)
     declared settled

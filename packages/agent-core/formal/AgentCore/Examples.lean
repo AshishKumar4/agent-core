@@ -529,6 +529,7 @@ theorem nonvacuous_pinned_root_writer :
   · rfl
   · simp [RunPins.Valid, run, pins, agent]
   · simp [run]
+  · simp [run]
   · rfl
   · rfl
   · rfl
@@ -2570,9 +2571,10 @@ theorem nonvacuous_midturn_stale_injection_rejected :
   Representation.Reaction.stale_injection_rejected (by decide)
 
 /-! Acceptance criteria (§5.2) over the transition system. One trace opens a Run that declares
-    a criterion, records the verifier's verdict, and discharges the obligation against the
-    Run's own head tree. A second pair of states is the terminal Run at settlement: the same
-    graph twice, differing only in which subject the recorded verdict names. -/
+    a criterion and records the verifier's verdict against the Run's own head tree; the
+    obligation is still outstanding afterwards, because nothing completes it. A second pair of
+    states is the terminal Run at settlement: the same graph twice, with the same effects,
+    events and audit log, differing only in which subject the one recorded verdict names. -/
 
 private def acceptanceId : AcceptanceId := ⟨0⟩
 private def acceptanceCriterion : AcceptanceCriterion := ⟨acceptanceId, header.operation⟩
@@ -2598,6 +2600,19 @@ private theorem acceptanceVerifierReceipt :
   · change tableSet (default : EffectLedger).invocations invocationId prepared invocationId =
       some prepared
     exact tableSet_self ..
+
+private theorem defaultDeclaresNoAcceptance (accId : AcceptanceId) :
+    ¬ (default : GraphStore).DeclaresAcceptance accId := by
+  intro ⟨candidate, criterion, member, _⟩
+  simp [GraphStore.acceptanceCriteria] at member
+
+private theorem writerGraphDeclaresNoAcceptance (accId : AcceptanceId) :
+    ¬ writerGraph.DeclaresAcceptance accId := by
+  intro ⟨candidate, criterion, member, _⟩
+  by_cases same : candidate = runId
+  · rw [same] at member
+    simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, run] at member
+  · simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, tableSet, same] at member
 
 private def acceptanceRunRecord : Run :=
   ⟨tenant, workspace, agent, pins, rootCommitId, branchId, none, .active, [acceptanceCriterion]⟩
@@ -2632,6 +2647,7 @@ private theorem acceptanceOpenStep :
   · rfl
   · simp [RunPins.Valid, acceptanceRunRecord, pins, agent]
   · simp [acceptanceRunRecord]
+  · exact fun criterion _ => defaultDeclaresNoAcceptance criterion.id
   · rfl
   · rfl
   · rfl
@@ -2667,41 +2683,22 @@ private theorem acceptanceVerdictStep :
   · exact acceptanceOpenRetryAdmissible
   · exact acceptanceVerifierReceipt
 
-private def acceptanceDischargedGraph : GraphStore :=
-  acceptanceVerdictGraph.complete runId acceptanceRegistry (.acceptance acceptanceId)
-
-private theorem acceptanceOpenHeadTree : acceptanceVerdictGraph.HeadTree runId acceptanceHead := by
+private theorem acceptanceVerdictHeadTree :
+    acceptanceVerdictGraph.HeadTree runId acceptanceHead := by
   refine ⟨acceptanceRunRecord, rootCommitId, acceptanceRootCommit, ?_, ?_, ?_, rfl, rfl⟩
   · simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph]
   · simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph,
       acceptanceRunRecord]
   · simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph]
 
-private theorem acceptanceOpenDischarged :
-    AcceptanceObligationDischarged acceptanceVerdictGraph mixedEffects runId acceptanceId := by
-  refine ⟨acceptanceCriterion, acceptanceHead, verdictAtHead, ?_, rfl, acceptanceOpenHeadTree,
-    acceptanceVerdictRecorded, rfl, rfl, acceptanceVerifierReceipt⟩
-  simp [GraphStore.acceptanceCriteria, acceptanceVerdictGraph, GraphStore.recordVerdict,
-    acceptanceOpenGraph, acceptanceRunRecord]
-
-private theorem acceptanceDischargeStep :
-    GraphStep mixedEffects (default : EventStore) auditOne acceptanceVerdictGraph
-      (.dischargeAcceptance runId acceptanceId) acceptanceDischargedGraph := by
-  apply GraphStep.dischargeAcceptance (run := acceptanceRunRecord) (registry := acceptanceRegistry)
-  · simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph]
-  · rfl
-  · simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph,
-      acceptanceRegistry]
-  · rfl
-  · simp [acceptanceRegistry]
-  · simp [acceptanceRegistry]
-  · exact acceptanceOpenDischarged
-
-/-- Opening the Run reserves exactly the criterion it declared, and completes none of it. -/
+/-- Opening the Run reserves exactly the criterion it declared, completes none of it, and could
+    not have redeclared an identity another Run already holds. -/
 theorem nonvacuous_acceptance_criteria_reserved_at_open :
     ∃ record registry, acceptanceOpenGraph.runs runId = some record ∧
       acceptanceOpenGraph.admissionRegistry runId = some registry ∧ registry.completed = [] ∧
       (record.acceptance.map AcceptanceCriterion.id).Nodup ∧
+      (∀ criterion ∈ record.acceptance,
+        ¬ (default : GraphStore).DeclaresAcceptance criterion.id) ∧
       ∀ obligation, obligation ∈ registry.reserved ↔
         ∃ criterion ∈ record.acceptance, OpenObligation.acceptance criterion.id = obligation :=
   run_start_reserves_exactly_declared_acceptance acceptanceOpenStep
@@ -2717,38 +2714,64 @@ theorem nonvacuous_acceptance_verdict_recorded :
       verdictAtHead ∈ acceptanceVerdictGraph.acceptanceVerdicts verdictAtHead.acceptance :=
   acceptance_verdict_step_requires_declared_verifier_receipt acceptanceVerdictStep
 
-/-- The discharge transition can only fire against the whole satisfying verdict, and it is the
-    transition that puts the acceptance obligation into the completed frontier. -/
-theorem nonvacuous_acceptance_discharge_step :
-    AcceptanceObligationDischarged acceptanceVerdictGraph mixedEffects runId acceptanceId ∧
+/-- Open, then record: a reachable graph that exercises both acceptance transitions from the
+    empty graph. -/
+theorem nonvacuous_acceptance_open_verdict_trace :
+    GraphReachable mixedEffects (default : EventStore) auditOne (default : GraphStore)
+      acceptanceVerdictGraph :=
+  .step (.step (.refl _) acceptanceOpenStep) acceptanceVerdictStep
+
+/-- All four invariants survive that trace, so none is vacuously preserved. -/
+theorem nonvacuous_acceptance_invariants_along_trace :
+    AcceptanceObligationsOutstanding acceptanceVerdictGraph ∧
+    AcceptanceCriteriaUnique acceptanceVerdictGraph ∧
+    AcceptanceVerdictsEarned acceptanceVerdictGraph mixedEffects ∧
+    TerminalSnapshotsMatchRegistry acceptanceVerdictGraph :=
+  ⟨graph_reachable_preserves_acceptance_outstanding empty_graph_acceptance_is_outstanding
+      nonvacuous_acceptance_open_verdict_trace,
+    graph_reachable_preserves_acceptance_criteria_unique empty_graph_acceptance_criteria_unique
+      nonvacuous_acceptance_open_verdict_trace,
+    graph_reachable_preserves_earned_verdicts empty_graph_verdicts_earned
+      nonvacuous_acceptance_open_verdict_trace,
+    graph_reachable_preserves_snapshot_registry_agreement empty_graph_snapshots_match_registry
+      nonvacuous_acceptance_open_verdict_trace⟩
+
+/-- The corrected semantics, on a concrete graph: the criterion is satisfied at the head the
+    verdict names, and the obligation is nevertheless still reserved, still uncompleted, and
+    still the whole outstanding frontier. Completing it here is what would later let the Run
+    settle on a stale proof, and nothing in the model does it. -/
+theorem nonvacuous_acceptance_obligation_stays_outstanding :
+    AcceptanceSatisfied acceptanceVerdictGraph mixedEffects runId acceptanceId ∧
     ∃ registry, acceptanceVerdictGraph.admissionRegistry runId = some registry ∧
-      registry.accepting = true ∧
       OpenObligation.acceptance acceptanceId ∈ registry.reserved ∧
       OpenObligation.acceptance acceptanceId ∉ registry.completed ∧
-      ∃ closed, acceptanceDischargedGraph.admissionRegistry runId = some closed ∧
-        OpenObligation.acceptance acceptanceId ∈ closed.completed :=
-  acceptance_discharge_step_requires_satisfying_verdict acceptanceDischargeStep
+      registry.outstanding = [.acceptance acceptanceId] := by
+  refine ⟨⟨acceptanceHead, verdictAtHead, header.operation, acceptanceVerdictHeadTree,
+      acceptanceVerdictRecorded, rfl, rfl, acceptanceVerifierReceipt⟩, ?_⟩
+  obtain ⟨registry, registryLookup, reserved, notCompleted⟩ :=
+    nonvacuous_acceptance_invariants_along_trace.1 runId acceptanceCriterion
+      (by simp [GraphStore.acceptanceCriteria, acceptanceVerdictGraph, GraphStore.recordVerdict,
+        acceptanceOpenGraph, acceptanceRunRecord])
+  refine ⟨registry, registryLookup, reserved, notCompleted, ?_⟩
+  obtain rfl : registry = acceptanceRegistry := by
+    have exactly : acceptanceVerdictGraph.admissionRegistry runId = some acceptanceRegistry := by
+      simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph]
+    exact Option.some.inj (registryLookup.symm.trans exactly)
+  simp [acceptanceRegistry, RunAdmissionRegistry.outstanding, acceptanceCriterion]
 
-/-- The store still carries the verifier's evidence after the obligation is completed. -/
-theorem nonvacuous_acceptance_discharge_evidence :
-    AcceptanceDischargeEvidenced acceptanceVerdictGraph mixedEffects runId acceptanceId :=
-  acceptance_discharge_leaves_evidence acceptanceOpenDischarged
+/-- No transition can put the acceptance obligation into the completed frontier: the generic
+    completion path refuses it outright, and it is the only path that writes one. -/
+theorem nonvacuous_acceptance_completion_step_rejected :
+    ¬ ∃ after, GraphStep mixedEffects (default : EventStore) auditOne acceptanceVerdictGraph
+      (.completeObligation runId 0 (.acceptance acceptanceId)) after := by
+  intro ⟨_, step⟩
+  exact generic_completion_refuses_acceptance step
 
-/-- Open, record, discharge: a reachable graph that exercises all three acceptance
-    transitions from the empty graph. -/
-theorem nonvacuous_acceptance_open_verdict_discharge_trace :
-    GraphReachable mixedEffects (default : EventStore) auditOne (default : GraphStore)
-      acceptanceDischargedGraph :=
-  .step (.step (.step (.refl _) acceptanceOpenStep) acceptanceVerdictStep) acceptanceDischargeStep
-
-/-- Both invariants survive that trace, so neither is vacuously preserved. -/
-theorem nonvacuous_acceptance_invariants_along_trace :
-    AcceptanceObligationsSound acceptanceDischargedGraph mixedEffects ∧
-    TerminalSnapshotsMatchRegistry acceptanceDischargedGraph :=
-  ⟨graph_reachable_preserves_acceptance_soundness empty_graph_is_acceptance_sound
-      nonvacuous_acceptance_open_verdict_discharge_trace,
-    graph_reachable_preserves_snapshot_registry_agreement empty_graph_snapshots_match_registry
-      nonvacuous_acceptance_open_verdict_discharge_trace⟩
+/-- Recording the verdict cannot have completed anything either: reservations only grew and no
+    acceptance obligation appeared completed. -/
+theorem nonvacuous_acceptance_verdict_step_advances_registries :
+    RegistriesAdvance acceptanceOpenGraph acceptanceVerdictGraph :=
+  graph_step_advances_registries acceptanceVerdictStep
 
 /-- Once a subject holds a verdict, the recording transition against that same subject is no
     longer available: changed input, never elapsed time, unblocks the verifier. -/
@@ -2759,9 +2782,35 @@ theorem nonvacuous_acceptance_verdict_blocks_retry :
 
 theorem nonvacuous_acceptance_repeat_verdict_step_rejected :
     ¬ GraphStep mixedEffects (default : EventStore) auditOne acceptanceVerdictGraph
-      (.recordAcceptanceVerdict runId verdictAtHead) acceptanceDischargedGraph :=
+      (.recordAcceptanceVerdict runId verdictAtHead) acceptanceVerdictGraph :=
   recorded_verdict_blocks_repeat_verdict_step (recorded := verdictAtHead)
     acceptanceVerdictRecorded rfl rfl
+
+/-! A verdict earned under some other Operation is not this criterion's evidence. The graph
+    below is `acceptanceOpenGraph` with one field changed -- the criterion names a verifier the
+    Receipt did not come from -- and the recording transition is unavailable there. -/
+
+private def acceptanceForeignOperation : OperationId := ⟨facet, "verify", 1⟩
+private def acceptanceForeignCriterion : AcceptanceCriterion :=
+  ⟨acceptanceId, acceptanceForeignOperation⟩
+private def acceptanceForeignRun : Run :=
+  { acceptanceRunRecord with acceptance := [acceptanceForeignCriterion] }
+private def acceptanceForeignGraph : GraphStore :=
+  { acceptanceOpenGraph with
+    runs := tableSet acceptanceOpenGraph.runs runId acceptanceForeignRun }
+
+theorem nonvacuous_foreign_verifier_verdict_rejected :
+    ¬ ∃ after, GraphStep mixedEffects (default : EventStore) auditOne acceptanceForeignGraph
+      (.recordAcceptanceVerdict runId verdictAtHead) after := by
+  intro ⟨_, step⟩
+  obtain ⟨record, criterion, outcome, runLookup, declared, criterionId, receipt, _, _⟩ :=
+    acceptance_verdict_step_requires_declared_verifier_receipt step
+  obtain rfl : record = acceptanceForeignRun :=
+    Option.some.inj (runLookup.symm.trans (by simp [acceptanceForeignGraph]))
+  obtain rfl : criterion = acceptanceForeignCriterion := by
+    simpa [acceptanceForeignRun, acceptanceRunRecord] using declared
+  exact absurd (verifier_receipt_is_functional receipt acceptanceVerifierReceipt).1
+    (by decide)
 
 /-! A spawned child Run declares its own criteria, and the spawn reserves exactly those. -/
 
@@ -2806,6 +2855,7 @@ private theorem acceptanceSpawnStep :
   · rfl
   · rfl
   · simp [acceptanceChildRun]
+  · exact fun criterion _ => writerGraphDeclaresNoAcceptance criterion.id
   · rfl
   · rfl
   · rfl
@@ -2816,12 +2866,14 @@ private theorem acceptanceSpawnStep :
     change tableSet auditOne.entries ⟨6⟩ acceptanceChildAudit ⟨6⟩ = some acceptanceChildAudit
     exact tableSet_self ..
 
-/-- Spawning a child Run reserves exactly the criteria that child declared. -/
+/-- Spawning a child Run reserves exactly the criteria that child declared, and could not have
+    redeclared an identity the parent graph already holds. -/
 theorem nonvacuous_child_acceptance_criteria_reserved_at_spawn :
     ∃ record registry, acceptanceSpawnGraph.runs acceptanceChildRunId = some record ∧
       acceptanceSpawnGraph.admissionRegistry acceptanceChildRunId = some registry ∧
       registry.completed = [] ∧
       (record.acceptance.map AcceptanceCriterion.id).Nodup ∧
+      (∀ criterion ∈ record.acceptance, ¬ writerGraph.DeclaresAcceptance criterion.id) ∧
       ∀ obligation, obligation ∈ registry.reserved ↔
         ∃ criterion ∈ record.acceptance, OpenObligation.acceptance criterion.id = obligation :=
   spawn_child_reserves_exactly_declared_acceptance acceptanceSpawnStep
@@ -2829,7 +2881,7 @@ theorem nonvacuous_child_acceptance_criteria_reserved_at_spawn :
 /-! The settlement pair. `acceptanceSettlementGraph` is the already-terminal Run of
     `settledState` with one declared criterion, its own head tree, and a closed registry whose
     outstanding frontier is exactly that criterion. The two states below are that same graph
-    with the same effects, events, and audit log — they differ only in which subject the one
+    with the same effects, events, and audit log -- they differ only in which subject the one
     recorded verdict names, so the settlement refusal is caused by the acceptance obligation
     and by nothing else. -/
 
@@ -2847,7 +2899,7 @@ private def acceptanceSettlementGraph (verdicts : List AcceptanceVerdict) : Grap
   commits := tableSet settledGraph.commits rootCommitId acceptanceHeadCommit
   terminalSnapshots := tableSet settledGraph.terminalSnapshots runId acceptanceTerminalSnapshot
   admissionRegistry := tableSet settledGraph.admissionRegistry runId acceptanceClosedRegistry
-  acceptanceVerdicts := fun _ => verdicts
+  acceptanceVerdicts := fun candidate => if candidate = acceptanceId then verdicts else []
 }
 private def acceptanceUnsettledState : SystemState :=
   { settledState with graph := acceptanceSettlementGraph [verdictAtOther] }
@@ -2890,10 +2942,10 @@ private theorem acceptanceSettlementCoherent (verdicts : List AcceptanceVerdict)
   · simp [acceptanceSettlementGraph, settledGraph, acceptanceTerminalSnapshot, terminalSnapshot,
       terminalCommitId, rootCommitId, terminalBefore, rootGraph, tableSet]
 
-/-- A stale verdict (subject ≠ current head) does not discharge the criterion, though a
-    succeeded verifier Receipt backs it: the head has moved past what any verdict names. -/
+/-- A stale verdict (subject ≠ current head) does not satisfy the criterion, though a succeeded
+    verifier Receipt backs it: the head has moved past what any verdict names. -/
 theorem nonvacuous_acceptance_verdict_wrong_subject :
-    ¬ AcceptanceObligationDischarged acceptanceUnsettledState.graph
+    ¬ AcceptanceSatisfied acceptanceUnsettledState.graph
       acceptanceUnsettledState.effects runId acceptanceId := by
   apply acceptance_verdict_only_for_its_subject (subject := acceptanceHead)
     (acceptanceSettlementHeadTree _)
@@ -2903,7 +2955,7 @@ theorem nonvacuous_acceptance_verdict_wrong_subject :
   subst exactly
   decide
 
-/-- The undischarged acceptance obligation is captured in the terminal snapshot, so the Run is
+/-- The unsatisfied acceptance obligation is captured in the terminal snapshot, so the Run is
     genuinely not Settled. -/
 theorem nonvacuous_unsatisfied_acceptance_blocks_settled :
     ¬ Settled acceptanceUnsettledState runId :=
@@ -2911,14 +2963,14 @@ theorem nonvacuous_unsatisfied_acceptance_blocks_settled :
     (acceptanceSettlementSnapshot _) (by simp [acceptanceTerminalSnapshot])
     nonvacuous_acceptance_verdict_wrong_subject
 
-/-- A verdict naming exactly the current head, backed by a succeeded Receipt of the declared
-    verifier, discharges the criterion. -/
-theorem nonvacuous_acceptance_discharged_at_head :
-    AcceptanceObligationDischarged acceptanceSettledState.graph acceptanceSettledState.effects
+/-- A verdict naming exactly the current head, backed by a succeeded Receipt, satisfies the
+    criterion. -/
+theorem nonvacuous_acceptance_satisfied_at_head :
+    AcceptanceSatisfied acceptanceSettledState.graph acceptanceSettledState.effects
       runId acceptanceId :=
-  ⟨acceptanceCriterion, acceptanceHead, verdictAtHead, acceptanceSettlementCriterion _, rfl,
-    acceptanceSettlementHeadTree _, by simp [acceptanceSettledState, acceptanceSettlementGraph],
-    rfl, rfl, acceptanceVerifierReceipt⟩
+  ⟨acceptanceHead, verdictAtHead, header.operation, acceptanceSettlementHeadTree _,
+    by simp [acceptanceSettledState, acceptanceSettlementGraph], rfl, rfl,
+    acceptanceVerifierReceipt⟩
 
 /-- The same graph with the current verdict is Settled. Since the two states differ only in
     the recorded verdict list, the refusal above is caused by the acceptance obligation
@@ -2934,30 +2986,49 @@ theorem nonvacuous_acceptance_verdict_settles_run : Settled acceptanceSettledSta
   have exactly : obligation = .acceptance acceptanceId := by
     simpa [acceptanceTerminalSnapshot] using member
   subst exactly
-  exact nonvacuous_acceptance_discharged_at_head
+  exact nonvacuous_acceptance_satisfied_at_head
 
-/-- Both invariants hold of the settled state, so the settlement theorem's hypotheses are
+/-- The four invariants hold of the settled state, so the settlement theorem's hypotheses are
     jointly satisfiable rather than vacuous. -/
 theorem nonvacuous_acceptance_settlement_invariants :
-    AcceptanceObligationsSound acceptanceSettledState.graph acceptanceSettledState.effects ∧
+    AcceptanceObligationsOutstanding acceptanceSettledState.graph ∧
+    AcceptanceCriteriaUnique acceptanceSettledState.graph ∧
+    AcceptanceVerdictsEarned acceptanceSettledState.graph acceptanceSettledState.effects ∧
     TerminalSnapshotsMatchRegistry acceptanceSettledState.graph := by
-  constructor
-  · intro candidate criterion declared
+  have criteria : ∀ candidate criterion,
+      criterion ∈ acceptanceSettledState.graph.acceptanceCriteria candidate →
+        candidate = runId ∧ criterion = acceptanceCriterion := by
+    intro candidate criterion declared
     by_cases same : candidate = runId
-    · subst same
-      have exactly : criterion = acceptanceCriterion := by
-        simpa [GraphStore.acceptanceCriteria, acceptanceSettledState,
-          acceptanceSettlementRun [verdictAtHead], acceptanceTerminalRun] using declared
-      subst exactly
-      exact ⟨acceptanceClosedRegistry, by simp [acceptanceSettledState, acceptanceSettlementGraph],
-        by simp [acceptanceClosedRegistry, acceptanceCriterion],
-        by simp [acceptanceClosedRegistry]⟩
+    · refine ⟨same, ?_⟩
+      rw [same] at declared
+      simpa [GraphStore.acceptanceCriteria, acceptanceSettledState,
+        acceptanceSettlementRun [verdictAtHead], acceptanceTerminalRun] using declared
     · exact absurd declared (by
         simp [GraphStore.acceptanceCriteria, acceptanceSettledState, acceptanceSettlementGraph,
           settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, same])
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro candidate criterion declared
+    obtain ⟨rfl, rfl⟩ := criteria candidate criterion declared
+    exact ⟨acceptanceClosedRegistry, by simp [acceptanceSettledState, acceptanceSettlementGraph],
+      by simp [acceptanceClosedRegistry, acceptanceCriterion],
+      by simp [acceptanceClosedRegistry]⟩
+  · intro leftRun rightRun left right leftMem rightMem _
+    obtain ⟨_, rfl⟩ := criteria leftRun left leftMem
+    obtain ⟨_, rfl⟩ := criteria rightRun right rightMem
+    rfl
+  · intro accId verdict member
+    by_cases same : accId = acceptanceId
+    · rw [same] at member
+      obtain rfl : verdict = verdictAtHead := by
+        simpa [acceptanceSettledState, acceptanceSettlementGraph] using member
+      exact ⟨runId, acceptanceCriterion, .succeeded, acceptanceSettlementCriterion _,
+        by rw [same]; rfl, acceptanceVerifierReceipt⟩
+    · exact absurd member
+        (by simp [acceptanceSettledState, acceptanceSettlementGraph, same])
   · intro candidate snapshot snapshotLookup
     by_cases same : candidate = runId
-    · subst same
+    · rw [same] at snapshotLookup ⊢
       obtain rfl : snapshot = acceptanceTerminalSnapshot :=
         Option.some.inj (snapshotLookup.symm.trans (acceptanceSettlementSnapshot [verdictAtHead]))
       refine ⟨acceptanceClosedRegistry, by simp [acceptanceSettledState, acceptanceSettlementGraph],
@@ -2967,5 +3038,20 @@ theorem nonvacuous_acceptance_settlement_invariants :
         simp [acceptanceSettledState, acceptanceSettlementGraph, settledGraph, terminalBefore,
           rootGraph, tableSet_other _ _ _ same, same])
 
+/-- The headline settlement property on a concrete Settled Run: its one declared criterion
+    holds a recorded verdict whose subject is the Run's current head tree, whose Receipt
+    succeeded, and whose Operation is the criterion's own declared verifier. -/
+theorem nonvacuous_settled_acceptance_holds_at_current_head :
+    ∃ subject verdict,
+      acceptanceSettledState.graph.HeadTree runId subject ∧
+      verdict ∈ acceptanceSettledState.graph.acceptanceVerdicts acceptanceCriterion.id ∧
+      verdict.acceptance = acceptanceCriterion.id ∧ verdict.subject = subject ∧
+      VerifierReceipt acceptanceSettledState.effects verdict.receipt
+        acceptanceCriterion.operation .succeeded :=
+  settled_run_acceptance_holds_at_current_head nonvacuous_acceptance_settlement_invariants.1
+    nonvacuous_acceptance_settlement_invariants.2.1
+    nonvacuous_acceptance_settlement_invariants.2.2.1
+    nonvacuous_acceptance_settlement_invariants.2.2.2
+    (acceptanceSettlementCriterion _) nonvacuous_acceptance_verdict_settles_run
 
 end AgentCore.Examples
