@@ -2426,7 +2426,6 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-ENVIRONMENT-USE** The base Session lifecycle includes use.
 - **P11-ENVIRONMENT-CLOSE** The base Session lifecycle includes close.
 - **P11-ENVIRONMENT-CHILD-FACETS** Child Facets are Session-scoped.
-- **P11-ENVIRONMENT-STALE** Stale Session use fails.
 - **P11-ENVIRONMENT-ROTATION** Rotation does not retarget open Sessions.
 - **P11-ENVIRONMENT-SNAPSHOT** A conforming Environment profile specifies snapshot and restore.
 - **P11-ENVIRONMENT-EPHEMERAL-DURABILITY** It specifies ephemeral-filesystem durability.
@@ -2435,7 +2434,6 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-ENVIRONMENT-NO-AMBIENT-EGRESS** A Session starts with no network reach of its own; every destination its child Facets can address arrives as an explicitly passed Binding, so code written inside the Session cannot route around the outbound policy its `externalSend` Operations enforce.
 - **P11-ENVIRONMENT-NO-BASE-OPERATIONS** The base profile declares no Operations.
 - **P11-ENVIRONMENT-NO-BASE-EVENTS** The base profile declares no Events.
-- **P11-ENVIRONMENT-NO-BASE-IMPACTS** Impacts are inapplicable to the base profile.
 - **P11-ENVIRONMENT-CHILD-CONTRACTS** Session child Facet profiles declare their own Operations, Events, and impacts.
 - **P11-ENVIRONMENT-FAIL-CLOSED** A stale Session fails closed.
 - **P11-ENVIRONMENT-DISPOSE** Closing a Session disposes its child Facets.
@@ -2656,8 +2654,7 @@ A conforming implementation provides:
 - **C13-AUDIT-ROUTE-BRIDGE** Source-owned RouteReservation bridges are the only cross-Actor audit bridge.
 - **C13-AUDIT-SETTLED-OBLIGATION** Settled audit obligations resolve to their exact captured evidence.
 - **C13-AUDIT-TELEMETRY-EXCLUDED** Telemetry never substitutes for a Receipt, RouteReservation, WriteRecord, or AuditRecord.
-- **C13-RUN-GRAPH-ARITY** The canonical Run graph enforces every parent arity.
-- **C13-RUN-BINARY-MERGE** Run merge is binary.
+- **C13-RUN-GRAPH-ARITY** The canonical Run graph enforces every parent arity, including that a merge has exactly two ordered parents.
 - **C13-RUN-BINARY-TREE-MERGE** Tree merge is binary.
 - **C13-RUN-UNDO-REDO** Undo and redo are append-only selection.
 - **C13-RUN-UNDO-FENCE** Undo fences a held Turn before appending, regardless of lease expiry.
@@ -2698,13 +2695,7 @@ A conforming implementation provides:
 - **C13-TURN-NO-RETRY-PROTOCOL** Protocol integration contains no Turn retry command family.
 - **C13-TURN-NO-RETRY-EXPORT** Package integration exposes no Turn retry symbol.
 - **C13-TURN-NO-RETRY-RECORD** Record and migration registries contain no Turn retry record or upcast.
-- **C13-TURN-RUN-COMMIT-WRITER** Executor-authored RunCommit writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
-- **C13-TURN-INVOCATION-WRITER** Invocation intent writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
-- **C13-TURN-EFFECT-ATTEMPT-WRITER** EffectAttempt writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
-- **C13-TURN-CHILD-RUN-WRITER** Child-Run spawn writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
-- **C13-TURN-CALLBACK-WRITER** Callback writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
-- **C13-TURN-CHECKPOINT-WRITER** Checkpoint writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
-- **C13-TURN-TERMINAL-RESULT-WRITER** Terminal-result writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-EXECUTOR-WRITER** Every executor-authored write — RunCommit, Invocation intent, EffectAttempt, child-Run spawn, callback, checkpoint, and terminal result — rejects stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
 - **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.

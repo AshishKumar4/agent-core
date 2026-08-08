@@ -75,7 +75,7 @@
       "specAnchor": "C13-ENVIRONMENT-STALE-SESSION",
       "specTextSha256": "sha256:cdf689900c052b79b4e016051d0cbd2c3fb483ebb0b1fa6ab4fbe914f628e1ae",
       "status": "verified",
-      "prerequisites": ["P11-ENVIRONMENT-STALE"],
+      "prerequisites": ["P11-ENVIRONMENT-FAIL-CLOSED"],
       "sourceSymbols": ["src/environments/runtime.ts#EnvironmentController"],
       "testSelectors": [
         "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-STALE-SESSION] detects provider loss despite a cached handle and releases it fail-closed"
@@ -721,20 +721,6 @@
       "remainingEvidence": []
     },
     {
-      "id": "P11-ENVIRONMENT-NO-BASE-IMPACTS",
-      "owner": "W8",
-      "specAnchor": "P11-ENVIRONMENT-NO-BASE-IMPACTS",
-      "specTextSha256": "sha256:29b55ddc36a168e9628a014dfca616e4d021f23009f9384a6510434c43dd7f83",
-      "status": "verified",
-      "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
-      "testSelectors": [
-        "test/profiles/facets/conformance-ledger.test.ts#[P11-ENVIRONMENT-NO-BASE-IMPACTS] exact profile manifest or runtime contract"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
-    },
-    {
       "id": "P11-ENVIRONMENT-NO-BASE-OPERATIONS",
       "owner": "W8",
       "specAnchor": "P11-ENVIRONMENT-NO-BASE-OPERATIONS",
@@ -823,20 +809,6 @@
       "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
       "testSelectors": [
         "test/profiles/facets/environment.test.ts#Environment protected control profile [P11-ENVIRONMENT-SPECIFICATION] declares no Operations or Events and routes lifecycle, durability, preview, and credentials through control"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
-    },
-    {
-      "id": "P11-ENVIRONMENT-STALE",
-      "owner": "W8",
-      "specAnchor": "P11-ENVIRONMENT-STALE",
-      "specTextSha256": "sha256:bc8f04cb8eeb0786da3d6a04d4eff0a2380b95f15c5ebc503015f97096f826b6",
-      "status": "verified",
-      "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
-      "testSelectors": [
-        "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-STALE] settles provider callbacks against the latest close fence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

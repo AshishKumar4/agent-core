@@ -1215,7 +1215,7 @@ describe("EnvironmentController", () => {
     );
 
     test(
-        "[P11-ENVIRONMENT-STALE] settles provider callbacks against the latest close fence",
+        "[P11-ENVIRONMENT-FAIL-CLOSED] settles provider callbacks against the latest close fence",
         { tags: "p0" },
         async () => {
             const provider = new TestProvider(descriptor("provider-close-races", "1"));

@@ -921,7 +921,7 @@ describe("memory Run runtime", () => {
     );
 
     it(
-        "[C13-TURN-CALLBACK-WRITER] anchors a Turn, rejects stale tokens, and terminalizes with derived settlement",
+        "[C13-TURN-EXECUTOR-WRITER] anchors a Turn, rejects stale tokens, and terminalizes with derived settlement",
         { tags: "p0" },
         () => {
             const value = harness();

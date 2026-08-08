@@ -111,7 +111,7 @@ describe("W5 adversarial invariants", () => {
     );
 
     it(
-        "[C13-TURN-EFFECT-ATTEMPT-WRITER] rejects nonfresh ordinary Turn genesis",
+        "[C13-TURN-EXECUTOR-WRITER] rejects nonfresh ordinary Turn genesis",
         { tags: "p0" },
         () => {
             const value = harness();

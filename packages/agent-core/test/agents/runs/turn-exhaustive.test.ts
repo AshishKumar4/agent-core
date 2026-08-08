@@ -37,7 +37,7 @@ function expectCode(operation: () => unknown, code: AgentCoreError["code"]): voi
 
 describe("TurnStatus complete transition matrix", () => {
     it(
-        "[C13-TURN-CHILD-RUN-WRITER] rejects every illegal queued, running, suspended, and terminal transition",
+        "[C13-TURN-EXECUTOR-WRITER] rejects every illegal queued, running, suspended, and terminal transition",
         { tags: "p1" },
         () => {
             expectCode(() => TurnStatus.queued.suspend(), "turn.invalid-state");

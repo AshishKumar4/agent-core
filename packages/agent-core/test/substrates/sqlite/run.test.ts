@@ -528,7 +528,7 @@ describe("SQLite Run storage", () => {
     );
 
     it(
-        "[C13-TURN-CHECKPOINT-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS",
+        "[C13-TURN-EXECUTOR-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS",
         { tags: "p0" },
         () => {
             assertAcrossRunStorages(assertCheckpointWriterBehavior);
@@ -544,7 +544,7 @@ describe("SQLite Run storage", () => {
     );
 
     it(
-        "[C13-TURN-TERMINAL-RESULT-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse",
+        "[C13-TURN-EXECUTOR-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse",
         { tags: "p0" },
         () => {
             assertAcrossRunStorages(assertTerminalResultWriterBehavior);

@@ -122,7 +122,7 @@ function synthesize(id = "synthesize"): RunCommit {
 
 describe("closed commit writer matrix", () => {
     it(
-        "[C13-TURN-RUN-COMMIT-WRITER] accepts root and exact Turn writers and rejects forged writer pairs",
+        "[C13-TURN-EXECUTOR-WRITER] accepts root and exact Turn writers and rejects forged writer pairs",
         { tags: "p0" },
         () => {
             const value = harness();
@@ -492,7 +492,7 @@ describe("closed RunCommit shapes", () => {
     };
 
     it(
-        "[C13-RUN-BINARY-MERGE] rejects invalid root, merge, and unary arities",
+        "[C13-RUN-GRAPH-ARITY] rejects invalid root, merge, and unary arities",
         { tags: "p0" },
         () => {
             expectShapeError({
@@ -528,7 +528,7 @@ describe("closed RunCommit shapes", () => {
     );
 
     it(
-        "[C13-TURN-INVOCATION-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits",
+        "[C13-TURN-EXECUTOR-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits",
         { tags: "p0" },
         () => {
             const cases: RunCommitInit[] = [

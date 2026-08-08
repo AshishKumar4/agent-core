@@ -149,7 +149,7 @@ requirement("P11-ENVIRONMENT-DISPOSE", () => {
     expect(ENVIRONMENT_EVENTS).toEqual([]);
 });
 requirement("P11-ENVIRONMENT-NO-BASE-EVENTS", () => expect(ENVIRONMENT_EVENTS).toEqual([]));
-requirement("P11-ENVIRONMENT-NO-BASE-IMPACTS", () => {
+requirement("P11-ENVIRONMENT-FAIL-CLOSED", () => {
     expect(ENVIRONMENT_OPERATIONS.map((value) => value.impact)).toEqual([]);
 });
 requirement("P11-ENVIRONMENT-NO-BASE-OPERATIONS", () => {
