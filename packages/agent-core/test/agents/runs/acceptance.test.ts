@@ -147,9 +147,24 @@ describe("Run acceptance criteria", () => {
                     value.repository.loadAcceptanceCriterion(tx, firstId)
                 )
             ).toEqual(criterion(firstId));
-            const duplicate = value.runtime.reserveRunObligation(ids.run, obligations[0]!);
-            expect(duplicate.registryEpoch).toBe(0);
-            expect(value.runtime.acceptsRunAdmission(duplicate)).toBe(true);
+            // The generic obligation paths serve every kind uniformly, so acceptance has to
+            // be carved out of both: a uniform completion would discharge a criterion with
+            // no verdict at all and make "completes exactly when" false.
+            expect(() => value.runtime.reserveRunObligation(ids.run, obligations[0]!)).toThrow(
+                /reserved when the Run declares them at open/
+            );
+            expect(() =>
+                value.runtime.completeRunObligation({
+                    run: ids.run,
+                    registryEpoch: 0,
+                    obligation: obligations[0]!
+                })
+            ).toThrow(/discharges only through a recorded verdict/);
+            expect(frontierKeys(value)).toEqual(
+                [...obligations]
+                    .map(runObligationKey)
+                    .sort((left, right) => left.localeCompare(right))
+            );
 
             attempted(value, "verifier-pass", "succeeded");
             value.runtime.recordAcceptanceVerdict(

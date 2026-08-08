@@ -225,6 +225,10 @@ export class RunRuntime<Transaction> {
         obligation: RunObligation
     ): RunAdmissionReservation {
         this.requireActiveRun(tx, run);
+        requireNonAcceptanceObligation(
+            obligation,
+            "Acceptance criteria are reserved when the Run declares them at open"
+        );
         const registry = this.requireAdmission(tx, run);
         const reserved = registry.reserve(obligation);
         if (reserved.registry !== registry) {
@@ -243,6 +247,10 @@ export class RunRuntime<Transaction> {
         tx: Transaction,
         reservation: RunAdmissionReservation
     ): void {
+        requireNonAcceptanceObligation(
+            reservation.obligation,
+            "An acceptance obligation discharges only through a recorded verdict"
+        );
         const registry = this.requireAdmission(tx, reservation.run);
         const completed = registry.complete(reservation);
         if (completed !== registry) this.repository.replaceAdmission(tx, registry, completed);
@@ -1371,4 +1379,16 @@ function invalidRun(message: string): AgentCoreError {
 
 function invalidTurn(message: string): AgentCoreError {
     return new AgentCoreError("turn.invalid-state", message);
+}
+
+/**
+ * The generic reserve and complete paths serve every obligation kind uniformly, which is
+ * exactly why acceptance has to be carved out of them: §5.2 says an acceptance obligation
+ * completes *exactly when* a succeeded verifier Receipt names the current head tree
+ * digest, and a uniform completion would discharge one with no verdict at all.
+ */
+function requireNonAcceptanceObligation(obligation: RunObligation, message: string): void {
+    if (obligation.kind === "acceptance") {
+        throw new AgentCoreError("run.invalid-state", message);
+    }
 }
