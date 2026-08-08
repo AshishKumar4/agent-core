@@ -540,34 +540,6 @@ def ExactAuditObligationDischarged (state : SystemState) (auditId : AuditId)
     entry.actor = actor ∧ entry.kind = kind ∧ entry.cause = cause ∧
     LocalCauseValid state.audit entry ∧ CausalChain state.events state.audit auditId
 
-/-- A verdict *satisfies* a criterion at a subject when it names that criterion, its
-    subject is exactly that subject, and it names an attempted Receipt whose recorded
-    outcome is `succeeded`. The receipt lookup binds the verdict to the §7 audit chain, so
-    no actor can assert a verdict it did not earn (§5.2). -/
-def AcceptanceVerdict.Satisfies (state : SystemState) (verdict : AcceptanceVerdict)
-    (accId : AcceptanceId) (subject : TreeId) : Prop :=
-  verdict.acceptance = accId ∧ verdict.subject = subject ∧
-    ∃ record, state.effects.attemptReceipts verdict.receipt = some record ∧
-      record.outcome = .succeeded
-
-/-- A declared acceptance obligation is discharged exactly when the Run holds a current
-    satisfying verdict: a verdict for that criterion whose subject is the Run's current
-    head tree digest and whose named attempt Receipt succeeded (§5.2). -/
-def AcceptanceObligationDischarged (state : SystemState) (run : RunId)
-    (accId : AcceptanceId) : Prop :=
-  ∃ criterion subject verdict,
-    criterion ∈ state.graph.acceptanceCriteria run ∧ criterion.id = accId ∧
-    state.graph.headTree run = some subject ∧
-    verdict ∈ state.graph.acceptanceVerdicts accId ∧
-    verdict.Satisfies state accId subject
-
-/-- A further verifier attempt is admissible only against a subject that no recorded
-    verdict for the criterion names; changed input, never elapsed time, unblocks it (§5.2). -/
-def AcceptanceRetryAdmissible (state : SystemState) (accId : AcceptanceId)
-    (subject : TreeId) : Prop :=
-  ∀ verdict ∈ state.graph.acceptanceVerdicts accId, verdict.acceptance = accId →
-    verdict.subject ≠ subject
-
 def ObligationDischarged (state : SystemState) (run : RunId) : OpenObligation → Prop
   | .approval approval => ApprovalObligationClosed state approval
   | .item invocation index key => ∃ prepared item outcome auditId,
@@ -589,7 +561,7 @@ def ObligationDischarged (state : SystemState) (run : RunId) : OpenObligation �
       entry.actor = .run (actorTenantOf entry.actor) commit.run ∧
       entry.kind = .commit commitId evidence ∧ LocalCauseValid state.audit entry ∧
       CausalChain state.events state.audit auditId
-  | .acceptance accId => AcceptanceObligationDischarged state run accId
+  | .acceptance accId => AcceptanceObligationDischarged state.graph state.effects run accId
 
 def Settled (state : SystemState) (run : RunId) : Prop :=
   (∃ record snapshot, state.graph.runs run = some record ∧ record.status = .terminal ∧
@@ -969,50 +941,10 @@ theorem settled_has_coherent_snapshot_and_exact_obligations {state run}
 theorem acceptance_unsatisfied_not_settled {state run accId snapshot}
     (snapshotLookup : state.graph.terminalSnapshots run = some snapshot)
     (captured : OpenObligation.acceptance accId ∈ snapshot.obligations)
-    (unsatisfied : ¬ AcceptanceObligationDischarged state run accId) :
+    (unsatisfied : ¬ AcceptanceObligationDischarged state.graph state.effects run accId) :
     ¬ Settled state run := by
   intro settled
   obtain ⟨_, _, _, _, obligations, _⟩ := settled
   exact unsatisfied (obligations snapshot snapshotLookup _ captured)
-
-/-- Discharging an acceptance obligation requires a recorded verdict that names exactly the
-    Run's current head tree digest and a succeeded attempt Receipt: the whole evidence, not
-    a bare assertion (§5.2, C13-RUN-ACCEPTANCE-OBLIGATION). -/
-theorem acceptance_discharge_requires_succeeded_verdict_at_head {state run accId}
-    (discharged : AcceptanceObligationDischarged state run accId) :
-    ∃ subject verdict record,
-      state.graph.headTree run = some subject ∧
-      verdict ∈ state.graph.acceptanceVerdicts accId ∧
-      verdict.acceptance = accId ∧ verdict.subject = subject ∧
-      state.effects.attemptReceipts verdict.receipt = some record ∧
-      record.outcome = .succeeded := by
-  obtain ⟨_, subject, verdict, _, _, headLookup, verdictMem,
-    vAcc, vSubj, record, recLookup, recOutcome⟩ := discharged
-  exact ⟨subject, verdict, record, headLookup, verdictMem, vAcc, vSubj, recLookup, recOutcome⟩
-
-/-- A verdict is evidence for its exact subject and nothing else: if no recorded verdict
-    names the Run's current head tree digest, the obligation is not discharged, whatever
-    other subjects earlier verdicts named (§5.2, C13-RUN-ACCEPTANCE-SUBJECT). -/
-theorem acceptance_verdict_only_for_its_subject {state run accId subject}
-    (headLookup : state.graph.headTree run = some subject)
-    (noVerdictAtHead : ∀ verdict ∈ state.graph.acceptanceVerdicts accId,
-      verdict.acceptance = accId → verdict.subject ≠ subject) :
-    ¬ AcceptanceObligationDischarged state run accId := by
-  intro discharged
-  obtain ⟨_, subject', verdict, _, _, headLookup', verdictMem, vAcc, vSubj, _⟩ := discharged
-  rw [headLookup] at headLookup'
-  exact noVerdictAtHead verdict verdictMem vAcc
-    (by rw [vSubj]; exact (Option.some.inj headLookup').symm)
-
-/-- While a criterion holds a verdict naming the current head tree digest, a further attempt
-    against that same digest is inadmissible: the system MUST NOT run the verifier again
-    against inputs it has not moved (§5.2, C13-RUN-ACCEPTANCE-SUBJECT). -/
-theorem acceptance_current_verdict_blocks_retry {state accId subject verdict}
-    (verdictMem : verdict ∈ state.graph.acceptanceVerdicts accId)
-    (vAcc : verdict.acceptance = accId)
-    (vSubj : verdict.subject = subject) :
-    ¬ AcceptanceRetryAdmissible state accId subject := by
-  intro admissible
-  exact admissible verdict verdictMem vAcc vSubj
 
 end AgentCore

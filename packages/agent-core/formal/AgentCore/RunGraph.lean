@@ -69,6 +69,23 @@ inductive RunStatus where | active | terminal deriving DecidableEq, Repr
 inductive TurnStatus where | queued | running | suspended | succeeded | failed | cancelled
   deriving DecidableEq, Repr
 
+/-- An acceptance criterion a Run declares when it opens: an ordinary Operation that
+    decides whether the work is done (§5.2). -/
+structure AcceptanceCriterion where
+  id : AcceptanceId
+  operation : OperationId
+  deriving DecidableEq, Repr
+
+/-- An acceptance verdict earned by the verifier: it names the head tree digest the
+    verifier saw and the attempted Receipt that carries the §7 admission and audit chain. -/
+structure AcceptanceVerdict where
+  acceptance : AcceptanceId
+  subject : TreeId
+  receipt : ReceiptId
+  deriving DecidableEq, Repr
+
+/-- A Run declares its acceptance criteria when it opens and never afterwards, so the
+    declared set is part of the Run record rather than a table anything can rewrite. -/
 structure Run where
   tenant : TenantId
   workspace : WorkspaceId
@@ -78,6 +95,7 @@ structure Run where
   rootBranch : BranchId
   parent : Option RunId
   status : RunStatus
+  acceptance : List AcceptanceCriterion
   deriving DecidableEq, Repr
 
 structure Turn where
@@ -139,6 +157,9 @@ inductive CommitWriter where
   | system (cause : SystemCause)
   deriving DecidableEq, Repr
 
+/-- `treeCheckpoint` is the tree this commit leaves at its branch head, when it leaves one;
+    the Run's head tree digest is read off it, so acceptance subjects are trees the Run's own
+    commit graph produced rather than free-floating digests. -/
 structure RunCommit where
   run : RunId
   branch : BranchId
@@ -147,21 +168,7 @@ structure RunCommit where
   parents : List CommitId
   subjectTurn : Option TurnId
   kind : RunCommitKind
-  deriving DecidableEq, Repr
-
-/-- An acceptance criterion a Run declares when it opens: an ordinary Operation that
-    decides whether the work is done (§5.2). -/
-structure AcceptanceCriterion where
-  id : AcceptanceId
-  operation : OperationId
-  deriving DecidableEq, Repr
-
-/-- An acceptance verdict earned by the verifier: it names the head tree digest the
-    verifier saw and the attempted Receipt that carries the §7 admission and audit chain. -/
-structure AcceptanceVerdict where
-  acceptance : AcceptanceId
-  subject : TreeId
-  receipt : ReceiptId
+  treeCheckpoint : Option TreeId
   deriving DecidableEq, Repr
 
 inductive OpenObligation where
@@ -172,6 +179,14 @@ inductive OpenObligation where
   | systemCommit (commit : CommitId)
   | acceptance (id : AcceptanceId)
   deriving DecidableEq, Repr
+
+/-- The generic reserve and complete paths serve every obligation kind uniformly, which is
+    exactly why acceptance has to be carved out of them: an acceptance obligation is reserved
+    when the Run declares it at open and discharges only through a recorded satisfying
+    verdict, so a uniform completion would discharge one with no verdict at all. -/
+def OpenObligation.NotAcceptance : OpenObligation → Prop
+  | .acceptance _ => False
+  | _ => True
 
 structure TerminalSnapshot where
   run : RunId
@@ -226,15 +241,85 @@ structure GraphStore where
   terminalSnapshots : RunId → Option TerminalSnapshot
   forcedCancellations : TurnId → Option ForcedCancellation
   terminalizing : RunId → Option TerminalizationControl
-  headTree : RunId → Option TreeId
-  acceptanceCriteria : RunId → List AcceptanceCriterion
   acceptanceVerdicts : AcceptanceId → List AcceptanceVerdict
   conflicts : RunId → Prop
 
 instance : Inhabited GraphStore where
   default := ⟨fun _ => none, fun _ => none, fun _ => none, fun _ => none,
     fun _ => none, fun _ => none, fun _ => none, fun _ => none, fun _ => none,
-    fun _ => none, fun _ => [], fun _ => [], fun _ => False⟩
+    fun _ => [], fun _ => False⟩
+
+/-- The criteria a Run declared at open. Nothing else can name one, and no transition can
+    add one afterwards. -/
+def GraphStore.acceptanceCriteria (store : GraphStore) (run : RunId) : List AcceptanceCriterion :=
+  match store.runs run with
+  | none => []
+  | some record => record.acceptance
+
+/-- `store.HeadTree run tree` reads the Run's current head tree off the graph: the tree
+    checkpoint of the Run's own commit at the head of its root branch. It is functional in
+    `tree` and moves whenever the Run appends a checkpointing commit to that branch. -/
+def GraphStore.HeadTree (store : GraphStore) (run : RunId) (tree : TreeId) : Prop :=
+  ∃ record head commit,
+    store.runs run = some record ∧ store.heads record.rootBranch = some head ∧
+    store.commits head = some commit ∧ commit.run = run ∧ commit.treeCheckpoint = some tree
+
+/-- A further verifier attempt is admissible only against a subject that no recorded
+    verdict for the criterion names; changed input, never elapsed time, unblocks it (§5.2). -/
+def GraphStore.AcceptanceRetryAdmissible (store : GraphStore) (accId : AcceptanceId)
+    (subject : TreeId) : Prop :=
+  ∀ verdict ∈ store.acceptanceVerdicts accId, verdict.acceptance = accId →
+    verdict.subject ≠ subject
+
+def GraphStore.recordVerdict (store : GraphStore) (verdict : AcceptanceVerdict) : GraphStore :=
+  { store with
+    acceptanceVerdicts := fun candidate =>
+      if candidate = verdict.acceptance then verdict :: store.acceptanceVerdicts candidate
+      else store.acceptanceVerdicts candidate }
+
+/-- The Receipt a verdict names must be an attempted Receipt of the criterion's own declared
+    verifier Operation, with the stated outcome. Without the Operation binding the declared
+    verifier would be decoration and any succeeded Receipt would discharge any criterion. -/
+def VerifierReceipt (effects : EffectLedger) (receiptId : ReceiptId) (verifier : OperationId)
+    (outcome : AttemptOutcome) : Prop :=
+  ∃ receipt attempt prepared,
+    effects.attemptReceipts receiptId = some receipt ∧ receipt.outcome = outcome ∧
+    effects.attempts receipt.attempt = some attempt ∧
+    effects.invocations attempt.invocation = some prepared ∧
+    prepared.header.operation = verifier
+
+/-- A verdict *satisfies* a criterion at a subject when it names that criterion, its subject
+    is exactly that subject, and it names an attempted Receipt of the criterion's declared
+    verifier whose recorded outcome is `succeeded`. The receipt lookup binds the verdict to
+    the §7 audit chain, so no actor can assert a verdict it did not earn (§5.2). -/
+def AcceptanceVerdict.Satisfies (effects : EffectLedger) (verdict : AcceptanceVerdict)
+    (accId : AcceptanceId) (verifier : OperationId) (subject : TreeId) : Prop :=
+  verdict.acceptance = accId ∧ verdict.subject = subject ∧
+    VerifierReceipt effects verdict.receipt verifier .succeeded
+
+/-- A declared acceptance obligation is discharged exactly when the Run holds a current
+    satisfying verdict: a verdict for that criterion whose subject is the Run's current head
+    tree and whose named verifier Receipt succeeded (§5.2). -/
+def AcceptanceObligationDischarged (store : GraphStore) (effects : EffectLedger) (run : RunId)
+    (accId : AcceptanceId) : Prop :=
+  ∃ criterion subject verdict,
+    criterion ∈ store.acceptanceCriteria run ∧ criterion.id = accId ∧
+    store.HeadTree run subject ∧
+    verdict ∈ store.acceptanceVerdicts accId ∧
+    verdict.Satisfies effects accId criterion.operation subject
+
+/-- What survives in the store once a discharge has happened and the head has moved on: the
+    Run still holds the recorded verdict, still backed by a succeeded Receipt of the
+    criterion's own verifier, and its subject is still a tree one of the Run's own commits
+    checkpointed. -/
+def AcceptanceDischargeEvidenced (store : GraphStore) (effects : EffectLedger) (run : RunId)
+    (accId : AcceptanceId) : Prop :=
+  ∃ criterion verdict commitId commit,
+    criterion ∈ store.acceptanceCriteria run ∧ criterion.id = accId ∧
+    verdict ∈ store.acceptanceVerdicts accId ∧
+    verdict.Satisfies effects accId criterion.operation verdict.subject ∧
+    store.commits commitId = some commit ∧ commit.run = run ∧
+    commit.treeCheckpoint = some verdict.subject
 
 def AdmissionReservation.ValidIn (reservation : AdmissionReservation)
     (store : GraphStore) : Prop :=
@@ -451,6 +536,8 @@ inductive GraphLabel where
   | migrate (run : RunId) (id expected : CommitId) (commit : RunCommit)
   | reserveObligation (run : RunId) (epoch : Nat) (obligation : OpenObligation)
   | completeObligation (run : RunId) (epoch : Nat) (obligation : OpenObligation)
+  | recordAcceptanceVerdict (run : RunId) (verdict : AcceptanceVerdict)
+  | dischargeAcceptance (run : RunId) (acceptance : AcceptanceId)
   | beginTerminalization (run : RunId) (turn : TurnId) (receipt : ReceiptId)
   | forceCancelSibling (run : RunId) (terminalTurn sibling : TurnId)
   | terminalize (run : RunId) (turn : TurnId) (id expected : CommitId)
@@ -471,7 +558,9 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
     GraphStore → GraphLabel → GraphStore → Prop
   | startRun {store runId run rootId root cause} :
       store.runs runId = none → store.branches run.rootBranch = none → store.commits rootId = none →
+      store.admissionRegistry runId = none →
       run.root = rootId → run.status = .active → run.pins.Valid run.agent →
+      (run.acceptance.map AcceptanceCriterion.id).Nodup →
       root.run = runId → root.branch = run.rootBranch →
       root.pins = run.pins → root.writer = .root cause → root.parents = [] → root.kind = .root →
       AuditCauseExists audit cause runId →
@@ -481,7 +570,8 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
         branches := tableSet store.branches run.rootBranch ⟨runId⟩
         commits := tableSet store.commits rootId root
         heads := tableSet store.heads run.rootBranch rootId
-        admissionRegistry := tableSet store.admissionRegistry runId ⟨0, true, [], []⟩ }
+        admissionRegistry := tableSet store.admissionRegistry runId
+          ⟨0, true, run.acceptance.map (fun criterion => .acceptance criterion.id), []⟩ }
   | startTurn {store id turn run branch} :
       store.turns id = none → store.runs turn.run = some run → run.status = .active →
       store.branches turn.branch = some branch → branch.run = turn.run →
@@ -508,7 +598,9 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
       store.turns parentId = some parent → parent.status = .running → token.turn = parentId →
       parent.lease.Admits token now → store.runs childId = none →
       store.branches child.rootBranch = none → store.commits rootId = none →
+      store.admissionRegistry childId = none →
       child.parent = some parent.run → child.root = rootId → child.status = .active →
+      (child.acceptance.map AcceptanceCriterion.id).Nodup →
       root.run = childId → root.branch = child.rootBranch → root.pins = child.pins →
       root.writer = .root cause → root.parents = [] → root.kind = .root →
       AuditCauseExists audit cause childId →
@@ -517,7 +609,9 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
         runs := tableSet store.runs childId child
         branches := tableSet store.branches child.rootBranch ⟨childId⟩
         commits := tableSet store.commits rootId root
-        heads := tableSet store.heads child.rootBranch rootId }
+        heads := tableSet store.heads child.rootBranch rootId
+        admissionRegistry := tableSet store.admissionRegistry childId
+          ⟨0, true, child.acceptance.map (fun criterion => .acceptance criterion.id), []⟩ }
   | append {store id expected commit run branch now} :
       store.commits id = none → store.runs commit.run = some run → run.status = .active →
       store.branches commit.branch = some branch → branch.run = commit.run →
@@ -542,15 +636,35 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
   | reserveObligation {store runId run registry obligation} :
       store.runs runId = some run → run.status = .active →
       store.admissionRegistry runId = some registry → registry.accepting = true →
+      obligation.NotAcceptance →
       obligation ∉ registry.reserved → obligation ∉ registry.completed →
       GraphStep effects events audit store (.reserveObligation runId registry.epoch obligation)
         (store.reserve runId registry obligation)
   | completeObligation {store runId run registry obligation} :
       store.runs runId = some run → run.status = .active →
       store.admissionRegistry runId = some registry → registry.accepting = true →
+      obligation.NotAcceptance →
       obligation ∈ registry.reserved → obligation ∉ registry.completed →
       GraphStep effects events audit store (.completeObligation runId registry.epoch obligation)
         (store.complete runId registry obligation)
+  | recordAcceptanceVerdict {store runId run criterion registry verdict outcome} :
+      store.runs runId = some run → run.status = .active →
+      criterion ∈ run.acceptance → criterion.id = verdict.acceptance →
+      store.admissionRegistry runId = some registry → registry.accepting = true →
+      OpenObligation.acceptance verdict.acceptance ∈ registry.reserved →
+      OpenObligation.acceptance verdict.acceptance ∉ registry.completed →
+      store.AcceptanceRetryAdmissible verdict.acceptance verdict.subject →
+      VerifierReceipt effects verdict.receipt criterion.operation outcome →
+      GraphStep effects events audit store (.recordAcceptanceVerdict runId verdict)
+        (store.recordVerdict verdict)
+  | dischargeAcceptance {store runId run registry accId} :
+      store.runs runId = some run → run.status = .active →
+      store.admissionRegistry runId = some registry → registry.accepting = true →
+      OpenObligation.acceptance accId ∈ registry.reserved →
+      OpenObligation.acceptance accId ∉ registry.completed →
+      AcceptanceObligationDischarged store effects runId accId →
+      GraphStep effects events audit store (.dischargeAcceptance runId accId)
+        (store.complete runId registry (.acceptance accId))
   | beginTerminalization {store runId turnId receipt cause run turn} :
       store.runs runId = some run → run.status = .active → store.turns turnId = some turn →
       turn.run = runId → turn.status = .running → turn.pins.runPins = run.pins →
@@ -821,6 +935,162 @@ theorem terminal_snapshot_has_no_omission_or_extra
   refine ⟨_, _, ‹_›, tableSet_self .., ?_⟩
   intro obligation
   simp_all [RunAdmissionRegistry.outstanding]
+
+/-! ## Acceptance obligations over the transition system
+
+An acceptance criterion enters the admission registry only when its Run opens, and leaves it
+only through `dischargeAcceptance`, whose precondition is the whole satisfying verdict. The
+generic reserve and complete paths refuse acceptance outright, which is what stops a
+reserve-then-complete pair from emptying the frontier with no verdict behind it. -/
+
+theorem generic_reservation_refuses_acceptance
+    {effects events audit before after run epoch accId} :
+    ¬ GraphStep effects events audit before
+      (.reserveObligation run epoch (.acceptance accId)) after := by
+  intro step
+  cases step
+  simp [OpenObligation.NotAcceptance] at *
+
+theorem generic_completion_refuses_acceptance
+    {effects events audit before after run epoch accId} :
+    ¬ GraphStep effects events audit before
+      (.completeObligation run epoch (.acceptance accId)) after := by
+  intro step
+  cases step
+  simp [OpenObligation.NotAcceptance] at *
+
+theorem run_start_reserves_exactly_declared_acceptance
+    {effects events audit before after run root}
+    (step : GraphStep effects events audit before (.startRun run root) after) :
+    ∃ record registry, after.runs run = some record ∧
+      after.admissionRegistry run = some registry ∧ registry.completed = [] ∧
+      (record.acceptance.map AcceptanceCriterion.id).Nodup ∧
+      ∀ obligation, obligation ∈ registry.reserved ↔
+        ∃ criterion ∈ record.acceptance, OpenObligation.acceptance criterion.id = obligation := by
+  cases step
+  refine ⟨_, _, tableSet_self .., tableSet_self .., rfl, ‹_›, ?_⟩
+  intro obligation
+  simp [List.mem_map]
+
+theorem spawn_child_reserves_exactly_declared_acceptance
+    {effects events audit before after parent child root}
+    (step : GraphStep effects events audit before (.spawnChild parent child root) after) :
+    ∃ record registry, after.runs child = some record ∧
+      after.admissionRegistry child = some registry ∧ registry.completed = [] ∧
+      (record.acceptance.map AcceptanceCriterion.id).Nodup ∧
+      ∀ obligation, obligation ∈ registry.reserved ↔
+        ∃ criterion ∈ record.acceptance, OpenObligation.acceptance criterion.id = obligation := by
+  cases step
+  refine ⟨_, _, tableSet_self .., tableSet_self .., rfl, ‹_›, ?_⟩
+  intro obligation
+  simp [List.mem_map]
+
+theorem acceptance_discharge_step_requires_satisfying_verdict
+    {effects events audit before after run accId}
+    (step : GraphStep effects events audit before (.dischargeAcceptance run accId) after) :
+    AcceptanceObligationDischarged before effects run accId ∧
+    ∃ registry, before.admissionRegistry run = some registry ∧ registry.accepting = true ∧
+      OpenObligation.acceptance accId ∈ registry.reserved ∧
+      OpenObligation.acceptance accId ∉ registry.completed ∧
+      ∃ closed, after.admissionRegistry run = some closed ∧
+        OpenObligation.acceptance accId ∈ closed.completed := by
+  cases step
+  refine ⟨‹_›, _, ‹_›, ‹_›, ‹_›, ‹_›, _, tableSet_self .., ?_⟩
+  simp [RunAdmissionRegistry.complete]
+
+theorem acceptance_verdict_step_requires_declared_verifier_receipt
+    {effects events audit before after run verdict}
+    (step : GraphStep effects events audit before (.recordAcceptanceVerdict run verdict) after) :
+    ∃ record criterion outcome, before.runs run = some record ∧
+      criterion ∈ record.acceptance ∧ criterion.id = verdict.acceptance ∧
+      VerifierReceipt effects verdict.receipt criterion.operation outcome ∧
+      before.AcceptanceRetryAdmissible verdict.acceptance verdict.subject ∧
+      verdict ∈ after.acceptanceVerdicts verdict.acceptance := by
+  cases step
+  refine ⟨_, _, _, ‹_›, ‹_›, ‹_›, ‹_›, ‹_›, ?_⟩
+  simp [GraphStore.recordVerdict]
+
+/-- While a criterion holds a verdict naming a subject, a further attempt against that same
+    subject is inadmissible: the system MUST NOT run the verifier again against inputs it has
+    not moved (§5.2, C13-RUN-ACCEPTANCE-SUBJECT). -/
+theorem acceptance_current_verdict_blocks_retry {store : GraphStore} {accId subject verdict}
+    (verdictMem : verdict ∈ store.acceptanceVerdicts accId)
+    (vAcc : verdict.acceptance = accId)
+    (vSubj : verdict.subject = subject) :
+    ¬ store.AcceptanceRetryAdmissible accId subject := by
+  intro admissible
+  exact admissible verdict verdictMem vAcc vSubj
+
+/-- A subject that already holds a verdict for the criterion admits no further verifier
+    attempt: the recording transition itself is unavailable, not merely inadvisable. -/
+theorem recorded_verdict_blocks_repeat_verdict_step
+    {effects events audit before after run verdict recorded}
+    (recordedMem : recorded ∈ before.acceptanceVerdicts verdict.acceptance)
+    (sameCriterion : recorded.acceptance = verdict.acceptance)
+    (sameSubject : recorded.subject = verdict.subject) :
+    ¬ GraphStep effects events audit before (.recordAcceptanceVerdict run verdict) after := by
+  intro step
+  obtain ⟨_, _, _, _, _, _, _, admissible, _⟩ :=
+    acceptance_verdict_step_requires_declared_verifier_receipt step
+  exact acceptance_current_verdict_blocks_retry recordedMem sameCriterion sameSubject admissible
+
+/-- Discharging an acceptance obligation requires a recorded verdict that names exactly the
+    Run's current head tree and a succeeded attempt Receipt of the criterion's own declared
+    verifier Operation: the whole evidence, not a bare assertion (§5.2,
+    C13-RUN-ACCEPTANCE-OBLIGATION). -/
+theorem acceptance_discharge_requires_succeeded_verdict_at_head {store effects run accId}
+    (discharged : AcceptanceObligationDischarged store effects run accId) :
+    ∃ criterion subject verdict,
+      criterion ∈ store.acceptanceCriteria run ∧ criterion.id = accId ∧
+      store.HeadTree run subject ∧
+      verdict ∈ store.acceptanceVerdicts accId ∧
+      verdict.acceptance = accId ∧ verdict.subject = subject ∧
+      VerifierReceipt effects verdict.receipt criterion.operation .succeeded := by
+  obtain ⟨criterion, subject, verdict, declared, criterionId, headTree, verdictMem,
+    vAcc, vSubj, receipt⟩ := discharged
+  exact ⟨criterion, subject, verdict, declared, criterionId, headTree, verdictMem,
+    vAcc, vSubj, receipt⟩
+
+/-- A Run has at most one current head tree, so "the subject the verdict names" and "the tree
+    the Run is at" cannot both be satisfied by two different digests. -/
+theorem head_tree_is_unique {store : GraphStore} {run left right}
+    (leftHead : store.HeadTree run left) (rightHead : store.HeadTree run right) : left = right := by
+  obtain ⟨record, head, commit, runLookup, headLookup, commitLookup, _, checkpoint⟩ := leftHead
+  obtain ⟨_, _, _, runLookup', headLookup', commitLookup', _, checkpoint'⟩ := rightHead
+  rw [runLookup] at runLookup'
+  cases Option.some.inj runLookup'
+  rw [headLookup] at headLookup'
+  cases Option.some.inj headLookup'
+  rw [commitLookup] at commitLookup'
+  cases Option.some.inj commitLookup'
+  rw [checkpoint] at checkpoint'
+  exact Option.some.inj checkpoint'
+
+/-- A verdict is evidence for its exact subject and nothing else: if no recorded verdict names
+    the Run's current head tree, the obligation is not discharged, whatever other subjects
+    earlier verdicts named (§5.2, C13-RUN-ACCEPTANCE-SUBJECT). -/
+theorem acceptance_verdict_only_for_its_subject {store effects run accId subject}
+    (headLookup : store.HeadTree run subject)
+    (noVerdictAtHead : ∀ verdict ∈ store.acceptanceVerdicts accId,
+      verdict.acceptance = accId → verdict.subject ≠ subject) :
+    ¬ AcceptanceObligationDischarged store effects run accId := by
+  intro discharged
+  obtain ⟨_, subject', verdict, _, _, headLookup', verdictMem, vAcc, vSubj, _⟩ :=
+    acceptance_discharge_requires_succeeded_verdict_at_head discharged
+  exact noVerdictAtHead verdict verdictMem vAcc
+    (by rw [vSubj]; exact head_tree_is_unique headLookup' headLookup)
+
+/-- Discharging leaves the store carrying its own evidence: the verdict stays recorded, the
+    verifier Receipt stays succeeded, and the subject stays a tree one of the Run's commits
+    checkpointed, even after the head moves past it. -/
+theorem acceptance_discharge_leaves_evidence {store effects run accId}
+    (discharged : AcceptanceObligationDischarged store effects run accId) :
+    AcceptanceDischargeEvidenced store effects run accId := by
+  obtain ⟨criterion, subject, verdict, declared, criterionId, headTree, verdictMem, vAcc, vSubj,
+    receipt⟩ := acceptance_discharge_requires_succeeded_verdict_at_head discharged
+  obtain ⟨_, head, commit, _, _, commitLookup, commitRun, checkpoint⟩ := headTree
+  exact ⟨criterion, verdict, head, commit, declared, criterionId, verdictMem,
+    ⟨vAcc, rfl, receipt⟩, commitLookup, commitRun, by rw [vSubj]; exact checkpoint⟩
 
 theorem delivery_commit_matches_route {store effects events audit now commit operation reservation outcome}
     (allowed : CommitAllowed store effects events audit now commit)

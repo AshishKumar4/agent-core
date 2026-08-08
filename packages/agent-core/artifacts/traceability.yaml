@@ -797,9 +797,9 @@
     },
     {
       "id": "AC-RUN-001",
-      "summary": "Valid Run pins/migration, stable-identity admission reserve/complete/close, exact outstanding frontier, sibling cancellation, settlement, and acceptance-criterion discharge by a succeeded verifier verdict at the current head tree digest",
+      "summary": "Valid Run pins/migration, stable-identity admission reserve/complete/close, exact outstanding frontier, sibling cancellation, settlement, and acceptance criteria reserved at Run open and dischargeable only through a recorded verdict of the criterion's declared verifier at the Run's own head tree",
       "status": "proved-component",
-      "boundary": "RunPins validate Agent identity and unique closure at creation and migration; source-record resolvability remains external. Registry obligations contain only pre-remote Approval, item-key, route, attempt, planned-commit, or acceptance-criterion identities; completion is reserved-only, and terminalization snapshots exactly reserved minus completed with membership equivalence. An acceptance obligation discharges only against a recorded verdict whose subject equals the Run's current head tree digest and whose named attempt Receipt succeeded, and retry is admissible only against a subject no recorded verdict names; the verifier Receipt's own §7 admission and audit chain, and concrete remote reservation enforcement and durable transactions, remain refinement obligations.",
+      "boundary": "RunPins validate Agent identity and unique closure at creation and migration; source-record resolvability remains external. Registry obligations contain only pre-remote Approval, item-key, route, attempt, planned-commit, or acceptance-criterion identities; completion is reserved-only, and terminalization snapshots exactly reserved minus completed with membership equivalence. Acceptance criteria are declared on the Run record, reserved by the startRun and spawnChild transitions, and refused by the generic reserve and complete transitions; the only discharge is the dischargeAcceptance transition, whose precondition is a recorded verdict for the criterion whose subject is the Run's own root-branch head tree checkpoint and whose named attempt Receipt succeeded under the criterion's declared verifier Operation, and a further verdict is admissible only against a subject no recorded verdict names. The verifier Receipt's own domain binding, its audit chain, and concrete remote reservation enforcement and durable transactions remain refinement obligations.",
       "definitions": [
         "AgentCore.RunPins",
         "AgentCore.RunPins.Valid",
@@ -838,7 +838,14 @@
         "AgentCore.AcceptanceVerdict",
         "AgentCore.AcceptanceVerdict.Satisfies",
         "AgentCore.AcceptanceObligationDischarged",
-        "AgentCore.AcceptanceRetryAdmissible"
+        "AgentCore.GraphLabel",
+        "AgentCore.OpenObligation.NotAcceptance",
+        "AgentCore.GraphStore.acceptanceCriteria",
+        "AgentCore.GraphStore.HeadTree",
+        "AgentCore.GraphStore.recordVerdict",
+        "AgentCore.GraphStore.AcceptanceRetryAdmissible",
+        "AgentCore.VerifierReceipt",
+        "AgentCore.AcceptanceDischargeEvidenced"
       ],
       "theorems": [
         "AgentCore.terminal_snapshot_is_coherent",
@@ -857,7 +864,15 @@
         "AgentCore.acceptance_unsatisfied_not_settled",
         "AgentCore.acceptance_discharge_requires_succeeded_verdict_at_head",
         "AgentCore.acceptance_verdict_only_for_its_subject",
-        "AgentCore.acceptance_current_verdict_blocks_retry"
+        "AgentCore.acceptance_current_verdict_blocks_retry",
+        "AgentCore.generic_reservation_refuses_acceptance",
+        "AgentCore.generic_completion_refuses_acceptance",
+        "AgentCore.run_start_reserves_exactly_declared_acceptance",
+        "AgentCore.spawn_child_reserves_exactly_declared_acceptance",
+        "AgentCore.acceptance_verdict_step_requires_declared_verifier_receipt",
+        "AgentCore.recorded_verdict_blocks_repeat_verdict_step",
+        "AgentCore.acceptance_discharge_step_requires_satisfying_verdict",
+        "AgentCore.acceptance_discharge_leaves_evidence"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_audit_complete_derived_settled",
@@ -874,7 +889,13 @@
         "AgentCore.Examples.nonvacuous_acceptance_verdict_wrong_subject",
         "AgentCore.Examples.nonvacuous_unsatisfied_acceptance_blocks_settled",
         "AgentCore.Examples.nonvacuous_acceptance_discharged_at_head",
-        "AgentCore.Examples.nonvacuous_acceptance_verdict_blocks_retry"
+        "AgentCore.Examples.nonvacuous_acceptance_verdict_blocks_retry",
+        "AgentCore.Examples.nonvacuous_acceptance_criteria_reserved_at_open",
+        "AgentCore.Examples.nonvacuous_child_acceptance_criteria_reserved_at_spawn",
+        "AgentCore.Examples.nonvacuous_acceptance_verdict_recorded",
+        "AgentCore.Examples.nonvacuous_acceptance_repeat_verdict_step_rejected",
+        "AgentCore.Examples.nonvacuous_acceptance_discharge_step",
+        "AgentCore.Examples.nonvacuous_acceptance_discharge_evidence"
       ],
       "witnessCoverage": {
         "AgentCore.terminal_snapshot_is_coherent": [
@@ -932,12 +953,36 @@
         ],
         "AgentCore.acceptance_current_verdict_blocks_retry": [
           "AgentCore.Examples.nonvacuous_acceptance_verdict_blocks_retry"
+        ],
+        "AgentCore.generic_reservation_refuses_acceptance": [
+          "AgentCore.Examples.nonvacuous_run_admission_reservation"
+        ],
+        "AgentCore.generic_completion_refuses_acceptance": [
+          "AgentCore.Examples.nonvacuous_run_admission_completion"
+        ],
+        "AgentCore.run_start_reserves_exactly_declared_acceptance": [
+          "AgentCore.Examples.nonvacuous_acceptance_criteria_reserved_at_open"
+        ],
+        "AgentCore.spawn_child_reserves_exactly_declared_acceptance": [
+          "AgentCore.Examples.nonvacuous_child_acceptance_criteria_reserved_at_spawn"
+        ],
+        "AgentCore.acceptance_verdict_step_requires_declared_verifier_receipt": [
+          "AgentCore.Examples.nonvacuous_acceptance_verdict_recorded"
+        ],
+        "AgentCore.recorded_verdict_blocks_repeat_verdict_step": [
+          "AgentCore.Examples.nonvacuous_acceptance_repeat_verdict_step_rejected"
+        ],
+        "AgentCore.acceptance_discharge_step_requires_satisfying_verdict": [
+          "AgentCore.Examples.nonvacuous_acceptance_discharge_step"
+        ],
+        "AgentCore.acceptance_discharge_leaves_evidence": [
+          "AgentCore.Examples.nonvacuous_acceptance_discharge_evidence"
         ]
       },
       "remainingEvidence": [
         "complete lifecycle, canonical obligation-key, and remote reservation validation conformance",
         "source-record resolvability and concrete RunPins, registry, migration, terminalization, cancellation inbox, and settlement refinement",
-        "concrete acceptance-criterion declaration, verifier Operation dispatch, verdict recording, and head-tree-digest computation in the owning implementation wave (C13-RUN-ACCEPTANCE-OBLIGATION, C13-RUN-ACCEPTANCE-SUBJECT)"
+        "concrete acceptance-criterion declaration at Run genesis, verifier Operation dispatch, verdict recording, and head-tree-digest computation in the owning implementation wave (C13-RUN-ACCEPTANCE-OBLIGATION, C13-RUN-ACCEPTANCE-SUBJECT)"
       ]
     },
     {
