@@ -4,12 +4,19 @@
 
 *AI tools have been used to shape parts of this document and the project. The ideas and concepts presented here are of my own, and they may change as I ideate further.*
 
-> **DRAFT — not the specification.** This is an alternate reading of `SPEC.md`, edited for
-> clarity and awaiting review. Normative clauses follow ASD-STE100 Simplified Technical
-> English; rationale keeps the author's voice. Every rule is meant to carry the exact
-> meaning it carries in `SPEC.md`: ambiguities were preserved rather than resolved, and
-> every atom id, cross-reference, code block, and table was verified byte-identical.
-> `SPEC.md` remains the specification until this draft is approved.
+> **DRAFT — superseded, do not apply.** This was an alternate reading of `SPEC.md`, edited
+> for clarity: normative clauses in ASD-STE100 Simplified Technical English, rationale in
+> the author's voice, ambiguities preserved rather than resolved. It was byte-identical on
+> atom ids, cross-references, code blocks, and tables **when written**, and it is not any
+> more. `SPEC.md` has since gained 20 atoms (391 here, 411 there) and a round of
+> corrections this draft never received, including the host-derived impact rule: this text
+> still says a discovered MCP resource is `observe` and the approval gateway's read is
+> `observe`, which are the exact defects that fix removed. Applying this draft as it stands
+> would reintroduce them.
+>
+> It is kept as the record of the STE style proposal, not as a candidate for merge. Judge
+> the style from it; regenerate it from current `SPEC.md` before any of it lands. `SPEC.md`
+> is and remains the specification.
 
 ---
 
