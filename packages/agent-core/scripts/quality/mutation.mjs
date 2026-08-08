@@ -18,9 +18,9 @@
 //                error codes and types, not prose; killing these would pin every message
 //                string without adding behavioral confidence.
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
 import { artifactRoot, packageRoot, readCanonicalJson, writeCanonicalJson } from "./project.mjs";
 
 const options = parseArguments(process.argv.slice(2));
@@ -189,51 +189,6 @@ if (options.update) {
         `mutation improved ${previous.actionable} -> ${summary.actionable}; ` +
             "review and re-run with --update from a clean tree"
     );
-}
-
-function sourceAreas() {
-    const sourceRoot = resolve(packageRoot, "src");
-    return readdirSync(sourceRoot, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() || (entry.isFile() && entry.name.endsWith(".ts")))
-        .map((entry) => (entry.isDirectory() ? entry.name : entry.name.slice(0, -3)))
-        .sort();
-}
-
-function mutationFingerprint(area) {
-    const files = [
-        ...typescriptFilesForArea(area),
-        ...walkTypeScript(resolve(packageRoot, "test")),
-        resolve(packageRoot, "package.json"),
-        resolve(packageRoot, "stryker.conf.mjs"),
-        resolve(packageRoot, "vitest.mutation.config.mjs"),
-        resolve(packageRoot, "../..", "pnpm-lock.yaml")
-    ].sort();
-    const hash = createHash("sha256");
-    for (const path of files) {
-        hash.update(relative(packageRoot, path).replaceAll("\\", "/"));
-        hash.update("\0");
-        hash.update(readFileSync(path));
-        hash.update("\0");
-    }
-    return `sha256:${hash.digest("hex")}`;
-}
-
-function typescriptFilesForArea(area) {
-    const directory = resolve(packageRoot, "src", area);
-    if (existsSync(directory) && statSync(directory).isDirectory())
-        return walkTypeScript(directory);
-    const file = resolve(packageRoot, "src", `${area}.ts`);
-    return existsSync(file) ? [file] : [];
-}
-
-function walkTypeScript(root) {
-    const files = [];
-    for (const entry of readdirSync(root, { withFileTypes: true })) {
-        const path = resolve(root, entry.name);
-        if (entry.isDirectory()) files.push(...walkTypeScript(path));
-        else if (entry.isFile() && entry.name.endsWith(".ts")) files.push(path);
-    }
-    return files;
 }
 
 function requireCleanWorktree() {
