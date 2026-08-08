@@ -92,96 +92,106 @@ function row(key: string, revision: number | null = null): SqliteStoredRunRecord
 }
 
 describe("SQLite Run storage", () => {
-    it("[run-storage-port] memory and SQLite satisfy one shared transaction and record contract", { tags: "p1" }, () => {
-        assertStorageContract(new MemoryRunStorage());
-        assertStorageContract(new SqliteRunStorage(new TestSqlite(), owner));
-    });
-
-    it("[MIGRATE-RUN-PINS] survives SQLite close and reopen with old and new Turn pins", { tags: "p0" }, () => {
-        const directory = mkdtempSync(join(tmpdir(), "run-migration-sqlite-"));
-        const path = join(directory, "migration.sqlite");
-        try {
-            const firstDatabase = new FileSqlite(path);
-            const first = sqliteRuntime(firstDatabase);
-            first.runtime.createRun(genesis());
-            const oldBranch = new RunBranch(
-                new RunBranchId("sqlite-old-pins"),
-                ids.run,
-                "sqlite-old-pins",
-                ids.root,
-                new Revision(0)
-            );
-            first.runtime.createBranch(ids.run, oldBranch, new Revision(0));
-            const oldTurnId = new TurnId("sqlite-pre-migration-turn");
-            createPinnedTurn(first.runtime, oldTurnId, oldBranch.id, ids.root, pins(), 0);
-
-            const current = configuration();
-            const nextPins = new RunPins({
-                ...current.pins,
-                agent: {
-                    ...current.pins.agent,
-                    revision: current.pins.agent.revision.next(),
-                    digest: digest("7")
-                }
-            });
-            const target = new RunConfigurationSnapshot({ pins: nextPins });
-            const migration = new RunCommit({
-                id: new RunCommitId("sqlite-migration"),
-                run: ids.run,
-                branch: ids.branch,
-                kind: "migration",
-                parents: [ids.root],
-                pins: nextPins,
-                writer: {
-                    kind: "system",
-                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-                },
-                receipt: refs.receipt,
-                migration: { from: current.pins, to: nextPins }
-            });
-            first.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
-                kind: "control",
-                run: ids.run,
-                receipt: refs.receipt,
-                audit: refs.audit,
-                proposalDigest: migration.proposalDigest.value
-            });
-            first.runtime.migrateRun(migration, target, new Revision(0), new Date(1000));
-            const newTurnId = new TurnId("sqlite-post-migration-turn");
-            createPinnedTurn(first.runtime, newTurnId, ids.branch, migration.id, nextPins, 1);
-            firstDatabase.close();
-
-            const reopenedDatabase = new FileSqlite(path);
-            const reopened = sqliteRuntime(reopenedDatabase);
-            expect(
-                reopened.repository.transaction((transaction) =>
-                    reopened.repository.loadTurn(transaction, oldTurnId)!.pins.equals(current.pins)
-                )
-            ).toBe(true);
-            expect(
-                reopened.repository.transaction((transaction) =>
-                    reopened.repository.loadTurn(transaction, newTurnId)!.pins.equals(nextPins)
-                )
-            ).toBe(true);
-            expect(
-                reopened.repository.transaction((transaction) =>
-                    reopened.repository
-                        .loadCommit(transaction, migration.id)
-                        ?.migration?.to.equals(nextPins)
-                )
-            ).toBe(true);
-            expect(
-                reopened.repository.transaction((transaction) =>
-                    reopened.repository
-                        .loadConfiguration(transaction, target.id.value)
-                        ?.id.equals(target.id)
-                )
-            ).toBe(true);
-            reopenedDatabase.close();
-        } finally {
-            rmSync(directory, { recursive: true, force: true });
+    it(
+        "[run-storage-port] memory and SQLite satisfy one shared transaction and record contract",
+        { tags: "p1" },
+        () => {
+            assertStorageContract(new MemoryRunStorage());
+            assertStorageContract(new SqliteRunStorage(new TestSqlite(), owner));
         }
-    });
+    );
+
+    it(
+        "[MIGRATE-RUN-PINS] survives SQLite close and reopen with old and new Turn pins",
+        { tags: "p0" },
+        () => {
+            const directory = mkdtempSync(join(tmpdir(), "run-migration-sqlite-"));
+            const path = join(directory, "migration.sqlite");
+            try {
+                const firstDatabase = new FileSqlite(path);
+                const first = sqliteRuntime(firstDatabase);
+                first.runtime.createRun(genesis());
+                const oldBranch = new RunBranch(
+                    new RunBranchId("sqlite-old-pins"),
+                    ids.run,
+                    "sqlite-old-pins",
+                    ids.root,
+                    new Revision(0)
+                );
+                first.runtime.createBranch(ids.run, oldBranch, new Revision(0));
+                const oldTurnId = new TurnId("sqlite-pre-migration-turn");
+                createPinnedTurn(first.runtime, oldTurnId, oldBranch.id, ids.root, pins(), 0);
+
+                const current = configuration();
+                const nextPins = new RunPins({
+                    ...current.pins,
+                    agent: {
+                        ...current.pins.agent,
+                        revision: current.pins.agent.revision.next(),
+                        digest: digest("7")
+                    }
+                });
+                const target = new RunConfigurationSnapshot({ pins: nextPins });
+                const migration = new RunCommit({
+                    id: new RunCommitId("sqlite-migration"),
+                    run: ids.run,
+                    branch: ids.branch,
+                    kind: "migration",
+                    parents: [ids.root],
+                    pins: nextPins,
+                    writer: {
+                        kind: "system",
+                        cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                    },
+                    receipt: refs.receipt,
+                    migration: { from: current.pins, to: nextPins }
+                });
+                first.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                    kind: "control",
+                    run: ids.run,
+                    receipt: refs.receipt,
+                    audit: refs.audit,
+                    proposalDigest: migration.proposalDigest.value
+                });
+                first.runtime.migrateRun(migration, target, new Revision(0), new Date(1000));
+                const newTurnId = new TurnId("sqlite-post-migration-turn");
+                createPinnedTurn(first.runtime, newTurnId, ids.branch, migration.id, nextPins, 1);
+                firstDatabase.close();
+
+                const reopenedDatabase = new FileSqlite(path);
+                const reopened = sqliteRuntime(reopenedDatabase);
+                expect(
+                    reopened.repository.transaction((transaction) =>
+                        reopened.repository
+                            .loadTurn(transaction, oldTurnId)!
+                            .pins.equals(current.pins)
+                    )
+                ).toBe(true);
+                expect(
+                    reopened.repository.transaction((transaction) =>
+                        reopened.repository.loadTurn(transaction, newTurnId)!.pins.equals(nextPins)
+                    )
+                ).toBe(true);
+                expect(
+                    reopened.repository.transaction((transaction) =>
+                        reopened.repository
+                            .loadCommit(transaction, migration.id)
+                            ?.migration?.to.equals(nextPins)
+                    )
+                ).toBe(true);
+                expect(
+                    reopened.repository.transaction((transaction) =>
+                        reopened.repository
+                            .loadConfiguration(transaction, target.id.value)
+                            ?.id.equals(target.id)
+                    )
+                ).toBe(true);
+                reopenedDatabase.close();
+            } finally {
+                rmSync(directory, { recursive: true, force: true });
+            }
+        }
+    );
 
     it("binds a strict closed schema to one Run-owning Actor", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -325,29 +335,33 @@ describe("SQLite Run storage", () => {
         expect(rows).toHaveLength(1);
     });
 
-    it("rejects malformed records, kinds, and parent projections with codec.invalid", { tags: "p1" }, () => {
-        const storage = new SqliteRunStorage(new TestSqlite(), owner);
-        const malformed = [
-            row(""),
-            row("bad-revision", -1),
-            { ...row("bad-bytes"), bytes: "bad" as never },
-            { ...row("bad-kind"), kind: "unknown" as never }
-        ];
-        for (const record of malformed) {
-            expect(() => storage.transaction((tx) => storage.insert(tx, record))).toThrow(
-                /Stored Run record/
-            );
+    it(
+        "rejects malformed records, kinds, and parent projections with codec.invalid",
+        { tags: "p1" },
+        () => {
+            const storage = new SqliteRunStorage(new TestSqlite(), owner);
+            const malformed = [
+                row(""),
+                row("bad-revision", -1),
+                { ...row("bad-bytes"), bytes: "bad" as never },
+                { ...row("bad-kind"), kind: "unknown" as never }
+            ];
+            for (const record of malformed) {
+                expect(() => storage.transaction((tx) => storage.insert(tx, record))).toThrow(
+                    /Stored Run record/
+                );
+            }
+            for (const edge of [
+                { commit: "", ordinal: 0, parent: "root" },
+                { commit: "commit", ordinal: 2, parent: "root" },
+                { commit: "commit", ordinal: 0, parent: "" }
+            ]) {
+                expect(() => storage.transaction((tx) => storage.insertParent(tx, edge))).toThrow(
+                    /parent edge/
+                );
+            }
         }
-        for (const edge of [
-            { commit: "", ordinal: 0, parent: "root" },
-            { commit: "commit", ordinal: 2, parent: "root" },
-            { commit: "commit", ordinal: 0, parent: "" }
-        ]) {
-            expect(() => storage.transaction((tx) => storage.insertParent(tx, edge))).toThrow(
-                /parent edge/
-            );
-        }
-    });
+    );
 
     it("rejects incomplete, extra, and empty-marker schemas", { tags: "p0" }, () => {
         const incomplete = new TestSqlite();
@@ -401,99 +415,125 @@ describe("SQLite Run storage", () => {
         expect(() => new SqliteRunStorage(database, owner)).toThrow(/exact schema/);
     });
 
-    it("rejects duplicated and corrupt rows returned by the SQLite substrate", { tags: "p0" }, () => {
-        const base = new TestSqlite();
-        const database = new MutatingSqlite(base);
-        const storage = new SqliteRunStorage(database, owner);
-        storage.transaction((tx) => storage.insert(tx, row("duplicate")));
-        database.mutate = (statement, rows) =>
-            statement.includes("WHERE kind = ? AND record_key = ?") && rows.length === 1
-                ? [rows[0]!, rows[0]!]
-                : rows;
-        expect(() => storage.transaction((tx) => storage.get(tx, "commit", "duplicate"))).toThrow(
-            /multiple rows/
-        );
+    it(
+        "rejects duplicated and corrupt rows returned by the SQLite substrate",
+        { tags: "p0" },
+        () => {
+            const base = new TestSqlite();
+            const database = new MutatingSqlite(base);
+            const storage = new SqliteRunStorage(database, owner);
+            storage.transaction((tx) => storage.insert(tx, row("duplicate")));
+            database.mutate = (statement, rows) =>
+                statement.includes("WHERE kind = ? AND record_key = ?") && rows.length === 1
+                    ? [rows[0]!, rows[0]!]
+                    : rows;
+            expect(() =>
+                storage.transaction((tx) => storage.get(tx, "commit", "duplicate"))
+            ).toThrow(/multiple rows/);
 
-        database.mutate = (statement, rows) =>
-            statement.includes("WHERE kind = ? ORDER BY record_key")
-                ? rows.map((value) => ({ ...value, record_key: "" }))
-                : rows;
-        expect(() => storage.transaction((tx) => storage.list(tx, "commit"))).toThrow(/record_key/);
-    });
-
-    it("[run.forced-turn-cancellation] survives file-backed close and reopen with owner and bytes intact", { tags: "p0" }, () => {
-        const directory = mkdtempSync(join(tmpdir(), "w5-run-sqlite-"));
-        const path = join(directory, "run.sqlite");
-        try {
-            const firstDatabase = new FileSqlite(path);
-            const first = new SqliteRunStorage(firstDatabase, owner);
-            const run = new RunId("restart-run");
-            const repository = new RunRepository(first);
-            const reserved = RunAdmissionRegistry.initial(run).reserve({
-                kind: "invocationItem",
-                invocation: new InvocationId("restart-invocation"),
-                itemIndex: 0,
-                itemKey: "restart-item"
-            });
-            const cancellation = new ForcedTurnCancellation({
-                run,
-                terminalTurn: new TurnId("restart-terminal-turn"),
-                turn: new TurnId("restart-sibling-turn"),
-                priorLeaseEpoch: 2,
-                fencedLeaseEpoch: 3,
-                controlReceipt: new ReceiptId("restart-control-receipt"),
-                controlAudit: new AuditRecordId("restart-control-audit"),
-                cancellationEvent: new EventId("restart-cancellation-event"),
-                cancellationAudit: new AuditRecordId("restart-cancellation-audit")
-            });
-            first.transaction((tx) => {
-                first.insert(tx, row("restart", 0));
-                first.insertParent(tx, { commit: "restart", ordinal: 0, parent: "root" });
-                repository.insertAdmission(tx, reserved.registry);
-                repository.insertForcedCancellation(tx, cancellation);
-            });
-            firstDatabase.close();
-
-            const secondDatabase = new FileSqlite(path);
-            const second = new SqliteRunStorage(secondDatabase, owner);
-            const restartedRepository = new RunRepository(second);
-            expect(second.transaction((tx) => second.get(tx, "commit", "restart"))?.revision).toBe(
-                0
+            database.mutate = (statement, rows) =>
+                statement.includes("WHERE kind = ? ORDER BY record_key")
+                    ? rows.map((value) => ({ ...value, record_key: "" }))
+                    : rows;
+            expect(() => storage.transaction((tx) => storage.list(tx, "commit"))).toThrow(
+                /record_key/
             );
-            expect(second.transaction((tx) => second.parents(tx, "restart"))[0]?.parent).toBe(
-                "root"
-            );
-            expect(
-                restartedRepository.transaction((tx) =>
-                    restartedRepository.loadAdmission(tx, run)?.frontier()
-                )
-            ).toEqual([reserved.reservation.obligation]);
-            expect(
-                restartedRepository.transaction((tx) =>
-                    restartedRepository.loadForcedCancellation(tx, cancellation.turn)
-                )
-            ).toEqual(cancellation);
-            secondDatabase.close();
-        } finally {
-            rmSync(directory, { recursive: true, force: true });
         }
-    });
+    );
 
-    it("[C13-RUN-ADMISSION-REGISTRY] memory and SQLite durably reserve, complete, close, restart, and reject stale epoch and CAS", { tags: "p0" }, () => {
-        assertAcrossRunStorages(assertAdmissionRegistryBehavior);
-    });
+    it(
+        "[run.forced-turn-cancellation] survives file-backed close and reopen with owner and bytes intact",
+        { tags: "p0" },
+        () => {
+            const directory = mkdtempSync(join(tmpdir(), "w5-run-sqlite-"));
+            const path = join(directory, "run.sqlite");
+            try {
+                const firstDatabase = new FileSqlite(path);
+                const first = new SqliteRunStorage(firstDatabase, owner);
+                const run = new RunId("restart-run");
+                const repository = new RunRepository(first);
+                const reserved = RunAdmissionRegistry.initial(run).reserve({
+                    kind: "invocationItem",
+                    invocation: new InvocationId("restart-invocation"),
+                    itemIndex: 0,
+                    itemKey: "restart-item"
+                });
+                const cancellation = new ForcedTurnCancellation({
+                    run,
+                    terminalTurn: new TurnId("restart-terminal-turn"),
+                    turn: new TurnId("restart-sibling-turn"),
+                    priorLeaseEpoch: 2,
+                    fencedLeaseEpoch: 3,
+                    controlReceipt: new ReceiptId("restart-control-receipt"),
+                    controlAudit: new AuditRecordId("restart-control-audit"),
+                    cancellationEvent: new EventId("restart-cancellation-event"),
+                    cancellationAudit: new AuditRecordId("restart-cancellation-audit")
+                });
+                first.transaction((tx) => {
+                    first.insert(tx, row("restart", 0));
+                    first.insertParent(tx, { commit: "restart", ordinal: 0, parent: "root" });
+                    repository.insertAdmission(tx, reserved.registry);
+                    repository.insertForcedCancellation(tx, cancellation);
+                });
+                firstDatabase.close();
 
-    it("[C13-RUN-FORCED-CANCELLATION] memory and SQLite require exact administer evidence and CAS before persisting a sibling fence across restart", { tags: "p0" }, () => {
-        assertAcrossRunStorages(assertForcedCancellationBehavior);
-    });
+                const secondDatabase = new FileSqlite(path);
+                const second = new SqliteRunStorage(secondDatabase, owner);
+                const restartedRepository = new RunRepository(second);
+                expect(
+                    second.transaction((tx) => second.get(tx, "commit", "restart"))?.revision
+                ).toBe(0);
+                expect(second.transaction((tx) => second.parents(tx, "restart"))[0]?.parent).toBe(
+                    "root"
+                );
+                expect(
+                    restartedRepository.transaction((tx) =>
+                        restartedRepository.loadAdmission(tx, run)?.frontier()
+                    )
+                ).toEqual([reserved.reservation.obligation]);
+                expect(
+                    restartedRepository.transaction((tx) =>
+                        restartedRepository.loadForcedCancellation(tx, cancellation.turn)
+                    )
+                ).toEqual(cancellation);
+                secondDatabase.close();
+            } finally {
+                rmSync(directory, { recursive: true, force: true });
+            }
+        }
+    );
 
-    it("[C13-RUN-PINS-IMMUTABLE] memory and SQLite preserve immutable lifetime pins across caller mutation and restart", { tags: "p0" }, () => {
-        assertAcrossRunStorages(assertRunPinsImmutabilityBehavior);
-    });
+    it(
+        "[C13-RUN-ADMISSION-REGISTRY] memory and SQLite durably reserve, complete, close, restart, and reject stale epoch and CAS",
+        { tags: "p0" },
+        () => {
+            assertAcrossRunStorages(assertAdmissionRegistryBehavior);
+        }
+    );
 
-    it("[C13-TURN-CHECKPOINT-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS", { tags: "p0" }, () => {
-        assertAcrossRunStorages(assertCheckpointWriterBehavior);
-    });
+    it(
+        "[C13-RUN-FORCED-CANCELLATION] memory and SQLite require exact administer evidence and CAS before persisting a sibling fence across restart",
+        { tags: "p0" },
+        () => {
+            assertAcrossRunStorages(assertForcedCancellationBehavior);
+        }
+    );
+
+    it(
+        "[C13-RUN-PINS-IMMUTABLE] memory and SQLite preserve immutable lifetime pins across caller mutation and restart",
+        { tags: "p0" },
+        () => {
+            assertAcrossRunStorages(assertRunPinsImmutabilityBehavior);
+        }
+    );
+
+    it(
+        "[C13-TURN-CHECKPOINT-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS",
+        { tags: "p0" },
+        () => {
+            assertAcrossRunStorages(assertCheckpointWriterBehavior);
+        }
+    );
 
     it(
         "[C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact tenant-qualified durable Turn lease across restart, CAS, and terminal fencing",
@@ -503,9 +543,13 @@ describe("SQLite Run storage", () => {
         }
     );
 
-    it("[C13-TURN-TERMINAL-RESULT-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse", { tags: "p0" }, () => {
-        assertAcrossRunStorages(assertTerminalResultWriterBehavior);
-    });
+    it(
+        "[C13-TURN-TERMINAL-RESULT-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse",
+        { tags: "p0" },
+        () => {
+            assertAcrossRunStorages(assertTerminalResultWriterBehavior);
+        }
+    );
 });
 
 interface RuntimeHarness<Transaction> {
@@ -1306,7 +1350,9 @@ describe("SQLite Run storage exact projections", () => {
             "run.invalid-state",
             "Run records are immutable unless replaced by revision CAS"
         );
-        storage.transaction((tx) => storage.insert(tx, { ...template, bytes: Uint8Array.of(1, 2) }));
+        storage.transaction((tx) =>
+            storage.insert(tx, { ...template, bytes: Uint8Array.of(1, 2) })
+        );
         const stored = storage.transaction((tx) => storage.get(tx, "commit", "exact-bytes"));
         expect(stored?.revision).toBeNull();
         expect(Array.from(stored?.bytes ?? [])).toEqual([1, 2]);

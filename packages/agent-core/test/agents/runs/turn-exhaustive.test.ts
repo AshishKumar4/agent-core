@@ -36,20 +36,24 @@ function expectCode(operation: () => unknown, code: AgentCoreError["code"]): voi
 }
 
 describe("TurnStatus complete transition matrix", () => {
-    it("[C13-TURN-CHILD-RUN-WRITER] rejects every illegal queued, running, suspended, and terminal transition", { tags: "p1" }, () => {
-        expectCode(() => TurnStatus.queued.suspend(), "turn.invalid-state");
-        expectCode(() => TurnStatus.queued.complete("failed"), "turn.invalid-state");
-        expectCode(() => TurnStatus.running.claim(), "turn.invalid-state");
-        expectCode(() => TurnStatus.running.cancelUnheld(), "turn.invalid-state");
-        expectCode(() => TurnStatus.suspended.suspend(), "turn.invalid-state");
-        expectCode(() => TurnStatus.suspended.complete("failed"), "turn.invalid-state");
-        for (const status of [TurnStatus.succeeded, TurnStatus.failed, TurnStatus.cancelled]) {
-            expectCode(() => status.claim(), "turn.invalid-state");
-            expectCode(() => status.suspend(), "turn.invalid-state");
-            expectCode(() => status.complete("failed"), "turn.invalid-state");
-            expectCode(() => status.cancelUnheld(), "turn.invalid-state");
+    it(
+        "[C13-TURN-CHILD-RUN-WRITER] rejects every illegal queued, running, suspended, and terminal transition",
+        { tags: "p1" },
+        () => {
+            expectCode(() => TurnStatus.queued.suspend(), "turn.invalid-state");
+            expectCode(() => TurnStatus.queued.complete("failed"), "turn.invalid-state");
+            expectCode(() => TurnStatus.running.claim(), "turn.invalid-state");
+            expectCode(() => TurnStatus.running.cancelUnheld(), "turn.invalid-state");
+            expectCode(() => TurnStatus.suspended.suspend(), "turn.invalid-state");
+            expectCode(() => TurnStatus.suspended.complete("failed"), "turn.invalid-state");
+            for (const status of [TurnStatus.succeeded, TurnStatus.failed, TurnStatus.cancelled]) {
+                expectCode(() => status.claim(), "turn.invalid-state");
+                expectCode(() => status.suspend(), "turn.invalid-state");
+                expectCode(() => status.complete("failed"), "turn.invalid-state");
+                expectCode(() => status.cancelUnheld(), "turn.invalid-state");
+            }
         }
-    });
+    );
 
     it("returns every legal status singleton", { tags: "p1" }, () => {
         expect(TurnStatus.queued.claim().kind).toBe("running");
@@ -206,113 +210,121 @@ describe("checkpoint and inbox codecs", () => {
         ).toThrow(/cursor/);
     });
 
-    it("round-trips ordinary and cancellation inbox entries and rejects every malformed shape", { tags: "p1" }, () => {
-        const ordinary = new TurnInboxEntry(
-            new TurnInboxEntryId("ordinary"),
-            ids.turn,
-            0,
-            "message",
-            content("e"),
-            digest("e"),
-            "key",
-            undefined,
-            new Date(1)
-        );
-        const cancelled = new TurnInboxEntry(
-            new TurnInboxEntryId("cancel"),
-            ids.turn,
-            1,
-            "turn.cancel",
-            content("e"),
-            digest("e"),
-            "cancel-key",
-            { turn: ids.turn, holder: ids.holder, epoch: 1 },
-            new Date(2)
-        );
-        expect(
-            TurnInboxEntry.decode(TurnInboxEntry.encode(ordinary)).cancellationToken
-        ).toBeUndefined();
-        expect(
-            TurnInboxEntry.decode(TurnInboxEntry.encode(cancelled)).cancellationToken?.epoch
-        ).toBe(1);
-        expect(
-            () =>
-                new TurnInboxEntry(
-                    new TurnInboxEntryId("sequence"),
-                    ids.turn,
-                    -1,
-                    "message",
-                    content("e"),
-                    digest("e"),
-                    "key",
-                    undefined,
-                    new Date(1)
-                )
-        ).toThrow(/sequence/);
-        expect(
-            () =>
-                new TurnInboxEntry(
-                    new TurnInboxEntryId("empty"),
-                    ids.turn,
-                    0,
-                    "",
-                    content("e"),
-                    digest("e"),
-                    "",
-                    undefined,
-                    new Date(1)
-                )
-        ).toThrow(/required/);
-        expect(
-            () =>
-                new TurnInboxEntry(
-                    new TurnInboxEntryId("token"),
-                    ids.turn,
-                    0,
-                    "message",
-                    content("e"),
-                    digest("e"),
-                    "key",
-                    { turn: ids.turn, holder: ids.holder, epoch: 1 },
-                    new Date(1)
-                )
-        ).toThrow(/turn.cancel/);
-        expect(
-            () =>
-                new TurnInboxEntry(
-                    new TurnInboxEntryId("date"),
-                    ids.turn,
-                    0,
-                    "message",
-                    content("e"),
-                    digest("e"),
-                    "key",
-                    undefined,
-                    new Date(Number.NaN)
-                )
-        ).toThrow(/timestamp/);
-        expect(
-            () =>
-                new TurnInboxEntry(
-                    new TurnInboxEntryId("digest"),
-                    ids.turn,
-                    0,
-                    "message",
-                    content("e"),
-                    digest("f"),
-                    "key",
-                    undefined,
-                    new Date(1)
-                )
-        ).toThrow(/digest/);
-    });
+    it(
+        "round-trips ordinary and cancellation inbox entries and rejects every malformed shape",
+        { tags: "p1" },
+        () => {
+            const ordinary = new TurnInboxEntry(
+                new TurnInboxEntryId("ordinary"),
+                ids.turn,
+                0,
+                "message",
+                content("e"),
+                digest("e"),
+                "key",
+                undefined,
+                new Date(1)
+            );
+            const cancelled = new TurnInboxEntry(
+                new TurnInboxEntryId("cancel"),
+                ids.turn,
+                1,
+                "turn.cancel",
+                content("e"),
+                digest("e"),
+                "cancel-key",
+                { turn: ids.turn, holder: ids.holder, epoch: 1 },
+                new Date(2)
+            );
+            expect(
+                TurnInboxEntry.decode(TurnInboxEntry.encode(ordinary)).cancellationToken
+            ).toBeUndefined();
+            expect(
+                TurnInboxEntry.decode(TurnInboxEntry.encode(cancelled)).cancellationToken?.epoch
+            ).toBe(1);
+            expect(
+                () =>
+                    new TurnInboxEntry(
+                        new TurnInboxEntryId("sequence"),
+                        ids.turn,
+                        -1,
+                        "message",
+                        content("e"),
+                        digest("e"),
+                        "key",
+                        undefined,
+                        new Date(1)
+                    )
+            ).toThrow(/sequence/);
+            expect(
+                () =>
+                    new TurnInboxEntry(
+                        new TurnInboxEntryId("empty"),
+                        ids.turn,
+                        0,
+                        "",
+                        content("e"),
+                        digest("e"),
+                        "",
+                        undefined,
+                        new Date(1)
+                    )
+            ).toThrow(/required/);
+            expect(
+                () =>
+                    new TurnInboxEntry(
+                        new TurnInboxEntryId("token"),
+                        ids.turn,
+                        0,
+                        "message",
+                        content("e"),
+                        digest("e"),
+                        "key",
+                        { turn: ids.turn, holder: ids.holder, epoch: 1 },
+                        new Date(1)
+                    )
+            ).toThrow(/turn.cancel/);
+            expect(
+                () =>
+                    new TurnInboxEntry(
+                        new TurnInboxEntryId("date"),
+                        ids.turn,
+                        0,
+                        "message",
+                        content("e"),
+                        digest("e"),
+                        "key",
+                        undefined,
+                        new Date(Number.NaN)
+                    )
+            ).toThrow(/timestamp/);
+            expect(
+                () =>
+                    new TurnInboxEntry(
+                        new TurnInboxEntryId("digest"),
+                        ids.turn,
+                        0,
+                        "message",
+                        content("e"),
+                        digest("f"),
+                        "key",
+                        undefined,
+                        new Date(1)
+                    )
+            ).toThrow(/digest/);
+        }
+    );
 });
 
 describe("decode and constructor trust boundaries", () => {
-    it("rejects a queued Turn whose lease claims a holder without an expiration", { tags: "p1" }, () => {
-        const forged = { turn: ids.turn, holder: ids.holder, epoch: 0, expiresAt: undefined };
-        expect(() => queued({ lease: forged as never })).toThrow(TypeError);
-    });
+    it(
+        "rejects a queued Turn whose lease claims a holder without an expiration",
+        { tags: "p1" },
+        () => {
+            const forged = { turn: ids.turn, holder: ids.holder, epoch: 0, expiresAt: undefined };
+            expect(() => queued({ lease: forged as never })).toThrow(TypeError);
+        }
+    );
 
     it("rejects an unknown Turn status on decode", { tags: "p2" }, () => {
         const data = { ...(queued().toData() as object), status: "bogus" };

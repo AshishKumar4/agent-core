@@ -62,14 +62,18 @@ function cancellation(turn: Turn, sequence = 0): TurnInboxEntry {
 }
 
 describe("W5 adversarial invariants", () => {
-    it("[C13-ADV-INCOMPLETE-PACKAGE-CLOSURE] rejects genesis when the authoritative Package closure is incomplete", { tags: "p0" }, () => {
-        const value = harness();
-        value.sources.acceptsClosure = false;
-        expect(() => value.runtime.createRun(genesis())).toThrow(/source revisions/);
-        expect(
-            value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run))
-        ).toBeUndefined();
-    });
+    it(
+        "[C13-ADV-INCOMPLETE-PACKAGE-CLOSURE] rejects genesis when the authoritative Package closure is incomplete",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.sources.acceptsClosure = false;
+            expect(() => value.runtime.createRun(genesis())).toThrow(/source revisions/);
+            expect(
+                value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run))
+            ).toBeUndefined();
+        }
+    );
 
     it("returns false for missing ancestry endpoints", { tags: "p1" }, () => {
         const value = harness();
@@ -86,101 +90,116 @@ describe("W5 adversarial invariants", () => {
         ).toBe(false);
     });
 
-    it("composes transaction-scoped genesis with outer rollback and rejects nesting", { tags: "p0" }, () => {
-        const value = harness();
-        expect(() =>
-            value.repository.transaction((tx) => {
-                value.runtime.createRunInTransaction(tx, genesis());
-                throw new Error("outer failure");
-            })
-        ).toThrow("outer failure");
-        expect(
-            value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run))
-        ).toBeUndefined();
-        expect(() =>
-            value.repository.transaction(() => value.runtime.createRun(genesis()))
-        ).toThrow(/Nested/);
-    });
+    it(
+        "composes transaction-scoped genesis with outer rollback and rejects nesting",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            expect(() =>
+                value.repository.transaction((tx) => {
+                    value.runtime.createRunInTransaction(tx, genesis());
+                    throw new Error("outer failure");
+                })
+            ).toThrow("outer failure");
+            expect(
+                value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run))
+            ).toBeUndefined();
+            expect(() =>
+                value.repository.transaction(() => value.runtime.createRun(genesis()))
+            ).toThrow(/Nested/);
+        }
+    );
 
-    it("[C13-TURN-EFFECT-ATTEMPT-WRITER] rejects nonfresh ordinary Turn genesis", { tags: "p0" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
-        const forged = new Turn({
-            id: ids.turn,
-            run: ids.run,
-            branch: ids.branch,
-            startHead: ids.root,
-            effectiveInput: ids.root,
-            pins: pins(),
-            placement: placement.digest,
-            input: content("c"),
-            status: TurnStatus.running,
-            lease: TurnLease.restore(ids.turn, ids.holder, 9, new Date(5000)),
-            revision: new Revision(4)
-        });
-        expect(() =>
-            value.runtime.createTurn({ turn: forged, placement }, new Revision(0))
-        ).toThrow(/genesis/);
-    });
+    it(
+        "[C13-TURN-EFFECT-ATTEMPT-WRITER] rejects nonfresh ordinary Turn genesis",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
+            const forged = new Turn({
+                id: ids.turn,
+                run: ids.run,
+                branch: ids.branch,
+                startHead: ids.root,
+                effectiveInput: ids.root,
+                pins: pins(),
+                placement: placement.digest,
+                input: content("c"),
+                status: TurnStatus.running,
+                lease: TurnLease.restore(ids.turn, ids.holder, 9, new Date(5000)),
+                revision: new Revision(4)
+            });
+            expect(() =>
+                value.runtime.createTurn({ turn: forged, placement }, new Revision(0))
+            ).toThrow(/genesis/);
+        }
+    );
 
-    it("[C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit", { tags: "p0" }, () => {
-        const value = runningHarness();
-        const otherId = new TurnId("turn-other");
-        const otherPlacement = new TurnPlacementSnapshot(otherId, pins(), []);
-        value.runtime.createTurn(
-            {
-                turn: new Turn({
-                    id: otherId,
-                    run: ids.run,
-                    branch: ids.branch,
-                    startHead: ids.root,
-                    effectiveInput: ids.root,
-                    pins: pins(),
-                    placement: otherPlacement.digest,
-                    input: content("e"),
-                    revision: new Revision(0)
-                }),
-                placement: otherPlacement
-            },
-            new Revision(0)
-        );
-        const otherHolder = new PrincipalRef(ids.holder.tenantId, new PrincipalId("other-holder"));
-        const other = value.runtime.claimTurn(
-            otherId,
-            new Revision(0),
-            otherHolder,
-            new Date(1000),
-            new Date(5000)
-        );
-        const otherToken = { turn: otherId, holder: otherHolder, epoch: 1 };
-        const commit = new RunCommit({
-            id: new RunCommitId("other-result"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "result",
-            parents: [ids.root],
-            pins: pins(),
-            writer: { kind: "turn", token: otherToken },
-            subjectTurn: otherId,
-            content: content("f")
-        });
-        expect(() =>
-            value.runtime.completeTurn({
-                turn: ids.turn,
-                expectedTurnRevision: value.running.revision,
-                expectedBranchRevision: new Revision(0),
-                token: value.token,
-                outcome: "succeeded",
-                commit,
-                now: new Date(1500)
-            })
-        ).toThrow(/result commit/);
-        expect(
-            value.repository.transaction((tx) => value.repository.loadCommit(tx, commit.id))
-        ).toBeUndefined();
-        expect(other.status.kind).toBe("running");
-    });
+    it(
+        "[C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            const otherId = new TurnId("turn-other");
+            const otherPlacement = new TurnPlacementSnapshot(otherId, pins(), []);
+            value.runtime.createTurn(
+                {
+                    turn: new Turn({
+                        id: otherId,
+                        run: ids.run,
+                        branch: ids.branch,
+                        startHead: ids.root,
+                        effectiveInput: ids.root,
+                        pins: pins(),
+                        placement: otherPlacement.digest,
+                        input: content("e"),
+                        revision: new Revision(0)
+                    }),
+                    placement: otherPlacement
+                },
+                new Revision(0)
+            );
+            const otherHolder = new PrincipalRef(
+                ids.holder.tenantId,
+                new PrincipalId("other-holder")
+            );
+            const other = value.runtime.claimTurn(
+                otherId,
+                new Revision(0),
+                otherHolder,
+                new Date(1000),
+                new Date(5000)
+            );
+            const otherToken = { turn: otherId, holder: otherHolder, epoch: 1 };
+            const commit = new RunCommit({
+                id: new RunCommitId("other-result"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "result",
+                parents: [ids.root],
+                pins: pins(),
+                writer: { kind: "turn", token: otherToken },
+                subjectTurn: otherId,
+                content: content("f")
+            });
+            expect(() =>
+                value.runtime.completeTurn({
+                    turn: ids.turn,
+                    expectedTurnRevision: value.running.revision,
+                    expectedBranchRevision: new Revision(0),
+                    token: value.token,
+                    outcome: "succeeded",
+                    commit,
+                    now: new Date(1500)
+                })
+            ).toThrow(/result commit/);
+            expect(
+                value.repository.transaction((tx) => value.repository.loadCommit(tx, commit.id))
+            ).toBeUndefined();
+            expect(other.status.kind).toBe("running");
+        }
+    );
 
     it("atomically records displaced-token cancellation on reclaim", { tags: "p0" }, () => {
         const value = runningHarness();
@@ -200,60 +219,68 @@ describe("W5 adversarial invariants", () => {
         ).toEqual([entry]);
     });
 
-    it("atomically commits held cancellation result, inbox event, and fence", { tags: "p0" }, () => {
-        const value = runningHarness();
-        const result = new RunCommit({
-            id: new RunCommitId("cancelled-result"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "result",
-            parents: [ids.root],
-            pins: pins(),
-            writer: { kind: "turn", token: value.token },
-            subjectTurn: ids.turn,
-            content: content("7")
-        });
-        value.runtime.cancelHeldTurn(
-            {
-                turn: ids.turn,
-                expectedTurnRevision: value.running.revision,
-                expectedBranchRevision: new Revision(0),
-                token: value.token,
-                outcome: "cancelled",
-                commit: result,
-                now: new Date(1500)
-            },
-            cancellation(value.running)
-        );
-        const cancelled = value.repository.transaction((tx) =>
-            value.repository.loadTurn(tx, ids.turn)!
-        );
-        expect(cancelled.status.kind).toBe("cancelled");
-        expect(cancelled.lease.holder).toBeUndefined();
-        expect(
-            value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
-        ).toHaveLength(1);
-    });
+    it(
+        "atomically commits held cancellation result, inbox event, and fence",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            const result = new RunCommit({
+                id: new RunCommitId("cancelled-result"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "result",
+                parents: [ids.root],
+                pins: pins(),
+                writer: { kind: "turn", token: value.token },
+                subjectTurn: ids.turn,
+                content: content("7")
+            });
+            value.runtime.cancelHeldTurn(
+                {
+                    turn: ids.turn,
+                    expectedTurnRevision: value.running.revision,
+                    expectedBranchRevision: new Revision(0),
+                    token: value.token,
+                    outcome: "cancelled",
+                    commit: result,
+                    now: new Date(1500)
+                },
+                cancellation(value.running)
+            );
+            const cancelled = value.repository.transaction((tx) =>
+                value.repository.loadTurn(tx, ids.turn)!
+            );
+            expect(cancelled.status.kind).toBe("cancelled");
+            expect(cancelled.lease.holder).toBeUndefined();
+            expect(
+                value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
+            ).toHaveLength(1);
+        }
+    );
 
-    it("times out only an expired held Turn and records its exact displaced token", { tags: "p0" }, () => {
-        const value = runningHarness();
-        expect(() =>
-            value.runtime.timeoutTurn(
+    it(
+        "times out only an expired held Turn and records its exact displaced token",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            expect(() =>
+                value.runtime.timeoutTurn(
+                    ids.turn,
+                    value.running.revision,
+                    cancellation(value.running),
+                    new Date(4999)
+                )
+            ).toThrow(/expired/);
+            const timedOut = value.runtime.timeoutTurn(
                 ids.turn,
                 value.running.revision,
                 cancellation(value.running),
-                new Date(4999)
-            )
-        ).toThrow(/expired/);
-        const timedOut = value.runtime.timeoutTurn(
-            ids.turn,
-            value.running.revision,
-            cancellation(value.running),
-            new Date(5000)
-        );
-        expect(timedOut.status.kind).toBe("cancelled");
-        expect(timedOut.lease.epoch).toBe(2);
-    });
+                new Date(5000)
+            );
+            expect(timedOut.status.kind).toBe("cancelled");
+            expect(timedOut.lease.epoch).toBe(2);
+        }
+    );
 
     it("rejects reserved cancellation through generic delivery", { tags: "p1" }, () => {
         const value = runningHarness();
@@ -296,169 +323,196 @@ describe("W5 adversarial invariants", () => {
         ).toEqual(entry);
     });
 
-    it("[C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease", { tags: "p0" }, () => {
-        const value = runningHarness();
-        const undo = new RunCommit({
-            id: new RunCommitId("undo-live"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "undo",
-            parents: [ids.root],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            selects: ids.root,
-            receipt: refs.receipt
-        });
-        value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "control",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            proposalDigest: undo.proposalDigest.value
-        });
-        expect(() => value.runtime.appendCommit(undo, new Revision(0), new Date(1500))).toThrow(
-            /fenced/
-        );
+    it(
+        "[C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            const undo = new RunCommit({
+                id: new RunCommitId("undo-live"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "undo",
+                parents: [ids.root],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                selects: ids.root,
+                receipt: refs.receipt
+            });
+            value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "control",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                proposalDigest: undo.proposalDigest.value
+            });
+            expect(() => value.runtime.appendCommit(undo, new Revision(0), new Date(1500))).toThrow(
+                /fenced/
+            );
 
-        const expired = runningHarness();
-        const expiredUndo = new RunCommit({
-            id: new RunCommitId("undo-expired-held"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "undo",
-            parents: [ids.root],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            selects: ids.root,
-            receipt: refs.receipt
-        });
-        expired.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "control",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            proposalDigest: expiredUndo.proposalDigest.value
-        });
-        expect(() =>
-            expired.runtime.appendCommit(expiredUndo, new Revision(0), new Date(5000))
-        ).toThrow(/fenced/);
-    });
+            const expired = runningHarness();
+            const expiredUndo = new RunCommit({
+                id: new RunCommitId("undo-expired-held"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "undo",
+                parents: [ids.root],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                selects: ids.root,
+                receipt: refs.receipt
+            });
+            expired.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "control",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                proposalDigest: expiredUndo.proposalDigest.value
+            });
+            expect(() =>
+                expired.runtime.appendCommit(expiredUndo, new Revision(0), new Date(5000))
+            ).toThrow(/fenced/);
+        }
+    );
 
-    it("[MIGRATE-RUN-PINS] rejects an invalid target pin snapshot without partial persistence", { tags: "p0" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const migration = new RunCommit({
-            id: new RunCommitId("migration-unverified"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "migration",
-            parents: [ids.root],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            receipt: refs.receipt,
-            migration: { from: pins(), to: pins() }
-        });
-        value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "control",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            proposalDigest: migration.proposalDigest.value
-        });
-        value.sources.accepts = false;
-        expect(() =>
-            value.runtime.migrateRun(migration, configuration(), new Revision(0), new Date(1000))
-        ).toThrow(/authoritative/);
-        expect(
-            value.repository.transaction((tx) => value.repository.loadCommit(tx, migration.id))
-        ).toBeUndefined();
-        value.sources.accepts = true;
-        const current = configuration();
-        const mismatchedTarget = new RunConfigurationSnapshot({
-            pins: new RunPins({
-                ...current.pins,
-                effectivePolicy: {
-                    ...current.pins.effectivePolicy,
-                    revision: current.pins.effectivePolicy.revision.next()
-                }
-            })
-        });
-        expect(() =>
-            value.runtime.migrateRun(migration, mismatchedTarget, new Revision(0), new Date(1000))
-        ).toThrow(/authoritative/);
-        expect(
-            value.repository.transaction((tx) =>
-                value.repository.loadConfiguration(tx, mismatchedTarget.id.value)
-            )
-        ).toBeUndefined();
-    });
+    it(
+        "[MIGRATE-RUN-PINS] rejects an invalid target pin snapshot without partial persistence",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const migration = new RunCommit({
+                id: new RunCommitId("migration-unverified"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "migration",
+                parents: [ids.root],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                receipt: refs.receipt,
+                migration: { from: pins(), to: pins() }
+            });
+            value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "control",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                proposalDigest: migration.proposalDigest.value
+            });
+            value.sources.accepts = false;
+            expect(() =>
+                value.runtime.migrateRun(
+                    migration,
+                    configuration(),
+                    new Revision(0),
+                    new Date(1000)
+                )
+            ).toThrow(/authoritative/);
+            expect(
+                value.repository.transaction((tx) => value.repository.loadCommit(tx, migration.id))
+            ).toBeUndefined();
+            value.sources.accepts = true;
+            const current = configuration();
+            const mismatchedTarget = new RunConfigurationSnapshot({
+                pins: new RunPins({
+                    ...current.pins,
+                    effectivePolicy: {
+                        ...current.pins.effectivePolicy,
+                        revision: current.pins.effectivePolicy.revision.next()
+                    }
+                })
+            });
+            expect(() =>
+                value.runtime.migrateRun(
+                    migration,
+                    mismatchedTarget,
+                    new Revision(0),
+                    new Date(1000)
+                )
+            ).toThrow(/authoritative/);
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.loadConfiguration(tx, mismatchedTarget.id.value)
+                )
+            ).toBeUndefined();
+        }
+    );
 
-    it("[C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent", { tags: "p0" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const migration = new RunCommit({
-            id: new RunCommitId("migration-incomplete"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "migration",
-            parents: [ids.root],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            receipt: refs.receipt,
-            migration: { from: pins(), to: pins() }
-        });
-        value.sources.acceptsClosure = false;
-        expect(() =>
-            value.runtime.migrateRun(migration, configuration(), new Revision(0), new Date(1000))
-        ).toThrow(/authoritative/);
-        value.sources.acceptsClosure = true;
-        const current = configuration();
-        const otherAgent = new RunConfigurationSnapshot({
-            pins: new RunPins({
-                ...current.pins,
-                agent: { ...current.pins.agent, id: new AgentId("other-agent") }
-            })
-        });
-        const wrongAgentMigration = new RunCommit({
-            id: new RunCommitId("migration-wrong-agent"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "migration",
-            parents: [ids.root],
-            pins: otherAgent.pins,
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            receipt: refs.receipt,
-            migration: { from: current.pins, to: otherAgent.pins }
-        });
-        expect(() =>
-            value.runtime.migrateRun(
-                wrongAgentMigration,
-                otherAgent,
-                new Revision(0),
-                new Date(1000)
-            )
-        ).toThrow(/authoritative/);
-        expect(
-            value.repository.transaction((tx) =>
-                value.repository.loadConfiguration(tx, otherAgent.id.value)
-            )
-        ).toBeUndefined();
-    });
+    it(
+        "[C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const migration = new RunCommit({
+                id: new RunCommitId("migration-incomplete"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "migration",
+                parents: [ids.root],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                receipt: refs.receipt,
+                migration: { from: pins(), to: pins() }
+            });
+            value.sources.acceptsClosure = false;
+            expect(() =>
+                value.runtime.migrateRun(
+                    migration,
+                    configuration(),
+                    new Revision(0),
+                    new Date(1000)
+                )
+            ).toThrow(/authoritative/);
+            value.sources.acceptsClosure = true;
+            const current = configuration();
+            const otherAgent = new RunConfigurationSnapshot({
+                pins: new RunPins({
+                    ...current.pins,
+                    agent: { ...current.pins.agent, id: new AgentId("other-agent") }
+                })
+            });
+            const wrongAgentMigration = new RunCommit({
+                id: new RunCommitId("migration-wrong-agent"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "migration",
+                parents: [ids.root],
+                pins: otherAgent.pins,
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                receipt: refs.receipt,
+                migration: { from: current.pins, to: otherAgent.pins }
+            });
+            expect(() =>
+                value.runtime.migrateRun(
+                    wrongAgentMigration,
+                    otherAgent,
+                    new Revision(0),
+                    new Date(1000)
+                )
+            ).toThrow(/authoritative/);
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.loadConfiguration(tx, otherAgent.id.value)
+                )
+            ).toBeUndefined();
+        }
+    );
 
     it("persists a verified explicit migration snapshot and commit", { tags: "p1" }, () => {
         const value = harness();
@@ -500,314 +554,332 @@ describe("W5 adversarial invariants", () => {
         expect(value.runtime.acceptsRunAdmission(admission)).toBe(true);
     });
 
-    it("[C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart", { tags: "p0" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const oldBranch = new RunBranch(
-            new RunBranchId("old-pins"),
-            ids.run,
-            "old-pins",
-            ids.root,
-            new Revision(0)
-        );
-        value.runtime.createBranch(ids.run, oldBranch, new Revision(0));
-        const current = configuration();
-        const oldTurnId = new TurnId("pre-migration-turn");
-        const oldPlacement = new TurnPlacementSnapshot(oldTurnId, current.pins, []);
-        value.runtime.createTurn(
-            {
-                turn: new Turn({
-                    id: oldTurnId,
-                    run: ids.run,
-                    branch: oldBranch.id,
-                    startHead: ids.root,
-                    effectiveInput: ids.root,
-                    pins: current.pins,
-                    placement: oldPlacement.digest,
-                    input: content("6"),
-                    revision: new Revision(0)
-                }),
-                placement: oldPlacement
-            },
-            new Revision(0)
-        );
-        const nextPins = new RunPins({
-            blueprint: current.pins.blueprint,
-            packages: current.pins.packages,
-            agent: { ...current.pins.agent, revision: new Revision(4), digest: digest("7") },
-            effectivePolicy: {
-                ...current.pins.effectivePolicy,
-                revision: new Revision(4),
-                digest: digest("8")
-            },
-            modelPolicy: {
-                ...current.pins.modelPolicy,
-                revision: new Revision(4),
-                digest: digest("9")
-            },
-            environment: {
-                ...current.pins.environment,
-                revision: new Revision(4),
-                digest: digest("a")
-            }
-        });
-        const target = new RunConfigurationSnapshot({ pins: nextPins });
-        expect(target.pins.agent.id.equals(current.pins.agent.id)).toBe(true);
-        expect(target.pins.agent.revision.equals(current.pins.agent.revision)).toBe(false);
-        expect(target.pins.effectivePolicy.digest.equals(current.pins.effectivePolicy.digest)).toBe(
-            false
-        );
-        expect(target.pins.modelPolicy.digest.equals(current.pins.modelPolicy.digest)).toBe(false);
-        expect(target.pins.environment.digest.equals(current.pins.environment.digest)).toBe(false);
-        const migration = new RunCommit({
-            id: new RunCommitId("changed-migration"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "migration",
-            parents: [ids.root],
-            pins: nextPins,
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            receipt: refs.receipt,
-            migration: { from: current.pins, to: nextPins }
-        });
-        value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "control",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            proposalDigest: migration.proposalDigest.value
-        });
-        value.runtime.migrateRun(migration, target, new Revision(0), new Date(1000));
-        const migratedRun = value.repository.transaction((tx) =>
-            value.repository.loadRun(tx, ids.run)!
-        );
-        expect(migratedRun.configurations.map((entry) => entry.value)).toEqual([
-            current.id.value,
-            target.id.value
-        ]);
+    it(
+        "[C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const oldBranch = new RunBranch(
+                new RunBranchId("old-pins"),
+                ids.run,
+                "old-pins",
+                ids.root,
+                new Revision(0)
+            );
+            value.runtime.createBranch(ids.run, oldBranch, new Revision(0));
+            const current = configuration();
+            const oldTurnId = new TurnId("pre-migration-turn");
+            const oldPlacement = new TurnPlacementSnapshot(oldTurnId, current.pins, []);
+            value.runtime.createTurn(
+                {
+                    turn: new Turn({
+                        id: oldTurnId,
+                        run: ids.run,
+                        branch: oldBranch.id,
+                        startHead: ids.root,
+                        effectiveInput: ids.root,
+                        pins: current.pins,
+                        placement: oldPlacement.digest,
+                        input: content("6"),
+                        revision: new Revision(0)
+                    }),
+                    placement: oldPlacement
+                },
+                new Revision(0)
+            );
+            const nextPins = new RunPins({
+                blueprint: current.pins.blueprint,
+                packages: current.pins.packages,
+                agent: { ...current.pins.agent, revision: new Revision(4), digest: digest("7") },
+                effectivePolicy: {
+                    ...current.pins.effectivePolicy,
+                    revision: new Revision(4),
+                    digest: digest("8")
+                },
+                modelPolicy: {
+                    ...current.pins.modelPolicy,
+                    revision: new Revision(4),
+                    digest: digest("9")
+                },
+                environment: {
+                    ...current.pins.environment,
+                    revision: new Revision(4),
+                    digest: digest("a")
+                }
+            });
+            const target = new RunConfigurationSnapshot({ pins: nextPins });
+            expect(target.pins.agent.id.equals(current.pins.agent.id)).toBe(true);
+            expect(target.pins.agent.revision.equals(current.pins.agent.revision)).toBe(false);
+            expect(
+                target.pins.effectivePolicy.digest.equals(current.pins.effectivePolicy.digest)
+            ).toBe(false);
+            expect(target.pins.modelPolicy.digest.equals(current.pins.modelPolicy.digest)).toBe(
+                false
+            );
+            expect(target.pins.environment.digest.equals(current.pins.environment.digest)).toBe(
+                false
+            );
+            const migration = new RunCommit({
+                id: new RunCommitId("changed-migration"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "migration",
+                parents: [ids.root],
+                pins: nextPins,
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                receipt: refs.receipt,
+                migration: { from: current.pins, to: nextPins }
+            });
+            value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "control",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                proposalDigest: migration.proposalDigest.value
+            });
+            value.runtime.migrateRun(migration, target, new Revision(0), new Date(1000));
+            const migratedRun = value.repository.transaction((tx) =>
+                value.repository.loadRun(tx, ids.run)!
+            );
+            expect(migratedRun.configurations.map((entry) => entry.value)).toEqual([
+                current.id.value,
+                target.id.value
+            ]);
 
-        const descendantId = new TurnId("post-migration-turn");
-        const placement = new TurnPlacementSnapshot(descendantId, nextPins, []);
-        value.runtime.createTurn(
-            {
-                turn: new Turn({
-                    id: descendantId,
-                    run: ids.run,
-                    branch: ids.branch,
-                    startHead: migration.id,
-                    effectiveInput: migration.id,
-                    pins: nextPins,
-                    placement: placement.digest,
-                    input: content("7"),
-                    revision: new Revision(0)
-                }),
-                placement
-            },
-            new Revision(1)
-        );
-        expect(
-            value.repository
-                .transaction((tx) => value.repository.loadTurn(tx, oldTurnId)!.pins)
-                .equals(current.pins)
-        ).toBe(true);
-        expect(
-            value.repository
-                .transaction((tx) => value.repository.loadTurn(tx, descendantId)!.pins)
-                .equals(target.pins)
-        ).toBe(true);
+            const descendantId = new TurnId("post-migration-turn");
+            const placement = new TurnPlacementSnapshot(descendantId, nextPins, []);
+            value.runtime.createTurn(
+                {
+                    turn: new Turn({
+                        id: descendantId,
+                        run: ids.run,
+                        branch: ids.branch,
+                        startHead: migration.id,
+                        effectiveInput: migration.id,
+                        pins: nextPins,
+                        placement: placement.digest,
+                        input: content("7"),
+                        revision: new Revision(0)
+                    }),
+                    placement
+                },
+                new Revision(1)
+            );
+            expect(
+                value.repository
+                    .transaction((tx) => value.repository.loadTurn(tx, oldTurnId)!.pins)
+                    .equals(current.pins)
+            ).toBe(true);
+            expect(
+                value.repository
+                    .transaction((tx) => value.repository.loadTurn(tx, descendantId)!.pins)
+                    .equals(target.pins)
+            ).toBe(true);
 
-        const unequal = new RunCommit({
-            id: new RunCommitId("unequal-merge"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "merge",
-            parents: [migration.id, ids.root],
-            pins: nextPins,
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            content: content("8"),
-            resolution: { kind: "concat" },
-            receipt: refs.receipt
-        });
-        expect(() => value.runtime.appendCommit(unequal, new Revision(1), new Date(1100))).toThrow(
-            /equal-pinned/
-        );
+            const unequal = new RunCommit({
+                id: new RunCommitId("unequal-merge"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "merge",
+                parents: [migration.id, ids.root],
+                pins: nextPins,
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                content: content("8"),
+                resolution: { kind: "concat" },
+                receipt: refs.receipt
+            });
+            expect(() =>
+                value.runtime.appendCommit(unequal, new Revision(1), new Date(1100))
+            ).toThrow(/equal-pinned/);
 
-        const rollback = new RunCommit({
-            id: new RunCommitId("migration-rollback"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "undo",
-            parents: [migration.id],
-            pins: nextPins,
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            selects: ids.root,
-            receipt: refs.receipt
-        });
-        value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "control",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            proposalDigest: rollback.proposalDigest.value
-        });
-        value.runtime.appendCommit(rollback, new Revision(1), new Date(1200));
-        expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
+            const rollback = new RunCommit({
+                id: new RunCommitId("migration-rollback"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "undo",
+                parents: [migration.id],
+                pins: nextPins,
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                selects: ids.root,
+                receipt: refs.receipt
+            });
+            value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "control",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                proposalDigest: rollback.proposalDigest.value
+            });
+            value.runtime.appendCommit(rollback, new Revision(1), new Date(1200));
+            expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
 
-        const restarted = harness(value.storage.snapshot());
-        const restoredMigration = restarted.repository.transaction((tx) =>
-            restarted.repository.loadCommit(tx, migration.id)
-        );
-        expect(restoredMigration?.migration?.from.equals(current.pins)).toBe(true);
-        expect(restoredMigration?.migration?.to.equals(target.pins)).toBe(true);
-        expect(
-            restarted.repository.transaction((tx) =>
-                restarted.repository.loadTurn(tx, oldTurnId)!.pins.equals(current.pins)
-            )
-        ).toBe(true);
-        expect(
-            restarted.repository.transaction((tx) =>
-                restarted.repository.loadTurn(tx, descendantId)!.pins.equals(target.pins)
-            )
-        ).toBe(true);
-        expect(
-            restarted.repository
-                .transaction((tx) => restarted.repository.loadCommit(tx, rollback.id))
-                ?.selects?.equals(ids.root)
-        ).toBe(true);
-    });
+            const restarted = harness(value.storage.snapshot());
+            const restoredMigration = restarted.repository.transaction((tx) =>
+                restarted.repository.loadCommit(tx, migration.id)
+            );
+            expect(restoredMigration?.migration?.from.equals(current.pins)).toBe(true);
+            expect(restoredMigration?.migration?.to.equals(target.pins)).toBe(true);
+            expect(
+                restarted.repository.transaction((tx) =>
+                    restarted.repository.loadTurn(tx, oldTurnId)!.pins.equals(current.pins)
+                )
+            ).toBe(true);
+            expect(
+                restarted.repository.transaction((tx) =>
+                    restarted.repository.loadTurn(tx, descendantId)!.pins.equals(target.pins)
+                )
+            ).toBe(true);
+            expect(
+                restarted.repository
+                    .transaction((tx) => restarted.repository.loadCommit(tx, rollback.id))
+                    ?.selects?.equals(ids.root)
+            ).toBe(true);
+        }
+    );
 
-    it("[C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization", { tags: "p0" }, () => {
-        const value = runningHarness();
-        const evidenceId = new RunCommitId("captured-evidence");
-        const controlId = new RunCommitId("captured-control");
-        value.runtime.reserveRunObligation(ids.run, {
-            kind: "systemCommit",
-            commit: evidenceId
-        });
-        value.runtime.reserveRunObligation(ids.run, {
-            kind: "systemCommit",
-            commit: controlId
-        });
-        const result = new RunCommit({
-            id: new RunCommitId("terminal-result"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "result",
-            parents: [ids.root],
-            pins: pins(),
-            writer: { kind: "turn", token: value.token },
-            subjectTurn: ids.turn,
-            content: content("8")
-        });
-        value.runtime.terminalizeRun({
-            run: ids.run,
-            turn: ids.turn,
-            expectedRunRevision: value.repository.transaction(
-                (tx) => value.repository.loadRun(tx, ids.run)!.revision
-            ),
-            expectedTurnRevision: value.running.revision,
-            expectedBranchRevision: new Revision(0),
-            token: value.token,
-            outcome: "succeeded",
-            commit: result,
-            siblingCancellations: new Map(),
-            now: new Date(1500)
-        });
-        const evidence = new RunCommit({
-            id: evidenceId,
-            run: ids.run,
-            branch: ids.branch,
-            kind: "invocation",
-            parents: [result.id],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
-            },
-            invocation: refs.invocation,
-            receipt: refs.receipt
-        });
-        value.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "receipt",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            invocation: refs.invocation
-        });
-        const control = new RunCommit({
-            id: controlId,
-            run: ids.run,
-            branch: ids.branch,
-            kind: "undo",
-            parents: [result.id],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-            },
-            selects: ids.root,
-            receipt: refs.receipt
-        });
-        expect(() =>
-            value.runtime.appendCapturedEvidence(control, new Revision(1), new Date(2000))
-        ).toThrow(/captured obligation/);
-        value.runtime.appendCapturedEvidence(evidence, new Revision(1), new Date(2000));
-        expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(evidence.id)).toBe(true);
-        const uncaptured = new RunCommit({
-            id: new RunCommitId("uncaptured"),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "invocation",
-            parents: [evidence.id],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
-            },
-            invocation: refs.invocation,
-            receipt: refs.receipt
-        });
-        expect(() =>
-            value.runtime.appendCapturedEvidence(uncaptured, new Revision(2), new Date(2000))
-        ).toThrow(/captured/);
-    });
+    it(
+        "[C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            const evidenceId = new RunCommitId("captured-evidence");
+            const controlId = new RunCommitId("captured-control");
+            value.runtime.reserveRunObligation(ids.run, {
+                kind: "systemCommit",
+                commit: evidenceId
+            });
+            value.runtime.reserveRunObligation(ids.run, {
+                kind: "systemCommit",
+                commit: controlId
+            });
+            const result = new RunCommit({
+                id: new RunCommitId("terminal-result"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "result",
+                parents: [ids.root],
+                pins: pins(),
+                writer: { kind: "turn", token: value.token },
+                subjectTurn: ids.turn,
+                content: content("8")
+            });
+            value.runtime.terminalizeRun({
+                run: ids.run,
+                turn: ids.turn,
+                expectedRunRevision: value.repository.transaction(
+                    (tx) => value.repository.loadRun(tx, ids.run)!.revision
+                ),
+                expectedTurnRevision: value.running.revision,
+                expectedBranchRevision: new Revision(0),
+                token: value.token,
+                outcome: "succeeded",
+                commit: result,
+                siblingCancellations: new Map(),
+                now: new Date(1500)
+            });
+            const evidence = new RunCommit({
+                id: evidenceId,
+                run: ids.run,
+                branch: ids.branch,
+                kind: "invocation",
+                parents: [result.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
+                },
+                invocation: refs.invocation,
+                receipt: refs.receipt
+            });
+            value.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "receipt",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                invocation: refs.invocation
+            });
+            const control = new RunCommit({
+                id: controlId,
+                run: ids.run,
+                branch: ids.branch,
+                kind: "undo",
+                parents: [result.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                selects: ids.root,
+                receipt: refs.receipt
+            });
+            expect(() =>
+                value.runtime.appendCapturedEvidence(control, new Revision(1), new Date(2000))
+            ).toThrow(/captured obligation/);
+            value.runtime.appendCapturedEvidence(evidence, new Revision(1), new Date(2000));
+            expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(evidence.id)).toBe(
+                true
+            );
+            const uncaptured = new RunCommit({
+                id: new RunCommitId("uncaptured"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "invocation",
+                parents: [evidence.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
+                },
+                invocation: refs.invocation,
+                receipt: refs.receipt
+            });
+            expect(() =>
+                value.runtime.appendCapturedEvidence(uncaptured, new Revision(2), new Date(2000))
+            ).toThrow(/captured/);
+        }
+    );
 
-    it("[C13-RUN-BINARY-TREE-MERGE] rejects arbitrary merge picks and tree sides", { tags: "p0" }, () => {
-        expect(
-            () =>
-                new RunCommit({
-                    id: new RunCommitId("bad-tree-merge"),
-                    run: ids.run,
-                    branch: ids.branch,
-                    kind: "merge",
-                    parents: [ids.root, new RunCommitId("source")],
-                    pins: pins(),
-                    writer: {
-                        kind: "system",
-                        cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
-                    },
-                    content: content("1"),
-                    resolution: { kind: "pick", parent: new RunCommitId("unrelated") },
-                    treeCheckpoint: content("2"),
-                    treeResolution: {
-                        policy: "ours",
-                        side: new RunCommitId("unrelated"),
-                        base: content("3"),
-                        environment: "environment-1"
-                    },
-                    receipt: refs.receipt
-                })
-        ).toThrow(/parent/);
-    });
+    it(
+        "[C13-RUN-BINARY-TREE-MERGE] rejects arbitrary merge picks and tree sides",
+        { tags: "p0" },
+        () => {
+            expect(
+                () =>
+                    new RunCommit({
+                        id: new RunCommitId("bad-tree-merge"),
+                        run: ids.run,
+                        branch: ids.branch,
+                        kind: "merge",
+                        parents: [ids.root, new RunCommitId("source")],
+                        pins: pins(),
+                        writer: {
+                            kind: "system",
+                            cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                        },
+                        content: content("1"),
+                        resolution: { kind: "pick", parent: new RunCommitId("unrelated") },
+                        treeCheckpoint: content("2"),
+                        treeResolution: {
+                            policy: "ours",
+                            side: new RunCommitId("unrelated"),
+                            base: content("3"),
+                            environment: "environment-1"
+                        },
+                        receipt: refs.receipt
+                    })
+            ).toThrow(/parent/);
+        }
+    );
 
     it("requires symmetric optional Turn attribution in evidence", { tags: "p1" }, () => {
         const value = harness();
