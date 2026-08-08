@@ -24,8 +24,7 @@ import { relative, resolve } from "node:path";
 import { artifactRoot, packageRoot, readCanonicalJson, writeCanonicalJson } from "./project.mjs";
 
 const options = parseArguments(process.argv.slice(2));
-const baselinePath =
-    options.baseline ?? resolve(artifactRoot, "quality/mutation-baseline.json");
+const baselinePath = options.baseline ?? resolve(artifactRoot, "quality/mutation-baseline.json");
 
 if (options.gate) {
     // The gate follows the project's two-stage discipline. While the SPEC conformance
@@ -140,10 +139,12 @@ const entry = {
     tolerated: summary.tolerated
 };
 
-await writeCanonicalJson(
-    resolve(packageRoot, `reports/mutation/${options.area}-survivors.json`),
-    { edition: "1.0.0", area: options.area, ...entry, survivors: summary.survivors }
-);
+await writeCanonicalJson(resolve(packageRoot, `reports/mutation/${options.area}-survivors.json`), {
+    edition: "1.0.0",
+    area: options.area,
+    ...entry,
+    survivors: summary.survivors
+});
 console.log(
     `${options.area}: score ${score}%, ${summary.actionable} actionable + ` +
         `${summary.tolerated} tolerated survivors of ${summary.mutants} mutants`
@@ -151,6 +152,26 @@ console.log(
 
 if (options.update) {
     requireCleanWorktree();
+    // The ratchet has to bite here. It used to live only in the read-only branch below,
+    // so --update — the one path that actually writes the floor — accepted any increase
+    // silently, and a re-pin could raise the number it was supposed to hold down.
+    if (previous !== undefined && summary.actionable > previous.actionable) {
+        if (options.acceptRegression === undefined) {
+            throw new TypeError(
+                `Mutation ratchet: ${options.area} actionable survivors rose ` +
+                    `${previous.actionable} -> ${summary.actionable}. Kill them, or re-run ` +
+                    `with --accept-regression "<reason>" to record why the floor moves.`
+            );
+        }
+        entry.acceptedRegression = {
+            from: previous.actionable,
+            to: summary.actionable,
+            reason: options.acceptRegression
+        };
+        console.log(
+            `accepting ${previous.actionable} -> ${summary.actionable}: ${options.acceptRegression}`
+        );
+    }
     baseline.areas[options.area] = entry;
     await writeCanonicalJson(baselinePath, baseline);
     console.log(`baseline ${previous === undefined ? "recorded" : "re-pinned"}`);
@@ -199,7 +220,8 @@ function mutationFingerprint(area) {
 
 function typescriptFilesForArea(area) {
     const directory = resolve(packageRoot, "src", area);
-    if (existsSync(directory) && statSync(directory).isDirectory()) return walkTypeScript(directory);
+    if (existsSync(directory) && statSync(directory).isDirectory())
+        return walkTypeScript(directory);
     const file = resolve(packageRoot, "src", `${area}.ts`);
     return existsSync(file) ? [file] : [];
 }
@@ -279,17 +301,22 @@ function gitHead() {
 function parseArguments(args) {
     let area;
     let update = false;
+    let acceptRegression;
     let gate = false;
     let baseline;
     let stageArtifact;
     for (let index = 0; index < args.length; index += 1) {
         if (args[index] === "--area") area = args[++index];
         else if (args[index] === "--update") update = true;
+        else if (args[index] === "--accept-regression") acceptRegression = args[++index];
         else if (args[index] === "--gate") gate = true;
         else if (args[index] === "--baseline") baseline = args[++index];
         else if (args[index] === "--stage-artifact") stageArtifact = args[++index];
         else throw new TypeError(`Unknown mutation argument ${args[index]}`);
     }
     if (!gate && area === undefined) throw new TypeError("--area or --gate is required");
-    return { area, update, gate, baseline, stageArtifact };
+    if (acceptRegression !== undefined && !update) {
+        throw new TypeError("--accept-regression requires --update");
+    }
+    return { area, update, acceptRegression, gate, baseline, stageArtifact };
 }
