@@ -350,7 +350,7 @@ describe("Grant and authority identifier hard gates", () => {
             "workspace:facet_name",
             "workspace:-facet"
         ]) {
-            expect(() => new FacetRef(invalid)).toThrow(/<scope>:<instance>/);
+            expect(() => new FacetRef(invalid)).toThrow(/<facet-package-id>:<instance>/);
         }
     });
 });

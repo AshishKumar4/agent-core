@@ -51,7 +51,7 @@ describe("coordinated FacetRef and CapabilitySpec transition", () => {
 
         expect(binding.facet).toBe(facet);
         expect(Binding.decode(Binding.encode(binding)).facet).toBeInstanceOf(FacetRef);
-        expect(() => new FacetRef("workspace:mail:forged")).toThrow(/<scope>:<instance>/);
+        expect(() => new FacetRef("workspace:mail:forged")).toThrow(/<facet-package-id>:<instance>/);
     });
 });
 

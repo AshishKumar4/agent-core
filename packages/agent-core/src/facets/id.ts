@@ -110,6 +110,8 @@ function requireFacetRef(value: string): void {
         separator === value.length - 1 ||
         !/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*:[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u.test(value)
     ) {
-        throw new TypeError("Facet reference must be '<scope>:<instance>' with canonical segments");
+        throw new TypeError(
+            "Facet reference must be '<facet-package-id>:<instance>' with canonical segments"
+        );
     }
 }
