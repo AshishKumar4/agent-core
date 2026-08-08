@@ -2469,7 +2469,7 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 - **P11-SLATE-ROLLBACK** Operation `rollback` has `mutate` impact.
 - **P11-SLATE-SPECIFICATION** The Slate profile is specified with §4.6.
 - **P11-SLATE-SOURCE** Source is content-addressed with immutable version history.
-- **P11-SLATE-DYNAMIC** The backend's manifest admits `dynamic` only, so §9.2 selects a `dynamic` domain for it: zero ambient authority and, per §1.5, zero ambient egress.
+- **P11-SLATE-DYNAMIC** The backend's manifest admits `dynamic` only, so §9.2 selects a `dynamic` domain for it, and §1.5's zero-ambient-authority and zero-ambient-egress rules apply to it as to any other `dynamic` domain.
 - **P11-SLATE-PREVIEW** Live preview is an Environment Session.
 - **P11-SLATE-IMMUTABLE-PUBLICATION** A published version is immutable.
 - **P11-SLATE-MEDIATED-DEPLOY** `deploy` is a mediated Invocation.
