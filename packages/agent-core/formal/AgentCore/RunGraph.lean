@@ -69,6 +69,23 @@ inductive RunStatus where | active | terminal deriving DecidableEq, Repr
 inductive TurnStatus where | queued | running | suspended | succeeded | failed | cancelled
   deriving DecidableEq, Repr
 
+/-- An acceptance criterion a Run declares when it opens: an ordinary Operation that
+    decides whether the work is done (§5.2). -/
+structure AcceptanceCriterion where
+  id : AcceptanceId
+  operation : OperationId
+  deriving DecidableEq, Repr
+
+/-- An acceptance verdict earned by the verifier: it names the head tree digest the
+    verifier saw and the attempted Receipt that carries the §7 admission and audit chain. -/
+structure AcceptanceVerdict where
+  acceptance : AcceptanceId
+  subject : TreeId
+  receipt : ReceiptId
+  deriving DecidableEq, Repr
+
+/-- A Run declares its acceptance criteria when it opens and never afterwards, so the
+    declared set is part of the Run record rather than a table anything can rewrite. -/
 structure Run where
   tenant : TenantId
   workspace : WorkspaceId
@@ -78,6 +95,7 @@ structure Run where
   rootBranch : BranchId
   parent : Option RunId
   status : RunStatus
+  acceptance : List AcceptanceCriterion
   deriving DecidableEq, Repr
 
 structure Turn where
@@ -139,6 +157,9 @@ inductive CommitWriter where
   | system (cause : SystemCause)
   deriving DecidableEq, Repr
 
+/-- `treeCheckpoint` is the tree this commit leaves at its branch head, when it leaves one;
+    the Run's head tree digest is read off it, so acceptance subjects are trees the Run's own
+    commit graph produced rather than free-floating digests. -/
 structure RunCommit where
   run : RunId
   branch : BranchId
@@ -147,21 +168,7 @@ structure RunCommit where
   parents : List CommitId
   subjectTurn : Option TurnId
   kind : RunCommitKind
-  deriving DecidableEq, Repr
-
-/-- An acceptance criterion a Run declares when it opens: an ordinary Operation that
-    decides whether the work is done (§5.2). -/
-structure AcceptanceCriterion where
-  id : AcceptanceId
-  operation : OperationId
-  deriving DecidableEq, Repr
-
-/-- An acceptance verdict earned by the verifier: it names the head tree digest the
-    verifier saw and the attempted Receipt that carries the §7 admission and audit chain. -/
-structure AcceptanceVerdict where
-  acceptance : AcceptanceId
-  subject : TreeId
-  receipt : ReceiptId
+  treeCheckpoint : Option TreeId
   deriving DecidableEq, Repr
 
 inductive OpenObligation where
@@ -172,6 +179,14 @@ inductive OpenObligation where
   | systemCommit (commit : CommitId)
   | acceptance (id : AcceptanceId)
   deriving DecidableEq, Repr
+
+/-- The generic reserve and complete paths serve every obligation kind uniformly, which is
+    exactly why acceptance has to be carved out of them: an acceptance obligation is reserved
+    when the Run declares it at open and is never completed at all, so a uniform completion
+    would retire one with no verdict behind it and settle the Run on nothing. -/
+def OpenObligation.NotAcceptance : OpenObligation → Prop
+  | .acceptance _ => False
+  | _ => True
 
 structure TerminalSnapshot where
   run : RunId
@@ -226,15 +241,88 @@ structure GraphStore where
   terminalSnapshots : RunId → Option TerminalSnapshot
   forcedCancellations : TurnId → Option ForcedCancellation
   terminalizing : RunId → Option TerminalizationControl
-  headTree : RunId → Option TreeId
-  acceptanceCriteria : RunId → List AcceptanceCriterion
   acceptanceVerdicts : AcceptanceId → List AcceptanceVerdict
   conflicts : RunId → Prop
 
 instance : Inhabited GraphStore where
   default := ⟨fun _ => none, fun _ => none, fun _ => none, fun _ => none,
     fun _ => none, fun _ => none, fun _ => none, fun _ => none, fun _ => none,
-    fun _ => none, fun _ => [], fun _ => [], fun _ => False⟩
+    fun _ => [], fun _ => False⟩
+
+/-- The criteria a Run declared at open. Nothing else can name one, and no transition can
+    add one afterwards. -/
+def GraphStore.acceptanceCriteria (store : GraphStore) (run : RunId) : List AcceptanceCriterion :=
+  match store.runs run with
+  | none => []
+  | some record => record.acceptance
+
+/-- An `AcceptanceId` names one criterion across the whole store, so opening a Run that
+    redeclares an identity some Run already declared is refused. -/
+def GraphStore.DeclaresAcceptance (store : GraphStore) (accId : AcceptanceId) : Prop :=
+  ∃ runId criterion, criterion ∈ store.acceptanceCriteria runId ∧ criterion.id = accId
+
+/-- `store.HeadTree run tree` reads the Run's current head tree off the graph: the tree
+    checkpoint of the Run's own commit at the head of its root branch. It is functional in
+    `tree` and moves whenever the Run appends a checkpointing commit to that branch. -/
+def GraphStore.HeadTree (store : GraphStore) (run : RunId) (tree : TreeId) : Prop :=
+  ∃ record head commit,
+    store.runs run = some record ∧ store.heads record.rootBranch = some head ∧
+    store.commits head = some commit ∧ commit.run = run ∧ commit.treeCheckpoint = some tree
+
+/-- A further verifier attempt is admissible only against a subject that no recorded
+    verdict for the criterion names; changed input, never elapsed time, unblocks it (§5.2). -/
+def GraphStore.AcceptanceRetryAdmissible (store : GraphStore) (accId : AcceptanceId)
+    (subject : TreeId) : Prop :=
+  ∀ verdict ∈ store.acceptanceVerdicts accId, verdict.acceptance = accId →
+    verdict.subject ≠ subject
+
+def GraphStore.recordVerdict (store : GraphStore) (verdict : AcceptanceVerdict) : GraphStore :=
+  { store with
+    acceptanceVerdicts := fun candidate =>
+      if candidate = verdict.acceptance then verdict :: store.acceptanceVerdicts candidate
+      else store.acceptanceVerdicts candidate }
+
+/-- The Receipt a verdict names must be an attempted Receipt of the criterion's own declared
+    verifier Operation, with the stated outcome. Without the Operation binding the declared
+    verifier would be decoration and any succeeded Receipt would discharge any criterion. -/
+def VerifierReceipt (effects : EffectLedger) (receiptId : ReceiptId) (verifier : OperationId)
+    (outcome : AttemptOutcome) : Prop :=
+  ∃ receipt attempt prepared,
+    effects.attemptReceipts receiptId = some receipt ∧ receipt.outcome = outcome ∧
+    effects.attempts receipt.attempt = some attempt ∧
+    effects.invocations attempt.invocation = some prepared ∧
+    prepared.header.operation = verifier
+
+/-- A `ReceiptId` resolves through the ledger by lookup alone, so it determines both the
+    Operation behind it and its outcome. -/
+theorem verifier_receipt_is_functional {effects receiptId}
+    {leftVerifier rightVerifier : OperationId} {leftOutcome rightOutcome : AttemptOutcome}
+    (left : VerifierReceipt effects receiptId leftVerifier leftOutcome)
+    (right : VerifierReceipt effects receiptId rightVerifier rightOutcome) :
+    leftVerifier = rightVerifier ∧ leftOutcome = rightOutcome := by
+  obtain ⟨receipt, attempt, prepared, receiptLookup, outcome, attemptLookup, invocationLookup,
+    operation⟩ := left
+  obtain ⟨_, _, _, receiptLookup', outcome', attemptLookup', invocationLookup', operation'⟩ := right
+  rw [receiptLookup] at receiptLookup'
+  cases Option.some.inj receiptLookup'
+  rw [attemptLookup] at attemptLookup'
+  cases Option.some.inj attemptLookup'
+  rw [invocationLookup] at invocationLookup'
+  cases Option.some.inj invocationLookup'
+  exact ⟨operation.symm.trans operation', outcome.symm.trans outcome'⟩
+
+/-- Settlement's own test of an acceptance obligation, mirroring `acceptanceSatisfied`: the
+    criterion holds a recorded verdict whose subject is the Run's *current* head tree and whose
+    named attempt Receipt succeeded. It does not re-read the criterion's declared Operation,
+    because the implementation does not either — that binding is established when the verdict
+    is recorded and carried forward by `AcceptanceVerdictsEarned` (§5.2). -/
+def AcceptanceSatisfied (store : GraphStore) (effects : EffectLedger) (run : RunId)
+    (accId : AcceptanceId) : Prop :=
+  ∃ subject verdict verifier,
+    store.HeadTree run subject ∧
+    verdict ∈ store.acceptanceVerdicts accId ∧
+    verdict.acceptance = accId ∧ verdict.subject = subject ∧
+    VerifierReceipt effects verdict.receipt verifier .succeeded
 
 def AdmissionReservation.ValidIn (reservation : AdmissionReservation)
     (store : GraphStore) : Prop :=
@@ -451,6 +539,7 @@ inductive GraphLabel where
   | migrate (run : RunId) (id expected : CommitId) (commit : RunCommit)
   | reserveObligation (run : RunId) (epoch : Nat) (obligation : OpenObligation)
   | completeObligation (run : RunId) (epoch : Nat) (obligation : OpenObligation)
+  | recordAcceptanceVerdict (run : RunId) (verdict : AcceptanceVerdict)
   | beginTerminalization (run : RunId) (turn : TurnId) (receipt : ReceiptId)
   | forceCancelSibling (run : RunId) (terminalTurn sibling : TurnId)
   | terminalize (run : RunId) (turn : TurnId) (id expected : CommitId)
@@ -471,7 +560,10 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
     GraphStore → GraphLabel → GraphStore → Prop
   | startRun {store runId run rootId root cause} :
       store.runs runId = none → store.branches run.rootBranch = none → store.commits rootId = none →
+      store.admissionRegistry runId = none →
       run.root = rootId → run.status = .active → run.pins.Valid run.agent →
+      (run.acceptance.map AcceptanceCriterion.id).Nodup →
+      (∀ criterion ∈ run.acceptance, ¬ store.DeclaresAcceptance criterion.id) →
       root.run = runId → root.branch = run.rootBranch →
       root.pins = run.pins → root.writer = .root cause → root.parents = [] → root.kind = .root →
       AuditCauseExists audit cause runId →
@@ -481,7 +573,8 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
         branches := tableSet store.branches run.rootBranch ⟨runId⟩
         commits := tableSet store.commits rootId root
         heads := tableSet store.heads run.rootBranch rootId
-        admissionRegistry := tableSet store.admissionRegistry runId ⟨0, true, [], []⟩ }
+        admissionRegistry := tableSet store.admissionRegistry runId
+          ⟨0, true, run.acceptance.map (fun criterion => .acceptance criterion.id), []⟩ }
   | startTurn {store id turn run branch} :
       store.turns id = none → store.runs turn.run = some run → run.status = .active →
       store.branches turn.branch = some branch → branch.run = turn.run →
@@ -508,7 +601,10 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
       store.turns parentId = some parent → parent.status = .running → token.turn = parentId →
       parent.lease.Admits token now → store.runs childId = none →
       store.branches child.rootBranch = none → store.commits rootId = none →
+      store.admissionRegistry childId = none →
       child.parent = some parent.run → child.root = rootId → child.status = .active →
+      (child.acceptance.map AcceptanceCriterion.id).Nodup →
+      (∀ criterion ∈ child.acceptance, ¬ store.DeclaresAcceptance criterion.id) →
       root.run = childId → root.branch = child.rootBranch → root.pins = child.pins →
       root.writer = .root cause → root.parents = [] → root.kind = .root →
       AuditCauseExists audit cause childId →
@@ -517,7 +613,9 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
         runs := tableSet store.runs childId child
         branches := tableSet store.branches child.rootBranch ⟨childId⟩
         commits := tableSet store.commits rootId root
-        heads := tableSet store.heads child.rootBranch rootId }
+        heads := tableSet store.heads child.rootBranch rootId
+        admissionRegistry := tableSet store.admissionRegistry childId
+          ⟨0, true, child.acceptance.map (fun criterion => .acceptance criterion.id), []⟩ }
   | append {store id expected commit run branch now} :
       store.commits id = none → store.runs commit.run = some run → run.status = .active →
       store.branches commit.branch = some branch → branch.run = commit.run →
@@ -542,15 +640,27 @@ inductive GraphStep (effects : EffectLedger) (events : EventStore) (audit : Audi
   | reserveObligation {store runId run registry obligation} :
       store.runs runId = some run → run.status = .active →
       store.admissionRegistry runId = some registry → registry.accepting = true →
+      obligation.NotAcceptance →
       obligation ∉ registry.reserved → obligation ∉ registry.completed →
       GraphStep effects events audit store (.reserveObligation runId registry.epoch obligation)
         (store.reserve runId registry obligation)
   | completeObligation {store runId run registry obligation} :
       store.runs runId = some run → run.status = .active →
       store.admissionRegistry runId = some registry → registry.accepting = true →
+      obligation.NotAcceptance →
       obligation ∈ registry.reserved → obligation ∉ registry.completed →
       GraphStep effects events audit store (.completeObligation runId registry.epoch obligation)
         (store.complete runId registry obligation)
+  | recordAcceptanceVerdict {store runId run criterion registry verdict outcome} :
+      store.runs runId = some run → run.status = .active →
+      criterion ∈ run.acceptance → criterion.id = verdict.acceptance →
+      store.admissionRegistry runId = some registry → registry.accepting = true →
+      OpenObligation.acceptance verdict.acceptance ∈ registry.reserved →
+      OpenObligation.acceptance verdict.acceptance ∉ registry.completed →
+      store.AcceptanceRetryAdmissible verdict.acceptance verdict.subject →
+      VerifierReceipt effects verdict.receipt criterion.operation outcome →
+      GraphStep effects events audit store (.recordAcceptanceVerdict runId verdict)
+        (store.recordVerdict verdict)
   | beginTerminalization {store runId turnId receipt cause run turn} :
       store.runs runId = some run → run.status = .active → store.turns turnId = some turn →
       turn.run = runId → turn.status = .running → turn.pins.runPins = run.pins →
@@ -821,6 +931,648 @@ theorem terminal_snapshot_has_no_omission_or_extra
   refine ⟨_, _, ‹_›, tableSet_self .., ?_⟩
   intro obligation
   simp_all [RunAdmissionRegistry.outstanding]
+/-! ## Acceptance obligations over the transition system
+
+An acceptance criterion enters the admission registry when its Run opens and never leaves it.
+§5.2: the obligation is not completed as bookkeeping when the verdict arrives -- that would
+freeze it against whatever tree was current at that instant, and a later commit carrying a new
+tree checkpoint would leave the Run settling on a proof about a tree it no longer has. It stays
+outstanding for the Run's whole life, is snapshotted at terminalization like any other
+obligation, and is discharged only by evaluation at settlement against the head the Run
+actually finished on. The generic reserve and complete paths refuse acceptance outright, and
+completion is the only thing any transition ever writes to a completed list, so no reachable
+graph has a declared criterion out of the frontier. -/
+
+theorem generic_reservation_refuses_acceptance
+    {effects events audit before after run epoch accId} :
+    ¬ GraphStep effects events audit before
+      (.reserveObligation run epoch (.acceptance accId)) after := by
+  intro step
+  cases step
+  simp [OpenObligation.NotAcceptance] at *
+
+theorem generic_completion_refuses_acceptance
+    {effects events audit before after run epoch accId} :
+    ¬ GraphStep effects events audit before
+      (.completeObligation run epoch (.acceptance accId)) after := by
+  intro step
+  cases step
+  simp [OpenObligation.NotAcceptance] at *
+
+theorem run_start_reserves_exactly_declared_acceptance
+    {effects events audit before after run root}
+    (step : GraphStep effects events audit before (.startRun run root) after) :
+    ∃ record registry, after.runs run = some record ∧
+      after.admissionRegistry run = some registry ∧ registry.completed = [] ∧
+      (record.acceptance.map AcceptanceCriterion.id).Nodup ∧
+      (∀ criterion ∈ record.acceptance, ¬ before.DeclaresAcceptance criterion.id) ∧
+      ∀ obligation, obligation ∈ registry.reserved ↔
+        ∃ criterion ∈ record.acceptance, OpenObligation.acceptance criterion.id = obligation := by
+  cases step
+  refine ⟨_, _, tableSet_self .., tableSet_self .., rfl, ‹_›, ‹_›, ?_⟩
+  intro obligation
+  simp [List.mem_map]
+
+theorem spawn_child_reserves_exactly_declared_acceptance
+    {effects events audit before after parent child root}
+    (step : GraphStep effects events audit before (.spawnChild parent child root) after) :
+    ∃ record registry, after.runs child = some record ∧
+      after.admissionRegistry child = some registry ∧ registry.completed = [] ∧
+      (record.acceptance.map AcceptanceCriterion.id).Nodup ∧
+      (∀ criterion ∈ record.acceptance, ¬ before.DeclaresAcceptance criterion.id) ∧
+      ∀ obligation, obligation ∈ registry.reserved ↔
+        ∃ criterion ∈ record.acceptance, OpenObligation.acceptance criterion.id = obligation := by
+  cases step
+  refine ⟨_, _, tableSet_self .., tableSet_self .., rfl, ‹_›, ‹_›, ?_⟩
+  intro obligation
+  simp [List.mem_map]
+
+theorem acceptance_verdict_step_requires_declared_verifier_receipt
+    {effects events audit before after run verdict}
+    (step : GraphStep effects events audit before (.recordAcceptanceVerdict run verdict) after) :
+    ∃ record criterion outcome, before.runs run = some record ∧
+      criterion ∈ record.acceptance ∧ criterion.id = verdict.acceptance ∧
+      VerifierReceipt effects verdict.receipt criterion.operation outcome ∧
+      before.AcceptanceRetryAdmissible verdict.acceptance verdict.subject ∧
+      verdict ∈ after.acceptanceVerdicts verdict.acceptance := by
+  cases step
+  refine ⟨_, _, _, ‹_›, ‹_›, ‹_›, ‹_›, ‹_›, ?_⟩
+  simp [GraphStore.recordVerdict]
+
+/-- While a criterion holds a verdict naming a subject, a further attempt against that same
+    subject is inadmissible: the system MUST NOT run the verifier again against inputs it has
+    not moved (§5.2, C13-RUN-ACCEPTANCE-SUBJECT). -/
+theorem acceptance_current_verdict_blocks_retry {store : GraphStore} {accId subject verdict}
+    (verdictMem : verdict ∈ store.acceptanceVerdicts accId)
+    (vAcc : verdict.acceptance = accId)
+    (vSubj : verdict.subject = subject) :
+    ¬ store.AcceptanceRetryAdmissible accId subject := by
+  intro admissible
+  exact admissible verdict verdictMem vAcc vSubj
+
+/-- A subject that already holds a verdict for the criterion admits no further verifier
+    attempt: the recording transition itself is unavailable, not merely inadvisable. -/
+theorem recorded_verdict_blocks_repeat_verdict_step
+    {effects events audit before after run verdict recorded}
+    (recordedMem : recorded ∈ before.acceptanceVerdicts verdict.acceptance)
+    (sameCriterion : recorded.acceptance = verdict.acceptance)
+    (sameSubject : recorded.subject = verdict.subject) :
+    ¬ GraphStep effects events audit before (.recordAcceptanceVerdict run verdict) after := by
+  intro step
+  obtain ⟨_, _, _, _, _, _, _, admissible, _⟩ :=
+    acceptance_verdict_step_requires_declared_verifier_receipt step
+  exact acceptance_current_verdict_blocks_retry recordedMem sameCriterion sameSubject admissible
+
+/-- A Run has at most one current head tree, so "the subject the verdict names" and "the tree
+    the Run is at" cannot both be satisfied by two different digests. -/
+theorem head_tree_is_unique {store : GraphStore} {run left right}
+    (leftHead : store.HeadTree run left) (rightHead : store.HeadTree run right) : left = right := by
+  obtain ⟨record, head, commit, runLookup, headLookup, commitLookup, _, checkpoint⟩ := leftHead
+  obtain ⟨_, _, _, runLookup', headLookup', commitLookup', _, checkpoint'⟩ := rightHead
+  rw [runLookup] at runLookup'
+  cases Option.some.inj runLookup'
+  rw [headLookup] at headLookup'
+  cases Option.some.inj headLookup'
+  rw [commitLookup] at commitLookup'
+  cases Option.some.inj commitLookup'
+  rw [checkpoint] at checkpoint'
+  exact Option.some.inj checkpoint'
+
+/-- A verdict is evidence for its exact subject and nothing else: if no recorded verdict names
+    the Run's current head tree, the criterion is unsatisfied, whatever other subjects earlier
+    verdicts named (§5.2, C13-RUN-ACCEPTANCE-SUBJECT). -/
+theorem acceptance_verdict_only_for_its_subject {store effects run accId subject}
+    (headLookup : store.HeadTree run subject)
+    (noVerdictAtHead : ∀ verdict ∈ store.acceptanceVerdicts accId,
+      verdict.acceptance = accId → verdict.subject ≠ subject) :
+    ¬ AcceptanceSatisfied store effects run accId := by
+  intro satisfied
+  obtain ⟨subject', verdict, _, headLookup', verdictMem, vAcc, vSubj, _⟩ := satisfied
+  exact noVerdictAtHead verdict verdictMem vAcc
+    (by rw [vSubj]; exact head_tree_is_unique headLookup' headLookup)
+
+/-- Every acceptance criterion a Run declared is reserved in that Run's admission registry and
+    is never recorded completed, so it is still in the outstanding frontier that terminalization
+    snapshots and that settlement evaluates. -/
+def AcceptanceObligationsOutstanding (store : GraphStore) : Prop :=
+  ∀ runId criterion, criterion ∈ store.acceptanceCriteria runId →
+    ∃ registry, store.admissionRegistry runId = some registry ∧
+      OpenObligation.acceptance criterion.id ∈ registry.reserved ∧
+      OpenObligation.acceptance criterion.id ∉ registry.completed
+
+/-- An `AcceptanceId` identifies one criterion across the whole store, so "the criterion this
+    obligation names" is well defined even though the obligation carries only the identity. -/
+def AcceptanceCriteriaUnique (store : GraphStore) : Prop :=
+  ∀ leftRun rightRun left right, left ∈ store.acceptanceCriteria leftRun →
+    right ∈ store.acceptanceCriteria rightRun → left.id = right.id → left = right
+
+/-- Every verdict on the record was earned: it is filed under a criterion some Run declared,
+    and it names an attempted Receipt of that criterion's own declared verifier Operation.
+    Settlement never re-reads the Operation, so this is what stops a succeeded Receipt from
+    anywhere at all from counting as this criterion's evidence (§5.2). -/
+def AcceptanceVerdictsEarned (store : GraphStore) (effects : EffectLedger) : Prop :=
+  ∀ accId verdict, verdict ∈ store.acceptanceVerdicts accId →
+    ∃ runId criterion outcome,
+      criterion ∈ store.acceptanceCriteria runId ∧ criterion.id = accId ∧
+      VerifierReceipt effects verdict.receipt criterion.operation outcome
+
+/-- A recorded terminal snapshot keeps agreeing with its Run's closed registry: the captured
+    frontier stays exactly reserved minus completed, because closing the registry is what
+    makes further reservation and completion unavailable. -/
+def TerminalSnapshotsMatchRegistry (store : GraphStore) : Prop :=
+  ∀ runId snapshot, store.terminalSnapshots runId = some snapshot →
+    ∃ registry, store.admissionRegistry runId = some registry ∧ registry.accepting = false ∧
+      ∀ obligation, obligation ∈ snapshot.obligations ↔
+        (obligation ∈ registry.reserved ∧ obligation ∉ registry.completed)
+
+/-- What a transition may do to the admission registries: a Run that has one keeps one, its
+    reservations only grow, and no acceptance obligation newly appears completed. -/
+def RegistriesAdvance (before after : GraphStore) : Prop :=
+  ∀ runId prior, before.admissionRegistry runId = some prior →
+    ∃ next, after.admissionRegistry runId = some next ∧ prior.reserved ⊆ next.reserved ∧
+      ∀ accId, OpenObligation.acceptance accId ∈ next.completed →
+        OpenObligation.acceptance accId ∈ prior.completed
+
+private theorem registries_of_registry_update {before after : GraphStore}
+    {runId : RunId} {registry updated : RunAdmissionRegistry}
+    (registryLookup : before.admissionRegistry runId = some registry)
+    (registries : after.admissionRegistry = tableSet before.admissionRegistry runId updated)
+    (grows : registry.reserved ⊆ updated.reserved)
+    (closed : ∀ accId, OpenObligation.acceptance accId ∈ updated.completed →
+      OpenObligation.acceptance accId ∈ registry.completed) :
+    RegistriesAdvance before after := by
+  intro id prior priorLookup
+  by_cases same : id = runId
+  · subst same
+    rw [registryLookup] at priorLookup
+    cases Option.some.inj priorLookup
+    exact ⟨updated, by rw [registries]; exact tableSet_self .., grows, closed⟩
+  · exact ⟨prior, by rw [registries, tableSet_other _ _ _ same]; exact priorLookup,
+      List.Subset.refl _, fun _ member => member⟩
+
+private theorem registries_of_fresh_registry {before after : GraphStore}
+    {runId : RunId} {opened : RunAdmissionRegistry}
+    (registryFresh : before.admissionRegistry runId = none)
+    (registries : after.admissionRegistry = tableSet before.admissionRegistry runId opened) :
+    RegistriesAdvance before after := by
+  intro id prior priorLookup
+  by_cases same : id = runId
+  · subst same
+    rw [registryFresh] at priorLookup
+    contradiction
+  · exact ⟨prior, by rw [registries, tableSet_other _ _ _ same]; exact priorLookup,
+      List.Subset.refl _, fun _ member => member⟩
+
+private theorem completed_stays_acceptance_free {registry : RunAdmissionRegistry}
+    {obligation : OpenObligation} (notAcceptance : obligation.NotAcceptance) :
+    ∀ accId, OpenObligation.acceptance accId ∈ (registry.complete obligation).completed →
+      OpenObligation.acceptance accId ∈ registry.completed := by
+  intro accId member
+  simp only [RunAdmissionRegistry.complete, List.mem_append, List.mem_singleton] at member
+  rcases member with inside | isObligation
+  · exact inside
+  · rw [← isObligation] at notAcceptance
+    simp [OpenObligation.NotAcceptance] at notAcceptance
+
+/-- No transition ever retires an acceptance obligation. Generic completion is the only step
+    that writes a completed list at all and it refuses acceptance, so a declared criterion stays
+    outstanding for the Run's whole life -- which is what makes settlement evaluate it against
+    the current head instead of a frozen one (§5.2). -/
+theorem graph_step_advances_registries {effects events audit before after label}
+    (step : GraphStep effects events audit before label after) :
+    RegistriesAdvance before after := by
+  cases step with
+  | startTurn | claimTurn | suspendTurn | resumeTurn | append | migrate
+  | recordAcceptanceVerdict | beginTerminalization | forceCancelSibling =>
+      exact fun _ prior lookup => ⟨prior, lookup, List.Subset.refl _, fun _ member => member⟩
+  | startRun runFresh branchFresh commitFresh registryFresh rootEq active valid nodup fresh
+      rootRun rootBranch rootPins writer parents kind cause =>
+      exact registries_of_fresh_registry registryFresh rfl
+  | spawnChild parentLookup running exactTurn admits runFresh branchFresh commitFresh
+      registryFresh childParent childRoot active nodup fresh rootRun rootBranch rootPins writer
+      parents kind cause =>
+      exact registries_of_fresh_registry registryFresh rfl
+  | reserveObligation runLookup active registryLookup accepting notAcceptance notReserved
+      notCompleted =>
+      exact registries_of_registry_update registryLookup rfl
+        (by simp [RunAdmissionRegistry.reserve]) (fun _ member => member)
+  | completeObligation runLookup active registryLookup accepting notAcceptance reserved
+      notCompleted =>
+      exact registries_of_registry_update registryLookup rfl (List.Subset.refl _)
+        (completed_stays_acceptance_free notAcceptance)
+  | terminalize runLookup active turnLookup turnRun running exactTurn admits validPins turnPins
+      controlLookup controlTurn siblings fence outcome headLookup preterminalLookup
+      preterminalRun preterminalPins commitFresh registryLookup accepting commitRun commitBranch
+      commitPins writer cause parents subjectTurn kindEq snapshotEq =>
+      exact registries_of_registry_update registryLookup rfl (List.Subset.refl _)
+        (fun _ member => member)
+
+private theorem criteria_stable_of_run_update {before after : GraphStore}
+    {runId : RunId} {prior updated : Run}
+    (runLookup : before.runs runId = some prior)
+    (runs : after.runs = tableSet before.runs runId updated)
+    (sameAcceptance : updated.acceptance = prior.acceptance) :
+    ∀ id, after.acceptanceCriteria id = before.acceptanceCriteria id := by
+  intro id
+  by_cases same : id = runId
+  · subst same
+    simp [GraphStore.acceptanceCriteria, runs, tableSet_self, runLookup, sameAcceptance]
+  · simp [GraphStore.acceptanceCriteria, runs, tableSet_other _ _ _ same]
+
+private theorem criteria_of_run_open {before after : GraphStore} {runId : RunId} {opened : Run}
+    (runs : after.runs = tableSet before.runs runId opened) :
+    after.acceptanceCriteria runId = opened.acceptance ∧
+      ∀ id, id ≠ runId → after.acceptanceCriteria id = before.acceptanceCriteria id := by
+  refine ⟨by simp [GraphStore.acceptanceCriteria, runs, tableSet_self], fun id different => ?_⟩
+  simp [GraphStore.acceptanceCriteria, runs, tableSet_other _ _ _ different]
+
+private theorem outstanding_of_stable_criteria {before after : GraphStore}
+    (outstanding : AcceptanceObligationsOutstanding before)
+    (advance : RegistriesAdvance before after)
+    (criteria : ∀ id, after.acceptanceCriteria id = before.acceptanceCriteria id) :
+    AcceptanceObligationsOutstanding after := by
+  intro runId criterion declared
+  rw [criteria] at declared
+  obtain ⟨registry, registryLookup, reserved, notCompleted⟩ := outstanding runId criterion declared
+  obtain ⟨next, nextLookup, grows, closed⟩ := advance runId registry registryLookup
+  exact ⟨next, nextLookup, grows reserved, fun member => notCompleted (closed _ member)⟩
+
+private theorem outstanding_of_run_open {before after : GraphStore}
+    {runId : RunId} {opened : Run}
+    (outstanding : AcceptanceObligationsOutstanding before)
+    (advance : RegistriesAdvance before after)
+    (runs : after.runs = tableSet before.runs runId opened)
+    (registries : after.admissionRegistry = tableSet before.admissionRegistry runId
+      ⟨0, true, opened.acceptance.map (fun criterion => .acceptance criterion.id), []⟩) :
+    AcceptanceObligationsOutstanding after := by
+  obtain ⟨openedCriteria, otherCriteria⟩ := criteria_of_run_open runs
+  intro candidate criterion declared
+  by_cases same : candidate = runId
+  · rw [same] at declared ⊢
+    rw [openedCriteria] at declared
+    exact ⟨_, by rw [registries]; exact tableSet_self .., List.mem_map_of_mem _ declared, by simp⟩
+  · rw [otherCriteria candidate same] at declared
+    obtain ⟨registry, registryLookup, reserved, notCompleted⟩ :=
+      outstanding candidate criterion declared
+    obtain ⟨next, nextLookup, grows, closed⟩ := advance candidate registry registryLookup
+    exact ⟨next, nextLookup, grows reserved, fun member => notCompleted (closed _ member)⟩
+
+theorem graph_step_preserves_acceptance_outstanding {effects events audit before after label}
+    (outstanding : AcceptanceObligationsOutstanding before)
+    (step : GraphStep effects events audit before label after) :
+    AcceptanceObligationsOutstanding after := by
+  have advance : RegistriesAdvance before after := graph_step_advances_registries step
+  cases step with
+  | startTurn | claimTurn | suspendTurn | resumeTurn | append | reserveObligation
+  | completeObligation | recordAcceptanceVerdict | beginTerminalization | forceCancelSibling =>
+      exact outstanding_of_stable_criteria outstanding advance (fun _ => rfl)
+  | startRun runFresh branchFresh commitFresh registryFresh rootEq active valid nodup fresh
+      rootRun rootBranch rootPins writer parents kind cause =>
+      exact outstanding_of_run_open outstanding advance rfl rfl
+  | spawnChild parentLookup running exactTurn admits runFresh branchFresh commitFresh
+      registryFresh childParent childRoot active nodup fresh rootRun rootBranch rootPins writer
+      parents kind cause =>
+      exact outstanding_of_run_open outstanding advance rfl rfl
+  | migrate runLookup active commitFresh commitRun branchOwned headLookup parents closed allowed
+      kindValid =>
+      exact outstanding_of_stable_criteria outstanding advance
+        (criteria_stable_of_run_update runLookup rfl rfl)
+  | terminalize runLookup active turnLookup turnRun running exactTurn admits validPins turnPins
+      controlLookup controlTurn siblings fence outcome headLookup preterminalLookup
+      preterminalRun preterminalPins commitFresh registryLookup accepting commitRun commitBranch
+      commitPins writer cause parents subjectTurn kindEq snapshotEq =>
+      exact outstanding_of_stable_criteria outstanding advance
+        (criteria_stable_of_run_update runLookup rfl rfl)
+
+private theorem criterion_eq_of_nodup {criteria : List AcceptanceCriterion}
+    (nodup : (criteria.map AcceptanceCriterion.id).Nodup)
+    {left right : AcceptanceCriterion} (leftMem : left ∈ criteria) (rightMem : right ∈ criteria)
+    (sameId : left.id = right.id) : left = right := by
+  induction criteria with
+  | nil => cases leftMem
+  | cons head tail ih =>
+      rw [List.map_cons, List.nodup_cons] at nodup
+      rcases List.mem_cons.mp leftMem with leftHead | leftTail
+      · rcases List.mem_cons.mp rightMem with rightHead | rightTail
+        · rw [leftHead, rightHead]
+        · have member : right.id ∈ tail.map AcceptanceCriterion.id :=
+            List.mem_map_of_mem AcceptanceCriterion.id rightTail
+          rw [← sameId, leftHead] at member
+          exact absurd member nodup.1
+      · rcases List.mem_cons.mp rightMem with rightHead | rightTail
+        · have member : left.id ∈ tail.map AcceptanceCriterion.id :=
+            List.mem_map_of_mem AcceptanceCriterion.id leftTail
+          rw [sameId, rightHead] at member
+          exact absurd member nodup.1
+        · exact ih nodup.2 leftTail rightTail
+
+private theorem unique_of_stable_criteria {before after : GraphStore}
+    (unique : AcceptanceCriteriaUnique before)
+    (criteria : ∀ id, after.acceptanceCriteria id = before.acceptanceCriteria id) :
+    AcceptanceCriteriaUnique after := by
+  intro leftRun rightRun left right leftMem rightMem sameId
+  rw [criteria] at leftMem rightMem
+  exact unique leftRun rightRun left right leftMem rightMem sameId
+
+private theorem unique_of_run_open {before after : GraphStore} {runId : RunId} {opened : Run}
+    (unique : AcceptanceCriteriaUnique before)
+    (nodup : (opened.acceptance.map AcceptanceCriterion.id).Nodup)
+    (fresh : ∀ criterion ∈ opened.acceptance, ¬ before.DeclaresAcceptance criterion.id)
+    (runs : after.runs = tableSet before.runs runId opened) :
+    AcceptanceCriteriaUnique after := by
+  obtain ⟨openedCriteria, otherCriteria⟩ := criteria_of_run_open runs
+  intro leftRun rightRun left right leftMem rightMem sameId
+  by_cases leftSame : leftRun = runId
+  · rw [leftSame, openedCriteria] at leftMem
+    by_cases rightSame : rightRun = runId
+    · rw [rightSame, openedCriteria] at rightMem
+      exact criterion_eq_of_nodup nodup leftMem rightMem sameId
+    · rw [otherCriteria rightRun rightSame] at rightMem
+      exact absurd ⟨rightRun, right, rightMem, sameId.symm⟩ (fresh left leftMem)
+  · rw [otherCriteria leftRun leftSame] at leftMem
+    by_cases rightSame : rightRun = runId
+    · rw [rightSame, openedCriteria] at rightMem
+      exact absurd ⟨leftRun, left, leftMem, sameId⟩ (fresh right rightMem)
+    · rw [otherCriteria rightRun rightSame] at rightMem
+      exact unique leftRun rightRun left right leftMem rightMem sameId
+
+theorem graph_step_preserves_acceptance_criteria_unique {effects events audit before after label}
+    (unique : AcceptanceCriteriaUnique before)
+    (step : GraphStep effects events audit before label after) :
+    AcceptanceCriteriaUnique after := by
+  cases step with
+  | startTurn | claimTurn | suspendTurn | resumeTurn | append | reserveObligation
+  | completeObligation | recordAcceptanceVerdict | beginTerminalization | forceCancelSibling =>
+      exact unique_of_stable_criteria unique (fun _ => rfl)
+  | startRun runFresh branchFresh commitFresh registryFresh rootEq active valid nodup fresh
+      rootRun rootBranch rootPins writer parents kind cause =>
+      exact unique_of_run_open unique nodup fresh rfl
+  | spawnChild parentLookup running exactTurn admits runFresh branchFresh commitFresh
+      registryFresh childParent childRoot active nodup fresh rootRun rootBranch rootPins writer
+      parents kind cause =>
+      exact unique_of_run_open unique nodup fresh rfl
+  | migrate runLookup active commitFresh commitRun branchOwned headLookup parents closed allowed
+      kindValid =>
+      exact unique_of_stable_criteria unique (criteria_stable_of_run_update runLookup rfl rfl)
+  | terminalize runLookup active turnLookup turnRun running exactTurn admits validPins turnPins
+      controlLookup controlTurn siblings fence outcome headLookup preterminalLookup
+      preterminalRun preterminalPins commitFresh registryLookup accepting commitRun commitBranch
+      commitPins writer cause parents subjectTurn kindEq snapshotEq =>
+      exact unique_of_stable_criteria unique (criteria_stable_of_run_update runLookup rfl rfl)
+
+theorem record_verdict_at_criterion {store : GraphStore} {verdict : AcceptanceVerdict} :
+    (store.recordVerdict verdict).acceptanceVerdicts verdict.acceptance =
+      verdict :: store.acceptanceVerdicts verdict.acceptance := by
+  simp [GraphStore.recordVerdict]
+
+theorem record_verdict_elsewhere {store : GraphStore} {verdict : AcceptanceVerdict}
+    {id : AcceptanceId} (different : id ≠ verdict.acceptance) :
+    (store.recordVerdict verdict).acceptanceVerdicts id = store.acceptanceVerdicts id := by
+  simp [GraphStore.recordVerdict, different]
+
+private theorem earned_of_extension {before after : GraphStore} {effects}
+    (earned : AcceptanceVerdictsEarned before effects)
+    (criteria : ∀ id, before.acceptanceCriteria id ⊆ after.acceptanceCriteria id)
+    (verdicts : ∀ id, after.acceptanceVerdicts id ⊆ before.acceptanceVerdicts id) :
+    AcceptanceVerdictsEarned after effects := by
+  intro accId verdict member
+  obtain ⟨runId, criterion, outcome, declared, sameId, receipt⟩ :=
+    earned accId verdict (verdicts _ member)
+  exact ⟨runId, criterion, outcome, criteria _ declared, sameId, receipt⟩
+
+private theorem earned_of_stable_criteria {before after : GraphStore} {effects}
+    (earned : AcceptanceVerdictsEarned before effects)
+    (criteria : ∀ id, after.acceptanceCriteria id = before.acceptanceCriteria id)
+    (verdicts : ∀ id, after.acceptanceVerdicts id ⊆ before.acceptanceVerdicts id) :
+    AcceptanceVerdictsEarned after effects := by
+  refine earned_of_extension earned (fun id entry member => ?_) verdicts
+  rw [criteria id]
+  exact member
+
+private theorem criteria_mono_of_run_open {before after : GraphStore}
+    {runId : RunId} {opened : Run}
+    (runFresh : before.runs runId = none)
+    (runs : after.runs = tableSet before.runs runId opened) :
+    ∀ id, before.acceptanceCriteria id ⊆ after.acceptanceCriteria id := by
+  obtain ⟨_, otherCriteria⟩ := criteria_of_run_open runs
+  intro id criterion member
+  by_cases same : id = runId
+  · rw [same] at member
+    simp [GraphStore.acceptanceCriteria, runFresh] at member
+  · rw [otherCriteria id same]
+    exact member
+
+private theorem earned_of_record {before : GraphStore} {effects}
+    {runId : RunId} {run : Run} {criterion : AcceptanceCriterion} {verdict : AcceptanceVerdict}
+    {outcome : AttemptOutcome}
+    (earned : AcceptanceVerdictsEarned before effects)
+    (runLookup : before.runs runId = some run)
+    (declared : criterion ∈ run.acceptance)
+    (criterionId : criterion.id = verdict.acceptance)
+    (receipt : VerifierReceipt effects verdict.receipt criterion.operation outcome) :
+    AcceptanceVerdictsEarned (before.recordVerdict verdict) effects := by
+  have criteria : ∀ id, (before.recordVerdict verdict).acceptanceCriteria id =
+      before.acceptanceCriteria id := fun _ => rfl
+  have inCriteria : criterion ∈ (before.recordVerdict verdict).acceptanceCriteria runId := by
+    rw [criteria]
+    simp [GraphStore.acceptanceCriteria, runLookup]
+    exact declared
+  intro accId entry member
+  by_cases same : accId = verdict.acceptance
+  · rw [same, record_verdict_at_criterion] at member
+    rcases List.mem_cons.mp member with isVerdict | prior
+    · exact ⟨runId, criterion, outcome, inCriteria, by rw [same]; exact criterionId,
+        by rw [isVerdict]; exact receipt⟩
+    · obtain ⟨owner, declaredCriterion, priorOutcome, ownerDeclared, sameId, priorReceipt⟩ :=
+        earned verdict.acceptance entry prior
+      exact ⟨owner, declaredCriterion, priorOutcome, by rw [criteria]; exact ownerDeclared,
+        by rw [same]; exact sameId, priorReceipt⟩
+  · rw [record_verdict_elsewhere same] at member
+    obtain ⟨owner, declaredCriterion, priorOutcome, ownerDeclared, sameId, priorReceipt⟩ :=
+      earned accId entry member
+    exact ⟨owner, declaredCriterion, priorOutcome, by rw [criteria]; exact ownerDeclared, sameId,
+      priorReceipt⟩
+
+theorem graph_step_preserves_earned_verdicts {effects events audit before after label}
+    (earned : AcceptanceVerdictsEarned before effects)
+    (step : GraphStep effects events audit before label after) :
+    AcceptanceVerdictsEarned after effects := by
+  cases step with
+  | startTurn | claimTurn | suspendTurn | resumeTurn | append | reserveObligation
+  | completeObligation | beginTerminalization | forceCancelSibling =>
+      exact earned_of_extension earned (fun _ => List.Subset.refl _) (fun _ => List.Subset.refl _)
+  | startRun runFresh branchFresh commitFresh registryFresh rootEq active valid nodup fresh
+      rootRun rootBranch rootPins writer parents kind cause =>
+      exact earned_of_extension earned (criteria_mono_of_run_open runFresh rfl)
+        (fun _ => List.Subset.refl _)
+  | spawnChild parentLookup running exactTurn admits runFresh branchFresh commitFresh
+      registryFresh childParent childRoot active nodup fresh rootRun rootBranch rootPins writer
+      parents kind cause =>
+      exact earned_of_extension earned (criteria_mono_of_run_open runFresh rfl)
+        (fun _ => List.Subset.refl _)
+  | migrate runLookup active commitFresh commitRun branchOwned headLookup parents closed allowed
+      kindValid =>
+      exact earned_of_stable_criteria earned (criteria_stable_of_run_update runLookup rfl rfl)
+        (fun _ => List.Subset.refl _)
+  | recordAcceptanceVerdict runLookup active declared criterionId registryLookup accepting
+      reserved notCompleted admissible receipt =>
+      exact earned_of_record earned runLookup declared criterionId receipt
+  | terminalize runLookup active turnLookup turnRun running exactTurn admits validPins turnPins
+      controlLookup controlTurn siblings fence outcome headLookup preterminalLookup
+      preterminalRun preterminalPins commitFresh registryLookup accepting commitRun commitBranch
+      commitPins writer cause parents subjectTurn kindEq snapshotEq =>
+      exact earned_of_stable_criteria earned (criteria_stable_of_run_update runLookup rfl rfl)
+        (fun _ => List.Subset.refl _)
+
+private theorem agreement_of_registry_update {before after : GraphStore}
+    {runId : RunId} {registry updated : RunAdmissionRegistry}
+    (agreed : TerminalSnapshotsMatchRegistry before)
+    (registryLookup : before.admissionRegistry runId = some registry)
+    (accepting : registry.accepting = true)
+    (snapshots : after.terminalSnapshots = before.terminalSnapshots)
+    (registries : after.admissionRegistry = tableSet before.admissionRegistry runId updated) :
+    TerminalSnapshotsMatchRegistry after := by
+  intro candidate snapshot snapshotLookup
+  rw [snapshots] at snapshotLookup
+  obtain ⟨prior, priorLookup, closed, exactly⟩ := agreed candidate snapshot snapshotLookup
+  by_cases same : candidate = runId
+  · subst same
+    rw [registryLookup] at priorLookup
+    cases Option.some.inj priorLookup
+    rw [accepting] at closed
+    contradiction
+  · exact ⟨prior, by rw [registries, tableSet_other _ _ _ same]; exact priorLookup, closed, exactly⟩
+
+private theorem agreement_of_fresh_registry {before after : GraphStore}
+    {runId : RunId} {opened : RunAdmissionRegistry}
+    (agreed : TerminalSnapshotsMatchRegistry before)
+    (registryFresh : before.admissionRegistry runId = none)
+    (snapshots : after.terminalSnapshots = before.terminalSnapshots)
+    (registries : after.admissionRegistry = tableSet before.admissionRegistry runId opened) :
+    TerminalSnapshotsMatchRegistry after := by
+  intro candidate snapshot snapshotLookup
+  rw [snapshots] at snapshotLookup
+  obtain ⟨prior, priorLookup, closed, exactly⟩ := agreed candidate snapshot snapshotLookup
+  by_cases same : candidate = runId
+  · subst same
+    rw [registryFresh] at priorLookup
+    contradiction
+  · exact ⟨prior, by rw [registries, tableSet_other _ _ _ same]; exact priorLookup, closed, exactly⟩
+
+private theorem agreement_of_terminalization {before after : GraphStore}
+    {runId : RunId} {registry : RunAdmissionRegistry} {snapshot : TerminalSnapshot}
+    (agreed : TerminalSnapshotsMatchRegistry before)
+    (captured : snapshot.obligations = registry.outstanding)
+    (snapshots : after.terminalSnapshots = tableSet before.terminalSnapshots runId snapshot)
+    (registries : after.admissionRegistry =
+      tableSet before.admissionRegistry runId registry.close) :
+    TerminalSnapshotsMatchRegistry after := by
+  intro candidate recorded recordedLookup
+  rw [snapshots] at recordedLookup
+  by_cases same : candidate = runId
+  · subst same
+    rw [tableSet_self] at recordedLookup
+    cases Option.some.inj recordedLookup
+    refine ⟨registry.close, by rw [registries]; exact tableSet_self .., rfl, fun obligation => ?_⟩
+    rw [captured]
+    simp [RunAdmissionRegistry.outstanding, RunAdmissionRegistry.close, List.mem_filter]
+  · rw [tableSet_other _ _ _ same] at recordedLookup
+    obtain ⟨prior, priorLookup, closed, exactly⟩ := agreed candidate recorded recordedLookup
+    exact ⟨prior, by rw [registries, tableSet_other _ _ _ same]; exact priorLookup, closed, exactly⟩
+
+theorem graph_step_preserves_snapshot_registry_agreement
+    {effects events audit before after label}
+    (agreed : TerminalSnapshotsMatchRegistry before)
+    (step : GraphStep effects events audit before label after) :
+    TerminalSnapshotsMatchRegistry after := by
+  cases step with
+  | startTurn | claimTurn | suspendTurn | resumeTurn | append | migrate
+  | beginTerminalization | forceCancelSibling | recordAcceptanceVerdict => exact agreed
+  | startRun runFresh branchFresh commitFresh registryFresh =>
+      exact agreement_of_fresh_registry agreed registryFresh rfl rfl
+  | spawnChild parentLookup running exactTurn admits runFresh branchFresh commitFresh
+      registryFresh =>
+      exact agreement_of_fresh_registry agreed registryFresh rfl rfl
+  | reserveObligation runLookup active registryLookup accepting =>
+      exact agreement_of_registry_update agreed registryLookup accepting rfl rfl
+  | completeObligation runLookup active registryLookup accepting =>
+      exact agreement_of_registry_update agreed registryLookup accepting rfl rfl
+  | terminalize runLookup active turnLookup turnRun running exactTurn admits validPins turnPins
+      controlLookup controlTurn siblings fence outcome headLookup preterminalLookup
+      preterminalRun preterminalPins commitFresh registryLookup accepting commitRun commitBranch
+      commitPins writer cause parents subjectTurn kindEq snapshotEq =>
+      exact agreement_of_terminalization agreed (by rw [snapshotEq]) rfl rfl
+
+inductive GraphReachable (effects : EffectLedger) (events : EventStore) (audit : AuditLog) :
+    GraphStore → GraphStore → Prop
+  | refl (store) : GraphReachable effects events audit store store
+  | step {start middle finish label} :
+      GraphReachable effects events audit start middle →
+      GraphStep effects events audit middle label finish →
+      GraphReachable effects events audit start finish
+
+theorem graph_reachable_preserves_acceptance_outstanding {effects events audit start finish}
+    (outstanding : AcceptanceObligationsOutstanding start)
+    (reachable : GraphReachable effects events audit start finish) :
+    AcceptanceObligationsOutstanding finish := by
+  induction reachable with
+  | refl => exact outstanding
+  | step _ transition ih => exact graph_step_preserves_acceptance_outstanding ih transition
+
+theorem graph_reachable_preserves_acceptance_criteria_unique {effects events audit start finish}
+    (unique : AcceptanceCriteriaUnique start)
+    (reachable : GraphReachable effects events audit start finish) :
+    AcceptanceCriteriaUnique finish := by
+  induction reachable with
+  | refl => exact unique
+  | step _ transition ih => exact graph_step_preserves_acceptance_criteria_unique ih transition
+
+theorem graph_reachable_preserves_earned_verdicts {effects events audit start finish}
+    (earned : AcceptanceVerdictsEarned start effects)
+    (reachable : GraphReachable effects events audit start finish) :
+    AcceptanceVerdictsEarned finish effects := by
+  induction reachable with
+  | refl => exact earned
+  | step _ transition ih => exact graph_step_preserves_earned_verdicts ih transition
+
+theorem graph_reachable_preserves_snapshot_registry_agreement {effects events audit start finish}
+    (agreed : TerminalSnapshotsMatchRegistry start)
+    (reachable : GraphReachable effects events audit start finish) :
+    TerminalSnapshotsMatchRegistry finish := by
+  induction reachable with
+  | refl => exact agreed
+  | step _ transition ih => exact graph_step_preserves_snapshot_registry_agreement ih transition
+
+theorem no_run_graph_acceptance_is_outstanding {store} (empty : ∀ id, store.runs id = none) :
+    AcceptanceObligationsOutstanding store := by
+  intro runId criterion declared
+  simp [GraphStore.acceptanceCriteria, empty runId] at declared
+
+theorem no_snapshot_graph_matches_registry {store}
+    (empty : ∀ id, store.terminalSnapshots id = none) : TerminalSnapshotsMatchRegistry store := by
+  intro runId snapshot lookup
+  rw [empty runId] at lookup
+  contradiction
+
+theorem empty_graph_acceptance_is_outstanding :
+    AcceptanceObligationsOutstanding (default : GraphStore) :=
+  no_run_graph_acceptance_is_outstanding (fun _ => rfl)
+
+theorem empty_graph_acceptance_criteria_unique :
+    AcceptanceCriteriaUnique (default : GraphStore) := by
+  intro leftRun _ left _ leftMem _ _
+  simp [GraphStore.acceptanceCriteria] at leftMem
+
+theorem empty_graph_verdicts_earned {effects} :
+    AcceptanceVerdictsEarned (default : GraphStore) effects := by
+  intro accId verdict member
+  have empty : (default : GraphStore).acceptanceVerdicts accId = [] := rfl
+  rw [empty] at member
+  cases member
+
+theorem empty_graph_snapshots_match_registry :
+    TerminalSnapshotsMatchRegistry (default : GraphStore) :=
+  no_snapshot_graph_matches_registry (fun _ => rfl)
 
 theorem delivery_commit_matches_route {store effects events audit now commit operation reservation outcome}
     (allowed : CommitAllowed store effects events audit now commit)
