@@ -281,7 +281,7 @@ export class RunRuntime<Transaction> {
         verdict: AcceptanceVerdict
     ): void {
         const run = requireValue(this.repository.loadRun(tx, runId), "Run does not exist");
-        requireValue(
+        const criterion = requireValue(
             this.repository.loadAcceptanceCriterion(tx, verdict.acceptance),
             "Acceptance criterion does not exist"
         );
@@ -298,6 +298,15 @@ export class RunRuntime<Transaction> {
             throw new AgentCoreError(
                 "authority.denied",
                 "Acceptance verdict requires its exact attempted verifier Receipt"
+            );
+        }
+        // Without this the criterion's declared Operation is decoration: any succeeded
+        // Receipt would discharge any criterion, and "no actor can assert a verdict it
+        // did not earn" would mean only "holds some succeeded Receipt".
+        if (!evidence.operation.equals(criterion.operation)) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Acceptance verdict requires a Receipt from the criterion's declared verifier"
             );
         }
         const existing = this.repository.loadAcceptanceVerdict(

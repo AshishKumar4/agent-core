@@ -1030,8 +1030,10 @@ for that `AcceptanceId` names an attempted Receipt whose outcome is `succeeded` 
 `subject` equals the Run's current head tree digest — the tree digest of the head of the
 Run's `initialBranch`, the one branch the Run record itself names, so that completion is
 never selectable by the caller that asks. The verifier is an ordinary
-Operation, so its Receipt carries the whole §7 admission and audit chain and no actor can
-assert a verdict it did not earn. An unsatisfied acceptance obligation is exactly as
+Operation, so its Receipt carries the whole §7 admission and audit chain, and the Receipt
+MUST come from the exact Operation the criterion names — a succeeded Receipt from any other
+Operation is not evidence for this criterion, or the declared verifier would be decoration
+and any success anywhere would discharge it. An unsatisfied acceptance obligation is exactly as
 unfinished as an outstanding Approval: it is snapshotted into the SettlementObligation and
 the Run is not Settled while it stands. A criterion bounds nothing — not time, not cost,
 not attempts — and a Run that declares none is settled by the same rule as before. This
@@ -2701,7 +2703,7 @@ A conforming implementation provides:
 - **C13-TURN-TERMINAL-RESULT-WRITER** Terminal-result writes reject stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
-- **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier and names the exact `intentDigest` it authorizes.
+- **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.
 - **C13-CONTENT-RESOLUTION** Every ContentRef resolves through ContentStore.
 - **C13-CONTENT-CUSTODY** Stored content is owned by one Tenant, and every record naming a `ContentRef` retains it until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.

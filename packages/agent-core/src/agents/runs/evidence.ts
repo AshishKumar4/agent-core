@@ -1,4 +1,5 @@
 import { ContentRef } from "../../core";
+import type { OperationRef } from "../../facets";
 import type { ReceiptId } from "../../invocation-references";
 import type { AttemptReceiptOutcome } from "../../invocations";
 import type {
@@ -58,6 +59,9 @@ export interface AcceptanceReceiptEvidence {
     readonly kind: "acceptanceReceipt";
     readonly receipt: ReceiptId;
     readonly outcome: AttemptReceiptOutcome;
+    /** The Operation this Receipt's attempt invoked, so discharge can bind it to the
+     *  criterion's declared verifier rather than accept any succeeded Receipt. */
+    readonly operation: OperationRef;
 }
 
 export interface ForcedCancellationEvidence {

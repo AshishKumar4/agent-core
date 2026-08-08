@@ -47,12 +47,14 @@ function verdict(acceptance: AcceptanceId, subject: Digest, receipt: string): Ac
 function attempted(
     value: ReturnType<typeof harness>,
     receipt: string,
-    outcome: AcceptanceReceiptEvidence["outcome"]
+    outcome: AcceptanceReceiptEvidence["outcome"],
+    invoked: OperationRef = operation
 ): void {
     value.evidence.acceptances.set(receipt, {
         kind: "acceptanceReceipt",
         receipt: new ReceiptId(receipt),
-        outcome
+        outcome,
+        operation: invoked
     });
 }
 
@@ -202,10 +204,23 @@ describe("Run acceptance criteria", () => {
                     ),
                 "authority.denied"
             );
+            // The criterion names the Operation that decides it, so a succeeded Receipt
+            // from some other Operation is not evidence for this criterion — otherwise
+            // the declared verifier would be decoration and any success would discharge.
+            attempted(value, "foreign-verifier", "succeeded", new OperationRef("other:verify"));
+            expectCode(
+                () =>
+                    value.runtime.recordAcceptanceVerdict(
+                        ids.run,
+                        verdict(firstId, digest("9"), "foreign-verifier")
+                    ),
+                "authority.denied"
+            );
             value.evidence.acceptances.set("mismatched-receipt", {
                 kind: "acceptanceReceipt",
                 receipt: new ReceiptId("some-other-receipt"),
-                outcome: "succeeded"
+                outcome: "succeeded",
+                operation
             });
             expectCode(
                 () =>
