@@ -97,10 +97,12 @@ private def firstPresentation : StructuralValue := ⟨"json-v1", ["first-present
 private def secondPresentation : StructuralValue := ⟨"json-v1", ["second-presented"]⟩
 private def batchReplay : MediatedReplay :=
   ⟨invocationId,
-    [⟨0, firstKey, [⟨1, firstArgs, firstPreparedArgs⟩], firstPreparedArgs,
-        firstEffectOutput, [⟨2, firstEffectOutput, firstPresentation⟩], firstPresentation⟩,
-      ⟨1, secondKey, [⟨1, secondArgs, secondPreparedArgs⟩], secondPreparedArgs,
-        secondEffectOutput, [⟨2, secondEffectOutput, secondPresentation⟩], secondPresentation⟩]⟩
+    [⟨0, firstKey, [⟨⟨facet, 1⟩, firstArgs, firstPreparedArgs⟩], firstPreparedArgs,
+        firstEffectOutput, [⟨⟨facet, 2⟩, firstEffectOutput, firstPresentation⟩],
+        firstPresentation⟩,
+      ⟨1, secondKey, [⟨⟨facet, 1⟩, secondArgs, secondPreparedArgs⟩], secondPreparedArgs,
+        secondEffectOutput, [⟨⟨facet, 2⟩, secondEffectOutput, secondPresentation⟩],
+        secondPresentation⟩]⟩
 
 theorem nonvacuous_batch_replay_item_association :
     batchReplay.ValidFor prepared ∧

@@ -370,8 +370,15 @@ theorem prepared_item_key_commits_complete_structure {prepared : PreparedInvocat
   rw [prepared_item_key_is_derived member]
   exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
+/-- Interceptor ids are unique only within a Facet (§4.4 rule 3), so the attributable
+identity of a rewrite is the facet-qualified pair. -/
+structure InterceptorRef where
+  facet : FacetId
+  id : Nat
+  deriving DecidableEq, Repr
+
 structure InterceptorTransformation where
-  interceptor : Nat
+  interceptor : InterceptorRef
   input : StructuralValue
   output : StructuralValue
   deriving DecidableEq, Repr
