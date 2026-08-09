@@ -2259,18 +2259,86 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 
 - DO SQLite is synchronous; the dispatcher's envelope check plus guarded mutation is
   one synchronous span with no intervening `await` (input-gate hazard, §8.5).
-- WebSocket surfaces use hibernation. ViewDelta streaming requires a durable,
-  compactable delta/snapshot log keyed by revision in the owning DO, and the
-  per-socket last-acked revision cursor in the WebSocket attachment (≤ 16 KB); replay
-  cost is bounded by periodic snapshots.
-- Alarms drive schedules (idempotency key = `(subscription, fireTime)`) and serve as
-  the reconciliation driver (§7.4): an alarm sweep re-queries indeterminate attempts
-  and appends final Receipts; retry creates a new mediated EffectAttempt.
-  Workflows `step.waitForEvent` MAY serve as the driver for provider-callback flows.
-- Queues and Workflows are at-least-once with no platform-fenced DO callback; all
-  fencing is the application-level lease epoch (§5.3).
 - Platform and Slate-backend deployment uses dispatch namespaces; per-app resources
   (D1, KV) are provisioned at first need and recorded on the owning Slate record.
+
+### 10.4 Durable execution
+
+This profile rests its durability on four platform mechanisms: the object's alarm, its
+reconciliation outbox, its hibernating sockets, and its SQLite storage. Each is a place
+a substrate can satisfy the local runtime and still diverge in production, so the
+conformance evidence for the rules below is taken from a deployed account.
+
+A Durable Object has exactly one alarm, so no scheduler inside it writes that alarm
+directly: each records a durable per-owner claim, and the physical alarm tracks the
+earliest live claim. Setting, advancing, or releasing one owner's claim MUST leave every
+other owner's wakeup armed, a claim that fires releases only itself, and the alarm falls
+back to the earliest surviving claim or is torn down when none remains. The claim table,
+not the platform's alarm slot, is the state that arbitration is repaired from. This maps
+to **C13-CLOUDFLARE-ALARM-CLAIMS**.
+
+Alarms drive schedules (idempotency key = `(subscription, fireTime)`) and serve as the
+reconciliation driver (§7.4): an alarm sweep re-queries indeterminate attempts and
+appends final Receipts; retry creates a new mediated EffectAttempt. Workflows
+`step.waitForEvent` MAY serve as the driver for provider-callback flows instead. The
+driver holds one claim tracking the earliest entry of a durable reconciliation outbox —
+armed when an entry is enqueued, rebuilt from the outbox when the Actor starts, and
+released once the outbox drains — so no due entry is left without a wakeup and no
+drained outbox is left holding one. This maps to
+**C13-CLOUDFLARE-RECONCILIATION-DRIVER**.
+
+An armed alarm is durable state rather than a live timer, and its recovery belongs to
+the platform. Losing the instance MUST NOT drop the schedule: the platform
+re-instantiates the object and fires the alarm on schedule without anything outside the
+object having touched it. A handler that throws MUST NOT drop it either — the entry
+stays unacknowledged and the alarm re-fires until a sweep completes. Because recovery is
+the platform's, a conforming deployment MUST NOT need an external timer, cron, or
+keepalive request to re-arm work it has already armed. This maps to
+**C13-CLOUDFLARE-ALARM-DURABILITY**.
+
+A reconciliation that fails is rescheduled, never acknowledged: the sweep records the
+failure, moves that entry to a bounded retry time, re-arms the alarm for it, and the
+entry settles under the same driver on a later sweep. A sweep that fails before reaching
+its entries floors the re-arm one retry delay out instead of at the past schedules it
+never read, which would refire immediately and spin. This maps to
+**C13-CLOUDFLARE-RECONCILIATION-RETRY**.
+
+Reconciliation awaits application work with the object's input gate open, so a request
+can reschedule an entry while the sweep that read it is still running. Acknowledgement
+and reschedule therefore fence on the schedule the sweep observed: an entry whose
+schedule moved underneath the sweep MUST survive it with the newer schedule intact and
+the alarm pointing at that schedule, and an entry whose schedule still matches is
+cleared. This maps to **C13-CLOUDFLARE-RECONCILIATION-FENCE**.
+
+WebSocket surfaces use hibernation. ViewDelta streaming requires a durable, compactable
+delta/snapshot log keyed by revision in the owning DO, and the per-socket last-acked
+revision cursor in the WebSocket attachment (≤ 16 KB); replay cost is bounded by
+periodic snapshots. The attachment is that cursor's only home, so it MUST survive
+hibernation and isolate eviction alongside the open socket: a socket resumed in a new
+isolate replays exactly the revisions past its acknowledged cursor, and an acknowledged
+revision is never replayed to it again. This maps to **C13-CLOUDFLARE-VIEW-ATTACHMENT**.
+
+Queues and Workflows are at-least-once with no platform-fenced DO callback; all fencing
+is the application-level lease epoch (§5.3). A delivery the target accepts is
+acknowledged and MUST NOT be handed back; one the target declines is retried and
+redelivered. A message whose body carries no decodable delivery identity MUST NOT reach
+the target and MUST NOT be acknowledged either, because acknowledging destroys it: it is
+retried until the queue's own dead-letter policy takes custody, while the rest of its
+batch keeps its own dispositions. This maps to **C13-CLOUDFLARE-QUEUE-DISPOSITION**.
+
+DO SQLite bounds the size of a stored string, BLOB, or row, and this profile declares
+that bound as a value the deployed platform accepts with row overhead included — not
+merely one the local runtime accepts. Every durable write seam MUST refuse an
+over-limit payload as invalid input before opening a transaction, since the runtime
+would otherwise surface the bound as an opaque statement failure partway through one,
+and the refusal MUST leave the object serving and its durable log unchanged. This maps
+to **C13-CLOUDFLARE-STORAGE-LIMIT**.
+
+Durable state is independent of the deployed code version. Deploying a new Worker MUST
+NOT clear alarm claims, the physical alarm, reconciliation outbox entries, or the view
+revision log, and the new version resumes that work rather than restarting it: a
+schedule armed by the previous version fires under the new one and settles there. This
+maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 
 ---
 
@@ -2719,6 +2787,15 @@ A conforming implementation provides:
 - **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit binds every specified tenant, source, target, authority, intent, item, claim, pin, epoch, nonce, and time field.
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim, fence, reservation identity/epoch, single use, and expiry, then irreversibly consumes a valid issued permit regardless of newer post-issuance watermark.
+- **C13-CLOUDFLARE-ALARM-CLAIMS** The object's single alarm is arbitrated by durable per-owner claims and tracks the earliest live one, so no owner clobbers another's wakeup.
+- **C13-CLOUDFLARE-RECONCILIATION-DRIVER** The reconciliation driver's claim tracks the earliest durable outbox entry, armed on enqueue, rebuilt at startup, and released when the outbox drains.
+- **C13-CLOUDFLARE-ALARM-DURABILITY** An armed alarm survives instance loss and a throwing handler, and the platform, not an external re-arming path, recovers it.
+- **C13-CLOUDFLARE-RECONCILIATION-RETRY** A failed reconciliation is rescheduled to a bounded retry time rather than acknowledged, and settles on a later sweep.
+- **C13-CLOUDFLARE-RECONCILIATION-FENCE** Outbox acknowledgement and reschedule fence on the schedule the sweep observed, so a mid-sweep reschedule survives.
+- **C13-CLOUDFLARE-VIEW-ATTACHMENT** The per-socket acknowledged-revision cursor survives hibernation and eviction in the attachment, and replay is exactly the unacknowledged suffix.
+- **C13-CLOUDFLARE-QUEUE-DISPOSITION** Accepted deliveries are acknowledged, declined ones redelivered, and an undecodable body is neither delivered nor acknowledged but left to dead-lettering.
+- **C13-CLOUDFLARE-STORAGE-LIMIT** The declared DO SQLite size bound is one the deployed platform accepts, and write seams refuse an over-limit payload before opening a transaction.
+- **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY** Alarm claims, armed alarms, outbox entries, and the view revision log survive a Worker deployment, and the new version resumes that work.
 - **C13-ADV-STALE-LEASE** Adversarial tests cover a stale lease.
 - **C13-ADV-WRONG-TURN-LEASE** Adversarial tests cover a wrong-Turn lease.
 - **C13-ADV-REVOKED-ALLOW** Adversarial tests cover a revoked allow.
