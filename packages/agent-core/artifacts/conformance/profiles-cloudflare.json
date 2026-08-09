@@ -3,6 +3,39 @@
   "owner": "W8",
   "requirements": [
     {
+      "id": "C13-CLOUDFLARE-ALARM-CLAIMS",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-ALARM-CLAIMS",
+      "specTextSha256": "sha256:5c0834a296bf8d6f5d5796afbe8654df0445f44c08b90b89d1bbd54fae5cc529",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["cloudflare/src/alarm-claims.ts#DurableAlarmClaims"],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-ARBITRATION] shares one physical alarm between two claims across a real instance kill",
+        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-ALARM-ARBITRATION] keeps an alarm claim and its physical alarm across a full worker redeployment"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-ALARM-DURABILITY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-ALARM-DURABILITY",
+      "specTextSha256": "sha256:80f501cf362a37cc7f2f0edf24388649699b69ba285987591ab7d9430776c9e3",
+      "status": "verified",
+      "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
+      "sourceSymbols": [
+        "cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass",
+        "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler"
+      ],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it",
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-FAULT-RECOVERY] re-fires an alarm whose handler threw, with no external re-arming"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
       "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
@@ -39,6 +72,118 @@
         "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] rolls back the nonce when the EffectAttempt append fails"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
+      "specTextSha256": "sha256:26b1388a0246aa50c2a9a8d53d0673f46a4f923cc9d6e46bd280f6a2c2e230f0",
+      "status": "verified",
+      "prerequisites": ["C13-CLOUDFLARE-ALARM-DURABILITY"],
+      "sourceSymbols": ["cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass"],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-REDEPLOY] arms durable reconciliation work for the redeployed worker to finish",
+        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-ALARM-REDEPLOY] finishes reconciliation work armed before the redeployment",
+        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-STORAGE-LIMIT] keeps the view revision log across a full worker redeployment"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+      "specTextSha256": "sha256:2664d79de3bcd53014524f7cca13a44b6fcd87ac4f58a6f593a95c46f592a9df",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["cloudflare/src/queue.ts#AtLeastOnceQueueAdapter"],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-QUEUE-DELIVERY] acknowledges, redelivers, and dead-letters through a real queue"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
+      "specTextSha256": "sha256:a2c277f670071e70a4d535b880f8f31bcefdffff22982320716cd3af68842aa9",
+      "status": "verified",
+      "prerequisites": ["C13-CLOUDFLARE-ALARM-CLAIMS", "C13-EFFECT-RECONCILIATION-DRIVER"],
+      "sourceSymbols": [
+        "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler",
+        "cloudflare/src/reconciliation.ts#SqliteReconciliationOutbox"
+      ],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-SCHEDULE] arms a real alarm from the outbox, fires it, and tears the alarm down"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
+      "specTextSha256": "sha256:8a3a9c9dead3b8520505749332bc4f377f20a495d5c4c36a0219bd45f990ad90",
+      "status": "verified",
+      "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
+      "sourceSymbols": [
+        "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler",
+        "cloudflare/src/reconciliation.ts#SqliteReconciliationOutbox"
+      ],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
+      "specTextSha256": "sha256:20cb867be4f136b755d22420f42098a42151740770a71524f58400f2ad510c8b",
+      "status": "verified",
+      "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
+      "sourceSymbols": ["cloudflare/src/reconciliation.ts#AlarmOutboxReconciler"],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-RETRY] reschedules a failed reconciliation onto a real alarm and settles it"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-STORAGE-LIMIT",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-STORAGE-LIMIT",
+      "specTextSha256": "sha256:63f9343d9e146948cf7c0137a53931af7ed0ffa65cd00689fd47403e4e2b8550",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "cloudflare/src/revision-log.ts#DurableViewRevisionLog",
+        "cloudflare/src/sqlite.ts#requireStorableBlob"
+      ],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
+      "specTextSha256": "sha256:9acd074c4019f898e5cf94ea93e50981b79979b0dd0a303cddcdd7b0e6f19e1c",
+      "status": "verified",
+      "prerequisites": ["C13-VIEW-DELTA-REPLAY"],
+      "sourceSymbols": [
+        "cloudflare/src/revision-log.ts#DurableViewRevisionLog",
+        "cloudflare/src/websocket.ts#HibernatingViewSocketAdapter"
+      ],
+      "testSelectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-VIEW-HIBERNATION] replays a hibernating WebSocket and keeps its attachment across an idle eviction window"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
