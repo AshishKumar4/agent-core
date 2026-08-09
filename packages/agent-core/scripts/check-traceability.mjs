@@ -27,6 +27,7 @@ const statusVocabulary = [
 ];
 const requiredRequirementIds = [
     "AC-STRUCTURAL-001",
+    "AC-INTERCEPTOR-001",
     "AC-AUTH-001",
     "AC-AUTH-RESOLUTION-001",
     "AC-MATERIALIZE-001",
