@@ -308,11 +308,14 @@
         "AgentCore.placement_uses_provider_without_dynamic",
         "AgentCore.placement_uses_bundled_last",
         "AgentCore.empty_intersection_rejects",
-        "AgentCore.execute_is_formally_mediated"
+        "AgentCore.turn_owned_session_execute_floor_is_direct",
+        "AgentCore.unowned_execute_floor_is_mediated",
+        "AgentCore.direct_execute_requires_bundled_colocation"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_all_mode_preference",
-        "AgentCore.Examples.nonvacuous_empty_placement_rejected"
+        "AgentCore.Examples.nonvacuous_empty_placement_rejected",
+        "AgentCore.Examples.nonvacuous_turn_owned_execute_tier"
       ],
       "witnessCoverage": {
         "AgentCore.placement_prefers_dynamic": [
@@ -327,8 +330,14 @@
         "AgentCore.empty_intersection_rejects": [
           "AgentCore.Examples.nonvacuous_empty_placement_rejected"
         ],
-        "AgentCore.execute_is_formally_mediated": [
-          "AgentCore.Examples.nonvacuous_all_mode_preference"
+        "AgentCore.turn_owned_session_execute_floor_is_direct": [
+          "AgentCore.Examples.nonvacuous_turn_owned_execute_tier"
+        ],
+        "AgentCore.unowned_execute_floor_is_mediated": [
+          "AgentCore.Examples.nonvacuous_turn_owned_execute_tier"
+        ],
+        "AgentCore.direct_execute_requires_bundled_colocation": [
+          "AgentCore.Examples.nonvacuous_turn_owned_execute_tier"
         ]
       },
       "remainingEvidence": [
@@ -1778,6 +1787,202 @@
       "remainingEvidence": [
         "refinement from a concrete orchestration profile"
       ]
+    },
+    {
+      "id": "AC-ENVIRONMENT-001",
+      "summary": "Environment Session lifecycle: Turn-owned fail-closed use, terminal close with child disposal, rotation pinning, explicit egress binding, credential isolation, and fail-closed preview exposure",
+      "status": "proved-safety",
+      "boundary": "An abstract Session LTS over one ledger. Every session-scoped child-Facet use is gated on a live session at its exact epoch under an admitted lease token of the owning Turn; close is terminal and disposes files and exposures; rotation advances only the Environment head; every egress names an explicit EgressGrant and reaches exactly its recorded destination; the credential-isolation invariant keeps resolved plaintext out of session files and snapshots at every reachable state, with the violating state representable and proved unreachable; preview ingress reaches exactly the exposed session and port and fails closed on revocation, loss, and close. Concrete provider, container, transport, and snapshot-format behavior is NC-ENVIRONMENT-LIFECYCLE.",
+      "definitions": [
+        "AgentCore.EnvironmentLedger",
+        "AgentCore.EnvironmentLedger.boot",
+        "AgentCore.EnvironmentLabel",
+        "AgentCore.EnvironmentStep",
+        "AgentCore.EnvReachable",
+        "AgentCore.EnvironmentRecord",
+        "AgentCore.SessionRecord",
+        "AgentCore.SessionPhase",
+        "AgentCore.SessionUse",
+        "AgentCore.UseAdmitted",
+        "AgentCore.StoredValue",
+        "AgentCore.AgentValue",
+        "AgentCore.AgentValue.stored",
+        "AgentCore.SnapshotRecord",
+        "AgentCore.ExposureRecord",
+        "AgentCore.EgressGrant",
+        "AgentCore.EgressRecord",
+        "AgentCore.IngressRecord",
+        "AgentCore.restoreContent",
+        "AgentCore.setFiles",
+        "AgentCore.revokeSessionExposures",
+        "AgentCore.FilesIsolated",
+        "AgentCore.CredentialIsolated"
+      ],
+      "theorems": [
+        "AgentCore.session_use_is_turn_owned_and_live",
+        "AgentCore.stale_session_admits_nothing",
+        "AgentCore.close_disposes_child_facets",
+        "AgentCore.closed_session_is_terminal",
+        "AgentCore.rotation_does_not_retarget_open_sessions",
+        "AgentCore.open_session_pins_current_revision",
+        "AgentCore.session_pin_is_immutable",
+        "AgentCore.session_egress_is_explicitly_bound",
+        "AgentCore.unbound_send_is_refused",
+        "AgentCore.proxy_send_writes_no_session_state",
+        "AgentCore.env_step_preserves_credential_isolation",
+        "AgentCore.reachable_credential_isolation",
+        "AgentCore.plaintext_in_session_state_is_unreachable",
+        "AgentCore.preview_ingress_is_exactly_the_exposed_port",
+        "AgentCore.revoked_exposure_admits_no_ingress",
+        "AgentCore.stale_exposure_admits_no_ingress"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_credential_isolated_session_trace",
+        "AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable",
+        "AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection",
+        "AgentCore.Examples.nonvacuous_preview_exposure_lifecycle"
+      ],
+      "witnessCoverage": {
+        "AgentCore.session_use_is_turn_owned_and_live": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace"
+        ],
+        "AgentCore.stale_session_admits_nothing": [
+          "AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection"
+        ],
+        "AgentCore.close_disposes_child_facets": [
+          "AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection"
+        ],
+        "AgentCore.closed_session_is_terminal": [
+          "AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection"
+        ],
+        "AgentCore.rotation_does_not_retarget_open_sessions": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace"
+        ],
+        "AgentCore.open_session_pins_current_revision": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace"
+        ],
+        "AgentCore.session_pin_is_immutable": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace"
+        ],
+        "AgentCore.session_egress_is_explicitly_bound": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace"
+        ],
+        "AgentCore.unbound_send_is_refused": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace"
+        ],
+        "AgentCore.proxy_send_writes_no_session_state": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace"
+        ],
+        "AgentCore.env_step_preserves_credential_isolation": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace",
+          "AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable"
+        ],
+        "AgentCore.reachable_credential_isolation": [
+          "AgentCore.Examples.nonvacuous_credential_isolated_session_trace",
+          "AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable"
+        ],
+        "AgentCore.plaintext_in_session_state_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable"
+        ],
+        "AgentCore.preview_ingress_is_exactly_the_exposed_port": [
+          "AgentCore.Examples.nonvacuous_preview_exposure_lifecycle"
+        ],
+        "AgentCore.revoked_exposure_admits_no_ingress": [
+          "AgentCore.Examples.nonvacuous_preview_exposure_lifecycle"
+        ],
+        "AgentCore.stale_exposure_admits_no_ingress": [
+          "AgentCore.Examples.nonvacuous_preview_exposure_lifecycle"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete provider lifecycle, container, and reconciliation semantics",
+        "snapshot content format and preview-host token derivation"
+      ]
+    },
+    {
+      "id": "AC-SLATE-001",
+      "summary": "Slate record plane and dynamic-isolate authority: version and publication immutability, rollback pointer semantics, preview as an Environment Session, and zero-ambient capability provenance",
+      "status": "proved-safety",
+      "boundary": "Two abstract LTSs. The dynamic isolate boots with nothing passed and admits no first move but a host pass; every recorded action at every reachable state is backed by an explicitly passed Binding, egress reaches exactly a passed Binding's named destination, and a dynamic-only manifest can never be placed in an ambient domain. The Slate ledger keeps committed versions and publications immutable under every transition, restricts rollback to an atomic active-pointer retarget onto an owned successful deployment with no provider contact, and opens a preview only against a live Environment Session behind a live exposure. Generated application code and concrete provider effects are NC-SLATE-RUNTIME.",
+      "definitions": [
+        "AgentCore.DynamicDomain",
+        "AgentCore.DynamicDomain.fresh",
+        "AgentCore.IsolateCapability",
+        "AgentCore.IsolateAction",
+        "AgentCore.IsolateAction.binding",
+        "AgentCore.IsolateLabel",
+        "AgentCore.IsolateStep",
+        "AgentCore.IsolateReachable",
+        "AgentCore.ActionsBacked",
+        "AgentCore.dynamicOnlyManifest",
+        "AgentCore.SlateLedger",
+        "AgentCore.SlateLedger.empty",
+        "AgentCore.SlateLabel",
+        "AgentCore.SlateStep",
+        "AgentCore.SlateReachable",
+        "AgentCore.SlateRecord",
+        "AgentCore.SlateVersionRecord",
+        "AgentCore.SlatePublicationRecord",
+        "AgentCore.SlateDeploymentRecord",
+        "AgentCore.SlatePreviewRecord"
+      ],
+      "theorems": [
+        "AgentCore.fresh_dynamic_isolate_admits_only_host_pass",
+        "AgentCore.isolate_invoke_requires_passed_binding",
+        "AgentCore.isolate_egress_matches_passed_destination",
+        "AgentCore.isolate_capability_growth_is_host_pass",
+        "AgentCore.reachable_isolate_actions_are_binding_backed",
+        "AgentCore.dynamic_only_manifest_never_places_ambient",
+        "AgentCore.committed_version_is_immutable",
+        "AgentCore.publication_is_immutable",
+        "AgentCore.rollback_retargets_only_owned_successful_deployment",
+        "AgentCore.provider_contact_only_from_deploy",
+        "AgentCore.preview_is_live_environment_session"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_dynamic_isolate_provenance",
+        "AgentCore.Examples.nonvacuous_dynamic_only_manifest_placement",
+        "AgentCore.Examples.nonvacuous_slate_lifecycle"
+      ],
+      "witnessCoverage": {
+        "AgentCore.fresh_dynamic_isolate_admits_only_host_pass": [
+          "AgentCore.Examples.nonvacuous_dynamic_isolate_provenance"
+        ],
+        "AgentCore.isolate_invoke_requires_passed_binding": [
+          "AgentCore.Examples.nonvacuous_dynamic_isolate_provenance"
+        ],
+        "AgentCore.isolate_egress_matches_passed_destination": [
+          "AgentCore.Examples.nonvacuous_dynamic_isolate_provenance"
+        ],
+        "AgentCore.isolate_capability_growth_is_host_pass": [
+          "AgentCore.Examples.nonvacuous_dynamic_isolate_provenance"
+        ],
+        "AgentCore.reachable_isolate_actions_are_binding_backed": [
+          "AgentCore.Examples.nonvacuous_dynamic_isolate_provenance"
+        ],
+        "AgentCore.dynamic_only_manifest_never_places_ambient": [
+          "AgentCore.Examples.nonvacuous_dynamic_only_manifest_placement"
+        ],
+        "AgentCore.committed_version_is_immutable": [
+          "AgentCore.Examples.nonvacuous_slate_lifecycle"
+        ],
+        "AgentCore.publication_is_immutable": [
+          "AgentCore.Examples.nonvacuous_slate_lifecycle"
+        ],
+        "AgentCore.rollback_retargets_only_owned_successful_deployment": [
+          "AgentCore.Examples.nonvacuous_slate_lifecycle"
+        ],
+        "AgentCore.provider_contact_only_from_deploy": [
+          "AgentCore.Examples.nonvacuous_slate_lifecycle"
+        ],
+        "AgentCore.preview_is_live_environment_session": [
+          "AgentCore.Examples.nonvacuous_slate_lifecycle"
+        ]
+      },
+      "remainingEvidence": [
+        "generated application behavior and concrete deployment-provider effects",
+        "per-app resource provisioning records"
+      ]
     }
   ],
   "assumptions": [
@@ -1855,17 +2060,12 @@
     },
     {
       "id": "NC-ENVIRONMENT-LIFECYCLE",
-      "summary": "Environment and Session provisioning, rotation, checkpoint, provider, and runtime lifecycle semantics are not modeled.",
-      "status": "specified-not-modeled"
-    },
-    {
-      "id": "NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE",
-      "summary": "The normative direct execute exception for a Turn-owned Environment Session is not modeled; formal defaultTier conservatively classifies every execute Invocation as mediated.",
+      "summary": "Concrete Environment provider behavior — container and process execution, provider reconciliation and inspection calls, snapshot content formats, preview-host token derivation, and device pairing and consent transport — is not modeled; the abstract Session lifecycle, credential-isolation, egress, and exposure rules are claimed only as AC-ENVIRONMENT-001.",
       "status": "specified-not-modeled"
     },
     {
       "id": "NC-SLATE-RUNTIME",
-      "summary": "Slate version, deployment, preview, runtime authority, and generated-application behavior are not modeled.",
+      "summary": "Generated Slate application code, concrete deployment-provider effects, and per-app resource provisioning are not modeled; the abstract record-plane and dynamic-isolate authority rules are claimed only as AC-SLATE-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -1938,8 +2138,8 @@
         ],
         "nonClaimIds": [],
         "assumptionIds": [
-          "ASM-TRUTHFUL-VERIFICATION-INPUTS",
-          "ASM-LIVENESS-TIME-INVALIDATION"
+          "ASM-LIVENESS-TIME-INVALIDATION",
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS"
         ]
       },
       {
@@ -1989,17 +2189,20 @@
       {
         "id": "L1_ENVIRONMENT_SESSION",
         "spec": "SPEC §4.5",
-        "requirementIds": [],
+        "requirementIds": [
+          "AC-ENVIRONMENT-001"
+        ],
         "nonClaimIds": [
-          "NC-ENVIRONMENT-LIFECYCLE",
-          "NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE"
+          "NC-ENVIRONMENT-LIFECYCLE"
         ],
         "assumptionIds": []
       },
       {
         "id": "L1_SLATE",
         "spec": "SPEC §4.6",
-        "requirementIds": [],
+        "requirementIds": [
+          "AC-SLATE-001"
+        ],
         "nonClaimIds": [
           "NC-SLATE-RUNTIME"
         ],
@@ -2009,56 +2212,55 @@
         "id": "L2_EXECUTION",
         "spec": "SPEC §5",
         "requirementIds": [
-          "AC-LEASE-001",
-          "AC-RUN-001",
+          "AC-COMPOSED-001",
           "AC-GRAPH-WRITER-001",
-          "AC-COMPOSED-001"
+          "AC-LEASE-001",
+          "AC-RUN-001"
         ],
         "nonClaimIds": [
           "NC-TEMPORAL-LIVENESS"
         ],
         "assumptionIds": [
+          "ASM-CLOSED-WORLD-TRANSITIONS",
           "ASM-LIVENESS-TIME-INVALIDATION",
-          "ASM-TRANSITION-ATOMICITY",
-          "ASM-CLOSED-WORLD-TRANSITIONS"
+          "ASM-TRANSITION-ATOMICITY"
         ]
       },
       {
         "id": "L3_INTERACTION",
         "spec": "SPEC §6",
         "requirementIds": [
-          "AC-STRUCTURAL-001",
-          "AC-TRUST-001",
-          "AC-EVENT-ROUTING-001",
           "AC-AUDIT-001",
-          "AC-ROUTING-001"
+          "AC-EVENT-ROUTING-001",
+          "AC-ROUTING-001",
+          "AC-STRUCTURAL-001",
+          "AC-TRUST-001"
         ],
         "nonClaimIds": [
-          "NC-SURFACE-RUNTIME-ACTIONS",
           "NC-RFC6902-PATCH",
+          "NC-SURFACE-RUNTIME-ACTIONS",
           "NC-TEMPORAL-LIVENESS"
         ],
         "assumptionIds": [
-          "ASM-TRUTHFUL-VERIFICATION-INPUTS",
           "ASM-LIVENESS-TIME-INVALIDATION",
-          "ASM-SOURCE-PROJECTION-AUTHENTICITY"
+          "ASM-SOURCE-PROJECTION-AUTHENTICITY",
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS"
         ]
       },
       {
         "id": "L4_MEDIATION",
         "spec": "SPEC §7",
         "requirementIds": [
-          "AC-STRUCTURAL-001",
-          "AC-AUTH-RESOLUTION-001",
-          "AC-LEASE-001",
           "AC-APPROVAL-001",
-          "AC-EFFECT-001",
           "AC-AUDIT-001",
-          "AC-COMPOSED-001"
+          "AC-AUTH-RESOLUTION-001",
+          "AC-COMPOSED-001",
+          "AC-EFFECT-001",
+          "AC-LEASE-001",
+          "AC-STRUCTURAL-001"
         ],
         "nonClaimIds": [
-          "NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE",
-          "NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE"
+          "NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE"
         ],
         "assumptionIds": [
           "ASM-STRUCTURAL-DIGEST",
@@ -2070,18 +2272,18 @@
         "spec": "SPEC §8",
         "requirementIds": [
           "AC-AUDIT-001",
-          "AC-GRAPH-WRITER-001",
-          "AC-COMPOSED-001"
+          "AC-COMPOSED-001",
+          "AC-GRAPH-WRITER-001"
         ],
         "nonClaimIds": [
-          "NC-CONTENTSTORE",
           "NC-CODECS",
+          "NC-CONTENTSTORE",
           "NC-PROTOCOL-DISPATCHER"
         ],
         "assumptionIds": [
-          "ASM-TRANSITION-ATOMICITY",
+          "ASM-CLOSED-WORLD-TRANSITIONS",
           "ASM-SOURCE-PROJECTION-AUTHENTICITY",
-          "ASM-CLOSED-WORLD-TRANSITIONS"
+          "ASM-TRANSITION-ATOMICITY"
         ]
       },
       {
@@ -2114,8 +2316,8 @@
         "requirementIds": [
           "AC-REP-BROKER-001",
           "AC-REP-CONSENT-001",
-          "AC-REP-REACTION-001",
-          "AC-REP-MOA-001"
+          "AC-REP-MOA-001",
+          "AC-REP-REACTION-001"
         ],
         "nonClaimIds": [
           "NC-PROFILE-RUNTIME"
@@ -2126,20 +2328,20 @@
         "id": "CONFORMANCE_REFINEMENT",
         "spec": "SPEC §13 and §14",
         "requirementIds": [
-          "AC-STRUCTURAL-001",
+          "AC-APPROVAL-001",
+          "AC-AUDIT-001",
           "AC-AUTH-001",
           "AC-AUTH-RESOLUTION-001",
-          "AC-MATERIALIZE-001",
-          "AC-PLACEMENT-001",
-          "AC-TRUST-001",
-          "AC-LEASE-001",
-          "AC-APPROVAL-001",
+          "AC-COMPOSED-001",
           "AC-EFFECT-001",
           "AC-EVENT-ROUTING-001",
-          "AC-AUDIT-001",
-          "AC-RUN-001",
           "AC-GRAPH-WRITER-001",
-          "AC-COMPOSED-001"
+          "AC-LEASE-001",
+          "AC-MATERIALIZE-001",
+          "AC-PLACEMENT-001",
+          "AC-RUN-001",
+          "AC-STRUCTURAL-001",
+          "AC-TRUST-001"
         ],
         "nonClaimIds": [
           "NC-TYPESCRIPT-SUBSTRATE-REFINEMENT"

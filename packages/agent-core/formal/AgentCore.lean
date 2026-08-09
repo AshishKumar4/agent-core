@@ -11,6 +11,8 @@ import AgentCore.Materialization
 import AgentCore.Events
 import AgentCore.Audit
 import AgentCore.RunGraph
+import AgentCore.Environments
+import AgentCore.Slates
 import AgentCore.Composed
 import AgentCore.Representation.Broker
 import AgentCore.Representation.Consent

@@ -1,4 +1,5 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
+import AgentCore.Slates
 import AgentCore.Subscriptions
 import AgentCore.Commands
 
@@ -4217,5 +4218,406 @@ theorem nonvacuous_double_reservation_is_inconsistent :
     (left := committedSubmission) (right := recommitSubmission)
     rfl rfl rfl trivial trivial
   exact absurd same (by decide)
+/-! ## Environment, Session, Slate, and dynamic-isolate witnesses (SPEC §4.5, §4.6) -/
+
+private def envId : EnvironmentId := ⟨41⟩
+private def sessionId : SessionId := ⟨1⟩
+private def secretId : SecretId := ⟨7⟩
+private def egressBindingId : BindingId := ⟨41⟩
+private def envDestination : Destination := ⟨9⟩
+private def envGrant : EgressGrant := ⟨envDestination, some secretId⟩
+private def envUse : SessionUse := ⟨sessionId, 0, token, ⟨5⟩⟩
+private def snapId : SnapshotId := ⟨1⟩
+private def exposureId : ExposureId := ⟨1⟩
+private def claimedLease : TurnLease := ⟨turnId, some principalRef, 1, ⟨100⟩⟩
+
+private def envTurnRegistered : EnvironmentLedger :=
+  { EnvironmentLedger.boot with
+    leases := tableSet EnvironmentLedger.boot.leases turnId (TurnLease.initial turnId) }
+private def envTurnClaimed : EnvironmentLedger :=
+  { envTurnRegistered with
+    leases := tableSet envTurnRegistered.leases turnId claimedLease }
+private def envProvisioned : EnvironmentLedger :=
+  { envTurnClaimed with
+    environments := tableSet envTurnClaimed.environments envId ⟨0, 0⟩ }
+private def envBound : EnvironmentLedger :=
+  { envProvisioned with
+    egressGrants := tableSet envProvisioned.egressGrants egressBindingId envGrant }
+private def envOpened : EnvironmentLedger :=
+  { envBound with
+    sessions := tableSet envBound.sessions sessionId ⟨envId, 0, 0, turnId, 0, .live⟩
+    files := setFiles envBound.files sessionId (fun _ => none) }
+private def envWritten : EnvironmentLedger :=
+  { envOpened with
+    files := setFiles envOpened.files sessionId
+      (tableSet (envOpened.files sessionId) "config" (AgentValue.ref secretId).stored) }
+private def envSent : EnvironmentLedger :=
+  { envWritten with
+    egress := ⟨sessionId, egressBindingId, envDestination, some secretId⟩ :: envWritten.egress }
+private def envSnapshotted : EnvironmentLedger :=
+  { envSent with
+    snapshots := tableSet envSent.snapshots snapId ⟨sessionId, envSent.files sessionId⟩ }
+private def envRotated : EnvironmentLedger :=
+  { envSnapshotted with
+    environments := tableSet envSnapshotted.environments envId ⟨1, 1⟩ }
+
+private def envSessionRecord : SessionRecord := ⟨envId, 0, 0, turnId, 0, .live⟩
+
+private theorem envLeaseAdmits : claimedLease.Admits token ⟨5⟩ := by decide
+
+private theorem envUseAdmittedOpened : UseAdmitted envOpened envUse :=
+  ⟨envSessionRecord, claimedLease, rfl, rfl, rfl, rfl, rfl, envLeaseAdmits⟩
+private theorem envUseAdmittedWritten : UseAdmitted envWritten envUse :=
+  ⟨envSessionRecord, claimedLease, rfl, rfl, rfl, rfl, rfl, envLeaseAdmits⟩
+private theorem envUseAdmittedSent : UseAdmitted envSent envUse :=
+  ⟨envSessionRecord, claimedLease, rfl, rfl, rfl, rfl, rfl, envLeaseAdmits⟩
+private theorem envUseAdmittedRotated : UseAdmitted envRotated envUse :=
+  ⟨envSessionRecord, claimedLease, rfl, rfl, rfl, rfl, rfl, envLeaseAdmits⟩
+
+private theorem envReachableRotated : EnvReachable envRotated := by
+  have r1 : EnvReachable envTurnRegistered := .step .boot (.registerTurn rfl)
+  have s2 : EnvironmentStep envTurnRegistered
+      (.leaseAction turnId (.claim principalRef ⟨0⟩ ⟨100⟩)) envTurnClaimed :=
+    .leaseAction (lease := TurnLease.initial turnId) rfl
+      (.claim (lease := TurnLease.initial turnId) rfl (by decide))
+  have r2 : EnvReachable envTurnClaimed := .step r1 s2
+  have r3 : EnvReachable envProvisioned := .step r2 (.provision rfl)
+  have r4 : EnvReachable envBound := .step r3 (.bindEgress rfl)
+  have s5 : EnvironmentStep envBound
+      (.openSession sessionId envId turnId token ⟨5⟩ none) envOpened :=
+    .openSession (record := ⟨0, 0⟩) (lease := claimedLease) (content := fun _ => none)
+      rfl rfl rfl rfl envLeaseAdmits rfl
+  have r5 : EnvReachable envOpened := .step r4 s5
+  have s6 : EnvironmentStep envOpened
+      (.write envUse "config" (.ref secretId)) envWritten := .write envUseAdmittedOpened
+  have r6 : EnvReachable envWritten := .step r5 s6
+  have s7 : EnvironmentStep envWritten (.send envUse egressBindingId) envSent :=
+    .send (grant := envGrant) envUseAdmittedWritten rfl
+  have r7 : EnvReachable envSent := .step r6 s7
+  have s8 : EnvironmentStep envSent (.snapshot envUse snapId) envSnapshotted :=
+    .snapshot envUseAdmittedSent rfl
+  have r8 : EnvReachable envSnapshotted := .step r7 s8
+  exact .step r8 (.rotate (record := ⟨0, 0⟩) rfl)
+
+/-- The credential-isolation seam exercised end to end, non-vacuously: a reachable
+trace opens a Turn-owned Session, writes the SecretRef into the session filesystem,
+sends through the proxy under an explicit egress Binding — the egress record names
+the injected credential, so the secret is genuinely usable *by* the Session —
+snapshots the filesystem, and rotates the Environment. Isolation still holds: no file
+and no snapshot cell holds plaintext, the unbound Binding still cannot send, and the
+open session kept its pre-rotation pin while the head advanced. Removing the proxy
+seam (writing the resolved credential into session state), the egress-grant gate, or
+the rotation pinning each makes a component here false. -/
+theorem nonvacuous_credential_isolated_session_trace :
+    EnvReachable envRotated ∧
+    envRotated.egress = [⟨sessionId, egressBindingId, envDestination, some secretId⟩] ∧
+    envRotated.files sessionId "config" = some (.ref secretId) ∧
+    (∃ record, envRotated.snapshots snapId = some record ∧
+      record.content "config" = some (.ref secretId)) ∧
+    envRotated.sessions sessionId = some envSessionRecord ∧
+    envRotated.environments envId = some ⟨1, 1⟩ ∧
+    (∀ after, ¬ EnvironmentStep envRotated (.send envUse bindingId) after) ∧
+    CredentialIsolated envRotated :=
+  ⟨envReachableRotated, rfl, rfl, ⟨⟨sessionId, envSent.files sessionId⟩, rfl, rfl⟩, rfl, rfl,
+    fun _ => unbound_send_is_refused rfl,
+    reachable_credential_isolation envReachableRotated⟩
+
+private def leakedLedger : EnvironmentLedger :=
+  { EnvironmentLedger.boot with files := fun _ _ => some (.plaintext secretId) }
+
+/-- The violation is representable and refuted: a ledger whose session filesystem
+holds resolved credential plaintext exists as a state — and is proved unreachable.
+Adding any transition that resolves a credential into session-visible state (the
+".netrc" design this seam exists to forbid) would make this witness false. -/
+theorem nonvacuous_plaintext_session_state_unreachable :
+    leakedLedger.files sessionId "netrc" = some (.plaintext secretId) ∧
+    ¬ EnvReachable leakedLedger :=
+  ⟨rfl, plaintext_in_session_state_is_unreachable (ledger := leakedLedger)
+    (session := sessionId) (path := "netrc") (secret := secretId) rfl⟩
+
+private def closedSessionRecord : SessionRecord := ⟨envId, 0, 0, turnId, 1, .closed⟩
+
+private def envClosed : EnvironmentLedger :=
+  { envRotated with
+    sessions := tableSet envRotated.sessions sessionId closedSessionRecord
+    files := setFiles envRotated.files sessionId (fun _ => none)
+    exposures := revokeSessionExposures envRotated.exposures sessionId }
+
+private theorem envCloseStep :
+    EnvironmentStep envRotated (.closeSession sessionId) envClosed :=
+  .closeSession (record := envSessionRecord) rfl (by decide)
+
+/-- Fail-closed session lifetime, non-vacuously: closing the reachable session
+disposes its state behind a fresh epoch, a child-Facet write against the closed
+session is refused, and every further transition of any kind leaves the closed record
+untouched — the child Facets cannot outlive their Session. A model that let a closed
+or stale session admit a use, or that reopened a closed record, falsifies this. -/
+theorem nonvacuous_stale_and_closed_session_rejection :
+    EnvironmentStep envRotated (.closeSession sessionId) envClosed ∧
+    EnvReachable envClosed ∧
+    envClosed.sessions sessionId = some closedSessionRecord ∧
+    envClosed.files sessionId "config" = none ∧
+    (∀ after, ¬ EnvironmentStep envClosed (.write envUse "x" (.data 1)) after) ∧
+    (∀ label after, EnvironmentStep envClosed label after →
+      after.sessions sessionId = some closedSessionRecord) :=
+  ⟨envCloseStep, .step envReachableRotated envCloseStep, rfl, rfl,
+    fun _ => stale_session_admits_nothing (session := closedSessionRecord)
+      rfl (Or.inl (by decide)) rfl,
+    fun _ _ step => closed_session_is_terminal (record := closedSessionRecord) step rfl rfl⟩
+
+private def liveExposure : ExposureRecord := ⟨sessionId, 0, 3000, true⟩
+
+private def envExposed : EnvironmentLedger :=
+  { envRotated with
+    exposures := tableSet envRotated.exposures exposureId liveExposure }
+private def envPreviewed : EnvironmentLedger :=
+  { envExposed with ingress := ⟨exposureId, sessionId, 3000⟩ :: envExposed.ingress }
+private def envRevoked : EnvironmentLedger :=
+  { envPreviewed with
+    exposures := tableSet envPreviewed.exposures exposureId ⟨sessionId, 0, 3000, false⟩ }
+private def lostSessionRecord : SessionRecord := ⟨envId, 0, 0, turnId, 1, .lost⟩
+private def envLostSession : EnvironmentLedger :=
+  { envPreviewed with
+    sessions := tableSet envPreviewed.sessions sessionId lostSessionRecord }
+
+private theorem envExposeStep :
+    EnvironmentStep envRotated (.expose envUse exposureId 3000) envExposed :=
+  .expose envUseAdmittedRotated rfl
+private theorem envPreviewStep :
+    EnvironmentStep envExposed (.previewIngress exposureId) envPreviewed :=
+  .previewIngress (exposure := liveExposure) (session := envSessionRecord)
+    rfl rfl rfl rfl rfl
+private theorem envRevokeStep :
+    EnvironmentStep envPreviewed (.revoke exposureId) envRevoked :=
+  .revoke (exposure := liveExposure) rfl
+private theorem envLostStep :
+    EnvironmentStep envPreviewed (.markLost sessionId) envLostSession :=
+  .markLost (record := envSessionRecord) rfl rfl
+
+/-- Preview exposure, non-vacuously: on the reachable session an exposure admits a
+preview ingress that reaches exactly the exposed session and port; after revocation
+the same exposure admits nothing, and after the session is lost the still-live
+exposure record admits nothing either. A preview URL that reached any other target,
+survived revocation, or outlived its session falsifies a component here. -/
+theorem nonvacuous_preview_exposure_lifecycle :
+    EnvReachable envRevoked ∧
+    EnvironmentStep envPreviewed (.markLost sessionId) envLostSession ∧
+    envPreviewed.ingress = [⟨exposureId, sessionId, 3000⟩] ∧
+    (∀ after, EnvironmentStep envExposed (.previewIngress exposureId) after →
+      after.ingress = ⟨exposureId, sessionId, 3000⟩ :: envExposed.ingress) ∧
+    (∀ after, ¬ EnvironmentStep envRevoked (.previewIngress exposureId) after) ∧
+    (∀ after, ¬ EnvironmentStep envLostSession (.previewIngress exposureId) after) := by
+  refine ⟨.step (.step (.step envReachableRotated envExposeStep) envPreviewStep)
+      envRevokeStep,
+    envLostStep, rfl, ?_,
+    fun _ => revoked_exposure_admits_no_ingress
+      (exposure := ⟨sessionId, 0, 3000, false⟩) rfl rfl,
+    fun _ => stale_exposure_admits_no_ingress (exposure := liveExposure)
+      (session := lostSessionRecord) rfl rfl (Or.inl (by decide))⟩
+  intro after step
+  obtain ⟨exposure, session, lookup, _live, _sessionLookup, _phase, _epoch, ingressEq⟩ :=
+    preview_ingress_is_exactly_the_exposed_port step
+  have exposureExact : exposure = liveExposure := by
+    have expected : envExposed.exposures exposureId = some liveExposure := rfl
+    rw [expected] at lookup
+    exact (Option.some.inj lookup).symm
+  subst exposureExact
+  exact ingressEq
+
+/-- The §7.2 floor with the Turn-owned Environment Session direct-execute exception,
+computed on both sides: a Turn-owned session execute is direct exactly when bundled,
+and an unowned execute stays mediated. Dropping the exception fails the first
+conjunct; dropping the bundled co-location requirement fails the middle two. -/
+theorem nonvacuous_turn_owned_execute_tier :
+    effectiveTier .bundled .execute true = .direct ∧
+    effectiveTier .provider .execute true = .mediated ∧
+    effectiveTier .dynamic .execute true = .mediated ∧
+    effectiveTier .bundled .execute false = .mediated := by decide
+
+private def isolateEgressBinding : BindingId := ⟨61⟩
+private def isolateInvokeBinding : BindingId := ⟨62⟩
+private def isolateDestination : Destination := ⟨5⟩
+private def isolatePassedOne : DynamicDomain :=
+  { DynamicDomain.fresh with
+    passed := tableSet DynamicDomain.fresh.passed isolateEgressBinding
+      ⟨some isolateDestination⟩ }
+private def isolatePassedBoth : DynamicDomain :=
+  { isolatePassedOne with
+    passed := tableSet isolatePassedOne.passed isolateInvokeBinding ⟨none⟩ }
+private def isolateInvoked : DynamicDomain :=
+  { isolatePassedBoth with
+    actions := .invoke isolateInvokeBinding :: isolatePassedBoth.actions }
+private def isolateActive : DynamicDomain :=
+  { isolateInvoked with
+    actions := .egress isolateEgressBinding isolateDestination :: isolateInvoked.actions }
+
+private theorem isolateReachableActive : IsolateReachable isolateActive := by
+  have s1 : IsolateStep .fresh
+      (.pass isolateEgressBinding ⟨some isolateDestination⟩) isolatePassedOne := .pass rfl
+  have r1 : IsolateReachable isolatePassedOne := .step .fresh s1
+  have s2 : IsolateStep isolatePassedOne
+      (.pass isolateInvokeBinding ⟨none⟩) isolatePassedBoth := .pass rfl
+  have r2 : IsolateReachable isolatePassedBoth := .step r1 s2
+  have s3 : IsolateStep isolatePassedBoth
+      (.invoke isolateInvokeBinding) isolateInvoked := .invoke (capability := ⟨none⟩) rfl
+  have r3 : IsolateReachable isolateInvoked := .step r2 s3
+  have s4 : IsolateStep isolateInvoked
+      (.egress isolateEgressBinding isolateDestination) isolateActive :=
+    .egress (capability := ⟨some isolateDestination⟩) rfl rfl
+  exact .step r3 s4
+
+/-- Zero ambient authority for a dynamic isolate, non-vacuously: the fresh isolate
+admits no first move but a host pass — in particular its egress to a real destination
+is refused — while after two explicit passes the isolate genuinely invokes and sends,
+every recorded action is backed by a passed Binding, and egress through the
+destination-free Binding is still refused. An isolate with any ambient capability or
+any reach beyond a passed Binding's named destination falsifies a component here. -/
+theorem nonvacuous_dynamic_isolate_provenance :
+    (∀ label after, IsolateStep .fresh label after →
+      ∃ binding capability, label = .pass binding capability) ∧
+    (∀ after, ¬ IsolateStep .fresh (.egress isolateEgressBinding isolateDestination) after) ∧
+    IsolateReachable isolateActive ∧
+    isolateActive.actions =
+      [.egress isolateEgressBinding isolateDestination, .invoke isolateInvokeBinding] ∧
+    ActionsBacked isolateActive ∧
+    (∀ after, ¬ IsolateStep isolateActive
+      (.egress isolateInvokeBinding isolateDestination) after) := by
+  refine ⟨fun _ _ step => fresh_dynamic_isolate_admits_only_host_pass step,
+    fun _ step => ?_, isolateReachableActive, rfl,
+    reachable_isolate_actions_are_binding_backed isolateReachableActive,
+    fun _ step => ?_⟩
+  · obtain ⟨binding, capability, equal⟩ := fresh_dynamic_isolate_admits_only_host_pass step
+    exact IsolateLabel.noConfusion equal
+  · obtain ⟨capability, lookup, named⟩ := isolate_egress_matches_passed_destination step
+    have destinationFree : capability = ⟨none⟩ := by
+      have expected : isolateActive.passed isolateInvokeBinding = some ⟨none⟩ := rfl
+      rw [expected] at lookup
+      exact (Option.some.inj lookup).symm
+    subst destinationFree
+    exact Option.noConfusion named
+
+/-- The §4.6 backend manifest admits only `dynamic`: with everything else permissive
+the selector places it dynamic, and with a substrate that cannot host dynamic it
+places nothing — never an ambient-authority domain. -/
+theorem nonvacuous_dynamic_only_manifest_placement :
+    choosePlacement dynamicOnlyManifest allModes allModes allModes = some .dynamic ∧
+    choosePlacement dynamicOnlyManifest allModes providerModes allModes = none := by decide
+
+private def slateId : SlateId := ⟨1⟩
+private def slateVersionOne : SlateVersionId := ⟨1⟩
+private def slateVersionTwo : SlateVersionId := ⟨2⟩
+private def slatePublicationOne : SlatePublicationId := ⟨1⟩
+private def slatePublicationTwo : SlatePublicationId := ⟨2⟩
+private def slateDeploymentOne : SlateDeploymentId := ⟨1⟩
+private def slateDeploymentTwo : SlateDeploymentId := ⟨2⟩
+private def slatePreviewRef : SlatePreviewId := ⟨1⟩
+
+private def slateCreated : SlateLedger :=
+  { SlateLedger.empty with
+    slates := tableSet SlateLedger.empty.slates slateId ⟨none, none⟩ }
+private def slateCommittedOne : SlateLedger :=
+  { slateCreated with
+    versions := tableSet slateCreated.versions slateVersionOne ⟨slateId, 10, none⟩
+    slates := tableSet slateCreated.slates slateId ⟨some slateVersionOne, none⟩ }
+private def slatePublishedOne : SlateLedger :=
+  { slateCommittedOne with
+    publications := tableSet slateCommittedOne.publications slatePublicationOne
+      ⟨slateId, slateVersionOne⟩ }
+private def slateDeployedOne : SlateLedger :=
+  { slatePublishedOne with
+    deployments := tableSet slatePublishedOne.deployments slateDeploymentOne
+      ⟨slateId, slatePublicationOne, true⟩
+    providerContacts := slateDeploymentOne :: slatePublishedOne.providerContacts
+    slates := tableSet slatePublishedOne.slates slateId
+      ⟨some slateVersionOne, some slateDeploymentOne⟩ }
+private def slateCommittedTwo : SlateLedger :=
+  { slateDeployedOne with
+    versions := tableSet slateDeployedOne.versions slateVersionTwo
+      ⟨slateId, 20, some slateVersionOne⟩
+    slates := tableSet slateDeployedOne.slates slateId
+      ⟨some slateVersionTwo, some slateDeploymentOne⟩ }
+private def slatePublishedTwo : SlateLedger :=
+  { slateCommittedTwo with
+    publications := tableSet slateCommittedTwo.publications slatePublicationTwo
+      ⟨slateId, slateVersionTwo⟩ }
+private def slateDeployedTwo : SlateLedger :=
+  { slatePublishedTwo with
+    deployments := tableSet slatePublishedTwo.deployments slateDeploymentTwo
+      ⟨slateId, slatePublicationTwo, true⟩
+    providerContacts := slateDeploymentTwo :: slatePublishedTwo.providerContacts
+    slates := tableSet slatePublishedTwo.slates slateId
+      ⟨some slateVersionTwo, some slateDeploymentTwo⟩ }
+private def slateRolledBack : SlateLedger :=
+  { slateDeployedTwo with
+    slates := tableSet slateDeployedTwo.slates slateId
+      ⟨some slateVersionTwo, some slateDeploymentOne⟩ }
+private def slatePreviewed : SlateLedger :=
+  { slateRolledBack with
+    previews := tableSet slateRolledBack.previews slatePreviewRef
+      ⟨slateId, sessionId, exposureId⟩ }
+
+private theorem slateRollbackStep :
+    SlateStep envExposed slateDeployedTwo (.rollback slateId slateDeploymentOne)
+      slateRolledBack :=
+  .rollback (record := ⟨some slateVersionTwo, some slateDeploymentTwo⟩)
+    (deploymentRecord := ⟨slateId, slatePublicationOne, true⟩) rfl rfl rfl rfl
+
+private theorem slateReachablePreviewed :
+    SlateReachable envExposed slatePreviewed := by
+  have s1 : SlateStep envExposed SlateLedger.empty (.create slateId) slateCreated :=
+    .create rfl
+  have r1 : SlateReachable envExposed slateCreated := .step .empty s1
+  have s2 : SlateStep envExposed slateCreated
+      (.commit slateId slateVersionOne 10) slateCommittedOne :=
+    .commit (record := ⟨none, none⟩) rfl rfl
+  have r2 : SlateReachable envExposed slateCommittedOne := .step r1 s2
+  have s3 : SlateStep envExposed slateCommittedOne
+      (.publish slateId slatePublicationOne slateVersionOne) slatePublishedOne :=
+    .publish (versionRecord := ⟨slateId, 10, none⟩) rfl rfl rfl
+  have r3 : SlateReachable envExposed slatePublishedOne := .step r2 s3
+  have s4 : SlateStep envExposed slatePublishedOne
+      (.deploy slateId slateDeploymentOne slatePublicationOne true) slateDeployedOne :=
+    .deploy (record := ⟨some slateVersionOne, none⟩)
+      (publicationRecord := ⟨slateId, slateVersionOne⟩) rfl rfl rfl rfl
+  have r4 : SlateReachable envExposed slateDeployedOne := .step r3 s4
+  have s5 : SlateStep envExposed slateDeployedOne
+      (.commit slateId slateVersionTwo 20) slateCommittedTwo :=
+    .commit (record := ⟨some slateVersionOne, some slateDeploymentOne⟩) rfl rfl
+  have r5 : SlateReachable envExposed slateCommittedTwo := .step r4 s5
+  have s6 : SlateStep envExposed slateCommittedTwo
+      (.publish slateId slatePublicationTwo slateVersionTwo) slatePublishedTwo :=
+    .publish (versionRecord := ⟨slateId, 20, some slateVersionOne⟩) rfl rfl rfl
+  have r6 : SlateReachable envExposed slatePublishedTwo := .step r5 s6
+  have s7 : SlateStep envExposed slatePublishedTwo
+      (.deploy slateId slateDeploymentTwo slatePublicationTwo true) slateDeployedTwo :=
+    .deploy (record := ⟨some slateVersionTwo, some slateDeploymentOne⟩)
+      (publicationRecord := ⟨slateId, slateVersionTwo⟩) rfl rfl rfl rfl
+  have r7 : SlateReachable envExposed slateDeployedTwo := .step r6 s7
+  have r8 : SlateReachable envExposed slateRolledBack := .step r7 slateRollbackStep
+  have s9 : SlateStep envExposed slateRolledBack
+      (.openPreview slateId slatePreviewRef sessionId exposureId) slatePreviewed :=
+    .openPreview (record := ⟨some slateVersionTwo, some slateDeploymentOne⟩)
+      (exposureRecord := liveExposure) (sessionRecord := envSessionRecord)
+      rfl rfl rfl rfl rfl rfl rfl rfl
+  exact .step r8 s9
+
+/-- The Slate record plane exercised end to end against the live Environment: two
+commits, two publications, two provider-contacting deploys, a rollback, and a
+preview. The first version and publication survive every later transition exactly as
+written, the provider-contact log shows the two deploys and nothing for the rollback,
+the rollback landed the active pointer on the earlier owned successful deployment,
+and the preview binds the live Environment Session behind the live exposure. A
+mutable version, a provider-contacting rollback, or a preview that is not an
+Environment Session falsifies a component here. -/
+theorem nonvacuous_slate_lifecycle :
+    SlateReachable envExposed slatePreviewed ∧
+    SlateStep envExposed slateDeployedTwo (.rollback slateId slateDeploymentOne)
+      slateRolledBack ∧
+    slatePreviewed.slates slateId = some ⟨some slateVersionTwo, some slateDeploymentOne⟩ ∧
+    slatePreviewed.versions slateVersionOne = some ⟨slateId, 10, none⟩ ∧
+    slatePreviewed.publications slatePublicationOne = some ⟨slateId, slateVersionOne⟩ ∧
+    slatePreviewed.providerContacts = [slateDeploymentTwo, slateDeploymentOne] ∧
+    slatePreviewed.previews slatePreviewRef = some ⟨slateId, sessionId, exposureId⟩ :=
+  ⟨slateReachablePreviewed, slateRollbackStep, rfl, rfl, rfl, rfl, rfl⟩
 
 end AgentCore.Examples

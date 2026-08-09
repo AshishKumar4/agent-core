@@ -33,6 +33,8 @@ const requiredRequirementIds = [
     "AC-PLACEMENT-001",
     "AC-SLOT-001",
     "AC-COMMAND-001",
+    "AC-ENVIRONMENT-001",
+    "AC-SLATE-001",
     "AC-TRUST-001",
     "AC-LEASE-001",
     "AC-APPROVAL-001",
@@ -57,7 +59,6 @@ const requiredNonClaimIds = [
     "NC-COMMANDS",
     "NC-INTERCEPTORS",
     "NC-ENVIRONMENT-LIFECYCLE",
-    "NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE",
     "NC-SLATE-RUNTIME",
     "NC-CONTENTSTORE",
     "NC-CODECS",
@@ -102,9 +103,7 @@ const requiredWitnessFamilyIds = [
     "WF-APPROVAL-COMPOSED",
     "WF-ROUTING-REACTION"
 ];
-const requiredNonClaimBoundaryAreas = new Map([
-    ["NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE", ["L1_ENVIRONMENT_SESSION", "L4_MEDIATION"]]
-]);
+const requiredNonClaimBoundaryAreas = new Map();
 const witnessPrefix = "AgentCore.Examples.nonvacuous_";
 const qualifiedLeanName = /^AgentCore(?:\.[A-Za-z_][A-Za-z0-9_]*)+$/;
 const failures = [];
