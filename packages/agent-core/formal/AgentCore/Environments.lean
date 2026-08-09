@@ -18,11 +18,12 @@ as guards on one step relation:
 * egress is explicitly bound: a send names an `EgressGrant` and reaches exactly the
   destination that grant records — there is no unbound send constructor, which is
   §1.5's zero ambient egress at this seam;
-* the credential-isolation seam: plaintext credential material moves only inside the
-  proxy-produced egress record. Session-visible values are built from `AgentValue`,
-  which §3.5's custody rule keeps plaintext-free, and the invariant proves the whole
-  session-visible plane — files and the snapshots that restore into files — never
-  holds plaintext at any reachable state.
+* the credential-isolation seam: the proxy attaches a credential at the egress
+  boundary — the send appends an egress record naming it — and never inside the
+  Session. Session-visible values are built from `AgentValue`, which §3.5's custody
+  rule keeps plaintext-free; `StoredValue.plaintext` makes the violation representable,
+  and the invariant proves the whole session-visible plane — files and the snapshots
+  that restore into files — never holds it at any reachable state.
 
 The concrete provider — container execution, reconciliation RPC, snapshot byte
 formats, preview-host token derivation — stays behind `NC-ENVIRONMENT-LIFECYCLE`.

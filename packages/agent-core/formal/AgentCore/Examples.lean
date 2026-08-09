@@ -3973,8 +3973,8 @@ private theorem envReachableRotated : EnvReachable envRotated := by
 
 /-- The credential-isolation seam exercised end to end, non-vacuously: a reachable
 trace opens a Turn-owned Session, writes the SecretRef into the session filesystem,
-sends through the proxy under an explicit egress Binding — the egress record carries
-the plaintext credential, so the secret is genuinely reachable *by* the Session —
+sends through the proxy under an explicit egress Binding — the egress record names
+the injected credential, so the secret is genuinely usable *by* the Session —
 snapshots the filesystem, and rotates the Environment. Isolation still holds: no file
 and no snapshot cell holds plaintext, the unbound Binding still cannot send, and the
 open session kept its pre-rotation pin while the head advanced. Removing the proxy
