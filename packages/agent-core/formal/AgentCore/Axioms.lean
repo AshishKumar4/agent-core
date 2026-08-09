@@ -113,6 +113,18 @@ import AgentCore
 #print axioms AgentCore.system_control_writer_uses_exact_typed_audit
 #print axioms AgentCore.synthesis_is_system_controlled_exact_turn
 
+-- Undo as append-only selection, fenced before it may append.
+#print axioms AgentCore.undo_requires_unheld_branch_and_ancestor_selection
+#print axioms AgentCore.undo_fences_held_turn
+#print axioms AgentCore.expired_lease_still_holds_branch
+#print axioms AgentCore.forced_cancellation_unblocks_undo
+#print axioms AgentCore.graph_step_preserves_commits
+#print axioms AgentCore.graph_reachable_preserves_commits
+#print axioms AgentCore.ancestor_preserved_by_commit_growth
+#print axioms AgentCore.undo_keeps_prior_head_reachable
+#print axioms AgentCore.undo_selects_effective_state
+#print axioms AgentCore.undo_then_redo_restores_effective_state
+
 -- Split direct and mediated composition plus derived settlement.
 #print axioms AgentCore.direct_admission_is_nondurable
 #print axioms AgentCore.direct_checks_exact_current_incarnation
@@ -260,6 +272,9 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_invalid_migration_target_rejected
 #print axioms AgentCore.Examples.nonvacuous_exact_mediated_run_reservation
 #print axioms AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected
+#print axioms AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo
+#print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
+#print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
 
 -- Event → Subscription routing (SPEC §6.2): at-most-once, derived targeting, trust.
 #print axioms AgentCore.fire_consumes_key

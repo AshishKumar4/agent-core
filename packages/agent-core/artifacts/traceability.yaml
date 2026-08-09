@@ -850,7 +850,9 @@
         "AgentCore.AcceptanceCriteriaUnique",
         "AgentCore.AcceptanceVerdictsEarned",
         "AgentCore.RegistriesAdvance",
-        "AgentCore.TerminalSnapshotsMatchRegistry"
+        "AgentCore.TerminalSnapshotsMatchRegistry",
+        "AgentCore.BranchHeldBy",
+        "AgentCore.BranchUnheld"
       ],
       "theorems": [
         "AgentCore.terminal_snapshot_is_coherent",
@@ -886,7 +888,8 @@
         "AgentCore.graph_step_preserves_snapshot_registry_agreement",
         "AgentCore.graph_reachable_preserves_snapshot_registry_agreement",
         "AgentCore.settled_run_acceptance_holds_at_current_head",
-        "AgentCore.graph_reachable_settled_acceptance_holds_at_current_head"
+        "AgentCore.graph_reachable_settled_acceptance_holds_at_current_head",
+        "AgentCore.forced_cancellation_unblocks_undo"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_audit_complete_derived_settled",
@@ -1036,6 +1039,9 @@
         "AgentCore.graph_reachable_settled_acceptance_holds_at_current_head": [
           "AgentCore.Examples.nonvacuous_acceptance_verdict_settles_run",
           "AgentCore.Examples.nonvacuous_acceptance_open_verdict_trace"
+        ],
+        "AgentCore.forced_cancellation_unblocks_undo": [
+          "AgentCore.Examples.nonvacuous_forced_sibling_system_fence"
         ]
       },
       "remainingEvidence": [
@@ -1046,9 +1052,9 @@
     },
     {
       "id": "AC-GRAPH-WRITER-001",
-      "summary": "Fresh graph creation and migration, unary pin inheritance, equal-pinned current merge heads, exact delivery and typed control-writer evidence, and exact-Turn synthesis",
+      "summary": "Fresh graph creation and migration, unary pin inheritance, equal-pinned current merge heads, exact delivery and typed control-writer evidence, exact-Turn synthesis, and undo as fenced append-only ancestor selection",
       "status": "proved-safety",
-      "boundary": "Coverage proves abstract child Run branch/root and migration commit freshness with rejection of existing IDs, migration branch ownership, selected CommitAllowed consequences, and exact typed control audit evidence. It does not prove concrete expected-head CAS, full ancestry, every writer/kind row, undo, or merge algorithm correctness.",
+      "boundary": "Coverage proves abstract child Run branch/root and migration commit freshness with rejection of existing IDs, migration branch ownership, selected CommitAllowed consequences, and exact typed control audit evidence. Undo is a graph transition: no transition under any label writes an undo commit onto a branch a running Turn still holds a lease on, the test reads the holder rather than the expiry so an expired-but-unfenced lease blocks it exactly as a live one does, no transition of any kind removes or rewrites a stored commit, and after an undo the head is the undo commit while the branch's effective state is the ancestor it selected, with the displaced head and the selected commit both still ancestors of the new head. It does not prove concrete expected-head CAS, every writer/kind row, pending-revert durability, or merge algorithm correctness.",
       "definitions": [
         "AgentCore.RunCommitKind",
         "AgentCore.CommitWriter",
@@ -1061,7 +1067,11 @@
         "AgentCore.ControlCommitAudit",
         "AgentCore.SuccessfulControl",
         "AgentCore.SuccessfulSynthesis",
-        "AgentCore.CommitAllowed"
+        "AgentCore.CommitAllowed",
+        "AgentCore.Ancestor",
+        "AgentCore.BranchHeldBy",
+        "AgentCore.BranchUnheld",
+        "AgentCore.GraphStore.effectiveState"
       ],
       "theorems": [
         "AgentCore.unary_commit_inherits_pins",
@@ -1072,7 +1082,16 @@
         "AgentCore.migration_rejects_existing_commit",
         "AgentCore.delivery_commit_matches_route",
         "AgentCore.system_control_writer_uses_exact_typed_audit",
-        "AgentCore.synthesis_is_system_controlled_exact_turn"
+        "AgentCore.synthesis_is_system_controlled_exact_turn",
+        "AgentCore.undo_requires_unheld_branch_and_ancestor_selection",
+        "AgentCore.undo_fences_held_turn",
+        "AgentCore.expired_lease_still_holds_branch",
+        "AgentCore.graph_step_preserves_commits",
+        "AgentCore.graph_reachable_preserves_commits",
+        "AgentCore.ancestor_preserved_by_commit_growth",
+        "AgentCore.undo_keeps_prior_head_reachable",
+        "AgentCore.undo_selects_effective_state",
+        "AgentCore.undo_then_redo_restores_effective_state"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_pinned_root_writer",
@@ -1081,7 +1100,10 @@
         "AgentCore.Examples.nonvacuous_delivery_writer",
         "AgentCore.Examples.nonvacuous_system_synthesis_writer",
         "AgentCore.Examples.nonvacuous_graph_freshness_rejection",
-        "AgentCore.Examples.nonvacuous_typed_system_writer_audit"
+        "AgentCore.Examples.nonvacuous_typed_system_writer_audit",
+        "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo",
+        "AgentCore.Examples.nonvacuous_fenced_undo_redo_trace",
+        "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
       ],
       "witnessCoverage": {
         "AgentCore.unary_commit_inherits_pins": [
@@ -1112,10 +1134,39 @@
         ],
         "AgentCore.synthesis_is_system_controlled_exact_turn": [
           "AgentCore.Examples.nonvacuous_system_synthesis_writer"
+        ],
+        "AgentCore.undo_requires_unheld_branch_and_ancestor_selection": [
+          "AgentCore.Examples.nonvacuous_fenced_undo_redo_trace",
+          "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo"
+        ],
+        "AgentCore.undo_fences_held_turn": [
+          "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo"
+        ],
+        "AgentCore.expired_lease_still_holds_branch": [
+          "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo"
+        ],
+        "AgentCore.graph_step_preserves_commits": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.graph_reachable_preserves_commits": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.ancestor_preserved_by_commit_growth": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.undo_keeps_prior_head_reachable": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.undo_selects_effective_state": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores",
+          "AgentCore.Examples.nonvacuous_fenced_undo_redo_trace"
+        ],
+        "AgentCore.undo_then_redo_restores_effective_state": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
         ]
       },
       "remainingEvidence": [
-        "complete writer matrix, expected-head CAS, ancestry, migration execution, and undo coverage",
+        "complete writer matrix, expected-head CAS, migration execution, and pending-revert durability",
         "concrete graph and merge implementation conformance"
       ]
     },

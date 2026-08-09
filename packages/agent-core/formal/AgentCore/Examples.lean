@@ -896,21 +896,20 @@ private def forceSequenceTerminal : GraphStore := {
   terminalizing := fun candidate => if candidate = runId then none else forceSequenceCancelled.terminalizing candidate
 }
 
-private theorem terminalControlAuditCause : AuditCauseExists terminalAuditLog ⟨34⟩ runId := by
-  refine ⟨controlCommitAuditEntry, ?_, rfl⟩
+private theorem terminalControlAuditEntry :
+    terminalAuditLog.entries ⟨34⟩ = some controlCommitAuditEntry := by
   change tableSet (tableSet (default : AuditLog).entries ⟨34⟩ controlCommitAuditEntry)
     ⟨1⟩ rootAudit ⟨34⟩ = some controlCommitAuditEntry
   rw [tableSet_other _ _ _ (by decide)]
   exact tableSet_self ..
 
+private theorem terminalControlAuditCause : AuditCauseExists terminalAuditLog ⟨34⟩ runId :=
+  ⟨controlCommitAuditEntry, terminalControlAuditEntry, rfl⟩
+
 private theorem terminalControlValid :
     TerminalizationControl.Valid synthesisEffects terminalAuditLog runId terminalControl := by
   refine ⟨synthesisOperation, controlReceipt, controlAttempt, controlPrepared,
-    controlCommitAuditEntry, controlSuccess, ?_, ?_, ?_, ?_, rfl⟩
-  · change tableSet (tableSet (default : AuditLog).entries ⟨34⟩ controlCommitAuditEntry)
-      ⟨1⟩ rootAudit ⟨34⟩ = some controlCommitAuditEntry
-    rw [tableSet_other _ _ _ (by decide)]
-    exact tableSet_self ..
+    controlCommitAuditEntry, controlSuccess, terminalControlAuditEntry, ?_, ?_, ?_, rfl⟩
   · change tableSet (tableSet (default : EffectLedger).attemptReceipts ⟨30⟩ controlReceipt)
       ⟨31⟩ synthesisReceipt ⟨30⟩ = some controlReceipt
     rw [tableSet_other _ _ _ (by decide)]
@@ -3053,5 +3052,250 @@ theorem nonvacuous_settled_acceptance_holds_at_current_head :
     nonvacuous_acceptance_settlement_invariants.2.2.1
     nonvacuous_acceptance_settlement_invariants.2.2.2
     (acceptanceSettlementCriterion _) nonvacuous_acceptance_verdict_settles_run
+
+
+/-! Undo as append-only selection (§5.2). One branch, one Turn, four transitions: append a
+    message, refuse the undo while the Turn still holds the branch, fence the Turn, then append
+    the undo and its redo. The refusal and the acceptance differ in exactly one thing -- whether
+    the Turn's lease still names a holder -- and the lease is already expired at the instant the
+    undo is refused, so it is the fence and not the clock that unblocks it. -/
+
+private def undoMessageId : CommitId := ⟨200⟩
+private def undoCommitId : CommitId := ⟨201⟩
+private def redoCommitId : CommitId := ⟨202⟩
+private def undoCommit : RunCommit :=
+  ⟨runId, branchId, pins, .system (.control ⟨34⟩ ⟨30⟩), [undoMessageId], none,
+    .undo rootCommitId ⟨30⟩, none⟩
+private def redoCommit : RunCommit :=
+  ⟨runId, branchId, pins, .system (.control ⟨34⟩ ⟨30⟩), [undoCommitId], none,
+    .undo undoMessageId ⟨30⟩, none⟩
+private def undoAfterMessage : GraphStore := writerGraph.append undoMessageId messageCommit
+private def undoFencedTurn : Turn :=
+  runningTurn.withStatusLease .suspended ⟨turnId, none, 2, ⟨10⟩⟩
+private def undoFenced : GraphStore :=
+  { undoAfterMessage with turns := tableSet undoAfterMessage.turns turnId undoFencedTurn }
+private def undoApplied : GraphStore := undoFenced.append undoCommitId undoCommit
+private def undoRedone : GraphStore := undoApplied.append redoCommitId redoCommit
+
+private theorem writerGraphRun : writerGraph.runs runId = some run := by
+  change tableSet (default : GraphStore).runs runId run runId = some run
+  exact tableSet_self ..
+
+private theorem writerGraphBranch : writerGraph.branches branchId = some ⟨runId⟩ := by
+  change tableSet (default : GraphStore).branches branchId (⟨runId⟩ : RunBranch) branchId =
+    some ⟨runId⟩
+  exact tableSet_self ..
+
+private theorem writerGraphHead : writerGraph.heads branchId = some rootCommitId := by
+  change tableSet (default : GraphStore).heads branchId rootCommitId branchId = some rootCommitId
+  exact tableSet_self ..
+
+private theorem writerGraphTurn : writerGraph.turns turnId = some runningTurn := by
+  change tableSet (default : GraphStore).turns turnId runningTurn turnId = some runningTurn
+  exact tableSet_self ..
+
+private theorem writerGraphRoot : writerGraph.commits rootCommitId = some rootCommit := by
+  change tableSet (default : GraphStore).commits rootCommitId rootCommit rootCommitId =
+    some rootCommit
+  exact tableSet_self ..
+
+private theorem writerGraphFresh (id : CommitId) (different : id ≠ rootCommitId) :
+    writerGraph.commits id = none := by
+  change tableSet (default : GraphStore).commits rootCommitId rootCommit id = none
+  rw [tableSet_other _ _ _ different]
+  rfl
+
+private theorem undoMessageTurn : undoAfterMessage.turns turnId = some runningTurn := writerGraphTurn
+
+private theorem undoMessageStored : undoAfterMessage.commits undoMessageId = some messageCommit := by
+  change tableSet writerGraph.commits undoMessageId messageCommit undoMessageId =
+    some messageCommit
+  exact tableSet_self ..
+
+private theorem undoRootStored : undoAfterMessage.commits rootCommitId = some rootCommit := by
+  change tableSet writerGraph.commits undoMessageId messageCommit rootCommitId = some rootCommit
+  rw [tableSet_other _ _ _ (by decide)]
+  exact writerGraphRoot
+
+private theorem undoMessageHead : undoAfterMessage.heads branchId = some undoMessageId := by
+  change tableSet writerGraph.heads messageCommit.branch undoMessageId branchId =
+    some undoMessageId
+  exact tableSet_self ..
+
+private theorem undoAfterMessageFresh (id : CommitId) (fromRoot : id ≠ rootCommitId)
+    (fromMessage : id ≠ undoMessageId) : undoAfterMessage.commits id = none := by
+  change tableSet writerGraph.commits undoMessageId messageCommit id = none
+  rw [tableSet_other _ _ _ fromMessage]
+  exact writerGraphFresh id fromRoot
+
+private theorem undoFencedHead : undoFenced.heads branchId = some undoMessageId := undoMessageHead
+
+private theorem undoFencedMessageStored :
+    undoFenced.commits undoMessageId = some messageCommit := undoMessageStored
+
+private theorem undoFencedFresh : undoFenced.commits undoCommitId = none :=
+  undoAfterMessageFresh undoCommitId (by decide) (by decide)
+
+private theorem undoAppliedHead : undoApplied.heads branchId = some undoCommitId := by
+  change tableSet undoFenced.heads undoCommit.branch undoCommitId branchId = some undoCommitId
+  exact tableSet_self ..
+
+private theorem undoAppliedStored : undoApplied.commits undoCommitId = some undoCommit := by
+  change tableSet undoFenced.commits undoCommitId undoCommit undoCommitId = some undoCommit
+  exact tableSet_self ..
+
+private theorem undoAppliedMessageStored :
+    undoApplied.commits undoMessageId = some messageCommit := by
+  change tableSet undoFenced.commits undoCommitId undoCommit undoMessageId = some messageCommit
+  rw [tableSet_other _ _ _ (by decide)]
+  exact undoMessageStored
+
+private theorem undoAppliedFresh : undoApplied.commits redoCommitId = none := by
+  change tableSet undoFenced.commits undoCommitId undoCommit redoCommitId = none
+  rw [tableSet_other _ _ _ (by decide)]
+  exact undoAfterMessageFresh redoCommitId (by decide) (by decide)
+
+private theorem undoMessageAllowed :
+    CommitAllowed writerGraph synthesisEffects (default : EventStore) terminalAuditLog ⟨1⟩
+      messageCommit :=
+  ⟨⟨rootCommitId, rootCommit, rfl, writerGraphRoot, rfl⟩,
+    ⟨runningTurn, writerGraphTurn, rfl, rfl, rfl, rfl, ⟨rfl, rfl, rfl, by decide⟩,
+      ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩⟩,
+    rfl⟩
+
+private theorem undoControlAudit {store : GraphStore} (runLookup : store.runs runId = some run) :
+    ControlCommitAudit store synthesisEffects terminalAuditLog ⟨34⟩ ⟨30⟩ synthesisOperation
+      runId := by
+  refine ⟨run, controlCommitAuditEntry, controlReceipt, controlAttempt, controlPrepared,
+    runLookup, terminalControlAuditEntry, rfl, ?_, rfl, ?_, ?_, rfl, rfl, ⟨tenant, rfl⟩, rfl⟩
+  · change tableSet (tableSet (default : EffectLedger).attemptReceipts ⟨30⟩ controlReceipt)
+      ⟨31⟩ synthesisReceipt ⟨30⟩ = some controlReceipt
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
+  · change tableSet (tableSet (default : EffectLedger).attempts ⟨30⟩ controlAttempt)
+      ⟨31⟩ synthesisAttempt ⟨30⟩ = some controlAttempt
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
+  · change tableSet
+      (tableSet (default : EffectLedger).invocations controlInvocation controlPrepared)
+      synthesisInvocation synthesisPrepared controlInvocation = some controlPrepared
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
+
+private theorem fencedBranchUnheld (store : GraphStore)
+    (turns : ∀ candidate, store.turns candidate = undoFenced.turns candidate) :
+    BranchUnheld store runId branchId := by
+  intro candidate held
+  obtain ⟨record, lookup, _, _, running, _⟩ := held
+  rw [turns candidate] at lookup
+  by_cases same : candidate = turnId
+  · subst same
+    change tableSet undoAfterMessage.turns turnId undoFencedTurn turnId = some record at lookup
+    rw [tableSet_self] at lookup
+    cases Option.some.inj lookup
+    exact absurd running (by decide)
+  · change tableSet undoAfterMessage.turns turnId undoFencedTurn candidate = some record at lookup
+    rw [tableSet_other _ _ _ same] at lookup
+    change tableSet (default : GraphStore).turns turnId runningTurn candidate = some record at lookup
+    rw [tableSet_other _ _ _ same] at lookup
+    exact Option.noConfusion lookup
+
+private theorem undoAllowed {store : GraphStore} {selected parent : CommitId}
+    {parentRecord : RunCommit}
+    (runLookup : store.runs runId = some run)
+    (turns : ∀ candidate, store.turns candidate = undoFenced.turns candidate)
+    (parentLookup : store.commits parent = some parentRecord)
+    (parentPins : parentRecord.pins = pins)
+    (ancestry : Ancestor store selected parent) :
+    CommitAllowed store synthesisEffects (default : EventStore) terminalAuditLog ⟨1⟩
+      ⟨runId, branchId, pins, .system (.control ⟨34⟩ ⟨30⟩), [parent], none,
+        .undo selected ⟨30⟩, none⟩ :=
+  ⟨rfl, ⟨parent, parentRecord, rfl, parentLookup, parentPins.symm⟩,
+    ⟨synthesisOperation, undoControlAudit runLookup, controlSuccess⟩,
+    fencedBranchUnheld _ turns, parent, List.mem_singleton.mpr rfl, ancestry⟩
+
+/-- The Turn holds the branch and its lease has already expired -- it admits no token at all --
+    and the undo is refused anyway, under every label and every `now`. Without the fence
+    precondition this step would be available, so the refusal is that precondition's doing. -/
+theorem nonvacuous_expired_held_turn_blocks_undo :
+    (∀ token, ¬ runningTurn.lease.Admits token ⟨20⟩) ∧
+    BranchHeldBy undoAfterMessage runId branchId turnId ∧
+    ¬ ∃ label after, GraphStep synthesisEffects (default : EventStore) terminalAuditLog
+      undoAfterMessage label after ∧ after.commits undoCommitId = some undoCommit := by
+  obtain ⟨expired, held⟩ :=
+    expired_lease_still_holds_branch (store := undoAfterMessage) (run := runId)
+      (branch := branchId) (record := runningTurn) (now := ⟨20⟩) undoMessageTurn rfl rfl rfl
+      (by decide) (by decide)
+  refine ⟨expired, held, ?_⟩
+  intro ⟨label, after, step, introduced⟩
+  exact undo_fences_held_turn step (undoAfterMessageFresh undoCommitId (by decide) (by decide))
+    introduced rfl held
+
+/-- The whole trace: append a message, fence the Turn that held the branch, then append the undo
+    and its redo. Fencing is the only thing that changed between the refusal above and the third
+    step here. -/
+theorem nonvacuous_fenced_undo_redo_trace :
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog writerGraph
+      (.append undoMessageId rootCommitId messageCommit) undoAfterMessage ∧
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog undoAfterMessage
+      (.suspendTurn turnId) undoFenced ∧
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog undoFenced
+      (.append undoCommitId undoMessageId undoCommit) undoApplied ∧
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog undoApplied
+      (.append redoCommitId undoCommitId redoCommit) undoRedone := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · exact GraphStep.append (run := run) (branch := ⟨runId⟩) (now := ⟨1⟩)
+      (writerGraphFresh undoMessageId (by decide)) writerGraphRun rfl writerGraphBranch rfl
+      writerGraphHead
+      (fun parent member => ⟨rootCommit, by
+        rw [List.mem_singleton.mp member]; exact writerGraphRoot, rfl⟩)
+      rfl undoMessageAllowed
+  · exact GraphStep.suspendTurn (turn := runningTurn) undoMessageTurn rfl .suspendFence
+  · exact GraphStep.append (run := run) (branch := ⟨runId⟩) (now := ⟨1⟩)
+      undoFencedFresh writerGraphRun rfl writerGraphBranch rfl undoFencedHead
+      (fun parent member => ⟨messageCommit, by
+        rw [List.mem_singleton.mp member]; exact undoFencedMessageStored, rfl⟩)
+      rfl
+      (undoAllowed writerGraphRun (fun _ => rfl) undoFencedMessageStored rfl
+        (.parent undoFencedMessageStored (List.mem_singleton.mpr rfl) (.refl undoRootStored)))
+  · exact GraphStep.append (run := run) (branch := ⟨runId⟩) (now := ⟨1⟩)
+      undoAppliedFresh writerGraphRun rfl writerGraphBranch rfl undoAppliedHead
+      (fun parent member => ⟨undoCommit, by
+        rw [List.mem_singleton.mp member]; exact undoAppliedStored, rfl⟩)
+      rfl
+      (undoAllowed writerGraphRun (fun _ => rfl) undoAppliedStored rfl
+        (.parent undoAppliedStored (List.mem_singleton.mpr rfl) (.refl undoAppliedMessageStored)))
+
+/-- Selection, not rewind. The undo advances the head to itself while the branch's effective
+    state becomes the ancestor it selected; the redo puts the effective state back; and every
+    commit ever written -- root, message, undo, redo -- is still in the graph, with the head it
+    replaced and the commit it selected both still ancestors of the head. -/
+theorem nonvacuous_undo_selects_ancestor_and_redo_restores :
+    GraphReachable synthesisEffects (default : EventStore) terminalAuditLog writerGraph
+      undoRedone ∧
+    undoFenced.effectiveState branchId = some undoMessageId ∧
+    undoApplied.heads branchId = some undoCommitId ∧
+    undoApplied.effectiveState branchId = some rootCommitId ∧
+    undoRedone.effectiveState branchId = undoFenced.effectiveState branchId ∧
+    undoRedone.commits rootCommitId = some rootCommit ∧
+    undoRedone.commits undoMessageId = some messageCommit ∧
+    Ancestor undoApplied rootCommitId undoCommitId ∧
+    Ancestor undoApplied undoMessageId undoCommitId := by
+  have priorEffective : undoFenced.effectiveState branchId = some undoMessageId := by
+    simp [GraphStore.effectiveState, undoFencedHead, undoFencedMessageStored, messageCommit]
+  obtain ⟨messageStep, fenceStep, undoStep, redoStep⟩ := nonvacuous_fenced_undo_redo_trace
+  obtain ⟨head, effective⟩ := undo_selects_effective_state undoStep (selected := rootCommitId) rfl
+  obtain ⟨growth, _, _, priorHead, selectedAncestor⟩ :=
+    undo_keeps_prior_head_reachable undoStep (selected := rootCommitId) rfl
+  obtain ⟨_, restored, _⟩ :=
+    undo_then_redo_restores_effective_state (selected := rootCommitId) (redoReceipt := ⟨30⟩)
+      priorEffective undoStep rfl redoStep rfl rfl
+  exact ⟨.step (.step (.step (.step (.refl _) messageStep) fenceStep) undoStep) redoStep,
+    priorEffective, head, effective, restored,
+    graph_reachable_preserves_commits
+      (.step (.step (.step (.step (.refl _) messageStep) fenceStep) undoStep) redoStep)
+      writerGraphRoot,
+    graph_step_preserves_commits redoStep (growth _ _ undoMessageStored),
+    selectedAncestor, priorHead⟩
 
 end AgentCore.Examples
