@@ -272,6 +272,9 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_invalid_migration_target_rejected
 #print axioms AgentCore.Examples.nonvacuous_exact_mediated_run_reservation
 #print axioms AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected
+#print axioms AgentCore.Examples.nonvacuous_reachable_settled_run
+#print axioms AgentCore.Examples.nonvacuous_reachable_stale_verdict_not_settled
+#print axioms AgentCore.Examples.nonvacuous_reachable_settled_obligations_and_acceptance
 #print axioms AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo
 #print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
