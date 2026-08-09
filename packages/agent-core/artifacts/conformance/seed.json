@@ -1319,6 +1319,34 @@
       ]
     },
     {
+      "id": "C13-CLOUDFLARE-ALARM-CLAIMS",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-ALARM-CLAIMS",
+      "specTextSha256": "sha256:5c0834a296bf8d6f5d5796afbe8654df0445f44c08b90b89d1bbd54fae5cc529",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-ALARM-DURABILITY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-ALARM-DURABILITY",
+      "specTextSha256": "sha256:80f501cf362a37cc7f2f0edf24388649699b69ba285987591ab7d9430776c9e3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
@@ -1337,6 +1365,104 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
       "specTextSha256": "sha256:53f5e9fc29614895da006f4b4532a4bff19a1dc8e02f12788f34583473cc31dd",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
+      "specTextSha256": "sha256:26b1388a0246aa50c2a9a8d53d0673f46a4f923cc9d6e46bd280f6a2c2e230f0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+      "specTextSha256": "sha256:2664d79de3bcd53014524f7cca13a44b6fcd87ac4f58a6f593a95c46f592a9df",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
+      "specTextSha256": "sha256:a2c277f670071e70a4d535b880f8f31bcefdffff22982320716cd3af68842aa9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
+      "specTextSha256": "sha256:8a3a9c9dead3b8520505749332bc4f377f20a495d5c4c36a0219bd45f990ad90",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
+      "specTextSha256": "sha256:20cb867be4f136b755d22420f42098a42151740770a71524f58400f2ad510c8b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-STORAGE-LIMIT",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-STORAGE-LIMIT",
+      "specTextSha256": "sha256:63f9343d9e146948cf7c0137a53931af7ed0ffa65cd00689fd47403e4e2b8550",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
+      "specTextSha256": "sha256:9acd074c4019f898e5cf94ea93e50981b79979b0dd0a303cddcdd7b0e6f19e1c",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
