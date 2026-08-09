@@ -1,5 +1,6 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
 import AgentCore.Subscriptions
+import AgentCore.Commands
 
 /-! Constructive witnesses for the final designated claim families. -/
 
@@ -3888,5 +3889,333 @@ theorem nonvacuous_reachable_settled_obligations_and_acceptance :
     (settled_has_coherent_snapshot_and_exact_obligations nonvacuous_reachable_settled_run.2).2,
     graph_reachable_settled_acceptance_holds_at_current_head nonvacuous_reachable_settled_run.1
       (reachSettledCriterion acceptanceHead) nonvacuous_reachable_settled_run.2⟩
+
+/-! ## Contribution and slot witnesses (SPEC §4.2)
+
+A concrete slot ledger proving the contribution LTS is livable: an installed
+declaration accepts two contributions from different facets, arrival order is recorded
+yet resolution presents declared order, and each collision path rejects. -/
+
+private def cardSchema : SchemaId := ⟨1⟩
+private def noteSchema : SchemaId := ⟨2⟩
+
+private def slotSchemas : SchemaId → StructuralValue → Bool
+  | ⟨1⟩, value => value.format == "card"
+  | _, _ => false
+
+private def dashboardSlot : SlotDeclaration := ⟨⟨1⟩, cardSchema⟩
+
+/-- Arrives first but carries the larger ordinal, so it presents second. -/
+private def firstCard : SlotEntry := ⟨⟨1⟩, dashboardSlot.name, ⟨1⟩, 2, ⟨"card", ["usage"]⟩⟩
+/-- Arrives second but carries the smaller ordinal, so it presents first. -/
+private def secondCard : SlotEntry := ⟨⟨2⟩, dashboardSlot.name, ⟨2⟩, 1, ⟨"card", ["deploys"]⟩⟩
+
+private def installedSlotLedger : SlotLedger :=
+  ⟨tableSet (fun _ => none) dashboardSlot.name dashboardSlot, []⟩
+private def firstArrivalLedger : SlotLedger :=
+  { installedSlotLedger with entries := [firstCard] }
+private def firstThenSecond : SlotLedger :=
+  { installedSlotLedger with entries := [firstCard, secondCard] }
+private def secondThenFirst : SlotLedger :=
+  { installedSlotLedger with entries := [secondCard, firstCard] }
+
+private theorem firstThenSecond_origins : firstThenSecond.OriginsUnique := by
+  show ∀ left ∈ firstThenSecond.entries, ∀ right ∈ firstThenSecond.entries,
+    left.SameOrigin right → left = right
+  decide
+
+theorem nonvacuous_slot_contribution_lifecycle :
+    SlotStep slotSchemas (default : SlotLedger) (.installSlot dashboardSlot)
+      installedSlotLedger ∧
+    SlotStep slotSchemas installedSlotLedger (.contribute firstCard) firstArrivalLedger ∧
+    SlotStep slotSchemas firstArrivalLedger (.contribute secondCard) firstThenSecond ∧
+    firstThenSecond.OriginsUnique ∧
+    firstThenSecond.EntriesConform slotSchemas ∧
+    firstThenSecond.slots dashboardSlot.name = some dashboardSlot := by
+  refine ⟨SlotStep.installSlot rfl,
+    SlotStep.contribute rfl rfl (by intro stored member; cases member),
+    SlotStep.contribute rfl rfl ?_, firstThenSecond_origins, ?_, rfl⟩
+  · intro stored member
+    rw [List.mem_singleton.mp member]
+    exact ⟨by decide, by decide⟩
+  · intro entry member
+    rcases List.mem_cons.mp member with equal | member
+    · rw [equal]; exact ⟨dashboardSlot, rfl, rfl⟩
+    · rw [List.mem_singleton.mp member]; exact ⟨dashboardSlot, rfl, rfl⟩
+
+/-- Resolution reorders arrivals: the ledger stores `[firstCard, secondCard]` yet
+    resolves to declared `(ordinal, contributor)` order. Fails if resolution presented
+    the arrival log. -/
+theorem nonvacuous_resolution_reorders_arrivals :
+    firstThenSecond.entries = [firstCard, secondCard] ∧
+    firstThenSecond.resolve dashboardSlot.name = [secondCard, firstCard] := by
+  refine ⟨rfl, resolution_is_unique_declared_order firstThenSecond_origins ?_ ?_⟩
+  · rw [show firstThenSecond.entries.filter
+        (fun entry => decide (entry.slot = dashboardSlot.name)) =
+        [firstCard, secondCard] from by decide]
+    exact List.Perm.swap firstCard secondCard []
+  · decide
+
+/-- The same two contributions in the opposite arrival order resolve identically —
+    and the two ledgers genuinely differ as arrival logs. -/
+theorem nonvacuous_arrival_free_resolution :
+    firstThenSecond.entries ≠ secondThenFirst.entries ∧
+    firstThenSecond.resolve dashboardSlot.name =
+      secondThenFirst.resolve dashboardSlot.name := by
+  refine ⟨by decide, resolution_ignores_arrival_order firstThenSecond_origins ?_⟩
+  exact List.Perm.swap secondCard firstCard []
+
+private def conflictingDashboardSlot : SlotDeclaration := ⟨dashboardSlot.name, noteSchema⟩
+
+theorem nonvacuous_slot_redeclaration_rejected {after : SlotLedger} :
+    ¬ SlotStep slotSchemas installedSlotLedger (.installSlot conflictingDashboardSlot) after :=
+  occupied_slot_redeclaration_rejected (existing := dashboardSlot) rfl
+
+theorem nonvacuous_uninstalled_contribution_rejected {after : SlotLedger} :
+    ¬ SlotStep slotSchemas (default : SlotLedger) (.contribute firstCard) after :=
+  uninstalled_slot_contribution_rejected rfl
+
+private def rejectedNote : SlotEntry := ⟨⟨3⟩, dashboardSlot.name, ⟨3⟩, 1, ⟨"note", []⟩⟩
+
+theorem nonvacuous_nonvalidating_contribution_rejected {after : SlotLedger} :
+    ¬ SlotStep slotSchemas installedSlotLedger (.contribute rejectedNote) after :=
+  nonvalidating_contribution_rejected (declaration := dashboardSlot) rfl rfl
+
+/-- Same `(slot, contributor, ordinal)` origin as `firstCard`, different id and value. -/
+private def usurpingCard : SlotEntry := ⟨⟨4⟩, dashboardSlot.name, ⟨1⟩, 2, ⟨"card", ["v2"]⟩⟩
+
+theorem nonvacuous_conflicting_origin_rejected {after : SlotLedger} :
+    ¬ SlotStep slotSchemas firstThenSecond (.contribute usurpingCard) after :=
+  conflicting_origin_contribution_rejected (stored := firstCard) (by decide) (by decide)
+
+/-- Reuses the stored id of `firstCard` under a fresh origin. -/
+private def idReusingCard : SlotEntry := ⟨⟨1⟩, dashboardSlot.name, ⟨9⟩, 9, ⟨"card", []⟩⟩
+
+theorem nonvacuous_entry_id_reuse_rejected {after : SlotLedger} :
+    ¬ SlotStep slotSchemas firstThenSecond (.contribute idReusingCard) after :=
+  entry_id_reuse_rejected (stored := firstCard) (by decide) (by decide)
+
+theorem nonvacuous_slot_noop_reinstallation :
+    SlotStep slotSchemas firstThenSecond (.reinstallSlot dashboardSlot) firstThenSecond ∧
+    SlotStep slotSchemas firstThenSecond (.recontribute firstCard) firstThenSecond :=
+  ⟨SlotStep.reinstallSlot rfl, SlotStep.recontribute (by decide)⟩
+
+/-! ## Command witnesses (SPEC §4.3)
+
+A deploy command installed into a composer surface, invoked with schema-valid
+arguments; collisions, deviating routes, unsafe mappings, and invalid arguments each
+reject; a resubmitted envelope yields the recorded outcome and nothing else. -/
+
+private def commandArgumentsSchema : SchemaId := ⟨11⟩
+private def commandInputSchema : SchemaId := ⟨12⟩
+
+private def commandSchemas : SchemaId → StructuralValue → Bool
+  | ⟨11⟩, value => value.format == "args"
+  | ⟨12⟩, value => value.format == "input"
+  | _, _ => false
+
+private def deployMapping : MappingId := ⟨21⟩
+private def identityMapping : MappingId := ⟨22⟩
+
+private def commandMappings : MappingId → StructuralValue → StructuralValue
+  | ⟨21⟩, value => ⟨"input", value.tokens⟩
+  | _, value => value
+
+private def commandScope : Scope := .tenant tenant
+private def composerSurface : SlotName := ⟨31⟩
+private def deployOperation : OperationId := ⟨⟨7⟩, "deploy.run", 1⟩
+
+private def deployCommand : CommandDecl :=
+  ⟨⟨41⟩, [composerSurface], commandArgumentsSchema, deployOperation, commandInputSchema,
+    bindingId, deployMapping, none⟩
+
+private def deployRegistry : CommandRegistry :=
+  (default : CommandRegistry).installCommand commandScope deployCommand
+
+private def deployArguments : StructuralValue := ⟨"args", ["staging"]⟩
+private def deployInvocation : CommandInvocation :=
+  ⟨commandScope, deployCommand.id, ⟨"input", ["staging"]⟩⟩
+private def invokedDeployRegistry : CommandRegistry :=
+  { deployRegistry with invoked := [deployInvocation] }
+
+private def deployInstallStep :
+    CommandStep commandSchemas commandMappings (default : CommandRegistry)
+      (.installCommand commandScope deployCommand) deployRegistry :=
+  CommandStep.installCommand (by decide)
+    (fun tiers h => nomatch (show (none : Option (List TrustTier)) = some tiers from h))
+    (fun value _ => rfl) rfl (fun surface _ => rfl)
+
+theorem nonvacuous_command_installation_and_validated_invocation :
+    CommandStep commandSchemas commandMappings (default : CommandRegistry)
+      (.installCommand commandScope deployCommand) deployRegistry ∧
+    deployRegistry.commands commandScope deployCommand.id =
+      some ⟨deployCommand, deriveCommandRoute deployCommand⟩ ∧
+    deployRegistry.surfaces commandScope composerSurface deployCommand.name =
+      some deployCommand.id ∧
+    deployRegistry.InstalledMappingsSafe commandSchemas commandMappings ∧
+    CommandStep commandSchemas commandMappings deployRegistry
+      (.invoke commandScope deployCommand.id deployArguments) invokedDeployRegistry ∧
+    commandSchemas commandInputSchema deployInvocation.input = true ∧
+    (deriveCommandRoute deployCommand).authority = .initiator bindingId ∧
+    (deriveCommandRoute deployCommand).dedupe = .event ∧
+    (deriveCommandRoute deployCommand).acceptedTrust ≠ [] ∧
+    invokedDeployRegistry.surfaces commandScope composerSurface deployCommand.name =
+      some deployCommand.id :=
+  ⟨deployInstallStep, rfl, rfl,
+    command_step_preserves_installed_mapping_safety
+      (fun _ _ installed lookup =>
+        nomatch (show (none : Option InstalledCommand) = some installed from lookup))
+      deployInstallStep,
+    CommandStep.invoke (installed := ⟨deployCommand, deriveCommandRoute deployCommand⟩) rfl rfl,
+    rfl, rfl, rfl, by decide, rfl⟩
+
+/-- Same command name declared into the same surface slot by a different facet: a
+    later contribution colliding on `(Scope, surface, name)` rejects. -/
+private def rivalDeployCommand : CommandDecl :=
+  ⟨⟨41⟩, [composerSurface], commandArgumentsSchema, ⟨⟨8⟩, "deploy.run", 1⟩,
+    commandInputSchema, bindingId, deployMapping, none⟩
+
+theorem nonvacuous_command_surface_collision_rejected {after : CommandRegistry} :
+    ¬ CommandStep commandSchemas commandMappings deployRegistry
+      (.installCommand commandScope rivalDeployCommand) after :=
+  command_surface_collision_rejected (surface := composerSurface)
+    (occupant := deployCommand.id) (by decide) rfl
+
+theorem nonvacuous_occupied_command_id_installation_rejected {after : CommandRegistry} :
+    ¬ CommandStep commandSchemas commandMappings deployRegistry
+      (.installCommand commandScope deployCommand) after :=
+  occupied_command_id_installation_rejected
+    (installed := ⟨deployCommand, deriveCommandRoute deployCommand⟩) rfl
+
+theorem nonvacuous_command_reinstallation_identity :
+    CommandStep commandSchemas commandMappings deployRegistry
+      (.reinstallCommand commandScope deployCommand.id) deployRegistry :=
+  CommandStep.reinstallCommand
+    (installed := ⟨deployCommand, deriveCommandRoute deployCommand⟩) rfl
+
+/-- A registry whose stored route swapped initiator authority for delegated: no
+    installation step can produce it, from any starting registry. -/
+private def hijackedRoute : CommandRoute :=
+  { deriveCommandRoute deployCommand with authority := .delegated bindingId }
+private def hijackedRegistry : CommandRegistry :=
+  { (default : CommandRegistry) with
+    commands := fun scope id =>
+      if scope = commandScope ∧ id = deployCommand.id then
+        some ⟨deployCommand, hijackedRoute⟩
+      else none }
+
+theorem nonvacuous_nonderived_route_rejected {registry : CommandRegistry} :
+    ¬ CommandStep commandSchemas commandMappings registry
+      (.installCommand commandScope deployCommand) hijackedRegistry :=
+  nonderived_route_installation_rejected (installed := ⟨deployCommand, hijackedRoute⟩)
+    rfl (by decide)
+
+/-- Declares an explicit empty trust set. -/
+private def emptyTrustCommand : CommandDecl :=
+  ⟨⟨43⟩, [composerSurface], commandArgumentsSchema, ⟨⟨7⟩, "deploy.status", 1⟩,
+    commandInputSchema, bindingId, deployMapping, some []⟩
+
+theorem nonvacuous_empty_trust_installation_rejected {after : CommandRegistry} :
+    ¬ CommandStep commandSchemas commandMappings (default : CommandRegistry)
+      (.installCommand commandScope emptyTrustCommand) after :=
+  empty_trust_installation_rejected rfl
+
+/-- Passes arguments through unmapped, so a schema-valid argument value reaches the
+    Operation input schema unvalidated — install rejects it. -/
+private def unsafeRawCommand : CommandDecl :=
+  ⟨⟨42⟩, [composerSurface], commandArgumentsSchema, ⟨⟨7⟩, "deploy.raw", 1⟩,
+    commandInputSchema, bindingId, identityMapping, none⟩
+
+theorem nonvacuous_unsafe_mapping_installation_rejected {after : CommandRegistry} :
+    ¬ CommandStep commandSchemas commandMappings (default : CommandRegistry)
+      (.installCommand commandScope unsafeRawCommand) after :=
+  unsafe_mapping_installation_rejected
+    (fun safe => absurd (safe ⟨"args", []⟩ rfl) (by decide))
+
+theorem nonvacuous_uninstalled_invocation_rejected {after : CommandRegistry} :
+    ¬ CommandStep commandSchemas commandMappings (default : CommandRegistry)
+      (.invoke commandScope deployCommand.id deployArguments) after :=
+  uninstalled_command_invocation_rejected rfl
+
+theorem nonvacuous_invalid_arguments_invocation_rejected {after : CommandRegistry} :
+    ¬ CommandStep commandSchemas commandMappings deployRegistry
+      (.invoke commandScope deployCommand.id ⟨"junk", []⟩) after :=
+  invalid_arguments_invocation_rejected
+    (installed := ⟨deployCommand, deriveCommandRoute deployCommand⟩) rfl rfl
+
+/-! ## Command submission witnesses (§4.3 via §6.1 `host.command.submit`) -/
+
+private def submissionIdentity : SubmissionIdentity := ⟨.principal principalRef, ⟨61⟩⟩
+private def committedSubmission : SubmissionWrite :=
+  ⟨submissionIdentity, .committed, ⟨"receipt", ["ok"]⟩⟩
+private def duplicateSubmission : SubmissionWrite :=
+  ⟨submissionIdentity, .duplicate ⟨1⟩, ⟨"receipt", ["ok"]⟩⟩
+
+private def committedSubmissionLedger : SubmissionLedger :=
+  { writes := tableSet (fun _ => none) ⟨1⟩ committedSubmission
+    reserved := tableSet (fun _ => none) submissionIdentity ⟨1⟩
+    invoked := [⟨71⟩] }
+private def resubmittedLedger : SubmissionLedger :=
+  { committedSubmissionLedger with
+    writes := tableSet committedSubmissionLedger.writes ⟨2⟩ duplicateSubmission }
+
+private def commitSubmissionStep :
+    SubmissionStep (default : SubmissionLedger) (.commit ⟨1⟩ ⟨71⟩)
+      committedSubmissionLedger :=
+  SubmissionStep.commit (write := committedSubmission) rfl rfl rfl
+
+/-- A committed submission followed by a resubmission of the same identity: the
+    duplicate write carries the recorded reply, cites the reserving original, reserves
+    nothing new, and mints no second `command.invoked` Event. -/
+theorem nonvacuous_duplicate_submission_is_recorded_evidence :
+    SubmissionStep (default : SubmissionLedger) (.commit ⟨1⟩ ⟨71⟩)
+      committedSubmissionLedger ∧
+    committedSubmissionLedger.ReservationConsistent ∧
+    SubmissionStep committedSubmissionLedger (.resubmit ⟨2⟩) resubmittedLedger ∧
+    resubmittedLedger.reserved = committedSubmissionLedger.reserved ∧
+    resubmittedLedger.invoked = committedSubmissionLedger.invoked ∧
+    resubmittedLedger.writes ⟨2⟩ = some duplicateSubmission ∧
+    duplicateSubmission.reply = committedSubmission.reply :=
+  by
+  refine ⟨commitSubmissionStep, ?_, ?_, rfl, rfl, rfl, rfl⟩
+  · exact submission_step_preserves_reservation_consistency
+      (And.intro
+        (fun _ id lookup =>
+          nomatch (show (none : Option SubmissionWriteId) = some id from lookup))
+        (fun _ write lookup _ =>
+          nomatch (show (none : Option SubmissionWrite) = some write from lookup)))
+      commitSubmissionStep
+  · exact SubmissionStep.resubmit (write := duplicateSubmission) (originalId := ⟨1⟩)
+      (original := committedSubmission) rfl rfl rfl rfl rfl rfl
+
+/-- The state a recommitment of the reserved identity would produce: impossible. -/
+private def recommitSubmission : SubmissionWrite :=
+  ⟨submissionIdentity, .committed, ⟨"receipt", ["again"]⟩⟩
+private def recommitAttempt : SubmissionLedger :=
+  { writes := tableSet committedSubmissionLedger.writes ⟨2⟩ recommitSubmission
+    reserved := tableSet committedSubmissionLedger.reserved submissionIdentity ⟨2⟩
+    invoked := ⟨72⟩ :: committedSubmissionLedger.invoked }
+
+theorem nonvacuous_reserved_identity_recommit_rejected :
+    ¬ SubmissionStep committedSubmissionLedger (.commit ⟨2⟩ ⟨72⟩) recommitAttempt :=
+  reserved_identity_cannot_recommit (write := recommitSubmission)
+    (originalId := ⟨1⟩) rfl rfl
+
+/-- A ledger holding two reserving writes for one identity violates reservation
+    consistency — the invariant genuinely excludes double reservation. -/
+private def doubleReservationLedger : SubmissionLedger :=
+  { writes := tableSet (tableSet (fun _ => none) ⟨1⟩ committedSubmission) ⟨2⟩
+      recommitSubmission
+    reserved := tableSet (fun _ => none) submissionIdentity ⟨1⟩
+    invoked := [] }
+
+theorem nonvacuous_double_reservation_is_inconsistent :
+    ¬ doubleReservationLedger.ReservationConsistent := by
+  intro consistent
+  have same := at_most_one_reserving_write_per_identity consistent
+    (leftId := ⟨1⟩) (rightId := ⟨2⟩)
+    (left := committedSubmission) (right := recommitSubmission)
+    rfl rfl rfl trivial trivial
+  exact absurd same (by decide)
 
 end AgentCore.Examples

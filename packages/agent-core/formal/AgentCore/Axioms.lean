@@ -281,6 +281,69 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
 
+-- Contributions and slots (SPEC §4.2): immutable declarations, exclusive origins,
+-- schema-conformant entries, and declared-order arrival-independent resolution.
+#print axioms AgentCore.occupied_slot_redeclaration_rejected
+#print axioms AgentCore.slot_reinstallation_is_stored_identity
+#print axioms AgentCore.slot_step_preserves_declarations
+#print axioms AgentCore.uninstalled_slot_contribution_rejected
+#print axioms AgentCore.nonvalidating_contribution_rejected
+#print axioms AgentCore.conflicting_origin_contribution_rejected
+#print axioms AgentCore.entry_id_reuse_rejected
+#print axioms AgentCore.recontribution_is_stored_identity
+#print axioms AgentCore.slot_step_preserves_origin_exclusivity
+#print axioms AgentCore.slot_step_preserves_entry_conformance
+#print axioms AgentCore.resolution_is_complete_and_declared_order
+#print axioms AgentCore.resolution_ignores_arrival_order
+#print axioms AgentCore.resolution_is_unique_declared_order
+#print axioms AgentCore.resolved_entry_is_stored_and_validates
+
+-- Commands (SPEC §4.3): per-surface collision rejection, exact derived routes,
+-- install-checked mappings, validated invocation input, and submission idempotency.
+#print axioms AgentCore.command_surface_collision_rejected
+#print axioms AgentCore.occupied_command_id_installation_rejected
+#print axioms AgentCore.command_reinstallation_is_stored_identity
+#print axioms AgentCore.installation_registers_exact_derived_route
+#print axioms AgentCore.nonderived_route_installation_rejected
+#print axioms AgentCore.installed_route_is_initiator_with_event_dedupe
+#print axioms AgentCore.empty_trust_installation_rejected
+#print axioms AgentCore.unsafe_mapping_installation_rejected
+#print axioms AgentCore.uninstalled_command_invocation_rejected
+#print axioms AgentCore.invalid_arguments_invocation_rejected
+#print axioms AgentCore.command_step_preserves_installed_mapping_safety
+#print axioms AgentCore.command_step_preserves_surface_registration
+#print axioms AgentCore.invocation_emits_validated_operation_input
+#print axioms AgentCore.commit_requires_unreserved_identity
+#print axioms AgentCore.reserved_identity_cannot_recommit
+#print axioms AgentCore.resubmission_returns_recorded_reply
+#print axioms AgentCore.duplicate_submission_reserves_and_emits_nothing
+#print axioms AgentCore.duplicate_cites_reserving_original
+#print axioms AgentCore.submission_step_preserves_reservation_consistency
+#print axioms AgentCore.at_most_one_reserving_write_per_identity
+
+-- Contribution, slot, command, and submission witnesses.
+#print axioms AgentCore.Examples.nonvacuous_slot_contribution_lifecycle
+#print axioms AgentCore.Examples.nonvacuous_resolution_reorders_arrivals
+#print axioms AgentCore.Examples.nonvacuous_arrival_free_resolution
+#print axioms AgentCore.Examples.nonvacuous_slot_redeclaration_rejected
+#print axioms AgentCore.Examples.nonvacuous_uninstalled_contribution_rejected
+#print axioms AgentCore.Examples.nonvacuous_nonvalidating_contribution_rejected
+#print axioms AgentCore.Examples.nonvacuous_conflicting_origin_rejected
+#print axioms AgentCore.Examples.nonvacuous_entry_id_reuse_rejected
+#print axioms AgentCore.Examples.nonvacuous_slot_noop_reinstallation
+#print axioms AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation
+#print axioms AgentCore.Examples.nonvacuous_command_surface_collision_rejected
+#print axioms AgentCore.Examples.nonvacuous_occupied_command_id_installation_rejected
+#print axioms AgentCore.Examples.nonvacuous_command_reinstallation_identity
+#print axioms AgentCore.Examples.nonvacuous_nonderived_route_rejected
+#print axioms AgentCore.Examples.nonvacuous_empty_trust_installation_rejected
+#print axioms AgentCore.Examples.nonvacuous_unsafe_mapping_installation_rejected
+#print axioms AgentCore.Examples.nonvacuous_uninstalled_invocation_rejected
+#print axioms AgentCore.Examples.nonvacuous_invalid_arguments_invocation_rejected
+#print axioms AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence
+#print axioms AgentCore.Examples.nonvacuous_reserved_identity_recommit_rejected
+#print axioms AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent
+
 -- Event → Subscription routing (SPEC §6.2): at-most-once, derived targeting, trust.
 #print axioms AgentCore.fire_consumes_key
 #print axioms AgentCore.consumed_key_never_refires
