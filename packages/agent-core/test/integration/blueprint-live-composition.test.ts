@@ -207,7 +207,7 @@ const facet = new FacetRef(`workspace:${FACET_ID}`);
 const domain = new ProtectionDomain("backend", "live-domain", "may-hold-secrets");
 const binding = Binding.active(
     workspaceScope,
-    SubjectRef.principal(principal.principalId),
+    SubjectRef.principal(new PrincipalRef(tenantId, principal.principalId)),
     domain,
     new BindingName("notes"),
     new GrantId("live-grant"),

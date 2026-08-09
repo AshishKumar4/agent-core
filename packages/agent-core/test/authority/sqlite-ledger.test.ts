@@ -35,6 +35,8 @@ import {
 } from "../../src/substrates";
 
 const tenantId = new TenantId("tenant-sqlite");
+const foreignTenantId = new TenantId("foreign-tenant");
+const scopeSwapTenantId = new TenantId("scope-swap");
 const principalId = new PrincipalId("principal-sqlite");
 const tenantScope = ScopeRef.tenant(tenantId);
 const anchor = {
@@ -58,7 +60,7 @@ describe("SQLite Tenant authority mutation storage", () => {
             const deny = new Grant(
                 new GrantId("sqlite-epoch-deny"),
                 tenantScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "deny",
                 allow.capability,
                 { kind: "direct" }
@@ -88,7 +90,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         const membership = new Membership(
             new MembershipId("membership-service"),
             tenantScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             role.name,
             "active",
             Revision.initial()
@@ -156,7 +158,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         const membership = new Membership(
             new MembershipId("membership-invariant"),
             tenantScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             role.name,
             "active",
             Revision.initial()
@@ -169,8 +171,8 @@ describe("SQLite Tenant authority mutation storage", () => {
                 candidate.putMembership(
                     new Membership(
                         membership.id,
-                        ScopeRef.tenant(new TenantId("scope-swap")),
-                        membership.subject,
+                        ScopeRef.tenant(scopeSwapTenantId),
+                        SubjectRef.principal(new PrincipalRef(scopeSwapTenantId, principalId)),
                         membership.role,
                         "active",
                         membership.revision.next()
@@ -182,8 +184,8 @@ describe("SQLite Tenant authority mutation storage", () => {
             service.createGrant(
                 new Grant(
                     new GrantId("foreign-grant"),
-                    ScopeRef.tenant(new TenantId("foreign-tenant")),
-                    SubjectRef.principal(principalId),
+                    ScopeRef.tenant(foreignTenantId),
+                    SubjectRef.principal(new PrincipalRef(foreignTenantId, principalId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -194,7 +196,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         const orphan = new Membership(
             new MembershipId("orphan-membership"),
             tenantScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             new RoleName("missing-role"),
             "active",
             Revision.initial()
@@ -216,7 +218,7 @@ describe("SQLite Tenant authority mutation storage", () => {
             const parent = new Grant(
                 new GrantId("sqlite-parent"),
                 tenantScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "allow",
                 new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "mutate"] }),
                 { kind: "direct" }
@@ -355,7 +357,7 @@ function allowGrant(id: string): Grant {
     return new Grant(
         new GrantId(id),
         tenantScope,
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         "allow",
         new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
         { kind: "direct" }

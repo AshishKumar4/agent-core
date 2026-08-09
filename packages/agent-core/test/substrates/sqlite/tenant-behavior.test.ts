@@ -17,6 +17,7 @@ import {
     MembershipId,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     Role,
@@ -62,7 +63,7 @@ function bootstrappedStore(database: TestSqlite) {
 function allowGrant(
     id: string,
     scope = tenantScope,
-    subject: SubjectRef = SubjectRef.principal(principalId)
+    subject: SubjectRef = SubjectRef.principal(new PrincipalRef(scope.tenantId, principalId))
 ) {
     return new Grant(
         new GrantId(id),
@@ -170,7 +171,10 @@ function guestMembership(shape: GuestMembershipShape): Membership {
                     SubjectRef.foreign(shape.homeTenant, guestPrincipalId, shape.scheme)
                 )
             },
-            version: { major: 1, minor: 0 }
+            version: {
+                major: Membership.codec.version.major,
+                minor: Membership.codec.version.minor
+            }
         })
     );
 }
@@ -921,7 +925,7 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         const membership = new Membership(
             new MembershipId("steady-membership"),
             tenantScope,
-            SubjectRef.principal(member.id),
+            SubjectRef.principal(new PrincipalRef(tenantId, member.id)),
             hollow.name,
             "active",
             Revision.initial()
@@ -954,7 +958,7 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
                     new Membership(
                         new MembershipId("late-membership"),
                         tenantScope,
-                        SubjectRef.principal(member.id),
+                        SubjectRef.principal(new PrincipalRef(tenantId, member.id)),
                         hollow.name,
                         "active",
                         new Revision(1)
@@ -974,7 +978,13 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         });
         expect(() =>
             store.transaction((control) =>
-                control.putMembership(revised("active", 1, SubjectRef.principal(principalId)))
+                control.putMembership(
+                    revised(
+                        "active",
+                        1,
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId))
+                    )
+                )
             )
         ).toThrow(immutable);
         expect(() =>
@@ -1024,7 +1034,7 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         const membership = new Membership(
             new MembershipId("renewed-membership"),
             tenantScope,
-            SubjectRef.principal(member.id),
+            SubjectRef.principal(new PrincipalRef(tenantId, member.id)),
             hollowRole.name,
             "active",
             Revision.initial()
@@ -1178,7 +1188,9 @@ describe("SQLite Tenant control closure integrity", () => {
             new Membership(
                 new MembershipId("ghost-subject-membership"),
                 tenantScope,
-                SubjectRef.principal(new PrincipalId("ghost-principal")),
+                SubjectRef.principal(
+                    new PrincipalRef(tenantId, new PrincipalId("ghost-principal"))
+                ),
                 hollow.name,
                 "active",
                 Revision.initial()
@@ -1443,7 +1455,7 @@ describe("SQLite Tenant control closure integrity", () => {
             new Membership(
                 new MembershipId("foreign-scope-membership"),
                 ScopeRef.tenant(foreignTenantId),
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(foreignTenantId, principalId)),
                 hollow.name,
                 "active",
                 Revision.initial()
@@ -1542,7 +1554,9 @@ describe("SQLite Tenant control closure integrity", () => {
                 allowGrant(
                     "ghost-principal-grant",
                     tenantScope,
-                    SubjectRef.principal(new PrincipalId("ghost-principal"))
+                    SubjectRef.principal(
+                        new PrincipalRef(tenantId, new PrincipalId("ghost-principal"))
+                    )
                 )
             );
             rejects(
@@ -1566,7 +1580,7 @@ describe("SQLite Tenant control closure integrity", () => {
                 new Grant(
                     new GrantId("ghost-origin-grant"),
                     tenantScope,
-                    SubjectRef.principal(principalId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                     "allow",
                     capability,
                     ghostOrigin
@@ -1585,7 +1599,7 @@ describe("SQLite Tenant control closure integrity", () => {
                 new Grant(
                     new GrantId("surplus-owner-grant"),
                     tenantScope,
-                    SubjectRef.principal(principalId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                     "allow",
                     capability,
                     surplusOrigin
@@ -1597,7 +1611,7 @@ describe("SQLite Tenant control closure integrity", () => {
                 new Grant(
                     new GrantId("self-attenuated-grant"),
                     tenantScope,
-                    SubjectRef.principal(principalId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                     "allow",
                     capability,
                     { kind: "direct" },

@@ -81,7 +81,11 @@ describe("Tenant authority runtime", () => {
         { tags: "p0" },
         () => {
             const { store, service, runtime } = fixture();
-            const allow = grant("allow", SubjectRef.principal(principalId), "allow");
+            const allow = grant(
+                "allow",
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                "allow"
+            );
             service.createGrant(allow);
             const validation = runtime.validateBinding(
                 validationRequest(allow.id),
@@ -111,7 +115,12 @@ describe("Tenant authority runtime", () => {
             ]);
 
             service.createGrant(
-                grant("deny", SubjectRef.principal(principalId), "deny", ScopeRef.tenant(tenantId))
+                grant(
+                    "deny",
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                    "deny",
+                    ScopeRef.tenant(tenantId)
+                )
             );
             const currentPath = runtime.validateBinding(
                 validationRequest(allow.id),
@@ -173,7 +182,11 @@ describe("Tenant authority runtime", () => {
 
     test("returns current path evidence and detects stale evidence", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
-        const allow = grant("allow-stale", SubjectRef.principal(principalId), "allow");
+        const allow = grant(
+            "allow-stale",
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+            "allow"
+        );
         service.createGrant(allow);
         const binding = Binding.active(
             workspaceScope,
@@ -206,7 +219,11 @@ describe("Tenant authority runtime", () => {
         { tags: "p0" },
         () => {
             const { service, runtime } = fixture();
-            const allow = grant("denial-allow", SubjectRef.principal(principalId), "allow");
+            const allow = grant(
+                "denial-allow",
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                "allow"
+            );
             service.createGrant(allow);
             const currentPath = runtime.validateBinding(
                 validationRequest(allow.id),
@@ -265,8 +282,16 @@ describe("Tenant authority runtime", () => {
 
     test("[C13-ADV-REVOKED-ALLOW] rejects a revoked backing allow Grant", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
-        const backing = grant("revoked-backing", SubjectRef.principal(principalId), "allow");
-        const pathSource = grant("path-source", SubjectRef.principal(principalId), "allow");
+        const backing = grant(
+            "revoked-backing",
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+            "allow"
+        );
+        const pathSource = grant(
+            "path-source",
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+            "allow"
+        );
         service.createGrant(backing);
         service.createGrant(pathSource);
         const binding = Binding.active(

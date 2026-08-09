@@ -469,7 +469,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                     new Membership(
                         new MembershipId("suspended-writer-member"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         role,
                         "suspended",
                         Revision.initial()
@@ -480,7 +480,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         const member = new Membership(
             new MembershipId("writer-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             role,
             "active",
             Revision.initial()
@@ -683,7 +683,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const grant = new Grant(
                     new GrantId("closure-principal-grant"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(ownerId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -692,7 +692,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const corrupt = new Grant(
                     grant.id,
                     grant.scope,
-                    SubjectRef.principal(new PrincipalId("missing")),
+                    SubjectRef.principal(new PrincipalRef(tenantId, new PrincipalId("missing"))),
                     grant.effect,
                     grant.capability,
                     grant.origin
@@ -709,7 +709,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const grant = new Grant(
                     new GrantId("closure-child"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(ownerId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -736,7 +736,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const parent = new Grant(
                     new GrantId("closure-parent"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(ownerId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -798,7 +798,7 @@ describe("SQLite Binding and watermark hard gates", () => {
     const principal = new PrincipalRef(tenantId, ownerId);
     const binding = Binding.active(
         workspaceScope,
-        SubjectRef.principal(ownerId),
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
         new ProtectionDomain("backend", "sqlite", "no-secrets"),
         new BindingName("sqlite-binding"),
         new GrantId("sqlite-binding-grant"),
@@ -1092,7 +1092,7 @@ describe("SQLite authority adapter taxonomy", () => {
     const grant = new Grant(
         new GrantId("adapter-grant"),
         scope,
-        SubjectRef.principal(ownerId),
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
         "allow",
         new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
         { kind: "direct" }
@@ -1276,7 +1276,7 @@ describe("SQLite authority adapter mutation gates", () => {
     const grant = new Grant(
         new GrantId("gate-grant"),
         scope,
-        SubjectRef.principal(ownerId),
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
         "allow",
         new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
         { kind: "direct" }
@@ -1307,7 +1307,7 @@ describe("SQLite authority adapter mutation gates", () => {
             const mutated = new Grant(
                 grant.id,
                 scope,
-                SubjectRef.principal(ownerId),
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                 "allow",
                 new CapabilitySpec({ facetPattern: "q", impacts: ["observe"] }),
                 { kind: "direct" }
@@ -1357,7 +1357,7 @@ describe("SQLite authority adapter mutation gates", () => {
         const sibling = new Grant(
             new GrantId("gate-grant-sibling"),
             scope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
             { kind: "direct" }
@@ -1523,7 +1523,7 @@ describe("SQLite authority adapter mutation gates", () => {
         const variant = new Grant(
             grant.id,
             scope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             new CapabilitySpec({ facetPattern: "*", impacts: ["execute"] }),
             { kind: "direct" }

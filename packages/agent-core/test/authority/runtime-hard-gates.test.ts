@@ -111,7 +111,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
             const missingParent = new Grant(
                 new GrantId("missing-parent-child"),
                 workspaceScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "allow",
                 capability,
                 { kind: "direct" },
@@ -155,7 +155,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
                 "missingGrant"
             );
             const wrongSubject = activeBinding(allow, {
-                subject: SubjectRef.principal(new PrincipalId("other"))
+                subject: SubjectRef.principal(new PrincipalRef(tenantId, new PrincipalId("other")))
             });
             expect(runtime.check(checkRequest(wrongSubject, path), new Date(10)).reason).toBe(
                 "noMatchingAllow"
@@ -382,7 +382,9 @@ describe("TenantAuthorityRuntime hard gates", () => {
                         ? ScopeRef.workspace(tenantId, new WorkspaceId("foreign-workspace"))
                         : workspaceScope,
                     malformed === "deny"
-                        ? SubjectRef.principal(new PrincipalId("other-parent-subject"))
+                        ? SubjectRef.principal(
+                              new PrincipalRef(tenantId, new PrincipalId("other-parent-subject"))
+                          )
                         : backing.subject,
                     malformed === "deny" ? "deny" : "allow",
                     malformed === "wider"
@@ -424,7 +426,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         const invalidBacking = new Grant(
             new GrantId("invalid-backing"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             capability,
             { kind: "direct" },
@@ -682,7 +684,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             const denyBacking = new Grant(
                 new GrantId("deny-backing"),
                 workspaceScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "deny",
                 new CapabilitySpec({ facetPattern: "workspace:other.*", impacts: ["observe"] }),
                 { kind: "direct" }
@@ -702,7 +704,9 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             const revoked = new Grant(
                 new GrantId("revoked-stranger-backing"),
                 workspaceScope,
-                SubjectRef.principal(new PrincipalId("revoked-stranger")),
+                SubjectRef.principal(
+                    new PrincipalRef(tenantId, new PrincipalId("revoked-stranger"))
+                ),
                 "allow",
                 capability,
                 { kind: "direct" }
@@ -810,7 +814,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
         const parent = new Grant(
             new GrantId("chain-parent"),
             ScopeRef.tenant(tenantId),
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             capability,
             { kind: "direct" }
@@ -818,7 +822,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
         const child = new Grant(
             new GrantId("chain-child"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             capability,
             { kind: "direct" },
@@ -837,7 +841,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
         const sameParent = new Grant(
             new GrantId("same-parent"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             capability,
             { kind: "direct" }
@@ -845,7 +849,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
         const sameChild = new Grant(
             new GrantId("same-child"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             capability,
             { kind: "direct" },
@@ -865,7 +869,9 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
         "fails closed on each malformed backing lineage with the exact reason",
         { tags: "p0" },
         () => {
-            const stranger = SubjectRef.principal(new PrincipalId("lineage-stranger"));
+            const stranger = SubjectRef.principal(
+                new PrincipalRef(tenantId, new PrincipalId("lineage-stranger"))
+            );
             const denyParent = new Grant(
                 new GrantId("lineage-deny-parent"),
                 workspaceScope,
@@ -877,7 +883,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             const offPathParent = new Grant(
                 new GrantId("lineage-offpath-parent"),
                 ScopeRef.workspace(tenantId, new WorkspaceId("lineage-elsewhere")),
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "allow",
                 capability,
                 { kind: "direct" }
@@ -885,7 +891,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             const invertedParent = new Grant(
                 new GrantId("lineage-inverted-parent"),
                 workspaceScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "allow",
                 capability,
                 { kind: "direct" }
@@ -910,7 +916,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
                     child: new Grant(
                         new GrantId("lineage-inverted-child"),
                         ScopeRef.tenant(tenantId),
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         "allow",
                         capability,
                         { kind: "direct" },
@@ -925,7 +931,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
                     child: new Grant(
                         cycleId,
                         workspaceScope,
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         "allow",
                         capability,
                         { kind: "direct" },
@@ -957,7 +963,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
         const orphanSibling = new Grant(
             new GrantId("sibling-orphan"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             capability,
             { kind: "direct" },
@@ -1180,7 +1186,7 @@ function attenuated(id: string, parent: GrantId): Grant {
     return new Grant(
         new GrantId(id),
         workspaceScope,
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         "allow",
         capability,
         { kind: "direct" },
@@ -1206,7 +1212,7 @@ function directGrant(
     return new Grant(
         new GrantId(id),
         scope,
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         effect,
         capability,
         { kind: "direct" }

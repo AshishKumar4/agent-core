@@ -6,6 +6,7 @@ import { Revision } from "../../src/core";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
     PrincipalId,
+    PrincipalRef,
     RoleRule,
     ScopeRef,
     SubjectRef,
@@ -65,4 +66,6 @@ describe("coordinated FacetRef and CapabilitySpec transition", () => {
 
 const tenant = new TenantId("canonical-tenant");
 const scope = ScopeRef.workspace(tenant, new WorkspaceId("canonical-workspace"));
-const subject = SubjectRef.principal(new PrincipalId("canonical-principal"));
+const subject = SubjectRef.principal(
+    new PrincipalRef(tenant, new PrincipalId("canonical-principal"))
+);

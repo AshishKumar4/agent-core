@@ -228,7 +228,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("suspended-new"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         reader.name,
                         "suspended",
                         Revision.initial()
@@ -242,7 +242,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("missing-project"),
                         ScopeRef.project(tenantId, new ProjectId("missing")),
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -264,7 +264,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("missing-project-id"),
                         missingProjectId,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -286,7 +286,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("missing-workspace-id"),
                         missingWorkspaceId,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -300,7 +300,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("missing-role"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         new RoleName("missing"),
                         "active",
                         Revision.initial()
@@ -314,7 +314,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("foreign-scope"),
                         ScopeRef.tenant(new TenantId("foreign")),
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(new TenantId("foreign"), ownerId)),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -328,7 +328,9 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("missing-principal"),
                         workspaceScope,
-                        SubjectRef.principal(new PrincipalId("missing")),
+                        SubjectRef.principal(
+                            new PrincipalRef(tenantId, new PrincipalId("missing"))
+                        ),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -374,7 +376,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("future-workspace"),
                         ScopeRef.workspace(tenantId, new WorkspaceId("future")),
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -386,7 +388,7 @@ describe("AuthorityMutationService hard gates", () => {
         const member = new Membership(
             new MembershipId("member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -443,7 +445,7 @@ describe("AuthorityMutationService hard gates", () => {
                     new Membership(
                         new MembershipId("local-as-guest"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -476,13 +478,17 @@ describe("AuthorityMutationService hard gates", () => {
             expectAgentError(
                 () =>
                     service.createGrant(
-                        grant("role-origin", SubjectRef.principal(ownerId), {
-                            kind: "role",
-                            membershipId: new MembershipId("member"),
-                            roleName: "role",
-                            ruleOrdinal: 0,
-                            guest: false
-                        })
+                        grant(
+                            "role-origin",
+                            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                            {
+                                kind: "role",
+                                membershipId: new MembershipId("member"),
+                                roleName: "role",
+                                ruleOrdinal: 0,
+                                guest: false
+                            }
+                        )
                     ),
                 "protocol.invalid-state"
             );
@@ -491,7 +497,9 @@ describe("AuthorityMutationService hard gates", () => {
                     service.createGrant(
                         grant(
                             "foreign-scope",
-                            SubjectRef.principal(ownerId),
+                            SubjectRef.principal(
+                                new PrincipalRef(new TenantId("foreign"), ownerId)
+                            ),
                             { kind: "direct" },
                             ScopeRef.tenant(new TenantId("foreign"))
                         )
@@ -503,7 +511,7 @@ describe("AuthorityMutationService hard gates", () => {
                     service.createGrant(
                         grant(
                             "future-workspace-grant",
-                            SubjectRef.principal(ownerId),
+                            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                             { kind: "direct" },
                             ScopeRef.workspace(tenantId, new WorkspaceId("future"))
                         )
@@ -515,7 +523,9 @@ describe("AuthorityMutationService hard gates", () => {
                     service.createGrant(
                         grant(
                             "missing-principal",
-                            SubjectRef.principal(new PrincipalId("missing")),
+                            SubjectRef.principal(
+                                new PrincipalRef(tenantId, new PrincipalId("missing"))
+                            ),
                             {
                                 kind: "direct"
                             }
@@ -538,7 +548,11 @@ describe("AuthorityMutationService hard gates", () => {
                     ),
                 "protocol.invalid-state"
             );
-            const parent = grant("parent", SubjectRef.principal(ownerId), { kind: "direct" });
+            const parent = grant(
+                "parent",
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                { kind: "direct" }
+            );
             service.createGrant(parent);
             expectAgentError(
                 () =>
@@ -563,9 +577,13 @@ describe("AuthorityMutationService hard gates", () => {
             expect(service.revokeGrant(parent.id).isLive).toBe(false);
             expect(service.revokeGrant(parent.id).isLive).toBe(false);
 
-            const secondParent = grant("second-parent", SubjectRef.principal(ownerId), {
-                kind: "direct"
-            });
+            const secondParent = grant(
+                "second-parent",
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                {
+                    kind: "direct"
+                }
+            );
             const secondChild = new Grant(
                 new GrantId("second-child"),
                 workspaceScope,
@@ -588,7 +606,11 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
         const { store } = fixture();
         expectAgentError(
             () =>
-                store.putGrant(grant("outside", SubjectRef.principal(ownerId), { kind: "direct" })),
+                store.putGrant(
+                    grant("outside", SubjectRef.principal(new PrincipalRef(tenantId, ownerId)), {
+                        kind: "direct"
+                    })
+                ),
             "protocol.invalid-state"
         );
         expectAgentError(
@@ -810,7 +832,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
             .find(
                 (member) =>
                     member.subject.kind === "principal" &&
-                    member.subject.principalId.equals(ownerId)
+                    member.subject.principal.principalId.equals(ownerId)
             )!;
         expectAgentError(
             () =>
@@ -819,7 +841,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
                         new Membership(
                             new MembershipId("suspended-direct-member"),
                             workspaceScope,
-                            SubjectRef.principal(ownerId),
+                            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                             ownerMembership.role,
                             "suspended",
                             Revision.initial()
@@ -850,7 +872,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
         const directMember = new Membership(
             new MembershipId("direct-suspended-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             directRole.name,
             "active",
             Revision.initial()
@@ -878,9 +900,13 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
             "protocol.invalid-state"
         );
 
-        const directGrantRecord = grant("direct-write-grant", SubjectRef.principal(ownerId), {
-            kind: "direct"
-        });
+        const directGrantRecord = grant(
+            "direct-write-grant",
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+            {
+                kind: "direct"
+            }
+        );
         service.createGrant(directGrantRecord);
         store.transaction((candidate) => candidate.putGrant(directGrantRecord));
         store.transaction((candidate) => candidate.putEpoch(candidate.epoch(workspaceScope)));

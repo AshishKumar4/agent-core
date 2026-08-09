@@ -65,7 +65,7 @@ describe("behavior-carrying identity states", () => {
         const member = new Membership(
             new MembershipId("hard-member"),
             ScopeRef.tenant(tenantId),
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             new RoleName("reader"),
             "active",
             Revision.initial()
@@ -108,7 +108,7 @@ describe("behavior-carrying identity states", () => {
                     new Membership(
                         new MembershipId("local-proof"),
                         ScopeRef.tenant(tenantId),
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         new RoleName("reader"),
                         "active",
                         Revision.initial(),

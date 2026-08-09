@@ -30,7 +30,7 @@ const workspaceScope = ScopeRef.workspace(tenantId, new WorkspaceId("binding-mut
 const otherWorkspaceScope = ScopeRef.workspace(tenantId, new WorkspaceId("binding-mutation-other"));
 const tenantScope = ScopeRef.tenant(tenantId);
 const principalId = new PrincipalId("binding-mutation-principal");
-const subject = SubjectRef.principal(principalId);
+const subject = SubjectRef.principal(new PrincipalRef(tenantId, principalId));
 const domain = new ProtectionDomain("backend", "mutation", "no-secrets");
 const encodedDomain = { kind: "backend", label: "mutation", secretPolicy: "no-secrets" } as const;
 

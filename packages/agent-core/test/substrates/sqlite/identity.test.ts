@@ -7,6 +7,7 @@ import {
     MembershipId,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     Role,
@@ -60,7 +61,7 @@ const role = new Role(roleName, []);
 const membership = new Membership(
     membershipId,
     tenantScope,
-    SubjectRef.principal(principalId),
+    SubjectRef.principal(new PrincipalRef(tenantAId, principalId)),
     roleName,
     "active",
     new Revision(4)

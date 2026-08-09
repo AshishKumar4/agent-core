@@ -8,6 +8,7 @@ import {
     MemoryIdentityRepository,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     Role,
@@ -70,7 +71,7 @@ const records = Object.freeze({
     membership: new Membership(
         new MembershipId("membership-store"),
         ScopeRef.tenant(tenantId),
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         role.name,
         "active",
         Revision.initial()

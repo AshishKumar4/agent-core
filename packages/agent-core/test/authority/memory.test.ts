@@ -48,7 +48,7 @@ describe("MemoryTenantControlStore", () => {
             const member = new Membership(
                 new MembershipId("memory-member"),
                 workspaceScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 role.name,
                 "active",
                 Revision.initial()
@@ -169,7 +169,7 @@ describe("MemoryTenantControlStore", () => {
             const deny = new Grant(
                 new GrantId("epoch-deny"),
                 workspaceScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "deny",
                 allow.capability,
                 { kind: "direct" }
@@ -366,7 +366,10 @@ describe("MemoryTenantControlStore", () => {
                                 bootstrapGrant.id,
                                 bootstrapGrant.scope,
                                 SubjectRef.principal(
-                                    new PrincipalId("missing-bootstrap-principal")
+                                    new PrincipalRef(
+                                        tenantId,
+                                        new PrincipalId("missing-bootstrap-principal")
+                                    )
                                 ),
                                 bootstrapGrant.effect,
                                 bootstrapGrant.capability,
@@ -387,7 +390,7 @@ describe("MemoryTenantControlStore", () => {
         const member = new Membership(
             new MembershipId("restore-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             role.name,
             "active",
             Revision.initial()
@@ -440,7 +443,7 @@ describe("MemoryTenantControlStore", () => {
             const parent = new Grant(
                 new GrantId("memory-parent"),
                 workspaceScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "allow",
                 new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "mutate"] }),
                 { kind: "direct" }
@@ -527,7 +530,7 @@ describe("MemoryTenantControlStore", () => {
             const member = new Membership(
                 new MembershipId("terminal-role-member"),
                 workspaceScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 role.name,
                 "active",
                 Revision.initial()
@@ -636,7 +639,7 @@ describe("MemoryTenantControlStore", () => {
                 new Membership(
                     new MembershipId("memory-direct-membership"),
                     workspaceScope,
-                    SubjectRef.principal(directMemberPrincipal),
+                    SubjectRef.principal(new PrincipalRef(tenantId, directMemberPrincipal)),
                     guestRole.name,
                     "active",
                     Revision.initial()
@@ -745,7 +748,7 @@ describe("MemoryTenantControlStore", () => {
         const member = new Membership(
             new MembershipId("memory-terminal-membership"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             role.name,
             "active",
             Revision.initial()

@@ -16,6 +16,7 @@ import {
     MembershipId,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     ScopeRef,
@@ -220,7 +221,9 @@ describe("SQLite Tenant control storage", () => {
                 new Grant(
                     decodedGrant.id,
                     decodedGrant.scope,
-                    SubjectRef.principal(new PrincipalId("missing-principal")),
+                    SubjectRef.principal(
+                        new PrincipalRef(tenantId, new PrincipalId("missing-principal"))
+                    ),
                     decodedGrant.effect,
                     decodedGrant.capability,
                     decodedGrant.origin,
@@ -294,7 +297,7 @@ describe("SQLite Tenant control storage", () => {
         const grant = new Grant(
             new GrantId("project-scope-grant"),
             ScopeRef.project(tenantId, new ProjectId("missing-project")),
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
             { kind: "direct" }
@@ -364,7 +367,7 @@ describe("SQLite Tenant control storage", () => {
         const child = new Grant(
             new GrantId("attenuation-child"),
             tenantScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             "allow",
             new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "mutate"] }),
             { kind: "direct" },
@@ -409,7 +412,7 @@ describe("SQLite Tenant control storage", () => {
             const extra = new Grant(
                 new GrantId("forged-extra-grant"),
                 tenantScope,
-                SubjectRef.principal(principalId),
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                 "allow",
                 new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                 {
@@ -442,7 +445,7 @@ function allowGrant(id: string): Grant {
     return new Grant(
         new GrantId(id),
         tenantScope,
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         "allow",
         new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
         { kind: "direct" }

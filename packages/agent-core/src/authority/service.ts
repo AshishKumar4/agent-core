@@ -11,6 +11,7 @@ import {
     OWNER_ROLE,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     Role,
@@ -79,7 +80,7 @@ export function createTenantControlBootstrapPlan(
     const ownerMembership = new Membership(
         deterministicOwnerMembershipId(anchor),
         tenantScope,
-        SubjectRef.principal(anchor.principalId),
+        SubjectRef.principal(new PrincipalRef(anchor.tenantId, anchor.principalId)),
         OWNER_ROLE.name,
         "active",
         Revision.initial()
@@ -509,6 +510,7 @@ function principalScopes(
     store: AuthorityMutationStore,
     principalId: PrincipalId
 ): readonly ScopeEpoch["scope"][] {
+    const key = subjectKey(SubjectRef.principal(new PrincipalRef(store.tenantId, principalId)));
     const teamIds = new Set(
         store
             .teams()
@@ -520,7 +522,7 @@ function principalScopes(
             .grants()
             .filter((grant) =>
                 grant.subject.kind === "principal"
-                    ? grant.subject.principalId.equals(principalId)
+                    ? subjectKey(grant.subject) === key
                     : grant.subject.kind === "team" && teamIds.has(grant.subject.teamId.value)
             )
             .map((grant) => grant.scope)
@@ -615,7 +617,7 @@ function requireCanonicalScope(store: AuthorityMutationStore, scope: ScopeEpoch[
 
 function requireMembershipSubject(store: AuthorityMutationStore, membership: Membership): void {
     if (membership.subject.kind === "principal") {
-        requireRecord(store.principal(membership.subject.principalId), "Principal");
+        requireRecord(store.principal(membership.subject.principal.principalId), "Principal");
     } else if (membership.subject.kind === "team") {
         requireRecord(store.team(membership.subject.teamId), "Team");
     }
@@ -623,7 +625,7 @@ function requireMembershipSubject(store: AuthorityMutationStore, membership: Mem
 
 function requireGrantSubject(store: AuthorityMutationStore, grant: Grant): void {
     if (grant.subject.kind === "principal") {
-        requireRecord(store.principal(grant.subject.principalId), "Principal");
+        requireRecord(store.principal(grant.subject.principal.principalId), "Principal");
     } else if (grant.subject.kind === "team") {
         requireRecord(store.team(grant.subject.teamId), "Team");
     } else {

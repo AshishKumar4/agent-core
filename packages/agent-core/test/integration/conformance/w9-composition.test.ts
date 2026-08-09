@@ -952,7 +952,7 @@ describe("W9 internal typed composition", () => {
 class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
     public readonly binding = Binding.active(
         scope,
-        SubjectRef.principal(principal.principalId),
+        SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
         domain,
         bindingName,
         new GrantId("w9-grant"),

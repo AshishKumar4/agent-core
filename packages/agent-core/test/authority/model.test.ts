@@ -21,6 +21,7 @@ import {
     otherPrincipalId,
     principal,
     projectScope,
+    tenantId,
     tenantScope,
     workspaceScope
 } from "./fixture";
@@ -274,7 +275,12 @@ describe("Grant model", () => {
 
             const violations: readonly (readonly [string, Grant])[] = [
                 ["scope", roleGrant({ scope: tenantScope })],
-                ["subject", roleGrant({ subject: SubjectRef.principal(otherPrincipalId) })],
+                [
+                    "subject",
+                    roleGrant({
+                        subject: SubjectRef.principal(new PrincipalRef(tenantId, otherPrincipalId))
+                    })
+                ],
                 [
                     "attenuation lineage",
                     roleGrant({ attenuationOf: new GrantId("role-replace-parent") })

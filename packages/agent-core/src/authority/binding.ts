@@ -1,7 +1,7 @@
 import { RecordCodec, Revision, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import { BindingName, FacetRef, ProtectionDomain } from "../facets";
-import type { ScopeRef, SubjectRef } from "../identity";
+import { requireSubjectTenant, type ScopeRef, type SubjectRef } from "../identity";
 import {
     requireExact,
     requireObject,
@@ -57,7 +57,7 @@ const inactiveBinding = Object.freeze(new InactiveBindingLifecycle());
 
 class BindingCodecV1 extends RecordCodec<Binding> {
     public constructor() {
-        super("authority.binding", { major: 1, minor: 0 });
+        super("authority.binding", { major: 2, minor: 0 });
     }
     protected encodePayload(record: Binding): JsonValue {
         return record.toData();
@@ -91,6 +91,7 @@ export class Binding {
             throw new TypeError("Binding generation must be a non-negative safe integer");
         }
         this.#lifecycle = BindingLifecycle.from(requireBindingState(state));
+        requireSubjectTenant(subject, scope.tenantId, "Binding");
         this.subject = decodeAuthoritySubject(encodeAuthoritySubject(subject));
         this.domain = immutableDomain(domain);
         Object.freeze(this);

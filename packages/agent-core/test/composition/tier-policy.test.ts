@@ -53,7 +53,7 @@ const bindingName = new BindingName("tier-target");
 const domain = new ProtectionDomain("backend", "tier-domain", "may-hold-secrets");
 const binding = Binding.active(
     scope,
-    SubjectRef.principal(principal.principalId),
+    SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
     domain,
     bindingName,
     new GrantId("tier-grant"),

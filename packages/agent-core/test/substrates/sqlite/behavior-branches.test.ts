@@ -15,6 +15,7 @@ import {
     MembershipId,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     Role,
@@ -107,7 +108,7 @@ describe("SQLite Tenant control behavior branches", () => {
             const membership = new Membership(
                 new MembershipId("membership"),
                 workspace.scope,
-                SubjectRef.principal(principal.id),
+                SubjectRef.principal(new PrincipalRef(tenantId, principal.id)),
                 role.name,
                 "active",
                 Revision.initial()

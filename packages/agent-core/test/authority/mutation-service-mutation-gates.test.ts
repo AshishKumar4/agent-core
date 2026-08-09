@@ -145,7 +145,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
         const member = new Membership(
             new MembershipId("dup-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -157,7 +157,11 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
             "Membership already exists"
         );
 
-        const record = grant("dup-grant", SubjectRef.principal(ownerId), { kind: "direct" });
+        const record = grant(
+            "dup-grant",
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+            { kind: "direct" }
+        );
         service.createGrant(record);
         expectAgentError(
             () => service.createGrant(record),
@@ -237,7 +241,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
                     new Membership(
                         new MembershipId("missing-role-member"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         new RoleName("missing"),
                         "active",
                         Revision.initial()
@@ -252,7 +256,9 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
                     new Membership(
                         new MembershipId("missing-principal-member"),
                         workspaceScope,
-                        SubjectRef.principal(new PrincipalId("missing")),
+                        SubjectRef.principal(
+                            new PrincipalRef(tenantId, new PrincipalId("missing"))
+                        ),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -288,7 +294,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
         const member = new Membership(
             new MembershipId("taxonomy-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -319,7 +325,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
                     new Grant(
                         new GrantId("missing-parent-child"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         "allow",
                         observeCapability(),
                         { kind: "direct" },
@@ -338,7 +344,9 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
                 service.createGrant(
                     grant(
                         "missing-principal-grant",
-                        SubjectRef.principal(new PrincipalId("missing")),
+                        SubjectRef.principal(
+                            new PrincipalRef(tenantId, new PrincipalId("missing"))
+                        ),
                         {
                             kind: "direct"
                         }
@@ -511,7 +519,7 @@ describe("AuthorityMutationService creation gate precedence", () => {
                         new Membership(
                             new MembershipId("revised-member"),
                             workspaceScope,
-                            SubjectRef.principal(ownerId),
+                            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                             new RoleName("missing"),
                             "active",
                             new Revision(1)
@@ -526,7 +534,7 @@ describe("AuthorityMutationService creation gate precedence", () => {
                         new Membership(
                             new MembershipId("suspended-member"),
                             workspaceScope,
-                            SubjectRef.principal(ownerId),
+                            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                             new RoleName("missing"),
                             "suspended",
                             Revision.initial()
@@ -545,7 +553,9 @@ describe("AuthorityMutationService creation gate precedence", () => {
                 service.createGrant(
                     grant(
                         "foreign-scope-missing-subject",
-                        SubjectRef.principal(new PrincipalId("missing")),
+                        SubjectRef.principal(
+                            new PrincipalRef(new TenantId("foreign"), new PrincipalId("missing"))
+                        ),
                         { kind: "direct" },
                         ScopeRef.tenant(new TenantId("foreign"))
                     )
@@ -571,7 +581,7 @@ describe("AuthorityMutationService creation gate precedence", () => {
         const member = new Membership(
             new MembershipId("project-scope-member"),
             projectScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -736,7 +746,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
             const member = new Membership(
                 new MembershipId("suspend-closure-member"),
                 workspaceScope,
-                SubjectRef.principal(ownerId),
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                 reader.name,
                 "active",
                 Revision.initial()
@@ -746,7 +756,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
             const child = new Grant(
                 new GrantId("suspend-closure-child"),
                 workspaceScope,
-                SubjectRef.principal(ownerId),
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                 "allow",
                 observeCapability(),
                 { kind: "direct" },
@@ -774,7 +784,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const member = new Membership(
             new MembershipId("swap-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -797,7 +807,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const member = new Membership(
             new MembershipId("reconcile-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             original.name,
             "active",
             Revision.initial()
@@ -829,7 +839,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const member = new Membership(
             new MembershipId("idempotent-revoke-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -962,7 +972,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const child = new Grant(
             new GrantId("cascade-child"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             observeCapability(),
             { kind: "direct" },
@@ -1004,7 +1014,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const { store, service } = fixture();
         const parent = grant(
             "closure-parent",
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             { kind: "direct" },
             tenantScope
         );
@@ -1012,7 +1022,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const child = new Grant(
             new GrantId("closure-child"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             observeCapability(),
             { kind: "direct" },

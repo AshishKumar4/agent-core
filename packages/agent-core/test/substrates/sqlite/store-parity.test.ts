@@ -24,7 +24,8 @@ import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 const tenant = new TenantId("tenant-store-parity");
 const workspace = new WorkspaceId("workspace-store-parity");
 const scope = ScopeRef.workspace(tenant, workspace);
-const subject = SubjectRef.principal(new PrincipalId("principal-store-parity"));
+const principal = new PrincipalRef(tenant, new PrincipalId("principal-store-parity"));
+const subject = SubjectRef.principal(principal);
 const domain = new ProtectionDomain("backend", "parity", "no-secrets");
 const binding = Binding.active(
     scope,
@@ -35,7 +36,7 @@ const binding = Binding.active(
     new FacetRef("workspace:mail.instance")
 );
 const owner = new ActorRef("workspace", new ActorId("workspace-actor"));
-const holder = new PrincipalRef(tenant, subject.principalId);
+const holder = principal;
 const watermark = InvalidationWatermark.empty(tenant, owner, holder);
 
 describe.each([

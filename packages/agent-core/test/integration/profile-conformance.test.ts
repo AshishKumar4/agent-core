@@ -778,7 +778,7 @@ function grant(id: string, capability: CapabilitySpec, attenuation?: GrantId): G
     return new Grant(
         new GrantId(`self-${id}`),
         ScopeRef.workspace(tenant, new WorkspaceId("self-workspace")),
-        SubjectRef.principal(principal.principalId),
+        SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
         "allow",
         capability,
         { kind: "direct" },

@@ -77,7 +77,7 @@ interface DenialLog {
 class StateHarness implements ActorAuthorityHost {
     public binding = Binding.active(
         workspaceScope,
-        SubjectRef.principal(principal.principalId),
+        SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
         domain,
         bindingName,
         new GrantId("authority-state-grant"),

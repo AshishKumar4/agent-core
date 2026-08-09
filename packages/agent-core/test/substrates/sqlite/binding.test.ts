@@ -2,14 +2,23 @@ import { describe, expect, test } from "vitest";
 import { Binding, GrantId } from "../../../src/authority";
 import { Revision } from "../../../src/core";
 import { BindingName, FacetRef, ProtectionDomain } from "../../../src/facets";
-import { PrincipalId, ScopeRef, SubjectRef, TenantId, WorkspaceId } from "../../../src/identity";
+import {
+    PrincipalId,
+    PrincipalRef,
+    ScopeRef,
+    SubjectRef,
+    TenantId,
+    WorkspaceId
+} from "../../../src/identity";
 import { SqliteBindingStore } from "../../../src/substrates/sqlite/binding";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates/sqlite";
 import { TestSqlite } from "../../helpers/sqlite";
 
 const tenant = new TenantId("tenant-binding-mutants");
 const scope = ScopeRef.workspace(tenant, new WorkspaceId("workspace-binding-mutants"));
-const subject = SubjectRef.principal(new PrincipalId("principal-binding-mutants"));
+const subject = SubjectRef.principal(
+    new PrincipalRef(tenant, new PrincipalId("principal-binding-mutants"))
+);
 const domain = new ProtectionDomain("backend", "mutants", "no-secrets");
 const binding = Binding.active(
     scope,

@@ -805,7 +805,7 @@ export class SqliteTenantControlStore
             if (this.loadRole(membership.role) === undefined) throw corruptTenantControl();
             if (
                 membership.subject.kind === "principal" &&
-                this.loadPrincipal(membership.subject.principalId) === undefined
+                this.loadPrincipal(membership.subject.principal.principalId) === undefined
             ) {
                 throw corruptTenantControl();
             }
@@ -859,7 +859,7 @@ export class SqliteTenantControlStore
             requireCanonicalScope(this, grant.scope);
             if (
                 grant.subject.kind === "principal" &&
-                this.loadPrincipal(grant.subject.principalId) === undefined
+                this.loadPrincipal(grant.subject.principal.principalId) === undefined
             ) {
                 throw corruptTenantControl();
             }

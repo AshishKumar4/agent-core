@@ -6,6 +6,7 @@ import {
     requireIdentityString
 } from "./codec";
 import { PrincipalId, TeamId, TenantId } from "./id";
+import { PrincipalRef } from "./principal-ref";
 
 export type GuestVerificationSchemeValue = "token" | "callback" | "handshake";
 
@@ -42,7 +43,7 @@ function parseGuestVerificationScheme(
 
 export interface PrincipalSubjectRef {
     readonly kind: "principal";
-    readonly principalId: PrincipalId;
+    readonly principal: PrincipalRef;
 }
 
 export interface TeamSubjectRef {
@@ -60,8 +61,8 @@ export interface ForeignPrincipalRef {
 export type SubjectRef = PrincipalSubjectRef | TeamSubjectRef | ForeignPrincipalRef;
 
 export const SubjectRef = Object.freeze({
-    principal(principalId: PrincipalId): PrincipalSubjectRef {
-        return Object.freeze({ kind: "principal", principalId });
+    principal(principal: PrincipalRef): PrincipalSubjectRef {
+        return Object.freeze({ kind: "principal", principal });
     },
     team(teamId: TeamId): TeamSubjectRef {
         return Object.freeze({ kind: "team", teamId });
@@ -75,9 +76,29 @@ export const SubjectRef = Object.freeze({
     }
 });
 
+/**
+ * A Principal subject names a Principal of one Tenant, so any record that carries both a
+ * subject and the Tenant that owns it rejects a foreign qualification structurally rather
+ * than inheriting the Tenant from wherever the record happened to be stored. Cross-Tenant
+ * subjects are `ForeignPrincipalRef` and carry their own home Tenant (§3.3).
+ */
+export function requireSubjectTenant(
+    subject: SubjectRef,
+    tenantId: TenantId,
+    record: string
+): void {
+    if (subject.kind === "principal" && !subject.principal.tenantId.equals(tenantId)) {
+        throw new TypeError(`${record} Principal subject belongs to another Tenant`);
+    }
+}
+
 export function encodeSubjectRef(subject: SubjectRef): JsonValue {
     if (subject.kind === "principal") {
-        return { kind: subject.kind, principal: subject.principalId.value };
+        return {
+            kind: subject.kind,
+            principal: subject.principal.principalId.value,
+            tenant: subject.principal.tenantId.value
+        };
     }
     if (subject.kind === "team") {
         return { kind: subject.kind, team: subject.teamId.value };
@@ -94,9 +115,16 @@ export function decodeSubjectRef(value: JsonValue): SubjectRef {
     const object = requireIdentityObject(value, "Subject reference");
     const kind = object["kind"];
     if (kind === "principal") {
-        requireIdentityFields(object, ["kind", "principal"], "Principal subject reference");
+        requireIdentityFields(
+            object,
+            ["kind", "principal", "tenant"],
+            "Principal subject reference"
+        );
         return SubjectRef.principal(
-            new PrincipalId(requireIdentityString(object["principal"], "Subject principal"))
+            new PrincipalRef(
+                new TenantId(requireIdentityString(object["tenant"], "Subject Tenant")),
+                new PrincipalId(requireIdentityString(object["principal"], "Subject principal"))
+            )
         );
     }
     if (kind === "team") {

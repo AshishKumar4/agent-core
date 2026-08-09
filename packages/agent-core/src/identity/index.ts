@@ -16,7 +16,13 @@ export { Team } from "./team";
 export { Project } from "./project";
 export { ScopeRef, decodeScopeRef, encodeScopeRef, scopePath } from "./scope";
 export type { ScopeKind } from "./scope";
-export { GuestVerificationScheme, SubjectRef, decodeSubjectRef, encodeSubjectRef } from "./subject";
+export {
+    GuestVerificationScheme,
+    SubjectRef,
+    decodeSubjectRef,
+    encodeSubjectRef,
+    requireSubjectTenant
+} from "./subject";
 export type {
     ForeignPrincipalRef,
     GuestVerificationSchemeValue,

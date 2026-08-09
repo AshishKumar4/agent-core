@@ -72,7 +72,7 @@ const grant = new GrantId("authority-command-grant");
 const domain = new ProtectionDomain("backend", "authority-command", "may-hold-secrets");
 const binding = Binding.active(
     workspaceScope,
-    SubjectRef.principal(principal.principalId),
+    SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
     domain,
     bindingName,
     grant,

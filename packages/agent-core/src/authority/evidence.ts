@@ -53,7 +53,7 @@ export interface AuthorityCheckRequestInit {
 
 class AuthorityCheckRequestCodec extends RecordCodec<AuthorityCheckRequest> {
     public constructor() {
-        super("authority.check-request", { major: 1, minor: 0 });
+        super("authority.check-request", { major: 2, minor: 0 });
     }
     protected encodePayload(record: AuthorityCheckRequest): JsonValue {
         return record.toData();

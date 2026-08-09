@@ -51,7 +51,7 @@ const facet = new FacetRef("workspace:mail.instance");
 const grant = new GrantId("grant-evidence");
 const binding = Binding.active(
     scope,
-    SubjectRef.principal(principal.principalId),
+    SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
     domain,
     new BindingName("mail"),
     grant,
@@ -153,7 +153,7 @@ describe("authority protocol evidence", () => {
 
             const mutable = {
                 kind: "principal" as const,
-                principalId: new PrincipalId("mutable-validation")
+                principal: new PrincipalRef(tenant, new PrincipalId("mutable-validation"))
             };
             const detached = new BindingValidationEvidence(
                 tenant,
@@ -165,9 +165,10 @@ describe("authority protocol evidence", () => {
                 path,
                 new Date(2_001)
             );
-            mutable.principalId = new PrincipalId("changed-validation");
+            mutable.principal = new PrincipalRef(tenant, new PrincipalId("changed-validation"));
             expect(
-                detached.subject.kind === "principal" && detached.subject.principalId.value
+                detached.subject.kind === "principal" &&
+                    detached.subject.principal.principalId.value
             ).toBe("mutable-validation");
         }
     );

@@ -46,6 +46,7 @@ import {
     workspaceScope
 } from "./fixture";
 
+const foreignTenantId = new TenantId("memory-gate-foreign");
 const anchor = Object.freeze({
     actorId: new ActorId("memory-gate-actor"),
     tenantId,
@@ -539,7 +540,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             new Membership(
                 new MembershipId("memory-gate-closure-member"),
                 workspaceScope,
-                SubjectRef.principal(soloPrincipal),
+                SubjectRef.principal(new PrincipalRef(tenantId, soloPrincipal)),
                 closureRole.name,
                 "active",
                 Revision.initial()
@@ -680,7 +681,10 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const soloPrincipal = new PrincipalId("memory-gate-grant-principal");
         service.createPrincipal(new Principal(soloPrincipal, "user", "active"));
         service.createGrant(
-            allowGrant("memory-gate-grant-only", SubjectRef.principal(soloPrincipal))
+            allowGrant(
+                "memory-gate-grant-only",
+                SubjectRef.principal(new PrincipalRef(tenantId, soloPrincipal))
+            )
         );
         const parent = allowGrant("memory-gate-parent");
         const child = allowGrant(
@@ -723,7 +727,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const singleMember = new Membership(
             new MembershipId("memory-gate-single-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             singleRole.name,
             "active",
             Revision.initial()
@@ -740,7 +744,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const dualMember = new Membership(
             new MembershipId("memory-gate-dual-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             dualRole.name,
             "active",
             Revision.initial()
@@ -1033,7 +1037,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                     new Membership(
                         new MembershipId("memory-gate-new-revised-member"),
                         workspaceScope,
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         lifecycleRole.name,
                         "active",
                         new Revision(1)
@@ -1046,7 +1050,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const member = new Membership(
             new MembershipId("memory-gate-lifecycle-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             lifecycleRole.name,
             "active",
             Revision.initial()
@@ -1085,7 +1089,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const terminal = new Membership(
             new MembershipId("memory-gate-terminal-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             lifecycleRole.name,
             "active",
             Revision.initial()
@@ -1147,8 +1151,8 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-foreign-scope",
-                        SubjectRef.principal(principalId),
-                        ScopeRef.tenant(new TenantId("memory-gate-foreign"))
+                        SubjectRef.principal(new PrincipalRef(foreignTenantId, principalId)),
+                        ScopeRef.tenant(foreignTenantId)
                     )
                 ),
             "protocol.invalid-state",
@@ -1160,7 +1164,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-missing-project-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         ScopeRef.project(tenantId, new ProjectId("memory-gate-missing-project"))
                     )
                 ),
@@ -1181,7 +1185,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-idless-project-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         projectScopeWithoutId
                     )
                 ),
@@ -1192,7 +1196,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             candidate.putGrant(
                 allowGrant(
                     "memory-gate-project-scope-grant",
-                    SubjectRef.principal(principalId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                     projectScope
                 )
             )
@@ -1205,7 +1209,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-missing-workspace-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         ScopeRef.workspace(
                             tenantId,
                             projectId,
@@ -1222,7 +1226,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-mismatched-workspace-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         ScopeRef.workspace(tenantId, workspaceId)
                     )
                 ),
@@ -1243,7 +1247,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-idless-workspace-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         workspaceScopeWithoutId
                     )
                 ),

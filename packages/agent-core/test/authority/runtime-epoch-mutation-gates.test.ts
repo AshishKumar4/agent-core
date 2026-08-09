@@ -42,7 +42,7 @@ const facet = new FacetRef("workspace:epoch.gate");
 const grantId = new GrantId("epoch-gate-grant");
 const binding = Binding.active(
     workspaceScope,
-    SubjectRef.principal(holder.principalId),
+    SubjectRef.principal(new PrincipalRef(tenantId, holder.principalId)),
     domain,
     new BindingName("epoch-gate-binding"),
     grantId,

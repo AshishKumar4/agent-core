@@ -501,7 +501,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             plan.ownerMembership.scope.kind !== "tenant" ||
             !plan.ownerMembership.scope.tenantId.equals(anchor.tenantId) ||
             plan.ownerMembership.subject.kind !== "principal" ||
-            !plan.ownerMembership.subject.principalId.equals(anchor.principalId) ||
+            !plan.ownerMembership.subject.principal.principalId.equals(anchor.principalId) ||
             !plan.ownerMembership.isActive ||
             plan.ownerMembership.revision.value !== Revision.initial().value
         ) {
@@ -666,7 +666,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             }
             if (
                 membership.subject.kind === "principal" &&
-                this.principal(membership.subject.principalId) === undefined
+                this.principal(membership.subject.principal.principalId) === undefined
             ) {
                 throw corruptMemoryTenantControl("Membership references a missing Principal");
             }
@@ -702,7 +702,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             requireCanonicalScope(this, grant.scope);
             if (
                 grant.subject.kind === "principal" &&
-                this.principal(grant.subject.principalId) === undefined
+                this.principal(grant.subject.principal.principalId) === undefined
             ) {
                 throw corruptMemoryTenantControl("Grant references a missing Principal");
             }
@@ -1002,7 +1002,7 @@ function requireLocalTenant(expected: TenantId, actual: TenantId, subject: strin
 function sameSubject(left: Membership, right: Membership): boolean {
     if (left.subject.kind !== right.subject.kind) return false;
     if (left.subject.kind === "principal" && right.subject.kind === "principal") {
-        return left.subject.principalId.equals(right.subject.principalId);
+        return left.subject.principal.equals(right.subject.principal);
     }
     if (left.subject.kind === "team" && right.subject.kind === "team") {
         return left.subject.teamId.equals(right.subject.teamId);

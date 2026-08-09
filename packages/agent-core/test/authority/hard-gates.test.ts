@@ -50,7 +50,7 @@ const facet = new FacetRef("workspace:hard.facet");
 const grantId = new GrantId("authority-hard-grant");
 const binding = Binding.active(
     workspaceScope,
-    SubjectRef.principal(principalId),
+    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
     domain,
     new BindingName("hard-binding"),
     grantId,
@@ -203,7 +203,7 @@ describe("Grant and authority identifier hard gates", () => {
     test("defensively freezes caller-provided subject references", { tags: "p0" }, () => {
         const mutable = {
             kind: "principal" as const,
-            principalId: new PrincipalId("mutable-principal")
+            principal: new PrincipalRef(tenantId, new PrincipalId("mutable-principal"))
         };
         const member = new Membership(
             new MembershipId("mutable-member"),
@@ -229,16 +229,16 @@ describe("Grant and authority identifier hard gates", () => {
             grant.id,
             facet
         );
-        mutable.principalId = new PrincipalId("changed-principal");
-        expect(member.subject.kind === "principal" && member.subject.principalId.value).toBe(
-            "mutable-principal"
-        );
-        expect(grant.subject.kind === "principal" && grant.subject.principalId.value).toBe(
-            "mutable-principal"
-        );
-        expect(bound.subject.kind === "principal" && bound.subject.principalId.value).toBe(
-            "mutable-principal"
-        );
+        mutable.principal = new PrincipalRef(tenantId, new PrincipalId("changed-principal"));
+        expect(
+            member.subject.kind === "principal" && member.subject.principal.principalId.value
+        ).toBe("mutable-principal");
+        expect(
+            grant.subject.kind === "principal" && grant.subject.principal.principalId.value
+        ).toBe("mutable-principal");
+        expect(
+            bound.subject.kind === "principal" && bound.subject.principal.principalId.value
+        ).toBe("mutable-principal");
     });
 
     test("strictly validates Grant construction and replacement", { tags: "p0" }, () => {
@@ -738,7 +738,7 @@ describe("materialization and epoch planning operational errors", () => {
     const member = new Membership(
         new MembershipId("hard-member"),
         workspaceScope,
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         role.name,
         "active",
         Revision.initial()

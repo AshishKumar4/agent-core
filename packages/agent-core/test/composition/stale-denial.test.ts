@@ -69,7 +69,7 @@ const NOW = new Date(10);
 class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
     public readonly binding = Binding.active(
         scope,
-        SubjectRef.principal(principal.principalId),
+        SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
         domain,
         bindingName,
         new GrantId("stale-grant"),

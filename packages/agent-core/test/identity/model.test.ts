@@ -11,6 +11,7 @@ import {
     OWNER_ROLE,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     READER_ROLE,
@@ -119,7 +120,7 @@ describe("identity codecs", () => {
                 codec.decode(
                     encodeCanonicalJson({
                         ...envelope,
-                        version: { major: 2, minor: 0 }
+                        version: { major: codec.version.major + 1, minor: 0 }
                     })
                 ),
             "codec.unknown-major"
@@ -183,7 +184,7 @@ describe("scope and subject references", () => {
 
     test("round-trips Principal, Team, and verified foreign subjects", { tags: "p1" }, () => {
         const subjects = [
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             SubjectRef.team(teamId),
             SubjectRef.foreign(tenantId, principalId, GuestVerificationScheme.callback)
         ];
@@ -266,7 +267,7 @@ describe("roles", () => {
         const membership = new Membership(
             new MembershipId("membership-no-alias"),
             ScopeRef.tenant(tenantId),
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             new RoleName("reader"),
             "active",
             Revision.initial()

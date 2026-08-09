@@ -147,7 +147,7 @@ class AuthorityJourneyIdentity {
         this.turn = new TurnId(`${name}-turn`);
         this.binding = Binding.active(
             this.scope,
-            SubjectRef.principal(this.principal.principalId),
+            SubjectRef.principal(new PrincipalRef(this.tenant, this.principal.principalId)),
             this.domain,
             this.bindingName,
             this.grant,
