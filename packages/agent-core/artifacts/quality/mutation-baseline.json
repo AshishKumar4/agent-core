@@ -101,8 +101,8 @@
       "tolerated": 161
     },
     "actors": {
-      "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",
-      "fingerprint": "sha256:61344e5c945e8bddf39b9fa0f0cbdb7fb9e2988a43c31c15f759a850732e131a",
+      "measuredAt": "d6db4a523b268466ff9284159362a2a7e5123cf0",
+      "fingerprint": "sha256:bdb03cc2ec1a21d5cd3093bed7fa6334a5705829b0d53712cfcd66acdff482c4",
       "mutants": 1025,
       "killed": 965,
       "score": 94.1,

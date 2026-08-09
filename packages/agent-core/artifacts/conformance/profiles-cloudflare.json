@@ -173,7 +173,7 @@
       "id": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
-      "specTextSha256": "sha256:9acd074c4019f898e5cf94ea93e50981b79979b0dd0a303cddcdd7b0e6f19e1c",
+      "specTextSha256": "sha256:ba3cf73d587800759b59853537c5af9ba2bb08b347136e4de779c7a65e0030d5",
       "status": "verified",
       "prerequisites": ["C13-VIEW-DELTA-REPLAY"],
       "sourceSymbols": [

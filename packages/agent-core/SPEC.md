@@ -2324,8 +2324,8 @@ cleared. This maps to **C13-CLOUDFLARE-RECONCILIATION-FENCE**.
 WebSocket surfaces use hibernation. ViewDelta streaming requires a durable, compactable
 delta/snapshot log keyed by revision in the owning DO, and the per-socket last-acked
 revision cursor in the WebSocket attachment (≤ 16 KB); replay cost is bounded by
-periodic snapshots. The attachment is that cursor's only home, so it MUST survive
-hibernation and isolate eviction alongside the open socket: a socket resumed in a new
+periodic snapshots. The attachment is that cursor's only home, so the cursor MUST
+survive hibernation and isolate eviction in the attachment alongside the open socket: a socket resumed in a new
 isolate replays exactly the revisions past its acknowledged cursor, and an acknowledged
 revision is never replayed to it again. This maps to **C13-CLOUDFLARE-VIEW-ATTACHMENT**.
 
