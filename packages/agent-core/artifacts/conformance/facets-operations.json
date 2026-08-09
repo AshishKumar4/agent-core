@@ -129,6 +129,20 @@
       ]
     },
     {
+      "id": "C13-FACET-INSTALL-VERIFICATION",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-INSTALL-VERIFICATION",
+      "specTextSha256": "sha256:88f437d400f88e53bf2aecee9b654f0a4781d91335672af4b6290058116b380c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-FACET-MANIFEST",
       "owner": "W3",
       "specAnchor": "C13-FACET-MANIFEST",

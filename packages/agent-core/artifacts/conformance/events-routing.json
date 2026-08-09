@@ -135,7 +135,7 @@
       "id": "C13-ROUTE-DELIVERY-ONCE",
       "owner": "W7",
       "specAnchor": "C13-ROUTE-DELIVERY-ONCE",
-      "specTextSha256": "sha256:127df38b07d46269e5cf447ad6e699a96911ad7185b8b9cd9ccefca8cf277f71",
+      "specTextSha256": "sha256:8a296cd0363fd7db0160abcc8a5445f1312ec47497219ebd74589aa01324d1cc",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

@@ -503,7 +503,8 @@ abstract class Operation<I, O> {
 ```
 
 The host verifies at install time that the runtime provides every implementation the
-manifest declares and refuses contributions the manifest does not declare. Placement
+manifest declares and refuses contributions the manifest does not declare. This maps to
+**C13-FACET-INSTALL-VERIFICATION**. Placement
 uses the deterministic admissible-set rule in §9.2. A manifest listing `bundled` does not
 thereby obtain it — the trust set independently excludes `bundled` for untrusted Packages
 (§9.2) — and a manifest may exclude modes it will not accept.
@@ -1449,8 +1450,9 @@ Subscription's AuthoritySource; absence or tenant mismatch denies delivery.
 
 For a deduplicating policy, `(subscription, dedupeKey)` identifies one reservation and
 one stable InvocationId; redelivery reuses both and cannot prepare another intent.
-Exactly one terminal RouteDelivery exists per reservation, and it is written once: a
-redelivery that finds it returns it rather than appending another. `sourceAuditCause` MUST
+A reservation has at most one terminal RouteDelivery — admission writes it, so a
+reservation the target has not admitted has none — and it is written once: a redelivery
+that finds it returns it rather than appending another. `sourceAuditCause` MUST
 be the preexisting source-Actor Event AuditRecord for that reservation's `event` field and
 causes the source-local reservation audit entry. This maps to **C13-ROUTE-DELIVERY-ONCE**.
 The source-owned reservation is the only cross-Actor causal
@@ -1983,7 +1985,7 @@ record, and durable records never own live substrate resources.
 3. Caches are derived, versioned, rebuildable; a cache miss is never an error.
 4. Cross-actor reads use RPC or explicitly versioned snapshots — never dual writes.
 5. Authority resolution returns complete PathEpochEvidence; direct and mediated paths
-   enforce §3.4 rules 5–8. Rules 1–5 map to **C13-OWNERSHIP-SINGLE-OWNER**.
+   enforce §3.4 rules 5–8. Rules 1–4 map to **C13-OWNERSHIP-SINGLE-OWNER**.
 6. Conformance includes an **ownership map** artifact — record type → owning Actor —
    verified against the implementation.
 
@@ -2580,7 +2582,8 @@ A conforming implementation provides:
 - **C13-FACET-CONTRIBUTION-MATERIALIZATION** Facet contributions materialize through the specified primitive paths.
 - **C13-FACET-SLOT-AUTHORITY** Slot contribute-authority is enforced.
 - **C13-FACET-SLOT-VISIBILITY** `SlotCatalog.query` is viewer-filtered.
-- **C13-FACET-DISPOSAL** A Turn disposes its resolved Facets on completion, failure, cancellation, suspension, or authority loss, and install-time verification refuses undeclared contributions.
+- **C13-FACET-DISPOSAL** A Turn disposes its resolved Facets on completion, failure, cancellation, suspension, or authority loss.
+- **C13-FACET-INSTALL-VERIFICATION** Install-time verification requires every implementation the manifest declares and refuses a contribution it does not declare.
 - **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
@@ -2610,7 +2613,7 @@ A conforming implementation provides:
 - **C13-ROUTE-PROJECTION-DIGEST** RouteReservations authenticate their projection digest.
 - **C13-ROUTE-TENANT-RELATION** RouteReservations authenticate their tenant relation.
 - **C13-ROUTE-CROSS-TENANT-BINDING** Cross-tenant RouteReservations authenticate their Binding.
-- **C13-ROUTE-DELIVERY-ONCE** Exactly one terminal RouteDelivery exists per reservation and is written once; redelivery returns it.
+- **C13-ROUTE-DELIVERY-ONCE** A reservation has at most one terminal RouteDelivery and it is written once; redelivery returns it.
 - **C13-PREPARED-SHARED-HEADER** PreparedInvocation uses one shared header.
 - **C13-PREPARED-OPTIONAL-LEASE** The shared header carries an optional exact LeaseToken.
 - **C13-PREPARED-PAYLOAD-SHAPE** Payload is exactly single or nonempty ordered homogeneous batch.
@@ -2640,7 +2643,7 @@ A conforming implementation provides:
 - **C13-CLAIM-RECOVERY-SAME-ORDINAL** Recovery retains the same attempt ordinal.
 - **C13-ATTEMPT-ORDINAL-AFTER-FAILURE** A new attempt ordinal appears only after final failure.
 - **C13-RECEIPT-INDETERMINATE-SUPERSESSION** Indeterminate supersession follows the exact lineage rules.
-- **C13-RECEIPT-IMMUTABLE** Attempts and Receipts are never updated or deleted, and only an indeterminate chain head is superseded.
+- **C13-RECEIPT-IMMUTABLE** Attempts and Receipts are never updated or deleted, and only an indeterminate chain head is superseded, exactly once, and never a final Receipt.
 - **C13-BATCH-OUTCOME-COMPLETE** BatchOutcome exists only after every item has a current Receipt.
 - **C13-BATCH-OUTCOME-TERMINAL** A terminal aggregate exists only when no current outcome is indeterminate.
 - **C13-EFFECT-WRITE-AHEAD** Effect evidence is written before the external effect.
@@ -2673,7 +2676,7 @@ A conforming implementation provides:
 - **C13-RUN-PINS-VALIDITY** RunPins bind Run.agent and a nonempty Package closure unique by PackageId.
 - **C13-RUN-PIN-IDENTITY-TYPES** `PackageId` and `FacetPackageId` are distinct opaque identities and are never converted or compared by string value.
 - **C13-RUN-CHECKPOINT-KINDS** Run checkpoints and tree checkpoints are distinct records and are never conflated.
-- **C13-RUN-TREE-CONFLICT-EXPLICIT** A path changed on both sides is surfaced, and no merge commit is appended while any tree conflict is unresolved.
+- **C13-RUN-TREE-CONFLICT-EXPLICIT** A path changed on both sides is surfaced, no merge commit is appended while any tree conflict is unresolved, and the explicit side for each conflict comes from the operator or an `administer`-impact Operation and is recorded in the merge.
 - **C13-RUN-PARENT-PIN-INHERITANCE** Every non-migration unary commit inherits exact parent pins.
 - **C13-RUN-MIGRATED-TURN-REJECTION** A Turn retaining pre-migration pins cannot terminalize a migrated Run.
 - **C13-RUN-PLACEMENT-SNAPSHOT** Each Turn has a separate immutable placement snapshot.

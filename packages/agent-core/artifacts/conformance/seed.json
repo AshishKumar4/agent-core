@@ -1641,6 +1641,20 @@
       ]
     },
     {
+      "id": "C13-FACET-INSTALL-VERIFICATION",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-INSTALL-VERIFICATION",
+      "specTextSha256": "sha256:88f437d400f88e53bf2aecee9b654f0a4781d91335672af4b6290058116b380c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-FACET-MANIFEST",
       "owner": "W3",
       "specAnchor": "C13-FACET-MANIFEST",
@@ -1812,7 +1826,7 @@
       "id": "C13-OWNERSHIP-SINGLE-OWNER",
       "owner": "W0",
       "specAnchor": "C13-OWNERSHIP-SINGLE-OWNER",
-      "specTextSha256": "sha256:6a9501dfd32fa4143303e83502bf4718878a4b281bff17a8adffeb4a13aa433e",
+      "specTextSha256": "sha256:ec797c1d0a4b85b24ed49d136e582bf81d4f7aaffa4e140f8c8265ebfc344956",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
@@ -2414,7 +2428,7 @@
       "id": "C13-ROUTE-DELIVERY-ONCE",
       "owner": "W7",
       "specAnchor": "C13-ROUTE-DELIVERY-ONCE",
-      "specTextSha256": "sha256:127df38b07d46269e5cf447ad6e699a96911ad7185b8b9cd9ccefca8cf277f71",
+      "specTextSha256": "sha256:8a296cd0363fd7db0160abcc8a5445f1312ec47497219ebd74589aa01324d1cc",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
