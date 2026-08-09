@@ -50,114 +50,130 @@ const anchor = {
 };
 
 describe("AuthorityMutationService hard gates", () => {
-    test("[C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors", { tags: "p0" }, () => {
-        const { store, service } = fixture(false);
-        const principal = new Principal(new PrincipalId("new-principal"), "user", "active");
-        expect(service.createPrincipal(principal)).toBe(principal);
-        expectAgentError(() => service.createPrincipal(principal), "protocol.invalid-state");
-        expectAgentError(
-            () => service.disablePrincipal(new PrincipalId("missing")),
-            "protocol.invalid-state"
-        );
-        expect(service.disablePrincipal(principal.id).canAct).toBe(false);
-        expect(service.disablePrincipal(principal.id).canAct).toBe(false);
+    test(
+        "[C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors",
+        { tags: "p0" },
+        () => {
+            const { store, service } = fixture(false);
+            const principal = new Principal(new PrincipalId("new-principal"), "user", "active");
+            expect(service.createPrincipal(principal)).toBe(principal);
+            expectAgentError(() => service.createPrincipal(principal), "protocol.invalid-state");
+            expectAgentError(
+                () => service.disablePrincipal(new PrincipalId("missing")),
+                "protocol.invalid-state"
+            );
+            expect(service.disablePrincipal(principal.id).canAct).toBe(false);
+            expect(service.disablePrincipal(principal.id).canAct).toBe(false);
 
-        expectAgentError(
-            () =>
-                service.createTeam(
-                    new Team(
-                        new TeamId("foreign-team"),
-                        new TenantId("foreign"),
-                        "Foreign",
-                        [],
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        expectAgentError(
-            () =>
-                service.createTeam(
-                    new Team(new TeamId("revised-team"), tenantId, "Revised", [], new Revision(1))
-                ),
-            "protocol.invalid-state"
-        );
-        expectAgentError(
-            () =>
-                service.createTeam(
-                    new Team(
-                        new TeamId("missing-principal-team"),
-                        tenantId,
-                        "Missing principal",
-                        [new PrincipalId("missing")],
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        const team = new Team(new TeamId("team"), tenantId, "Team", [ownerId], Revision.initial());
-        service.createTeam(team);
-        expectAgentError(() => service.createTeam(team), "protocol.invalid-state");
-        expectAgentError(
-            () => service.changeTeam(new TeamId("missing"), "Missing", []),
-            "protocol.invalid-state"
-        );
-        expect(service.changeTeam(team.id, "Changed", []).revision.value).toBe(1);
+            expectAgentError(
+                () =>
+                    service.createTeam(
+                        new Team(
+                            new TeamId("foreign-team"),
+                            new TenantId("foreign"),
+                            "Foreign",
+                            [],
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            expectAgentError(
+                () =>
+                    service.createTeam(
+                        new Team(
+                            new TeamId("revised-team"),
+                            tenantId,
+                            "Revised",
+                            [],
+                            new Revision(1)
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            expectAgentError(
+                () =>
+                    service.createTeam(
+                        new Team(
+                            new TeamId("missing-principal-team"),
+                            tenantId,
+                            "Missing principal",
+                            [new PrincipalId("missing")],
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            const team = new Team(
+                new TeamId("team"),
+                tenantId,
+                "Team",
+                [ownerId],
+                Revision.initial()
+            );
+            service.createTeam(team);
+            expectAgentError(() => service.createTeam(team), "protocol.invalid-state");
+            expectAgentError(
+                () => service.changeTeam(new TeamId("missing"), "Missing", []),
+                "protocol.invalid-state"
+            );
+            expect(service.changeTeam(team.id, "Changed", []).revision.value).toBe(1);
 
-        expectAgentError(
-            () =>
-                service.createProject(
-                    new Project(
-                        new ProjectId("foreign-project"),
-                        new TenantId("foreign"),
-                        "Foreign",
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        const project = new Project(
-            new ProjectId("project"),
-            tenantId,
-            "Project",
-            Revision.initial()
-        );
-        service.createProject(project);
-        expectAgentError(() => service.createProject(project), "protocol.invalid-state");
-        expectAgentError(
-            () => service.renameProject(new ProjectId("missing"), "Missing"),
-            "protocol.invalid-state"
-        );
+            expectAgentError(
+                () =>
+                    service.createProject(
+                        new Project(
+                            new ProjectId("foreign-project"),
+                            new TenantId("foreign"),
+                            "Foreign",
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            const project = new Project(
+                new ProjectId("project"),
+                tenantId,
+                "Project",
+                Revision.initial()
+            );
+            service.createProject(project);
+            expectAgentError(() => service.createProject(project), "protocol.invalid-state");
+            expectAgentError(
+                () => service.renameProject(new ProjectId("missing"), "Missing"),
+                "protocol.invalid-state"
+            );
 
-        expectAgentError(
-            () =>
-                service.createWorkspace(
-                    new Workspace(
-                        new WorkspaceId("foreign-workspace"),
-                        new TenantId("foreign"),
-                        undefined,
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        expectAgentError(
-            () =>
-                service.createWorkspace(
-                    new Workspace(
-                        new WorkspaceId("missing-project-workspace"),
-                        tenantId,
-                        new ProjectId("missing"),
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        const workspace = new Workspace(workspaceId, tenantId, project.id, Revision.initial());
-        service.createWorkspace(workspace);
-        expectAgentError(() => service.createWorkspace(workspace), "protocol.invalid-state");
-        expect(store.workspace(workspace.id)?.projectId?.equals(project.id)).toBe(true);
-    });
+            expectAgentError(
+                () =>
+                    service.createWorkspace(
+                        new Workspace(
+                            new WorkspaceId("foreign-workspace"),
+                            new TenantId("foreign"),
+                            undefined,
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            expectAgentError(
+                () =>
+                    service.createWorkspace(
+                        new Workspace(
+                            new WorkspaceId("missing-project-workspace"),
+                            tenantId,
+                            new ProjectId("missing"),
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            const workspace = new Workspace(workspaceId, tenantId, project.id, Revision.initial());
+            service.createWorkspace(workspace);
+            expectAgentError(() => service.createWorkspace(workspace), "protocol.invalid-state");
+            expect(store.workspace(workspace.id)?.projectId?.equals(project.id)).toBe(true);
+        }
+    );
 
     test("covers guest trust and Role lifecycle errors", { tags: "p0" }, () => {
         const { service } = fixture();
@@ -452,111 +468,119 @@ describe("AuthorityMutationService hard gates", () => {
         expect(service.assignGuestMembership(membership, proof, new Date(150)).isActive).toBe(true);
     });
 
-    test("[C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors", { tags: "p0" }, () => {
-        const { service } = fixture();
-        expectAgentError(
-            () =>
-                service.createGrant(
-                    grant("role-origin", SubjectRef.principal(ownerId), {
-                        kind: "role",
-                        membershipId: new MembershipId("member"),
-                        roleName: "role",
-                        ruleOrdinal: 0,
-                        guest: false
-                    })
-                ),
-            "protocol.invalid-state"
-        );
-        expectAgentError(
-            () =>
-                service.createGrant(
-                    grant(
-                        "foreign-scope",
-                        SubjectRef.principal(ownerId),
-                        { kind: "direct" },
-                        ScopeRef.tenant(new TenantId("foreign"))
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        expectAgentError(
-            () =>
-                service.createGrant(
-                    grant(
-                        "future-workspace-grant",
-                        SubjectRef.principal(ownerId),
-                        { kind: "direct" },
-                        ScopeRef.workspace(tenantId, new WorkspaceId("future"))
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        expectAgentError(
-            () =>
-                service.createGrant(
-                    grant("missing-principal", SubjectRef.principal(new PrincipalId("missing")), {
-                        kind: "direct"
-                    })
-                ),
-            "protocol.invalid-state"
-        );
-        expectAgentError(
-            () =>
-                service.createGrant(
-                    grant(
-                        "guest-direct",
-                        SubjectRef.foreign(
-                            new TenantId("home"),
-                            new PrincipalId("guest"),
-                            GuestVerificationScheme.callback
-                        ),
-                        { kind: "direct" }
-                    )
-                ),
-            "protocol.invalid-state"
-        );
-        const parent = grant("parent", SubjectRef.principal(ownerId), { kind: "direct" });
-        service.createGrant(parent);
-        expectAgentError(
-            () =>
-                service.createGrant(
-                    new Grant(
-                        new GrantId("wider-child"),
-                        workspaceScope,
-                        parent.subject,
-                        "allow",
-                        new CapabilitySpec({ facetPattern: "*", impacts: ["administer"] }),
-                        { kind: "direct" },
-                        parent.id
-                    )
-                ),
-            "authority.denied"
-        );
-        expectAgentError(() => service.createGrant(parent), "protocol.invalid-state");
-        expectAgentError(
-            () => service.revokeGrant(new GrantId("missing")),
-            "protocol.invalid-state"
-        );
-        expect(service.revokeGrant(parent.id).isLive).toBe(false);
-        expect(service.revokeGrant(parent.id).isLive).toBe(false);
+    test(
+        "[C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors",
+        { tags: "p0" },
+        () => {
+            const { service } = fixture();
+            expectAgentError(
+                () =>
+                    service.createGrant(
+                        grant("role-origin", SubjectRef.principal(ownerId), {
+                            kind: "role",
+                            membershipId: new MembershipId("member"),
+                            roleName: "role",
+                            ruleOrdinal: 0,
+                            guest: false
+                        })
+                    ),
+                "protocol.invalid-state"
+            );
+            expectAgentError(
+                () =>
+                    service.createGrant(
+                        grant(
+                            "foreign-scope",
+                            SubjectRef.principal(ownerId),
+                            { kind: "direct" },
+                            ScopeRef.tenant(new TenantId("foreign"))
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            expectAgentError(
+                () =>
+                    service.createGrant(
+                        grant(
+                            "future-workspace-grant",
+                            SubjectRef.principal(ownerId),
+                            { kind: "direct" },
+                            ScopeRef.workspace(tenantId, new WorkspaceId("future"))
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            expectAgentError(
+                () =>
+                    service.createGrant(
+                        grant(
+                            "missing-principal",
+                            SubjectRef.principal(new PrincipalId("missing")),
+                            {
+                                kind: "direct"
+                            }
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            expectAgentError(
+                () =>
+                    service.createGrant(
+                        grant(
+                            "guest-direct",
+                            SubjectRef.foreign(
+                                new TenantId("home"),
+                                new PrincipalId("guest"),
+                                GuestVerificationScheme.callback
+                            ),
+                            { kind: "direct" }
+                        )
+                    ),
+                "protocol.invalid-state"
+            );
+            const parent = grant("parent", SubjectRef.principal(ownerId), { kind: "direct" });
+            service.createGrant(parent);
+            expectAgentError(
+                () =>
+                    service.createGrant(
+                        new Grant(
+                            new GrantId("wider-child"),
+                            workspaceScope,
+                            parent.subject,
+                            "allow",
+                            new CapabilitySpec({ facetPattern: "*", impacts: ["administer"] }),
+                            { kind: "direct" },
+                            parent.id
+                        )
+                    ),
+                "authority.denied"
+            );
+            expectAgentError(() => service.createGrant(parent), "protocol.invalid-state");
+            expectAgentError(
+                () => service.revokeGrant(new GrantId("missing")),
+                "protocol.invalid-state"
+            );
+            expect(service.revokeGrant(parent.id).isLive).toBe(false);
+            expect(service.revokeGrant(parent.id).isLive).toBe(false);
 
-        const secondParent = grant("second-parent", SubjectRef.principal(ownerId), {
-            kind: "direct"
-        });
-        const secondChild = new Grant(
-            new GrantId("second-child"),
-            workspaceScope,
-            secondParent.subject,
-            "allow",
-            secondParent.capability,
-            { kind: "direct" },
-            secondParent.id
-        );
-        service.createGrant(secondParent);
-        service.createGrant(secondChild);
-        service.revokeGrant(secondChild.id);
-        expect(service.revokeGrant(secondParent.id).isLive).toBe(false);
-    });
+            const secondParent = grant("second-parent", SubjectRef.principal(ownerId), {
+                kind: "direct"
+            });
+            const secondChild = new Grant(
+                new GrantId("second-child"),
+                workspaceScope,
+                secondParent.subject,
+                "allow",
+                secondParent.capability,
+                { kind: "direct" },
+                secondParent.id
+            );
+            service.createGrant(secondParent);
+            service.createGrant(secondChild);
+            service.revokeGrant(secondChild.id);
+            expect(service.revokeGrant(secondParent.id).isLive).toBe(false);
+        }
+    );
 });
 
 describe("MemoryTenantControlStore operational taxonomy", () => {

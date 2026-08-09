@@ -59,7 +59,11 @@ function bootstrappedStore(database: TestSqlite) {
     return store;
 }
 
-function allowGrant(id: string, scope = tenantScope, subject: SubjectRef = SubjectRef.principal(principalId)) {
+function allowGrant(
+    id: string,
+    scope = tenantScope,
+    subject: SubjectRef = SubjectRef.principal(principalId)
+) {
     return new Grant(
         new GrantId(id),
         scope,
@@ -218,14 +222,18 @@ class MarkerRowTamperSqlite extends TestSqlite {
 }
 
 describe("SQLite Tenant control construction and transaction gating", () => {
-    test("wraps schema initialization faults into an exact revision conflict", { tags: "p1" }, () => {
-        expect(() => createSqliteTenantControlStore(new SchemaFaultSqlite(), anchor)).toThrow(
-            expect.objectContaining({
-                code: "protocol.revision-conflict",
-                message: "Tenant control schema initialization failed"
-            })
-        );
-    });
+    test(
+        "wraps schema initialization faults into an exact revision conflict",
+        { tags: "p1" },
+        () => {
+            expect(() => createSqliteTenantControlStore(new SchemaFaultSqlite(), anchor)).toThrow(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Tenant control schema initialization failed"
+                })
+            );
+        }
+    );
 
     test("requires an immutable bootstrap anchor to construct", { tags: "p0" }, () => {
         expect(() => createSqliteTenantControlStore(new TestSqlite())).toThrow(
@@ -236,26 +244,28 @@ describe("SQLite Tenant control construction and transaction gating", () => {
         );
     });
 
-    test("fails closed on identity rows without a marker and anchors eligibility", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        createSqliteTenantControlStore(database, anchor);
-        const stray = new Principal(new PrincipalId("stray-principal"), "user", "active");
-        database.run("INSERT INTO tenant_principals (id, kind, status, record) VALUES (?, ?, ?, ?)", [
-            stray.id.value,
-            stray.kind,
-            stray.status,
-            Principal.encode(stray)
-        ]);
-        expect(() => createSqliteTenantControlStore(database)).toThrow(
-            expect.objectContaining(corrupt)
-        );
+    test(
+        "fails closed on identity rows without a marker and anchors eligibility",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            createSqliteTenantControlStore(database, anchor);
+            const stray = new Principal(new PrincipalId("stray-principal"), "user", "active");
+            database.run(
+                "INSERT INTO tenant_principals (id, kind, status, record) VALUES (?, ?, ?, ?)",
+                [stray.id.value, stray.kind, stray.status, Principal.encode(stray)]
+            );
+            expect(() => createSqliteTenantControlStore(database)).toThrow(
+                expect.objectContaining(corrupt)
+            );
 
-        const anchorless = new TestSqlite();
-        const store = createSqliteTenantControlStore(anchorless, anchor);
-        expect(store.isBootstrapEligible()).toBe(true);
-        anchorless.run("DELETE FROM tenant_bootstrap_anchor", []);
-        expect(store.isBootstrapEligible()).toBe(false);
-    });
+            const anchorless = new TestSqlite();
+            const store = createSqliteTenantControlStore(anchorless, anchor);
+            expect(store.isBootstrapEligible()).toBe(true);
+            anchorless.run("DELETE FROM tenant_bootstrap_anchor", []);
+            expect(store.isBootstrapEligible()).toBe(false);
+        }
+    );
 
     test("gates authority mutations on completed bootstrap", { tags: "p0" }, () => {
         const store = createSqliteTenantControlStore(new TestSqlite(), anchor);
@@ -292,7 +302,13 @@ describe("SQLite Tenant control construction and transaction gating", () => {
         expect(() =>
             store.transaction((control) =>
                 control.putTeam(
-                    new Team(new TeamId("alien-team"), foreignTenantId, "Alien", [], Revision.initial())
+                    new Team(
+                        new TeamId("alien-team"),
+                        foreignTenantId,
+                        "Alien",
+                        [],
+                        Revision.initial()
+                    )
                 )
             )
         ).toThrow(
@@ -390,44 +406,48 @@ describe("SQLite Tenant bootstrap anchor verification", () => {
         expect(store.loadTenant(tenantId)?.kind).toBe("personal");
     });
 
-    test("wraps bootstrap write faults and surfaces concurrent overwrites exactly", { tags: "p0" }, () => {
-        const abortDatabase = new TestSqlite();
-        const abortStore = createSqliteTenantControlStore(abortDatabase, anchor);
-        abortDatabase.run(
-            `CREATE TRIGGER fail_marker BEFORE INSERT ON tenant_bootstrap_marker
+    test(
+        "wraps bootstrap write faults and surfaces concurrent overwrites exactly",
+        { tags: "p0" },
+        () => {
+            const abortDatabase = new TestSqlite();
+            const abortStore = createSqliteTenantControlStore(abortDatabase, anchor);
+            abortDatabase.run(
+                `CREATE TRIGGER fail_marker BEFORE INSERT ON tenant_bootstrap_marker
              BEGIN SELECT RAISE(ABORT, 'injected marker fault'); END`,
-            []
-        );
-        expect(() =>
-            abortDatabase.transaction(() =>
-                abortStore.bootstrapTenant(abortDatabase, anchor, Revision.initial())
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.revision-conflict",
-                message: "Tenant bootstrap write failed"
-            })
-        );
+                []
+            );
+            expect(() =>
+                abortDatabase.transaction(() =>
+                    abortStore.bootstrapTenant(abortDatabase, anchor, Revision.initial())
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Tenant bootstrap write failed"
+                })
+            );
 
-        const ignoreDatabase = new TestSqlite();
-        const ignoreStore = createSqliteTenantControlStore(ignoreDatabase, anchor);
-        ignoreDatabase.run(
-            `CREATE TRIGGER ignore_tenant BEFORE INSERT ON tenant_identities
+            const ignoreDatabase = new TestSqlite();
+            const ignoreStore = createSqliteTenantControlStore(ignoreDatabase, anchor);
+            ignoreDatabase.run(
+                `CREATE TRIGGER ignore_tenant BEFORE INSERT ON tenant_identities
              BEGIN SELECT RAISE(IGNORE); END`,
-            []
-        );
-        expect(() =>
-            ignoreDatabase.transaction(() =>
-                ignoreStore.bootstrapTenant(ignoreDatabase, anchor, Revision.initial())
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.revision-conflict",
-                message: "Tenant control record changed concurrently"
-            })
-        );
-        expect(ignoreStore.isBootstrapEligible()).toBe(true);
-    });
+                []
+            );
+            expect(() =>
+                ignoreDatabase.transaction(() =>
+                    ignoreStore.bootstrapTenant(ignoreDatabase, anchor, Revision.initial())
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Tenant control record changed concurrently"
+                })
+            );
+            expect(ignoreStore.isBootstrapEligible()).toBe(true);
+        }
+    );
 
     test("verifies the marker against an anchor swapped during bootstrap", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -453,7 +473,9 @@ describe("SQLite Tenant bootstrap anchor verification", () => {
             })
         );
         expect(store.isBootstrapEligible()).toBe(true);
-        expect(Array.from(store.bootstrapAnchor()?.trustAnchor ?? Uint8Array.of())).toEqual([3, 2, 1]);
+        expect(Array.from(store.bootstrapAnchor()?.trustAnchor ?? Uint8Array.of())).toEqual([
+            3, 2, 1
+        ]);
     });
 
     test("validates the stored anchor against every projection column", { tags: "p0" }, () => {
@@ -467,13 +489,10 @@ describe("SQLite Tenant bootstrap anchor verification", () => {
             const database = new TestSqlite();
             const store = createSqliteTenantControlStore(database, anchor);
             expect(store.bootstrapAnchor()?.actorId.equals(anchor.actorId), column).toBe(true);
-            database.run(
-                `UPDATE tenant_bootstrap_anchor SET ${column} = ? WHERE singleton = 1`,
-                [value]
-            );
-            expect(() => store.bootstrapAnchor(), column).toThrow(
-                expect.objectContaining(corrupt)
-            );
+            database.run(`UPDATE tenant_bootstrap_anchor SET ${column} = ? WHERE singleton = 1`, [
+                value
+            ]);
+            expect(() => store.bootstrapAnchor(), column).toThrow(expect.objectContaining(corrupt));
         }
     });
 
@@ -530,7 +549,9 @@ describe("SQLite Tenant bootstrap marker projection and read faults", () => {
 
         database.run("UPDATE tenant_bootstrap_marker SET owner_principal_id = 'other-owner'", []);
         expect(() => store.bootstrapMarker()).toThrow(expect.objectContaining(corrupt));
-        database.run("UPDATE tenant_bootstrap_marker SET owner_principal_id = ?", [principalId.value]);
+        database.run("UPDATE tenant_bootstrap_marker SET owner_principal_id = ?", [
+            principalId.value
+        ]);
 
         database.run("UPDATE tenant_bootstrap_marker SET revision = 7", []);
         expect(() => store.bootstrapMarker()).toThrow(expect.objectContaining(corrupt));
@@ -551,7 +572,10 @@ describe("SQLite Tenant bootstrap marker projection and read faults", () => {
             revision: 0,
             tenantId: tenantId.value
         };
-        const cases: readonly { payload: JsonValue; expected: ReturnType<typeof expect.objectContaining> }[] = [
+        const cases: readonly {
+            payload: JsonValue;
+            expected: ReturnType<typeof expect.objectContaining>;
+        }[] = [
             { payload: { ...wellFormed, extra: 1 }, expected: malformed },
             { payload: null, expected: malformed },
             { payload: { ...wellFormed, tenantId: 7 }, expected: malformed },
@@ -570,7 +594,10 @@ describe("SQLite Tenant bootstrap marker projection and read faults", () => {
 
         database.fault = new Error("raw sqlite fault");
         expect(() => store.bootstrapMarker()).toThrow(
-            expect.objectContaining({ code: "codec.invalid", message: "Tenant control read failed" })
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Tenant control read failed"
+            })
         );
 
         database.fault = new AgentCoreError("authority.denied", "preserved read fault");
@@ -602,7 +629,9 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         const store = bootstrappedStore(new TestSqlite());
         expect(() =>
             store.transaction(() =>
-                store.saveTenant(new Tenant(foreignTenantId, "organization", "active", Revision.initial()))
+                store.saveTenant(
+                    new Tenant(foreignTenantId, "organization", "active", Revision.initial())
+                )
             )
         ).toThrow(
             expect.objectContaining({
@@ -613,7 +642,12 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         expect(() =>
             store.transaction((control) =>
                 control.putProject(
-                    new Project(new ProjectId("alien-project"), foreignTenantId, "Alien", Revision.initial())
+                    new Project(
+                        new ProjectId("alien-project"),
+                        foreignTenantId,
+                        "Alien",
+                        Revision.initial()
+                    )
                 )
             )
         ).toThrow(
@@ -625,7 +659,12 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         expect(() =>
             store.transaction((control) =>
                 control.putWorkspace(
-                    new Workspace(new WorkspaceId("alien-workspace"), foreignTenantId, undefined, Revision.initial())
+                    new Workspace(
+                        new WorkspaceId("alien-workspace"),
+                        foreignTenantId,
+                        undefined,
+                        Revision.initial()
+                    )
                 )
             )
         ).toThrow(
@@ -676,7 +715,9 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         store.transaction((control) => control.putPrincipal(new Principal(id, "user", "disabled")));
         store.transaction((control) => control.putPrincipal(new Principal(id, "user", "disabled")));
         expect(() =>
-            store.transaction((control) => control.putPrincipal(new Principal(id, "user", "active")))
+            store.transaction((control) =>
+                control.putPrincipal(new Principal(id, "user", "active"))
+            )
         ).toThrow(
             expect.objectContaining({
                 code: "protocol.invalid-state",
@@ -684,7 +725,9 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
             })
         );
         expect(() =>
-            store.transaction((control) => control.putPrincipal(new Principal(id, "service", "disabled")))
+            store.transaction((control) =>
+                control.putPrincipal(new Principal(id, "service", "disabled"))
+            )
         ).toThrow(
             expect.objectContaining({
                 code: "protocol.invalid-state",
@@ -695,62 +738,93 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         expect(store.principal(id)?.kind).toBe("user");
     });
 
-    test("requires initial revisions and exact successors for Teams and Projects", { tags: "p1" }, () => {
-        const store = bootstrappedStore(new TestSqlite());
-        expect(() =>
-            store.transaction((control) =>
-                control.putTeam(new Team(new TeamId("late-team"), tenantId, "Late", [], new Revision(1)))
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "New Teams require revision zero"
-            })
-        );
-        expect(() =>
-            store.transaction((control) =>
-                control.putProject(new Project(new ProjectId("late-project"), tenantId, "Late", new Revision(1)))
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "New Projects require revision zero"
-            })
-        );
+    test(
+        "requires initial revisions and exact successors for Teams and Projects",
+        { tags: "p1" },
+        () => {
+            const store = bootstrappedStore(new TestSqlite());
+            expect(() =>
+                store.transaction((control) =>
+                    control.putTeam(
+                        new Team(new TeamId("late-team"), tenantId, "Late", [], new Revision(1))
+                    )
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "New Teams require revision zero"
+                })
+            );
+            expect(() =>
+                store.transaction((control) =>
+                    control.putProject(
+                        new Project(
+                            new ProjectId("late-project"),
+                            tenantId,
+                            "Late",
+                            new Revision(1)
+                        )
+                    )
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "New Projects require revision zero"
+                })
+            );
 
-        const team = new Team(new TeamId("steady-team"), tenantId, "Steady", [], Revision.initial());
-        const project = new Project(new ProjectId("steady-project"), tenantId, "Steady", Revision.initial());
-        store.transaction((control) => {
-            control.putTeam(team);
-            control.putProject(project);
-        });
-        expect(() =>
-            store.transaction((control) =>
-                control.putTeam(new Team(team.id, tenantId, "Skipped", [], new Revision(2)))
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.revision-conflict",
-                message: "Team updates require the stored Tenant identity and next revision"
-            })
-        );
-        expect(() =>
-            store.transaction((control) =>
-                control.putProject(new Project(project.id, tenantId, "Skipped", new Revision(2)))
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.revision-conflict",
-                message: "Project updates require the next revision"
-            })
-        );
-        expect(store.team(team.id)?.revision.value).toBe(0);
-        expect(store.project(project.id)?.revision.value).toBe(0);
-    });
+            const team = new Team(
+                new TeamId("steady-team"),
+                tenantId,
+                "Steady",
+                [],
+                Revision.initial()
+            );
+            const project = new Project(
+                new ProjectId("steady-project"),
+                tenantId,
+                "Steady",
+                Revision.initial()
+            );
+            store.transaction((control) => {
+                control.putTeam(team);
+                control.putProject(project);
+            });
+            expect(() =>
+                store.transaction((control) =>
+                    control.putTeam(new Team(team.id, tenantId, "Skipped", [], new Revision(2)))
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Team updates require the stored Tenant identity and next revision"
+                })
+            );
+            expect(() =>
+                store.transaction((control) =>
+                    control.putProject(
+                        new Project(project.id, tenantId, "Skipped", new Revision(2))
+                    )
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Project updates require the next revision"
+                })
+            );
+            expect(store.team(team.id)?.revision.value).toBe(0);
+            expect(store.project(project.id)?.revision.value).toBe(0);
+        }
+    );
 
     test("keeps Workspace topology immutable with exact diagnoses", { tags: "p1" }, () => {
         const store = bootstrappedStore(new TestSqlite());
-        const workspace = new Workspace(new WorkspaceId("fixed-workspace"), tenantId, undefined, Revision.initial());
+        const workspace = new Workspace(
+            new WorkspaceId("fixed-workspace"),
+            tenantId,
+            undefined,
+            Revision.initial()
+        );
         store.transaction((control) => control.putWorkspace(workspace));
         expect(() => store.transaction((control) => control.putWorkspace(workspace))).toThrow(
             expect.objectContaining({
@@ -789,24 +863,47 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         expect(() =>
             store.transaction((control) =>
                 control.putGuestTrust(
-                    new GuestTrust(new GuestTrustId("late-trust"), tenantId, home, verifier, "active", new Revision(1))
+                    new GuestTrust(
+                        new GuestTrustId("late-trust"),
+                        tenantId,
+                        home,
+                        verifier,
+                        "active",
+                        new Revision(1)
+                    )
                 )
             )
         ).toThrow(newTrustFault);
         expect(() =>
             store.transaction((control) =>
                 control.putGuestTrust(
-                    new GuestTrust(new GuestTrustId("dead-trust"), tenantId, home, verifier, "revoked", Revision.initial())
+                    new GuestTrust(
+                        new GuestTrustId("dead-trust"),
+                        tenantId,
+                        home,
+                        verifier,
+                        "revoked",
+                        Revision.initial()
+                    )
                 )
             )
         ).toThrow(newTrustFault);
 
-        const trust = new GuestTrust(new GuestTrustId("steady-trust"), tenantId, home, verifier, "active", Revision.initial());
+        const trust = new GuestTrust(
+            new GuestTrustId("steady-trust"),
+            tenantId,
+            home,
+            verifier,
+            "active",
+            Revision.initial()
+        );
         store.transaction((control) => control.putGuestTrust(trust));
         store.transaction((control) => control.putGuestTrust(trust));
         expect(store.guestTrust(trust.id)?.revision.value).toBe(0);
         store.transaction((control) =>
-            control.putGuestTrust(trust.rotate({ kind: "callback", endpoint: "https://home.example/v2" }))
+            control.putGuestTrust(
+                trust.rotate({ kind: "callback", endpoint: "https://home.example/v2" })
+            )
         );
         expect(store.guestTrust(trust.id)?.revision.value).toBe(1);
     });
@@ -815,7 +912,12 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
         const store = bootstrappedStore(new TestSqlite());
         const hollow = new Role(new RoleName("hollow-role"), []);
         const member = new Principal(new PrincipalId("member-principal"), "user", "active");
-        const project = new Project(new ProjectId("scope-project"), tenantId, "Scoped", Revision.initial());
+        const project = new Project(
+            new ProjectId("scope-project"),
+            tenantId,
+            "Scoped",
+            Revision.initial()
+        );
         const membership = new Membership(
             new MembershipId("steady-membership"),
             tenantScope,
@@ -836,7 +938,15 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
             revision: number,
             subject = membership.subject,
             scope = membership.scope
-        ) => new Membership(membership.id, scope, subject, hollow.name, state, new Revision(revision));
+        ) =>
+            new Membership(
+                membership.id,
+                scope,
+                subject,
+                hollow.name,
+                state,
+                new Revision(revision)
+            );
 
         expect(() =>
             store.transaction((control) =>
@@ -936,8 +1046,18 @@ describe("SQLite Tenant control topology and lifecycle guards", () => {
 describe("SQLite Tenant control canonical Scope enforcement", () => {
     test("requires canonical authority Scopes for Grants and epochs", { tags: "p0" }, () => {
         const store = bootstrappedStore(new TestSqlite());
-        const project = new Project(new ProjectId("scoped-project"), tenantId, "Scoped", Revision.initial());
-        const workspace = new Workspace(new WorkspaceId("scoped-workspace"), tenantId, project.id, Revision.initial());
+        const project = new Project(
+            new ProjectId("scoped-project"),
+            tenantId,
+            "Scoped",
+            Revision.initial()
+        );
+        const workspace = new Workspace(
+            new WorkspaceId("scoped-workspace"),
+            tenantId,
+            project.id,
+            Revision.initial()
+        );
         store.transaction((control) => {
             control.putProject(project);
             control.putWorkspace(workspace);
@@ -945,7 +1065,9 @@ describe("SQLite Tenant control canonical Scope enforcement", () => {
 
         expect(() =>
             store.transaction((control) =>
-                control.putGrant(allowGrant("foreign-scope-grant", ScopeRef.tenant(foreignTenantId)))
+                control.putGrant(
+                    allowGrant("foreign-scope-grant", ScopeRef.tenant(foreignTenantId))
+                )
             )
         ).toThrow(
             expect.objectContaining({
@@ -961,13 +1083,18 @@ describe("SQLite Tenant control canonical Scope enforcement", () => {
         expect(() =>
             store.transaction((control) =>
                 control.putGrant(
-                    allowGrant("ghost-project-grant", ScopeRef.project(tenantId, new ProjectId("ghost-project")))
+                    allowGrant(
+                        "ghost-project-grant",
+                        ScopeRef.project(tenantId, new ProjectId("ghost-project"))
+                    )
                 )
             )
         ).toThrow(notCanonicalProject);
         expect(() =>
             store.transaction((control) =>
-                control.putEpoch(new ScopeEpoch(ScopeRef.project(tenantId, new ProjectId("ghost-project")), 1))
+                control.putEpoch(
+                    new ScopeEpoch(ScopeRef.project(tenantId, new ProjectId("ghost-project")), 1)
+                )
             )
         ).toThrow(notCanonicalProject);
 
@@ -978,13 +1105,21 @@ describe("SQLite Tenant control canonical Scope enforcement", () => {
         expect(() =>
             store.transaction((control) =>
                 control.putGrant(
-                    allowGrant("ghost-workspace-grant", ScopeRef.workspace(tenantId, new WorkspaceId("ghost-workspace")))
+                    allowGrant(
+                        "ghost-workspace-grant",
+                        ScopeRef.workspace(tenantId, new WorkspaceId("ghost-workspace"))
+                    )
                 )
             )
         ).toThrow(notCanonicalWorkspace);
         expect(() =>
             store.transaction((control) =>
-                control.putGrant(allowGrant("detached-workspace-grant", ScopeRef.workspace(tenantId, workspace.id)))
+                control.putGrant(
+                    allowGrant(
+                        "detached-workspace-grant",
+                        ScopeRef.workspace(tenantId, workspace.id)
+                    )
+                )
             )
         ).toThrow(notCanonicalWorkspace);
 
@@ -1004,7 +1139,12 @@ describe("SQLite Tenant control closure integrity", () => {
 
         const projectDatabase = new TestSqlite();
         bootstrappedStore(projectDatabase);
-        const alienProject = new Project(new ProjectId("alien-project"), foreignTenantId, "Alien", Revision.initial());
+        const alienProject = new Project(
+            new ProjectId("alien-project"),
+            foreignTenantId,
+            "Alien",
+            Revision.initial()
+        );
         projectDatabase.run(
             "INSERT INTO tenant_projects (id, tenant_id, revision, record) VALUES (?, ?, ?, ?)",
             [alienProject.id.value, foreignTenantId.value, 0, Project.encode(alienProject)]
@@ -1015,7 +1155,13 @@ describe("SQLite Tenant control closure integrity", () => {
 
         const teamDatabase = new TestSqlite();
         bootstrappedStore(teamDatabase);
-        const alienTeam = new Team(new TeamId("alien-team"), foreignTenantId, "Alien", [], Revision.initial());
+        const alienTeam = new Team(
+            new TeamId("alien-team"),
+            foreignTenantId,
+            "Alien",
+            [],
+            Revision.initial()
+        );
         teamDatabase.run(
             "INSERT INTO tenant_teams (id, tenant_id, revision, record) VALUES (?, ?, ?, ?)",
             [alienTeam.id.value, foreignTenantId.value, 0, Team.encode(alienTeam)]
@@ -1090,7 +1236,15 @@ describe("SQLite Tenant control closure integrity", () => {
             `INSERT INTO tenant_guest_trusts (
                 id, host_tenant_id, home_tenant_id, verifier_kind, state, revision, record
              ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [alienTrust.id.value, foreignTenantId.value, tenantId.value, "callback", "active", 0, GuestTrust.encode(alienTrust)]
+            [
+                alienTrust.id.value,
+                foreignTenantId.value,
+                tenantId.value,
+                "callback",
+                "active",
+                0,
+                GuestTrust.encode(alienTrust)
+            ]
         );
         expect(() => createSqliteTenantControlStore(trustDatabase)).toThrow(
             expect.objectContaining(corrupt)
@@ -1303,122 +1457,153 @@ describe("SQLite Tenant control closure integrity", () => {
         );
     });
 
-    test("fails closed on marker, Tenant, revision, epoch, and Role closure drift", { tags: "p0" }, () => {
-        const failsClosed = (mutate: (database: TestSqlite) => void) => {
-            const database = new TestSqlite();
-            bootstrappedStore(database);
-            mutate(database);
-            expect(() => createSqliteTenantControlStore(database)).toThrow(
-                expect.objectContaining(corrupt)
+    test(
+        "fails closed on marker, Tenant, revision, epoch, and Role closure drift",
+        { tags: "p0" },
+        () => {
+            const failsClosed = (mutate: (database: TestSqlite) => void) => {
+                const database = new TestSqlite();
+                bootstrappedStore(database);
+                mutate(database);
+                expect(() => createSqliteTenantControlStore(database)).toThrow(
+                    expect.objectContaining(corrupt)
+                );
+            };
+
+            failsClosed((database) => {
+                database.run(
+                    "UPDATE tenant_bootstrap_marker SET owner_principal_id = ?, record = ?",
+                    [
+                        "other-owner",
+                        markerRecord({
+                            ownerPrincipalId: "other-owner",
+                            revision: 0,
+                            tenantId: tenantId.value
+                        })
+                    ]
+                );
+            });
+            failsClosed((database) => {
+                database.run("UPDATE tenant_bootstrap_marker SET tenant_id = ?, record = ?", [
+                    "other-tenant",
+                    markerRecord({
+                        ownerPrincipalId: principalId.value,
+                        revision: 0,
+                        tenantId: "other-tenant"
+                    })
+                ]);
+            });
+            failsClosed((database) => {
+                const advanced = new Tenant(tenantId, "organization", "active", new Revision(1));
+                database.run("UPDATE tenant_identities SET revision = 1, record = ? WHERE id = ?", [
+                    Tenant.encode(advanced),
+                    tenantId.value
+                ]);
+                database.run("UPDATE tenant_bootstrap_marker SET revision = 1, record = ?", [
+                    markerRecord({
+                        ownerPrincipalId: principalId.value,
+                        revision: 1,
+                        tenantId: tenantId.value
+                    })
+                ]);
+            });
+            failsClosed((database) => {
+                const rekinded = new Tenant(tenantId, "service", "active", Revision.initial());
+                database.run(
+                    "UPDATE tenant_identities SET kind = 'service', record = ? WHERE id = ?",
+                    [Tenant.encode(rekinded), tenantId.value]
+                );
+            });
+            failsClosed((database) => {
+                database.run("DELETE FROM tenant_scope_epochs", []);
+            });
+            failsClosed((database) => {
+                database.run("DELETE FROM tenant_roles WHERE name = 'reader'", []);
+            });
+        }
+    );
+
+    test(
+        "rejects Grants that break the closure inside the writing transaction",
+        { tags: "p0" },
+        () => {
+            const store = bootstrappedStore(new TestSqlite());
+            const plan = createTenantControlBootstrapPlan(anchor, Revision.initial());
+            const capability = new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] });
+            const rejects = (id: string, grant: Grant) => {
+                expect(() => store.transaction((control) => control.putGrant(grant))).toThrow(
+                    expect.objectContaining(corrupt)
+                );
+                expect(store.grant(new GrantId(id))).toBeUndefined();
+            };
+
+            rejects(
+                "ghost-principal-grant",
+                allowGrant(
+                    "ghost-principal-grant",
+                    tenantScope,
+                    SubjectRef.principal(new PrincipalId("ghost-principal"))
+                )
             );
-        };
-
-        failsClosed((database) => {
-            database.run("UPDATE tenant_bootstrap_marker SET owner_principal_id = ?, record = ?", [
-                "other-owner",
-                markerRecord({ ownerPrincipalId: "other-owner", revision: 0, tenantId: tenantId.value })
-            ]);
-        });
-        failsClosed((database) => {
-            database.run("UPDATE tenant_bootstrap_marker SET tenant_id = ?, record = ?", [
-                "other-tenant",
-                markerRecord({ ownerPrincipalId: principalId.value, revision: 0, tenantId: "other-tenant" })
-            ]);
-        });
-        failsClosed((database) => {
-            const advanced = new Tenant(tenantId, "organization", "active", new Revision(1));
-            database.run("UPDATE tenant_identities SET revision = 1, record = ? WHERE id = ?", [
-                Tenant.encode(advanced),
-                tenantId.value
-            ]);
-            database.run("UPDATE tenant_bootstrap_marker SET revision = 1, record = ?", [
-                markerRecord({ ownerPrincipalId: principalId.value, revision: 1, tenantId: tenantId.value })
-            ]);
-        });
-        failsClosed((database) => {
-            const rekinded = new Tenant(tenantId, "service", "active", Revision.initial());
-            database.run("UPDATE tenant_identities SET kind = 'service', record = ? WHERE id = ?", [
-                Tenant.encode(rekinded),
-                tenantId.value
-            ]);
-        });
-        failsClosed((database) => {
-            database.run("DELETE FROM tenant_scope_epochs", []);
-        });
-        failsClosed((database) => {
-            database.run("DELETE FROM tenant_roles WHERE name = 'reader'", []);
-        });
-    });
-
-    test("rejects Grants that break the closure inside the writing transaction", { tags: "p0" }, () => {
-        const store = bootstrappedStore(new TestSqlite());
-        const plan = createTenantControlBootstrapPlan(anchor, Revision.initial());
-        const capability = new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] });
-        const rejects = (id: string, grant: Grant) => {
-            expect(() => store.transaction((control) => control.putGrant(grant))).toThrow(
-                expect.objectContaining(corrupt)
+            rejects(
+                "ghost-team-grant",
+                allowGrant(
+                    "ghost-team-grant",
+                    tenantScope,
+                    SubjectRef.team(new TeamId("ghost-team"))
+                )
             );
-            expect(store.grant(new GrantId(id))).toBeUndefined();
-        };
 
-        rejects(
-            "ghost-principal-grant",
-            allowGrant("ghost-principal-grant", tenantScope, SubjectRef.principal(new PrincipalId("ghost-principal")))
-        );
-        rejects(
-            "ghost-team-grant",
-            allowGrant("ghost-team-grant", tenantScope, SubjectRef.team(new TeamId("ghost-team")))
-        );
+            const ghostOrigin: RoleGrantOrigin = {
+                kind: "role",
+                membershipId: new MembershipId("ghost-membership"),
+                roleName: plan.ownerMembership.role.value,
+                ruleOrdinal: 0,
+                guest: false
+            };
+            rejects(
+                "ghost-origin-grant",
+                new Grant(
+                    new GrantId("ghost-origin-grant"),
+                    tenantScope,
+                    SubjectRef.principal(principalId),
+                    "allow",
+                    capability,
+                    ghostOrigin
+                )
+            );
 
-        const ghostOrigin: RoleGrantOrigin = {
-            kind: "role",
-            membershipId: new MembershipId("ghost-membership"),
-            roleName: plan.ownerMembership.role.value,
-            ruleOrdinal: 0,
-            guest: false
-        };
-        rejects(
-            "ghost-origin-grant",
-            new Grant(
-                new GrantId("ghost-origin-grant"),
-                tenantScope,
-                SubjectRef.principal(principalId),
-                "allow",
-                capability,
-                ghostOrigin
-            )
-        );
+            const surplusOrigin: RoleGrantOrigin = {
+                kind: "role",
+                membershipId: plan.ownerMembership.id,
+                roleName: plan.ownerMembership.role.value,
+                ruleOrdinal: 999,
+                guest: false
+            };
+            rejects(
+                "surplus-owner-grant",
+                new Grant(
+                    new GrantId("surplus-owner-grant"),
+                    tenantScope,
+                    SubjectRef.principal(principalId),
+                    "allow",
+                    capability,
+                    surplusOrigin
+                )
+            );
 
-        const surplusOrigin: RoleGrantOrigin = {
-            kind: "role",
-            membershipId: plan.ownerMembership.id,
-            roleName: plan.ownerMembership.role.value,
-            ruleOrdinal: 999,
-            guest: false
-        };
-        rejects(
-            "surplus-owner-grant",
-            new Grant(
-                new GrantId("surplus-owner-grant"),
-                tenantScope,
-                SubjectRef.principal(principalId),
-                "allow",
-                capability,
-                surplusOrigin
-            )
-        );
-
-        rejects(
-            "self-attenuated-grant",
-            new Grant(
-                new GrantId("self-attenuated-grant"),
-                tenantScope,
-                SubjectRef.principal(principalId),
-                "allow",
-                capability,
-                { kind: "direct" },
-                new GrantId("self-attenuated-grant")
-            )
-        );
-    });
+            rejects(
+                "self-attenuated-grant",
+                new Grant(
+                    new GrantId("self-attenuated-grant"),
+                    tenantScope,
+                    SubjectRef.principal(principalId),
+                    "allow",
+                    capability,
+                    { kind: "direct" },
+                    new GrantId("self-attenuated-grant")
+                )
+            );
+        }
+    );
 });

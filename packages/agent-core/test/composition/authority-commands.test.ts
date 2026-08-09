@@ -120,221 +120,256 @@ type HarnessFactory = () => AuthorityCommandHarness;
 
 function authorityCommandContract(name: string, create: HarnessFactory): void {
     describe(`closed Tenant authority commands (${name})`, () => {
-        test("binds validation and check evidence to the authenticated source and decision time", { tags: "p0" }, async () => {
-            const harness = create();
-            const validation = harness.bindingRequest();
-            const validationPayload = BindingValidationRequest.encode(validation);
-            const validated = await harness.dispatch(
-                harness.envelope(
-                    TENANT_AUTHORITY_COMMANDS.validateBinding,
-                    `${name}-binding`,
+        test(
+            "binds validation and check evidence to the authenticated source and decision time",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const validation = harness.bindingRequest();
+                const validationPayload = BindingValidationRequest.encode(validation);
+                const validated = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.validateBinding,
+                        `${name}-binding`,
+                        validationPayload
+                    ),
                     validationPayload
-                ),
-                validationPayload
-            );
-            const validationReply = BindingValidationReply.decode(validated.reply);
+                );
+                const validationReply = BindingValidationReply.decode(validated.reply);
 
-            expect(validated.outcome).toBe("committed");
-            expect(validationReply.evidence.binds(validation)).toBe(true);
-            expect(validationReply.evidence.checkedAt).toEqual(now);
-            expect(BindingValidationEvidence.decode(validated.observation!).binds(validation)).toBe(
-                true
-            );
+                expect(validated.outcome).toBe("committed");
+                expect(validationReply.evidence.binds(validation)).toBe(true);
+                expect(validationReply.evidence.checkedAt).toEqual(now);
+                expect(
+                    BindingValidationEvidence.decode(validated.observation!).binds(validation)
+                ).toBe(true);
 
-            const request = harness.checkRequest();
-            const payload = AuthorityCheckRequest.encode(request);
-            const checked = await harness.dispatch(
-                harness.envelope(TENANT_AUTHORITY_COMMANDS.check, `${name}-check`, payload),
-                payload
-            );
-            const reply = AuthorityCheckReply.decode(checked.reply);
+                const request = harness.checkRequest();
+                const payload = AuthorityCheckRequest.encode(request);
+                const checked = await harness.dispatch(
+                    harness.envelope(TENANT_AUTHORITY_COMMANDS.check, `${name}-check`, payload),
+                    payload
+                );
+                const reply = AuthorityCheckReply.decode(checked.reply);
 
-            expect(checked.outcome).toBe("committed");
-            expect(reply.evidence.binds(request)).toBe(true);
-            expect(reply.evidence.checkedAt).toEqual(now);
-            expect(AuthorityCheckEvidence.decode(checked.observation!).allowed).toBe(true);
-            expect(checked.write.caller).toEqual(harness.caller);
-        });
+                expect(checked.outcome).toBe("committed");
+                expect(reply.evidence.binds(request)).toBe(true);
+                expect(reply.evidence.checkedAt).toEqual(now);
+                expect(AuthorityCheckEvidence.decode(checked.observation!).allowed).toBe(true);
+                expect(checked.write.caller).toEqual(harness.caller);
+            }
+        );
 
-        test("rejects source Actor and qualified Principal spoofing before authority evaluation", { tags: "p0" }, async () => {
-            const harness = create();
-            const request = harness.checkRequest();
-            const payload = AuthorityCheckRequest.encode(request);
-            const spoofedActor = new ActorRef("workspace", new ActorId(`${name}-spoofed-source`));
-            const spoofedCaller: CommandCaller = { kind: "actor", actor: spoofedActor };
-            const actorResult = await harness.dispatch(
-                harness.envelope(
-                    TENANT_AUTHORITY_COMMANDS.check,
-                    `${name}-actor-spoof`,
+        test(
+            "rejects source Actor and qualified Principal spoofing before authority evaluation",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.checkRequest();
+                const payload = AuthorityCheckRequest.encode(request);
+                const spoofedActor = new ActorRef(
+                    "workspace",
+                    new ActorId(`${name}-spoofed-source`)
+                );
+                const spoofedCaller: CommandCaller = { kind: "actor", actor: spoofedActor };
+                const actorResult = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.check,
+                        `${name}-actor-spoof`,
+                        payload,
+                        spoofedCaller
+                    ),
                     payload,
                     spoofedCaller
-                ),
-                payload,
-                spoofedCaller
-            );
+                );
 
-            const principalRequest = harness.checkRequest(
-                undefined,
-                new PrincipalRef(tenant, new PrincipalId(`${name}-spoofed-principal`))
-            );
-            const principalPayload = AuthorityCheckRequest.encode(principalRequest);
-            const principalResult = await harness.dispatch(
-                harness.envelope(
-                    TENANT_AUTHORITY_COMMANDS.check,
-                    `${name}-principal-spoof`,
+                const principalRequest = harness.checkRequest(
+                    undefined,
+                    new PrincipalRef(tenant, new PrincipalId(`${name}-spoofed-principal`))
+                );
+                const principalPayload = AuthorityCheckRequest.encode(principalRequest);
+                const principalResult = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.check,
+                        `${name}-principal-spoof`,
+                        principalPayload
+                    ),
                     principalPayload
-                ),
-                principalPayload
-            );
+                );
 
-            expect([actorResult.outcome, principalResult.outcome]).toEqual([
-                "rejectedAuthority",
-                "rejectedAuthority"
-            ]);
-            expect(harness.snapshot()).toMatchObject({ checks: 0, writes: 2, audits: 2 });
-        });
+                expect([actorResult.outcome, principalResult.outcome]).toEqual([
+                    "rejectedAuthority",
+                    "rejectedAuthority"
+                ]);
+                expect(harness.snapshot()).toMatchObject({ checks: 0, writes: 2, audits: 2 });
+            }
+        );
 
-        test("replays duplicate check evidence without re-evaluating authority", { tags: "p0" }, async () => {
-            const harness = create();
-            const request = harness.checkRequest();
-            const payload = AuthorityCheckRequest.encode(request);
-            const raw = harness.envelope(
-                TENANT_AUTHORITY_COMMANDS.check,
-                `${name}-duplicate`,
-                payload
-            );
-
-            const first = await harness.dispatch(raw, payload);
-            harness.setEpoch(9);
-            const duplicate = await harness.dispatch(raw, payload);
-
-            expect(first.outcome).toBe("committed");
-            expect(duplicate.outcome).toBe("duplicate");
-            expect(duplicate.reply).toEqual(first.reply);
-            expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
-            expect(harness.snapshot().checks).toBe(1);
-        });
-
-        test("admits exact current check and permit leases while rejecting stale epochs", { tags: "p0" }, async () => {
-            const harness = create();
-            const commandLease = { turn: authorityTurn, holder: principal, epoch: 2 };
-            const authorityLease = {
-                turn: authorityTurn,
-                holder: principal,
-                epoch: 2
-            };
-            const check = harness.checkRequest();
-            const checkPayload = AuthorityCheckRequest.encode(check);
-
-            const checked = await harness.dispatch(
-                harness.envelope(
+        test(
+            "replays duplicate check evidence without re-evaluating authority",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.checkRequest();
+                const payload = AuthorityCheckRequest.encode(request);
+                const raw = harness.envelope(
                     TENANT_AUTHORITY_COMMANDS.check,
-                    `${name}-leased-check`,
-                    checkPayload,
-                    undefined,
-                    commandLease
-                ),
-                checkPayload
-            );
-            const stale = await harness.dispatch(
-                harness.envelope(
-                    TENANT_AUTHORITY_COMMANDS.check,
-                    `${name}-stale-check-lease`,
-                    checkPayload,
-                    undefined,
-                    { ...commandLease, epoch: 3 }
-                ),
-                checkPayload
-            );
+                    `${name}-duplicate`,
+                    payload
+                );
 
-            const permit = permitRequest(currentPath(1), authorityLease);
-            const permitPayload = AuthorityPermitIssuanceRequest.encode(permit);
-            const issued = await harness.dispatch(
-                harness.envelope(
-                    TENANT_AUTHORITY_COMMANDS.issuePermit,
-                    `${name}-leased-permit`,
-                    permitPayload,
-                    undefined,
-                    commandLease
-                ),
-                permitPayload
-            );
+                const first = await harness.dispatch(raw, payload);
+                harness.setEpoch(9);
+                const duplicate = await harness.dispatch(raw, payload);
 
-            expect(checked.outcome).toBe("committed");
-            expect(stale.outcome).toBe("rejectedLease");
-            expect(issued.outcome).toBe("committed");
-            expect(harness.snapshot()).toMatchObject({ checks: 1, permits: 1, writes: 3 });
-        });
+                expect(first.outcome).toBe("committed");
+                expect(duplicate.outcome).toBe("duplicate");
+                expect(duplicate.reply).toEqual(first.reply);
+                expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
+                expect(harness.snapshot().checks).toBe(1);
+            }
+        );
 
-        test("commits a typed stale-path denial instead of issuing stale authority", { tags: "p0" }, async () => {
-            const harness = create();
-            const request = harness.checkRequest();
-            harness.setEpoch(2);
-            const payload = AuthorityCheckRequest.encode(request);
-            const result = await harness.dispatch(
-                harness.envelope(TENANT_AUTHORITY_COMMANDS.check, `${name}-stale`, payload),
-                payload
-            );
-            const evidence = AuthorityCheckReply.decode(result.reply).evidence;
+        test(
+            "admits exact current check and permit leases while rejecting stale epochs",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const commandLease = { turn: authorityTurn, holder: principal, epoch: 2 };
+                const authorityLease = {
+                    turn: authorityTurn,
+                    holder: principal,
+                    epoch: 2
+                };
+                const check = harness.checkRequest();
+                const checkPayload = AuthorityCheckRequest.encode(check);
 
-            expect(result.outcome).toBe("committed");
-            expect(evidence).toMatchObject({ decision: "deny", reason: "stalePath" });
-            expect(evidence.pathEpochs.target.epoch).toBe(2);
-            expect(harness.snapshot()).toMatchObject({ checks: 1, writes: 1, audits: 2 });
-        });
+                const checked = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.check,
+                        `${name}-leased-check`,
+                        checkPayload,
+                        undefined,
+                        commandLease
+                    ),
+                    checkPayload
+                );
+                const stale = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.check,
+                        `${name}-stale-check-lease`,
+                        checkPayload,
+                        undefined,
+                        { ...commandLease, epoch: 3 }
+                    ),
+                    checkPayload
+                );
 
-        test("[protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path", { tags: "p0" }, async () => {
-            const harness = create();
-            const request = harness.permitRequest();
-            const payload = AuthorityPermitIssuanceRequest.encode(request);
-            const result = await harness.dispatch(
-                harness.envelope(TENANT_AUTHORITY_COMMANDS.issuePermit, `${name}-permit`, payload),
-                payload
-            );
-            const permit = AuthorityPermitIssuanceReply.decode(result.reply).permit;
+                const permit = permitRequest(currentPath(1), authorityLease);
+                const permitPayload = AuthorityPermitIssuanceRequest.encode(permit);
+                const issued = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.issuePermit,
+                        `${name}-leased-permit`,
+                        permitPayload,
+                        undefined,
+                        commandLease
+                    ),
+                    permitPayload
+                );
 
-            expect(result.outcome).toBe("committed");
-            expect(permit.expectation.equals(request.expectation)).toBe(true);
-            expect(permit.issuedAt).toEqual(now);
-            expect(
-                AuthorityPermit.decode(result.observation!).digest().equals(permit.digest())
-            ).toBe(true);
-            expect(harness.snapshot()).toMatchObject({ permits: 1, writes: 1, audits: 2 });
+                expect(checked.outcome).toBe("committed");
+                expect(stale.outcome).toBe("rejectedLease");
+                expect(issued.outcome).toBe("committed");
+                expect(harness.snapshot()).toMatchObject({ checks: 1, permits: 1, writes: 3 });
+            }
+        );
 
-            const staleHarness = create();
-            const staleRequest = staleHarness.permitRequest();
-            staleHarness.setEpoch(3);
-            const stalePayload = AuthorityPermitIssuanceRequest.encode(staleRequest);
-            const stale = await staleHarness.dispatch(
-                staleHarness.envelope(
-                    TENANT_AUTHORITY_COMMANDS.issuePermit,
-                    `${name}-stale-permit`,
+        test(
+            "commits a typed stale-path denial instead of issuing stale authority",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.checkRequest();
+                harness.setEpoch(2);
+                const payload = AuthorityCheckRequest.encode(request);
+                const result = await harness.dispatch(
+                    harness.envelope(TENANT_AUTHORITY_COMMANDS.check, `${name}-stale`, payload),
+                    payload
+                );
+                const evidence = AuthorityCheckReply.decode(result.reply).evidence;
+
+                expect(result.outcome).toBe("committed");
+                expect(evidence).toMatchObject({ decision: "deny", reason: "stalePath" });
+                expect(evidence.pathEpochs.target.epoch).toBe(2);
+                expect(harness.snapshot()).toMatchObject({ checks: 1, writes: 1, audits: 2 });
+            }
+        );
+
+        test(
+            "[protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.permitRequest();
+                const payload = AuthorityPermitIssuanceRequest.encode(request);
+                const result = await harness.dispatch(
+                    harness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.issuePermit,
+                        `${name}-permit`,
+                        payload
+                    ),
+                    payload
+                );
+                const permit = AuthorityPermitIssuanceReply.decode(result.reply).permit;
+
+                expect(result.outcome).toBe("committed");
+                expect(permit.expectation.equals(request.expectation)).toBe(true);
+                expect(permit.issuedAt).toEqual(now);
+                expect(
+                    AuthorityPermit.decode(result.observation!).digest().equals(permit.digest())
+                ).toBe(true);
+                expect(harness.snapshot()).toMatchObject({ permits: 1, writes: 1, audits: 2 });
+
+                const staleHarness = create();
+                const staleRequest = staleHarness.permitRequest();
+                staleHarness.setEpoch(3);
+                const stalePayload = AuthorityPermitIssuanceRequest.encode(staleRequest);
+                const stale = await staleHarness.dispatch(
+                    staleHarness.envelope(
+                        TENANT_AUTHORITY_COMMANDS.issuePermit,
+                        `${name}-stale-permit`,
+                        stalePayload
+                    ),
                     stalePayload
-                ),
-                stalePayload
-            );
-            expect(stale.outcome).toBe("rejectedAuthority");
-            expect(staleHarness.snapshot()).toMatchObject({ permits: 0, writes: 1, audits: 1 });
-        });
+                );
+                expect(stale.outcome).toBe("rejectedAuthority");
+                expect(staleHarness.snapshot()).toMatchObject({ permits: 0, writes: 1, audits: 1 });
+            }
+        );
 
-        test("rolls permit issuance back when linked WriteRecord evidence rejects", { tags: "p0" }, async () => {
-            const harness = create();
-            const request = harness.permitRequest();
-            const payload = AuthorityPermitIssuanceRequest.encode(request);
-            const raw = harness.envelope(
-                TENANT_AUTHORITY_COMMANDS.issuePermit,
-                `${name}-atomic`,
-                payload
-            );
-            harness.failEvidenceAppend(true);
+        test(
+            "rolls permit issuance back when linked WriteRecord evidence rejects",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.permitRequest();
+                const payload = AuthorityPermitIssuanceRequest.encode(request);
+                const raw = harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    `${name}-atomic`,
+                    payload
+                );
+                harness.failEvidenceAppend(true);
 
-            await expect(harness.dispatch(raw, payload)).rejects.toThrow(/evidence append/);
-            expect(harness.snapshot()).toEqual({ writes: 0, audits: 0, permits: 0, checks: 0 });
+                await expect(harness.dispatch(raw, payload)).rejects.toThrow(/evidence append/);
+                expect(harness.snapshot()).toEqual({ writes: 0, audits: 0, permits: 0, checks: 0 });
 
-            harness.failEvidenceAppend(false);
-            expect((await harness.dispatch(raw, payload)).outcome).toBe("committed");
-            expect(harness.snapshot()).toMatchObject({ writes: 1, permits: 1 });
-        });
+                harness.failEvidenceAppend(false);
+                expect((await harness.dispatch(raw, payload)).outcome).toBe("committed");
+                expect(harness.snapshot()).toMatchObject({ writes: 1, permits: 1 });
+            }
+        );
 
         test("records malformed ingress without evaluating authority", { tags: "p1" }, async () => {
             const harness = create();
@@ -351,13 +386,17 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
 authorityCommandContract("memory", createMemoryHarness);
 authorityCommandContract("SQLite", createSqliteHarness);
 
-test("closed Tenant authority composition rejects a non-Tenant owning Actor", { tags: "p0" }, () => {
-    expect(() =>
-        createClosedTenantAuthorityComposition({
-            actor: sourceActor
-        } as never)
-    ).toThrow(/requires a Tenant Actor/);
-});
+test(
+    "closed Tenant authority composition rejects a non-Tenant owning Actor",
+    { tags: "p0" },
+    () => {
+        expect(() =>
+            createClosedTenantAuthorityComposition({
+                actor: sourceActor
+            } as never)
+        ).toThrow(/requires a Tenant Actor/);
+    }
+);
 
 const otherTenant = new TenantId("authority-command-other-tenant");
 const otherTenantActor = new ActorRef("tenant", new ActorId("authority-command-other-tenant"));

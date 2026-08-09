@@ -29,7 +29,12 @@ import {
 } from "../../../src/identity";
 import { InvocationId as InteractionInvocationId } from "../../../src/interaction-references";
 import { ClaimWorkerId, ItemClaimId } from "../../../src/invocation-references";
-import { AuditRecordId, CorrelationId, InvocationId, WriteRecordId } from "../../../src/invocations";
+import {
+    AuditRecordId,
+    CorrelationId,
+    InvocationId,
+    WriteRecordId
+} from "../../../src/invocations";
 import {
     AuthorityPermitIssuanceRequest,
     CommandEnvelope,
@@ -423,7 +428,8 @@ function createSqliteAuthorityJourney(name: string): AuthorityJourney {
         persistence: new SqliteProtocolPersistence(database),
         backend: {
             ...identity.readBackend(),
-            validateBinding: (_transaction, request, at) => identity.validationEvidence(request, at),
+            validateBinding: (_transaction, request, at) =>
+                identity.validationEvidence(request, at),
             check: (transaction, request, at) => {
                 transaction.run(
                     "UPDATE authority_journey_state SET checks = checks + 1 WHERE singleton = 1",

@@ -216,57 +216,65 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
 }
 
 describe("stale mediated authority produces durable denial evidence (§3.4 rule 7)", () => {
-    test("advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence", { tags: "p0" }, async () => {
-        const state = new StaleAuthorityState();
-        const authority = new TenantOperationAuthority(state, () => NOW);
-        const resolution = (await authority.resolve(principal, bindingName)).resolution;
+    test(
+        "advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence",
+        { tags: "p0" },
+        async () => {
+            const state = new StaleAuthorityState();
+            const authority = new TenantOperationAuthority(state, () => NOW);
+            const resolution = (await authority.resolve(principal, bindingName)).resolution;
 
-        // Before revocation the holder watermark is at epoch 0.
-        expect(state.currentWatermark().epoch(scope)).toBe(0);
+            // Before revocation the holder watermark is at epoch 0.
+            expect(state.currentWatermark().epoch(scope)).toBe(0);
 
-        state.revoke();
+            state.revoke();
 
-        await expect(
-            authority.authorizeMediated(resolution, sendDescriptor, inputs)
-        ).rejects.toMatchObject({ code: "authority.denied" });
-
-        // (3) deniedPreEffect Receipt + AuditRecord recorded, with no EffectAttempt.
-        expect(state.receipts).toHaveLength(1);
-        expect(state.receipts[0]!.outcome).toBe("deniedPreEffect");
-        expect(state.audits).toHaveLength(1);
-        expect(state.audits[0]!.kind).toMatchObject({
-            kind: "receipt",
-            outcome: "deniedPreEffect"
-        });
-        expect(state.attempts).toHaveLength(0);
-
-        // (1) holder watermark advanced by the epoch join, so direct calls now cease.
-        expect(state.currentWatermark().epoch(scope)).toBe(1);
-        expect(authority.authorizeDirect(resolution, readDescriptor, inputs)).toBeUndefined();
-
-        // (2) cached resolution invalidated; re-resolution yields fresh, admissible evidence.
-        expect(state.cachedResolution).toBeUndefined();
-        const fresh = (await authority.resolve(principal, bindingName)).resolution;
-        expect(fresh.pathEpochs.equals(state.currentPath())).toBe(true);
-        await expect(
-            authority.authorizeMediated(fresh, sendDescriptor, inputs)
-        ).resolves.toMatchObject({ binding: state.binding, domain });
-    });
-
-    test("repeated stale invocations add no unbounded duplicate denial evidence", { tags: "p1" }, async () => {
-        const state = new StaleAuthorityState();
-        const authority = new TenantOperationAuthority(state, () => NOW);
-        const resolution = (await authority.resolve(principal, bindingName)).resolution;
-        state.revoke();
-
-        for (let attempt = 0; attempt < 3; attempt += 1) {
             await expect(
                 authority.authorizeMediated(resolution, sendDescriptor, inputs)
             ).rejects.toMatchObject({ code: "authority.denied" });
-        }
 
-        expect(state.receipts).toHaveLength(1);
-        expect(state.audits).toHaveLength(1);
-        expect(state.currentWatermark().epoch(scope)).toBe(1);
-    });
+            // (3) deniedPreEffect Receipt + AuditRecord recorded, with no EffectAttempt.
+            expect(state.receipts).toHaveLength(1);
+            expect(state.receipts[0]!.outcome).toBe("deniedPreEffect");
+            expect(state.audits).toHaveLength(1);
+            expect(state.audits[0]!.kind).toMatchObject({
+                kind: "receipt",
+                outcome: "deniedPreEffect"
+            });
+            expect(state.attempts).toHaveLength(0);
+
+            // (1) holder watermark advanced by the epoch join, so direct calls now cease.
+            expect(state.currentWatermark().epoch(scope)).toBe(1);
+            expect(authority.authorizeDirect(resolution, readDescriptor, inputs)).toBeUndefined();
+
+            // (2) cached resolution invalidated; re-resolution yields fresh, admissible evidence.
+            expect(state.cachedResolution).toBeUndefined();
+            const fresh = (await authority.resolve(principal, bindingName)).resolution;
+            expect(fresh.pathEpochs.equals(state.currentPath())).toBe(true);
+            await expect(
+                authority.authorizeMediated(fresh, sendDescriptor, inputs)
+            ).resolves.toMatchObject({ binding: state.binding, domain });
+        }
+    );
+
+    test(
+        "repeated stale invocations add no unbounded duplicate denial evidence",
+        { tags: "p1" },
+        async () => {
+            const state = new StaleAuthorityState();
+            const authority = new TenantOperationAuthority(state, () => NOW);
+            const resolution = (await authority.resolve(principal, bindingName)).resolution;
+            state.revoke();
+
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+                await expect(
+                    authority.authorizeMediated(resolution, sendDescriptor, inputs)
+                ).rejects.toMatchObject({ code: "authority.denied" });
+            }
+
+            expect(state.receipts).toHaveLength(1);
+            expect(state.audits).toHaveLength(1);
+            expect(state.currentWatermark().epoch(scope)).toBe(1);
+        }
+    );
 });

@@ -99,60 +99,64 @@ describe("behavior-carrying identity states", () => {
         );
     });
 
-    test("admits only fresh host-minted guest proof and prevents restored proof reuse", { tags: "p0" }, () => {
-        expect(
-            () =>
-                new Membership(
-                    new MembershipId("local-proof"),
-                    ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(principalId),
-                    new RoleName("reader"),
-                    "active",
-                    Revision.initial(),
-                    verification
-                )
-        ).toThrow(TypeError);
-        const verified = new Membership(
-            new MembershipId("guest-proof"),
-            ScopeRef.tenant(tenantId),
-            guestSubject,
-            new RoleName("reader"),
-            "active",
-            Revision.initial()
-        ).withGuestVerification(verification);
-        const restored = Membership.decode(Membership.encode(verified));
-        expect(restored.guestVerification).toBeDefined();
-        expect(restored.guestVerification?.isHostMinted).toBe(false);
-        expectAgentError(
-            () =>
-                new Membership(
-                    new MembershipId("reused-proof"),
-                    ScopeRef.tenant(tenantId),
-                    guestSubject,
-                    new RoleName("reader"),
-                    "active",
-                    Revision.initial()
-                ).withGuestVerification(restored.guestVerification!),
-            "authority.denied"
-        );
-        expect("GuestVerification" in identityPublic).toBe(false);
-        expect(
-            () =>
-                new Membership(
-                    new MembershipId("wrong-proof"),
-                    ScopeRef.tenant(tenantId),
-                    SubjectRef.foreign(
-                        homeTenant,
-                        new PrincipalId("other"),
-                        GuestVerificationScheme.callback
-                    ),
-                    new RoleName("reader"),
-                    "active",
-                    Revision.initial(),
-                    verification
-                )
-        ).toThrow(TypeError);
-    });
+    test(
+        "admits only fresh host-minted guest proof and prevents restored proof reuse",
+        { tags: "p0" },
+        () => {
+            expect(
+                () =>
+                    new Membership(
+                        new MembershipId("local-proof"),
+                        ScopeRef.tenant(tenantId),
+                        SubjectRef.principal(principalId),
+                        new RoleName("reader"),
+                        "active",
+                        Revision.initial(),
+                        verification
+                    )
+            ).toThrow(TypeError);
+            const verified = new Membership(
+                new MembershipId("guest-proof"),
+                ScopeRef.tenant(tenantId),
+                guestSubject,
+                new RoleName("reader"),
+                "active",
+                Revision.initial()
+            ).withGuestVerification(verification);
+            const restored = Membership.decode(Membership.encode(verified));
+            expect(restored.guestVerification).toBeDefined();
+            expect(restored.guestVerification?.isHostMinted).toBe(false);
+            expectAgentError(
+                () =>
+                    new Membership(
+                        new MembershipId("reused-proof"),
+                        ScopeRef.tenant(tenantId),
+                        guestSubject,
+                        new RoleName("reader"),
+                        "active",
+                        Revision.initial()
+                    ).withGuestVerification(restored.guestVerification!),
+                "authority.denied"
+            );
+            expect("GuestVerification" in identityPublic).toBe(false);
+            expect(
+                () =>
+                    new Membership(
+                        new MembershipId("wrong-proof"),
+                        ScopeRef.tenant(tenantId),
+                        SubjectRef.foreign(
+                            homeTenant,
+                            new PrincipalId("other"),
+                            GuestVerificationScheme.callback
+                        ),
+                        new RoleName("reader"),
+                        "active",
+                        Revision.initial(),
+                        verification
+                    )
+            ).toThrow(TypeError);
+        }
+    );
 
     test("makes deleted Tenant state terminal", { tags: "p0" }, () => {
         const tenant = new Tenant(tenantId, "organization", "active", Revision.initial());

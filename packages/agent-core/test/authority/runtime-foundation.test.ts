@@ -76,85 +76,100 @@ describe("Tenant authority runtime", () => {
         expect(renamed.revision.value).toBe(1);
     });
 
-    test("[C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny", { tags: "p0" }, () => {
-        const { store, service, runtime } = fixture();
-        const allow = grant("allow", SubjectRef.principal(principalId), "allow");
-        service.createGrant(allow);
-        const validation = runtime.validateBinding(validationRequest(allow.id), new Date(1_000));
-        const binding = Binding.active(
-            workspaceScope,
-            validation.subject,
-            domain,
-            new BindingName("mail"),
-            allow.id,
-            facet
-        );
-        const allowed = runtime.check(
-            checkRequest(binding, new PrincipalRef(tenantId, principalId), validation.pathEpochs),
-            new Date(1_001)
-        );
+    test(
+        "[C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny",
+        { tags: "p0" },
+        () => {
+            const { store, service, runtime } = fixture();
+            const allow = grant("allow", SubjectRef.principal(principalId), "allow");
+            service.createGrant(allow);
+            const validation = runtime.validateBinding(
+                validationRequest(allow.id),
+                new Date(1_000)
+            );
+            const binding = Binding.active(
+                workspaceScope,
+                validation.subject,
+                domain,
+                new BindingName("mail"),
+                allow.id,
+                facet
+            );
+            const allowed = runtime.check(
+                checkRequest(
+                    binding,
+                    new PrincipalRef(tenantId, principalId),
+                    validation.pathEpochs
+                ),
+                new Date(1_001)
+            );
 
-        expect(allowed.allowed).toBe(true);
-        expect(allowed.pathEpochs.path.map((entry) => entry.scope.kind)).toEqual([
-            "tenant",
-            "workspace"
-        ]);
+            expect(allowed.allowed).toBe(true);
+            expect(allowed.pathEpochs.path.map((entry) => entry.scope.kind)).toEqual([
+                "tenant",
+                "workspace"
+            ]);
 
-        service.createGrant(
-            grant("deny", SubjectRef.principal(principalId), "deny", ScopeRef.tenant(tenantId))
-        );
-        const currentPath = runtime.validateBinding(
-            validationRequest(allow.id),
-            new Date(1_002)
-        ).pathEpochs;
-        const denied = runtime.check(
-            checkRequest(binding, new PrincipalRef(tenantId, principalId), currentPath),
-            new Date(1_002)
-        );
-        expect(denied.allowed).toBe(false);
-        expect(denied.reason).toBe("matchingDeny");
-        expect(denied.matchedDeny.map((id) => id.value)).toEqual(["deny"]);
-        expect(store.grants()).toHaveLength(3);
-    });
-
-    test("[C13-AUTH-DIRECT-SUBJECT] unions direct and Team subjects without allowing unrelated principals", { tags: "p0" }, () => {
-        const { service, runtime } = fixture();
-        const team = new Team(
-            new TeamId("team"),
-            tenantId,
-            "Operators",
-            [principalId],
-            Revision.initial()
-        );
-        service.createTeam(team);
-        const allow = grant("team-allow", SubjectRef.team(team.id), "allow");
-        service.createGrant(allow);
-        const binding = Binding.active(
-            workspaceScope,
-            SubjectRef.team(team.id),
-            domain,
-            new BindingName("team-mail"),
-            allow.id,
-            facet
-        );
-
-        const currentPath = runtime.validateBinding(
-            validationRequest(allow.id),
-            new Date(2_000)
-        ).pathEpochs;
-        expect(
-            runtime.check(
+            service.createGrant(
+                grant("deny", SubjectRef.principal(principalId), "deny", ScopeRef.tenant(tenantId))
+            );
+            const currentPath = runtime.validateBinding(
+                validationRequest(allow.id),
+                new Date(1_002)
+            ).pathEpochs;
+            const denied = runtime.check(
                 checkRequest(binding, new PrincipalRef(tenantId, principalId), currentPath),
+                new Date(1_002)
+            );
+            expect(denied.allowed).toBe(false);
+            expect(denied.reason).toBe("matchingDeny");
+            expect(denied.matchedDeny.map((id) => id.value)).toEqual(["deny"]);
+            expect(store.grants()).toHaveLength(3);
+        }
+    );
+
+    test(
+        "[C13-AUTH-DIRECT-SUBJECT] unions direct and Team subjects without allowing unrelated principals",
+        { tags: "p0" },
+        () => {
+            const { service, runtime } = fixture();
+            const team = new Team(
+                new TeamId("team"),
+                tenantId,
+                "Operators",
+                [principalId],
+                Revision.initial()
+            );
+            service.createTeam(team);
+            const allow = grant("team-allow", SubjectRef.team(team.id), "allow");
+            service.createGrant(allow);
+            const binding = Binding.active(
+                workspaceScope,
+                SubjectRef.team(team.id),
+                domain,
+                new BindingName("team-mail"),
+                allow.id,
+                facet
+            );
+
+            const currentPath = runtime.validateBinding(
+                validationRequest(allow.id),
                 new Date(2_000)
-            ).allowed
-        ).toBe(true);
-        const wrong = checkRequest(
-            binding,
-            new PrincipalRef(tenantId, new PrincipalId("other")),
-            currentPath
-        );
-        expect(runtime.check(wrong, new Date(2_001)).reason).toBe("missingPrincipal");
-    });
+            ).pathEpochs;
+            expect(
+                runtime.check(
+                    checkRequest(binding, new PrincipalRef(tenantId, principalId), currentPath),
+                    new Date(2_000)
+                ).allowed
+            ).toBe(true);
+            const wrong = checkRequest(
+                binding,
+                new PrincipalRef(tenantId, new PrincipalId("other")),
+                currentPath
+            );
+            expect(runtime.check(wrong, new Date(2_001)).reason).toBe("missingPrincipal");
+        }
+    );
 
     test("returns current path evidence and detects stale evidence", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
@@ -186,63 +201,67 @@ describe("Tenant authority runtime", () => {
         expect(stale.pathEpochs.equals(initial.pathEpochs)).toBe(false);
     });
 
-    test("fails closed for inactive Bindings, missing Grants, and inactive Principals", { tags: "p0" }, () => {
-        const { service, runtime } = fixture();
-        const allow = grant("denial-allow", SubjectRef.principal(principalId), "allow");
-        service.createGrant(allow);
-        const currentPath = runtime.validateBinding(
-            validationRequest(allow.id),
-            new Date(3_100)
-        ).pathEpochs;
-        const active = Binding.active(
-            workspaceScope,
-            allow.subject,
-            domain,
-            new BindingName("denials"),
-            allow.id,
-            facet
-        );
+    test(
+        "fails closed for inactive Bindings, missing Grants, and inactive Principals",
+        { tags: "p0" },
+        () => {
+            const { service, runtime } = fixture();
+            const allow = grant("denial-allow", SubjectRef.principal(principalId), "allow");
+            service.createGrant(allow);
+            const currentPath = runtime.validateBinding(
+                validationRequest(allow.id),
+                new Date(3_100)
+            ).pathEpochs;
+            const active = Binding.active(
+                workspaceScope,
+                allow.subject,
+                domain,
+                new BindingName("denials"),
+                allow.id,
+                facet
+            );
 
-        expect(
-            runtime.check(
-                checkRequest(
-                    active.deactivate(),
-                    new PrincipalRef(tenantId, principalId),
-                    currentPath
-                ),
-                new Date(3_101)
-            ).reason
-        ).toBe("invalidBinding");
-        expect(
-            runtime.check(
-                checkRequest(
-                    Binding.active(
-                        workspaceScope,
-                        allow.subject,
-                        domain,
-                        new BindingName("missing"),
-                        new GrantId("missing"),
-                        facet
+            expect(
+                runtime.check(
+                    checkRequest(
+                        active.deactivate(),
+                        new PrincipalRef(tenantId, principalId),
+                        currentPath
                     ),
-                    new PrincipalRef(tenantId, principalId),
-                    currentPath
-                ),
-                new Date(3_101)
-            ).reason
-        ).toBe("missingGrant");
+                    new Date(3_101)
+                ).reason
+            ).toBe("invalidBinding");
+            expect(
+                runtime.check(
+                    checkRequest(
+                        Binding.active(
+                            workspaceScope,
+                            allow.subject,
+                            domain,
+                            new BindingName("missing"),
+                            new GrantId("missing"),
+                            facet
+                        ),
+                        new PrincipalRef(tenantId, principalId),
+                        currentPath
+                    ),
+                    new Date(3_101)
+                ).reason
+            ).toBe("missingGrant");
 
-        service.disablePrincipal(principalId);
-        const disabledPath = runtime.validateBinding(
-            validationRequest(allow.id),
-            new Date(3_102)
-        ).pathEpochs;
-        expect(
-            runtime.check(
-                checkRequest(active, new PrincipalRef(tenantId, principalId), disabledPath),
+            service.disablePrincipal(principalId);
+            const disabledPath = runtime.validateBinding(
+                validationRequest(allow.id),
                 new Date(3_102)
-            ).reason
-        ).toBe("inactivePrincipal");
-    });
+            ).pathEpochs;
+            expect(
+                runtime.check(
+                    checkRequest(active, new PrincipalRef(tenantId, principalId), disabledPath),
+                    new Date(3_102)
+                ).reason
+            ).toBe("inactivePrincipal");
+        }
+    );
 
     test("[C13-ADV-REVOKED-ALLOW] rejects a revoked backing allow Grant", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
@@ -288,209 +307,222 @@ describe("Tenant authority runtime", () => {
 });
 
 describe("verified guest lifecycle", () => {
-    test("materializes attenuated guest Grants and revokes them when trust is revoked", { tags: "p0" }, () => {
-        const { store, service, runtime } = fixture();
-        const home = new TenantId("guest-home");
-        const guest = new PrincipalId("guest-principal");
-        const trust = new GuestTrust(
-            new GuestTrustId("guest-trust"),
-            tenantId,
-            home,
-            { kind: "callback", endpoint: "https://guest.example/verify" },
-            "active",
-            Revision.initial()
-        );
-        const role = new Role(new RoleName("guest-reader"), [
-            new RoleRule(
-                "allow",
-                new CapabilitySpec({
-                    facetPattern: "workspace:mail.*",
-                    impacts: ["observe"]
-                })
-            ),
-            new RoleRule(
-                "allow",
-                new CapabilitySpec({
-                    facetPattern: "workspace:mail.*",
-                    impacts: ["delegate"]
-                })
-            ),
-            new RoleRule(
-                "deny",
-                new CapabilitySpec({
-                    facetPattern: "workspace:mail.secret",
-                    impacts: ["observe"]
-                })
-            )
-        ]);
-        const membership = new Membership(
-            new MembershipId("guest-membership"),
-            workspaceScope,
-            SubjectRef.foreign(home, guest, GuestVerificationScheme.callback),
-            role.name,
-            "active",
-            Revision.initial()
-        );
-        service.createGuestTrust(trust);
-        service.createRole(role);
-        service.assignGuestMembership(
-            membership,
-            new GuestVerification(
-                new PrincipalRef(home, guest),
-                trust.id,
-                trust.revision,
-                "callback",
-                Digest.sha256(Uint8Array.of(7)),
-                new Date(4_000),
-                new Date(5_000)
-            ),
-            new Date(4_500)
-        );
-
-        const guestGrants = store
-            .grants()
-            .filter(
-                (candidate) =>
-                    candidate.origin.kind === "role" &&
-                    candidate.origin.membershipId.equals(membership.id)
+    test(
+        "materializes attenuated guest Grants and revokes them when trust is revoked",
+        { tags: "p0" },
+        () => {
+            const { store, service, runtime } = fixture();
+            const home = new TenantId("guest-home");
+            const guest = new PrincipalId("guest-principal");
+            const trust = new GuestTrust(
+                new GuestTrustId("guest-trust"),
+                tenantId,
+                home,
+                { kind: "callback", endpoint: "https://guest.example/verify" },
+                "active",
+                Revision.initial()
             );
-        expect(guestGrants.map((candidate) => candidate.effect).sort()).toEqual(["allow", "deny"]);
-        expect(guestGrants.some((candidate) => candidate.capability.grantsElevation())).toBe(false);
-
-        service.changeRole(
-            new Role(role.name, [
-                ...role.rules,
+            const role = new Role(new RoleName("guest-reader"), [
                 new RoleRule(
                     "allow",
                     new CapabilitySpec({
-                        facetPattern: "workspace:calendar.*",
+                        facetPattern: "workspace:mail.*",
+                        impacts: ["observe"]
+                    })
+                ),
+                new RoleRule(
+                    "allow",
+                    new CapabilitySpec({
+                        facetPattern: "workspace:mail.*",
+                        impacts: ["delegate"]
+                    })
+                ),
+                new RoleRule(
+                    "deny",
+                    new CapabilitySpec({
+                        facetPattern: "workspace:mail.secret",
                         impacts: ["observe"]
                     })
                 )
-            ])
-        );
-        expect(
-            store
-                .grants()
-                .filter(
-                    (candidate) =>
-                        candidate.origin.kind === "role" &&
-                        candidate.origin.membershipId.equals(membership.id) &&
-                        candidate.effect === "deny"
-                )
-                .every((candidate) => candidate.isLive)
-        ).toBe(true);
+            ]);
+            const membership = new Membership(
+                new MembershipId("guest-membership"),
+                workspaceScope,
+                SubjectRef.foreign(home, guest, GuestVerificationScheme.callback),
+                role.name,
+                "active",
+                Revision.initial()
+            );
+            service.createGuestTrust(trust);
+            service.createRole(role);
+            service.assignGuestMembership(
+                membership,
+                new GuestVerification(
+                    new PrincipalRef(home, guest),
+                    trust.id,
+                    trust.revision,
+                    "callback",
+                    Digest.sha256(Uint8Array.of(7)),
+                    new Date(4_000),
+                    new Date(5_000)
+                ),
+                new Date(4_500)
+            );
 
-        const backing = store
-            .grants()
-            .find(
-                (candidate) =>
-                    candidate.origin.kind === "role" &&
-                    candidate.origin.membershipId.equals(membership.id) &&
-                    candidate.effect === "allow" &&
-                    candidate.capability.facetPattern === "workspace:mail.*"
-            )!;
-        const guestBinding = Binding.active(
-            workspaceScope,
-            membership.subject,
-            domain,
-            new BindingName("guest-mail"),
-            backing.id,
-            facet
-        );
-        const guestPath = runtime.validateBinding(
-            validationRequest(backing.id),
-            new Date(4_999)
-        ).pathEpochs;
-        expect(
-            runtime.check(
-                checkRequest(guestBinding, new PrincipalRef(home, guest), guestPath),
-                new Date(5_000)
-            ).reason
-        ).toBe("guestVerificationExpired");
-
-        const unrelatedTrust = new GuestTrust(
-            new GuestTrustId("unrelated-trust"),
-            tenantId,
-            home,
-            { kind: "callback", endpoint: "https://other.example/verify" },
-            "active",
-            Revision.initial()
-        );
-        service.createGuestTrust(unrelatedTrust);
-        service.revokeGuestTrust(unrelatedTrust.id);
-        expect(store.membership(membership.id)?.state).toBe("active");
-
-        service.revokeGuestTrust(trust.id);
-        expect(store.membership(membership.id)?.state).toBe("revoked");
-        expect(
-            store
+            const guestGrants = store
                 .grants()
                 .filter(
                     (candidate) =>
                         candidate.origin.kind === "role" &&
                         candidate.origin.membershipId.equals(membership.id)
-                )
-                .every((candidate) => !candidate.isLive)
-        ).toBe(true);
-    });
-
-    test("rejects verification issued in the future without persisting guest state", { tags: "p0" }, () => {
-        const { store, service } = fixture();
-        const home = new TenantId("future-home");
-        const guest = new PrincipalId("future-guest");
-        const trust = new GuestTrust(
-            new GuestTrustId("future-trust"),
-            tenantId,
-            home,
-            { kind: "callback", endpoint: "https://future.example/verify" },
-            "active",
-            Revision.initial()
-        );
-        const role = new Role(new RoleName("future-role"), [
-            new RoleRule(
+                );
+            expect(guestGrants.map((candidate) => candidate.effect).sort()).toEqual([
                 "allow",
-                new CapabilitySpec({
-                    facetPattern: "workspace:mail.*",
-                    impacts: ["observe"]
-                })
-            )
-        ]);
-        const membership = new Membership(
-            new MembershipId("future-membership"),
-            workspaceScope,
-            SubjectRef.foreign(home, guest, GuestVerificationScheme.callback),
-            role.name,
-            "active",
-            Revision.initial()
-        );
-        service.createGuestTrust(trust);
-        expect(
-            service.rotateGuestTrust(trust.id, {
-                kind: "callback",
-                endpoint: "https://future.example/verify-rotated"
-            }).revision.value
-        ).toBe(1);
-        const rotatedTrust = store.guestTrust(trust.id)!;
-        service.createRole(role);
+                "deny"
+            ]);
+            expect(guestGrants.some((candidate) => candidate.capability.grantsElevation())).toBe(
+                false
+            );
 
-        expect(() =>
-            service.assignGuestMembership(
-                membership,
-                new GuestVerification(
-                    new PrincipalRef(home, guest),
-                    rotatedTrust.id,
-                    rotatedTrust.revision,
-                    "callback",
-                    Digest.sha256(Uint8Array.of(5)),
-                    new Date(10_000),
-                    new Date(20_000)
-                ),
-                new Date(9_999)
-            )
-        ).toThrow(/not currently valid/);
-        expect(store.membership(membership.id)).toBeUndefined();
-    });
+            service.changeRole(
+                new Role(role.name, [
+                    ...role.rules,
+                    new RoleRule(
+                        "allow",
+                        new CapabilitySpec({
+                            facetPattern: "workspace:calendar.*",
+                            impacts: ["observe"]
+                        })
+                    )
+                ])
+            );
+            expect(
+                store
+                    .grants()
+                    .filter(
+                        (candidate) =>
+                            candidate.origin.kind === "role" &&
+                            candidate.origin.membershipId.equals(membership.id) &&
+                            candidate.effect === "deny"
+                    )
+                    .every((candidate) => candidate.isLive)
+            ).toBe(true);
+
+            const backing = store
+                .grants()
+                .find(
+                    (candidate) =>
+                        candidate.origin.kind === "role" &&
+                        candidate.origin.membershipId.equals(membership.id) &&
+                        candidate.effect === "allow" &&
+                        candidate.capability.facetPattern === "workspace:mail.*"
+                )!;
+            const guestBinding = Binding.active(
+                workspaceScope,
+                membership.subject,
+                domain,
+                new BindingName("guest-mail"),
+                backing.id,
+                facet
+            );
+            const guestPath = runtime.validateBinding(
+                validationRequest(backing.id),
+                new Date(4_999)
+            ).pathEpochs;
+            expect(
+                runtime.check(
+                    checkRequest(guestBinding, new PrincipalRef(home, guest), guestPath),
+                    new Date(5_000)
+                ).reason
+            ).toBe("guestVerificationExpired");
+
+            const unrelatedTrust = new GuestTrust(
+                new GuestTrustId("unrelated-trust"),
+                tenantId,
+                home,
+                { kind: "callback", endpoint: "https://other.example/verify" },
+                "active",
+                Revision.initial()
+            );
+            service.createGuestTrust(unrelatedTrust);
+            service.revokeGuestTrust(unrelatedTrust.id);
+            expect(store.membership(membership.id)?.state).toBe("active");
+
+            service.revokeGuestTrust(trust.id);
+            expect(store.membership(membership.id)?.state).toBe("revoked");
+            expect(
+                store
+                    .grants()
+                    .filter(
+                        (candidate) =>
+                            candidate.origin.kind === "role" &&
+                            candidate.origin.membershipId.equals(membership.id)
+                    )
+                    .every((candidate) => !candidate.isLive)
+            ).toBe(true);
+        }
+    );
+
+    test(
+        "rejects verification issued in the future without persisting guest state",
+        { tags: "p0" },
+        () => {
+            const { store, service } = fixture();
+            const home = new TenantId("future-home");
+            const guest = new PrincipalId("future-guest");
+            const trust = new GuestTrust(
+                new GuestTrustId("future-trust"),
+                tenantId,
+                home,
+                { kind: "callback", endpoint: "https://future.example/verify" },
+                "active",
+                Revision.initial()
+            );
+            const role = new Role(new RoleName("future-role"), [
+                new RoleRule(
+                    "allow",
+                    new CapabilitySpec({
+                        facetPattern: "workspace:mail.*",
+                        impacts: ["observe"]
+                    })
+                )
+            ]);
+            const membership = new Membership(
+                new MembershipId("future-membership"),
+                workspaceScope,
+                SubjectRef.foreign(home, guest, GuestVerificationScheme.callback),
+                role.name,
+                "active",
+                Revision.initial()
+            );
+            service.createGuestTrust(trust);
+            expect(
+                service.rotateGuestTrust(trust.id, {
+                    kind: "callback",
+                    endpoint: "https://future.example/verify-rotated"
+                }).revision.value
+            ).toBe(1);
+            const rotatedTrust = store.guestTrust(trust.id)!;
+            service.createRole(role);
+
+            expect(() =>
+                service.assignGuestMembership(
+                    membership,
+                    new GuestVerification(
+                        new PrincipalRef(home, guest),
+                        rotatedTrust.id,
+                        rotatedTrust.revision,
+                        "callback",
+                        Digest.sha256(Uint8Array.of(5)),
+                        new Date(10_000),
+                        new Date(20_000)
+                    ),
+                    new Date(9_999)
+                )
+            ).toThrow(/not currently valid/);
+            expect(store.membership(membership.id)).toBeUndefined();
+        }
+    );
 });
 
 describe("canonical authority keys", () => {

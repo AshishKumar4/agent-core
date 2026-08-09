@@ -81,7 +81,8 @@ describe("identity codecs", () => {
     ] as const;
 
     test.each(records)(
-        "[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.role] [identity.membership] round-trips frozen $name records", { tags: "p1" },
+        "[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.role] [identity.membership] round-trips frozen $name records",
+        { tags: "p1" },
         ({ codec, value }) => {
             const decoded = codec.decode(codec.encode(value as never));
 
@@ -90,21 +91,25 @@ describe("identity codecs", () => {
         }
     );
 
-    test.each(records)("rejects unknown $name payload fields", { tags: "p1" }, ({ codec, value }) => {
-        const envelope = requireObject(decodeCanonicalJson(codec.encode(value as never)));
-        const payload = requireObject(envelope["payload"]!);
+    test.each(records)(
+        "rejects unknown $name payload fields",
+        { tags: "p1" },
+        ({ codec, value }) => {
+            const envelope = requireObject(decodeCanonicalJson(codec.encode(value as never)));
+            const payload = requireObject(envelope["payload"]!);
 
-        expectCodecError(
-            () =>
-                codec.decode(
-                    encodeCanonicalJson({
-                        ...envelope,
-                        payload: { ...payload, unexpected: true }
-                    })
-                ),
-            "codec.invalid"
-        );
-    });
+            expectCodecError(
+                () =>
+                    codec.decode(
+                        encodeCanonicalJson({
+                            ...envelope,
+                            payload: { ...payload, unexpected: true }
+                        })
+                    ),
+                "codec.invalid"
+            );
+        }
+    );
 
     test.each(records)("rejects unknown $name codec majors", { tags: "p2" }, ({ codec, value }) => {
         const envelope = requireObject(decodeCanonicalJson(codec.encode(value as never)));
@@ -135,39 +140,46 @@ describe("identity codecs", () => {
 });
 
 describe("scope and subject references", () => {
-    test("admits only the fixed Tenant to optional Project to Workspace paths", { tags: "p0" }, () => {
-        const tenant = ScopeRef.tenant(tenantId);
-        const project = ScopeRef.project(tenantId, projectId);
-        const directWorkspace = ScopeRef.workspace(tenantId, workspaceId);
-        const projectWorkspace = ScopeRef.workspace(tenantId, projectId, workspaceId);
+    test(
+        "admits only the fixed Tenant to optional Project to Workspace paths",
+        { tags: "p0" },
+        () => {
+            const tenant = ScopeRef.tenant(tenantId);
+            const project = ScopeRef.project(tenantId, projectId);
+            const directWorkspace = ScopeRef.workspace(tenantId, workspaceId);
+            const projectWorkspace = ScopeRef.workspace(tenantId, projectId, workspaceId);
 
-        expect(tenant.path.map((scope) => scope.kind)).toEqual(["tenant"]);
-        expect(project.path.map((scope) => scope.kind)).toEqual(["tenant", "project"]);
-        expect(directWorkspace.path.map((scope) => scope.kind)).toEqual(["tenant", "workspace"]);
-        expect(projectWorkspace.path.map((scope) => scope.kind)).toEqual([
-            "tenant",
-            "project",
-            "workspace"
-        ]);
-        expect(decodeScopeRef(encodeScopeRef(projectWorkspace)).equals(projectWorkspace)).toBe(
-            true
-        );
-        expect(encodeScopeRef(directWorkspace)).toEqual({
-            kind: "workspace",
-            project: null,
-            tenant: tenantId.value,
-            workspace: workspaceId.value
-        });
-        expect(() =>
-            decodeScopeRef({
+            expect(tenant.path.map((scope) => scope.kind)).toEqual(["tenant"]);
+            expect(project.path.map((scope) => scope.kind)).toEqual(["tenant", "project"]);
+            expect(directWorkspace.path.map((scope) => scope.kind)).toEqual([
+                "tenant",
+                "workspace"
+            ]);
+            expect(projectWorkspace.path.map((scope) => scope.kind)).toEqual([
+                "tenant",
+                "project",
+                "workspace"
+            ]);
+            expect(decodeScopeRef(encodeScopeRef(projectWorkspace)).equals(projectWorkspace)).toBe(
+                true
+            );
+            expect(encodeScopeRef(directWorkspace)).toEqual({
                 kind: "workspace",
                 project: null,
                 tenant: tenantId.value,
-                workspace: workspaceId.value,
-                parent: "arbitrary"
-            })
-        ).toThrow(/unknown fields/);
-    });
+                workspace: workspaceId.value
+            });
+            expect(() =>
+                decodeScopeRef({
+                    kind: "workspace",
+                    project: null,
+                    tenant: tenantId.value,
+                    workspace: workspaceId.value,
+                    parent: "arbitrary"
+                })
+            ).toThrow(/unknown fields/);
+        }
+    );
 
     test("round-trips Principal, Team, and verified foreign subjects", { tags: "p1" }, () => {
         const subjects = [

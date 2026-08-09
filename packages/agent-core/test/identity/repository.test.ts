@@ -94,25 +94,31 @@ describe("MemoryIdentityRepository", () => {
         expect("saveMembership" in repository).toBe(false);
     });
 
-    test("[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.workspace] [identity.role] [identity.membership] [identity.guest-trust] restores every identity kind and returns a detached versioned snapshot", { tags: "p1" }, () => {
-        const repository = new MemoryIdentityRepository(identitySnapshot());
-        const snapshot = repository.snapshot();
-        const restarted = new MemoryIdentityRepository(snapshot);
-        snapshot.records[0]!.bytes.fill(0);
+    test(
+        "[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.workspace] [identity.role] [identity.membership] [identity.guest-trust] restores every identity kind and returns a detached versioned snapshot",
+        { tags: "p1" },
+        () => {
+            const repository = new MemoryIdentityRepository(identitySnapshot());
+            const snapshot = repository.snapshot();
+            const restarted = new MemoryIdentityRepository(snapshot);
+            snapshot.records[0]!.bytes.fill(0);
 
-        expect(snapshot.version).toBe(1);
-        expect(restarted.loadTenant(tenantId)?.kind).toBe("organization");
-        expect(restarted.loadPrincipal(principalId)?.kind).toBe("service");
-        expect(restarted.loadTeam(records.team.id)?.has(principalId)).toBe(true);
-        expect(restarted.loadProject(records.project.id)?.name).toBe("Stored project");
-        expect(
-            restarted.loadWorkspace(records.workspace.id)?.scope.equals(records.workspace.scope)
-        ).toBe(true);
-        expect(restarted.loadGuestTrust(records.guestTrust.id)?.isActive).toBe(true);
-        expect(restarted.loadRole(role.name)?.rules).toHaveLength(1);
-        expect(restarted.loadMembership(records.membership.id)?.role.equals(role.name)).toBe(true);
-        expect(repository.loadTenant(tenantId)?.status).toBe("active");
-    });
+            expect(snapshot.version).toBe(1);
+            expect(restarted.loadTenant(tenantId)?.kind).toBe("organization");
+            expect(restarted.loadPrincipal(principalId)?.kind).toBe("service");
+            expect(restarted.loadTeam(records.team.id)?.has(principalId)).toBe(true);
+            expect(restarted.loadProject(records.project.id)?.name).toBe("Stored project");
+            expect(
+                restarted.loadWorkspace(records.workspace.id)?.scope.equals(records.workspace.scope)
+            ).toBe(true);
+            expect(restarted.loadGuestTrust(records.guestTrust.id)?.isActive).toBe(true);
+            expect(restarted.loadRole(role.name)?.rules).toHaveLength(1);
+            expect(restarted.loadMembership(records.membership.id)?.role.equals(role.name)).toBe(
+                true
+            );
+            expect(repository.loadTenant(tenantId)?.status).toBe("active");
+        }
+    );
 
     test("strictly rejects malformed snapshots and codec-key disagreement", { tags: "p0" }, () => {
         const snapshot = identitySnapshot();

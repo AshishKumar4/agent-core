@@ -254,9 +254,7 @@ function resolutionWith(
         }),
         owner,
         policies:
-            policies.length === 0
-                ? [new PolicySet({ maxDirectRevocationWindowMs: 50 })]
-                : policies,
+            policies.length === 0 ? [new PolicySet({ maxDirectRevocationWindowMs: 50 })] : policies,
         turnOwnedSession: true,
         turnActorAuthorityLocal: true,
         directAuthority: new ResolvedOperationAuthority(facet, [
@@ -273,70 +271,82 @@ const observeDescriptor = new OperationDescriptor(
 );
 
 describe("a declared Blueprint is what executes", () => {
-    test("a policy tightening declared in the Blueprint flips live admission to mediated", { tags: "p0" }, () => {
-        const projections = materializedProjections(
-            new PolicySet({ tiers: { observe: "mediated" } })
-        );
-        const record = projectionOfKind(projections, "policy-set");
-        const materialized = PolicySet.fromData(record.desired);
+    test(
+        "a policy tightening declared in the Blueprint flips live admission to mediated",
+        { tags: "p0" },
+        () => {
+            const projections = materializedProjections(
+                new PolicySet({ tiers: { observe: "mediated" } })
+            );
+            const record = projectionOfKind(projections, "policy-set");
+            const materialized = PolicySet.fromData(record.desired);
 
-        // Without the Blueprint's policy the observe Operation runs direct;
-        // feeding the materialized record into the same resolution mediates it.
-        expect(authority.tier(resolutionWith([], "bundled"), observeDescriptor, false)).toBe(
-            "direct"
-        );
-        expect(
-            authority.tier(resolutionWith([materialized], "bundled"), observeDescriptor, false)
-        ).toBe("mediated");
-    });
+            // Without the Blueprint's policy the observe Operation runs direct;
+            // feeding the materialized record into the same resolution mediates it.
+            expect(authority.tier(resolutionWith([], "bundled"), observeDescriptor, false)).toBe(
+                "direct"
+            );
+            expect(
+                authority.tier(resolutionWith([materialized], "bundled"), observeDescriptor, false)
+            ).toBe("mediated");
+        }
+    );
 
-    test("the derived Subscription record targets exactly the declared Operation", { tags: "p1" }, () => {
-        const projections = materializedProjections(new PolicySet({}));
-        const record = projections.find(
-            (projection) =>
-                projection.recordKind === "subscription" &&
-                projection.logicalKey.includes("automation")
-        );
-        expect(record, "expected the automation-derived subscription record").toBeDefined();
-        const automation = Automation.fromData(record!.desired);
+    test(
+        "the derived Subscription record targets exactly the declared Operation",
+        { tags: "p1" },
+        () => {
+            const projections = materializedProjections(new PolicySet({}));
+            const record = projections.find(
+                (projection) =>
+                    projection.recordKind === "subscription" &&
+                    projection.logicalKey.includes("automation")
+            );
+            expect(record, "expected the automation-derived subscription record").toBeDefined();
+            const automation = Automation.fromData(record!.desired);
 
-        // The record's routing identity is the declaration's, verbatim: an Event can
-        // decide whether this fires, never what it fires or as whom.
-        expect(automation.target.value).toBe(OPERATION);
-        expect(automation.binding.value).toBe("notes");
-        expect(automation.source.kind).toBe("note.created");
-        expect(automation.source.acceptedTrust).toEqual(["self"]);
-        expect(automation.dedupe).toBe("event");
-        expect(automation.authority).toBe("delegated");
+            // The record's routing identity is the declaration's, verbatim: an Event can
+            // decide whether this fires, never what it fires or as whom.
+            expect(automation.target.value).toBe(OPERATION);
+            expect(automation.binding.value).toBe("notes");
+            expect(automation.source.kind).toBe("note.created");
+            expect(automation.source.acceptedTrust).toEqual(["self"]);
+            expect(automation.dedupe).toBe("event");
+            expect(automation.authority).toBe("delegated");
 
-        // And it constructs the exact live routing Subscription the workspace uses.
-        const live = new Subscription({
-            id: new SubscriptionId("live-subscription"),
-            revision: Revision.initial(),
-            source: automation.source,
-            target: automation.target,
-            mapping: automation.mapping!,
-            dedupe: automation.dedupe!,
-            authority: { kind: "initiator", binding: automation.binding }
-        });
-        expect(live.target.value).toBe(OPERATION);
-        expect(live.source.acceptedTrust).toEqual(["self"]);
-    });
+            // And it constructs the exact live routing Subscription the workspace uses.
+            const live = new Subscription({
+                id: new SubscriptionId("live-subscription"),
+                revision: Revision.initial(),
+                source: automation.source,
+                target: automation.target,
+                mapping: automation.mapping!,
+                dedupe: automation.dedupe!,
+                authority: { kind: "initiator", binding: automation.binding }
+            });
+            expect(live.target.value).toBe(OPERATION);
+            expect(live.source.acceptedTrust).toEqual(["self"]);
+        }
+    );
 
-    test("the placement record pins the declared isolation and forecloses the direct tier", { tags: "p0" }, () => {
-        const projections = materializedProjections(new PolicySet({}));
-        const record = projectionOfKind(projections, "facet-placement");
-        const desired = record.desired as { readonly selected: string };
+    test(
+        "the placement record pins the declared isolation and forecloses the direct tier",
+        { tags: "p0" },
+        () => {
+            const projections = materializedProjections(new PolicySet({}));
+            const record = projectionOfKind(projections, "facet-placement");
+            const desired = record.desired as { readonly selected: string };
 
-        // The manifest declared isolation ["dynamic"]; the four-source intersection
-        // materializes that choice.
-        expect(desired.selected).toBe("dynamic");
+            // The manifest declared isolation ["dynamic"]; the four-source intersection
+            // materializes that choice.
+            expect(desired.selected).toBe("dynamic");
 
-        // Feeding the pinned placement into the live membrane: even a plain observe
-        // under a live lease cannot run direct off-actor.
-        const resolution = resolutionWith([], "dynamic");
-        expect(authority.tier(resolution, observeDescriptor, false)).toBe("mediated");
-    });
+            // Feeding the pinned placement into the live membrane: even a plain observe
+            // under a live lease cannot run direct off-actor.
+            const resolution = resolutionWith([], "dynamic");
+            expect(authority.tier(resolution, observeDescriptor, false)).toBe("mediated");
+        }
+    );
 });
 
 // --- package fixture -------------------------------------------------------------------------

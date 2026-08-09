@@ -157,7 +157,8 @@ const driftCases: readonly DriftCase[] = [
     },
     {
         title: "guest trust id drift",
-        corrupt: (database) => database.run("UPDATE tenant_guest_trusts SET id = 'trust-moved'", []),
+        corrupt: (database) =>
+            database.run("UPDATE tenant_guest_trusts SET id = 'trust-moved'", []),
         load: (reader) => reader.loadGuestTrust(new GuestTrustId("trust-moved"))
     },
     {

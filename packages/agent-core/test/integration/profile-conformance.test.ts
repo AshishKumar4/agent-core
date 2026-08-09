@@ -86,241 +86,310 @@ const tenant = new TenantId("profile-conformance-tenant");
 const principal = new PrincipalRef(tenant, new PrincipalId("profile-conformance-agent"));
 
 describe("Exact profile runtime conformance", () => {
-    test("[P11-BASE-NAMES] executes a platform alias without changing impact or invariants", { tags: "p1" }, async () => {
-        const canonical = FILESYSTEM_OPERATION_CONTRACTS.read;
-        const aliased = canonical.alias("platform.readFile");
-        const fixture = profileFixture("base-alias", aliased.descriptor);
-        const filesystem = new MemoryFilesystemBackend();
-        filesystem.write("/file", new Uint8Array([1, 2]));
+    test(
+        "[P11-BASE-NAMES] executes a platform alias without changing impact or invariants",
+        { tags: "p1" },
+        async () => {
+            const canonical = FILESYSTEM_OPERATION_CONTRACTS.read;
+            const aliased = canonical.alias("platform.readFile");
+            const fixture = profileFixture("base-alias", aliased.descriptor);
+            const filesystem = new MemoryFilesystemBackend();
+            filesystem.write("/file", new Uint8Array([1, 2]));
 
-        const result = await fixture.runtime.invoke(aliased, { path: "/file" }, (input) =>
-            filesystem.read(input.path, input.range)
-        );
-
-        expect(result).toEqual(new Uint8Array([1, 2]));
-        expect(aliased.descriptor).toMatchObject({ impact: canonical.descriptor.impact });
-        expect(aliased.descriptor.input).toBe(canonical.descriptor.input);
-        expect(aliased.descriptor.output).toBe(canonical.descriptor.output);
-        expect(currentReceipt(fixture)).toMatchObject({ outcome: "succeeded" });
-    });
-
-    test("[P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart", { tags: "p1" }, async () => {
-        const fixture = approvalFixture("approval-continuation");
-        await expect(fixture.facet.applyAction({ resource: "account" })).resolves.toEqual({
-            applied: true
-        });
-        fixture.profile.harness.transactions.restart();
-
-        const continuation = fixture.profile.harness.transactions.transact((transaction) =>
-            fixture.profile.harness.persistence.continuation(
-                transaction,
-                fixture.profile.invocation
-            )
-        );
-        expect(continuation?.intentDigest.equals(fixture.intent)).toBe(true);
-        expect(continuation?.invocation.equals(fixture.profile.invocation)).toBe(true);
-        await expect(fixture.facet.applyAction({ resource: "account" })).resolves.toEqual({
-            applied: true
-        });
-        expect(fixture.backend.actions).toEqual([{ approved: true }]);
-    });
-
-    test("[P11-APPROVAL-GATEWAY-MATCH] rejects an action not matching the approved PreparedInvocation and continuation", { tags: "p0" }, async () => {
-        const fixture = approvalFixture("approval-match", "other");
-        await expect(fixture.facet.applyAction({ resource: "account" })).rejects.toMatchObject({
-            code: "invocation.invalid"
-        });
-        const continuation = fixture.profile.harness.transactions.transact((transaction) =>
-            fixture.profile.harness.persistence.continuation(
-                transaction,
-                fixture.profile.invocation
-            )
-        );
-        expect(continuation?.intentDigest.equals(fixture.intent)).toBe(true);
-        expect(currentReceipt(fixture.profile)).toMatchObject({ outcome: "indeterminate" });
-        expect(fixture.backend.actions).toEqual([]);
-    });
-
-    test("[C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt", { tags: "p1" }, async () => {
-        const fixture = taskEventFixture("source-event-causality");
-        await fixture.task.submitAction({ taskId: new TaskId("task"), action: { complete: true } });
-
-        const event = fixture.effects.events[0]!;
-        const evidence = fixture.effects.eventEvidence(event.id);
-        expect(event.kind.value).toBe("task.actionSubmitted");
-        expect(evidence.receipt.id.equals(currentReceipt(fixture.profile)!.id)).toBe(true);
-        expect(evidence.audit.cause?.equals(evidence.receiptAudit.id)).toBe(true);
-        expect(evidence.receiptAudit.kind).toMatchObject({ kind: "receipt", outcome: "succeeded" });
-    });
-
-    test("[P11-TASK-EVENT] replays one mediated task source Event across profile and SQLite restart", { tags: "p1" }, async () => {
-        const fixture = taskEventFixture("task-event");
-        const input = { taskId: new TaskId("task"), action: { complete: true } };
-        await fixture.task.submitAction(input);
-        fixture.profile.harness.transactions.restart();
-        fixture.effects.restart();
-        await fixture.task.submitAction(input);
-
-        expect(fixture.effects.events).toHaveLength(1);
-        expect(fixture.effects.events[0]?.kind.value).toBe("task.actionSubmitted");
-        expect(
-            fixture.profile.harness.transactions.transact((transaction) =>
-                fixture.profile.harness.persistence.attemptsForItem(
-                    transaction,
-                    fixture.profile.invocation,
-                    0
-                )
-            )
-        ).toHaveLength(1);
-    });
-
-    test("[P11-DEVICE-COMMAND-EVENTS] persists invoked and completed Events with the command Receipt cause", { tags: "p1" }, async () => {
-        const fixture = deviceFixture("device-command-events");
-        await fixture.device.command(commandInput());
-        fixture.profile.harness.transactions.restart();
-        fixture.effects.restart();
-        await fixture.device.command(commandInput());
-
-        expect(fixture.effects.events.map((event) => event.kind.value)).toEqual([
-            "command.invoked",
-            "command.completed"
-        ]);
-        const receipt = currentReceipt(fixture.profile)!;
-        expect(
-            fixture.effects.events.map(
-                (event) => fixture.effects.eventEvidence(event.id).receipt.id.value
-            )
-        ).toEqual([receipt.id.value, receipt.id.value]);
-        expect(fixture.transportCalls).toBe(1);
-    });
-
-    test("[P11-DEVICE-TYPED-SURFACE] validates and executes the Surface command's typed Operation", { tags: "p1" }, async () => {
-        const fixture = deviceFixture("device-typed-surface");
-        expect(DEVICE_COMMAND_SURFACE.id.value).toBe("device.commands");
-        expect(DEVICE_COMMANDS.find((command) => command.name === "camera")?.arguments).toBe(
-            DEVICE_OPERATION_CONTRACTS.camera.descriptor.input
-        );
-        await expect(
-            fixture.device.command({ ...commandInput(), arguments: { facing: "side" } })
-        ).rejects.toMatchObject({ code: "operation.invalid-input", detailCode: "wire.input" });
-        expect(currentReceipt(fixture.profile)).toBeUndefined();
-        await expect(fixture.device.command(commandInput())).resolves.toEqual({ captured: true });
-        expect(fixture.transportCalls).toBe(1);
-    });
-
-    test("[P11-SELF-RECEIPTS] persists and replays the canonical Self Operation Receipt", { tags: "p0" }, async () => {
-        const dependency = new MemorySelfDependency();
-        const fixture = selfFixture(
-            "self-receipts",
-            SELF_OPERATION_CONTRACTS.checkpoint.descriptor
-        );
-        const self = new SelfFacet(fixture.runtime, dependency);
-        await self.checkpoint({ checkpoint: { value: 1 } });
-        const first = currentReceipt(fixture)!;
-        fixture.harness.transactions.restart();
-        await self.checkpoint({ checkpoint: { value: 1 } });
-        expect(currentReceipt(fixture)?.id.equals(first.id)).toBe(true);
-        expect(dependency.calls).toEqual(["checkpoint"]);
-    });
-
-    test("[P11-SELF-AUDIT] persists exact Invocation-to-Attempt-to-Receipt audit edges", { tags: "p1" }, async () => {
-        const fixture = selfFixture("self-audit", SELF_OPERATION_CONTRACTS.checkpoint.descriptor);
-        await new SelfFacet(fixture.runtime, new MemorySelfDependency()).checkpoint({
-            checkpoint: { value: 1 }
-        });
-        const audits = fixture.harness.transactions.transact((transaction) =>
-            [...transaction.audits.values()].map((bytes) => AuditRecord.decode(bytes))
-        );
-        expect(audits.map((audit) => audit.kind.kind)).toEqual([
-            "invocation",
-            "attempt",
-            "receipt"
-        ]);
-        const [invocation, attempt, receipt] = audits;
-        expect(invocation).toMatchObject({ cause: undefined });
-        expect(invocation?.kind).toMatchObject({
-            kind: "invocation",
-            id: expect.any(InvocationId)
-        });
-        expect(attempt).toMatchObject({
-            actor: invocation?.actor,
-            tenant: invocation?.tenant,
-            correlation: invocation?.correlation
-        });
-        expect(attempt?.cause?.equals(invocation!.id)).toBe(true);
-        expect(receipt).toMatchObject({
-            actor: invocation?.actor,
-            tenant: invocation?.tenant,
-            correlation: invocation?.correlation
-        });
-        expect(receipt?.cause?.equals(attempt!.id)).toBe(true);
-    });
-
-    test("[P11-SELF-LEASE] denies every Self Operation under a stale exact-Turn lease before EffectAttempt", { tags: "p0" }, async () => {
-        const turn = new TurnId("self-lease-turn");
-        const holder = new PrincipalRef(tenant, new PrincipalId("self-lease-holder"));
-        const live = TurnLease.unclaimed(turn).claim(holder, new Date(1), new Date(100));
-        const stale = JSON.stringify({
-            turn: turn.value,
-            holder: {
-                principal: holder.principalId.value,
-                tenant: holder.tenantId.value
-            },
-            epoch: 0
-        });
-        const operations = Object.values(SELF_OPERATION_CONTRACTS);
-        for (const contract of operations) {
-            const fixture = selfFixture(
-                `self-lease-${contract.name.toLocaleLowerCase()}`,
-                contract.descriptor
+            const result = await fixture.runtime.invoke(aliased, { path: "/file" }, (input) =>
+                filesystem.read(input.path, input.range)
             );
-            fixture.harness.preparation.lease = stale;
-            fixture.harness.finalAdmissions.decide = (_request, context) =>
-                live.admits(parseLease(context.invocation.header.lease), new Date(10))
-                    ? { kind: "admitted" }
-                    : { kind: "denied", reason: "stale Self Turn lease" };
-            const self = new SelfFacet(fixture.runtime, new MemorySelfDependency());
-            await expect(invokeSelf(self, contract.name)).rejects.toMatchObject({
-                code: "authority.denied"
-            });
-            expect(
-                fixture.harness.transactions.transact((transaction) =>
-                    fixture.harness.persistence.attemptsForItem(transaction, fixture.invocation, 0)
-                )
-            ).toEqual([]);
+
+            expect(result).toEqual(new Uint8Array([1, 2]));
+            expect(aliased.descriptor).toMatchObject({ impact: canonical.descriptor.impact });
+            expect(aliased.descriptor.input).toBe(canonical.descriptor.input);
+            expect(aliased.descriptor.output).toBe(canonical.descriptor.output);
+            expect(currentReceipt(fixture)).toMatchObject({ outcome: "succeeded" });
         }
-    });
+    );
 
-    test("[P11-SELF-ATTENUATION] creates a child Run under a durably attenuated Grant", { tags: "p0" }, async () => {
-        const dependency = new AttenuatingSelfDependency(false);
-        const fixture = selfFixture("self-attenuation", SELF_OPERATION_CONTRACTS.spawn.descriptor);
-        await new SelfFacet(fixture.runtime, dependency).spawn({
-            child: { capability: "observe" }
-        });
-        expect(dependency.childRun?.equals(dependency.parentRun)).toBe(false);
-        expect(dependency.child?.attenuationOf?.equals(dependency.parent.id)).toBe(true);
-        expect(dependency.parent.canAttenuate(dependency.child!)).toBe(true);
-        expect(
-            dependency
-                .resolvedAuthority(dependency.childRun!)
-                .every((child) =>
-                    dependency
-                        .resolvedAuthority(dependency.parentRun)
-                        .some((parent) => parent.canAttenuate(child))
+    test(
+        "[P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart",
+        { tags: "p1" },
+        async () => {
+            const fixture = approvalFixture("approval-continuation");
+            await expect(fixture.facet.applyAction({ resource: "account" })).resolves.toEqual({
+                applied: true
+            });
+            fixture.profile.harness.transactions.restart();
+
+            const continuation = fixture.profile.harness.transactions.transact((transaction) =>
+                fixture.profile.harness.persistence.continuation(
+                    transaction,
+                    fixture.profile.invocation
                 )
-        ).toBe(true);
-    });
+            );
+            expect(continuation?.intentDigest.equals(fixture.intent)).toBe(true);
+            expect(continuation?.invocation.equals(fixture.profile.invocation)).toBe(true);
+            await expect(fixture.facet.applyAction({ resource: "account" })).resolves.toEqual({
+                applied: true
+            });
+            expect(fixture.backend.actions).toEqual([{ approved: true }]);
+        }
+    );
 
-    test("[P11-SELF-NO-WIDENING] rejects a spawned child authority outside the parent closure", { tags: "p0" }, async () => {
-        const dependency = new AttenuatingSelfDependency(true);
-        const fixture = selfFixture("self-no-widening", SELF_OPERATION_CONTRACTS.spawn.descriptor);
-        await expect(
-            new SelfFacet(fixture.runtime, dependency).spawn({
-                child: { capability: "administer" }
-            })
-        ).rejects.toMatchObject({ code: "invocation.invalid" });
-        expect(dependency.child).toBeUndefined();
-    });
+    test(
+        "[P11-APPROVAL-GATEWAY-MATCH] rejects an action not matching the approved PreparedInvocation and continuation",
+        { tags: "p0" },
+        async () => {
+            const fixture = approvalFixture("approval-match", "other");
+            await expect(fixture.facet.applyAction({ resource: "account" })).rejects.toMatchObject({
+                code: "invocation.invalid"
+            });
+            const continuation = fixture.profile.harness.transactions.transact((transaction) =>
+                fixture.profile.harness.persistence.continuation(
+                    transaction,
+                    fixture.profile.invocation
+                )
+            );
+            expect(continuation?.intentDigest.equals(fixture.intent)).toBe(true);
+            expect(currentReceipt(fixture.profile)).toMatchObject({ outcome: "indeterminate" });
+            expect(fixture.backend.actions).toEqual([]);
+        }
+    );
+
+    test(
+        "[C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt",
+        { tags: "p1" },
+        async () => {
+            const fixture = taskEventFixture("source-event-causality");
+            await fixture.task.submitAction({
+                taskId: new TaskId("task"),
+                action: { complete: true }
+            });
+
+            const event = fixture.effects.events[0]!;
+            const evidence = fixture.effects.eventEvidence(event.id);
+            expect(event.kind.value).toBe("task.actionSubmitted");
+            expect(evidence.receipt.id.equals(currentReceipt(fixture.profile)!.id)).toBe(true);
+            expect(evidence.audit.cause?.equals(evidence.receiptAudit.id)).toBe(true);
+            expect(evidence.receiptAudit.kind).toMatchObject({
+                kind: "receipt",
+                outcome: "succeeded"
+            });
+        }
+    );
+
+    test(
+        "[P11-TASK-EVENT] replays one mediated task source Event across profile and SQLite restart",
+        { tags: "p1" },
+        async () => {
+            const fixture = taskEventFixture("task-event");
+            const input = { taskId: new TaskId("task"), action: { complete: true } };
+            await fixture.task.submitAction(input);
+            fixture.profile.harness.transactions.restart();
+            fixture.effects.restart();
+            await fixture.task.submitAction(input);
+
+            expect(fixture.effects.events).toHaveLength(1);
+            expect(fixture.effects.events[0]?.kind.value).toBe("task.actionSubmitted");
+            expect(
+                fixture.profile.harness.transactions.transact((transaction) =>
+                    fixture.profile.harness.persistence.attemptsForItem(
+                        transaction,
+                        fixture.profile.invocation,
+                        0
+                    )
+                )
+            ).toHaveLength(1);
+        }
+    );
+
+    test(
+        "[P11-DEVICE-COMMAND-EVENTS] persists invoked and completed Events with the command Receipt cause",
+        { tags: "p1" },
+        async () => {
+            const fixture = deviceFixture("device-command-events");
+            await fixture.device.command(commandInput());
+            fixture.profile.harness.transactions.restart();
+            fixture.effects.restart();
+            await fixture.device.command(commandInput());
+
+            expect(fixture.effects.events.map((event) => event.kind.value)).toEqual([
+                "command.invoked",
+                "command.completed"
+            ]);
+            const receipt = currentReceipt(fixture.profile)!;
+            expect(
+                fixture.effects.events.map(
+                    (event) => fixture.effects.eventEvidence(event.id).receipt.id.value
+                )
+            ).toEqual([receipt.id.value, receipt.id.value]);
+            expect(fixture.transportCalls).toBe(1);
+        }
+    );
+
+    test(
+        "[P11-DEVICE-TYPED-SURFACE] validates and executes the Surface command's typed Operation",
+        { tags: "p1" },
+        async () => {
+            const fixture = deviceFixture("device-typed-surface");
+            expect(DEVICE_COMMAND_SURFACE.id.value).toBe("device.commands");
+            expect(DEVICE_COMMANDS.find((command) => command.name === "camera")?.arguments).toBe(
+                DEVICE_OPERATION_CONTRACTS.camera.descriptor.input
+            );
+            await expect(
+                fixture.device.command({ ...commandInput(), arguments: { facing: "side" } })
+            ).rejects.toMatchObject({ code: "operation.invalid-input", detailCode: "wire.input" });
+            expect(currentReceipt(fixture.profile)).toBeUndefined();
+            await expect(fixture.device.command(commandInput())).resolves.toEqual({
+                captured: true
+            });
+            expect(fixture.transportCalls).toBe(1);
+        }
+    );
+
+    test(
+        "[P11-SELF-RECEIPTS] persists and replays the canonical Self Operation Receipt",
+        { tags: "p0" },
+        async () => {
+            const dependency = new MemorySelfDependency();
+            const fixture = selfFixture(
+                "self-receipts",
+                SELF_OPERATION_CONTRACTS.checkpoint.descriptor
+            );
+            const self = new SelfFacet(fixture.runtime, dependency);
+            await self.checkpoint({ checkpoint: { value: 1 } });
+            const first = currentReceipt(fixture)!;
+            fixture.harness.transactions.restart();
+            await self.checkpoint({ checkpoint: { value: 1 } });
+            expect(currentReceipt(fixture)?.id.equals(first.id)).toBe(true);
+            expect(dependency.calls).toEqual(["checkpoint"]);
+        }
+    );
+
+    test(
+        "[P11-SELF-AUDIT] persists exact Invocation-to-Attempt-to-Receipt audit edges",
+        { tags: "p1" },
+        async () => {
+            const fixture = selfFixture(
+                "self-audit",
+                SELF_OPERATION_CONTRACTS.checkpoint.descriptor
+            );
+            await new SelfFacet(fixture.runtime, new MemorySelfDependency()).checkpoint({
+                checkpoint: { value: 1 }
+            });
+            const audits = fixture.harness.transactions.transact((transaction) =>
+                [...transaction.audits.values()].map((bytes) => AuditRecord.decode(bytes))
+            );
+            expect(audits.map((audit) => audit.kind.kind)).toEqual([
+                "invocation",
+                "attempt",
+                "receipt"
+            ]);
+            const [invocation, attempt, receipt] = audits;
+            expect(invocation).toMatchObject({ cause: undefined });
+            expect(invocation?.kind).toMatchObject({
+                kind: "invocation",
+                id: expect.any(InvocationId)
+            });
+            expect(attempt).toMatchObject({
+                actor: invocation?.actor,
+                tenant: invocation?.tenant,
+                correlation: invocation?.correlation
+            });
+            expect(attempt?.cause?.equals(invocation!.id)).toBe(true);
+            expect(receipt).toMatchObject({
+                actor: invocation?.actor,
+                tenant: invocation?.tenant,
+                correlation: invocation?.correlation
+            });
+            expect(receipt?.cause?.equals(attempt!.id)).toBe(true);
+        }
+    );
+
+    test(
+        "[P11-SELF-LEASE] denies every Self Operation under a stale exact-Turn lease before EffectAttempt",
+        { tags: "p0" },
+        async () => {
+            const turn = new TurnId("self-lease-turn");
+            const holder = new PrincipalRef(tenant, new PrincipalId("self-lease-holder"));
+            const live = TurnLease.unclaimed(turn).claim(holder, new Date(1), new Date(100));
+            const stale = JSON.stringify({
+                turn: turn.value,
+                holder: {
+                    principal: holder.principalId.value,
+                    tenant: holder.tenantId.value
+                },
+                epoch: 0
+            });
+            const operations = Object.values(SELF_OPERATION_CONTRACTS);
+            for (const contract of operations) {
+                const fixture = selfFixture(
+                    `self-lease-${contract.name.toLocaleLowerCase()}`,
+                    contract.descriptor
+                );
+                fixture.harness.preparation.lease = stale;
+                fixture.harness.finalAdmissions.decide = (_request, context) =>
+                    live.admits(parseLease(context.invocation.header.lease), new Date(10))
+                        ? { kind: "admitted" }
+                        : { kind: "denied", reason: "stale Self Turn lease" };
+                const self = new SelfFacet(fixture.runtime, new MemorySelfDependency());
+                await expect(invokeSelf(self, contract.name)).rejects.toMatchObject({
+                    code: "authority.denied"
+                });
+                expect(
+                    fixture.harness.transactions.transact((transaction) =>
+                        fixture.harness.persistence.attemptsForItem(
+                            transaction,
+                            fixture.invocation,
+                            0
+                        )
+                    )
+                ).toEqual([]);
+            }
+        }
+    );
+
+    test(
+        "[P11-SELF-ATTENUATION] creates a child Run under a durably attenuated Grant",
+        { tags: "p0" },
+        async () => {
+            const dependency = new AttenuatingSelfDependency(false);
+            const fixture = selfFixture(
+                "self-attenuation",
+                SELF_OPERATION_CONTRACTS.spawn.descriptor
+            );
+            await new SelfFacet(fixture.runtime, dependency).spawn({
+                child: { capability: "observe" }
+            });
+            expect(dependency.childRun?.equals(dependency.parentRun)).toBe(false);
+            expect(dependency.child?.attenuationOf?.equals(dependency.parent.id)).toBe(true);
+            expect(dependency.parent.canAttenuate(dependency.child!)).toBe(true);
+            expect(
+                dependency
+                    .resolvedAuthority(dependency.childRun!)
+                    .every((child) =>
+                        dependency
+                            .resolvedAuthority(dependency.parentRun)
+                            .some((parent) => parent.canAttenuate(child))
+                    )
+            ).toBe(true);
+        }
+    );
+
+    test(
+        "[P11-SELF-NO-WIDENING] rejects a spawned child authority outside the parent closure",
+        { tags: "p0" },
+        async () => {
+            const dependency = new AttenuatingSelfDependency(true);
+            const fixture = selfFixture(
+                "self-no-widening",
+                SELF_OPERATION_CONTRACTS.spawn.descriptor
+            );
+            await expect(
+                new SelfFacet(fixture.runtime, dependency).spawn({
+                    child: { capability: "administer" }
+                })
+            ).rejects.toMatchObject({ code: "invocation.invalid" });
+            expect(dependency.child).toBeUndefined();
+        }
+    );
 });
 
 function profileFixture(

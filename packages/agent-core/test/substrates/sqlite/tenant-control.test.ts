@@ -74,37 +74,43 @@ describe("SQLite Tenant control storage", () => {
         expect(tableNames(database)).not.toContain("workspace_binding_generations");
     });
 
-    test("reopens a file with identity, Grant, epoch, anchor, and marker intact", { tags: "p0" }, () => {
-        const directory = mkdtempSync(join(tmpdir(), "agent-core-tenant-control-"));
-        const path = join(directory, "tenant.sqlite");
-        try {
-            const firstDatabase = new FileSqlite(path);
-            const first = createSqliteTenantControlStore(firstDatabase, anchor);
-            const grant = allowGrant("file-grant");
-            firstDatabase.transaction(() =>
-                first.bootstrapTenant(firstDatabase, anchor, Revision.initial())
-            );
-            first.transaction(() => {
-                first.putGrant(grant);
-            });
-            firstDatabase.close();
+    test(
+        "reopens a file with identity, Grant, epoch, anchor, and marker intact",
+        { tags: "p0" },
+        () => {
+            const directory = mkdtempSync(join(tmpdir(), "agent-core-tenant-control-"));
+            const path = join(directory, "tenant.sqlite");
+            try {
+                const firstDatabase = new FileSqlite(path);
+                const first = createSqliteTenantControlStore(firstDatabase, anchor);
+                const grant = allowGrant("file-grant");
+                firstDatabase.transaction(() =>
+                    first.bootstrapTenant(firstDatabase, anchor, Revision.initial())
+                );
+                first.transaction(() => {
+                    first.putGrant(grant);
+                });
+                firstDatabase.close();
 
-            const restartedDatabase = new FileSqlite(path);
-            const restarted = createSqliteTenantControlStore(restartedDatabase);
-            const reader = new SqliteIdentityReader(restartedDatabase);
-            expect(reader.loadTenant(tenantId)?.kind).toBe("organization");
-            expect(reader.loadPrincipal(principalId)?.kind).toBe("user");
-            expect("savePrincipal" in reader).toBe(false);
-            expect(restarted.grant(grant.id)?.isLive).toBe(true);
-            expect(restarted.epoch(tenantScope).epoch).toBe(1);
-            expect(restarted.bootstrapAnchor()?.actorId.equals(anchor.actorId)).toBe(true);
-            expect(restarted.bootstrapMarker()?.ownerPrincipalId.equals(principalId)).toBe(true);
-            expect(restarted.isBootstrapEligible()).toBe(false);
-            restartedDatabase.close();
-        } finally {
-            rmSync(directory, { recursive: true, force: true });
+                const restartedDatabase = new FileSqlite(path);
+                const restarted = createSqliteTenantControlStore(restartedDatabase);
+                const reader = new SqliteIdentityReader(restartedDatabase);
+                expect(reader.loadTenant(tenantId)?.kind).toBe("organization");
+                expect(reader.loadPrincipal(principalId)?.kind).toBe("user");
+                expect("savePrincipal" in reader).toBe(false);
+                expect(restarted.grant(grant.id)?.isLive).toBe(true);
+                expect(restarted.epoch(tenantScope).epoch).toBe(1);
+                expect(restarted.bootstrapAnchor()?.actorId.equals(anchor.actorId)).toBe(true);
+                expect(restarted.bootstrapMarker()?.ownerPrincipalId.equals(principalId)).toBe(
+                    true
+                );
+                expect(restarted.isBootstrapEligible()).toBe(false);
+                restartedDatabase.close();
+            } finally {
+                rmSync(directory, { recursive: true, force: true });
+            }
         }
-    });
+    );
 
     test("rolls the complete resolver-input mutation back on failure", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -128,28 +134,32 @@ describe("SQLite Tenant control storage", () => {
         expect(store.isBootstrapEligible()).toBe(false);
     });
 
-    test("rolls the complete bootstrap closure back when marker insertion fails", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = createSqliteTenantControlStore(database, anchor);
+    test(
+        "rolls the complete bootstrap closure back when marker insertion fails",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
 
-        expect(() =>
-            database.transaction(() => {
-                database.run(
-                    `CREATE TRIGGER fail_tenant_bootstrap_marker
+            expect(() =>
+                database.transaction(() => {
+                    database.run(
+                        `CREATE TRIGGER fail_tenant_bootstrap_marker
                  BEFORE INSERT ON tenant_bootstrap_marker
                  BEGIN SELECT RAISE(ABORT, 'injected marker fault'); END`,
-                    []
-                );
-                store.bootstrapTenant(database, anchor, Revision.initial());
-            })
-        ).toThrow();
+                        []
+                    );
+                    store.bootstrapTenant(database, anchor, Revision.initial());
+                })
+            ).toThrow();
 
-        expect(store.isBootstrapEligible()).toBe(true);
-        expect(store.bootstrapMarker()).toBeUndefined();
-        expect(store.loadTenant(tenantId)).toBeUndefined();
-        expect(store.grants()).toEqual([]);
-        expect(store.epoch(tenantScope).epoch).toBe(0);
-    });
+            expect(store.isBootstrapEligible()).toBe(true);
+            expect(store.bootstrapMarker()).toBeUndefined();
+            expect(store.loadTenant(tenantId)).toBeUndefined();
+            expect(store.grants()).toEqual([]);
+            expect(store.epoch(tenantScope).epoch).toBe(0);
+        }
+    );
 
     test("rejects corrupted identity, authority, and bootstrap projections", { tags: "p0" }, () => {
         const identityDatabase = new TestSqlite();
@@ -381,42 +391,51 @@ describe("SQLite Tenant control storage", () => {
         );
     });
 
-    test("reconstruction rejects an extra role Grant beyond the materialized set", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = createSqliteTenantControlStore(database, anchor);
-        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
-        const membershipRow = database.all(
-            "SELECT id, role_name FROM tenant_memberships LIMIT 1",
-            []
-        )[0]!;
-        const grantRow = database.all(
-            "SELECT scope_key, subject_key FROM tenant_grants LIMIT 1",
-            []
-        )[0]!;
-        const extra = new Grant(
-            new GrantId("forged-extra-grant"),
-            tenantScope,
-            SubjectRef.principal(principalId),
-            "allow",
-            new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
-            {
-                kind: "role",
-                membershipId: new MembershipId(String(membershipRow["id"])),
-                roleName: String(membershipRow["role_name"]),
-                ruleOrdinal: 9999,
-                guest: false
-            }
-        );
-        database.run(
-            `INSERT INTO tenant_grants (id, scope_key, subject_key, effect, parent_grant_id, state, record)
+    test(
+        "reconstruction rejects an extra role Grant beyond the materialized set",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+            const membershipRow = database.all(
+                "SELECT id, role_name FROM tenant_memberships LIMIT 1",
+                []
+            )[0]!;
+            const grantRow = database.all(
+                "SELECT scope_key, subject_key FROM tenant_grants LIMIT 1",
+                []
+            )[0]!;
+            const extra = new Grant(
+                new GrantId("forged-extra-grant"),
+                tenantScope,
+                SubjectRef.principal(principalId),
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                {
+                    kind: "role",
+                    membershipId: new MembershipId(String(membershipRow["id"])),
+                    roleName: String(membershipRow["role_name"]),
+                    ruleOrdinal: 9999,
+                    guest: false
+                }
+            );
+            database.run(
+                `INSERT INTO tenant_grants (id, scope_key, subject_key, effect, parent_grant_id, state, record)
              VALUES (?, ?, ?, 'allow', NULL, 'active', ?)`,
-            [extra.id.value, grantRow["scope_key"]!, grantRow["subject_key"]!, Grant.encode(extra)]
-        );
+                [
+                    extra.id.value,
+                    grantRow["scope_key"]!,
+                    grantRow["subject_key"]!,
+                    Grant.encode(extra)
+                ]
+            );
 
-        expect(() => createSqliteTenantControlStore(database)).toThrow(
-            expect.objectContaining({ code: "codec.invalid" })
-        );
-    });
+            expect(() => createSqliteTenantControlStore(database)).toThrow(
+                expect.objectContaining({ code: "codec.invalid" })
+            );
+        }
+    );
 });
 
 function allowGrant(id: string): Grant {
@@ -458,10 +477,7 @@ class TestSqlite extends TransactionalSqlite {
 class MarkerTamperSqlite extends TestSqlite {
     public tampered = false;
 
-    public override all(
-        statement: string,
-        bindings: readonly SqliteValue[]
-    ): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = super.all(statement, bindings);
         if (!this.tampered || !statement.includes("FROM tenant_bootstrap_marker")) return rows;
         return rows.map((row) => ({ ...row, tenant_id: null }));
