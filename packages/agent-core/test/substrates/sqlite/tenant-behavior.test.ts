@@ -6,7 +6,12 @@ import {
     ScopeEpoch,
     createTenantControlBootstrapPlan
 } from "../../../src/authority";
-import { Revision, encodeCanonicalJson, type JsonValue } from "../../../src/core";
+import {
+    Revision,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    type JsonValue
+} from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { CapabilitySpec } from "../../../src/facets";
 import {
@@ -177,6 +182,20 @@ function guestMembership(shape: GuestMembershipShape): Membership {
             }
         })
     );
+}
+
+/** The pre-qualification wire shape: a Principal subject naming an id and no Tenant. */
+function unqualifiedSubjectRecord(bytes: Uint8Array): Uint8Array {
+    const envelope = decodeCanonicalJson(bytes) as { readonly [key: string]: JsonValue };
+    const payload = envelope["payload"] as { readonly [key: string]: JsonValue };
+    const subject = payload["subject"] as { readonly [key: string]: JsonValue };
+    return encodeCanonicalJson({
+        ...envelope,
+        payload: {
+            ...payload,
+            subject: { kind: subject["kind"]!, principal: subject["principal"]! }
+        }
+    });
 }
 
 function guestClosureDatabase(trust: GuestTrust, membership: Membership): TestSqlite {
@@ -1468,6 +1487,63 @@ describe("SQLite Tenant control closure integrity", () => {
             })
         );
     });
+
+    test(
+        "[C13-AUTH-PRINCIPAL-REF] fails closed on a stored subject that names a Principal without its Tenant",
+        { tags: "p0" },
+        () => {
+            const membership = new Membership(
+                new MembershipId("unqualified-membership"),
+                tenantScope,
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                hollowRole.name,
+                "active",
+                Revision.initial()
+            );
+            const grant = allowGrant("unqualified-grant");
+
+            const memberships = new TestSqlite();
+            bootstrappedStore(memberships);
+            insertRoleRow(memberships, hollowRole);
+            memberships.run(
+                `INSERT INTO tenant_memberships (
+                    id, scope_key, subject_key, role_name, state, revision, record
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    membership.id.value,
+                    sqliteScopeKey(membership.scope),
+                    sqliteSubjectKey(membership.subject),
+                    membership.role.value,
+                    membership.state,
+                    membership.revision.value,
+                    unqualifiedSubjectRecord(Membership.encode(membership))
+                ]
+            );
+            expect(() => createSqliteTenantControlStore(memberships)).toThrow(
+                /Principal subject reference/
+            );
+
+            const grants = new TestSqlite();
+            bootstrappedStore(grants);
+            grants.run(
+                `INSERT INTO tenant_grants (
+                    id, scope_key, subject_key, effect, parent_grant_id, state, record
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    grant.id.value,
+                    sqliteScopeKey(grant.scope),
+                    sqliteSubjectKey(grant.subject),
+                    grant.effect,
+                    null,
+                    grant.state.name,
+                    unqualifiedSubjectRecord(Grant.encode(grant))
+                ]
+            );
+            expect(() => createSqliteTenantControlStore(grants)).toThrow(
+                /Principal subject reference/
+            );
+        }
+    );
 
     test(
         "fails closed on marker, Tenant, revision, epoch, and Role closure drift",

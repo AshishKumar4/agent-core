@@ -377,6 +377,7 @@
       "requirePlanAttestation",
       "requireSafeInteger",
       "requireString",
+      "requireSubjectTenant",
       "requireSynchronousResult",
       "resolvePackageLock",
       "sameJson",
@@ -663,6 +664,7 @@
       "encodeScopeRef",
       "encodeSubjectRef",
       "findBuiltInRole",
+      "requireSubjectTenant",
       "scopePath"
     ],
     "@agent-core/core/environment-provider": [
@@ -1399,6 +1401,7 @@
       "requirePlanAttestation",
       "requireSafeInteger",
       "requireString",
+      "requireSubjectTenant",
       "requireSynchronousResult",
       "resolvePackageLock",
       "sameJson",
@@ -1838,6 +1841,7 @@
       "encodeScopeRef",
       "encodeSubjectRef",
       "findBuiltInRole",
+      "requireSubjectTenant",
       "scopePath"
     ],
     "@agent-core/core/environment-provider": [
