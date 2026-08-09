@@ -1,4 +1,5 @@
 import AgentCore.Model
+import AgentCore.Interceptors
 import AgentCore.Scopes
 import AgentCore.Policy
 import AgentCore.Slots

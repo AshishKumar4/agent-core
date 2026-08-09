@@ -2,13 +2,18 @@
   "edition": "1.0.0",
   "areas": {
     "authority": {
-      "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",
-      "fingerprint": "sha256:be2e57700202d4d934525492de73474b34fb3da2e1fae4c292b714de5596c3a4",
-      "mutants": 4301,
-      "killed": 4032,
+      "measuredAt": "1c68143c72976686e03cb35855e9eab5bcb3f0a9",
+      "fingerprint": "sha256:75fcebe50d66a1e12467531f50bd3e6e614084c6fc68c7ab508cbd843d634233",
+      "mutants": 4307,
+      "killed": 4036,
       "score": 93.7,
-      "actionable": 132,
-      "tolerated": 137
+      "actionable": 134,
+      "tolerated": 137,
+      "acceptedRegression": {
+        "from": 132,
+        "to": 134,
+        "reason": "Stryker perTest attribution artifact, not a coverage gap. memory.ts:1007 is reported Survived, but hand-applying it fails 8 tests across 5 files in the full mutation suite. A new p0 test pins the team arm of sameSubject and was verified to fail against both the :1004 and :1007 true-mutants; the reported count does not move because Stryker never runs the killing tests against them. Evidence in docs/MUTATION-SYSTEM-REVIEW.md."
+      }
     },
     "composition": {
       "measuredAt": "8450ac764b8ff1ceb506475c3984d4be0c6b87cc",

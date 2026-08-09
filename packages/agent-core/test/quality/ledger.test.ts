@@ -321,9 +321,17 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         );
         expect(authority?.boundary).toContain("have no theorem claim");
         expect(structural?.theorems).toContain("AgentCore.replay_preserves_item_order_and_keys");
+        const interceptor = traceability.requirements.find(
+            (item) => item.id === "AC-INTERCEPTOR-001"
+        );
+        expect(interceptor?.theorems).toContain("AgentCore.run_attributes_last_rewriter");
+        expect(interceptor?.theorems).toContain(
+            "AgentCore.direct_admission_has_no_applicable_interceptor"
+        );
+        expect(interceptor?.boundary).toContain("are not modeled");
         expect(
             traceability.nonClaims.find((item) => item.id === "NC-INTERCEPTORS")?.summary
-        ).toContain("structural ordered per-item");
+        ).toContain("durable trace persistence");
         expect(
             traceability.nonClaims.find((item) => item.id === "NC-CLOUDFLARE-BEHAVIOR")?.summary
         ).toContain("are not modeled");

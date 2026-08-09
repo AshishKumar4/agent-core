@@ -1,3 +1,4 @@
+import AgentCore.Interceptors
 import AgentCore.RunGraph
 
 /-!
@@ -27,6 +28,12 @@ structure AdmissionRequest where
   resolution : ResolutionId
   reservation : Option AdmissionReservation
   now : Time
+  /-- The applicable `operation.before`/`operation.after` contributions at this call's
+  cut points (§4.4); an applicable interceptor raises direct to mediated (§7.2). -/
+  interceptors : List InterceptorContribution
+
+def AdmissionRequest.intercepted (request : AdmissionRequest) : Bool :=
+  !request.interceptors.isEmpty
 
 def AdmissionRequest.ReservedFor (request : AdmissionRequest)
     (obligation : OpenObligation) : Prop :=
@@ -97,7 +104,8 @@ def DirectReady (state : SystemState) (request : AdmissionRequest) : Prop :=
   CallerGate request.prepared.header ∧ RouteGate state request.prepared.header ∧
   request.prepared.header.impact = .observe ∧
   request.prepared.header.placement.selected = .bundled ∧
-  effectiveTier .bundled request.prepared.header.impact request.prepared.header.lease.isSome = .direct ∧
+  effectiveTier .bundled request.prepared.header.impact request.prepared.header.lease.isSome
+    request.intercepted = .direct ∧
   ExactLeaseGate state request.prepared.header request.now ∧
   ∃ resolution token turn,
     state.authority.resolutions request.resolution = some resolution ∧
@@ -110,7 +118,7 @@ def MediatedReady (state : SystemState) (request : AdmissionRequest) : Prop :=
   request.prepared.header.placement.Valid ∧
   CallerGate request.prepared.header ∧ RouteGate state request.prepared.header ∧
   effectiveTier request.prepared.header.placement.selected request.prepared.header.impact
-    request.prepared.header.lease.isSome = .mediated ∧
+    request.prepared.header.lease.isSome request.intercepted = .mediated ∧
   MediatedLeaseGate state request.prepared.header request.now ∧
   RunReservationGate state request ∧
   ∃ resolution, state.authority.resolutions request.resolution = some resolution ∧
@@ -183,6 +191,36 @@ inductive DirectStep : SystemState → AdmissionRequest → SystemState → Prop
 
 theorem direct_admission_is_nondurable {before request after}
     (step : DirectStep before request after) : after = before := by cases step; rfl
+
+/-- Over the admission step relation: a direct admission carries no applicable
+interceptor. There is no state in which the direct tier records or discards
+interception evidence (§4.4 rule 5, §7.2). -/
+theorem direct_admission_has_no_applicable_interceptor {before request after}
+    (step : DirectStep before request after) : request.interceptors = [] := by
+  cases step with
+  | admit ready =>
+      have tier := ready.2.2.2.2.2.1
+      unfold effectiveTier at tier
+      cases contributions : request.interceptors with
+      | nil => rfl
+      | cons head tail =>
+          rw [AdmissionRequest.intercepted, contributions] at tier
+          revert tier
+          split
+          · rw [if_neg]
+            · intro tier; cases tier
+            · intro ⟨_, absurd⟩; cases absurd
+          · intro tier; cases tier
+
+/-- An applicable interceptor forces the mediated tier: no state admits the call
+directly (§7.2 — the rewrite evidence has no direct channel to be recorded through;
+an interceptor over an `observe` operation moves that read onto the mediated path). -/
+theorem applicable_interceptor_forbids_direct_admission {request contribution}
+    (applicable : contribution ∈ request.interceptors) :
+    ∀ before after, ¬ DirectStep before request after := by
+  intro before after step
+  rw [direct_admission_has_no_applicable_interceptor step] at applicable
+  cases applicable
 
 def requiresApproval (prepared : PreparedInvocation) : Bool :=
   match prepared.header.impact with

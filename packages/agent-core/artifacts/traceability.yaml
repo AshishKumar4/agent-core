@@ -1983,6 +1983,158 @@
         "generated application behavior and concrete deployment-provider effects",
         "per-app resource provisioning records"
       ]
+    },
+    {
+      "id": "AC-INTERCEPTOR-001",
+      "summary": "Operation-cut-point interception: total deterministic order, last-rewriter attribution, scoped final blocks, behavior-free trace replay, ReplayItem assembly, interception authority, and the mediated-tier raise",
+      "status": "proved-safety",
+      "boundary": "Interception is modeled at the two operation cut points as a small-step pipeline over an admitted schedule and behavior the host supplies. Attribution, ordering, block finality, replay reuse, authority, and the direct-tier refusal are invariants of that relation and of the admission step relation; runtime candidate discovery from installed contributions, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, and the non-operation cut points are not modeled.",
+      "definitions": [
+        "AgentCore.InterceptorRef",
+        "AgentCore.CutPoint",
+        "AgentCore.InterceptorContribution",
+        "AgentCore.InterceptorContribution.key",
+        "AgentCore.InterceptorOrder",
+        "AgentCore.ScheduleOrdered",
+        "AgentCore.InterceptDecision",
+        "AgentCore.InterceptorBehavior",
+        "AgentCore.InterceptionBlock",
+        "AgentCore.InterceptionState",
+        "AgentCore.startInterception",
+        "AgentCore.InterceptionState.Completed",
+        "AgentCore.InterceptionState.Halted",
+        "AgentCore.InterceptStep",
+        "AgentCore.InterceptRun",
+        "AgentCore.lastRewrite",
+        "AgentCore.replayInterceptions",
+        "AgentCore.InterceptionSite",
+        "AgentCore.MayIntercept",
+        "AgentCore.AdmittedSchedule",
+        "AgentCore.AdmissionRequest.interceptors",
+        "AgentCore.AdmissionRequest.intercepted"
+      ],
+      "theorems": [
+        "AgentCore.interceptor_order_total",
+        "AgentCore.ordered_schedule_unique",
+        "AgentCore.intercept_step_deterministic",
+        "AgentCore.interception_outcome_deterministic",
+        "AgentCore.run_records_transformation_chain",
+        "AgentCore.lastRewrite_is_final",
+        "AgentCore.run_attributes_last_rewriter",
+        "AgentCore.run_rewritten_value_names_last_rewriter",
+        "AgentCore.run_consumes_schedule_in_order",
+        "AgentCore.completed_trace_records_schedule_order",
+        "AgentCore.blocked_names_exact_scheduled_interceptor",
+        "AgentCore.blocked_pipeline_never_completes",
+        "AgentCore.replay_matches_chain",
+        "AgentCore.interception_replay_deterministic",
+        "AgentCore.run_replay_reproduces_result",
+        "AgentCore.replay_refuses_exactly_broken_chains",
+        "AgentCore.replay_item_reuses_persisted_transformations",
+        "AgentCore.completed_runs_assemble_valid_replay_item",
+        "AgentCore.cross_domain_interception_rejected",
+        "AgentCore.undeclared_cross_facet_interception_rejected",
+        "AgentCore.ungranted_cross_facet_interception_rejected",
+        "AgentCore.run_trace_is_admitted",
+        "AgentCore.unauthorized_interceptor_never_attributed",
+        "AgentCore.interception_raises_direct_floor",
+        "AgentCore.direct_admission_has_no_applicable_interceptor",
+        "AgentCore.applicable_interceptor_forbids_direct_admission"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_interception_pipeline_run",
+        "AgentCore.Examples.nonvacuous_interceptor_block_scoped_and_final",
+        "AgentCore.Examples.nonvacuous_tampered_interception_replay_refused",
+        "AgentCore.Examples.nonvacuous_interception_replay_item_bridge",
+        "AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed",
+        "AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated"
+      ],
+      "witnessCoverage": {
+        "AgentCore.interceptor_order_total": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.ordered_schedule_unique": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.intercept_step_deterministic": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.interception_outcome_deterministic": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.run_records_transformation_chain": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run",
+          "AgentCore.Examples.nonvacuous_interception_replay_item_bridge"
+        ],
+        "AgentCore.lastRewrite_is_final": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.run_attributes_last_rewriter": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.run_rewritten_value_names_last_rewriter": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.run_consumes_schedule_in_order": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run",
+          "AgentCore.Examples.nonvacuous_interceptor_block_scoped_and_final"
+        ],
+        "AgentCore.completed_trace_records_schedule_order": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.blocked_names_exact_scheduled_interceptor": [
+          "AgentCore.Examples.nonvacuous_interceptor_block_scoped_and_final"
+        ],
+        "AgentCore.blocked_pipeline_never_completes": [
+          "AgentCore.Examples.nonvacuous_interceptor_block_scoped_and_final"
+        ],
+        "AgentCore.replay_matches_chain": [
+          "AgentCore.Examples.nonvacuous_tampered_interception_replay_refused"
+        ],
+        "AgentCore.interception_replay_deterministic": [
+          "AgentCore.Examples.nonvacuous_tampered_interception_replay_refused"
+        ],
+        "AgentCore.run_replay_reproduces_result": [
+          "AgentCore.Examples.nonvacuous_interception_pipeline_run"
+        ],
+        "AgentCore.replay_refuses_exactly_broken_chains": [
+          "AgentCore.Examples.nonvacuous_tampered_interception_replay_refused"
+        ],
+        "AgentCore.replay_item_reuses_persisted_transformations": [
+          "AgentCore.Examples.nonvacuous_interception_replay_item_bridge"
+        ],
+        "AgentCore.completed_runs_assemble_valid_replay_item": [
+          "AgentCore.Examples.nonvacuous_interception_replay_item_bridge"
+        ],
+        "AgentCore.cross_domain_interception_rejected": [
+          "AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed"
+        ],
+        "AgentCore.undeclared_cross_facet_interception_rejected": [
+          "AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed"
+        ],
+        "AgentCore.ungranted_cross_facet_interception_rejected": [
+          "AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed"
+        ],
+        "AgentCore.run_trace_is_admitted": [
+          "AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed"
+        ],
+        "AgentCore.unauthorized_interceptor_never_attributed": [
+          "AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed"
+        ],
+        "AgentCore.interception_raises_direct_floor": [
+          "AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated"
+        ],
+        "AgentCore.direct_admission_has_no_applicable_interceptor": [
+          "AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated"
+        ],
+        "AgentCore.applicable_interceptor_forbids_direct_admission": [
+          "AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated"
+        ]
+      },
+      "remainingEvidence": [
+        "runtime candidate discovery and durable trace persistence refinement",
+        "prompt.assemble, input.submitted, and turn.step cut points"
+      ]
     }
   ],
   "assumptions": [
@@ -2055,7 +2207,7 @@
     },
     {
       "id": "NC-INTERCEPTORS",
-      "summary": "Runtime interceptor ordering, execution, durable persistence, and replay lookup are not modeled; only structural ordered per-item transformation association is modeled.",
+      "summary": "Runtime interceptor candidate discovery from installed contributions, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, and the prompt.assemble, input.submitted, and turn.step cut points are not modeled; operation cut-point ordering, execution, attribution, blocks, replay reuse, and the mediated-tier raise are claimed under AC-INTERCEPTOR-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -2180,11 +2332,16 @@
       {
         "id": "L1_INTERCEPTORS",
         "spec": "SPEC §4.4",
-        "requirementIds": [],
+        "requirementIds": [
+          "AC-INTERCEPTOR-001"
+        ],
         "nonClaimIds": [
           "NC-INTERCEPTORS"
         ],
-        "assumptionIds": []
+        "assumptionIds": [
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS",
+          "ASM-CLOSED-WORLD-TRANSITIONS"
+        ]
       },
       {
         "id": "L1_ENVIRONMENT_SESSION",
@@ -2257,7 +2414,8 @@
           "AC-COMPOSED-001",
           "AC-EFFECT-001",
           "AC-LEASE-001",
-          "AC-STRUCTURAL-001"
+          "AC-STRUCTURAL-001",
+          "AC-INTERCEPTOR-001"
         ],
         "nonClaimIds": [
           "NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE"
