@@ -337,6 +337,225 @@
       ]
     },
     {
+      "id": "AC-SLOT-001",
+      "summary": "Immutable slot declarations, exclusive contribution origins, schema-conformant stored entries, and declared-order arrival-independent slot resolution",
+      "status": "proved-safety",
+      "boundary": "Declarations and entry origins are collision-checked in every arrival order, stored entries keep an installed accepting declaration, and resolution presents exactly the stored entries for a slot in (ordinal, contributor) order regardless of arrival order — the declared presentation order is the reference store's canonical order. Slot contribute/visibility authority policy, concrete JSON-Schema semantics, the viewer-filtered SlotCatalog query, and surface-backed rendering are not proved here.",
+      "definitions": [
+        "AgentCore.SlotDeclaration",
+        "AgentCore.SlotEntry",
+        "AgentCore.SlotEntry.SameOrigin",
+        "AgentCore.SlotLedger",
+        "AgentCore.SlotLedger.resolve",
+        "AgentCore.SlotLedger.OriginsUnique",
+        "AgentCore.SlotLedger.EntriesConform",
+        "AgentCore.slotEntryLe",
+        "AgentCore.SlotStep"
+      ],
+      "theorems": [
+        "AgentCore.occupied_slot_redeclaration_rejected",
+        "AgentCore.slot_reinstallation_is_stored_identity",
+        "AgentCore.slot_step_preserves_declarations",
+        "AgentCore.uninstalled_slot_contribution_rejected",
+        "AgentCore.nonvalidating_contribution_rejected",
+        "AgentCore.conflicting_origin_contribution_rejected",
+        "AgentCore.entry_id_reuse_rejected",
+        "AgentCore.recontribution_is_stored_identity",
+        "AgentCore.slot_step_preserves_origin_exclusivity",
+        "AgentCore.slot_step_preserves_entry_conformance",
+        "AgentCore.resolution_is_complete_and_declared_order",
+        "AgentCore.resolution_ignores_arrival_order",
+        "AgentCore.resolution_is_unique_declared_order",
+        "AgentCore.resolved_entry_is_stored_and_validates"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_slot_contribution_lifecycle",
+        "AgentCore.Examples.nonvacuous_resolution_reorders_arrivals",
+        "AgentCore.Examples.nonvacuous_arrival_free_resolution",
+        "AgentCore.Examples.nonvacuous_slot_redeclaration_rejected",
+        "AgentCore.Examples.nonvacuous_uninstalled_contribution_rejected",
+        "AgentCore.Examples.nonvacuous_nonvalidating_contribution_rejected",
+        "AgentCore.Examples.nonvacuous_conflicting_origin_rejected",
+        "AgentCore.Examples.nonvacuous_entry_id_reuse_rejected",
+        "AgentCore.Examples.nonvacuous_slot_noop_reinstallation"
+      ],
+      "witnessCoverage": {
+        "AgentCore.occupied_slot_redeclaration_rejected": [
+          "AgentCore.Examples.nonvacuous_slot_redeclaration_rejected"
+        ],
+        "AgentCore.slot_reinstallation_is_stored_identity": [
+          "AgentCore.Examples.nonvacuous_slot_noop_reinstallation"
+        ],
+        "AgentCore.slot_step_preserves_declarations": [
+          "AgentCore.Examples.nonvacuous_slot_contribution_lifecycle"
+        ],
+        "AgentCore.uninstalled_slot_contribution_rejected": [
+          "AgentCore.Examples.nonvacuous_uninstalled_contribution_rejected"
+        ],
+        "AgentCore.nonvalidating_contribution_rejected": [
+          "AgentCore.Examples.nonvacuous_nonvalidating_contribution_rejected"
+        ],
+        "AgentCore.conflicting_origin_contribution_rejected": [
+          "AgentCore.Examples.nonvacuous_conflicting_origin_rejected"
+        ],
+        "AgentCore.entry_id_reuse_rejected": [
+          "AgentCore.Examples.nonvacuous_entry_id_reuse_rejected"
+        ],
+        "AgentCore.recontribution_is_stored_identity": [
+          "AgentCore.Examples.nonvacuous_slot_noop_reinstallation"
+        ],
+        "AgentCore.slot_step_preserves_origin_exclusivity": [
+          "AgentCore.Examples.nonvacuous_slot_contribution_lifecycle",
+          "AgentCore.Examples.nonvacuous_conflicting_origin_rejected"
+        ],
+        "AgentCore.slot_step_preserves_entry_conformance": [
+          "AgentCore.Examples.nonvacuous_slot_contribution_lifecycle",
+          "AgentCore.Examples.nonvacuous_nonvalidating_contribution_rejected"
+        ],
+        "AgentCore.resolution_is_complete_and_declared_order": [
+          "AgentCore.Examples.nonvacuous_resolution_reorders_arrivals"
+        ],
+        "AgentCore.resolution_ignores_arrival_order": [
+          "AgentCore.Examples.nonvacuous_arrival_free_resolution"
+        ],
+        "AgentCore.resolution_is_unique_declared_order": [
+          "AgentCore.Examples.nonvacuous_resolution_reorders_arrivals"
+        ],
+        "AgentCore.resolved_entry_is_stored_and_validates": [
+          "AgentCore.Examples.nonvacuous_slot_contribution_lifecycle",
+          "AgentCore.Examples.nonvacuous_resolution_reorders_arrivals"
+        ]
+      },
+      "remainingEvidence": [
+        "slot contribute/visibility authority policy enforcement conformance",
+        "concrete entry-schema validation and store transaction conformance"
+      ]
+    },
+    {
+      "id": "AC-COMMAND-001",
+      "summary": "Per-surface per-Scope command collision rejection, exact derived-Subscription defaults, install-checked mappings with validated invocation input, and duplicate-submission idempotency",
+      "status": "proved-safety",
+      "boundary": "A colliding (Scope, surface, name) contribution rejects in every arrival order, an installed command stores exactly the derived initiator/event-dedupe route with nonempty accepted trust, install admits only mappings that send every schema-valid argument value to schema-valid Operation input so every emitted command.invoked input validates, and a resubmitted (caller, idempotencyKey) envelope yields the recorded outcome as a duplicate write that reserves nothing and mints no Event. The concrete JSON-Schema compatibility algorithm, argument grammar, completion providers, alias configuration, visibility disable, dispatcher gate ordering, and command.completed rendering are not proved here.",
+      "definitions": [
+        "AgentCore.CommandDecl",
+        "AgentCore.CommandRoute",
+        "AgentCore.deriveCommandRoute",
+        "AgentCore.CommandRegistry",
+        "AgentCore.CommandRegistry.InstalledMappingsSafe",
+        "AgentCore.MappingSchemaSafe",
+        "AgentCore.CommandInvocation",
+        "AgentCore.CommandStep",
+        "AgentCore.SubmissionWrite",
+        "AgentCore.SubmissionOutcome.Reserves",
+        "AgentCore.SubmissionLedger",
+        "AgentCore.SubmissionLedger.ReservationConsistent",
+        "AgentCore.SubmissionStep"
+      ],
+      "theorems": [
+        "AgentCore.command_surface_collision_rejected",
+        "AgentCore.occupied_command_id_installation_rejected",
+        "AgentCore.command_reinstallation_is_stored_identity",
+        "AgentCore.installation_registers_exact_derived_route",
+        "AgentCore.nonderived_route_installation_rejected",
+        "AgentCore.installed_route_is_initiator_with_event_dedupe",
+        "AgentCore.empty_trust_installation_rejected",
+        "AgentCore.unsafe_mapping_installation_rejected",
+        "AgentCore.uninstalled_command_invocation_rejected",
+        "AgentCore.invalid_arguments_invocation_rejected",
+        "AgentCore.command_step_preserves_installed_mapping_safety",
+        "AgentCore.command_step_preserves_surface_registration",
+        "AgentCore.invocation_emits_validated_operation_input",
+        "AgentCore.commit_requires_unreserved_identity",
+        "AgentCore.reserved_identity_cannot_recommit",
+        "AgentCore.resubmission_returns_recorded_reply",
+        "AgentCore.duplicate_submission_reserves_and_emits_nothing",
+        "AgentCore.duplicate_cites_reserving_original",
+        "AgentCore.submission_step_preserves_reservation_consistency",
+        "AgentCore.at_most_one_reserving_write_per_identity"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation",
+        "AgentCore.Examples.nonvacuous_command_surface_collision_rejected",
+        "AgentCore.Examples.nonvacuous_occupied_command_id_installation_rejected",
+        "AgentCore.Examples.nonvacuous_command_reinstallation_identity",
+        "AgentCore.Examples.nonvacuous_nonderived_route_rejected",
+        "AgentCore.Examples.nonvacuous_empty_trust_installation_rejected",
+        "AgentCore.Examples.nonvacuous_unsafe_mapping_installation_rejected",
+        "AgentCore.Examples.nonvacuous_uninstalled_invocation_rejected",
+        "AgentCore.Examples.nonvacuous_invalid_arguments_invocation_rejected",
+        "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence",
+        "AgentCore.Examples.nonvacuous_reserved_identity_recommit_rejected",
+        "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent"
+      ],
+      "witnessCoverage": {
+        "AgentCore.command_surface_collision_rejected": [
+          "AgentCore.Examples.nonvacuous_command_surface_collision_rejected"
+        ],
+        "AgentCore.occupied_command_id_installation_rejected": [
+          "AgentCore.Examples.nonvacuous_occupied_command_id_installation_rejected"
+        ],
+        "AgentCore.command_reinstallation_is_stored_identity": [
+          "AgentCore.Examples.nonvacuous_command_reinstallation_identity"
+        ],
+        "AgentCore.installation_registers_exact_derived_route": [
+          "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation"
+        ],
+        "AgentCore.nonderived_route_installation_rejected": [
+          "AgentCore.Examples.nonvacuous_nonderived_route_rejected"
+        ],
+        "AgentCore.installed_route_is_initiator_with_event_dedupe": [
+          "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation"
+        ],
+        "AgentCore.empty_trust_installation_rejected": [
+          "AgentCore.Examples.nonvacuous_empty_trust_installation_rejected"
+        ],
+        "AgentCore.unsafe_mapping_installation_rejected": [
+          "AgentCore.Examples.nonvacuous_unsafe_mapping_installation_rejected"
+        ],
+        "AgentCore.uninstalled_command_invocation_rejected": [
+          "AgentCore.Examples.nonvacuous_uninstalled_invocation_rejected"
+        ],
+        "AgentCore.invalid_arguments_invocation_rejected": [
+          "AgentCore.Examples.nonvacuous_invalid_arguments_invocation_rejected"
+        ],
+        "AgentCore.command_step_preserves_installed_mapping_safety": [
+          "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation"
+        ],
+        "AgentCore.command_step_preserves_surface_registration": [
+          "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation",
+          "AgentCore.Examples.nonvacuous_command_surface_collision_rejected"
+        ],
+        "AgentCore.invocation_emits_validated_operation_input": [
+          "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation"
+        ],
+        "AgentCore.commit_requires_unreserved_identity": [
+          "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence"
+        ],
+        "AgentCore.reserved_identity_cannot_recommit": [
+          "AgentCore.Examples.nonvacuous_reserved_identity_recommit_rejected"
+        ],
+        "AgentCore.resubmission_returns_recorded_reply": [
+          "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence"
+        ],
+        "AgentCore.duplicate_submission_reserves_and_emits_nothing": [
+          "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence"
+        ],
+        "AgentCore.duplicate_cites_reserving_original": [
+          "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence"
+        ],
+        "AgentCore.submission_step_preserves_reservation_consistency": [
+          "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence"
+        ],
+        "AgentCore.at_most_one_reserving_write_per_identity": [
+          "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent"
+        ]
+      },
+      "remainingEvidence": [
+        "syntactic mapping compatibility check soundness against the semantic install guarantee",
+        "dispatcher envelope gate ordering and command.completed conformance"
+      ]
+    },
+    {
       "id": "AC-TRUST-001",
       "summary": "Source-independent channel trust rejects a caller-asserted tier that differs from host derivation",
       "status": "proved-safety",
@@ -1621,12 +1840,12 @@
     },
     {
       "id": "NC-CONTRIBUTIONS-SLOTS",
-      "summary": "Contribution validation, slot ownership, ordering, conflict handling, and materialized slot semantics are not modeled.",
+      "summary": "Slot contribute/visibility authority policy, concrete JSON-Schema validation, the viewer-filtered SlotCatalog query path, and surface-backed entry rendering are not modeled; the §4.2 declaration/origin collision rules and declared-order arrival-independent resolution are claimed under AC-SLOT-001.",
       "status": "specified-not-modeled"
     },
     {
       "id": "NC-COMMANDS",
-      "summary": "Command contribution parsing, dispatch, argument validation, authorization, and result semantics are not modeled.",
+      "summary": "Concrete JSON-Schema compatibility checking, argument grammar and CLI parsing, completion providers, per-Scope alias and visibility configuration, dispatcher envelope gate ordering, and command.completed result rendering are not modeled; §4.3 collision rejection, derived-Subscription exactness, install-checked mappings, validated invocation input, and submission idempotency are claimed under AC-COMMAND-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -1739,7 +1958,9 @@
       {
         "id": "L1_CONTRIBUTIONS_SLOTS",
         "spec": "SPEC §4.2",
-        "requirementIds": [],
+        "requirementIds": [
+          "AC-SLOT-001"
+        ],
         "nonClaimIds": [
           "NC-CONTRIBUTIONS-SLOTS"
         ],
@@ -1748,7 +1969,9 @@
       {
         "id": "L1_COMMANDS",
         "spec": "SPEC §4.3",
-        "requirementIds": [],
+        "requirementIds": [
+          "AC-COMMAND-001"
+        ],
         "nonClaimIds": [
           "NC-COMMANDS"
         ],
