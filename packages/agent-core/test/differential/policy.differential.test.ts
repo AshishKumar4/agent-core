@@ -51,7 +51,8 @@ describe("enforcement tier agrees with the verified model", () => {
                             op: "policy.tier",
                             impact,
                             sessionScoped,
-                            placement
+                            placement,
+                            intercepted: false
                         })
                     )["tier"];
                     const documentedDivergence =
@@ -69,6 +70,34 @@ describe("enforcement tier agrees with the verified model", () => {
             }
         }
     });
+
+    test(
+        "an applicable interceptor forces mediated for every impact, session, and placement",
+        { tags: "p0" },
+        async () => {
+            // The implementation side of this raise is asserted at its real seam —
+            // TenantOperationAuthority.tier with hasInterceptors — in
+            // test/composition/tier-policy.test.ts ("interceptors force mediated
+            // regardless of policy"). Here the verified model sweeps the whole domain:
+            // rewrite evidence has no direct channel to be recorded through (SPEC §7.2).
+            for (const impact of IMPACTS) {
+                for (const sessionScoped of [true, false]) {
+                    for (const placement of MODES) {
+                        const model = (
+                            await oracle.ask({
+                                op: "policy.tier",
+                                impact,
+                                sessionScoped,
+                                placement,
+                                intercepted: true
+                            })
+                        )["tier"];
+                        expect(model, `${impact}/${sessionScoped}/${placement}`).toBe("mediated");
+                    }
+                }
+            }
+        }
+    );
 });
 
 describe("placement selection agrees with the verified model", () => {

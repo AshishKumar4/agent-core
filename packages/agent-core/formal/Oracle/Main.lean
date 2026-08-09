@@ -128,7 +128,8 @@ where
         let impact ← parseImpact (← (← request.getObjVal? "impact").getStr?)
         let sessionScoped ← (← request.getObjVal? "sessionScoped").getBool?
         let placement ← parsePlacement (← (← request.getObjVal? "placement").getStr?)
-        let tier := effectiveTier placement impact sessionScoped
+        let intercepted ← (← request.getObjVal? "intercepted").getBool?
+        let tier := effectiveTier placement impact sessionScoped intercepted
         pure (Json.mkObj [("tier", Json.str (match tier with
           | .direct => "direct" | .mediated => "mediated"))])
     | "policy.placement" => do
