@@ -3891,4 +3891,329 @@ theorem nonvacuous_reachable_settled_obligations_and_acceptance :
     graph_reachable_settled_acceptance_holds_at_current_head nonvacuous_reachable_settled_run.1
       (reachSettledCriterion acceptanceHead) nonvacuous_reachable_settled_run.2⟩
 
+/-! §4.4 interception pipeline witnesses. Three interceptors over one value in flight:
+`alpha` rewrites, `gamma` passes through unchanged, `beta` rewrites again. `gamma` and
+`beta` share a priority, so only the facet component separates them — the order tie the
+total `(priority, facetId, interceptorId)` key exists to break. -/
+
+private def alphaRef : InterceptorRef := ⟨⟨1⟩, 1⟩
+private def gammaRef : InterceptorRef := ⟨⟨1⟩, 2⟩
+private def betaRef : InterceptorRef := ⟨⟨2⟩, 1⟩
+private def rogueRef : InterceptorRef := ⟨⟨3⟩, 1⟩
+private def alphaContribution : InterceptorContribution := ⟨alphaRef, .before, 1⟩
+private def gammaContribution : InterceptorContribution := ⟨gammaRef, .before, 2⟩
+private def betaContribution : InterceptorContribution := ⟨betaRef, .before, 2⟩
+private def pipelineSchedule : List InterceptorContribution :=
+  [alphaContribution, gammaContribution, betaContribution]
+
+private def rawValue : StructuralValue := ⟨"json-v1", ["raw"]⟩
+private def proxiedValue : StructuralValue := ⟨"json-v1", ["proxied"]⟩
+private def stampedValue : StructuralValue := ⟨"json-v1", ["stamped"]⟩
+
+private def pipelineBehavior : InterceptorBehavior := fun interceptor value =>
+  if interceptor = alphaRef then .proceed proxiedValue
+  else if interceptor = betaRef then .proceed stampedValue
+  else .proceed value
+
+private def pipelineTrace : List InterceptorTransformation :=
+  [⟨alphaRef, rawValue, proxiedValue⟩, ⟨gammaRef, proxiedValue, proxiedValue⟩,
+    ⟨betaRef, proxiedValue, stampedValue⟩]
+private def pipelineFinal : InterceptionState :=
+  ⟨rawValue, stampedValue, pipelineTrace, [], none⟩
+
+private theorem pipelineOrdered : ScheduleOrdered pipelineSchedule :=
+  ⟨Or.inl (by decide), Or.inr ⟨rfl, Or.inl (by decide)⟩, trivial⟩
+
+private theorem pipelineRun : InterceptRun pipelineBehavior
+    (startInterception pipelineSchedule rawValue) pipelineFinal :=
+  .step (.proceed (next := alphaContribution)
+      (rest := [gammaContribution, betaContribution]) (output := proxiedValue) rfl rfl rfl)
+    (.step (.proceed (next := gammaContribution) (rest := [betaContribution])
+        (output := proxiedValue) rfl rfl rfl)
+      (.step (.proceed (next := betaContribution) (rest := [])
+          (output := stampedValue) rfl rfl rfl)
+        (.refl pipelineFinal)))
+
+/-- The pipeline consequences on one concrete run. Discrimination: the misordered
+permutation is refused, so ordering is not vacuously total; the trace names the
+interceptors in exactly the schedule order; attribution picks `beta` — the *last*
+rewriter, not the first (`alpha`) and not the last executed (`gamma`, which passed
+unchanged); replay reproduces the final value from the trace alone; and every halted
+outcome of the same start equals this one, so the step relation admits no second
+execution order. -/
+theorem nonvacuous_interception_pipeline_run :
+    ScheduleOrdered pipelineSchedule ∧
+    ¬ ScheduleOrdered [alphaContribution, betaContribution, gammaContribution] ∧
+    (∀ schedule, ScheduleOrdered schedule →
+      (∀ contribution, contribution ∈ schedule ↔ contribution ∈ pipelineSchedule) →
+      schedule = pipelineSchedule) ∧
+    InterceptRun pipelineBehavior (startInterception pipelineSchedule rawValue)
+      pipelineFinal ∧
+    pipelineFinal.Completed ∧
+    pipelineFinal.trace.map InterceptorTransformation.interceptor =
+      pipelineSchedule.map InterceptorContribution.interceptor ∧
+    lastRewrite pipelineFinal.trace = some ⟨betaRef, proxiedValue, stampedValue⟩ ∧
+    replayInterceptions rawValue pipelineFinal.trace = some stampedValue ∧
+    (∀ outcome,
+      InterceptRun pipelineBehavior (startInterception pipelineSchedule rawValue) outcome →
+      outcome.Halted → outcome = pipelineFinal) := by
+  refine ⟨pipelineOrdered, ?_, ?_, pipelineRun, ⟨rfl, rfl⟩, rfl, by decide, by decide, ?_⟩
+  · intro misordered
+    exact interceptor_order_asymm (left := gammaContribution) (right := betaContribution)
+      (Or.inr ⟨rfl, Or.inl (by decide)⟩) misordered.2.1
+  · intro schedule ordered same
+    exact ordered_schedule_unique ordered pipelineOrdered same
+  · intro outcome run halted
+    exact interception_outcome_deterministic run halted pipelineRun (Or.inl rfl)
+
+private def blockingBehavior : InterceptorBehavior := fun interceptor _ =>
+  if interceptor = alphaRef then .proceed proxiedValue
+  else if interceptor = gammaRef then .block "policy denied"
+  else .proceed stampedValue
+
+private def blockedFinal : InterceptionState :=
+  ⟨rawValue, proxiedValue, [⟨alphaRef, rawValue, proxiedValue⟩], [betaContribution],
+    some ⟨gammaRef, "policy denied"⟩⟩
+
+private theorem blockedRun : InterceptRun blockingBehavior
+    (startInterception pipelineSchedule rawValue) blockedFinal :=
+  .step (.proceed (next := alphaContribution)
+      (rest := [gammaContribution, betaContribution]) (output := proxiedValue) rfl rfl rfl)
+    (.step (.block (next := gammaContribution) (rest := [betaContribution]) rfl rfl rfl)
+      (.refl blockedFinal))
+
+/-- A mid-schedule block on the same schedule. Discrimination: the blocked state names
+exactly `gamma` with its reason, the trace keeps `alpha`'s completed rewrite, `beta` —
+scheduled after the blocker — is never attributed anything, and no continuation of the
+blocked pipeline completes. -/
+theorem nonvacuous_interceptor_block_scoped_and_final :
+    InterceptRun blockingBehavior (startInterception pipelineSchedule rawValue)
+      blockedFinal ∧
+    blockedFinal.blocked = some ⟨gammaRef, "policy denied"⟩ ∧
+    (∃ ran blocker, pipelineSchedule = ran ++ blocker :: blockedFinal.pending ∧
+      blocker.interceptor = gammaRef ∧
+      blockedFinal.trace.map InterceptorTransformation.interceptor =
+        ran.map InterceptorContribution.interceptor) ∧
+    (∀ entry, entry ∈ blockedFinal.trace → entry.interceptor ≠ betaRef) ∧
+    (∀ outcome, InterceptRun blockingBehavior blockedFinal outcome →
+      ¬ outcome.Completed) := by
+  refine ⟨blockedRun, rfl, blocked_names_exact_scheduled_interceptor blockedRun rfl, ?_, ?_⟩
+  · intro entry member
+    rcases List.mem_cons.mp member with rfl | absent
+    · decide
+    · cases absent
+  · intro outcome run
+    exact blocked_pipeline_never_completes rfl run
+
+private def tamperedTrace : List InterceptorTransformation :=
+  [⟨alphaRef, rawValue, proxiedValue⟩, ⟨betaRef, stampedValue, stampedValue⟩]
+
+/-- Replay accepts exactly the recorded chain. Discrimination: the genuine trace
+replays to the recorded result, while a tampered copy whose second entry claims a
+different input than its predecessor produced is refused outright — no output
+completes it as a chain. If replay ignored the nested link validation, the tampered
+trace would still produce a value. -/
+theorem nonvacuous_tampered_interception_replay_refused :
+    replayInterceptions rawValue pipelineTrace = some stampedValue ∧
+    replayInterceptions rawValue tamperedTrace = none ∧
+    ¬ ∃ output, TransformationChain rawValue output tamperedTrace := by
+  refine ⟨by decide, by decide, ?_⟩
+  exact replay_refuses_exactly_broken_chains.mp (by decide)
+
+private def firstPreparedItem : PreparedItem := ⟨0, firstArgs, firstKey⟩
+private def afterContribution : InterceptorContribution := ⟨betaRef, .after, 1⟩
+
+private def phaseBehavior : InterceptorBehavior := fun interceptor _ =>
+  if interceptor = alphaRef then .proceed firstPreparedArgs else .proceed firstPresentation
+
+private def beforePhaseFinal : InterceptionState :=
+  ⟨firstArgs, firstPreparedArgs, [⟨alphaRef, firstArgs, firstPreparedArgs⟩], [], none⟩
+private def afterPhaseFinal : InterceptionState :=
+  ⟨firstEffectOutput, firstPresentation,
+    [⟨betaRef, firstEffectOutput, firstPresentation⟩], [], none⟩
+
+private theorem beforePhaseRun : InterceptRun phaseBehavior
+    (startInterception [alphaContribution] firstArgs) beforePhaseFinal :=
+  .step (.proceed (next := alphaContribution) (rest := [])
+      (output := firstPreparedArgs) rfl rfl rfl)
+    (.refl beforePhaseFinal)
+
+private theorem afterPhaseRun : InterceptRun phaseBehavior
+    (startInterception [afterContribution] firstEffectOutput) afterPhaseFinal :=
+  .step (.proceed (next := afterContribution) (rest := [])
+      (output := firstPresentation) rfl rfl rfl)
+    (.refl afterPhaseFinal)
+
+private def bridgedReplayItem : ReplayItem :=
+  ⟨0, firstKey, [⟨alphaRef, firstArgs, firstPreparedArgs⟩], firstPreparedArgs,
+    firstEffectOutput, [⟨betaRef, firstEffectOutput, firstPresentation⟩], firstPresentation⟩
+
+/-- The runtime pipeline meets the persisted replay model on a real item of the batch
+PreparedInvocation: a completed before run over the item's arguments and a completed
+after run over its effect output assemble a `ReplayItem` that is `ValidFor` the exact
+item, and its persisted chains replay to the persisted prepared arguments and
+presentation without rerunning either pass. Discrimination: `ValidFor` binds index,
+key, and both nested chains — a swapped key, reordered chain, or substituted output
+breaks it. -/
+theorem nonvacuous_interception_replay_item_bridge :
+    firstPreparedItem ∈ prepared.items ∧
+    ReplayItem.ValidFor bridgedReplayItem firstPreparedItem ∧
+    replayInterceptions firstPreparedItem.arguments bridgedReplayItem.before =
+      some bridgedReplayItem.preparedArguments ∧
+    replayInterceptions bridgedReplayItem.effectOutput bridgedReplayItem.after =
+      some bridgedReplayItem.presentation := by
+  have valid : ReplayItem.ValidFor bridgedReplayItem firstPreparedItem :=
+    completed_runs_assemble_valid_replay_item (item := firstPreparedItem)
+      beforePhaseRun afterPhaseRun
+  refine ⟨?_, valid, (replay_item_reuses_persisted_transformations valid).1,
+    (replay_item_reuses_persisted_transformations valid).2⟩
+  exact List.mem_cons_self ..
+
+private def interceptionSite : InterceptionSite :=
+  ⟨⟨⟨1⟩, "web.fetch", 1⟩, .workspace tenant workspace, true⟩
+private def interceptionGrants : FacetId → OperationId → Prop :=
+  fun contributor operation => contributor = ⟨2⟩ ∧ operation = interceptionSite.operation
+private def interceptionDomains : FacetId → ProtectionDomain := fun _ => interceptionSite.domain
+
+private theorem pipelineAdmitted : AdmittedSchedule interceptionGrants interceptionDomains
+    interceptionSite .before pipelineSchedule := by
+  refine ⟨pipelineOrdered, ?_⟩
+  intro contribution member
+  rcases List.mem_cons.mp member with rfl | member
+  · exact ⟨rfl, rfl, Or.inl rfl⟩
+  rcases List.mem_cons.mp member with rfl | member
+  · exact ⟨rfl, rfl, Or.inl rfl⟩
+  rcases List.mem_cons.mp member with rfl | member
+  · exact ⟨rfl, rfl, Or.inr ⟨rfl, rfl, rfl⟩⟩
+  · cases member
+
+/-- The §4.4 rules 1-2 boundary, on the admitted pipeline. `alpha` and `gamma`
+intercept their own facet's operation; `beta` is foreign but the target opted in and a
+Grant exists. Discrimination: the rogue facet shares the protection domain and still
+may not intercept — domain sharing confers nothing; the granted `beta` is refused the
+moment its domain differs (rule 1) or the target withdraws `interceptable` (rule 2);
+and across every state the concrete run reaches, no transformation is ever attributed
+to the rogue. -/
+theorem nonvacuous_unauthorized_interceptor_never_attributed :
+    AdmittedSchedule interceptionGrants interceptionDomains interceptionSite .before
+      pipelineSchedule ∧
+    interceptionDomains rogueRef.facet = interceptionSite.domain ∧
+    ¬ MayIntercept interceptionGrants interceptionDomains interceptionSite
+      ⟨rogueRef, .before, 3⟩ ∧
+    ¬ MayIntercept interceptionGrants (fun _ => .run tenant runId) interceptionSite
+      betaContribution ∧
+    ¬ MayIntercept interceptionGrants interceptionDomains
+      { interceptionSite with interceptable := false } betaContribution ∧
+    (∀ entry, entry ∈ pipelineFinal.trace → entry.interceptor ≠ rogueRef) := by
+  refine ⟨pipelineAdmitted, rfl, ?_, ?_, ?_, ?_⟩
+  · exact ungranted_cross_facet_interception_rejected (by decide)
+      fun granted => absurd granted.1 (by decide)
+  · exact cross_domain_interception_rejected (by decide)
+  · exact undeclared_cross_facet_interception_rejected (by decide) rfl
+  · exact unauthorized_interceptor_never_attributed pipelineAdmitted pipelineRun
+      fun contribution named =>
+        ungranted_cross_facet_interception_rejected
+          (by rw [named]; decide) fun granted => absurd (named ▸ granted.1) (by decide)
+
+private def interceptedObligation : OpenObligation := .item invocationId 0 firstKey
+private def observedInterceptor : InterceptorContribution := ⟨⟨facet, 9⟩, .before, 5⟩
+private def interceptedObservation : AdmissionRequest :=
+  ⟨prepared, scope, resolution.id, some ⟨runId, 0, interceptedObligation⟩, ⟨1⟩,
+    [observedInterceptor]⟩
+private def interceptedRegistry : RunAdmissionRegistry := ⟨0, true, [interceptedObligation], []⟩
+private def interceptedGraph : GraphStore := {
+  graphWithTurn with
+  admissionRegistry := tableSet graphWithTurn.admissionRegistry runId interceptedRegistry
+}
+private def interceptedState : SystemState := { directState with graph := interceptedGraph }
+private def interceptedIntentEffects : EffectLedger := {
+  (default : EffectLedger) with
+  invocations := tableSet (default : EffectLedger).invocations invocationId prepared
+}
+private def interceptedIntentState : SystemState :=
+  { interceptedState with effects := interceptedIntentEffects }
+
+private theorem interceptedAuthorized :
+    issuedAuthority.Authorized principalRef header scope := by
+  refine ⟨binding, allowGrant,
+    by simp [issuedAuthority, AuthorityLedger.issueResolution, authorityBase, header,
+      InvocationHeader.binding, AuthoritySource.binding],
+    rfl, rfl, rfl, rfl, ?_, rfl, ?_, ?_⟩
+  · apply AuthorityLedger.LiveGrant.root
+    · simp [issuedAuthority, AuthorityLedger.issueResolution, authorityBase, binding, grantId]
+    · rfl
+    · intro revoked; contradiction
+  · exact ⟨rfl, rfl, Scope.contains_refl scope, rfl, rfl⟩
+  · intro denied
+    obtain ⟨id, grant, live, deny, applies⟩ := denied
+    cases live with
+    | root lookup _ _ | child lookup _ _ _ =>
+        by_cases same : id = grantId
+        · subst id
+          change tableSet (default : AuthorityLedger).grants grantId allowGrant grantId =
+            some grant at lookup
+          rw [tableSet_self] at lookup
+          cases Option.some.inj lookup
+          contradiction
+        · change tableSet (default : AuthorityLedger).grants grantId allowGrant id =
+            some grant at lookup
+          rw [tableSet_other _ _ _ same] at lookup
+          contradiction
+
+private theorem interceptedPathComplete :
+    issuedAuthority.PathEvidenceComplete header scope := by
+  change authorityBase.PathEvidenceComplete header scope
+  exact completePath
+
+private theorem interceptedMediatedReady :
+    MediatedReady interceptedState interceptedObservation := by
+  refine ⟨rfl, ⟨rfl, ?_⟩, ?_, rfl, ?_, ?_, resolution, ?_, ?_, rfl, ?_, ?_⟩
+  · intro noLease
+    simp [interceptedObservation, prepared, header] at noLease
+  · simp [RouteGate, InvocationHeader.RouteEvidenceConsistent, interceptedObservation,
+      prepared, header]
+  · exact ⟨runningTurn,
+      by simp [interceptedState, interceptedGraph, graphWithTurn, token, turnId], rfl,
+      ⟨directRun, by simp [interceptedState, interceptedGraph, graphWithTurn, runningTurn],
+        rfl, rfl, rfl⟩,
+      ⟨rfl, rfl, rfl, by decide⟩⟩
+  · refine ⟨directRun, ⟨runId, 0, interceptedObligation⟩,
+      by simp [interceptedState, interceptedGraph, graphWithTurn, runningTurn],
+      rfl, rfl, rfl, interceptedRegistry, ?_, rfl, rfl, ?_, ?_⟩
+    · simp [interceptedState, interceptedGraph, runId]
+    · exact List.mem_cons_self ..
+    · simp [interceptedRegistry]
+  · change tableSet authorityBase.resolutions resolution.id resolution resolution.id =
+      some resolution
+    exact tableSet_self ..
+  · change tableSet authorityBase.resolutions resolution.id resolution resolution.id =
+      some resolution
+    exact tableSet_self ..
+  · exact interceptedAuthorized
+  · exact interceptedPathComplete
+
+private theorem interceptedPersistIntent :
+    MediatedStep interceptedState (.persistIntent invocationId) interceptedIntentState := by
+  apply MediatedStep.persistIntent (request := interceptedObservation)
+  · exact interceptedMediatedReady
+  · exact EffectStep.persistIntent rfl
+
+/-- §7.2 escalation, both directions on the same observe Invocation. Without the
+interceptor the bundled, leased observe call is direct-admissible; the moment an
+applicable `operation.before` contribution rides along, no state admits it directly —
+and the same state that grounds the refusal admits it through the mediated pipeline by
+durably persisting its intent. If the model dropped the interceptor tier raise, the
+universal refusal below would be false at `directState`. -/
+theorem nonvacuous_intercepted_observe_escalates_to_mediated :
+    prepared.header.impact = .observe ∧
+    prepared.header.placement.selected = .bundled ∧
+    directRequest.interceptors = [] ∧
+    DirectStep directState directRequest directState ∧
+    interceptedObservation.prepared = directRequest.prepared ∧
+    interceptedObservation.interceptors = [observedInterceptor] ∧
+    (∀ before after, ¬ DirectStep before interceptedObservation after) ∧
+    MediatedStep interceptedState (.persistIntent invocationId) interceptedIntentState := by
+  refine ⟨rfl, rfl, rfl, .admit directReady, rfl, rfl, ?_, interceptedPersistIntent⟩
+  exact applicable_interceptor_forbids_direct_admission (List.mem_cons_self ..)
+
 end AgentCore.Examples

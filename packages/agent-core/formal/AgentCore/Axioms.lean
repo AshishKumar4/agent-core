@@ -25,6 +25,35 @@ import AgentCore
 #print axioms AgentCore.guest_deny_is_preserved
 #print axioms AgentCore.rematerialization_advances_epoch
 
+-- Interceptor pipeline: total deterministic order, attribution, blocks, replay,
+-- authority, and the mediated-tier raise.
+#print axioms AgentCore.interceptor_order_total
+#print axioms AgentCore.ordered_schedule_unique
+#print axioms AgentCore.intercept_step_deterministic
+#print axioms AgentCore.interception_outcome_deterministic
+#print axioms AgentCore.run_records_transformation_chain
+#print axioms AgentCore.lastRewrite_is_final
+#print axioms AgentCore.run_attributes_last_rewriter
+#print axioms AgentCore.run_rewritten_value_names_last_rewriter
+#print axioms AgentCore.run_consumes_schedule_in_order
+#print axioms AgentCore.completed_trace_records_schedule_order
+#print axioms AgentCore.blocked_names_exact_scheduled_interceptor
+#print axioms AgentCore.blocked_pipeline_never_completes
+#print axioms AgentCore.replay_matches_chain
+#print axioms AgentCore.interception_replay_deterministic
+#print axioms AgentCore.run_replay_reproduces_result
+#print axioms AgentCore.replay_refuses_exactly_broken_chains
+#print axioms AgentCore.replay_item_reuses_persisted_transformations
+#print axioms AgentCore.completed_runs_assemble_valid_replay_item
+#print axioms AgentCore.cross_domain_interception_rejected
+#print axioms AgentCore.undeclared_cross_facet_interception_rejected
+#print axioms AgentCore.ungranted_cross_facet_interception_rejected
+#print axioms AgentCore.run_trace_is_admitted
+#print axioms AgentCore.unauthorized_interceptor_never_attributed
+#print axioms AgentCore.interception_raises_direct_floor
+#print axioms AgentCore.direct_admission_has_no_applicable_interceptor
+#print axioms AgentCore.applicable_interceptor_forbids_direct_admission
+
 -- SPEC placement order, mediated execute boundary, and source assertion rejection.
 #print axioms AgentCore.placement_prefers_dynamic
 #print axioms AgentCore.placement_uses_provider_without_dynamic
@@ -277,6 +306,12 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_reachable_settled_run
 #print axioms AgentCore.Examples.nonvacuous_reachable_stale_verdict_not_settled
 #print axioms AgentCore.Examples.nonvacuous_reachable_settled_obligations_and_acceptance
+#print axioms AgentCore.Examples.nonvacuous_interception_pipeline_run
+#print axioms AgentCore.Examples.nonvacuous_interceptor_block_scoped_and_final
+#print axioms AgentCore.Examples.nonvacuous_tampered_interception_replay_refused
+#print axioms AgentCore.Examples.nonvacuous_interception_replay_item_bridge
+#print axioms AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed
+#print axioms AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated
 #print axioms AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo
 #print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
