@@ -10,10 +10,11 @@ requires lease evidence and is therefore derived later at Event acceptance.
 
 namespace AgentCore
 
-/- Environment Session ownership is not modeled, so execute is conservatively mediated. -/
+/- The Bool is the §7.2 floor's session fact: the execute targets a Session owned by the
+current Turn. `session_use_is_turn_owned_and_live` grounds when it is true. -/
 def defaultTier : InvocationImpact → Bool → EnforcementTier
   | .observe, _ => .direct
-  | .execute, _ => .mediated
+  | .execute, turnOwnedSession => if turnOwnedSession then .direct else .mediated
   | .mutate, _ | .externalSend, _ | .delegate, _ | .administer, _ => .mediated
 
 def effectiveTier (placement : Placement) (impact : InvocationImpact) (sessionScoped : Bool) :
@@ -87,7 +88,14 @@ theorem source_asserted_tier_rejected {provenance asserted}
     (mismatch : asserted ≠ deriveChannelTrust provenance) :
     ¬ acceptsSourceTier provenance asserted := mismatch
 
-theorem execute_is_formally_mediated (sessionScoped : Bool) :
-    defaultTier .execute sessionScoped = .mediated := rfl
+theorem turn_owned_session_execute_floor_is_direct :
+    defaultTier .execute true = .direct := rfl
+
+theorem unowned_execute_floor_is_mediated :
+    defaultTier .execute false = .mediated := rfl
+
+theorem direct_execute_requires_bundled_colocation (placement : Placement) :
+    effectiveTier placement .execute true = .direct ↔ placement = .bundled := by
+  cases placement <;> simp [effectiveTier, defaultTier]
 
 end AgentCore

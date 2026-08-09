@@ -9,12 +9,10 @@ import { LeanOracle } from "./oracle";
  * Differential testing of enforcement-tier derivation (SPEC §7.2) and placement
  * selection (SPEC §4.1) against the verified Lean model.
  *
- * One divergence is *documented and expected*: the formal model conservatively
- * classifies every `execute` as mediated (traceability nonclaim
- * NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE), while the implementation grants direct
- * to a Turn-owned bundled session. The tier property below asserts agreement
- * everywhere else — and asserts the divergence is exactly the documented one, so a
- * silent widening on either side fails the suite.
+ * The model carries the full §7.2 floor, including the Turn-owned Environment
+ * Session direct-execute exception, so the tier property asserts agreement over the
+ * entire (impact, session, placement) domain — any divergence on either side fails
+ * the suite.
  */
 
 const IMPACTS: readonly Impact[] = [
@@ -54,17 +52,9 @@ describe("enforcement tier agrees with the verified model", () => {
                             placement
                         })
                     )["tier"];
-                    const documentedDivergence =
-                        impact === "execute" && sessionScoped && placement === "bundled";
-                    if (documentedDivergence) {
-                        // NC-ENVIRONMENT-TURN-OWNED-DIRECT-EXECUTE, exactly.
-                        expect(implementation).toBe("direct");
-                        expect(model).toBe("mediated");
-                    } else {
-                        expect(implementation, `${impact}/${sessionScoped}/${placement}`).toBe(
-                            model
-                        );
-                    }
+                    expect(implementation, `${impact}/${sessionScoped}/${placement}`).toBe(
+                        model
+                    );
                 }
             }
         }
