@@ -84,10 +84,19 @@ instance : Inhabited AuthorityLedger where
 namespace AuthorityLedger
 
 def ActsUnder (ledger : AuthorityLedger) (principal : PrincipalRef) : Subject → Prop
-  | .principal id => id = principal.id
+  | .principal ref => ref = principal
   | .team id => ledger.teamMembers id principal.id
   | .foreign home id => home = principal.tenant ∧ id = principal.id ∧
       ledger.foreignVerified home principal.id
+
+/-- A Principal subject names one Tenant's Principal, so an equal PrincipalId under another
+Tenant never acts under it. Tenant separation here is a property of the reference itself, not
+of which ledger the Grant was read from. -/
+theorem acts_under_principal_is_tenant_qualified {ledger : AuthorityLedger}
+    {principal subject : PrincipalRef} (differentTenant : subject.tenant ≠ principal.tenant) :
+    ¬ ledger.ActsUnder principal (.principal subject) := by
+  intro acts
+  exact differentTenant (by rw [show subject = principal from acts])
 
 inductive LiveGrant (ledger : AuthorityLedger) : GrantId → Grant → Prop
   | root {id grant} :
@@ -285,3 +294,4 @@ theorem direct_holder_watermark_is_not_ahead {ledger : AuthorityLedger}
 end AuthorityLedger
 
 end AgentCore
+

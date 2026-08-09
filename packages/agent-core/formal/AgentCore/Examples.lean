@@ -115,7 +115,7 @@ theorem nonvacuous_complete_identity_and_keys :
 
 private def grantId : GrantId := .manual 1
 private def allowGrant : Grant :=
-  ⟨.principal principal, scope, .allow, header.permission, none, .manual⟩
+  ⟨.principal principalRef, scope, .allow, header.permission, none, .manual⟩
 private def binding : Binding := ⟨header.domain, scope, "observer", grantId, facet⟩
 private def authorityBase : AuthorityLedger := {
   (default : AuthorityLedger) with
@@ -1348,7 +1348,7 @@ private def actionHeader : InvocationHeader := {
 }
 private def actionPrepared : PreparedInvocation := ⟨actionHeader, .batch firstArgs [secondArgs]⟩
 private def actionGrant : Grant :=
-  ⟨.principal principal, scope, .allow, actionHeader.permission, none, .manual⟩
+  ⟨.principal principalRef, scope, .allow, actionHeader.permission, none, .manual⟩
 private def actionBinding : Binding :=
   ⟨actionHeader.domain, scope, "sender", actionGrantId, facet⟩
 private def actionAuthorityBase : AuthorityLedger := {
@@ -1894,9 +1894,9 @@ theorem nonvacuous_malformed_approval_continuation_rejected :
 private def parentGrantId : GrantId := .manual 10
 private def childGrantId : GrantId := .manual 11
 private def parentGrant : Grant :=
-  ⟨.principal principal, tenantScope, .allow, header.permission, none, .manual⟩
+  ⟨.principal principalRef, tenantScope, .allow, header.permission, none, .manual⟩
 private def childGrant : Grant :=
-  ⟨.principal principal, scope, .allow, header.permission, some parentGrantId, .manual⟩
+  ⟨.principal principalRef, scope, .allow, header.permission, some parentGrantId, .manual⟩
 private def delegationLedger : AuthorityLedger := {
   (default : AuthorityLedger) with
   grants := tableSet (default : AuthorityLedger).grants parentGrantId parentGrant

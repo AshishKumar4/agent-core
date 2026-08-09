@@ -71,7 +71,7 @@ def ProtectionDomain.tenant : ProtectionDomain → TenantId
   | .run tenant _ | .workspace tenant _ => tenant
 
 inductive Subject where
-  | principal (id : PrincipalId)
+  | principal (ref : PrincipalRef)
   | team (id : TeamId)
   | foreign (homeTenant : TenantId) (id : PrincipalId)
   deriving DecidableEq, Repr
