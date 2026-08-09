@@ -84,7 +84,7 @@ private def auditLog : AuditLog := (default : AuditLog).append rootAuditId rootA
 private def auditedState : SystemState := { trustedGenesis with audit := auditLog }
 
 private def request : AdmissionRequest :=
-  ⟨prepared, scope, resolutionId, none, ⟨1⟩⟩
+  ⟨prepared, scope, resolutionId, none, ⟨1⟩, []⟩
 private def intentEffects : EffectLedger := {
   (default : EffectLedger) with
   invocations := tableSet (default : EffectLedger).invocations invocationId prepared

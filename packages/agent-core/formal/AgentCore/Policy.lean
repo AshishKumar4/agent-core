@@ -16,10 +16,10 @@ def defaultTier : InvocationImpact → Bool → EnforcementTier
   | .execute, _ => .mediated
   | .mutate, _ | .externalSend, _ | .delegate, _ | .administer, _ => .mediated
 
-def effectiveTier (placement : Placement) (impact : InvocationImpact) (sessionScoped : Bool) :
-    EnforcementTier :=
+def effectiveTier (placement : Placement) (impact : InvocationImpact) (sessionScoped : Bool)
+    (intercepted : Bool) : EnforcementTier :=
   match defaultTier impact sessionScoped with
-  | .direct => if placement = .bundled then .direct else .mediated
+  | .direct => if placement = .bundled ∧ intercepted = false then .direct else .mediated
   | .mediated => .mediated
 
 def PlacementSet.contains (set : PlacementSet) : Placement → Bool
@@ -89,5 +89,18 @@ theorem source_asserted_tier_rejected {provenance asserted}
 
 theorem execute_is_formally_mediated (sessionScoped : Bool) :
     defaultTier .execute sessionScoped = .mediated := rfl
+
+/-- §7.2: an applicable `operation.before` or `operation.after` interceptor raises a
+direct floor to mediated, whatever the placement — its rewrite evidence has no direct
+channel to be recorded through. -/
+theorem interception_raises_direct_floor (placement : Placement)
+    (impact : InvocationImpact) (sessionScoped : Bool) :
+    effectiveTier placement impact sessionScoped true = .mediated := by
+  unfold effectiveTier
+  split
+  · rw [if_neg]
+    intro ⟨_, absurd⟩
+    cases absurd
+  · rfl
 
 end AgentCore

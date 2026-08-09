@@ -212,7 +212,7 @@ private def graphWithTurn : GraphStore := {
 private def directState : SystemState := {
   (default : SystemState) with authority := issuedAuthority, graph := graphWithTurn
 }
-private def directRequest : AdmissionRequest := ⟨prepared, scope, resolution.id, none, ⟨1⟩⟩
+private def directRequest : AdmissionRequest := ⟨prepared, scope, resolution.id, none, ⟨1⟩, []⟩
 
 theorem nonvacuous_exact_run_pin_sources :
     pins.blueprint.id = ⟨1⟩ ∧ pins.agent.id = agent ∧
@@ -1447,7 +1447,7 @@ private def actionState : SystemState := {
   graph := actionGraph
 }
 private def actionRequest (obligation : OpenObligation) : AdmissionRequest :=
-  ⟨actionPrepared, scope, actionResolution.id, some ⟨runId, 0, obligation⟩, ⟨1⟩⟩
+  ⟨actionPrepared, scope, actionResolution.id, some ⟨runId, 0, obligation⟩, ⟨1⟩, []⟩
 private def actionApprovalRequest : AdmissionRequest := actionRequest actionApprovalObligation
 private def actionFirstRequest : AdmissionRequest := actionRequest actionFirstObligation
 private def actionSecondRequest : AdmissionRequest := actionRequest actionSecondObligation
