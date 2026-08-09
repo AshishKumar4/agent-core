@@ -530,6 +530,55 @@ describe("MemoryTenantControlStore mutation gates", () => {
         );
     });
 
+    test(
+        "holds a Membership's subject fixed across a revision for a team subject",
+        { tags: "p0" },
+        () => {
+            // The store's revision guard dispatches on subject kind. Only the Principal
+            // arm was ever exercised, so the team arm could be entered for the wrong kind
+            // — reading a field that is not there — without any test noticing.
+            const { store, service } = bootstrapped();
+            const role = emptyRole("memory-gate-subject-kind-role");
+            service.createRole(role);
+            const team = new Team(
+                new TeamId("memory-gate-subject-kind-team"),
+                tenantId,
+                "Subject Kind Team",
+                [],
+                Revision.initial()
+            );
+            service.createTeam(team);
+            const other = new Team(
+                new TeamId("memory-gate-subject-kind-other"),
+                tenantId,
+                "Other Team",
+                [],
+                Revision.initial()
+            );
+            service.createTeam(other);
+            const id = new MembershipId("memory-gate-subject-kind-member");
+            service.assignMembership(
+                new Membership(
+                    id,
+                    workspaceScope,
+                    SubjectRef.team(team.id),
+                    role.name,
+                    "active",
+                    Revision.initial()
+                )
+            );
+
+            // Same team subject at the next revision is accepted.
+            service.changeMembership(id, { role: role.name, state: "suspended" });
+
+            // Reading back proves the guard ran and accepted, rather than the write
+            // being skipped: the state advanced and the subject is still the team.
+            const current = store.membership(id);
+            expect(current?.state).toBe("suspended");
+            expect(current?.subject).toEqual(SubjectRef.team(team.id));
+        }
+    );
+
     test("detects Memberships whose subject records were removed", { tags: "p0" }, () => {
         const { store, service } = bootstrapped();
         const closureRole = emptyRole("memory-gate-closure-role");
