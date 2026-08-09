@@ -298,6 +298,11 @@ inductive SlateStep (env : EnvironmentLedger) : SlateLedger → SlateLabel → S
         { ledger with
           previews := tableSet ledger.previews preview ⟨slate, session, exposure⟩ }
 
+inductive SlateReachable (env : EnvironmentLedger) : SlateLedger → Prop
+  | empty : SlateReachable env .empty
+  | step {before label after} :
+      SlateReachable env before → SlateStep env before label after → SlateReachable env after
+
 /-- **A committed version is immutable.** Once a version record exists, every later
 transition — commits, publishes, deploys, rollbacks, previews — leaves it exactly as
 committed. -/

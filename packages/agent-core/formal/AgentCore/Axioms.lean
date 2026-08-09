@@ -25,13 +25,46 @@ import AgentCore
 #print axioms AgentCore.guest_deny_is_preserved
 #print axioms AgentCore.rematerialization_advances_epoch
 
--- SPEC placement order, mediated execute boundary, and source assertion rejection.
+-- SPEC placement order, the §7.2 tier floor, and source assertion rejection.
 #print axioms AgentCore.placement_prefers_dynamic
 #print axioms AgentCore.placement_uses_provider_without_dynamic
 #print axioms AgentCore.placement_uses_bundled_last
 #print axioms AgentCore.empty_intersection_rejects
 #print axioms AgentCore.source_asserted_tier_rejected
-#print axioms AgentCore.execute_is_formally_mediated
+#print axioms AgentCore.turn_owned_session_execute_floor_is_direct
+#print axioms AgentCore.unowned_execute_floor_is_mediated
+#print axioms AgentCore.direct_execute_requires_bundled_colocation
+
+-- Environment Sessions: Turn-owned use, fail-closed lifecycle, credential isolation.
+#print axioms AgentCore.session_use_is_turn_owned_and_live
+#print axioms AgentCore.stale_session_admits_nothing
+#print axioms AgentCore.close_disposes_child_facets
+#print axioms AgentCore.closed_session_is_terminal
+#print axioms AgentCore.rotation_does_not_retarget_open_sessions
+#print axioms AgentCore.open_session_pins_current_revision
+#print axioms AgentCore.session_pin_is_immutable
+#print axioms AgentCore.session_egress_is_explicitly_bound
+#print axioms AgentCore.unbound_send_is_refused
+#print axioms AgentCore.proxy_send_writes_no_session_state
+#print axioms AgentCore.env_step_preserves_credential_isolation
+#print axioms AgentCore.reachable_credential_isolation
+#print axioms AgentCore.plaintext_in_session_state_is_unreachable
+#print axioms AgentCore.preview_ingress_is_exactly_the_exposed_port
+#print axioms AgentCore.revoked_exposure_admits_no_ingress
+#print axioms AgentCore.stale_exposure_admits_no_ingress
+
+-- Slate and the dynamic isolate: explicit capability provenance, immutable records.
+#print axioms AgentCore.fresh_dynamic_isolate_admits_only_host_pass
+#print axioms AgentCore.isolate_invoke_requires_passed_binding
+#print axioms AgentCore.isolate_egress_matches_passed_destination
+#print axioms AgentCore.isolate_capability_growth_is_host_pass
+#print axioms AgentCore.reachable_isolate_actions_are_binding_backed
+#print axioms AgentCore.dynamic_only_manifest_never_places_ambient
+#print axioms AgentCore.committed_version_is_immutable
+#print axioms AgentCore.publication_is_immutable
+#print axioms AgentCore.rollback_retargets_only_owned_successful_deployment
+#print axioms AgentCore.provider_contact_only_from_deploy
+#print axioms AgentCore.preview_is_live_environment_session
 
 -- Exact Turn lease incarnation.
 #print axioms AgentCore.lease_turn_immutable
@@ -280,6 +313,14 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo
 #print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
+#print axioms AgentCore.Examples.nonvacuous_credential_isolated_session_trace
+#print axioms AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable
+#print axioms AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection
+#print axioms AgentCore.Examples.nonvacuous_preview_exposure_lifecycle
+#print axioms AgentCore.Examples.nonvacuous_turn_owned_execute_tier
+#print axioms AgentCore.Examples.nonvacuous_dynamic_isolate_provenance
+#print axioms AgentCore.Examples.nonvacuous_dynamic_only_manifest_placement
+#print axioms AgentCore.Examples.nonvacuous_slate_lifecycle
 
 -- Event → Subscription routing (SPEC §6.2): at-most-once, derived targeting, trust.
 #print axioms AgentCore.fire_consumes_key
