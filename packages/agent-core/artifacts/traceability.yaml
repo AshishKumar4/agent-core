@@ -799,7 +799,7 @@
       "id": "AC-RUN-001",
       "summary": "Valid Run pins/migration, stable-identity admission reserve/complete/close, exact outstanding frontier, sibling cancellation, settlement, and acceptance criteria reserved at Run open, never completed, and evaluated at settlement against the Run's current head tree by a verdict of the criterion's own declared verifier",
       "status": "proved-component",
-      "boundary": "RunPins validate Agent identity and unique closure at creation and migration; source-record resolvability remains external. Registry obligations contain only pre-remote Approval, item-key, route, attempt, planned-commit, or acceptance-criterion identities; completion is reserved-only, and terminalization snapshots exactly reserved minus completed with membership equivalence. Acceptance criteria are declared on the Run record with store-wide distinct identities, reserved by the startRun and spawnChild transitions, and refused by the generic reserve and complete transitions; no transition completes one, so a declared criterion stays outstanding for the Run's whole life and is snapshotted at terminalization. Recording a verdict requires an attempted Receipt of the criterion's own declared verifier Operation and a subject no recorded verdict names. Settlement evaluates the criterion against the Run's current root-branch head tree checkpoint, so a stale verdict does not settle a Run whose head has moved. The four invariants are preserved by every GraphStep and therefore by every reachable graph, so a Settled Run's every declared criterion holds a verdict at its current head backed by a succeeded Receipt of its own verifier. The settlement pair is exhibited as a coherent terminal state rather than reached by terminalize; the verifier Receipt's own domain binding, its audit chain, and concrete remote reservation enforcement and durable transactions remain refinement obligations.",
+      "boundary": "RunPins validate Agent identity and unique closure at creation and migration; source-record resolvability remains external. Registry obligations contain only pre-remote Approval, item-key, route, attempt, planned-commit, or acceptance-criterion identities; completion is reserved-only, and terminalization snapshots exactly reserved minus completed with membership equivalence. Acceptance criteria are declared on the Run record with store-wide distinct identities, reserved by the startRun and spawnChild transitions, and refused by the generic reserve and complete transitions; no transition completes one, so a declared criterion stays outstanding for the Run's whole life and is snapshotted at terminalization. Recording a verdict requires an attempted Receipt of the criterion's own declared verifier Operation and a subject no recorded verdict names. Settlement evaluates the criterion against the Run's current root-branch head tree checkpoint, so a stale verdict does not settle a Run whose head has moved. The four invariants are preserved by every GraphStep and therefore by every reachable graph, so a Settled Run's every declared criterion holds a verdict at its current head backed by a succeeded Receipt of its own verifier. The settlement pair is exhibited on a graph reached from the empty graph by seven GraphSteps -- open, verdict, reserve, start Turn, claim, begin terminalization against a succeeded administer Receipt with its own audit chain, terminalize -- so one object is both reachable and Settled, and the same trace with the verdict naming a tree the head moved past is reachable and not Settled. The verifier Receipt's own domain binding and audit chain are still not required by AcceptanceSatisfied, only exhibited by that witness, and concrete remote reservation enforcement and durable transactions remain refinement obligations.",
       "definitions": [
         "AgentCore.RunPins",
         "AgentCore.RunPins.Valid",
@@ -850,7 +850,9 @@
         "AgentCore.AcceptanceCriteriaUnique",
         "AgentCore.AcceptanceVerdictsEarned",
         "AgentCore.RegistriesAdvance",
-        "AgentCore.TerminalSnapshotsMatchRegistry"
+        "AgentCore.TerminalSnapshotsMatchRegistry",
+        "AgentCore.BranchHeldBy",
+        "AgentCore.BranchUnheld"
       ],
       "theorems": [
         "AgentCore.terminal_snapshot_is_coherent",
@@ -886,7 +888,8 @@
         "AgentCore.graph_step_preserves_snapshot_registry_agreement",
         "AgentCore.graph_reachable_preserves_snapshot_registry_agreement",
         "AgentCore.settled_run_acceptance_holds_at_current_head",
-        "AgentCore.graph_reachable_settled_acceptance_holds_at_current_head"
+        "AgentCore.graph_reachable_settled_acceptance_holds_at_current_head",
+        "AgentCore.forced_cancellation_unblocks_undo"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_audit_complete_derived_settled",
@@ -916,7 +919,10 @@
         "AgentCore.Examples.nonvacuous_acceptance_verdict_step_advances_registries",
         "AgentCore.Examples.nonvacuous_acceptance_obligation_stays_outstanding",
         "AgentCore.Examples.nonvacuous_acceptance_open_verdict_trace",
-        "AgentCore.Examples.nonvacuous_settled_acceptance_holds_at_current_head"
+        "AgentCore.Examples.nonvacuous_settled_acceptance_holds_at_current_head",
+        "AgentCore.Examples.nonvacuous_reachable_settled_run",
+        "AgentCore.Examples.nonvacuous_reachable_stale_verdict_not_settled",
+        "AgentCore.Examples.nonvacuous_reachable_settled_obligations_and_acceptance"
       ],
       "witnessCoverage": {
         "AgentCore.terminal_snapshot_is_coherent": [
@@ -964,7 +970,8 @@
           "AgentCore.Examples.nonvacuous_invalid_migration_target_rejected"
         ],
         "AgentCore.acceptance_unsatisfied_not_settled": [
-          "AgentCore.Examples.nonvacuous_unsatisfied_acceptance_blocks_settled"
+          "AgentCore.Examples.nonvacuous_unsatisfied_acceptance_blocks_settled",
+          "AgentCore.Examples.nonvacuous_reachable_stale_verdict_not_settled"
         ],
         "AgentCore.acceptance_verdict_only_for_its_subject": [
           "AgentCore.Examples.nonvacuous_acceptance_verdict_wrong_subject"
@@ -1005,37 +1012,47 @@
         ],
         "AgentCore.graph_reachable_preserves_acceptance_outstanding": [
           "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace",
-          "AgentCore.Examples.nonvacuous_acceptance_obligation_stays_outstanding"
+          "AgentCore.Examples.nonvacuous_acceptance_obligation_stays_outstanding",
+          "AgentCore.Examples.nonvacuous_reachable_settled_run"
         ],
         "AgentCore.graph_step_preserves_acceptance_criteria_unique": [
           "AgentCore.Examples.nonvacuous_acceptance_open_verdict_trace",
           "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
         ],
         "AgentCore.graph_reachable_preserves_acceptance_criteria_unique": [
-          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
+          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace",
+          "AgentCore.Examples.nonvacuous_reachable_settled_run"
         ],
         "AgentCore.graph_step_preserves_earned_verdicts": [
           "AgentCore.Examples.nonvacuous_acceptance_open_verdict_trace",
           "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
         ],
         "AgentCore.graph_reachable_preserves_earned_verdicts": [
-          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
+          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace",
+          "AgentCore.Examples.nonvacuous_reachable_settled_run"
         ],
         "AgentCore.graph_step_preserves_snapshot_registry_agreement": [
           "AgentCore.Examples.nonvacuous_acceptance_open_verdict_trace",
           "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
         ],
         "AgentCore.graph_reachable_preserves_snapshot_registry_agreement": [
-          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace"
+          "AgentCore.Examples.nonvacuous_acceptance_invariants_along_trace",
+          "AgentCore.Examples.nonvacuous_reachable_settled_run"
         ],
         "AgentCore.settled_run_acceptance_holds_at_current_head": [
           "AgentCore.Examples.nonvacuous_settled_acceptance_holds_at_current_head",
           "AgentCore.Examples.nonvacuous_acceptance_satisfied_at_head",
-          "AgentCore.Examples.nonvacuous_acceptance_settlement_invariants"
+          "AgentCore.Examples.nonvacuous_acceptance_settlement_invariants",
+          "AgentCore.Examples.nonvacuous_reachable_settled_obligations_and_acceptance"
         ],
         "AgentCore.graph_reachable_settled_acceptance_holds_at_current_head": [
           "AgentCore.Examples.nonvacuous_acceptance_verdict_settles_run",
-          "AgentCore.Examples.nonvacuous_acceptance_open_verdict_trace"
+          "AgentCore.Examples.nonvacuous_acceptance_open_verdict_trace",
+          "AgentCore.Examples.nonvacuous_reachable_settled_run",
+          "AgentCore.Examples.nonvacuous_reachable_settled_obligations_and_acceptance"
+        ],
+        "AgentCore.forced_cancellation_unblocks_undo": [
+          "AgentCore.Examples.nonvacuous_forced_sibling_system_fence"
         ]
       },
       "remainingEvidence": [
@@ -1046,9 +1063,9 @@
     },
     {
       "id": "AC-GRAPH-WRITER-001",
-      "summary": "Fresh graph creation and migration, unary pin inheritance, equal-pinned current merge heads, exact delivery and typed control-writer evidence, and exact-Turn synthesis",
+      "summary": "Fresh graph creation and migration, unary pin inheritance, equal-pinned current merge heads, exact delivery and typed control-writer evidence, exact-Turn synthesis, and undo as fenced append-only ancestor selection",
       "status": "proved-safety",
-      "boundary": "Coverage proves abstract child Run branch/root and migration commit freshness with rejection of existing IDs, migration branch ownership, selected CommitAllowed consequences, and exact typed control audit evidence. It does not prove concrete expected-head CAS, full ancestry, every writer/kind row, undo, or merge algorithm correctness.",
+      "boundary": "Coverage proves abstract child Run branch/root and migration commit freshness with rejection of existing IDs, migration branch ownership, selected CommitAllowed consequences, and exact typed control audit evidence. Undo is a graph transition: no transition under any label writes an undo commit onto a branch a running Turn still holds a lease on, the test reads the holder rather than the expiry so an expired-but-unfenced lease blocks it exactly as a live one does, no transition of any kind removes or rewrites a stored commit, and after an undo the head is the undo commit while the branch's effective state is the ancestor it selected, with the displaced head and the selected commit both still ancestors of the new head. It does not prove concrete expected-head CAS, every writer/kind row, pending-revert durability, or merge algorithm correctness.",
       "definitions": [
         "AgentCore.RunCommitKind",
         "AgentCore.CommitWriter",
@@ -1061,7 +1078,11 @@
         "AgentCore.ControlCommitAudit",
         "AgentCore.SuccessfulControl",
         "AgentCore.SuccessfulSynthesis",
-        "AgentCore.CommitAllowed"
+        "AgentCore.CommitAllowed",
+        "AgentCore.Ancestor",
+        "AgentCore.BranchHeldBy",
+        "AgentCore.BranchUnheld",
+        "AgentCore.GraphStore.effectiveState"
       ],
       "theorems": [
         "AgentCore.unary_commit_inherits_pins",
@@ -1072,7 +1093,16 @@
         "AgentCore.migration_rejects_existing_commit",
         "AgentCore.delivery_commit_matches_route",
         "AgentCore.system_control_writer_uses_exact_typed_audit",
-        "AgentCore.synthesis_is_system_controlled_exact_turn"
+        "AgentCore.synthesis_is_system_controlled_exact_turn",
+        "AgentCore.undo_requires_unheld_branch_and_ancestor_selection",
+        "AgentCore.undo_fences_held_turn",
+        "AgentCore.expired_lease_still_holds_branch",
+        "AgentCore.graph_step_preserves_commits",
+        "AgentCore.graph_reachable_preserves_commits",
+        "AgentCore.ancestor_preserved_by_commit_growth",
+        "AgentCore.undo_keeps_prior_head_reachable",
+        "AgentCore.undo_selects_effective_state",
+        "AgentCore.undo_then_redo_restores_effective_state"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_pinned_root_writer",
@@ -1081,7 +1111,10 @@
         "AgentCore.Examples.nonvacuous_delivery_writer",
         "AgentCore.Examples.nonvacuous_system_synthesis_writer",
         "AgentCore.Examples.nonvacuous_graph_freshness_rejection",
-        "AgentCore.Examples.nonvacuous_typed_system_writer_audit"
+        "AgentCore.Examples.nonvacuous_typed_system_writer_audit",
+        "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo",
+        "AgentCore.Examples.nonvacuous_fenced_undo_redo_trace",
+        "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
       ],
       "witnessCoverage": {
         "AgentCore.unary_commit_inherits_pins": [
@@ -1112,10 +1145,39 @@
         ],
         "AgentCore.synthesis_is_system_controlled_exact_turn": [
           "AgentCore.Examples.nonvacuous_system_synthesis_writer"
+        ],
+        "AgentCore.undo_requires_unheld_branch_and_ancestor_selection": [
+          "AgentCore.Examples.nonvacuous_fenced_undo_redo_trace",
+          "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo"
+        ],
+        "AgentCore.undo_fences_held_turn": [
+          "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo"
+        ],
+        "AgentCore.expired_lease_still_holds_branch": [
+          "AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo"
+        ],
+        "AgentCore.graph_step_preserves_commits": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.graph_reachable_preserves_commits": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.ancestor_preserved_by_commit_growth": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.undo_keeps_prior_head_reachable": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
+        ],
+        "AgentCore.undo_selects_effective_state": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores",
+          "AgentCore.Examples.nonvacuous_fenced_undo_redo_trace"
+        ],
+        "AgentCore.undo_then_redo_restores_effective_state": [
+          "AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores"
         ]
       },
       "remainingEvidence": [
-        "complete writer matrix, expected-head CAS, ancestry, migration execution, and undo coverage",
+        "complete writer matrix, expected-head CAS, migration execution, and pending-revert durability",
         "concrete graph and merge implementation conformance"
       ]
     },
@@ -1123,7 +1185,7 @@
       "id": "AC-COMPOSED-001",
       "summary": "Direct admission with exact Turn/run/domain/placement and lease expiry; mediated exact Run-owner reservation/epoch, optional-Turn owner audit, routed projection digest, stale denial, persisted approval identity, and coherent settlement",
       "status": "proved-safety",
-      "boundary": "The exact lease gate binds the token to a running Turn, owning Run domain, and Turn placement, while direct checks bind actual lease expiry and the separate holder-watermark inequality. Every Run-domain MediatedReady resolves the exact owning Run and validates its carried AdmissionReservation against the current open registry epoch and outstanding canonical obligation; Approval, item-claim, approved-effect, and continuation constructors bind that reservation to their exact obligation, and a changed epoch blocks readiness. Optional-Turn mediation still requires an authenticated owning-Actor audit entry. Settled is constructively inhabited, not a general preservation theorem.",
+      "boundary": "The exact lease gate binds the token to a running Turn, owning Run domain, and Turn placement, while direct checks bind actual lease expiry and the separate holder-watermark inequality. Every Run-domain MediatedReady resolves the exact owning Run and validates its carried AdmissionReservation against the current open registry epoch and outstanding canonical obligation; Approval, item-claim, approved-effect, and continuation constructors bind that reservation to their exact obligation, and a changed epoch blocks readiness. Optional-Turn mediation still requires an authenticated owning-Actor audit entry. Settled is constructively inhabited on a graph reached from the empty graph by GraphStep, not a general preservation theorem.",
       "definitions": [
         "AgentCore.SystemState",
         "AgentCore.AdmissionRequest",
@@ -1224,7 +1286,8 @@
           "AgentCore.Examples.nonvacuous_stale_mediated_denial"
         ],
         "AgentCore.settled_has_coherent_snapshot_and_exact_obligations": [
-          "AgentCore.Examples.nonvacuous_audit_complete_derived_settled"
+          "AgentCore.Examples.nonvacuous_audit_complete_derived_settled",
+          "AgentCore.Examples.nonvacuous_reachable_settled_obligations_and_acceptance"
         ],
         "AgentCore.item_obligation_uses_exact_audit": [
           "AgentCore.Examples.nonvacuous_audit_complete_derived_settled"

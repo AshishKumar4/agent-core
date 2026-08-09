@@ -337,6 +337,21 @@ def GraphStore.append (store : GraphStore) (id : CommitId) (commit : RunCommit) 
   heads := tableSet store.heads commit.branch id
 }
 
+/-- The commit a branch is *effectively* at: its head, unless the head is an undo commit, in
+    which case the commit that undo selects. Appending an undo advances the head like any
+    other commit -- the graph is append-only -- and moves the effective state to the selected
+    ancestor without rewinding, rewriting, or dropping anything (§5.2). -/
+def GraphStore.effectiveState (store : GraphStore) (branch : BranchId) : Option CommitId :=
+  match store.heads branch with
+  | none => none
+  | some head =>
+      match store.commits head with
+      | none => none
+      | some commit =>
+          some (match commit.kind with
+            | .undo selected _ => selected
+            | _ => head)
+
 def GraphStore.reserve (store : GraphStore) (run : RunId)
     (registry : RunAdmissionRegistry) (obligation : OpenObligation) : GraphStore :=
   let updated := registry.reserve obligation
@@ -478,6 +493,20 @@ def ControlCommitAudit (store : GraphStore) (effects : EffectLedger) (audit : Au
     (∃ tenant, prepared.header.domain = .run tenant run) ∧
     entry.kind = .attemptReceipt receiptId receipt.attempt attempt.invocation .succeeded
 
+/-- A Turn *holds* its branch while it is running under a lease that still names a holder.
+    Expiry is deliberately not read: an expired lease is still reclaimable by whoever holds it
+    until someone fences it, so elapsed time never releases a branch. Only `suspendFence` and
+    `terminalFence` do -- they are the two lease steps that clear the holder while advancing
+    the epoch (§5.2, §5.3). -/
+def BranchHeldBy (store : GraphStore) (run : RunId) (branch : BranchId) (turn : TurnId) : Prop :=
+  ∃ record, store.turns turn = some record ∧ record.run = run ∧ record.branch = branch ∧
+    record.status = .running ∧ record.lease.holder ≠ none
+
+/-- No Turn holds the branch. An undo must establish this before it may append, so an undo
+    that would orphan an in-flight Turn is refused until that Turn is fenced or completes. -/
+def BranchUnheld (store : GraphStore) (run : RunId) (branch : BranchId) : Prop :=
+  ∀ turn, ¬ BranchHeldBy store run branch turn
+
 def CommitAllowed (store : GraphStore) (effects : EffectLedger) (events : EventStore)
     (audit : AuditLog) (now : Time) (commit : RunCommit) : Prop :=
   match commit.kind, commit.writer with
@@ -506,12 +535,13 @@ def CommitAllowed (store : GraphStore) (effects : EffectLedger) (events : EventS
       exactReceipt = receipt ∧ commit.pins = pins ∧
       ControlCommitAudit store effects audit cause receipt operation commit.run ∧
       SuccessfulControl effects receipt operation commit.run
-  | .undo selects receipt, .system (.control cause exactReceipt) =>
+  | .undo selected receipt, .system (.control cause exactReceipt) =>
       exactReceipt = receipt ∧
       UnaryPinsInherited store commit ∧
       (∃ operation, ControlCommitAudit store effects audit cause receipt operation commit.run ∧
         SuccessfulControl effects receipt operation commit.run) ∧
-      ∃ parent, parent ∈ commit.parents ∧ Ancestor store selects parent
+      BranchUnheld store commit.run commit.branch ∧
+      ∃ parent, parent ∈ commit.parents ∧ Ancestor store selected parent
   | .merge (.pick picked receipt) (.clean _), .system (.control cause exactReceipt) =>
       exactReceipt = receipt ∧
       (∃ operation, ControlCommitAudit store effects audit cause receipt operation commit.run ∧
@@ -1627,5 +1657,191 @@ theorem synthesis_is_system_controlled_exact_turn {store effects events audit no
           rcases allowed with ⟨rfl, auditEvidence, controlEvidence, synthesisEvidence, subject⟩
           exact ⟨auditId, rfl, auditEvidence, controlEvidence, synthesisEvidence, subject⟩
       | receipt | delivery => simp [CommitAllowed, kind, writerEq] at allowed
+
+/-! ## Undo as append-only selection (§5.2, C13-RUN-UNDO-REDO, C13-RUN-UNDO-FENCE) -/
+
+/-- What an undo has to bring: the branch is unheld, and the commit it selects is an ancestor
+    of the parent it appends onto. -/
+theorem undo_requires_unheld_branch_and_ancestor_selection
+    {store effects events audit now commit selected receipt}
+    (allowed : CommitAllowed store effects events audit now commit)
+    (kind : commit.kind = .undo selected receipt) :
+    BranchUnheld store commit.run commit.branch ∧
+      ∃ parent, parent ∈ commit.parents ∧ Ancestor store selected parent := by
+  cases writerEq : commit.writer with
+  | root cause => simp [CommitAllowed, kind, writerEq] at allowed
+  | turn token cause => simp [CommitAllowed, kind, writerEq] at allowed
+  | system cause =>
+      cases cause with
+      | control auditId exactReceipt =>
+          unfold CommitAllowed at allowed
+          rw [kind, writerEq] at allowed
+          exact allowed.2.2.2
+      | receipt | delivery => simp [CommitAllowed, kind, writerEq] at allowed
+
+/-- The graph is append-only in the strongest sense the model can state: no transition of any
+    kind removes a commit or rewrites one that is already stored. -/
+theorem graph_step_preserves_commits {effects events audit before after label id record}
+    (step : GraphStep effects events audit before label after)
+    (present : before.commits id = some record) : after.commits id = some record := by
+  have extend : ∀ (key : CommitId) (added : RunCommit), before.commits key = none →
+      tableSet before.commits key added id = some record := by
+    intro key added absent
+    by_cases same : id = key
+    · rw [same, absent] at present
+      exact Option.noConfusion present
+    · rw [tableSet_other _ _ _ same]
+      exact present
+  cases step with
+  | startTurn | claimTurn | suspendTurn | resumeTurn | reserveObligation | completeObligation
+  | recordAcceptanceVerdict | beginTerminalization | forceCancelSibling => exact present
+  | startRun _ _ commitFresh => exact extend _ _ commitFresh
+  | spawnChild _ _ _ _ _ _ commitFresh => exact extend _ _ commitFresh
+  | append commitFresh => exact extend _ _ commitFresh
+  | migrate _ _ commitFresh => exact extend _ _ commitFresh
+  | terminalize _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ commitFresh => exact extend _ _ commitFresh
+
+theorem graph_reachable_preserves_commits {effects events audit start finish id record}
+    (reachable : GraphReachable effects events audit start finish)
+    (present : start.commits id = some record) : finish.commits id = some record := by
+  induction reachable with
+  | refl => exact present
+  | step _ transition ih => exact graph_step_preserves_commits transition ih
+
+/-- Ancestry only ever grows: a graph that keeps every commit keeps every ancestry edge. -/
+theorem ancestor_preserved_by_commit_growth {before after : GraphStore} {ancestor child}
+    (growth : ∀ id record, before.commits id = some record → after.commits id = some record)
+    (chain : Ancestor before ancestor child) : Ancestor after ancestor child := by
+  induction chain with
+  | refl lookup => exact .refl (growth _ _ lookup)
+  | parent lookup member _ ih => exact .parent (growth _ _ lookup) member ih
+
+/-- A commit that was not in the graph and is in it after one table write is exactly the commit
+    that write added. -/
+private theorem written_commit_is_the_added_one {before : GraphStore} {key : CommitId}
+    {added : RunCommit} {id commit} (absent : before.commits id = none)
+    (introduced : tableSet before.commits key added id = some commit) : added = commit := by
+  by_cases same : id = key
+  · subst same
+    exact Option.some.inj ((tableSet_self ..).symm.trans introduced)
+  · rw [tableSet_other _ _ _ same, absent] at introduced
+    exact Option.noConfusion introduced
+
+/-- C13-RUN-UNDO-FENCE. No transition, under any label, puts an undo commit into a graph whose
+    target branch still has a held Turn. The refusal reads the holder and the status, never the
+    expiry, so an expired-but-unfenced lease blocks the undo exactly as a live one does. -/
+theorem undo_fences_held_turn {effects events audit before after label id commit selected receipt
+    turn}
+    (step : GraphStep effects events audit before label after)
+    (fresh : before.commits id = none)
+    (introduced : after.commits id = some commit)
+    (kind : commit.kind = .undo selected receipt)
+    (held : BranchHeldBy before commit.run commit.branch turn) : False := by
+  cases step with
+  | startTurn | claimTurn | suspendTurn | resumeTurn | reserveObligation | completeObligation
+  | recordAcceptanceVerdict | beginTerminalization | forceCancelSibling =>
+      have direct : before.commits id = some commit := introduced
+      rw [fresh] at direct
+      exact Option.noConfusion direct
+  | startRun _ _ _ _ _ _ _ _ _ _ _ _ _ _ rootKind =>
+      rw [written_commit_is_the_added_one fresh introduced, kind] at rootKind
+      exact RunCommitKind.noConfusion rootKind
+  | spawnChild _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ rootKind =>
+      rw [written_commit_is_the_added_one fresh introduced, kind] at rootKind
+      exact RunCommitKind.noConfusion rootKind
+  | append _ _ _ _ _ _ _ _ allowed =>
+      rw [written_commit_is_the_added_one fresh introduced] at allowed
+      exact (undo_requires_unheld_branch_and_ancestor_selection allowed kind).1 turn held
+  | migrate _ _ _ _ _ _ _ _ _ kindEq =>
+      obtain ⟨pins, operation, migrationReceipt, migrationKind, _⟩ := kindEq
+      rw [written_commit_is_the_added_one fresh introduced, kind] at migrationKind
+      exact RunCommitKind.noConfusion migrationKind
+  | terminalize _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ kindEq _ =>
+      rw [written_commit_is_the_added_one fresh introduced, kind] at kindEq
+      exact RunCommitKind.noConfusion kindEq
+
+/-- Expiry is not a fence. A Turn whose lease has run out admits no token at all, and still
+    holds its branch, so the undo above is still refused. -/
+theorem expired_lease_still_holds_branch {store : GraphStore} {run branch turnId record now}
+    (lookup : store.turns turnId = some record) (sameRun : record.run = run)
+    (sameBranch : record.branch = branch) (running : record.status = .running)
+    (holder : record.lease.holder ≠ none)
+    (expired : record.lease.expiresAt.tick ≤ now.tick) :
+    (∀ token, ¬ record.lease.Admits token now) ∧ BranchHeldBy store run branch turnId :=
+  ⟨fun _ => expired_lease_rejects expired, ⟨record, lookup, sameRun, sameBranch, running, holder⟩⟩
+
+/-- Fencing is what releases the branch: the system cancellation clears the sibling's holder
+    atomically, so no Turn holds the branch through it afterwards. -/
+theorem forced_cancellation_unblocks_undo {effects events audit before after run terminalTurn
+    sibling}
+    (step : GraphStep effects events audit before
+      (.forceCancelSibling run terminalTurn sibling) after) :
+    ∀ branch, ¬ BranchHeldBy after run branch sibling := by
+  obtain ⟨prior, cancelled, evidence, priorLookup, cancelledLookup, status, unheld, _⟩ :=
+    forced_cancellation_is_system_fence step
+  intro branch ⟨record, lookup, _, _, running, holder⟩
+  rw [cancelledLookup] at lookup
+  cases Option.some.inj lookup
+  exact holder unheld
+
+/-- Appending an undo keeps everything: every stored commit survives, the head advances to the
+    undo commit itself, and both the head it replaced and the commit it selects stay reachable
+    as ancestors of the new head (§5.2, C13-RUN-UNDO-REDO). -/
+theorem undo_keeps_prior_head_reachable {effects events audit before after id expected commit
+    selected receipt}
+    (step : GraphStep effects events audit before (.append id expected commit) after)
+    (kind : commit.kind = .undo selected receipt) :
+    (∀ commitId record, before.commits commitId = some record →
+        after.commits commitId = some record) ∧
+      after.heads commit.branch = some id ∧ after.commits id = some commit ∧
+      Ancestor after expected id ∧ Ancestor after selected id := by
+  have growth : ∀ commitId record, before.commits commitId = some record →
+      after.commits commitId = some record :=
+    fun _ _ present => graph_step_preserves_commits step present
+  cases step with
+  | append commitFresh _ _ _ _ _ closed shape allowed =>
+      have parents : commit.parents = [expected] := by
+        rw [kind] at shape; exact shape
+      obtain ⟨parentRecord, parentLookup, _⟩ := closed expected (by rw [parents]; simp)
+      obtain ⟨_, parent, member, ancestry⟩ :=
+        undo_requires_unheld_branch_and_ancestor_selection allowed kind
+      obtain rfl : parent = expected := by
+        rw [parents] at member; simpa using member
+      have head : (before.append id commit).heads commit.branch = some id := tableSet_self ..
+      have stored : (before.append id commit).commits id = some commit := tableSet_self ..
+      exact ⟨growth, head, stored,
+        .parent stored (by rw [parents]; simp) (.refl (growth _ _ parentLookup)),
+        .parent stored (by rw [parents]; simp)
+          (ancestor_preserved_by_commit_growth growth ancestry)⟩
+
+/-- The selection semantics: after the undo the branch head is the undo commit and the branch's
+    effective state is exactly the commit it selected (§5.2). -/
+theorem undo_selects_effective_state {effects events audit before after id expected commit
+    selected receipt}
+    (step : GraphStep effects events audit before (.append id expected commit) after)
+    (kind : commit.kind = .undo selected receipt) :
+    after.heads commit.branch = some id ∧ after.effectiveState commit.branch = some selected := by
+  obtain ⟨_, head, stored, _, _⟩ := undo_keeps_prior_head_reachable step kind
+  exact ⟨head, by simp [GraphStore.effectiveState, head, stored, kind]⟩
+
+/-- Redo is another undo commit selecting the commit the first one displaced, so the pair is a
+    round trip: the branch is effectively back where it started, and every commit written along
+    the way -- including both undo markers -- is still in the graph (§5.2). -/
+theorem undo_then_redo_restores_effective_state {effects events audit before middle after
+    undoId redoId expected undoCommit redoCommit selected receipt redoReceipt}
+    (priorEffective : before.effectiveState undoCommit.branch = some expected)
+    (undoStep : GraphStep effects events audit before (.append undoId expected undoCommit) middle)
+    (undoKind : undoCommit.kind = .undo selected receipt)
+    (redoStep : GraphStep effects events audit middle (.append redoId undoId redoCommit) after)
+    (redoKind : redoCommit.kind = .undo expected redoReceipt)
+    (sameBranch : redoCommit.branch = undoCommit.branch) :
+    middle.effectiveState undoCommit.branch = some selected ∧
+      after.effectiveState undoCommit.branch = before.effectiveState undoCommit.branch ∧
+      (∀ id record, before.commits id = some record → after.commits id = some record) := by
+  obtain ⟨_, restored⟩ := undo_selects_effective_state redoStep redoKind
+  rw [sameBranch] at restored
+  refine ⟨(undo_selects_effective_state undoStep undoKind).2, restored.trans priorEffective.symm,
+    fun id record present => graph_step_preserves_commits redoStep
+      (graph_step_preserves_commits undoStep present)⟩
 
 end AgentCore

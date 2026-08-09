@@ -1,7 +1,7 @@
 {
     "edition": "1.0.0",
-    "commit": "e07aea0d4ca0bc36cc30bd2afcc357217fa5a5e9",
-    "dirtySources": true,
+    "commit": "748bbc26961cb3be025b5547746689738bd99309",
+    "dirtySources": false,
     "accountId": "f44999d1ddda7012e9a87729eba250f1",
     "worker": "agent-core-live-harness",
     "bucket": "agent-core-live-evidence",
@@ -9,13 +9,13 @@
     "deployments": [
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
-            "versionId": "633430f1-3066-4bd6-a0ae-3692e9cc90d3",
-            "at": "2026-08-09T07:01:49.473Z"
+            "versionId": "ff52e00d-7f8f-4ca4-9997-2d35232a7e0b",
+            "at": "2026-08-09T07:11:52.864Z"
         },
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
-            "versionId": "6e0e66e1-4ecd-48ca-b2e3-713e6868650c",
-            "at": "2026-08-09T07:03:39.231Z"
+            "versionId": "55a2e65b-29be-48e1-832a-8f4a80c68c10",
+            "at": "2026-08-09T07:14:30.471Z"
         }
     ],
     "sourceFingerprints": {
@@ -36,7 +36,7 @@
         "packages/agent-core-cloudflare/test/live/phase-2.test.ts": "a6f4630572684a703aab8853a38cdaacb9373dc87cd6d21de1148464079e5f1d"
     },
     "reports": {
-        "phase-1.vitest.json": "75db0b799fbaa3dd498e0452f1e7e404769da0d09aa60fab3ac85938f7830134",
-        "phase-2.vitest.json": "5a1ee211aa08700fd2fa81e6952a8524dbfce31f38adca0ba6924a786cb1aa46"
+        "phase-1.vitest.json": "29d1c821b6014c036721ef06ff484a2000d0e874a2d84188e860f95496c876c8",
+        "phase-2.vitest.json": "1e614d82c224af9aeb40a781398ec27deaff9bb97c1e4c28dfa84a75984d0774"
     }
 }

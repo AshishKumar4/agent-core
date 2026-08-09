@@ -896,21 +896,20 @@ private def forceSequenceTerminal : GraphStore := {
   terminalizing := fun candidate => if candidate = runId then none else forceSequenceCancelled.terminalizing candidate
 }
 
-private theorem terminalControlAuditCause : AuditCauseExists terminalAuditLog ⟨34⟩ runId := by
-  refine ⟨controlCommitAuditEntry, ?_, rfl⟩
+private theorem terminalControlAuditEntry :
+    terminalAuditLog.entries ⟨34⟩ = some controlCommitAuditEntry := by
   change tableSet (tableSet (default : AuditLog).entries ⟨34⟩ controlCommitAuditEntry)
     ⟨1⟩ rootAudit ⟨34⟩ = some controlCommitAuditEntry
   rw [tableSet_other _ _ _ (by decide)]
   exact tableSet_self ..
 
+private theorem terminalControlAuditCause : AuditCauseExists terminalAuditLog ⟨34⟩ runId :=
+  ⟨controlCommitAuditEntry, terminalControlAuditEntry, rfl⟩
+
 private theorem terminalControlValid :
     TerminalizationControl.Valid synthesisEffects terminalAuditLog runId terminalControl := by
   refine ⟨synthesisOperation, controlReceipt, controlAttempt, controlPrepared,
-    controlCommitAuditEntry, controlSuccess, ?_, ?_, ?_, ?_, rfl⟩
-  · change tableSet (tableSet (default : AuditLog).entries ⟨34⟩ controlCommitAuditEntry)
-      ⟨1⟩ rootAudit ⟨34⟩ = some controlCommitAuditEntry
-    rw [tableSet_other _ _ _ (by decide)]
-    exact tableSet_self ..
+    controlCommitAuditEntry, controlSuccess, terminalControlAuditEntry, ?_, ?_, ?_, rfl⟩
   · change tableSet (tableSet (default : EffectLedger).attemptReceipts ⟨30⟩ controlReceipt)
       ⟨31⟩ synthesisReceipt ⟨30⟩ = some controlReceipt
     rw [tableSet_other _ _ _ (by decide)]
@@ -2635,8 +2634,9 @@ private theorem acceptanceOpenAdmission :
     acceptanceOpenGraph.admissionRegistry runId = some acceptanceRegistry := by
   simp [acceptanceOpenGraph]
 
-private theorem acceptanceOpenStep :
-    GraphStep mixedEffects (default : EventStore) auditOne (default : GraphStore)
+private theorem acceptanceOpenStepOver (effects : EffectLedger) (audit : AuditLog)
+    (cause : AuditCauseExists audit ⟨1⟩ runId) :
+    GraphStep effects (default : EventStore) audit (default : GraphStore)
       (.startRun runId rootCommitId) acceptanceOpenGraph := by
   apply GraphStep.startRun (cause := ⟨1⟩)
   · rfl
@@ -2654,7 +2654,12 @@ private theorem acceptanceOpenStep :
   · rfl
   · rfl
   · rfl
-  · exact rootCause
+  · exact cause
+
+private theorem acceptanceOpenStep :
+    GraphStep mixedEffects (default : EventStore) auditOne (default : GraphStore)
+      (.startRun runId rootCommitId) acceptanceOpenGraph :=
+  acceptanceOpenStepOver mixedEffects auditOne rootCause
 
 private def acceptanceVerdictGraph : GraphStore := acceptanceOpenGraph.recordVerdict verdictAtHead
 
@@ -2662,26 +2667,33 @@ private theorem acceptanceVerdictRecorded :
     verdictAtHead ∈ acceptanceVerdictGraph.acceptanceVerdicts acceptanceId := by
   simp [acceptanceVerdictGraph, GraphStore.recordVerdict, verdictAtHead]
 
-private theorem acceptanceOpenRetryAdmissible :
-    acceptanceOpenGraph.AcceptanceRetryAdmissible acceptanceId acceptanceHead := by
+private theorem acceptanceOpenRetryAdmissible (accId : AcceptanceId) (subject : TreeId) :
+    acceptanceOpenGraph.AcceptanceRetryAdmissible accId subject := by
   intro verdict member _
   exact absurd member (by simp [acceptanceOpenGraph, GraphStore.acceptanceVerdicts])
 
-private theorem acceptanceVerdictStep :
-    GraphStep mixedEffects (default : EventStore) auditOne acceptanceOpenGraph
-      (.recordAcceptanceVerdict runId verdictAtHead) acceptanceVerdictGraph := by
+private theorem acceptanceVerdictStepOver {effects : EffectLedger} {audit : AuditLog}
+    {verdict : AcceptanceVerdict} (named : verdict.acceptance = acceptanceId)
+    (receipt : VerifierReceipt effects verdict.receipt header.operation .succeeded) :
+    GraphStep effects (default : EventStore) audit acceptanceOpenGraph
+      (.recordAcceptanceVerdict runId verdict) (acceptanceOpenGraph.recordVerdict verdict) := by
   apply GraphStep.recordAcceptanceVerdict (run := acceptanceRunRecord)
     (criterion := acceptanceCriterion) (registry := acceptanceRegistry) (outcome := .succeeded)
   · exact acceptanceOpenRun
   · rfl
   · simp [acceptanceRunRecord]
-  · rfl
+  · exact named.symm
   · exact acceptanceOpenAdmission
   · rfl
-  · simp [acceptanceRegistry, verdictAtHead]
+  · simp [acceptanceRegistry, named]
   · simp [acceptanceRegistry]
-  · exact acceptanceOpenRetryAdmissible
-  · exact acceptanceVerifierReceipt
+  · exact acceptanceOpenRetryAdmissible _ _
+  · exact receipt
+
+private theorem acceptanceVerdictStep :
+    GraphStep mixedEffects (default : EventStore) auditOne acceptanceOpenGraph
+      (.recordAcceptanceVerdict runId verdictAtHead) acceptanceVerdictGraph :=
+  acceptanceVerdictStepOver rfl acceptanceVerifierReceipt
 
 private theorem acceptanceVerdictHeadTree :
     acceptanceVerdictGraph.HeadTree runId acceptanceHead := by
@@ -3053,5 +3065,818 @@ theorem nonvacuous_settled_acceptance_holds_at_current_head :
     nonvacuous_acceptance_settlement_invariants.2.2.1
     nonvacuous_acceptance_settlement_invariants.2.2.2
     (acceptanceSettlementCriterion _) nonvacuous_acceptance_verdict_settles_run
+
+
+/-! Undo as append-only selection (§5.2). One branch, one Turn, four transitions: append a
+    message, refuse the undo while the Turn still holds the branch, fence the Turn, then append
+    the undo and its redo. The refusal and the acceptance differ in exactly one thing -- whether
+    the Turn's lease still names a holder -- and the lease is already expired at the instant the
+    undo is refused, so it is the fence and not the clock that unblocks it. -/
+
+private def undoMessageId : CommitId := ⟨200⟩
+private def undoCommitId : CommitId := ⟨201⟩
+private def redoCommitId : CommitId := ⟨202⟩
+private def undoCommit : RunCommit :=
+  ⟨runId, branchId, pins, .system (.control ⟨34⟩ ⟨30⟩), [undoMessageId], none,
+    .undo rootCommitId ⟨30⟩, none⟩
+private def redoCommit : RunCommit :=
+  ⟨runId, branchId, pins, .system (.control ⟨34⟩ ⟨30⟩), [undoCommitId], none,
+    .undo undoMessageId ⟨30⟩, none⟩
+private def undoAfterMessage : GraphStore := writerGraph.append undoMessageId messageCommit
+private def undoFencedTurn : Turn :=
+  runningTurn.withStatusLease .suspended ⟨turnId, none, 2, ⟨10⟩⟩
+private def undoFenced : GraphStore :=
+  { undoAfterMessage with turns := tableSet undoAfterMessage.turns turnId undoFencedTurn }
+private def undoApplied : GraphStore := undoFenced.append undoCommitId undoCommit
+private def undoRedone : GraphStore := undoApplied.append redoCommitId redoCommit
+
+private theorem writerGraphRun : writerGraph.runs runId = some run := by
+  change tableSet (default : GraphStore).runs runId run runId = some run
+  exact tableSet_self ..
+
+private theorem writerGraphBranch : writerGraph.branches branchId = some ⟨runId⟩ := by
+  change tableSet (default : GraphStore).branches branchId (⟨runId⟩ : RunBranch) branchId =
+    some ⟨runId⟩
+  exact tableSet_self ..
+
+private theorem writerGraphHead : writerGraph.heads branchId = some rootCommitId := by
+  change tableSet (default : GraphStore).heads branchId rootCommitId branchId = some rootCommitId
+  exact tableSet_self ..
+
+private theorem writerGraphTurn : writerGraph.turns turnId = some runningTurn := by
+  change tableSet (default : GraphStore).turns turnId runningTurn turnId = some runningTurn
+  exact tableSet_self ..
+
+private theorem writerGraphRoot : writerGraph.commits rootCommitId = some rootCommit := by
+  change tableSet (default : GraphStore).commits rootCommitId rootCommit rootCommitId =
+    some rootCommit
+  exact tableSet_self ..
+
+private theorem writerGraphFresh (id : CommitId) (different : id ≠ rootCommitId) :
+    writerGraph.commits id = none := by
+  change tableSet (default : GraphStore).commits rootCommitId rootCommit id = none
+  rw [tableSet_other _ _ _ different]
+  rfl
+
+private theorem undoMessageTurn : undoAfterMessage.turns turnId = some runningTurn := writerGraphTurn
+
+private theorem undoMessageStored : undoAfterMessage.commits undoMessageId = some messageCommit := by
+  change tableSet writerGraph.commits undoMessageId messageCommit undoMessageId =
+    some messageCommit
+  exact tableSet_self ..
+
+private theorem undoRootStored : undoAfterMessage.commits rootCommitId = some rootCommit := by
+  change tableSet writerGraph.commits undoMessageId messageCommit rootCommitId = some rootCommit
+  rw [tableSet_other _ _ _ (by decide)]
+  exact writerGraphRoot
+
+private theorem undoMessageHead : undoAfterMessage.heads branchId = some undoMessageId := by
+  change tableSet writerGraph.heads messageCommit.branch undoMessageId branchId =
+    some undoMessageId
+  exact tableSet_self ..
+
+private theorem undoAfterMessageFresh (id : CommitId) (fromRoot : id ≠ rootCommitId)
+    (fromMessage : id ≠ undoMessageId) : undoAfterMessage.commits id = none := by
+  change tableSet writerGraph.commits undoMessageId messageCommit id = none
+  rw [tableSet_other _ _ _ fromMessage]
+  exact writerGraphFresh id fromRoot
+
+private theorem undoFencedHead : undoFenced.heads branchId = some undoMessageId := undoMessageHead
+
+private theorem undoFencedMessageStored :
+    undoFenced.commits undoMessageId = some messageCommit := undoMessageStored
+
+private theorem undoFencedFresh : undoFenced.commits undoCommitId = none :=
+  undoAfterMessageFresh undoCommitId (by decide) (by decide)
+
+private theorem undoAppliedHead : undoApplied.heads branchId = some undoCommitId := by
+  change tableSet undoFenced.heads undoCommit.branch undoCommitId branchId = some undoCommitId
+  exact tableSet_self ..
+
+private theorem undoAppliedStored : undoApplied.commits undoCommitId = some undoCommit := by
+  change tableSet undoFenced.commits undoCommitId undoCommit undoCommitId = some undoCommit
+  exact tableSet_self ..
+
+private theorem undoAppliedMessageStored :
+    undoApplied.commits undoMessageId = some messageCommit := by
+  change tableSet undoFenced.commits undoCommitId undoCommit undoMessageId = some messageCommit
+  rw [tableSet_other _ _ _ (by decide)]
+  exact undoMessageStored
+
+private theorem undoAppliedFresh : undoApplied.commits redoCommitId = none := by
+  change tableSet undoFenced.commits undoCommitId undoCommit redoCommitId = none
+  rw [tableSet_other _ _ _ (by decide)]
+  exact undoAfterMessageFresh redoCommitId (by decide) (by decide)
+
+private theorem undoMessageAllowed :
+    CommitAllowed writerGraph synthesisEffects (default : EventStore) terminalAuditLog ⟨1⟩
+      messageCommit :=
+  ⟨⟨rootCommitId, rootCommit, rfl, writerGraphRoot, rfl⟩,
+    ⟨runningTurn, writerGraphTurn, rfl, rfl, rfl, rfl, ⟨rfl, rfl, rfl, by decide⟩,
+      ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩⟩,
+    rfl⟩
+
+private theorem undoControlAudit {store : GraphStore} (runLookup : store.runs runId = some run) :
+    ControlCommitAudit store synthesisEffects terminalAuditLog ⟨34⟩ ⟨30⟩ synthesisOperation
+      runId := by
+  refine ⟨run, controlCommitAuditEntry, controlReceipt, controlAttempt, controlPrepared,
+    runLookup, terminalControlAuditEntry, rfl, ?_, rfl, ?_, ?_, rfl, rfl, ⟨tenant, rfl⟩, rfl⟩
+  · change tableSet (tableSet (default : EffectLedger).attemptReceipts ⟨30⟩ controlReceipt)
+      ⟨31⟩ synthesisReceipt ⟨30⟩ = some controlReceipt
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
+  · change tableSet (tableSet (default : EffectLedger).attempts ⟨30⟩ controlAttempt)
+      ⟨31⟩ synthesisAttempt ⟨30⟩ = some controlAttempt
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
+  · change tableSet
+      (tableSet (default : EffectLedger).invocations controlInvocation controlPrepared)
+      synthesisInvocation synthesisPrepared controlInvocation = some controlPrepared
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
+
+private theorem fencedBranchUnheld (store : GraphStore)
+    (turns : ∀ candidate, store.turns candidate = undoFenced.turns candidate) :
+    BranchUnheld store runId branchId := by
+  intro candidate held
+  obtain ⟨record, lookup, _, _, running, _⟩ := held
+  rw [turns candidate] at lookup
+  by_cases same : candidate = turnId
+  · subst same
+    change tableSet undoAfterMessage.turns turnId undoFencedTurn turnId = some record at lookup
+    rw [tableSet_self] at lookup
+    cases Option.some.inj lookup
+    exact absurd running (by decide)
+  · change tableSet undoAfterMessage.turns turnId undoFencedTurn candidate = some record at lookup
+    rw [tableSet_other _ _ _ same] at lookup
+    change tableSet (default : GraphStore).turns turnId runningTurn candidate = some record at lookup
+    rw [tableSet_other _ _ _ same] at lookup
+    exact Option.noConfusion lookup
+
+private theorem undoAllowed {store : GraphStore} {selected parent : CommitId}
+    {parentRecord : RunCommit}
+    (runLookup : store.runs runId = some run)
+    (turns : ∀ candidate, store.turns candidate = undoFenced.turns candidate)
+    (parentLookup : store.commits parent = some parentRecord)
+    (parentPins : parentRecord.pins = pins)
+    (ancestry : Ancestor store selected parent) :
+    CommitAllowed store synthesisEffects (default : EventStore) terminalAuditLog ⟨1⟩
+      ⟨runId, branchId, pins, .system (.control ⟨34⟩ ⟨30⟩), [parent], none,
+        .undo selected ⟨30⟩, none⟩ :=
+  ⟨rfl, ⟨parent, parentRecord, rfl, parentLookup, parentPins.symm⟩,
+    ⟨synthesisOperation, undoControlAudit runLookup, controlSuccess⟩,
+    fencedBranchUnheld _ turns, parent, List.mem_singleton.mpr rfl, ancestry⟩
+
+/-- The Turn holds the branch and its lease has already expired -- it admits no token at all --
+    and the undo is refused anyway, under every label and every `now`. Without the fence
+    precondition this step would be available, so the refusal is that precondition's doing. -/
+theorem nonvacuous_expired_held_turn_blocks_undo :
+    (∀ token, ¬ runningTurn.lease.Admits token ⟨20⟩) ∧
+    BranchHeldBy undoAfterMessage runId branchId turnId ∧
+    ¬ ∃ label after, GraphStep synthesisEffects (default : EventStore) terminalAuditLog
+      undoAfterMessage label after ∧ after.commits undoCommitId = some undoCommit := by
+  obtain ⟨expired, held⟩ :=
+    expired_lease_still_holds_branch (store := undoAfterMessage) (run := runId)
+      (branch := branchId) (record := runningTurn) (now := ⟨20⟩) undoMessageTurn rfl rfl rfl
+      (by decide) (by decide)
+  refine ⟨expired, held, ?_⟩
+  intro ⟨label, after, step, introduced⟩
+  exact undo_fences_held_turn step (undoAfterMessageFresh undoCommitId (by decide) (by decide))
+    introduced rfl held
+
+/-- The whole trace: append a message, fence the Turn that held the branch, then append the undo
+    and its redo. Fencing is the only thing that changed between the refusal above and the third
+    step here. -/
+theorem nonvacuous_fenced_undo_redo_trace :
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog writerGraph
+      (.append undoMessageId rootCommitId messageCommit) undoAfterMessage ∧
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog undoAfterMessage
+      (.suspendTurn turnId) undoFenced ∧
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog undoFenced
+      (.append undoCommitId undoMessageId undoCommit) undoApplied ∧
+    GraphStep synthesisEffects (default : EventStore) terminalAuditLog undoApplied
+      (.append redoCommitId undoCommitId redoCommit) undoRedone := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · exact GraphStep.append (run := run) (branch := ⟨runId⟩) (now := ⟨1⟩)
+      (writerGraphFresh undoMessageId (by decide)) writerGraphRun rfl writerGraphBranch rfl
+      writerGraphHead
+      (fun parent member => ⟨rootCommit, by
+        rw [List.mem_singleton.mp member]; exact writerGraphRoot, rfl⟩)
+      rfl undoMessageAllowed
+  · exact GraphStep.suspendTurn (turn := runningTurn) undoMessageTurn rfl .suspendFence
+  · exact GraphStep.append (run := run) (branch := ⟨runId⟩) (now := ⟨1⟩)
+      undoFencedFresh writerGraphRun rfl writerGraphBranch rfl undoFencedHead
+      (fun parent member => ⟨messageCommit, by
+        rw [List.mem_singleton.mp member]; exact undoFencedMessageStored, rfl⟩)
+      rfl
+      (undoAllowed writerGraphRun (fun _ => rfl) undoFencedMessageStored rfl
+        (.parent undoFencedMessageStored (List.mem_singleton.mpr rfl) (.refl undoRootStored)))
+  · exact GraphStep.append (run := run) (branch := ⟨runId⟩) (now := ⟨1⟩)
+      undoAppliedFresh writerGraphRun rfl writerGraphBranch rfl undoAppliedHead
+      (fun parent member => ⟨undoCommit, by
+        rw [List.mem_singleton.mp member]; exact undoAppliedStored, rfl⟩)
+      rfl
+      (undoAllowed writerGraphRun (fun _ => rfl) undoAppliedStored rfl
+        (.parent undoAppliedStored (List.mem_singleton.mpr rfl) (.refl undoAppliedMessageStored)))
+
+/-- Selection, not rewind. The undo advances the head to itself while the branch's effective
+    state becomes the ancestor it selected; the redo puts the effective state back; and every
+    commit ever written -- root, message, undo, redo -- is still in the graph, with the head it
+    replaced and the commit it selected both still ancestors of the head. -/
+theorem nonvacuous_undo_selects_ancestor_and_redo_restores :
+    GraphReachable synthesisEffects (default : EventStore) terminalAuditLog writerGraph
+      undoRedone ∧
+    undoFenced.effectiveState branchId = some undoMessageId ∧
+    undoApplied.heads branchId = some undoCommitId ∧
+    undoApplied.effectiveState branchId = some rootCommitId ∧
+    undoRedone.effectiveState branchId = undoFenced.effectiveState branchId ∧
+    undoRedone.commits rootCommitId = some rootCommit ∧
+    undoRedone.commits undoMessageId = some messageCommit ∧
+    Ancestor undoApplied rootCommitId undoCommitId ∧
+    Ancestor undoApplied undoMessageId undoCommitId := by
+  have priorEffective : undoFenced.effectiveState branchId = some undoMessageId := by
+    simp [GraphStore.effectiveState, undoFencedHead, undoFencedMessageStored, messageCommit]
+  obtain ⟨messageStep, fenceStep, undoStep, redoStep⟩ := nonvacuous_fenced_undo_redo_trace
+  obtain ⟨head, effective⟩ := undo_selects_effective_state undoStep (selected := rootCommitId) rfl
+  obtain ⟨growth, _, _, priorHead, selectedAncestor⟩ :=
+    undo_keeps_prior_head_reachable undoStep (selected := rootCommitId) rfl
+  obtain ⟨_, restored, _⟩ :=
+    undo_then_redo_restores_effective_state (selected := rootCommitId) (redoReceipt := ⟨30⟩)
+      priorEffective undoStep rfl redoStep rfl rfl
+  exact ⟨.step (.step (.step (.step (.refl _) messageStep) fenceStep) undoStep) redoStep,
+    priorEffective, head, effective, restored,
+    graph_reachable_preserves_commits
+      (.step (.step (.step (.step (.refl _) messageStep) fenceStep) undoStep) redoStep)
+      writerGraphRoot,
+    graph_step_preserves_commits redoStep (growth _ _ undoMessageStored),
+    selectedAncestor, priorHead⟩
+
+
+/-! A Settled Run reached from the empty graph. Every settlement claim so far has had either a
+    reachable-graph witness or a `Settled`-state witness, never one object that is both: the
+    terminal fixtures planted `terminalizing` without an administer control Receipt behind it.
+    The trace below plants nothing. It opens a Run that declares an acceptance criterion,
+    records the verifier's verdict, reserves an item obligation, starts and claims the Turn,
+    begins terminalization against a real succeeded administer Receipt carrying its own audit
+    chain, and terminalizes -- seven `GraphStep`s from `default`. It is parameterised by the
+    subject the one verdict names, so the same trace produces a Settled Run and an unsettled
+    one. -/
+
+private def reachVerifyInvocation : InvocationId := ⟨70⟩
+private def reachControlInvocation : InvocationId := ⟨71⟩
+private def reachControlOperation : OperationId := ⟨facet, "terminalize", 1⟩
+private def reachVerifyHeader : InvocationHeader :=
+  { header with invocation := reachVerifyInvocation, auditCause := ⟨1⟩ }
+private def reachControlHeader : InvocationHeader :=
+  { header with
+    invocation := reachControlInvocation, operation := reachControlOperation,
+    impact := .administer, lease := none, auditCause := ⟨4⟩ }
+private def reachVerifyPrepared : PreparedInvocation := ⟨reachVerifyHeader, .single firstArgs⟩
+private def reachControlPrepared : PreparedInvocation := ⟨reachControlHeader, .single firstArgs⟩
+private def reachVerifyKey : ItemKey :=
+  deriveItemKey reachVerifyHeader reachVerifyPrepared.payload 0 firstArgs
+private def reachControlKey : ItemKey :=
+  deriveItemKey reachControlHeader reachControlPrepared.payload 0 firstArgs
+private def reachVerifyAttemptId : AttemptId := ⟨70⟩
+private def reachControlAttemptId : AttemptId := ⟨71⟩
+private def reachVerifyReceiptId : ReceiptId := ⟨70⟩
+private def reachControlReceiptId : ReceiptId := ⟨71⟩
+private def reachVerifyAttempt : EffectAttempt :=
+  ⟨reachVerifyInvocation, 0, 0, ⟨70⟩, ⟨1⟩, reachVerifyKey, some token, ⟨1⟩⟩
+private def reachControlAttempt : EffectAttempt :=
+  ⟨reachControlInvocation, 0, 0, ⟨71⟩, ⟨4⟩, reachControlKey, none, ⟨1⟩⟩
+private def reachVerifyReceipt : AttemptReceipt := ⟨reachVerifyAttemptId, .succeeded, none⟩
+private def reachControlReceipt : AttemptReceipt := ⟨reachControlAttemptId, .succeeded, none⟩
+
+private def reachEffects : EffectLedger := {
+  (default : EffectLedger) with
+  invocations := fun id =>
+    if id = reachVerifyInvocation then some reachVerifyPrepared
+    else if id = reachControlInvocation then some reachControlPrepared else none
+  attempts := fun id =>
+    if id = reachVerifyAttemptId then some reachVerifyAttempt
+    else if id = reachControlAttemptId then some reachControlAttempt else none
+  attemptReceipts := fun id =>
+    if id = reachVerifyReceiptId then some reachVerifyReceipt
+    else if id = reachControlReceiptId then some reachControlReceipt else none
+  latestAttempt := fun invocation index =>
+    if invocation = reachVerifyInvocation ∧ index = 0 then some reachVerifyAttemptId
+    else if invocation = reachControlInvocation ∧ index = 0 then some reachControlAttemptId
+    else none
+  currentReceipt := fun invocation index =>
+    if invocation = reachVerifyInvocation ∧ index = 0 then some (.attempt reachVerifyReceiptId)
+    else if invocation = reachControlInvocation ∧ index = 0 then
+      some (.attempt reachControlReceiptId)
+    else none
+}
+
+private def reachRunActor : ActorRef := .run tenant runId
+private def reachVerifyInvocationAudit : AuditEntry :=
+  ⟨reachRunActor, 1, 7, none, .invocation reachVerifyInvocation⟩
+private def reachVerifyAttemptAudit : AuditEntry :=
+  ⟨reachRunActor, 2, 7, some ⟨1⟩, .attempt reachVerifyAttemptId reachVerifyInvocation⟩
+private def reachVerifyReceiptAudit : AuditEntry :=
+  ⟨reachRunActor, 3, 7, some ⟨2⟩,
+    .attemptReceipt reachVerifyReceiptId reachVerifyAttemptId reachVerifyInvocation .succeeded⟩
+private def reachControlInvocationAudit : AuditEntry :=
+  ⟨reachRunActor, 4, 8, none, .invocation reachControlInvocation⟩
+private def reachControlAttemptAudit : AuditEntry :=
+  ⟨reachRunActor, 5, 8, some ⟨4⟩, .attempt reachControlAttemptId reachControlInvocation⟩
+private def reachControlReceiptAudit : AuditEntry :=
+  ⟨reachRunActor, 6, 8, some ⟨5⟩,
+    .attemptReceipt reachControlReceiptId reachControlAttemptId reachControlInvocation .succeeded⟩
+
+private def reachAudit : AuditLog := {
+  entries := fun id =>
+    if id = ⟨1⟩ then some reachVerifyInvocationAudit
+    else if id = ⟨2⟩ then some reachVerifyAttemptAudit
+    else if id = ⟨3⟩ then some reachVerifyReceiptAudit
+    else if id = ⟨4⟩ then some reachControlInvocationAudit
+    else if id = ⟨5⟩ then some reachControlAttemptAudit
+    else if id = ⟨6⟩ then some reachControlReceiptAudit
+    else none
+  atSequence := fun actor sequence =>
+    if actor = reachRunActor then
+      if sequence = 1 then some ⟨1⟩ else if sequence = 2 then some ⟨2⟩
+      else if sequence = 3 then some ⟨3⟩ else if sequence = 4 then some ⟨4⟩
+      else if sequence = 5 then some ⟨5⟩ else if sequence = 6 then some ⟨6⟩ else none
+    else none
+}
+
+private theorem reachAuditVerifyInvocation :
+    reachAudit.entries ⟨1⟩ = some reachVerifyInvocationAudit := by simp [reachAudit]
+private theorem reachAuditVerifyAttempt :
+    reachAudit.entries ⟨2⟩ = some reachVerifyAttemptAudit := by simp [reachAudit]
+private theorem reachAuditVerifyReceipt :
+    reachAudit.entries ⟨3⟩ = some reachVerifyReceiptAudit := by simp [reachAudit]
+private theorem reachAuditControlInvocation :
+    reachAudit.entries ⟨4⟩ = some reachControlInvocationAudit := by simp [reachAudit]
+private theorem reachAuditControlAttempt :
+    reachAudit.entries ⟨5⟩ = some reachControlAttemptAudit := by simp [reachAudit]
+private theorem reachAuditControlReceipt :
+    reachAudit.entries ⟨6⟩ = some reachControlReceiptAudit := by simp [reachAudit]
+
+private theorem reachVerifyReceiptLookup :
+    reachEffects.attemptReceipts reachVerifyReceiptId = some reachVerifyReceipt := by
+  simp [reachEffects]
+private theorem reachControlReceiptLookup :
+    reachEffects.attemptReceipts reachControlReceiptId = some reachControlReceipt := by
+  simp [reachEffects, reachVerifyReceiptId, reachControlReceiptId]
+private theorem reachVerifyAttemptLookup :
+    reachEffects.attempts reachVerifyAttemptId = some reachVerifyAttempt := by simp [reachEffects]
+private theorem reachControlAttemptLookup :
+    reachEffects.attempts reachControlAttemptId = some reachControlAttempt := by
+  simp [reachEffects, reachVerifyAttemptId, reachControlAttemptId]
+private theorem reachVerifyPreparedLookup :
+    reachEffects.invocations reachVerifyInvocation = some reachVerifyPrepared := by
+  simp [reachEffects]
+private theorem reachControlPreparedLookup :
+    reachEffects.invocations reachControlInvocation = some reachControlPrepared := by
+  simp [reachEffects, reachVerifyInvocation, reachControlInvocation]
+private theorem reachVerifyCurrent :
+    reachEffects.currentReceipt reachVerifyInvocation 0 = some (.attempt reachVerifyReceiptId) := by
+  simp [reachEffects]
+private theorem reachControlCurrent :
+    reachEffects.currentReceipt reachControlInvocation 0 =
+      some (.attempt reachControlReceiptId) := by
+  simp [reachEffects, reachVerifyInvocation, reachControlInvocation]
+private theorem reachVerifyLatest :
+    reachEffects.latestAttempt reachVerifyInvocation 0 = some reachVerifyAttemptId := by
+  simp [reachEffects]
+private theorem reachControlLatest :
+    reachEffects.latestAttempt reachControlInvocation 0 = some reachControlAttemptId := by
+  simp [reachEffects, reachVerifyInvocation, reachControlInvocation]
+
+/-- The verdict Receipt is a succeeded attempted Receipt of the criterion's own verifier. -/
+private theorem reachVerifierReceipt :
+    VerifierReceipt reachEffects reachVerifyReceiptId header.operation .succeeded :=
+  ⟨reachVerifyReceipt, reachVerifyAttempt, reachVerifyPrepared, reachVerifyReceiptLookup, rfl,
+    reachVerifyAttemptLookup, reachVerifyPreparedLookup, rfl⟩
+
+/-- The terminalization control is a genuine succeeded `administer` Receipt in the Run's own
+    domain, with the typed audit entry that names it. -/
+private theorem reachControlSuccess :
+    SuccessfulControl reachEffects reachControlReceiptId reachControlOperation runId :=
+  ⟨reachControlReceipt, reachControlAttempt, reachControlPrepared, reachControlReceiptLookup, rfl,
+    reachControlAttemptLookup, reachControlPreparedLookup, rfl, rfl, ⟨tenant, rfl⟩⟩
+
+private def reachControl : TerminalizationControl := ⟨turnId, reachControlReceiptId, ⟨6⟩⟩
+
+private theorem reachControlValid :
+    TerminalizationControl.Valid reachEffects reachAudit runId reachControl :=
+  ⟨reachControlOperation, reachControlReceipt, reachControlAttempt, reachControlPrepared,
+    reachControlReceiptAudit, reachControlSuccess, reachAuditControlReceipt,
+    reachControlReceiptLookup, reachControlAttemptLookup, reachControlPreparedLookup, rfl⟩
+
+private theorem reachRootCause : AuditCauseExists reachAudit ⟨1⟩ runId :=
+  ⟨reachVerifyInvocationAudit, reachAuditVerifyInvocation, rfl⟩
+
+private theorem reachVerifyChain : CausalChain (default : EventStore) reachAudit ⟨3⟩ :=
+  .child (entry := reachVerifyReceiptAudit) (parent := ⟨2⟩)
+    (parentEntry := reachVerifyAttemptAudit) reachAuditVerifyReceipt rfl reachAuditVerifyAttempt
+    rfl (by decide) rfl ⟨rfl, rfl⟩
+    (.child (entry := reachVerifyAttemptAudit) (parent := ⟨1⟩)
+      (parentEntry := reachVerifyInvocationAudit) reachAuditVerifyAttempt rfl
+      reachAuditVerifyInvocation rfl (by decide) rfl rfl
+      (.root (entry := reachVerifyInvocationAudit) reachAuditVerifyInvocation rfl trivial))
+
+private theorem reachControlChain : CausalChain (default : EventStore) reachAudit ⟨6⟩ :=
+  .child (entry := reachControlReceiptAudit) (parent := ⟨5⟩)
+    (parentEntry := reachControlAttemptAudit) reachAuditControlReceipt rfl reachAuditControlAttempt
+    rfl (by decide) rfl ⟨rfl, rfl⟩
+    (.child (entry := reachControlAttemptAudit) (parent := ⟨4⟩)
+      (parentEntry := reachControlInvocationAudit) reachAuditControlAttempt rfl
+      reachAuditControlInvocation rfl (by decide) rfl rfl
+      (.root (entry := reachControlInvocationAudit) reachAuditControlInvocation rfl trivial))
+
+private def reachItemObligation : OpenObligation := .item reachVerifyInvocation 0 reachVerifyKey
+private def reachReservedRegistry : RunAdmissionRegistry :=
+  ⟨0, true, [.acceptance acceptanceId, reachItemObligation], []⟩
+private def reachVerdict (subject : TreeId) : AcceptanceVerdict :=
+  ⟨acceptanceId, subject, reachVerifyReceiptId⟩
+private def reachVerdictGraph (subject : TreeId) : GraphStore :=
+  acceptanceOpenGraph.recordVerdict (reachVerdict subject)
+private def reachReservedGraph (subject : TreeId) : GraphStore :=
+  (reachVerdictGraph subject).reserve runId acceptanceRegistry reachItemObligation
+private def reachQueuedTurn : Turn := ⟨runId, branchId, turnPins, .queued, TurnLease.initial turnId⟩
+private def reachQueuedGraph (subject : TreeId) : GraphStore :=
+  { reachReservedGraph subject with
+    turns := tableSet (reachReservedGraph subject).turns turnId reachQueuedTurn }
+private def reachRunningGraph (subject : TreeId) : GraphStore :=
+  { reachQueuedGraph subject with
+    turns := tableSet (reachQueuedGraph subject).turns turnId runningTurn }
+private def reachTerminalizingGraph (subject : TreeId) : GraphStore :=
+  { reachRunningGraph subject with
+    terminalizing := tableSet (reachRunningGraph subject).terminalizing runId reachControl }
+private def reachTerminalCommitId : CommitId := ⟨101⟩
+private def reachTerminalCommit : RunCommit :=
+  ⟨runId, branchId, pins, .turn token ⟨1⟩, [rootCommitId], some turnId, .terminal .succeeded,
+    some acceptanceHead⟩
+private def reachTerminalRun : Run := { acceptanceRunRecord with status := .terminal }
+private def reachTerminalTurn : Turn :=
+  runningTurn.withStatusLease .succeeded ⟨turnId, none, 2, ⟨10⟩⟩
+private def reachSnapshot : TerminalSnapshot :=
+  ⟨runId, turnId, rootCommitId, reachTerminalCommitId, .succeeded, 0,
+    reachReservedRegistry.outstanding⟩
+private def reachSettledGraph (subject : TreeId) : GraphStore := {
+  ((reachTerminalizingGraph subject).append reachTerminalCommitId reachTerminalCommit) with
+  runs := tableSet (reachTerminalizingGraph subject).runs runId reachTerminalRun
+  turns := tableSet (reachTerminalizingGraph subject).turns turnId reachTerminalTurn
+  terminalSnapshots :=
+    tableSet (reachTerminalizingGraph subject).terminalSnapshots runId reachSnapshot
+  admissionRegistry :=
+    tableSet (reachTerminalizingGraph subject).admissionRegistry runId reachReservedRegistry.close
+  terminalizing := fun candidate =>
+    if candidate = runId then none else (reachTerminalizingGraph subject).terminalizing candidate }
+private def reachState (subject : TreeId) : SystemState := {
+  (default : SystemState) with
+  effects := reachEffects
+  audit := reachAudit
+  graph := reachSettledGraph subject
+}
+
+private theorem reachOpenRun (subject : TreeId) :
+    (reachTerminalizingGraph subject).runs runId = some acceptanceRunRecord := acceptanceOpenRun
+
+private theorem reachOpenBranch (subject : TreeId) :
+    (reachTerminalizingGraph subject).branches branchId = some ⟨runId⟩ := by
+  change tableSet (default : GraphStore).branches branchId (⟨runId⟩ : RunBranch) branchId =
+    some ⟨runId⟩
+  exact tableSet_self ..
+
+private theorem reachOpenHead (subject : TreeId) :
+    (reachTerminalizingGraph subject).heads branchId = some rootCommitId := by
+  change tableSet (default : GraphStore).heads branchId rootCommitId branchId = some rootCommitId
+  exact tableSet_self ..
+
+private theorem reachOpenRoot (subject : TreeId) :
+    (reachTerminalizingGraph subject).commits rootCommitId = some acceptanceRootCommit := by
+  change tableSet (default : GraphStore).commits rootCommitId acceptanceRootCommit rootCommitId =
+    some acceptanceRootCommit
+  exact tableSet_self ..
+
+private theorem reachTerminalCommitFresh (subject : TreeId) :
+    (reachTerminalizingGraph subject).commits reachTerminalCommitId = none := by
+  change tableSet (default : GraphStore).commits rootCommitId acceptanceRootCommit
+    reachTerminalCommitId = none
+  rw [tableSet_other _ _ _ (by decide)]
+  rfl
+
+private theorem reachReservedRegistryLookup (subject : TreeId) :
+    (reachTerminalizingGraph subject).admissionRegistry runId = some reachReservedRegistry := by
+  change tableSet (reachVerdictGraph subject).admissionRegistry runId
+    (acceptanceRegistry.reserve reachItemObligation) runId = some reachReservedRegistry
+  exact tableSet_self ..
+
+private theorem reachNoTurnYet (subject : TreeId) (candidate : TurnId) :
+    (reachReservedGraph subject).turns candidate = none := rfl
+
+private theorem reachQueuedTurnLookup (subject : TreeId) :
+    (reachQueuedGraph subject).turns turnId = some reachQueuedTurn := by
+  change tableSet (reachReservedGraph subject).turns turnId reachQueuedTurn turnId =
+    some reachQueuedTurn
+  exact tableSet_self ..
+
+private theorem reachRunningTurnLookup (subject : TreeId) :
+    (reachTerminalizingGraph subject).turns turnId = some runningTurn := by
+  change tableSet (reachQueuedGraph subject).turns turnId runningTurn turnId = some runningTurn
+  exact tableSet_self ..
+
+private theorem reachNoTerminalizing (subject : TreeId) :
+    (reachRunningGraph subject).terminalizing runId = none := rfl
+
+private theorem reachTerminalizingLookup (subject : TreeId) :
+    (reachTerminalizingGraph subject).terminalizing runId = some reachControl := by
+  change tableSet (reachRunningGraph subject).terminalizing runId reachControl runId =
+    some reachControl
+  exact tableSet_self ..
+
+private theorem reachOnlyTurn (subject : TreeId) (candidate : TurnId) (record : Turn)
+    (lookup : (reachTerminalizingGraph subject).turns candidate = some record) :
+    candidate = turnId := by
+  by_cases same : candidate = turnId
+  · exact same
+  · exfalso
+    change tableSet (reachQueuedGraph subject).turns turnId runningTurn candidate = some record
+      at lookup
+    rw [tableSet_other _ _ _ same] at lookup
+    change tableSet (reachReservedGraph subject).turns turnId reachQueuedTurn candidate =
+      some record at lookup
+    rw [tableSet_other _ _ _ same] at lookup
+    rw [reachNoTurnYet subject candidate] at lookup
+    exact Option.noConfusion lookup
+
+private theorem reachSiblingsTerminal (subject : TreeId) :
+    SiblingTurnsTerminalAndUnheld (reachTerminalizingGraph subject) runId turnId := by
+  intro candidate record lookup _ different
+  exact absurd (reachOnlyTurn subject candidate record lookup) different
+
+private theorem reachOpenStep :
+    GraphStep reachEffects (default : EventStore) reachAudit (default : GraphStore)
+      (.startRun runId rootCommitId) acceptanceOpenGraph :=
+  acceptanceOpenStepOver reachEffects reachAudit reachRootCause
+
+private theorem reachVerdictStep (subject : TreeId) :
+    GraphStep reachEffects (default : EventStore) reachAudit acceptanceOpenGraph
+      (.recordAcceptanceVerdict runId (reachVerdict subject)) (reachVerdictGraph subject) :=
+  acceptanceVerdictStepOver rfl reachVerifierReceipt
+
+private theorem reachReserveStep (subject : TreeId) :
+    GraphStep reachEffects (default : EventStore) reachAudit (reachVerdictGraph subject)
+      (.reserveObligation runId 0 reachItemObligation) (reachReservedGraph subject) :=
+  GraphStep.reserveObligation (run := acceptanceRunRecord) (registry := acceptanceRegistry)
+    acceptanceOpenRun rfl acceptanceOpenAdmission rfl trivial (by decide) (by decide)
+
+private theorem reachStartTurnStep (subject : TreeId) :
+    GraphStep reachEffects (default : EventStore) reachAudit (reachReservedGraph subject)
+      (.startTurn turnId) (reachQueuedGraph subject) :=
+  GraphStep.startTurn (turn := reachQueuedTurn) (run := acceptanceRunRecord) (branch := ⟨runId⟩)
+    (reachNoTurnYet subject turnId) acceptanceOpenRun rfl (reachOpenBranch subject) rfl rfl rfl
+    rfl rfl
+
+private theorem reachClaimStep (subject : TreeId) :
+    GraphStep reachEffects (default : EventStore) reachAudit (reachQueuedGraph subject)
+      (.claimTurn turnId) (reachRunningGraph subject) :=
+  GraphStep.claimTurn (turn := reachQueuedTurn) (holder := principalRef) (now := ⟨1⟩)
+    (expires := ⟨10⟩) (reachQueuedTurnLookup subject) rfl (.claim rfl (by decide))
+
+private theorem reachBeginStep (subject : TreeId) :
+    GraphStep reachEffects (default : EventStore) reachAudit (reachRunningGraph subject)
+      (.beginTerminalization runId turnId reachControlReceiptId) (reachTerminalizingGraph subject) :=
+  GraphStep.beginTerminalization (run := acceptanceRunRecord) (turn := runningTurn) (cause := ⟨6⟩)
+    acceptanceOpenRun rfl (reachRunningTurnLookup subject) rfl rfl rfl
+    (reachNoTerminalizing subject) reachControlValid
+
+private theorem reachTerminalizeStep (subject : TreeId) :
+    GraphStep reachEffects (default : EventStore) reachAudit (reachTerminalizingGraph subject)
+      (.terminalize runId turnId reachTerminalCommitId rootCommitId) (reachSettledGraph subject) :=
+  GraphStep.terminalize (run := acceptanceRunRecord) (turn := runningTurn) (token := token)
+    (now := ⟨1⟩) (fenced := ⟨turnId, none, 2, ⟨10⟩⟩) (terminal := .succeeded)
+    (registry := reachReservedRegistry) (commit := reachTerminalCommit)
+    (preterminal := acceptanceRootCommit) (snapshot := reachSnapshot) (cause := ⟨1⟩)
+    (control := reachControl)
+    (reachOpenRun subject) rfl (reachRunningTurnLookup subject) rfl rfl rfl
+    ⟨rfl, rfl, rfl, by decide⟩ (by simp [RunPins.Valid, acceptanceRunRecord, pins, agent]) rfl
+    (reachTerminalizingLookup subject) rfl (reachSiblingsTerminal subject) .terminalFence
+    (Or.inl rfl) (reachOpenHead subject) (reachOpenRoot subject) rfl rfl
+    (reachTerminalCommitFresh subject) (reachReservedRegistryLookup subject) rfl rfl rfl rfl rfl
+    reachRootCause rfl rfl rfl rfl
+
+/-- Seven transitions from the empty graph: open the Run with its acceptance criterion, record
+    the verifier's verdict, reserve the item obligation, start and claim the Turn, begin
+    terminalization against the control Receipt, and terminalize. -/
+private theorem reachTrace (subject : TreeId) :
+    GraphReachable reachEffects (default : EventStore) reachAudit (default : GraphStore)
+      (reachSettledGraph subject) :=
+  .step (.step (.step (.step (.step (.step (.step (.refl _) reachOpenStep)
+    (reachVerdictStep subject)) (reachReserveStep subject)) (reachStartTurnStep subject))
+    (reachClaimStep subject)) (reachBeginStep subject)) (reachTerminalizeStep subject)
+
+private theorem reachSettledRun (subject : TreeId) :
+    (reachSettledGraph subject).runs runId = some reachTerminalRun := by
+  change tableSet (reachTerminalizingGraph subject).runs runId reachTerminalRun runId =
+    some reachTerminalRun
+  exact tableSet_self ..
+
+private theorem reachSettledSnapshot (subject : TreeId) :
+    (reachSettledGraph subject).terminalSnapshots runId = some reachSnapshot := by
+  change tableSet (reachTerminalizingGraph subject).terminalSnapshots runId reachSnapshot runId =
+    some reachSnapshot
+  exact tableSet_self ..
+
+private theorem reachSettledTurn (subject : TreeId) :
+    (reachSettledGraph subject).turns turnId = some reachTerminalTurn := by
+  change tableSet (reachTerminalizingGraph subject).turns turnId reachTerminalTurn turnId =
+    some reachTerminalTurn
+  exact tableSet_self ..
+
+private theorem reachSettledCommit (subject : TreeId) :
+    (reachSettledGraph subject).commits reachTerminalCommitId = some reachTerminalCommit := by
+  change tableSet (reachTerminalizingGraph subject).commits reachTerminalCommitId
+    reachTerminalCommit reachTerminalCommitId = some reachTerminalCommit
+  exact tableSet_self ..
+
+private theorem reachSettledHead (subject : TreeId) :
+    (reachSettledGraph subject).heads branchId = some reachTerminalCommitId := by
+  change tableSet (reachTerminalizingGraph subject).heads branchId reachTerminalCommitId branchId =
+    some reachTerminalCommitId
+  exact tableSet_self ..
+
+private theorem reachSettledVerdicts (subject : TreeId) :
+    (reachSettledGraph subject).acceptanceVerdicts acceptanceId = [reachVerdict subject] := by
+  change (if acceptanceId = (reachVerdict subject).acceptance then
+      reachVerdict subject :: acceptanceOpenGraph.acceptanceVerdicts acceptanceId
+    else acceptanceOpenGraph.acceptanceVerdicts acceptanceId) = [reachVerdict subject]
+  simp [reachVerdict, acceptanceOpenGraph]
+
+private theorem reachSettledHeadTree (subject : TreeId) :
+    (reachSettledGraph subject).HeadTree runId acceptanceHead :=
+  ⟨reachTerminalRun, reachTerminalCommitId, reachTerminalCommit, reachSettledRun subject,
+    reachSettledHead subject, reachSettledCommit subject, rfl, rfl⟩
+
+private theorem reachSettledCriterion (subject : TreeId) :
+    acceptanceCriterion ∈ (reachSettledGraph subject).acceptanceCriteria runId := by
+  simp [GraphStore.acceptanceCriteria, reachSettledRun subject, reachTerminalRun,
+    acceptanceRunRecord]
+
+private theorem reachVerifyItemOutcome :
+    ItemCurrentOutcome reachEffects reachVerifyInvocation 0 .succeeded := by
+  unfold ItemCurrentOutcome
+  rw [reachVerifyCurrent]
+  exact ⟨reachVerifyReceipt, reachVerifyAttempt, reachVerifyReceiptLookup,
+    reachVerifyAttemptLookup, reachVerifyLatest, rfl, rfl, Or.inl ⟨rfl, rfl⟩⟩
+
+private theorem reachControlItemOutcome :
+    ItemCurrentOutcome reachEffects reachControlInvocation 0 .succeeded := by
+  unfold ItemCurrentOutcome
+  rw [reachControlCurrent]
+  exact ⟨reachControlReceipt, reachControlAttempt, reachControlReceiptLookup,
+    reachControlAttemptLookup, reachControlLatest, rfl, rfl, Or.inl ⟨rfl, rfl⟩⟩
+
+private theorem reachVerifyItemAudited (subject : TreeId) :
+    CurrentReceiptAudited (reachState subject) reachVerifyInvocation 0 ⟨3⟩ := by
+  unfold CurrentReceiptAudited
+  rw [show (reachState subject).effects.currentReceipt reachVerifyInvocation 0 =
+    some (.attempt reachVerifyReceiptId) from reachVerifyCurrent]
+  exact ⟨reachVerifyReceipt, reachVerifyAttempt, reachVerifyReceiptAudit,
+    reachVerifyReceiptLookup, reachVerifyAttemptLookup, reachAuditVerifyReceipt, rfl,
+    reachVerifyChain⟩
+
+private theorem reachControlItemAudited (subject : TreeId) :
+    CurrentReceiptAudited (reachState subject) reachControlInvocation 0 ⟨6⟩ := by
+  unfold CurrentReceiptAudited
+  rw [show (reachState subject).effects.currentReceipt reachControlInvocation 0 =
+    some (.attempt reachControlReceiptId) from reachControlCurrent]
+  exact ⟨reachControlReceipt, reachControlAttempt, reachControlReceiptAudit,
+    reachControlReceiptLookup, reachControlAttemptLookup, reachAuditControlReceipt, rfl,
+    reachControlChain⟩
+
+private theorem reachSnapshotObligations :
+    reachSnapshot.obligations = [.acceptance acceptanceId, reachItemObligation] := by
+  simp [reachSnapshot, reachReservedRegistry, RunAdmissionRegistry.outstanding]
+
+private theorem reachItemDischarged (subject : TreeId) :
+    ObligationDischarged (reachState subject) runId reachItemObligation :=
+  ⟨reachVerifyPrepared, ⟨0, firstArgs, reachVerifyKey⟩, .succeeded, ⟨3⟩,
+    reachVerifyPreparedLookup, rfl, rfl, reachVerifyItemOutcome, by decide,
+    reachVerifyItemAudited subject⟩
+
+/-- The reached graph is genuinely Settled when the one verdict names the head the Run finished
+    on: a coherent terminal snapshot, a terminal Turn, every item of every Run-domain Invocation
+    carrying a non-indeterminate audited current Receipt, no live route, both captured
+    obligations discharged, and no conflict. -/
+theorem nonvacuous_reachable_settled_run :
+    GraphReachable reachEffects (default : EventStore) reachAudit (default : GraphStore)
+      (reachState acceptanceHead).graph ∧
+    Settled (reachState acceptanceHead) runId := by
+  have turnLookup : (reachState acceptanceHead).graph.turns turnId = some reachTerminalTurn :=
+    reachSettledTurn acceptanceHead
+  have snapshotLookup :
+      (reachState acceptanceHead).graph.terminalSnapshots runId = some reachSnapshot :=
+    reachSettledSnapshot acceptanceHead
+  have verdicts : (reachState acceptanceHead).graph.acceptanceVerdicts acceptanceId =
+      [reachVerdict acceptanceHead] := reachSettledVerdicts acceptanceHead
+  have verifyLookup : (reachState acceptanceHead).effects.invocations reachVerifyInvocation =
+      some reachVerifyPrepared := reachVerifyPreparedLookup
+  have controlLookup : (reachState acceptanceHead).effects.invocations reachControlInvocation =
+      some reachControlPrepared := reachControlPreparedLookup
+  refine ⟨reachTrace acceptanceHead, ⟨?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+  · exact ⟨reachTerminalRun, reachSnapshot, reachSettledRun _, rfl, reachSettledSnapshot _, rfl,
+      reachTerminalRun, reachTerminalTurn, reachTerminalCommit, reachSettledRun _, rfl,
+      reachSettledTurn _, rfl, reachSettledCommit _, rfl, rfl, rfl, rfl⟩
+  · intro candidate record lookup _
+    by_cases same : candidate = turnId
+    · subst same
+      rw [turnLookup] at lookup
+      cases Option.some.inj lookup
+      exact Or.inl rfl
+    · exfalso
+      have staged : tableSet (reachTerminalizingGraph acceptanceHead).turns turnId reachTerminalTurn
+          candidate = some record := lookup
+      rw [tableSet_other _ _ _ same] at staged
+      exact same (reachOnlyTurn acceptanceHead candidate record staged)
+  · intro invocation prepared lookup _ item member
+    by_cases verify : invocation = reachVerifyInvocation
+    · subst verify
+      rw [verifyLookup] at lookup
+      cases Option.some.inj lookup
+      have single : item ∈ [(⟨0, firstArgs, reachVerifyKey⟩ : PreparedItem)] := member
+      rw [List.mem_singleton.mp single]
+      exact ⟨.succeeded, reachVerifyItemOutcome, by decide, ⟨3⟩, reachVerifyItemAudited _⟩
+    · by_cases control : invocation = reachControlInvocation
+      · subst control
+        rw [controlLookup] at lookup
+        cases Option.some.inj lookup
+        have single : item ∈ [(⟨0, firstArgs, reachControlKey⟩ : PreparedItem)] := member
+        rw [List.mem_singleton.mp single]
+        exact ⟨.succeeded, reachControlItemOutcome, by decide, ⟨6⟩, reachControlItemAudited _⟩
+      · exact absurd lookup (by simp [reachState, reachEffects, verify, control])
+  · intro invocation prepared lookup _
+    exact ⟨fun reservation reservationLookup => absurd reservationLookup (by simp [reachState]),
+      fun reservation reservationLookup => absurd reservationLookup (by simp [reachState])⟩
+  · intro snapshot lookup obligation member
+    obtain rfl : snapshot = reachSnapshot :=
+      Option.some.inj (lookup.symm.trans snapshotLookup)
+    rw [reachSnapshotObligations] at member
+    have alternatives :
+        obligation = .acceptance acceptanceId ∨ obligation = reachItemObligation := by
+      simpa using member
+    rcases alternatives with rfl | rfl
+    · exact ⟨acceptanceHead, reachVerdict acceptanceHead, header.operation,
+        reachSettledHeadTree acceptanceHead,
+        by rw [verdicts]; exact List.mem_singleton.mpr rfl, rfl, rfl, reachVerifierReceipt⟩
+    · exact reachItemDischarged acceptanceHead
+  · exact fun conflict => conflict
+
+/-- The same seven transitions with the one verdict naming a tree the Run's head moved past: the
+    graph is just as reachable and the Run is not Settled. The two runs of the trace differ in
+    nothing but that subject, so the refusal is the acceptance obligation's doing. -/
+theorem nonvacuous_reachable_stale_verdict_not_settled :
+    GraphReachable reachEffects (default : EventStore) reachAudit (default : GraphStore)
+      (reachState acceptanceOtherHead).graph ∧
+    ¬ Settled (reachState acceptanceOtherHead) runId := by
+  have runLookup : (reachState acceptanceOtherHead).graph.runs runId = some reachTerminalRun :=
+    reachSettledRun acceptanceOtherHead
+  have headLookup : (reachState acceptanceOtherHead).graph.heads reachTerminalRun.rootBranch =
+      some reachTerminalCommitId := reachSettledHead acceptanceOtherHead
+  have commitLookup : (reachState acceptanceOtherHead).graph.commits reachTerminalCommitId =
+      some reachTerminalCommit := reachSettledCommit acceptanceOtherHead
+  have verdicts : (reachState acceptanceOtherHead).graph.acceptanceVerdicts acceptanceId =
+      [reachVerdict acceptanceOtherHead] := reachSettledVerdicts acceptanceOtherHead
+  refine ⟨reachTrace acceptanceOtherHead, ?_⟩
+  apply acceptance_unsatisfied_not_settled (snapshot := reachSnapshot) (accId := acceptanceId)
+    (reachSettledSnapshot acceptanceOtherHead) (by rw [reachSnapshotObligations]; simp)
+  intro satisfied
+  obtain ⟨subject, verdict, verifier, headTree, member, named, atSubject, _⟩ := satisfied
+  obtain ⟨record, head, commit, actualRun, actualHead, actualCommit, _, checkpoint⟩ := headTree
+  obtain rfl : record = reachTerminalRun := Option.some.inj (actualRun.symm.trans runLookup)
+  obtain rfl : head = reachTerminalCommitId := Option.some.inj (actualHead.symm.trans headLookup)
+  obtain rfl : commit = reachTerminalCommit :=
+    Option.some.inj (actualCommit.symm.trans commitLookup)
+  obtain rfl : subject = acceptanceHead := Option.some.inj checkpoint.symm
+  rw [verdicts] at member
+  rw [List.mem_singleton.mp member] at atSubject
+  exact absurd atSubject (by decide)
+
+/-- The headline settlement claims, on one object that is both reachable and Settled: the
+    coherent snapshot with exactly-discharged obligations, and the declared acceptance criterion
+    holding a verdict of its own verifier at the head the Run finished on. -/
+theorem nonvacuous_reachable_settled_obligations_and_acceptance :
+    (∃ snapshot, (reachState acceptanceHead).graph.terminalSnapshots runId = some snapshot ∧
+      snapshot.run = runId ∧
+      TerminalSnapshotCoherent (reachState acceptanceHead).graph snapshot) ∧
+    (∀ snapshot, (reachState acceptanceHead).graph.terminalSnapshots runId = some snapshot →
+      ∀ obligation ∈ snapshot.obligations,
+        ObligationDischarged (reachState acceptanceHead) runId obligation) ∧
+    ∃ subject verdict,
+      (reachState acceptanceHead).graph.HeadTree runId subject ∧
+      verdict ∈ (reachState acceptanceHead).graph.acceptanceVerdicts acceptanceCriterion.id ∧
+      verdict.acceptance = acceptanceCriterion.id ∧ verdict.subject = subject ∧
+      VerifierReceipt (reachState acceptanceHead).effects verdict.receipt
+        acceptanceCriterion.operation .succeeded :=
+  ⟨(settled_has_coherent_snapshot_and_exact_obligations nonvacuous_reachable_settled_run.2).1,
+    (settled_has_coherent_snapshot_and_exact_obligations nonvacuous_reachable_settled_run.2).2,
+    graph_reachable_settled_acceptance_holds_at_current_head nonvacuous_reachable_settled_run.1
+      (reachSettledCriterion acceptanceHead) nonvacuous_reachable_settled_run.2⟩
 
 end AgentCore.Examples

@@ -581,14 +581,14 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-UNDO-FENCE",
       "specTextSha256": "sha256:cbd127c6c89ed6ea292e5e82bcaa093eb96a649fe8498a35b873ee3cfbf14a77",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-UNDO-REDO",
