@@ -21,6 +21,7 @@ import {
     otherPrincipalId,
     principal,
     projectScope,
+    tenantId,
     tenantScope,
     workspaceScope
 } from "./fixture";
@@ -73,13 +74,17 @@ describe("authority value records", () => {
         expect(parent.covers(wider)).toBe(false);
     });
 
-    test("[authority.grant] [authority.scope-epoch] round-trips retained authority records through canonical codecs", { tags: "p0" }, () => {
-        const grant = allowGrant("grant-codec");
-        const epoch = new ScopeEpoch(workspaceScope, 3);
+    test(
+        "[authority.grant] [authority.scope-epoch] round-trips retained authority records through canonical codecs",
+        { tags: "p0" },
+        () => {
+            const grant = allowGrant("grant-codec");
+            const epoch = new ScopeEpoch(workspaceScope, 3);
 
-        expect(Grant.decode(Grant.encode(grant)).toData()).toEqual(grant.toData());
-        expect(ScopeEpoch.decode(ScopeEpoch.encode(epoch)).toData()).toEqual(epoch.toData());
-    });
+            expect(Grant.decode(Grant.encode(grant)).toData()).toEqual(grant.toData());
+            expect(ScopeEpoch.decode(ScopeEpoch.encode(epoch)).toData()).toEqual(epoch.toData());
+        }
+    );
 
     test("rejects malformed and unknown-major capability bytes", { tags: "p0" }, () => {
         const unknownMajor = encodeCanonicalJson({
@@ -128,71 +133,85 @@ describe("authority value records", () => {
         ).toThrow(/canonical ancestry/);
     });
 
-    test("[authority.path-epoch-evidence] round-trips exact path evidence and reports changed Scopes", { tags: "p0" }, () => {
-        const path = new PathEpochEvidence([
-            new ScopeEpoch(tenantScope, 2),
-            new ScopeEpoch(projectScope, 3),
-            new ScopeEpoch(workspaceScope, 4)
-        ]);
-        const changed = new PathEpochEvidence([
-            new ScopeEpoch(tenantScope, 2),
-            new ScopeEpoch(projectScope, 4),
-            new ScopeEpoch(workspaceScope, 4)
-        ]);
+    test(
+        "[authority.path-epoch-evidence] round-trips exact path evidence and reports changed Scopes",
+        { tags: "p0" },
+        () => {
+            const path = new PathEpochEvidence([
+                new ScopeEpoch(tenantScope, 2),
+                new ScopeEpoch(projectScope, 3),
+                new ScopeEpoch(workspaceScope, 4)
+            ]);
+            const changed = new PathEpochEvidence([
+                new ScopeEpoch(tenantScope, 2),
+                new ScopeEpoch(projectScope, 4),
+                new ScopeEpoch(workspaceScope, 4)
+            ]);
 
-        expect(PathEpochEvidence.decode(PathEpochEvidence.encode(path)).equals(path)).toBe(true);
-        expect(path.staleScopes(changed).map((scope) => scope.kind)).toEqual(["project"]);
-    });
+            expect(PathEpochEvidence.decode(PathEpochEvidence.encode(path)).equals(path)).toBe(
+                true
+            );
+            expect(path.staleScopes(changed).map((scope) => scope.kind)).toEqual(["project"]);
+        }
+    );
 
-    test("[authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically", { tags: "p0" }, () => {
-        const ownerTenant = new TenantId("watermark-owner");
-        const owner = new ActorRef("workspace", new ActorId("watermark-workspace"));
-        const holder = new PrincipalRef(new TenantId("foreign-home"), new PrincipalId("guest"));
-        const localScope = ScopeRef.tenant(ownerTenant);
-        const initial = InvalidationWatermark.empty(ownerTenant, owner, holder);
-        const joined = initial.join([new ScopeEpoch(localScope, 3)]);
-        const unchanged = joined.join([new ScopeEpoch(localScope, 2)]);
+    test(
+        "[authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
+        { tags: "p0" },
+        () => {
+            const ownerTenant = new TenantId("watermark-owner");
+            const owner = new ActorRef("workspace", new ActorId("watermark-workspace"));
+            const holder = new PrincipalRef(new TenantId("foreign-home"), new PrincipalId("guest"));
+            const localScope = ScopeRef.tenant(ownerTenant);
+            const initial = InvalidationWatermark.empty(ownerTenant, owner, holder);
+            const joined = initial.join([new ScopeEpoch(localScope, 3)]);
+            const unchanged = joined.join([new ScopeEpoch(localScope, 2)]);
 
-        expect(unchanged).toBe(joined);
-        expect(joined.dominates(initial)).toBe(true);
-        expect(
-            InvalidationWatermark.decode(InvalidationWatermark.encode(joined)).dominates(joined)
-        ).toBe(true);
-    });
+            expect(unchanged).toBe(joined);
+            expect(joined.dominates(initial)).toBe(true);
+            expect(
+                InvalidationWatermark.decode(InvalidationWatermark.encode(joined)).dominates(joined)
+            ).toBe(true);
+        }
+    );
 
-    test("[authority.binding] keeps Binding identity immutable while advancing local generations", { tags: "p0" }, () => {
-        const domain = new ProtectionDomain("backend", "model", "no-secrets");
-        const binding = Binding.active(
-            workspaceScope,
-            principal,
-            domain,
-            new BindingName("mail"),
-            new GrantId("binding-grant"),
-            new FacetRef("workspace:mail.instance")
-        );
-        const replacement = binding.replace(
-            new GrantId("binding-grant-next"),
-            new FacetRef("workspace:mail.next")
-        );
+    test(
+        "[authority.binding] keeps Binding identity immutable while advancing local generations",
+        { tags: "p0" },
+        () => {
+            const domain = new ProtectionDomain("backend", "model", "no-secrets");
+            const binding = Binding.active(
+                workspaceScope,
+                principal,
+                domain,
+                new BindingName("mail"),
+                new GrantId("binding-grant"),
+                new FacetRef("workspace:mail.instance")
+            );
+            const replacement = binding.replace(
+                new GrantId("binding-grant-next"),
+                new FacetRef("workspace:mail.next")
+            );
 
-        expect(Binding.decode(Binding.encode(replacement)).generation).toBe(1);
-        expect(replacement.deactivate().resolves).toBe(false);
-        expect(() =>
-            binding.assertCanReplace(
-                new Binding(
-                    workspaceScope,
-                    principal,
-                    domain,
-                    binding.name,
-                    binding.grantId,
-                    binding.facet,
-                    2,
-                    "active",
-                    new Revision(2)
+            expect(Binding.decode(Binding.encode(replacement)).generation).toBe(1);
+            expect(replacement.deactivate().resolves).toBe(false);
+            expect(() =>
+                binding.assertCanReplace(
+                    new Binding(
+                        workspaceScope,
+                        principal,
+                        domain,
+                        binding.name,
+                        binding.grantId,
+                        binding.facet,
+                        2,
+                        "active",
+                        new Revision(2)
+                    )
                 )
-            )
-        ).toThrow(/next generation/);
-    });
+            ).toThrow(/next generation/);
+        }
+    );
 });
 
 describe("Grant model", () => {
@@ -224,7 +243,13 @@ describe("Grant model", () => {
 
     test("attenuation requires an allow-effect parent", { tags: "p0" }, () => {
         const parent = allowGrant("attenuate-parent");
-        const child = allowGrant("attenuate-child", principal, workspaceScope, capability(), parent.id);
+        const child = allowGrant(
+            "attenuate-child",
+            principal,
+            workspaceScope,
+            capability(),
+            parent.id
+        );
         const deny = new Grant(
             new GrantId("attenuate-deny"),
             workspaceScope,
@@ -238,32 +263,48 @@ describe("Grant model", () => {
         expect(deny.canAttenuate(child)).toBe(false);
     });
 
-    test("role Grant replacement pins subject, Scope, origin, and lineage exactly", { tags: "p0" }, () => {
-        const base = roleGrant();
-        expect(() => base.assertCanReplace(roleGrant({ spec: capability(["mutate"]) }))).not.toThrow();
-        expect(() => base.assertCanReplace(roleGrant().revoke())).not.toThrow();
+    test(
+        "role Grant replacement pins subject, Scope, origin, and lineage exactly",
+        { tags: "p0" },
+        () => {
+            const base = roleGrant();
+            expect(() =>
+                base.assertCanReplace(roleGrant({ spec: capability(["mutate"]) }))
+            ).not.toThrow();
+            expect(() => base.assertCanReplace(roleGrant().revoke())).not.toThrow();
 
-        const violations: readonly (readonly [string, Grant])[] = [
-            ["scope", roleGrant({ scope: tenantScope })],
-            ["subject", roleGrant({ subject: SubjectRef.principal(otherPrincipalId) })],
-            ["attenuation lineage", roleGrant({ attenuationOf: new GrantId("role-replace-parent") })],
-            ["membership", roleGrant({ membershipId: new MembershipId("role-replace-other") })],
-            ["rule ordinal", roleGrant({ ruleOrdinal: 1 })],
-            ["guest flag", roleGrant({ guest: true })],
-            ["origin kind", allowGrant("role-replace")]
-        ];
-        for (const [field, next] of violations) {
-            const error = caughtAgentCoreError(() => base.assertCanReplace(next));
-            expect(error.code, field).toBe("protocol.invalid-state");
-            expect(error.message, field).toBe(
-                "Grant subject, Scope, origin, and attenuation lineage are immutable"
+            const violations: readonly (readonly [string, Grant])[] = [
+                ["scope", roleGrant({ scope: tenantScope })],
+                [
+                    "subject",
+                    roleGrant({
+                        subject: SubjectRef.principal(new PrincipalRef(tenantId, otherPrincipalId))
+                    })
+                ],
+                [
+                    "attenuation lineage",
+                    roleGrant({ attenuationOf: new GrantId("role-replace-parent") })
+                ],
+                ["membership", roleGrant({ membershipId: new MembershipId("role-replace-other") })],
+                ["rule ordinal", roleGrant({ ruleOrdinal: 1 })],
+                ["guest flag", roleGrant({ guest: true })],
+                ["origin kind", allowGrant("role-replace")]
+            ];
+            for (const [field, next] of violations) {
+                const error = caughtAgentCoreError(() => base.assertCanReplace(next));
+                expect(error.code, field).toBe("protocol.invalid-state");
+                expect(error.message, field).toBe(
+                    "Grant subject, Scope, origin, and attenuation lineage are immutable"
+                );
+            }
+
+            const reactivation = caughtAgentCoreError(() =>
+                base.revoke().assertCanReplace(roleGrant())
             );
+            expect(reactivation.code).toBe("protocol.invalid-state");
+            expect(reactivation.message).toBe("Revoked Grants cannot reactivate");
         }
-
-        const reactivation = caughtAgentCoreError(() => base.revoke().assertCanReplace(roleGrant()));
-        expect(reactivation.code).toBe("protocol.invalid-state");
-        expect(reactivation.message).toBe("Revoked Grants cannot reactivate");
-    });
+    );
 
     test("direct Grants replace only with their exact revocation", { tags: "p0" }, () => {
         const direct = allowGrant(
@@ -341,18 +382,22 @@ describe("Grant model", () => {
         }
     });
 
-    test("role origins admit 1..256 character names and non-negative ordinals", { tags: "p0" }, () => {
-        expect(roleGrant({ roleName: "x".repeat(256) }).origin.kind).toBe("role");
-        for (const overrides of [
-            { roleName: "" },
-            { roleName: "x".repeat(257) },
-            { ruleOrdinal: -1 }
-        ]) {
-            expect(() => roleGrant(overrides)).toThrow(
-                new TypeError("Role Grant origin is invalid")
-            );
+    test(
+        "role origins admit 1..256 character names and non-negative ordinals",
+        { tags: "p0" },
+        () => {
+            expect(roleGrant({ roleName: "x".repeat(256) }).origin.kind).toBe("role");
+            for (const overrides of [
+                { roleName: "" },
+                { roleName: "x".repeat(257) },
+                { ruleOrdinal: -1 }
+            ]) {
+                expect(() => roleGrant(overrides)).toThrow(
+                    new TypeError("Role Grant origin is invalid")
+                );
+            }
         }
-    });
+    );
 });
 
 function roleGrant(

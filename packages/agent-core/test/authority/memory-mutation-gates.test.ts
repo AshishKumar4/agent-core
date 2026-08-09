@@ -36,8 +36,17 @@ import {
     type StoredIdentityRecord
 } from "../../src/identity";
 import { GuestVerification, Workspace } from "../identity/internal-fixture";
-import { allowGrant, principalId, projectId, projectScope, tenantId, workspaceId, workspaceScope } from "./fixture";
+import {
+    allowGrant,
+    principalId,
+    projectId,
+    projectScope,
+    tenantId,
+    workspaceId,
+    workspaceScope
+} from "./fixture";
 
+const foreignTenantId = new TenantId("memory-gate-foreign");
 const anchor = Object.freeze({
     actorId: new ActorId("memory-gate-actor"),
     tenantId,
@@ -120,19 +129,23 @@ describe("MemoryTenantControlStore mutation gates", () => {
         expect(store.transaction(() => null)).toBeNull();
     });
 
-    test("rejects bootstrap anchors whose trust anchor merely extends the stored bytes", { tags: "p0" }, () => {
-        const fresh = MemoryTenantControlStore.create(anchor);
-        expectAgentCoreError(
-            () =>
-                fresh.bootstrapTenant(
-                    { ...anchor, trustAnchor: Uint8Array.of(1, 2, 3, 4) },
-                    Revision.initial()
-                ),
-            "protocol.invalid-state",
-            "Tenant bootstrap request does not match its immutable anchor"
-        );
-        expect(fresh.isBootstrapEligible()).toBe(true);
-    });
+    test(
+        "rejects bootstrap anchors whose trust anchor merely extends the stored bytes",
+        { tags: "p0" },
+        () => {
+            const fresh = MemoryTenantControlStore.create(anchor);
+            expectAgentCoreError(
+                () =>
+                    fresh.bootstrapTenant(
+                        { ...anchor, trustAnchor: Uint8Array.of(1, 2, 3, 4) },
+                        Revision.initial()
+                    ),
+                "protocol.invalid-state",
+                "Tenant bootstrap request does not match its immutable anchor"
+            );
+            expect(fresh.isBootstrapEligible()).toBe(true);
+        }
+    );
 
     test("ties bootstrap eligibility to every empty collection", { tags: "p0" }, () => {
         const empty = MemoryTenantControlStore.create(anchor).snapshot();
@@ -181,25 +194,29 @@ describe("MemoryTenantControlStore mutation gates", () => {
         );
     });
 
-    test("rejects bootstrap requests that differ from the anchor in any field", { tags: "p0" }, () => {
-        const fresh = MemoryTenantControlStore.create(anchor);
-        const variants = [
-            { ...anchor, actorId: new ActorId("memory-gate-other-actor") },
-            { ...anchor, tenantId: new TenantId("memory-gate-other-tenant") },
-            { ...anchor, principalId: new PrincipalId("memory-gate-other-principal") },
-            { ...anchor, tenantKind: "organization" as const }
-        ];
-        for (const variant of variants) {
-            expectAgentCoreError(
-                () => fresh.bootstrapTenant(variant, Revision.initial()),
-                "protocol.invalid-state",
-                "Tenant bootstrap request does not match its immutable anchor"
-            );
-            expect(fresh.isBootstrapEligible()).toBe(true);
+    test(
+        "rejects bootstrap requests that differ from the anchor in any field",
+        { tags: "p0" },
+        () => {
+            const fresh = MemoryTenantControlStore.create(anchor);
+            const variants = [
+                { ...anchor, actorId: new ActorId("memory-gate-other-actor") },
+                { ...anchor, tenantId: new TenantId("memory-gate-other-tenant") },
+                { ...anchor, principalId: new PrincipalId("memory-gate-other-principal") },
+                { ...anchor, tenantKind: "organization" as const }
+            ];
+            for (const variant of variants) {
+                expectAgentCoreError(
+                    () => fresh.bootstrapTenant(variant, Revision.initial()),
+                    "protocol.invalid-state",
+                    "Tenant bootstrap request does not match its immutable anchor"
+                );
+                expect(fresh.isBootstrapEligible()).toBe(true);
+            }
+            fresh.bootstrapTenant(anchor, Revision.initial());
+            expect(fresh.bootstrapMarker()?.tenantId.equals(tenantId)).toBe(true);
         }
-        fresh.bootstrapTenant(anchor, Revision.initial());
-        expect(fresh.bootstrapMarker()?.tenantId.equals(tenantId)).toBe(true);
-    });
+    );
 
     test("rejects bootstrap plans violating any single anchor constraint", { tags: "p0" }, () => {
         const fresh = MemoryTenantControlStore.create(anchor);
@@ -523,7 +540,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             new Membership(
                 new MembershipId("memory-gate-closure-member"),
                 workspaceScope,
-                SubjectRef.principal(soloPrincipal),
+                SubjectRef.principal(new PrincipalRef(tenantId, soloPrincipal)),
                 closureRole.name,
                 "active",
                 Revision.initial()
@@ -554,8 +571,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 MemoryTenantControlStore.restore(
                     withoutIdentity(
                         snapshot,
-                        (record) =>
-                            record.kind === "principal" && record.id === soloPrincipal.value
+                        (record) => record.kind === "principal" && record.id === soloPrincipal.value
                     )
                 ),
             "codec.invalid",
@@ -611,9 +627,9 @@ describe("MemoryTenantControlStore mutation gates", () => {
             new Date(10)
         );
         const snapshot = store.snapshot();
-        expect(
-            MemoryTenantControlStore.restore(snapshot).guestTrust(trust.id)?.isActive
-        ).toBe(true);
+        expect(MemoryTenantControlStore.restore(snapshot).guestTrust(trust.id)?.isActive).toBe(
+            true
+        );
 
         const rotated = trust.rotate({
             kind: "callback",
@@ -637,7 +653,11 @@ describe("MemoryTenantControlStore mutation gates", () => {
             trust.id,
             tenantId,
             home,
-            { kind: "token", issuer: "memory-gate-issuer", key: new SecretRef("tenant", "oidc", "key") },
+            {
+                kind: "token",
+                issuer: "memory-gate-issuer",
+                key: new SecretRef("tenant", "oidc", "key")
+            },
             "active",
             Revision.initial()
         );
@@ -661,7 +681,10 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const soloPrincipal = new PrincipalId("memory-gate-grant-principal");
         service.createPrincipal(new Principal(soloPrincipal, "user", "active"));
         service.createGrant(
-            allowGrant("memory-gate-grant-only", SubjectRef.principal(soloPrincipal))
+            allowGrant(
+                "memory-gate-grant-only",
+                SubjectRef.principal(new PrincipalRef(tenantId, soloPrincipal))
+            )
         );
         const parent = allowGrant("memory-gate-parent");
         const child = allowGrant(
@@ -680,8 +703,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 MemoryTenantControlStore.restore(
                     withoutIdentity(
                         snapshot,
-                        (record) =>
-                            record.kind === "principal" && record.id === soloPrincipal.value
+                        (record) => record.kind === "principal" && record.id === soloPrincipal.value
                     )
                 ),
             "codec.invalid",
@@ -705,7 +727,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const singleMember = new Membership(
             new MembershipId("memory-gate-single-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             singleRole.name,
             "active",
             Revision.initial()
@@ -713,10 +735,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         service.createRole(singleRole);
         service.assignMembership(singleMember);
         const dualRole = new Role(new RoleName("memory-gate-dual-role"), [
-            new RoleRule(
-                "allow",
-                new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] })
-            ),
+            new RoleRule("allow", new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] })),
             new RoleRule(
                 "deny",
                 new CapabilitySpec({ facetPattern: "workspace:secret.*", impacts: ["observe"] })
@@ -725,7 +744,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const dualMember = new Membership(
             new MembershipId("memory-gate-dual-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             dualRole.name,
             "active",
             Revision.initial()
@@ -785,8 +804,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             .grants()
             .filter(
                 (grant) =>
-                    grant.origin.kind === "role" &&
-                    grant.origin.membershipId.equals(dualMember.id)
+                    grant.origin.kind === "role" && grant.origin.membershipId.equals(dualMember.id)
             );
         expect(dualGrants).toHaveLength(2);
         const tampered = expectDefined(dualGrants[0], "dual role grant");
@@ -967,7 +985,14 @@ describe("MemoryTenantControlStore mutation gates", () => {
             store,
             (candidate) =>
                 candidate.putGuestTrust(
-                    new GuestTrust(trust.id, tenantId, home, trust.verifier, "active", new Revision(2))
+                    new GuestTrust(
+                        trust.id,
+                        tenantId,
+                        home,
+                        trust.verifier,
+                        "active",
+                        new Revision(2)
+                    )
                 ),
             "protocol.revision-conflict",
             "Guest trust updates require immutable identity and the next revision"
@@ -985,7 +1010,11 @@ describe("MemoryTenantControlStore mutation gates", () => {
 
     test("direct Principal and Membership writers enforce lifecycle", { tags: "p0" }, () => {
         const { store, service } = bootstrapped();
-        const extra = new Principal(new PrincipalId("memory-gate-lifecycle-principal"), "user", "active");
+        const extra = new Principal(
+            new PrincipalId("memory-gate-lifecycle-principal"),
+            "user",
+            "active"
+        );
         service.createPrincipal(extra);
 
         expectEagerRejection(
@@ -1008,7 +1037,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                     new Membership(
                         new MembershipId("memory-gate-new-revised-member"),
                         workspaceScope,
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         lifecycleRole.name,
                         "active",
                         new Revision(1)
@@ -1021,7 +1050,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const member = new Membership(
             new MembershipId("memory-gate-lifecycle-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             lifecycleRole.name,
             "active",
             Revision.initial()
@@ -1060,7 +1089,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const terminal = new Membership(
             new MembershipId("memory-gate-terminal-member"),
             workspaceScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             lifecycleRole.name,
             "active",
             Revision.initial()
@@ -1122,8 +1151,8 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-foreign-scope",
-                        SubjectRef.principal(principalId),
-                        ScopeRef.tenant(new TenantId("memory-gate-foreign"))
+                        SubjectRef.principal(new PrincipalRef(foreignTenantId, principalId)),
+                        ScopeRef.tenant(foreignTenantId)
                     )
                 ),
             "protocol.invalid-state",
@@ -1135,7 +1164,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-missing-project-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         ScopeRef.project(tenantId, new ProjectId("memory-gate-missing-project"))
                     )
                 ),
@@ -1156,7 +1185,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-idless-project-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         projectScopeWithoutId
                     )
                 ),
@@ -1167,7 +1196,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             candidate.putGrant(
                 allowGrant(
                     "memory-gate-project-scope-grant",
-                    SubjectRef.principal(principalId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                     projectScope
                 )
             )
@@ -1180,7 +1209,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-missing-workspace-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         ScopeRef.workspace(
                             tenantId,
                             projectId,
@@ -1197,7 +1226,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-mismatched-workspace-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         ScopeRef.workspace(tenantId, workspaceId)
                     )
                 ),
@@ -1218,7 +1247,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 candidate.putGrant(
                     allowGrant(
                         "memory-gate-idless-workspace-scope",
-                        SubjectRef.principal(principalId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                         workspaceScopeWithoutId
                     )
                 ),
@@ -1344,7 +1373,10 @@ describe("MemoryTenantControlStore mutation gates", () => {
             })
         ).toThrow("memory-gate-abort");
         expectAgentCoreError(
-            () => expectDefined(captured, "captured candidate").putGrant(allowGrant("memory-gate-escaped")),
+            () =>
+                expectDefined(captured, "captured candidate").putGrant(
+                    allowGrant("memory-gate-escaped")
+                ),
             "protocol.invalid-state",
             "Tenant control records can only change inside an owned transaction"
         );
@@ -1360,28 +1392,32 @@ describe("MemoryTenantControlStore mutation gates", () => {
         );
     });
 
-    test("handles rejected asynchronous transaction results without leaks", { tags: "p0" }, async () => {
-        const { store } = bootstrapped();
-        const rejections: unknown[] = [];
-        const listener = (reason: unknown): void => {
-            rejections.push(reason);
-        };
-        process.on("unhandledRejection", listener);
-        try {
-            expect(() =>
-                store.transaction(() => Promise.reject(new Error("memory-gate-rejection")))
-            ).toThrow("Memory Tenant control transactions must be synchronous");
-            await new Promise((resolve) => {
-                setImmediate(resolve);
-            });
-            await new Promise((resolve) => {
-                setImmediate(resolve);
-            });
-            expect(rejections).toEqual([]);
-        } finally {
-            process.removeListener("unhandledRejection", listener);
+    test(
+        "handles rejected asynchronous transaction results without leaks",
+        { tags: "p0" },
+        async () => {
+            const { store } = bootstrapped();
+            const rejections: unknown[] = [];
+            const listener = (reason: unknown): void => {
+                rejections.push(reason);
+            };
+            process.on("unhandledRejection", listener);
+            try {
+                expect(() =>
+                    store.transaction(() => Promise.reject(new Error("memory-gate-rejection")))
+                ).toThrow("Memory Tenant control transactions must be synchronous");
+                await new Promise((resolve) => {
+                    setImmediate(resolve);
+                });
+                await new Promise((resolve) => {
+                    setImmediate(resolve);
+                });
+                expect(rejections).toEqual([]);
+            } finally {
+                process.removeListener("unhandledRejection", listener);
+            }
         }
-    });
+    );
 });
 
 function bootstrapped(): { store: MemoryTenantControlStore; service: AuthorityMutationService } {

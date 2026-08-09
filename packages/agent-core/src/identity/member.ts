@@ -14,7 +14,12 @@ import {
     restoreGuestVerification
 } from "./guest-verification";
 import { decodeScopeRef, encodeScopeRef, type ScopeRef } from "./scope";
-import { decodeSubjectRef, encodeSubjectRef, type SubjectRef } from "./subject";
+import {
+    decodeSubjectRef,
+    encodeSubjectRef,
+    requireSubjectTenant,
+    type SubjectRef
+} from "./subject";
 
 export type MembershipState = "active" | "suspended" | "revoked";
 
@@ -68,7 +73,7 @@ const restoredMembershipToken = Object.freeze({});
 
 class MembershipRecordCodec extends RecordCodec<Membership> {
     public constructor() {
-        super("identity.membership", { major: 1, minor: 0 });
+        super("identity.membership", { major: 2, minor: 0 });
     }
 
     protected encodePayload(membership: Membership): JsonValue {
@@ -120,6 +125,7 @@ export class Membership {
         internalToken?: object
     ) {
         this.#lifecycle = MembershipLifecycle.from(requireMembershipState(state));
+        requireSubjectTenant(subject, scope.tenantId, "Membership");
         this.subject = decodeSubjectRef(encodeSubjectRef(subject));
         if ((subject.kind === "foreign") !== (guestVerification !== undefined)) {
             if (guestVerification !== undefined) {

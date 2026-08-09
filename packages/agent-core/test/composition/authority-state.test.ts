@@ -39,11 +39,7 @@ import {
     TenantId,
     WorkspaceId
 } from "../../src/identity";
-import {
-    AuditRecord,
-    InvocationPlacementPin,
-    PreEffectReceipt
-} from "../../src/invocations";
+import { AuditRecord, InvocationPlacementPin, PreEffectReceipt } from "../../src/invocations";
 import { AuditRecordId, CorrelationId, InvocationId } from "../../src/interaction-references";
 import { ReceiptId } from "../../src/invocation-references";
 import { TurnId, TurnLease, type LeaseToken } from "../../src/agents";
@@ -59,7 +55,12 @@ const facetRef = new FacetRef("workspace:authority-state");
 const bindingName = new BindingName("authority-state");
 const domain = new ProtectionDomain("backend", "authority-state", "may-hold-secrets");
 const schema = new JsonSchema({ type: "object" });
-const readDescriptor = new OperationDescriptor(new OperationName("read"), "observe", schema, schema);
+const readDescriptor = new OperationDescriptor(
+    new OperationName("read"),
+    "observe",
+    schema,
+    schema
+);
 const inputs: readonly FacetData[] = [{ channel: "internal" }];
 
 const RESOLVED_AT = 1_000_000;
@@ -76,7 +77,7 @@ interface DenialLog {
 class StateHarness implements ActorAuthorityHost {
     public binding = Binding.active(
         workspaceScope,
-        SubjectRef.principal(principal.principalId),
+        SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
         domain,
         bindingName,
         new GrantId("authority-state-grant"),
@@ -225,10 +226,7 @@ class StateHarness implements ActorAuthorityHost {
     }
 }
 
-function authorityStateContract(
-    name: string,
-    createStore: () => InvalidationWatermarkStore
-): void {
+function authorityStateContract(name: string, createStore: () => InvalidationWatermarkStore): void {
     describe(`production authority state (${name})`, () => {
         test(
             "[C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it",
@@ -328,17 +326,13 @@ function authorityStateContract(
                 harness.now = new Date(RESOLVED_AT + 1);
 
                 // Equal epochs: delivery is monotone but does not end authorization.
-                harness.state.deliverInvalidation(principal, [
-                    ScopeEpoch.initial(workspaceScope)
-                ]);
+                harness.state.deliverInvalidation(principal, [ScopeEpoch.initial(workspaceScope)]);
                 expect(
                     harness.authority.authorizeDirect(resolution, readDescriptor, inputs)
                 ).toBeDefined();
 
                 // A relevant higher epoch ends authorization immediately.
-                harness.state.deliverInvalidation(principal, [
-                    new ScopeEpoch(workspaceScope, 1)
-                ]);
+                harness.state.deliverInvalidation(principal, [new ScopeEpoch(workspaceScope, 1)]);
                 expect(
                     harness.authority.authorizeDirect(resolution, readDescriptor, inputs)
                 ).toBeUndefined();
@@ -367,9 +361,7 @@ function authorityStateContract(
                 await expect(
                     harness.authority.authorizeMediated(resolution, readDescriptor, inputs)
                 ).rejects.toMatchObject({ code: "authority.denied" });
-                expect(
-                    harness.state.currentWatermark(principal).epoch(workspaceScope)
-                ).toBe(1);
+                expect(harness.state.currentWatermark(principal).epoch(workspaceScope)).toBe(1);
                 expect(harness.log.receipts).toHaveLength(1);
             }
         );
@@ -387,9 +379,7 @@ function authorityStateContract(
                     harness.authority.authorizeMediated(resolution, readDescriptor, inputs)
                 ).rejects.toMatchObject({ code: "authority.denied" });
 
-                expect(
-                    harness.state.currentWatermark(principal).epoch(workspaceScope)
-                ).toBe(1);
+                expect(harness.state.currentWatermark(principal).epoch(workspaceScope)).toBe(1);
                 expect(harness.log.receipts).toHaveLength(1);
                 expect(harness.log.receipts[0]?.outcome).toBe("deniedPreEffect");
                 expect(harness.log.audits).toHaveLength(1);
@@ -592,22 +582,18 @@ describe("production authority state seams (memory)", () => {
         }
     );
 
-    test(
-        "requires at least one Scope epoch for invalidation delivery",
-        { tags: "p0" },
-        () => {
-            const harness = new StateHarness(createStore());
-            let thrown: unknown;
-            try {
-                harness.state.deliverInvalidation(principal, []);
-            } catch (error) {
-                thrown = error;
-            }
-
-            expect(thrown).toBeInstanceOf(AgentCoreError);
-            expect(thrown).toMatchObject({ code: "protocol.invalid-state" });
+    test("requires at least one Scope epoch for invalidation delivery", { tags: "p0" }, () => {
+        const harness = new StateHarness(createStore());
+        let thrown: unknown;
+        try {
+            harness.state.deliverInvalidation(principal, []);
+        } catch (error) {
+            thrown = error;
         }
-    );
+
+        expect(thrown).toBeInstanceOf(AgentCoreError);
+        expect(thrown).toMatchObject({ code: "protocol.invalid-state" });
+    });
 
     test(
         "requires a deniedPreEffect Receipt before persisting a stale denial",

@@ -95,12 +95,14 @@ Identifiers ending in `Id` or `Name` (`PrincipalId`, `SurfaceId`, `BindingName`,
 `SlotName`) are opaque, codec-stable identifier types, as are the simple reference
 types `ContentRef`, `OperationRef`, `FacetRef`, `RunRef`, `TurnRef`, `ScopeRef`, and
 `ActorRef`. The structured record `Ref` types are `PrincipalRef`, `SecretRef` (§3.5),
-`ForeignPrincipalRef` (§3.3), and `SubjectRef` — the `Principal | Team |
+`ForeignPrincipalRef` (§3.3), and `SubjectRef` — the `PrincipalRef | Team |
 ForeignPrincipalRef` union a Membership or Grant names (§3.1, §3.3). `PrincipalRef` is
 always tenant-qualified:
 `{ tenant: TenantId, id: PrincipalId }`. Every caller, authority initiator or delegate, lease
-holder, route initiator, and cross-Actor permit carries this canonical form; an
-unqualified id or mismatched tenant rejects rather than being inferred. This maps to
+holder, route initiator, cross-Actor permit, and Membership or Grant subject carries this
+canonical form; an unqualified id or mismatched tenant rejects rather than being inferred,
+and a record naming both a Scope and a Principal subject rejects a subject qualified by
+another Tenant rather than reading the Tenant off wherever the record is stored. This maps to
 **C13-AUTH-PRINCIPAL-REF**. Types ending in `Schema`, `Spec`, `Template`, `Mapping`
 (declarative field maps over JSON Pointers: `FieldMapping` and `PayloadMapping` are one
 shape, defined at §6.2, and `ProvenanceMapping`), `Selector` (predicate sets over
@@ -213,7 +215,7 @@ independently accountable Agent. Principals authenticate; Scopes own resources.
 
 A **Team** is a named set of Principals recorded in a Tenant. Teams are Membership
 subjects, not a separate primitive: wherever a Membership names a subject, the subject
-is `Principal | Team`, and a Principal's effective access derives from the union of its
+is `PrincipalRef | Team`, and a Principal's effective access derives from the union of its
 direct and team Memberships under the precedence rule of §3.3.
 
 ### 3.2 The Scope chain
@@ -239,7 +241,7 @@ them.
 
 ### 3.3 Membership, roles, and sharing
 
-A **Membership** binds a subject (`Principal | Team`) to a Scope with a **Role**. A
+A **Membership** binds a subject (`PrincipalRef | Team`) to a Scope with a **Role**. A
 **Role** is a named, declared set of authority rules:
 
 ```ts

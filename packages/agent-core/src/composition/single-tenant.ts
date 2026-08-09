@@ -10,7 +10,7 @@ import {
 import { Revision } from "../core";
 import { AgentCoreError } from "../errors";
 import type { BindingName, FacetRef, ProtectionDomain } from "../facets";
-import { SubjectRef, Workspace, type WorkspaceId } from "../identity";
+import { PrincipalRef, SubjectRef, Workspace, type WorkspaceId } from "../identity";
 
 export interface SingleTenantPolicyBinding {
     readonly name: BindingName;
@@ -91,7 +91,7 @@ export function assembleSingleTenantPolicy(
     }
     const binding = Binding.active(
         workspace.scope,
-        SubjectRef.principal(init.anchor.principalId),
+        SubjectRef.principal(new PrincipalRef(init.anchor.tenantId, init.anchor.principalId)),
         init.binding.domain,
         init.binding.name,
         ownerGrant.id,

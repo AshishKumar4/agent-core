@@ -1,7 +1,7 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../core";
 import { BindingName, FacetRef, ProtectionDomain } from "../facets";
-import { TenantId, type ScopeRef, type SubjectRef } from "../identity";
+import { TenantId, requireSubjectTenant, type ScopeRef, type SubjectRef } from "../identity";
 import { decodeDomain, encodeDomain } from "./binding";
 import {
     requireExact,
@@ -145,7 +145,7 @@ export class BindingValidationRequest {
 
 class BindingValidationEvidenceCodec extends RecordCodec<BindingValidationEvidence> {
     public constructor() {
-        super("authority.binding-validation-evidence", { major: 1, minor: 0 });
+        super("authority.binding-validation-evidence", { major: 2, minor: 0 });
     }
     protected encodePayload(record: BindingValidationEvidence): JsonValue {
         return record.toData();
@@ -184,6 +184,7 @@ export class BindingValidationEvidence {
         if (!issuerTenant.equals(scope.tenantId)) {
             throw new TypeError("Binding validation issuer Tenant must match its Scope");
         }
+        requireSubjectTenant(subject, issuerTenant, "Binding validation evidence");
         this.subject = decodeAuthoritySubject(encodeAuthoritySubject(subject));
         this.#checkedAt = time;
         Object.freeze(this);

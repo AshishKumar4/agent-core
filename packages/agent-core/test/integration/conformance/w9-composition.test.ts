@@ -125,138 +125,150 @@ const descriptor = new OperationDescriptor(
 );
 
 describe("W9 internal typed composition", () => {
-    test("rejects stale authority and preserves an opaque no-write direct stamp", { tags: "p0" }, async () => {
-        const state = new AuthorityState();
-        const authority = new TenantOperationAuthority(state, () => new Date(10));
-        const resolved = await authority.resolve(principal, bindingName);
+    test(
+        "rejects stale authority and preserves an opaque no-write direct stamp",
+        { tags: "p0" },
+        async () => {
+            const state = new AuthorityState();
+            const authority = new TenantOperationAuthority(state, () => new Date(10));
+            const resolved = await authority.resolve(principal, bindingName);
 
-        const directDescriptor = new OperationDescriptor(
-            new OperationName("read"),
-            "observe",
-            new JsonSchema({}),
-            new JsonSchema({})
-        );
-        expect(authority.tier(resolved.resolution, directDescriptor, false)).toBe("direct");
-        const stamp = authority.authorizeDirect(resolved.resolution, directDescriptor, [{ id: 1 }]);
-        expect(stamp?.binding).toBe(state.binding);
-        expect(state.writes).toBe(0);
+            const directDescriptor = new OperationDescriptor(
+                new OperationName("read"),
+                "observe",
+                new JsonSchema({}),
+                new JsonSchema({})
+            );
+            expect(authority.tier(resolved.resolution, directDescriptor, false)).toBe("direct");
+            const stamp = authority.authorizeDirect(resolved.resolution, directDescriptor, [
+                { id: 1 }
+            ]);
+            expect(stamp?.binding).toBe(state.binding);
+            expect(state.writes).toBe(0);
 
-        state.path = new PathEpochEvidence([
-            ScopeEpoch.initial(tenantScope),
-            new ScopeEpoch(scope, 1)
-        ]);
-        expect(
-            authority.authorizeDirect(resolved.resolution, directDescriptor, [{ id: 1 }])
-        ).toBeInstanceOf(ResolutionStamp);
-        await expect(
-            authority.authorizeMediated(resolved.resolution, descriptor, [{ id: 1 }])
-        ).rejects.toMatchObject({ code: "authority.denied" });
-        expect(
-            authority.authorizeDirect(resolved.resolution, directDescriptor, [{ id: 1 }])
-        ).toBeUndefined();
-    });
+            state.path = new PathEpochEvidence([
+                ScopeEpoch.initial(tenantScope),
+                new ScopeEpoch(scope, 1)
+            ]);
+            expect(
+                authority.authorizeDirect(resolved.resolution, directDescriptor, [{ id: 1 }])
+            ).toBeInstanceOf(ResolutionStamp);
+            await expect(
+                authority.authorizeMediated(resolved.resolution, descriptor, [{ id: 1 }])
+            ).rejects.toMatchObject({ code: "authority.denied" });
+            expect(
+                authority.authorizeDirect(resolved.resolution, directDescriptor, [{ id: 1 }])
+            ).toBeUndefined();
+        }
+    );
 
-    test("fails closed on substituted resolution evidence and only admits same-domain interception", { tags: "p0" }, async () => {
-        const state = new AuthorityState();
-        const unresolved = operationAuthority(state, { resolve: () => undefined });
-        await expect(unresolved.resolve(principal, bindingName)).rejects.toMatchObject({
-            code: "authority.denied"
-        });
+    test(
+        "fails closed on substituted resolution evidence and only admits same-domain interception",
+        { tags: "p0" },
+        async () => {
+            const state = new AuthorityState();
+            const unresolved = operationAuthority(state, { resolve: () => undefined });
+            await expect(unresolved.resolve(principal, bindingName)).rejects.toMatchObject({
+                code: "authority.denied"
+            });
 
-        const derived = await operationAuthority(state).resolve(principal, bindingName);
-        expect(derived.resolution.resolvedAt).toEqual(new Date(10));
-        expect(derived.resolution.originalLeaseExpiresAt).toEqual(new Date(100));
-        expect(derived.resolution.resolutionDeadline).toEqual(new Date(60));
+            const derived = await operationAuthority(state).resolve(principal, bindingName);
+            expect(derived.resolution.resolvedAt).toEqual(new Date(10));
+            expect(derived.resolution.originalLeaseExpiresAt).toEqual(new Date(100));
+            expect(derived.resolution.resolutionDeadline).toEqual(new Date(60));
 
-        const authority = operationAuthority(state);
-        const resolved = await authority.resolve(principal, bindingName);
-        expect(authority.tier(resolved.resolution, descriptor, false)).toBe("mediated");
-        const directDescriptor = new OperationDescriptor(
-            new OperationName("read-intercepted"),
-            "observe",
-            new JsonSchema({}),
-            new JsonSchema({})
-        );
-        expect(authority.tier(resolved.resolution, directDescriptor, true)).toBe("mediated");
-        const intent = await authority.authorizeMediated(resolved.resolution, descriptor, [{}]);
-        expect(intent).toMatchObject({ binding: state.binding, domain });
-        expect(authority.replayBinding(intent, descriptor).execution.kind).toBe("lease");
+            const authority = operationAuthority(state);
+            const resolved = await authority.resolve(principal, bindingName);
+            expect(authority.tier(resolved.resolution, descriptor, false)).toBe("mediated");
+            const directDescriptor = new OperationDescriptor(
+                new OperationName("read-intercepted"),
+                "observe",
+                new JsonSchema({}),
+                new JsonSchema({})
+            );
+            expect(authority.tier(resolved.resolution, directDescriptor, true)).toBe("mediated");
+            const intent = await authority.authorizeMediated(resolved.resolution, descriptor, [{}]);
+            expect(intent).toMatchObject({ binding: state.binding, domain });
+            expect(authority.replayBinding(intent, descriptor).execution.kind).toBe("lease");
 
-        const routedAuthority = operationAuthority(state, {
-            resolve: (caller) => ({
-                ...state.resolve(caller)!,
-                lease: undefined,
-                originalLease: undefined,
-                route: new RouteReservationId("w9-replay-route")
-            })
-        });
-        const routed = await routedAuthority.resolve(principal, bindingName);
-        const routedIntent = await routedAuthority.authorizeMediated(
-            routed.resolution,
-            descriptor,
-            [{}]
-        );
-        expect(routedAuthority.replayBinding(routedIntent, descriptor).execution.kind).toBe(
-            "route"
-        );
+            const routedAuthority = operationAuthority(state, {
+                resolve: (caller) => ({
+                    ...state.resolve(caller)!,
+                    lease: undefined,
+                    originalLease: undefined,
+                    route: new RouteReservationId("w9-replay-route")
+                })
+            });
+            const routed = await routedAuthority.resolve(principal, bindingName);
+            const routedIntent = await routedAuthority.authorizeMediated(
+                routed.resolution,
+                descriptor,
+                [{}]
+            );
+            expect(routedAuthority.replayBinding(routedIntent, descriptor).execution.kind).toBe(
+                "route"
+            );
 
-        const interceptable = new OperationDescriptor(
-            new OperationName("interceptable"),
-            "observe",
-            new JsonSchema({}),
-            new JsonSchema({}),
-            undefined,
-            true
-        );
-        expect(
-            authority.allowsInterception(
-                resolved.resolution,
-                facet,
-                {} as never,
-                facet,
-                interceptable
-            )
-        ).toBe(true);
-        expect(
-            authority.allowsInterception(
-                resolved.resolution,
-                facet,
-                {} as never,
-                new FacetRef("workspace:substituted"),
-                interceptable
-            )
-        ).toBe(false);
-        expect(
-            operationAuthority(state, { contributorDomain: () => undefined }).allowsInterception(
-                resolved.resolution,
-                facet,
-                {} as never,
-                facet,
-                interceptable
-            )
-        ).toBe(false);
-        for (const substitutedDomain of [
-            new ProtectionDomain("frontend", domain.label, "no-secrets"),
-            new ProtectionDomain(domain.kind, "other-label", domain.secretPolicy),
-            new ProtectionDomain(domain.kind, domain.label, "no-secrets")
-        ]) {
+            const interceptable = new OperationDescriptor(
+                new OperationName("interceptable"),
+                "observe",
+                new JsonSchema({}),
+                new JsonSchema({}),
+                undefined,
+                true
+            );
+            expect(
+                authority.allowsInterception(
+                    resolved.resolution,
+                    facet,
+                    {} as never,
+                    facet,
+                    interceptable
+                )
+            ).toBe(true);
+            expect(
+                authority.allowsInterception(
+                    resolved.resolution,
+                    facet,
+                    {} as never,
+                    new FacetRef("workspace:substituted"),
+                    interceptable
+                )
+            ).toBe(false);
             expect(
                 operationAuthority(state, {
-                    contributorDomain: () => substitutedDomain
+                    contributorDomain: () => undefined
                 }).allowsInterception(resolved.resolution, facet, {} as never, facet, interceptable)
             ).toBe(false);
+            for (const substitutedDomain of [
+                new ProtectionDomain("frontend", domain.label, "no-secrets"),
+                new ProtectionDomain(domain.kind, "other-label", domain.secretPolicy),
+                new ProtectionDomain(domain.kind, domain.label, "no-secrets")
+            ]) {
+                expect(
+                    operationAuthority(state, {
+                        contributorDomain: () => substitutedDomain
+                    }).allowsInterception(
+                        resolved.resolution,
+                        facet,
+                        {} as never,
+                        facet,
+                        interceptable
+                    )
+                ).toBe(false);
+            }
+            expect(
+                operationAuthority(state, { admitsInterception: () => false }).allowsInterception(
+                    resolved.resolution,
+                    facet,
+                    {} as never,
+                    facet,
+                    interceptable
+                )
+            ).toBe(false);
+            authority.release(resolved.resolution);
         }
-        expect(
-            operationAuthority(state, { admitsInterception: () => false }).allowsInterception(
-                resolved.resolution,
-                facet,
-                {} as never,
-                facet,
-                interceptable
-            )
-        ).toBe(false);
-        authority.release(resolved.resolution);
-    });
+    );
 
     test(
         "rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
@@ -303,9 +315,8 @@ describe("W9 internal typed composition", () => {
             const currentLeaseSubstitution = operationAuthority(state, {
                 currentLease: () => foreignLease
             });
-            const current = (
-                await currentLeaseSubstitution.resolve(principal, bindingName)
-            ).resolution;
+            const current = (await currentLeaseSubstitution.resolve(principal, bindingName))
+                .resolution;
             expect(
                 currentLeaseSubstitution.authorizeDirect(current, directDescriptor, [{}])
             ).toBeUndefined();
@@ -414,39 +425,48 @@ describe("W9 internal typed composition", () => {
         }
     );
 
-    test("denies an expired authenticated permit without consuming its nonce", { tags: "p0" }, async () => {
-        const expected = permitExpectation();
-        const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
-        const permit = issuerStore.transaction((transaction) =>
-            new AuthorityPermitIssuer(issuerStore, { admits: () => true }).issue(
-                transaction,
-                expected,
-                "w9-expired-permit",
-                new Date(10),
-                new Date(20)
-            )
-        );
-        const authentication = await authenticatePermit(issuerStore, permit, expected);
-        const store = new MemoryAuthorityPermitStore(expected.target.actor);
-        let denials = 0;
-        const adapter = new ConsumedAuthorityAdmissionPort(
-            new StoredAuthorityPermitAdmissionPort(store),
-            new FixedExpectationFactory(expected),
-            { deny: () => (denials += 1) },
-            () => new Date(20)
-        );
-        const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
+    test(
+        "denies an expired authenticated permit without consuming its nonce",
+        { tags: "p0" },
+        async () => {
+            const expected = permitExpectation();
+            const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
+            const permit = issuerStore.transaction((transaction) =>
+                new AuthorityPermitIssuer(issuerStore, { admits: () => true }).issue(
+                    transaction,
+                    expected,
+                    "w9-expired-permit",
+                    new Date(10),
+                    new Date(20)
+                )
+            );
+            const authentication = await authenticatePermit(issuerStore, permit, expected);
+            const store = new MemoryAuthorityPermitStore(expected.target.actor);
+            let denials = 0;
+            const adapter = new ConsumedAuthorityAdmissionPort(
+                new StoredAuthorityPermitAdmissionPort(store),
+                new FixedExpectationFactory(expected),
+                { deny: () => (denials += 1) },
+                () => new Date(20)
+            );
+            const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
 
-        expect(
-            store.transaction((transaction) =>
-                adapter.admits(transaction, admission, admissionContext(expected), authentication)
-            )
-        ).toBe(false);
-        expect(denials).toBe(1);
-        expect(
-            store.transaction((transaction) => store.consumed(transaction, permit.nonce))
-        ).toBeUndefined();
-    });
+            expect(
+                store.transaction((transaction) =>
+                    adapter.admits(
+                        transaction,
+                        admission,
+                        admissionContext(expected),
+                        authentication
+                    )
+                )
+            ).toBe(false);
+            expect(denials).toBe(1);
+            expect(
+                store.transaction((transaction) => store.consumed(transaction, permit.nonce))
+            ).toBeUndefined();
+        }
+    );
 
     test(
         "returns witness-free durable permit data and remints authentication after runtime reconstruction",
@@ -529,59 +549,63 @@ describe("W9 internal typed composition", () => {
         }
     );
 
-    test("fails closed for malformed permits while preserving infrastructure failures", { tags: "p0" }, async () => {
-        const expected = permitExpectation();
-        const store = new MemoryAuthorityPermitStore(expected.target.actor);
-        let denials = 0;
-        const malformedAdapter = new ConsumedAuthorityAdmissionPort(
-            new StoredAuthorityPermitAdmissionPort(store),
-            new FixedExpectationFactory(expected),
-            { deny: () => (denials += 1) },
-            () => new Date(15)
-        );
+    test(
+        "fails closed for malformed permits while preserving infrastructure failures",
+        { tags: "p0" },
+        async () => {
+            const expected = permitExpectation();
+            const store = new MemoryAuthorityPermitStore(expected.target.actor);
+            let denials = 0;
+            const malformedAdapter = new ConsumedAuthorityAdmissionPort(
+                new StoredAuthorityPermitAdmissionPort(store),
+                new FixedExpectationFactory(expected),
+                { deny: () => (denials += 1) },
+                () => new Date(15)
+            );
 
-        expect(
-            store.transaction((transaction) =>
-                malformedAdapter.admits(
-                    transaction,
-                    new AuthorityAdmissionReference({} as never, expected.intentDigest),
-                    admissionContext(expected)
+            expect(
+                store.transaction((transaction) =>
+                    malformedAdapter.admits(
+                        transaction,
+                        new AuthorityAdmissionReference({} as never, expected.intentDigest),
+                        admissionContext(expected)
+                    )
                 )
-            )
-        ).toBe(false);
-        expect(denials).toBe(1);
+            ).toBe(false);
+            expect(denials).toBe(1);
 
-        const permit = new AuthorityPermit({
-            ...expected,
-            nonce: "w9-infrastructure-failure",
-            issuedAt: new Date(10),
-            expiresAt: new Date(20)
-        });
-        const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
-        issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
-        const authentication = await authenticatePermit(issuerStore, permit, expected);
-        const failingAdapter = new ConsumedAuthorityAdmissionPort(
-            {
-                consume: () => {
-                    throw new TypeError("permit store unavailable");
-                }
-            } as never,
-            new FixedExpectationFactory(expected),
-            { deny: () => (denials += 1) },
-            () => new Date(15)
-        );
-        expect(() =>
-            store.transaction((transaction) =>
-                failingAdapter.admits(
-                    transaction,
-                    new AuthorityAdmissionReference(permit.toData(), permit.digest()),
-                    admissionContext(expected),
-                    authentication
+            const permit = new AuthorityPermit({
+                ...expected,
+                nonce: "w9-infrastructure-failure",
+                issuedAt: new Date(10),
+                expiresAt: new Date(20)
+            });
+            const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
+            issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
+            const authentication = await authenticatePermit(issuerStore, permit, expected);
+            const failingAdapter = new ConsumedAuthorityAdmissionPort(
+                {
+                    consume: () => {
+                        throw new TypeError("permit store unavailable");
+                    }
+                } as never,
+                new FixedExpectationFactory(expected),
+                { deny: () => (denials += 1) },
+                () => new Date(15)
+            );
+            expect(() =>
+                store.transaction((transaction) =>
+                    failingAdapter.admits(
+                        transaction,
+                        new AuthorityAdmissionReference(permit.toData(), permit.digest()),
+                        admissionContext(expected),
+                        authentication
+                    )
                 )
-            )
-        ).toThrow("permit store unavailable");
-        expect(denials).toBe(1);
-    });
+            ).toThrow("permit store unavailable");
+            expect(denials).toBe(1);
+        }
+    );
 
     test("rejects invalid permit lifetimes before issuing authority", { tags: "p0" }, () => {
         const expected = permitExpectation();
@@ -600,98 +624,111 @@ describe("W9 internal typed composition", () => {
         ).toThrow(/positive safe integer/);
     });
 
-    test("delegates installation provenance and creates a protected profile runtime", { tags: "p1" }, () => {
-        const provenance = new (class extends PackageInstallationProvenancePort<object, object> {
-            protected authenticatedInstallation(): undefined {
-                return undefined;
-            }
-        })();
-        const slots = new ProvenanceFacetSlotBackend(
-            {} as never,
-            provenance,
-            {} as never,
-            {} as never
-        );
+    test(
+        "delegates installation provenance and creates a protected profile runtime",
+        { tags: "p1" },
+        () => {
+            const provenance = new (class extends PackageInstallationProvenancePort<
+                object,
+                object
+            > {
+                protected authenticatedInstallation(): undefined {
+                    return undefined;
+                }
+            })();
+            const slots = new ProvenanceFacetSlotBackend(
+                {} as never,
+                provenance,
+                {} as never,
+                {} as never
+            );
 
-        expect(slots.prepareContribution({}, {} as never)).toBeUndefined();
+            expect(slots.prepareContribution({}, {} as never)).toBeUndefined();
 
-        const host = new ProfileRuntimeHostBinding(facet, bindingName);
-        const runtime = createProtectedProfileRuntime(host, {} as never, {} as never);
-        expect(runtime.host).toBe(host);
-        expect(runtime.active).toBe(false);
-        runtime.activate();
-        expect(runtime.active).toBe(true);
-        runtime.deactivate();
-        expect(runtime.active).toBe(false);
-    });
+            const host = new ProfileRuntimeHostBinding(facet, bindingName);
+            const runtime = createProtectedProfileRuntime(host, {} as never, {} as never);
+            expect(runtime.host).toBe(host);
+            expect(runtime.active).toBe(false);
+            runtime.activate();
+            expect(runtime.active).toBe(true);
+            runtime.deactivate();
+            expect(runtime.active).toBe(false);
+        }
+    );
 
-    test("captures exact reserved-minus-completed Run frontier across restart and close races", { tags: "p1" }, () => {
-        const run = new RunId("w9-run");
-        const initial = RunAdmissionRegistry.initial(run);
-        const complete = initial.reserve({
-            kind: "invocationItem",
-            invocation: new InvocationId("w9-complete"),
-            itemIndex: 0,
-            itemKey: "complete-key"
-        });
-        const pending = complete.registry.reserve({
-            kind: "invocationItem",
-            invocation: new InvocationId("w9-pending"),
-            itemIndex: 1,
-            itemKey: "pending-key"
-        });
-        expect(pending.registry.reserve(pending.reservation.obligation).reservation).toEqual(
-            pending.reservation
-        );
-        const registry = pending.registry.complete(complete.reservation);
-        const storage = new MemoryRunStorage();
-        const repository = new RunRepository(storage);
-        repository.transaction((transaction) => repository.insertAdmission(transaction, registry));
-        const restartedStorage = new MemoryRunStorage(storage.snapshot());
-        const restartedRepository = new RunRepository(restartedStorage);
-        const adapter = new DurableRunAdmissionPort(restartedRepository);
-        expect(
-            restartedRepository.transaction((transaction) =>
-                restartedRepository.loadAdmission(transaction, run)?.frontier()
-            )
-        ).toEqual([pending.reservation.obligation]);
-        expect(
-            restartedRepository.transaction((transaction) =>
-                adapter.accepts(transaction, pending.reservation)
-            )
-        ).toBe(true);
-        expect(
-            restartedRepository.transaction((transaction) =>
-                adapter.accepts(transaction, {
-                    ...pending.reservation,
-                    obligation: {
-                        kind: "invocationItem",
-                        invocation: new InvocationId("w9-pending"),
-                        itemIndex: 1,
-                        itemKey: "substituted-key"
-                    }
+    test(
+        "captures exact reserved-minus-completed Run frontier across restart and close races",
+        { tags: "p1" },
+        () => {
+            const run = new RunId("w9-run");
+            const initial = RunAdmissionRegistry.initial(run);
+            const complete = initial.reserve({
+                kind: "invocationItem",
+                invocation: new InvocationId("w9-complete"),
+                itemIndex: 0,
+                itemKey: "complete-key"
+            });
+            const pending = complete.registry.reserve({
+                kind: "invocationItem",
+                invocation: new InvocationId("w9-pending"),
+                itemIndex: 1,
+                itemKey: "pending-key"
+            });
+            expect(pending.registry.reserve(pending.reservation.obligation).reservation).toEqual(
+                pending.reservation
+            );
+            const registry = pending.registry.complete(complete.reservation);
+            const storage = new MemoryRunStorage();
+            const repository = new RunRepository(storage);
+            repository.transaction((transaction) =>
+                repository.insertAdmission(transaction, registry)
+            );
+            const restartedStorage = new MemoryRunStorage(storage.snapshot());
+            const restartedRepository = new RunRepository(restartedStorage);
+            const adapter = new DurableRunAdmissionPort(restartedRepository);
+            expect(
+                restartedRepository.transaction((transaction) =>
+                    restartedRepository.loadAdmission(transaction, run)?.frontier()
+                )
+            ).toEqual([pending.reservation.obligation]);
+            expect(
+                restartedRepository.transaction((transaction) =>
+                    adapter.accepts(transaction, pending.reservation)
+                )
+            ).toBe(true);
+            expect(
+                restartedRepository.transaction((transaction) =>
+                    adapter.accepts(transaction, {
+                        ...pending.reservation,
+                        obligation: {
+                            kind: "invocationItem",
+                            invocation: new InvocationId("w9-pending"),
+                            itemIndex: 1,
+                            itemKey: "substituted-key"
+                        }
+                    })
+                )
+            ).toBe(false);
+            expect(
+                restartedRepository.transaction((transaction) =>
+                    adapter.accepts(transaction, {
+                        ...pending.reservation,
+                        registryEpoch: pending.reservation.registryEpoch + 1
+                    })
+                )
+            ).toBe(false);
+            const closed = registry.close();
+            expect(closed.frontier()).toEqual([pending.reservation.obligation]);
+            expect(closed.accepts(pending.reservation)).toBe(false);
+            expect(() =>
+                closed.reserve({
+                    kind: "systemCommit",
+                    commit: new ExecutionRunCommitId("late-commit")
                 })
-            )
-        ).toBe(false);
-        expect(
-            restartedRepository.transaction((transaction) =>
-                adapter.accepts(transaction, {
-                    ...pending.reservation,
-                    registryEpoch: pending.reservation.registryEpoch + 1
-                })
-            )
-        ).toBe(false);
-        const closed = registry.close();
-        expect(closed.frontier()).toEqual([pending.reservation.obligation]);
-        expect(closed.accepts(pending.reservation)).toBe(false);
-        expect(() =>
-            closed.reserve({
-                kind: "systemCommit",
-                commit: new ExecutionRunCommitId("late-commit")
-            })
-        ).toThrow(/closed/);
-        expect(closed.close()).toBe(closed);
-    });
+            ).toThrow(/closed/);
+            expect(closed.close()).toBe(closed);
+        }
+    );
 
     test("settles every Run obligation through canonical identity adapters", { tags: "p1" }, () => {
         const approval = new ApprovalId("w9-settlement-approval");
@@ -765,145 +802,157 @@ describe("W9 internal typed composition", () => {
         expect(seen.size).toBe(8);
     });
 
-    test("replays per-item mediation and retries the durable outbox after crashes", { tags: "p0" }, async () => {
-        const transactions = new MemoryTransactions();
-        const persistence = new MemoryInvocationMediationPersistence();
-        const invocation = new InvocationId("w9-replay");
-        const batch = new SuccessfulBatch(invocation);
-        const deliveredEvents = new Set<string>();
-        const deliveredCommits = new Set<string>();
-        let eventCrash = true;
-        let commitCrash = true;
-        const composition = new InvocationComposition({
-            scope: "w9-scope",
-            transactions,
-            persistence,
-            identities: { invocation: () => invocation },
-            direct: { context: (_key, itemIndex) => operationContext(invocation, itemIndex) },
-            mediated: batch,
-            events: {
-                publish: async (_outboxId, observation) => {
-                    deliveredEvents.add(observation.receipt.value);
-                    if (eventCrash) {
-                        eventCrash = false;
-                        throw new TypeError("event crash");
+    test(
+        "replays per-item mediation and retries the durable outbox after crashes",
+        { tags: "p0" },
+        async () => {
+            const transactions = new MemoryTransactions();
+            const persistence = new MemoryInvocationMediationPersistence();
+            const invocation = new InvocationId("w9-replay");
+            const batch = new SuccessfulBatch(invocation);
+            const deliveredEvents = new Set<string>();
+            const deliveredCommits = new Set<string>();
+            let eventCrash = true;
+            let commitCrash = true;
+            const composition = new InvocationComposition({
+                scope: "w9-scope",
+                transactions,
+                persistence,
+                identities: { invocation: () => invocation },
+                direct: { context: (_key, itemIndex) => operationContext(invocation, itemIndex) },
+                mediated: batch,
+                events: {
+                    publish: async (_outboxId, observation) => {
+                        deliveredEvents.add(observation.receipt.value);
+                        if (eventCrash) {
+                            eventCrash = false;
+                            throw new TypeError("event crash");
+                        }
                     }
-                }
-            },
-            commits: {
-                append: async (_outboxId, observation) => {
-                    deliveredCommits.add(observation.receipt.value);
-                    if (commitCrash) {
-                        commitCrash = false;
-                        throw new TypeError("commit crash");
+                },
+                commits: {
+                    append: async (_outboxId, observation) => {
+                        deliveredCommits.add(observation.receipt.value);
+                        if (commitCrash) {
+                            commitCrash = false;
+                            throw new TypeError("commit crash");
+                        }
                     }
-                }
-            },
-            now: () => new Date(30)
-        });
-        const preflight = {
-            requestKey: new OperationRequestKey("w9-request"),
-            facet,
-            descriptor,
-            shape: { kind: "batch" as const, itemCount: 2 },
-            inputs: [{ raw: 1 }, { raw: 2 }],
-            authorization: "permit",
-            replayBinding: w9ReplayBinding()
-        };
-        let before = 0;
-        const prepared = await composition.operations.prepareMediated(preflight, () => {
-            before += 1;
-            return { inputs: [{ value: 1 }, { value: 2 }], interceptions: [[], []] };
-        });
-        expect(prepared.kind).toBe("new");
-        const result = await composition.operations.invoke({
-            ...preflight,
-            inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
-            interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
-            authorization: "permit",
-            execute: async (itemIndex) => ({ itemIndex })
-        });
-        await composition.operations.presentMediated(
-            result.evidence,
-            result.outputs,
-            (_itemIndex, output) => ({ value: output, traces: [] }),
-            {
-                requestKey: preflight.requestKey,
+                },
+                now: () => new Date(30)
+            });
+            const preflight = {
+                requestKey: new OperationRequestKey("w9-request"),
                 facet,
                 descriptor,
-                shape: preflight.shape
-            }
-        );
-        const replay = await composition.operations.prepareMediated(preflight, () => {
-            before += 1;
-            throw new TypeError("must not rerun");
-        });
-        expect(replay.kind).toBe("replay");
-        expect(before).toBe(1);
-        expect(batch.calls).toBe(1);
-        await expect(
-            composition.operations.prepareMediated(
-                { ...preflight, inputs: [{ changed: true }, { raw: 2 }] },
-                () => ({ inputs: [], interceptions: [] })
-            )
-        ).rejects.toMatchObject({ code: "invocation.invalid" });
+                shape: { kind: "batch" as const, itemCount: 2 },
+                inputs: [{ raw: 1 }, { raw: 2 }],
+                authorization: "permit",
+                replayBinding: w9ReplayBinding()
+            };
+            let before = 0;
+            const prepared = await composition.operations.prepareMediated(preflight, () => {
+                before += 1;
+                return { inputs: [{ value: 1 }, { value: 2 }], interceptions: [[], []] };
+            });
+            expect(prepared.kind).toBe("new");
+            const result = await composition.operations.invoke({
+                ...preflight,
+                inputs: prepared.kind === "new" ? prepared.preparation.inputs : [],
+                interceptions: prepared.kind === "new" ? prepared.preparation.interceptions : [],
+                authorization: "permit",
+                execute: async (itemIndex) => ({ itemIndex })
+            });
+            await composition.operations.presentMediated(
+                result.evidence,
+                result.outputs,
+                (_itemIndex, output) => ({ value: output, traces: [] }),
+                {
+                    requestKey: preflight.requestKey,
+                    facet,
+                    descriptor,
+                    shape: preflight.shape
+                }
+            );
+            const replay = await composition.operations.prepareMediated(preflight, () => {
+                before += 1;
+                throw new TypeError("must not rerun");
+            });
+            expect(replay.kind).toBe("replay");
+            expect(before).toBe(1);
+            expect(batch.calls).toBe(1);
+            await expect(
+                composition.operations.prepareMediated(
+                    { ...preflight, inputs: [{ changed: true }, { raw: 2 }] },
+                    () => ({ inputs: [], interceptions: [] })
+                )
+            ).rejects.toMatchObject({ code: "invocation.invalid" });
 
-        const publication = InvocationPublicationOutbox.pending({
-            invocation,
-            receipt: new ReceiptId("w9-outbox-receipt"),
-            audit: expectedAuditId()
-        });
-        transactions.transact((transaction) =>
-            persistence.appendPublication(transaction, publication)
-        );
-        await expect(composition.outbox.flush()).rejects.toThrow("event crash");
-        await expect(composition.outbox.flush()).rejects.toThrow("commit crash");
-        await composition.outbox.flush();
-        await composition.outbox.flush();
-        expect([...deliveredEvents]).toEqual(["w9-outbox-receipt"]);
-        expect([...deliveredCommits]).toEqual(["w9-outbox-receipt"]);
-    });
+            const publication = InvocationPublicationOutbox.pending({
+                invocation,
+                receipt: new ReceiptId("w9-outbox-receipt"),
+                audit: expectedAuditId()
+            });
+            transactions.transact((transaction) =>
+                persistence.appendPublication(transaction, publication)
+            );
+            await expect(composition.outbox.flush()).rejects.toThrow("event crash");
+            await expect(composition.outbox.flush()).rejects.toThrow("commit crash");
+            await composition.outbox.flush();
+            await composition.outbox.flush();
+            expect([...deliveredEvents]).toEqual(["w9-outbox-receipt"]);
+            expect([...deliveredCommits]).toEqual(["w9-outbox-receipt"]);
+        }
+    );
 
-    test("adapts profile mediation through the canonical batch invocation port", { tags: "p1" }, async () => {
-        const invocation = new InvocationId("w9-profile-invocation");
-        const batch = new SuccessfulBatch<ProtectedOperationRequest>(invocation);
-        const adapter = new InvocationProtectedOperationPort(
-            { invocation: () => invocation },
-            batch
-        );
-        const operation = new (class extends Operation {
-            public readonly descriptor = descriptor;
-            public async execute(_context: OperationContext, input: unknown) {
-                return input as { readonly value: number };
-            }
-        })();
+    test(
+        "adapts profile mediation through the canonical batch invocation port",
+        { tags: "p1" },
+        async () => {
+            const invocation = new InvocationId("w9-profile-invocation");
+            const batch = new SuccessfulBatch<ProtectedOperationRequest>(invocation);
+            const adapter = new InvocationProtectedOperationPort(
+                { invocation: () => invocation },
+                batch
+            );
+            const operation = new (class extends Operation {
+                public readonly descriptor = descriptor;
+                public async execute(_context: OperationContext, input: unknown) {
+                    return input as { readonly value: number };
+                }
+            })();
 
-        const result = await adapter.invoke({
-            facet,
-            binding: bindingName,
-            operation,
-            input: { value: 7 },
-            resultMode: "output"
-        });
-        expect(result).toMatchObject({ kind: "output", output: { value: 7 } });
-        if (result.kind !== "output") throw new TypeError("Expected profile output");
-        expect(result.receipt).toBeInstanceOf(AttemptReceipt);
-        expect(batch.calls).toBe(1);
-    });
+            const result = await adapter.invoke({
+                facet,
+                binding: bindingName,
+                operation,
+                input: { value: 7 },
+                resultMode: "output"
+            });
+            expect(result).toMatchObject({ kind: "output", output: { value: 7 } });
+            if (result.kind !== "output") throw new TypeError("Expected profile output");
+            expect(result.receipt).toBeInstanceOf(AttemptReceipt);
+            expect(batch.calls).toBe(1);
+        }
+    );
 
-    test("uses canonical constructors and keeps composition off the package surface", { tags: "p2" }, () => {
-        expect(RunId).toBe(ExecutionRunId);
-        expect(InvocationContextId).toBe(InteractionInvocationId);
-        expect(WorkspaceId).toBe(RoutedWorkspaceId);
-        expect("RunAdmissionRegistry" in packageRoot).toBe(false);
-        expect("TenantOperationAuthority" in packageRoot).toBe(false);
-    });
+    test(
+        "uses canonical constructors and keeps composition off the package surface",
+        { tags: "p2" },
+        () => {
+            expect(RunId).toBe(ExecutionRunId);
+            expect(InvocationContextId).toBe(InteractionInvocationId);
+            expect(WorkspaceId).toBe(RoutedWorkspaceId);
+            expect("RunAdmissionRegistry" in packageRoot).toBe(false);
+            expect("TenantOperationAuthority" in packageRoot).toBe(false);
+        }
+    );
 });
 
 class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
     public readonly binding = Binding.active(
         scope,
-        SubjectRef.principal(principal.principalId),
+        SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
         domain,
         bindingName,
         new GrantId("w9-grant"),

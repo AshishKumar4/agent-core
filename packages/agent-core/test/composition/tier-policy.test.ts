@@ -53,7 +53,7 @@ const bindingName = new BindingName("tier-target");
 const domain = new ProtectionDomain("backend", "tier-domain", "may-hold-secrets");
 const binding = Binding.active(
     scope,
-    SubjectRef.principal(principal.principalId),
+    SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
     domain,
     bindingName,
     new GrantId("tier-grant"),
@@ -107,15 +107,12 @@ function resolution(init: {
         turnOwnedSession: init.sessionOwned ?? init.turnOwned,
         turnActorAuthorityLocal: init.turnOwned,
         directAuthority: init.turnOwned
-            ? new ResolvedOperationAuthority(
-                  facet,
-                  [
-                      new CapabilitySpec({
-                          facetPattern: facet.value,
-                          impacts: [...IMPACTS] as [Impact, ...Impact[]]
-                      })
-                  ]
-              )
+            ? new ResolvedOperationAuthority(facet, [
+                  new CapabilitySpec({
+                      facetPattern: facet.value,
+                      impacts: [...IMPACTS] as [Impact, ...Impact[]]
+                  })
+              ])
             : undefined
     };
 }
@@ -136,36 +133,48 @@ const unusedState: OperationAuthorityStatePort<PrincipalRef> = new Proxy(
 const authority = new TenantOperationAuthority(unusedState, () => new Date(10));
 
 describe("runtime enforcement tier is the single evaluatePolicy call site", () => {
-    test("workspace policy raising observe to mediated is honored on a bundled leased facet", { tags: "p0" }, () => {
-        const policies = [new PolicySet({ tiers: { observe: "mediated" } })];
-        const resolved = resolution({ turnOwned: true, placement: "bundled", policies });
-        expect(authority.tier(resolved, descriptorFor("observe"), false)).toBe("mediated");
-    });
-
-    test("approvals covering observe and execute force mediated on a bundled leased facet", { tags: "p0" }, () => {
-        for (const impact of ["observe", "execute"] as const) {
-            const policies = [new PolicySet({ approvals: [impact] })];
+    test(
+        "workspace policy raising observe to mediated is honored on a bundled leased facet",
+        { tags: "p0" },
+        () => {
+            const policies = [new PolicySet({ tiers: { observe: "mediated" } })];
             const resolved = resolution({ turnOwned: true, placement: "bundled", policies });
-            const decision = evaluatePolicy({
-                impact,
-                turnOwnedSession: true,
-                placement: "bundled",
-                policies
-            });
-            expect(decision.approvalRequired).toBe(true);
-            expect(authority.tier(resolved, descriptorFor(impact), false)).toBe("mediated");
+            expect(authority.tier(resolved, descriptorFor("observe"), false)).toBe("mediated");
         }
-    });
+    );
+
+    test(
+        "approvals covering observe and execute force mediated on a bundled leased facet",
+        { tags: "p0" },
+        () => {
+            for (const impact of ["observe", "execute"] as const) {
+                const policies = [new PolicySet({ approvals: [impact] })];
+                const resolved = resolution({ turnOwned: true, placement: "bundled", policies });
+                const decision = evaluatePolicy({
+                    impact,
+                    turnOwnedSession: true,
+                    placement: "bundled",
+                    policies
+                });
+                expect(decision.approvalRequired).toBe(true);
+                expect(authority.tier(resolved, descriptorFor(impact), false)).toBe("mediated");
+            }
+        }
+    );
 
     test("execute without a turn-owned session is mediated, not direct", { tags: "p0" }, () => {
         const resolved = resolution({ turnOwned: false, placement: "bundled", policies: [] });
         expect(authority.tier(resolved, descriptorFor("execute"), false)).toBe("mediated");
     });
 
-    test("execute with a turn-owned bundled session is direct absent tightening", { tags: "p0" }, () => {
-        const resolved = resolution({ turnOwned: true, placement: "bundled", policies: [] });
-        expect(authority.tier(resolved, descriptorFor("execute"), false)).toBe("direct");
-    });
+    test(
+        "execute with a turn-owned bundled session is direct absent tightening",
+        { tags: "p0" },
+        () => {
+            const resolved = resolution({ turnOwned: true, placement: "bundled", policies: [] });
+            expect(authority.tier(resolved, descriptorFor("execute"), false)).toBe("direct");
+        }
+    );
 
     test("a live lease alone does not make execute session-scoped", { tags: "p0" }, () => {
         const resolved = resolution({

@@ -244,7 +244,7 @@ describe("direct authority through the protected Operation gateway", () => {
 class DirectAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
     public binding = Binding.active(
         workspaceScope,
-        SubjectRef.principal(principal.principalId),
+        SubjectRef.principal(new PrincipalRef(tenant, principal.principalId)),
         domain,
         bindingName,
         new GrantId("direct-gateway-grant"),

@@ -7,6 +7,7 @@ import AgentCore
 #print axioms AgentCore.invocationDigest_exact
 #print axioms AgentCore.structuralDigest_exact
 #print axioms AgentCore.principal_ref_tenant_is_identity
+#print axioms AgentCore.AuthorityLedger.acts_under_principal_is_tenant_qualified
 #print axioms AgentCore.prepared_item_key_is_derived
 #print axioms AgentCore.prepared_item_key_commits_complete_structure
 #print axioms AgentCore.replay_preserves_item_order_and_keys
@@ -264,6 +265,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_exact_run_pin_sources
 #print axioms AgentCore.Examples.nonvacuous_forced_sibling_system_fence
 #print axioms AgentCore.Examples.nonvacuous_qualified_principal_identity
+#print axioms AgentCore.Examples.nonvacuous_foreign_tenant_principal_never_acts_under
 #print axioms AgentCore.Examples.nonvacuous_migrated_old_turn_rejected
 #print axioms AgentCore.Examples.nonvacuous_run_admission_reservation
 #print axioms AgentCore.Examples.nonvacuous_exact_remote_reservation_epoch

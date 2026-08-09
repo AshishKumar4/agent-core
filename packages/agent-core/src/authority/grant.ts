@@ -1,7 +1,7 @@
 import { RecordCodec, type JsonValue, type RecordVersion } from "../core";
 import { AgentCoreError } from "../errors";
 import { CapabilitySpec, isCapabilityEffect, type CapabilityEffect } from "../facets";
-import { MembershipId, type ScopeRef, type SubjectRef } from "../identity";
+import { MembershipId, requireSubjectTenant, type ScopeRef, type SubjectRef } from "../identity";
 import {
     requireBoolean,
     requireExact,
@@ -79,7 +79,7 @@ const revokedGrantState = Object.freeze(new RevokedGrantState());
 
 class GrantCodecV1 extends RecordCodec<Grant> {
     public constructor() {
-        super("authority.grant", { major: 1, minor: 0 });
+        super("authority.grant", { major: 2, minor: 0 });
     }
 
     protected encodePayload(grant: Grant): JsonValue {
@@ -113,6 +113,7 @@ export class Grant {
             throw new TypeError("Deny Grants cannot be attenuated or delegated");
         }
         validateOrigin(origin);
+        requireSubjectTenant(subject, scope.tenantId, "Grant");
         this.subject = decodeAuthoritySubject(encodeAuthoritySubject(subject));
         this.origin = Object.freeze({ ...origin });
         this.attenuationOf = attenuationOf;

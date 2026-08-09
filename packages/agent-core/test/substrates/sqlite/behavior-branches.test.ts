@@ -15,6 +15,7 @@ import {
     MembershipId,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     Role,
@@ -57,180 +58,202 @@ const anchor = {
 };
 
 describe("SQLite Tenant control behavior branches", () => {
-    test("[authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract", { tags: "p1" }, () => {
-        const memory = MemoryTenantControlStore.create(anchor);
-        memory.bootstrapTenant(anchor, Revision.initial());
-        const stores = [memory, bootstrappedTenant(new TestSqlite())];
+    test(
+        "[authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract",
+        { tags: "p1" },
+        () => {
+            const memory = MemoryTenantControlStore.create(anchor);
+            memory.bootstrapTenant(anchor, Revision.initial());
+            const stores = [memory, bootstrappedTenant(new TestSqlite())];
 
-        for (const [index, store] of stores.entries()) {
-            const principal = new Principal(
-                new PrincipalId(`seam-principal-${index}`),
-                "user",
-                "active"
-            );
-            store.transaction((control) => control.putPrincipal(principal));
-            expect(store.principal(principal.id)?.kind).toBe("user");
-        }
-    });
-
-    test("persists a complete topology and lifecycle closure across adapter restart", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = bootstrappedTenant(database);
-        const principal = new Principal(new PrincipalId("member"), "user", "active");
-        const project = new Project(
-            new ProjectId("project"),
-            tenantId,
-            "Project",
-            Revision.initial()
-        );
-        const workspace = new Workspace(
-            new WorkspaceId("workspace"),
-            tenantId,
-            project.id,
-            Revision.initial()
-        );
-        const team = new Team(
-            new TeamId("team"),
-            tenantId,
-            "Team",
-            [principal.id],
-            Revision.initial()
-        );
-        const role = new Role(new RoleName("empty-role"), []);
-        const membership = new Membership(
-            new MembershipId("membership"),
-            workspace.scope,
-            SubjectRef.principal(principal.id),
-            role.name,
-            "active",
-            Revision.initial()
-        );
-        const trust = new GuestTrust(
-            new GuestTrustId("guest-trust"),
-            tenantId,
-            new TenantId("home-tenant"),
-            { kind: "callback", endpoint: "https://home.example/verify" },
-            "active",
-            Revision.initial()
-        );
-
-        store.transaction((control) => {
-            control.putPrincipal(principal);
-            control.putProject(project);
-            control.putWorkspace(workspace);
-            control.putTeam(team);
-            control.putRole(role);
-            control.putMembership(membership);
-            control.putGuestTrust(trust);
-        });
-        store.transaction((control) => {
-            control.putProject(project.rename("Renamed"));
-            control.putTeam(team.revise("Renamed team", [principal.id]));
-            control.putMembership(membership.suspend());
-            control.putGuestTrust(
-                trust.rotate({ kind: "callback", endpoint: "https://home.example/v2" })
-            );
-        });
-
-        const restarted = createSqliteTenantControlStore(database);
-        expect(restarted.project(project.id)?.name).toBe("Renamed");
-        expect(restarted.workspace(workspace.id)?.projectId?.equals(project.id)).toBe(true);
-        expect(restarted.team(team.id)?.name).toBe("Renamed team");
-        expect(restarted.membership(membership.id)?.state).toBe("suspended");
-        expect(restarted.guestTrust(trust.id)?.revision.value).toBe(1);
-    });
-
-    test("rolls back earlier valid writes when a later topology write is foreign", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = bootstrappedTenant(database);
-        const transient = new PrincipalId("rolled-back-principal");
-
-        expect(() =>
-            store.transaction((control) => {
-                control.putPrincipal(new Principal(transient, "user", "active"));
-                control.putTeam(
-                    new Team(
-                        new TeamId("foreign-team"),
-                        new TenantId("foreign-tenant"),
-                        "Foreign",
-                        [],
-                        Revision.initial()
-                    )
+            for (const [index, store] of stores.entries()) {
+                const principal = new Principal(
+                    new PrincipalId(`seam-principal-${index}`),
+                    "user",
+                    "active"
                 );
-            })
-        ).toThrow(/another Tenant/);
+                store.transaction((control) => control.putPrincipal(principal));
+                expect(store.principal(principal.id)?.kind).toBe("user");
+            }
+        }
+    );
 
-        expect(store.principal(transient)).toBeUndefined();
-        expect(store.team(new TeamId("foreign-team"))).toBeUndefined();
-    });
+    test(
+        "persists a complete topology and lifecycle closure across adapter restart",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = bootstrappedTenant(database);
+            const principal = new Principal(new PrincipalId("member"), "user", "active");
+            const project = new Project(
+                new ProjectId("project"),
+                tenantId,
+                "Project",
+                Revision.initial()
+            );
+            const workspace = new Workspace(
+                new WorkspaceId("workspace"),
+                tenantId,
+                project.id,
+                Revision.initial()
+            );
+            const team = new Team(
+                new TeamId("team"),
+                tenantId,
+                "Team",
+                [principal.id],
+                Revision.initial()
+            );
+            const role = new Role(new RoleName("empty-role"), []);
+            const membership = new Membership(
+                new MembershipId("membership"),
+                workspace.scope,
+                SubjectRef.principal(new PrincipalRef(tenantId, principal.id)),
+                role.name,
+                "active",
+                Revision.initial()
+            );
+            const trust = new GuestTrust(
+                new GuestTrustId("guest-trust"),
+                tenantId,
+                new TenantId("home-tenant"),
+                { kind: "callback", endpoint: "https://home.example/verify" },
+                "active",
+                Revision.initial()
+            );
 
-    test("rejects immutable, skipped-revision, and noncanonical topology conflicts", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = bootstrappedTenant(database);
-        const principal = new Principal(new PrincipalId("stable-principal"), "user", "active");
-        const project = new Project(
-            new ProjectId("stable-project"),
-            tenantId,
-            "Stable",
-            Revision.initial()
-        );
-        const workspace = new Workspace(
-            new WorkspaceId("stable-workspace"),
-            tenantId,
-            project.id,
-            Revision.initial()
-        );
-        store.transaction((control) => {
-            control.putPrincipal(principal);
-            control.putProject(project);
-            control.putWorkspace(workspace);
-        });
+            store.transaction((control) => {
+                control.putPrincipal(principal);
+                control.putProject(project);
+                control.putWorkspace(workspace);
+                control.putTeam(team);
+                control.putRole(role);
+                control.putMembership(membership);
+                control.putGuestTrust(trust);
+            });
+            store.transaction((control) => {
+                control.putProject(project.rename("Renamed"));
+                control.putTeam(team.revise("Renamed team", [principal.id]));
+                control.putMembership(membership.suspend());
+                control.putGuestTrust(
+                    trust.rotate({ kind: "callback", endpoint: "https://home.example/v2" })
+                );
+            });
 
-        expect(() =>
-            store.transaction((control) =>
-                control.putPrincipal(new Principal(principal.id, "service", "active"))
-            )
-        ).toThrow(/kind is immutable/);
-        expect(() =>
-            store.transaction((control) =>
-                control.putProject(new Project(project.id, tenantId, "Skipped", new Revision(2)))
-            )
-        ).toThrow(/next revision/);
-        expect(() => store.transaction((control) => control.putWorkspace(workspace))).toThrow(
-            /topology is immutable/
-        );
-        expect(() =>
-            store.transaction((control) =>
-                control.putWorkspace(
-                    new Workspace(
-                        new WorkspaceId("orphan-workspace"),
-                        tenantId,
-                        new ProjectId("missing-project"),
-                        Revision.initial()
+            const restarted = createSqliteTenantControlStore(database);
+            expect(restarted.project(project.id)?.name).toBe("Renamed");
+            expect(restarted.workspace(workspace.id)?.projectId?.equals(project.id)).toBe(true);
+            expect(restarted.team(team.id)?.name).toBe("Renamed team");
+            expect(restarted.membership(membership.id)?.state).toBe("suspended");
+            expect(restarted.guestTrust(trust.id)?.revision.value).toBe(1);
+        }
+    );
+
+    test(
+        "rolls back earlier valid writes when a later topology write is foreign",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = bootstrappedTenant(database);
+            const transient = new PrincipalId("rolled-back-principal");
+
+            expect(() =>
+                store.transaction((control) => {
+                    control.putPrincipal(new Principal(transient, "user", "active"));
+                    control.putTeam(
+                        new Team(
+                            new TeamId("foreign-team"),
+                            new TenantId("foreign-tenant"),
+                            "Foreign",
+                            [],
+                            Revision.initial()
+                        )
+                    );
+                })
+            ).toThrow(/another Tenant/);
+
+            expect(store.principal(transient)).toBeUndefined();
+            expect(store.team(new TeamId("foreign-team"))).toBeUndefined();
+        }
+    );
+
+    test(
+        "rejects immutable, skipped-revision, and noncanonical topology conflicts",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = bootstrappedTenant(database);
+            const principal = new Principal(new PrincipalId("stable-principal"), "user", "active");
+            const project = new Project(
+                new ProjectId("stable-project"),
+                tenantId,
+                "Stable",
+                Revision.initial()
+            );
+            const workspace = new Workspace(
+                new WorkspaceId("stable-workspace"),
+                tenantId,
+                project.id,
+                Revision.initial()
+            );
+            store.transaction((control) => {
+                control.putPrincipal(principal);
+                control.putProject(project);
+                control.putWorkspace(workspace);
+            });
+
+            expect(() =>
+                store.transaction((control) =>
+                    control.putPrincipal(new Principal(principal.id, "service", "active"))
+                )
+            ).toThrow(/kind is immutable/);
+            expect(() =>
+                store.transaction((control) =>
+                    control.putProject(
+                        new Project(project.id, tenantId, "Skipped", new Revision(2))
                     )
                 )
-            )
-        ).toThrow(/existing Project/);
+            ).toThrow(/next revision/);
+            expect(() => store.transaction((control) => control.putWorkspace(workspace))).toThrow(
+                /topology is immutable/
+            );
+            expect(() =>
+                store.transaction((control) =>
+                    control.putWorkspace(
+                        new Workspace(
+                            new WorkspaceId("orphan-workspace"),
+                            tenantId,
+                            new ProjectId("missing-project"),
+                            Revision.initial()
+                        )
+                    )
+                )
+            ).toThrow(/existing Project/);
 
-        expect(store.principal(principal.id)?.kind).toBe("user");
-        expect(store.project(project.id)?.revision.value).toBe(0);
-    });
+            expect(store.principal(principal.id)?.kind).toBe("user");
+            expect(store.project(project.id)?.revision.value).toBe(0);
+        }
+    );
 
-    test("fails closed when marker codec bytes or the bootstrap closure are lost", { tags: "p0" }, () => {
-        const markerDatabase = new TestSqlite();
-        bootstrappedTenant(markerDatabase);
-        markerDatabase.run("UPDATE tenant_bootstrap_marker SET record = ?", [Uint8Array.of(0)]);
-        expect(() => createSqliteTenantControlStore(markerDatabase)).toThrow(
-            expect.objectContaining({ code: "codec.invalid" })
-        );
+    test(
+        "fails closed when marker codec bytes or the bootstrap closure are lost",
+        { tags: "p0" },
+        () => {
+            const markerDatabase = new TestSqlite();
+            bootstrappedTenant(markerDatabase);
+            markerDatabase.run("UPDATE tenant_bootstrap_marker SET record = ?", [Uint8Array.of(0)]);
+            expect(() => createSqliteTenantControlStore(markerDatabase)).toThrow(
+                expect.objectContaining({ code: "codec.invalid" })
+            );
 
-        const closureDatabase = new TestSqlite();
-        bootstrappedTenant(closureDatabase);
-        closureDatabase.run("DELETE FROM tenant_principals WHERE id = ?", [ownerId.value]);
-        expect(() => createSqliteTenantControlStore(closureDatabase)).toThrow(
-            expect.objectContaining({ code: "codec.invalid" })
-        );
-    });
+            const closureDatabase = new TestSqlite();
+            bootstrappedTenant(closureDatabase);
+            closureDatabase.run("DELETE FROM tenant_principals WHERE id = ?", [ownerId.value]);
+            expect(() => createSqliteTenantControlStore(closureDatabase)).toThrow(
+                expect.objectContaining({ code: "codec.invalid" })
+            );
+        }
+    );
 });
 
 describe("SQLite materialization CAS behavior", () => {
@@ -287,15 +310,19 @@ describe("SQLite materialization CAS behavior", () => {
 });
 
 describe("SQLite package, bootstrap, and Slot failure behavior", () => {
-    test("keeps the first package release when the immutable version key conflicts", { tags: "p0" }, () => {
-        const store = new SqlitePackageStore(new TestSqlite());
-        const original = packageRelease("immutable", "1.0.0");
-        const conflict = packageRelease("immutable", "1.0.0", new Digest("1".repeat(64)));
-        store.add(original);
+    test(
+        "keeps the first package release when the immutable version key conflicts",
+        { tags: "p0" },
+        () => {
+            const store = new SqlitePackageStore(new TestSqlite());
+            const original = packageRelease("immutable", "1.0.0");
+            const conflict = packageRelease("immutable", "1.0.0", new Digest("1".repeat(64)));
+            store.add(original);
 
-        expect(() => store.add(conflict)).toThrow(/immutable/);
-        expect(store.get(original.id, original.version)).toEqual(original);
-    });
+            expect(() => store.add(conflict)).toThrow(/immutable/);
+            expect(store.get(original.id, original.version)).toEqual(original);
+        }
+    );
 
     test("translates a malformed bootstrap ID schema without replacing it", { tags: "p1" }, () => {
         const database = new TestSqlite();
@@ -324,33 +351,37 @@ describe("SQLite package, bootstrap, and Slot failure behavior", () => {
         ).not.toContain("next_id");
     });
 
-    test("fails closed on missing Slot revision, ignored CAS, and declaration projection drift", { tags: "p0" }, () => {
-        const missingDatabase = new TestSqlite();
-        const owner = new WorkspaceId("slot-owner");
-        const missing = new SqliteWorkspaceSlotStore(owner, missingDatabase);
-        missingDatabase.run("DELETE FROM facet_slot_revision", []);
-        expect(() => missing.revision()).toThrow(/revision is missing/);
+    test(
+        "fails closed on missing Slot revision, ignored CAS, and declaration projection drift",
+        { tags: "p0" },
+        () => {
+            const missingDatabase = new TestSqlite();
+            const owner = new WorkspaceId("slot-owner");
+            const missing = new SqliteWorkspaceSlotStore(owner, missingDatabase);
+            missingDatabase.run("DELETE FROM facet_slot_revision", []);
+            expect(() => missing.revision()).toThrow(/revision is missing/);
 
-        const casDatabase = new TestSqlite();
-        const cas = new SqliteWorkspaceSlotStore(owner, casDatabase);
-        casDatabase.run(
-            `CREATE TRIGGER ignore_slot_revision BEFORE UPDATE ON facet_slot_revision
+            const casDatabase = new TestSqlite();
+            const cas = new SqliteWorkspaceSlotStore(owner, casDatabase);
+            casDatabase.run(
+                `CREATE TRIGGER ignore_slot_revision BEFORE UPDATE ON facet_slot_revision
              BEGIN SELECT RAISE(IGNORE); END`,
-            []
-        );
-        expect(() =>
-            cas.transaction((transaction) =>
-                cas.saveRevision(transaction, cas.loadRevision(transaction).next())
-            )
-        ).toThrow(/did not persist/);
-        expect(cas.revision().value).toBe(0);
+                []
+            );
+            expect(() =>
+                cas.transaction((transaction) =>
+                    cas.saveRevision(transaction, cas.loadRevision(transaction).next())
+                )
+            ).toThrow(/did not persist/);
+            expect(cas.revision().value).toBe(0);
 
-        const projectionDatabase = new TestSqlite();
-        const projection = new SqliteWorkspaceSlotStore(owner, projectionDatabase);
-        projection.install(slot());
-        projectionDatabase.run("UPDATE facet_slots SET name = 'forged-slot'", []);
-        expect(() => projection.slot(new SlotName("forged-slot"))).toThrow(/projection/);
-    });
+            const projectionDatabase = new TestSqlite();
+            const projection = new SqliteWorkspaceSlotStore(owner, projectionDatabase);
+            projection.install(slot());
+            projectionDatabase.run("UPDATE facet_slots SET name = 'forged-slot'", []);
+            expect(() => projection.slot(new SlotName("forged-slot"))).toThrow(/projection/);
+        }
+    );
 });
 
 function bootstrappedTenant(database: TestSqlite) {

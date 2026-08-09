@@ -35,6 +35,8 @@ import {
 } from "../../src/substrates";
 
 const tenantId = new TenantId("tenant-sqlite");
+const foreignTenantId = new TenantId("foreign-tenant");
+const scopeSwapTenantId = new TenantId("scope-swap");
 const principalId = new PrincipalId("principal-sqlite");
 const tenantScope = ScopeRef.tenant(tenantId);
 const anchor = {
@@ -45,33 +47,39 @@ const anchor = {
 };
 
 describe("SQLite Tenant authority mutation storage", () => {
-    test("[C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = createSqliteTenantControlStore(database, anchor);
-        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
-        const service = new AuthorityMutationService(store);
-        const initial = store.epoch(tenantScope).epoch;
-        const allow = allowGrant("sqlite-epoch-allow");
-        const deny = new Grant(
-            new GrantId("sqlite-epoch-deny"),
-            tenantScope,
-            SubjectRef.principal(principalId),
-            "deny",
-            allow.capability,
-            { kind: "direct" }
-        );
+    test(
+        "[C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+            const service = new AuthorityMutationService(store);
+            const initial = store.epoch(tenantScope).epoch;
+            const allow = allowGrant("sqlite-epoch-allow");
+            const deny = new Grant(
+                new GrantId("sqlite-epoch-deny"),
+                tenantScope,
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                "deny",
+                allow.capability,
+                { kind: "direct" }
+            );
 
-        service.createGrant(allow);
-        expect(store.epoch(tenantScope).epoch).toBe(initial + 1);
-        service.createGrant(deny);
-        expect(store.epoch(tenantScope).epoch).toBe(initial + 2);
-        service.revokeGrant(allow.id);
-        expect(store.epoch(tenantScope).epoch).toBe(initial + 3);
-        service.revokeGrant(deny.id);
-        expect(store.epoch(tenantScope).epoch).toBe(initial + 4);
+            service.createGrant(allow);
+            expect(store.epoch(tenantScope).epoch).toBe(initial + 1);
+            service.createGrant(deny);
+            expect(store.epoch(tenantScope).epoch).toBe(initial + 2);
+            service.revokeGrant(allow.id);
+            expect(store.epoch(tenantScope).epoch).toBe(initial + 3);
+            service.revokeGrant(deny.id);
+            expect(store.epoch(tenantScope).epoch).toBe(initial + 4);
 
-        expect(createSqliteTenantControlStore(database).epoch(tenantScope).epoch).toBe(initial + 4);
-    });
+            expect(createSqliteTenantControlStore(database).epoch(tenantScope).epoch).toBe(
+                initial + 4
+            );
+        }
+    );
 
     test("reconciles Membership Grants and bumps exactly once on revoke", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -82,7 +90,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         const membership = new Membership(
             new MembershipId("membership-service"),
             tenantScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             role.name,
             "active",
             Revision.initial()
@@ -150,7 +158,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         const membership = new Membership(
             new MembershipId("membership-invariant"),
             tenantScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             role.name,
             "active",
             Revision.initial()
@@ -163,8 +171,8 @@ describe("SQLite Tenant authority mutation storage", () => {
                 candidate.putMembership(
                     new Membership(
                         membership.id,
-                        ScopeRef.tenant(new TenantId("scope-swap")),
-                        membership.subject,
+                        ScopeRef.tenant(scopeSwapTenantId),
+                        SubjectRef.principal(new PrincipalRef(scopeSwapTenantId, principalId)),
                         membership.role,
                         "active",
                         membership.revision.next()
@@ -176,8 +184,8 @@ describe("SQLite Tenant authority mutation storage", () => {
             service.createGrant(
                 new Grant(
                     new GrantId("foreign-grant"),
-                    ScopeRef.tenant(new TenantId("foreign-tenant")),
-                    SubjectRef.principal(principalId),
+                    ScopeRef.tenant(foreignTenantId),
+                    SubjectRef.principal(new PrincipalRef(foreignTenantId, principalId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -188,7 +196,7 @@ describe("SQLite Tenant authority mutation storage", () => {
         const orphan = new Membership(
             new MembershipId("orphan-membership"),
             tenantScope,
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             new RoleName("missing-role"),
             "active",
             Revision.initial()
@@ -199,147 +207,157 @@ describe("SQLite Tenant authority mutation storage", () => {
         expect(store.loadMembership(orphan.id)).toBeUndefined();
     });
 
-    test("enforces narrowing and recursively revokes delegated Grant chains", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = createSqliteTenantControlStore(database, anchor);
-        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
-        const service = new AuthorityMutationService(store);
-        const parent = new Grant(
-            new GrantId("sqlite-parent"),
-            tenantScope,
-            SubjectRef.principal(principalId),
-            "allow",
-            new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "mutate"] }),
-            { kind: "direct" }
-        );
-        const child = new Grant(
-            new GrantId("sqlite-child"),
-            tenantScope,
-            parent.subject,
-            "allow",
-            new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
-            { kind: "direct" },
-            parent.id
-        );
-        const grandchild = new Grant(
-            new GrantId("sqlite-grandchild"),
-            tenantScope,
-            parent.subject,
-            "allow",
-            child.capability,
-            { kind: "direct" },
-            child.id
-        );
-        service.createGrant(parent);
-        service.createGrant(child);
-        service.createGrant(grandchild);
-        expect(() =>
-            service.createGrant(
-                new Grant(
-                    new GrantId("sqlite-widened"),
-                    tenantScope,
-                    parent.subject,
-                    "allow",
-                    new CapabilitySpec({ facetPattern: "*", impacts: ["administer"] }),
-                    { kind: "direct" },
-                    parent.id
+    test(
+        "enforces narrowing and recursively revokes delegated Grant chains",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+            const service = new AuthorityMutationService(store);
+            const parent = new Grant(
+                new GrantId("sqlite-parent"),
+                tenantScope,
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "mutate"] }),
+                { kind: "direct" }
+            );
+            const child = new Grant(
+                new GrantId("sqlite-child"),
+                tenantScope,
+                parent.subject,
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                { kind: "direct" },
+                parent.id
+            );
+            const grandchild = new Grant(
+                new GrantId("sqlite-grandchild"),
+                tenantScope,
+                parent.subject,
+                "allow",
+                child.capability,
+                { kind: "direct" },
+                child.id
+            );
+            service.createGrant(parent);
+            service.createGrant(child);
+            service.createGrant(grandchild);
+            expect(() =>
+                service.createGrant(
+                    new Grant(
+                        new GrantId("sqlite-widened"),
+                        tenantScope,
+                        parent.subject,
+                        "allow",
+                        new CapabilitySpec({ facetPattern: "*", impacts: ["administer"] }),
+                        { kind: "direct" },
+                        parent.id
+                    )
                 )
-            )
-        ).toThrow(/live attenuation/);
+            ).toThrow(/live attenuation/);
 
-        service.revokeGrant(parent.id);
-        expect([parent.id, child.id, grandchild.id].map((id) => store.grant(id)?.isLive)).toEqual([
-            false,
-            false,
-            false
-        ]);
-    });
+            service.revokeGrant(parent.id);
+            expect(
+                [parent.id, child.id, grandchild.id].map((id) => store.grant(id)?.isLive)
+            ).toEqual([false, false, false]);
+        }
+    );
 
-    test("persists canonical Workspace topology and verified guest lifecycle across restart", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = createSqliteTenantControlStore(database, anchor);
-        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
-        const service = new AuthorityMutationService(store);
-        const workspace = new Workspace(
-            new WorkspaceId("sqlite-workspace"),
-            tenantId,
-            undefined,
-            Revision.initial()
-        );
-        const home = new TenantId("sqlite-guest-home");
-        const guest = new PrincipalId("sqlite-guest");
-        const trust = new GuestTrust(
-            new GuestTrustId("sqlite-guest-trust"),
-            tenantId,
-            home,
-            {
-                kind: "token",
-                issuer: "https://issuer.example/",
-                key: new SecretRef("tenant", "oidc", "guest-key")
-            },
-            "active",
-            Revision.initial()
-        );
-        const role = observeRole("sqlite-guest-reader");
-        const membership = new Membership(
-            new MembershipId("sqlite-guest-membership"),
-            workspace.scope,
-            SubjectRef.foreign(home, guest, GuestVerificationScheme.token),
-            role.name,
-            "active",
-            Revision.initial()
-        );
-        service.createWorkspace(workspace);
-        service.createGuestTrust(trust);
-        service.createRole(role);
-        service.assignGuestMembership(
-            membership,
-            new GuestVerification(
-                new PrincipalRef(home, guest),
-                trust.id,
-                trust.revision,
-                "token",
-                Digest.sha256(Uint8Array.of(8)),
-                new Date(1_000),
-                new Date(2_000)
-            ),
-            new Date(1_500)
-        );
+    test(
+        "persists canonical Workspace topology and verified guest lifecycle across restart",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+            const service = new AuthorityMutationService(store);
+            const workspace = new Workspace(
+                new WorkspaceId("sqlite-workspace"),
+                tenantId,
+                undefined,
+                Revision.initial()
+            );
+            const home = new TenantId("sqlite-guest-home");
+            const guest = new PrincipalId("sqlite-guest");
+            const trust = new GuestTrust(
+                new GuestTrustId("sqlite-guest-trust"),
+                tenantId,
+                home,
+                {
+                    kind: "token",
+                    issuer: "https://issuer.example/",
+                    key: new SecretRef("tenant", "oidc", "guest-key")
+                },
+                "active",
+                Revision.initial()
+            );
+            const role = observeRole("sqlite-guest-reader");
+            const membership = new Membership(
+                new MembershipId("sqlite-guest-membership"),
+                workspace.scope,
+                SubjectRef.foreign(home, guest, GuestVerificationScheme.token),
+                role.name,
+                "active",
+                Revision.initial()
+            );
+            service.createWorkspace(workspace);
+            service.createGuestTrust(trust);
+            service.createRole(role);
+            service.assignGuestMembership(
+                membership,
+                new GuestVerification(
+                    new PrincipalRef(home, guest),
+                    trust.id,
+                    trust.revision,
+                    "token",
+                    Digest.sha256(Uint8Array.of(8)),
+                    new Date(1_000),
+                    new Date(2_000)
+                ),
+                new Date(1_500)
+            );
 
-        const restarted = createSqliteTenantControlStore(database);
-        expect(restarted.workspace(workspace.id)?.scope.equals(workspace.scope)).toBe(true);
-        expect(restarted.guestTrust(trust.id)?.isActive).toBe(true);
-        expect(
-            restarted
-                .grants()
-                .some(
-                    (candidate) =>
-                        candidate.origin.kind === "role" &&
-                        candidate.origin.membershipId.equals(membership.id) &&
-                        candidate.isLive
-                )
-        ).toBe(true);
-    });
+            const restarted = createSqliteTenantControlStore(database);
+            expect(restarted.workspace(workspace.id)?.scope.equals(workspace.scope)).toBe(true);
+            expect(restarted.guestTrust(trust.id)?.isActive).toBe(true);
+            expect(
+                restarted
+                    .grants()
+                    .some(
+                        (candidate) =>
+                            candidate.origin.kind === "role" &&
+                            candidate.origin.membershipId.equals(membership.id) &&
+                            candidate.isLive
+                    )
+            ).toBe(true);
+        }
+    );
 
-    test("rejects malformed orphan identity rows before serving after restart", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = createSqliteTenantControlStore(database, anchor);
-        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
-        database.run(
-            `INSERT INTO tenant_principals (id, kind, status, record)
+    test(
+        "rejects malformed orphan identity rows before serving after restart",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+            database.run(
+                `INSERT INTO tenant_principals (id, kind, status, record)
              VALUES (?, 'user', 'active', ?)`,
-            ["orphan-principal", Uint8Array.of(0)]
-        );
+                ["orphan-principal", Uint8Array.of(0)]
+            );
 
-        expect(() => createSqliteTenantControlStore(database)).toThrow(/malformed|canonical/);
-    });
+            expect(() => createSqliteTenantControlStore(database)).toThrow(/malformed|canonical/);
+        }
+    );
 });
 
 function allowGrant(id: string): Grant {
     return new Grant(
         new GrantId(id),
         tenantScope,
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         "allow",
         new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
         { kind: "direct" }

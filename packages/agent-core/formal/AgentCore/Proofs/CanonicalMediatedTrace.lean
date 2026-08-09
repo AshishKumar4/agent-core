@@ -55,7 +55,7 @@ private def prepared : PreparedInvocation := ⟨header, .single arguments⟩
 private def item : PreparedItem :=
   ⟨0, arguments, deriveItemKey header prepared.payload 0 arguments⟩
 private def grant : Grant :=
-  ⟨.principal principal, scope, .allow, header.permission, none, .manual⟩
+  ⟨.principal principalRef, scope, .allow, header.permission, none, .manual⟩
 private def binding : Binding :=
   ⟨header.domain, scope, "document-writer", grantId, facet⟩
 private def rootAudit : AuditEntry :=

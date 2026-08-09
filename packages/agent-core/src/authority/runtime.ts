@@ -193,7 +193,7 @@ export class TenantAuthorityRuntime {
 
     private effectiveSubjects(request: AuthorityCheckRequest): ReadonlySet<string> | undefined {
         if (request.principal.tenantId.equals(this.store.tenantId)) {
-            const principal = Subjects.principal(request.principal.principalId);
+            const principal = Subjects.principal(request.principal);
             const subjects = new Set([subjectKey(principal)]);
             for (const team of this.store.teams()) {
                 if (team.has(request.principal.principalId)) {

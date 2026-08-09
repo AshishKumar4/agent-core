@@ -24,7 +24,8 @@ import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 const tenant = new TenantId("tenant-store-parity");
 const workspace = new WorkspaceId("workspace-store-parity");
 const scope = ScopeRef.workspace(tenant, workspace);
-const subject = SubjectRef.principal(new PrincipalId("principal-store-parity"));
+const principal = new PrincipalRef(tenant, new PrincipalId("principal-store-parity"));
+const subject = SubjectRef.principal(principal);
 const domain = new ProtectionDomain("backend", "parity", "no-secrets");
 const binding = Binding.active(
     scope,
@@ -35,7 +36,7 @@ const binding = Binding.active(
     new FacetRef("workspace:mail.instance")
 );
 const owner = new ActorRef("workspace", new ActorId("workspace-actor"));
-const holder = new PrincipalRef(tenant, subject.principalId);
+const holder = principal;
 const watermark = InvalidationWatermark.empty(tenant, owner, holder);
 
 describe.each([
@@ -96,123 +97,131 @@ describe.each([
         ).toThrow(/another Workspace/);
     });
 
-    test("joins watermarks pointwise without decreasing or duplicating Scopes", { tags: "p0" }, () => {
-        const store = harness.watermarkStore();
-        harness.write(() => store.save(watermark));
-        const key = watermarkKey(watermark);
-        harness.write(() => store.join(key, [new ScopeEpoch(scope, 3)]));
-        harness.write(() => store.join(key, [new ScopeEpoch(scope, 2)]));
+    test(
+        "joins watermarks pointwise without decreasing or duplicating Scopes",
+        { tags: "p0" },
+        () => {
+            const store = harness.watermarkStore();
+            harness.write(() => store.save(watermark));
+            const key = watermarkKey(watermark);
+            harness.write(() => store.join(key, [new ScopeEpoch(scope, 3)]));
+            harness.write(() => store.join(key, [new ScopeEpoch(scope, 2)]));
 
-        expect(store.load(key)?.epoch(scope)).toBe(3);
-        expect(store.load(key)?.revision.value).toBe(1);
-        expect(() =>
-            store.save(
-                InvalidationWatermark.empty(
-                    tenant,
-                    new ActorRef("workspace", new ActorId("other-actor")),
-                    holder
+            expect(store.load(key)?.epoch(scope)).toBe(3);
+            expect(store.load(key)?.revision.value).toBe(1);
+            expect(() =>
+                store.save(
+                    InvalidationWatermark.empty(
+                        tenant,
+                        new ActorRef("workspace", new ActorId("other-actor")),
+                        holder
+                    )
                 )
-            )
-        ).toThrow(/another Actor/);
-    });
+            ).toThrow(/another Actor/);
+        }
+    );
 });
 
 describe("memory authority snapshot isolation", () => {
-    test("detaches Binding and watermark bytes and rejects projection disagreement", { tags: "p0" }, () => {
-        expect(() => new MemoryBindingStore(ScopeRef.tenant(tenant))).toThrow(TypeError);
-        expect(() =>
-            new MemoryBindingStore(scope).save(
-                binding.replace(new GrantId("unstaged"), new FacetRef("workspace:unstaged"))
-            )
-        ).toThrow(/generation and revision zero/);
-        const bindings = new MemoryBindingStore(scope);
-        bindings.save(binding);
-        const bindingSnapshot = bindings.snapshot();
-        const cleanBinding = bindings.snapshot();
-        expect(
-            () =>
-                new MemoryBindingStore(scope, {
-                    ...cleanBinding,
-                    records: [cleanBinding.records[0]!, cleanBinding.records[0]!]
-                })
-        ).toThrow(/duplicate/);
-        expect(
-            () =>
-                new MemoryBindingStore(scope, {
-                    ...cleanBinding,
-                    records: [{ ...cleanBinding.records[0]!, key: "wrong-key" }]
-                })
-        ).toThrow(/does not match/);
-        expect(
-            () =>
-                new MemoryBindingStore(scope, {
-                    ...cleanBinding,
-                    version: 2
-                } as never)
-        ).toThrow(/malformed/);
-        expect(
-            () =>
-                new MemoryBindingStore(scope, {
-                    version: 1,
-                    records: [null as never]
-                })
-        ).toThrow(/record is malformed/);
-        bindingSnapshot.records[0]!.bytes.fill(0);
-        expect(bindings.load(binding.key)?.grantId.value).toBe("grant");
-        expect(() => new MemoryBindingStore(scope, bindingSnapshot)).toThrow();
+    test(
+        "detaches Binding and watermark bytes and rejects projection disagreement",
+        { tags: "p0" },
+        () => {
+            expect(() => new MemoryBindingStore(ScopeRef.tenant(tenant))).toThrow(TypeError);
+            expect(() =>
+                new MemoryBindingStore(scope).save(
+                    binding.replace(new GrantId("unstaged"), new FacetRef("workspace:unstaged"))
+                )
+            ).toThrow(/generation and revision zero/);
+            const bindings = new MemoryBindingStore(scope);
+            bindings.save(binding);
+            const bindingSnapshot = bindings.snapshot();
+            const cleanBinding = bindings.snapshot();
+            expect(
+                () =>
+                    new MemoryBindingStore(scope, {
+                        ...cleanBinding,
+                        records: [cleanBinding.records[0]!, cleanBinding.records[0]!]
+                    })
+            ).toThrow(/duplicate/);
+            expect(
+                () =>
+                    new MemoryBindingStore(scope, {
+                        ...cleanBinding,
+                        records: [{ ...cleanBinding.records[0]!, key: "wrong-key" }]
+                    })
+            ).toThrow(/does not match/);
+            expect(
+                () =>
+                    new MemoryBindingStore(scope, {
+                        ...cleanBinding,
+                        version: 2
+                    } as never)
+            ).toThrow(/malformed/);
+            expect(
+                () =>
+                    new MemoryBindingStore(scope, {
+                        version: 1,
+                        records: [null as never]
+                    })
+            ).toThrow(/record is malformed/);
+            bindingSnapshot.records[0]!.bytes.fill(0);
+            expect(bindings.load(binding.key)?.grantId.value).toBe("grant");
+            expect(() => new MemoryBindingStore(scope, bindingSnapshot)).toThrow();
 
-        const watermarks = new MemoryInvalidationWatermarkStore(tenant, owner);
-        expect(() => watermarks.save(watermark.join([new ScopeEpoch(scope, 1)]))).toThrow(
-            /revision zero/
-        );
-        expect(() => watermarks.join(watermarkKey(watermark), [new ScopeEpoch(scope, 1)])).toThrow(
-            /initialized/
-        );
-        watermarks.save(watermark);
-        const advanced = watermarks.join(watermarkKey(watermark), [new ScopeEpoch(scope, 2)]);
-        expect(() =>
-            watermarks.save(
-                new InvalidationWatermark(tenant, owner, holder, [], advanced.revision.next())
-            )
-        ).toThrow(/monotonic/);
-        const watermarkSnapshot = watermarks.snapshot();
-        const cleanWatermark = watermarks.snapshot();
-        expect(
-            () =>
-                new MemoryInvalidationWatermarkStore(tenant, owner, {
-                    ...cleanWatermark,
-                    version: 2
-                } as never)
-        ).toThrow(/malformed/);
-        expect(
-            () =>
-                new MemoryInvalidationWatermarkStore(tenant, owner, {
-                    ...cleanWatermark,
-                    records: [cleanWatermark.records[0]!, cleanWatermark.records[0]!]
-                })
-        ).toThrow(/duplicate/);
-        expect(
-            () =>
-                new MemoryInvalidationWatermarkStore(tenant, owner, {
-                    ...cleanWatermark,
-                    records: [{ ...cleanWatermark.records[0]!, key: "wrong-key" }]
-                })
-        ).toThrow(/does not match/);
-        expect(
-            () =>
-                new MemoryInvalidationWatermarkStore(tenant, owner, {
-                    version: 1,
-                    records: [null as never]
-                })
-        ).toThrow(/record is malformed/);
-        watermarkSnapshot.records[0]!.bytes.fill(0);
-        expect(watermarks.load(watermarkKey(watermark))?.revision.value).toBe(
-            advanced.revision.value
-        );
-        expect(
-            () => new MemoryInvalidationWatermarkStore(tenant, owner, watermarkSnapshot)
-        ).toThrow();
-    });
+            const watermarks = new MemoryInvalidationWatermarkStore(tenant, owner);
+            expect(() => watermarks.save(watermark.join([new ScopeEpoch(scope, 1)]))).toThrow(
+                /revision zero/
+            );
+            expect(() =>
+                watermarks.join(watermarkKey(watermark), [new ScopeEpoch(scope, 1)])
+            ).toThrow(/initialized/);
+            watermarks.save(watermark);
+            const advanced = watermarks.join(watermarkKey(watermark), [new ScopeEpoch(scope, 2)]);
+            expect(() =>
+                watermarks.save(
+                    new InvalidationWatermark(tenant, owner, holder, [], advanced.revision.next())
+                )
+            ).toThrow(/monotonic/);
+            const watermarkSnapshot = watermarks.snapshot();
+            const cleanWatermark = watermarks.snapshot();
+            expect(
+                () =>
+                    new MemoryInvalidationWatermarkStore(tenant, owner, {
+                        ...cleanWatermark,
+                        version: 2
+                    } as never)
+            ).toThrow(/malformed/);
+            expect(
+                () =>
+                    new MemoryInvalidationWatermarkStore(tenant, owner, {
+                        ...cleanWatermark,
+                        records: [cleanWatermark.records[0]!, cleanWatermark.records[0]!]
+                    })
+            ).toThrow(/duplicate/);
+            expect(
+                () =>
+                    new MemoryInvalidationWatermarkStore(tenant, owner, {
+                        ...cleanWatermark,
+                        records: [{ ...cleanWatermark.records[0]!, key: "wrong-key" }]
+                    })
+            ).toThrow(/does not match/);
+            expect(
+                () =>
+                    new MemoryInvalidationWatermarkStore(tenant, owner, {
+                        version: 1,
+                        records: [null as never]
+                    })
+            ).toThrow(/record is malformed/);
+            watermarkSnapshot.records[0]!.bytes.fill(0);
+            expect(watermarks.load(watermarkKey(watermark))?.revision.value).toBe(
+                advanced.revision.value
+            );
+            expect(
+                () => new MemoryInvalidationWatermarkStore(tenant, owner, watermarkSnapshot)
+            ).toThrow();
+        }
+    );
 });
 
 describe("SQLite authority corruption closure", () => {

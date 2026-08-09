@@ -46,6 +46,16 @@ theorem nonvacuous_qualified_principal_identity : principalRef ≠ foreignTenant
   apply principal_ref_tenant_is_identity
   decide
 
+/-- The tenant-qualified subject refuses admission for real: a Principal from another
+Tenant does not act under a Grant naming this one's Principal, whatever the ledger holds.
+The two refs share a PrincipalId and differ only in Tenant, which is the confusion the
+qualification exists to make unrepresentable. -/
+theorem nonvacuous_foreign_tenant_principal_never_acts_under
+    (ledger : AuthorityLedger) :
+    ¬ ledger.ActsUnder foreignTenantPrincipalRef (.principal principalRef) := by
+  apply AuthorityLedger.acts_under_principal_is_tenant_qualified
+  decide
+
 private def allModes : PlacementSet := ⟨true, true, true⟩
 private def providerModes : PlacementSet := ⟨true, true, false⟩
 private def bundledMode : PlacementSet := ⟨true, false, false⟩
@@ -115,7 +125,7 @@ theorem nonvacuous_complete_identity_and_keys :
 
 private def grantId : GrantId := .manual 1
 private def allowGrant : Grant :=
-  ⟨.principal principal, scope, .allow, header.permission, none, .manual⟩
+  ⟨.principal principalRef, scope, .allow, header.permission, none, .manual⟩
 private def binding : Binding := ⟨header.domain, scope, "observer", grantId, facet⟩
 private def authorityBase : AuthorityLedger := {
   (default : AuthorityLedger) with
@@ -1352,7 +1362,7 @@ private def actionHeader : InvocationHeader := {
 }
 private def actionPrepared : PreparedInvocation := ⟨actionHeader, .batch firstArgs [secondArgs]⟩
 private def actionGrant : Grant :=
-  ⟨.principal principal, scope, .allow, actionHeader.permission, none, .manual⟩
+  ⟨.principal principalRef, scope, .allow, actionHeader.permission, none, .manual⟩
 private def actionBinding : Binding :=
   ⟨actionHeader.domain, scope, "sender", actionGrantId, facet⟩
 private def actionAuthorityBase : AuthorityLedger := {
@@ -1898,9 +1908,9 @@ theorem nonvacuous_malformed_approval_continuation_rejected :
 private def parentGrantId : GrantId := .manual 10
 private def childGrantId : GrantId := .manual 11
 private def parentGrant : Grant :=
-  ⟨.principal principal, tenantScope, .allow, header.permission, none, .manual⟩
+  ⟨.principal principalRef, tenantScope, .allow, header.permission, none, .manual⟩
 private def childGrant : Grant :=
-  ⟨.principal principal, scope, .allow, header.permission, some parentGrantId, .manual⟩
+  ⟨.principal principalRef, scope, .allow, header.permission, some parentGrantId, .manual⟩
 private def delegationLedger : AuthorityLedger := {
   (default : AuthorityLedger) with
   grants := tableSet (default : AuthorityLedger).grants parentGrantId parentGrant

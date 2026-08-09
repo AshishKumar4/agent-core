@@ -335,14 +335,25 @@
       "id": "C13-AUTH-PRINCIPAL-REF",
       "owner": "W2",
       "specAnchor": "C13-AUTH-PRINCIPAL-REF",
-      "specTextSha256": "sha256:72786f2dee68cc90c9f4a1a16f13fab22decb4dd018dcbe7a59ef84c44b17f77",
+      "specTextSha256": "sha256:fb3a224b528b0d0752f9d7f5cebab7c2f9957e51094844325d7f75fa02841b88",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/identity/principal-ref.ts#PrincipalRef"],
+      "sourceSymbols": [
+        "src/identity/principal-ref.ts#PrincipalRef",
+        "src/identity/subject.ts#PrincipalSubjectRef",
+        "src/identity/subject.ts#requireSubjectTenant"
+      ],
       "testSelectors": [
         "test/identity/authority-foundation.test.ts#qualified identity and Tenant topology [C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically",
         "test/authority/permit.test.ts#AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant",
-        "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission"
+        "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
+        "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] separates equal Principal IDs from different Tenants in every subject key",
+        "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] refuses a record whose Principal subject belongs to another Tenant",
+        "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] rejects an unqualified stored Principal subject rather than inferring its Tenant",
+        "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] fails a restored Tenant control snapshot closed on an unqualified stored subject",
+        "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] does not let the host Tenant's identically named Principal stand in for a stranger at admission",
+        "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] denies a same-PrincipalId Principal from another Tenant at mediated admission",
+        "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity [C13-AUTH-PRINCIPAL-REF] fails closed on a stored subject that names a Principal without its Tenant"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

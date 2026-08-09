@@ -7,6 +7,7 @@ import {
     MembershipId,
     Principal,
     PrincipalId,
+    PrincipalRef,
     Project,
     ProjectId,
     Role,
@@ -60,7 +61,7 @@ const role = new Role(roleName, []);
 const membership = new Membership(
     membershipId,
     tenantScope,
-    SubjectRef.principal(principalId),
+    SubjectRef.principal(new PrincipalRef(tenantAId, principalId)),
     roleName,
     "active",
     new Revision(4)
@@ -157,7 +158,8 @@ const driftCases: readonly DriftCase[] = [
     },
     {
         title: "guest trust id drift",
-        corrupt: (database) => database.run("UPDATE tenant_guest_trusts SET id = 'trust-moved'", []),
+        corrupt: (database) =>
+            database.run("UPDATE tenant_guest_trusts SET id = 'trust-moved'", []),
         load: (reader) => reader.loadGuestTrust(new GuestTrustId("trust-moved"))
     },
     {

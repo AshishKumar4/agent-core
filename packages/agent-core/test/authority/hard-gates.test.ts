@@ -50,7 +50,7 @@ const facet = new FacetRef("workspace:hard.facet");
 const grantId = new GrantId("authority-hard-grant");
 const binding = Binding.active(
     workspaceScope,
-    SubjectRef.principal(principalId),
+    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
     domain,
     new BindingName("hard-binding"),
     grantId,
@@ -64,60 +64,70 @@ const args = { value: "ok" } as const;
 const argsDigest = Digest.sha256(encodeCanonicalJson(args));
 
 describe("canonical capability hard gates", () => {
-    test("[C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths", { tags: "p0" }, () => {
-        const parent = new CapabilitySpec({
-            facetPattern: "workspace:mail.*",
-            operations: ["send"],
-            impacts: ["observe", "mutate"],
-            argumentConstraints: { "message.channel": "internal" }
-        });
-        const child = new CapabilitySpec({
-            facetPattern: "workspace:mail.instance",
-            operations: ["send"],
-            impacts: ["observe"],
-            argumentConstraints: { "message.channel": "internal", folder: "inbox" }
-        });
-        expect(parent.covers(child)).toBe(true);
-        expect(child.covers(parent)).toBe(false);
-        expect(
-            parent.matches({
-                facet: "workspace:mail.instance",
-                operation: "send",
-                impact: "mutate",
-                arguments: { message: { channel: "internal" } }
-            })
-        ).toBe(true);
-        expect(
-            parent.matches({
-                facet: "other",
-                operation: "read",
-                impact: "observe",
-                arguments: {}
-            })
-        ).toBe(false);
-        expect(parent.grantsElevation()).toBe(false);
-        expect(parent.equals(CapabilitySpec.decode(CapabilitySpec.encode(parent)))).toBe(true);
-        expect(
-            new CapabilitySpec({ facetPattern: "workspace:mail.*", impacts: ["observe"] }).covers(
-                new CapabilitySpec({ facetPattern: "workspace:mail.sub.*", impacts: ["observe"] })
-            )
-        ).toBe(true);
-        const constrained = new CapabilitySpec({
-            facetPattern: "*",
-            impacts: ["observe"],
-            argumentConstraints: { "nested.value": true }
-        });
-        for (const nested of [null, [], "text", {}] as const) {
+    test(
+        "[C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths",
+        { tags: "p0" },
+        () => {
+            const parent = new CapabilitySpec({
+                facetPattern: "workspace:mail.*",
+                operations: ["send"],
+                impacts: ["observe", "mutate"],
+                argumentConstraints: { "message.channel": "internal" }
+            });
+            const child = new CapabilitySpec({
+                facetPattern: "workspace:mail.instance",
+                operations: ["send"],
+                impacts: ["observe"],
+                argumentConstraints: { "message.channel": "internal", folder: "inbox" }
+            });
+            expect(parent.covers(child)).toBe(true);
+            expect(child.covers(parent)).toBe(false);
             expect(
-                constrained.matches({
-                    facet: "anything",
+                parent.matches({
+                    facet: "workspace:mail.instance",
+                    operation: "send",
+                    impact: "mutate",
+                    arguments: { message: { channel: "internal" } }
+                })
+            ).toBe(true);
+            expect(
+                parent.matches({
+                    facet: "other",
                     operation: "read",
                     impact: "observe",
-                    arguments: { nested }
+                    arguments: {}
                 })
             ).toBe(false);
+            expect(parent.grantsElevation()).toBe(false);
+            expect(parent.equals(CapabilitySpec.decode(CapabilitySpec.encode(parent)))).toBe(true);
+            expect(
+                new CapabilitySpec({
+                    facetPattern: "workspace:mail.*",
+                    impacts: ["observe"]
+                }).covers(
+                    new CapabilitySpec({
+                        facetPattern: "workspace:mail.sub.*",
+                        impacts: ["observe"]
+                    })
+                )
+            ).toBe(true);
+            const constrained = new CapabilitySpec({
+                facetPattern: "*",
+                impacts: ["observe"],
+                argumentConstraints: { "nested.value": true }
+            });
+            for (const nested of [null, [], "text", {}] as const) {
+                expect(
+                    constrained.matches({
+                        facet: "anything",
+                        operation: "read",
+                        impact: "observe",
+                        arguments: { nested }
+                    })
+                ).toBe(false);
+            }
         }
-    });
+    );
 
     test("strictly rejects malformed capability shapes", { tags: "p0" }, () => {
         expect(() =>
@@ -193,7 +203,7 @@ describe("Grant and authority identifier hard gates", () => {
     test("defensively freezes caller-provided subject references", { tags: "p0" }, () => {
         const mutable = {
             kind: "principal" as const,
-            principalId: new PrincipalId("mutable-principal")
+            principal: new PrincipalRef(tenantId, new PrincipalId("mutable-principal"))
         };
         const member = new Membership(
             new MembershipId("mutable-member"),
@@ -219,16 +229,16 @@ describe("Grant and authority identifier hard gates", () => {
             grant.id,
             facet
         );
-        mutable.principalId = new PrincipalId("changed-principal");
-        expect(member.subject.kind === "principal" && member.subject.principalId.value).toBe(
-            "mutable-principal"
-        );
-        expect(grant.subject.kind === "principal" && grant.subject.principalId.value).toBe(
-            "mutable-principal"
-        );
-        expect(bound.subject.kind === "principal" && bound.subject.principalId.value).toBe(
-            "mutable-principal"
-        );
+        mutable.principal = new PrincipalRef(tenantId, new PrincipalId("changed-principal"));
+        expect(
+            member.subject.kind === "principal" && member.subject.principal.principalId.value
+        ).toBe("mutable-principal");
+        expect(
+            grant.subject.kind === "principal" && grant.subject.principal.principalId.value
+        ).toBe("mutable-principal");
+        expect(
+            bound.subject.kind === "principal" && bound.subject.principal.principalId.value
+        ).toBe("mutable-principal");
     });
 
     test("strictly validates Grant construction and replacement", { tags: "p0" }, () => {
@@ -307,33 +317,40 @@ describe("Grant and authority identifier hard gates", () => {
         expect(() => direct.revoke().assertCanReplace(direct)).toThrow(AgentCoreError);
     });
 
-    test("strictly validates Grant codec origin, effect, state, and attenuation", { tags: "p0" }, () => {
-        const grant = new Grant(
-            grantId,
-            workspaceScope,
-            binding.subject,
-            "allow",
-            new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
-            { kind: "direct" }
-        );
-        for (const mutate of [
-            (payload: Record<string, JsonValue>) => ({ ...payload, attenuationOf: 3 }),
-            (payload: Record<string, JsonValue>) => ({ ...payload, effect: "unknown" }),
-            (payload: Record<string, JsonValue>) => ({ ...payload, state: "unknown" }),
-            (payload: Record<string, JsonValue>) => ({
-                ...payload,
-                origin: {
-                    kind: "role",
-                    guest: false,
-                    membershipId: "",
-                    roleName: "x",
-                    ruleOrdinal: -1
-                }
-            }),
-            (payload: Record<string, JsonValue>) => ({ ...payload, origin: { kind: "unknown" } })
-        ])
-            expectRecordMutationFailure(Grant.codec, grant, mutate);
-    });
+    test(
+        "strictly validates Grant codec origin, effect, state, and attenuation",
+        { tags: "p0" },
+        () => {
+            const grant = new Grant(
+                grantId,
+                workspaceScope,
+                binding.subject,
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                { kind: "direct" }
+            );
+            for (const mutate of [
+                (payload: Record<string, JsonValue>) => ({ ...payload, attenuationOf: 3 }),
+                (payload: Record<string, JsonValue>) => ({ ...payload, effect: "unknown" }),
+                (payload: Record<string, JsonValue>) => ({ ...payload, state: "unknown" }),
+                (payload: Record<string, JsonValue>) => ({
+                    ...payload,
+                    origin: {
+                        kind: "role",
+                        guest: false,
+                        membershipId: "",
+                        roleName: "x",
+                        ruleOrdinal: -1
+                    }
+                }),
+                (payload: Record<string, JsonValue>) => ({
+                    ...payload,
+                    origin: { kind: "unknown" }
+                })
+            ])
+                expectRecordMutationFailure(Grant.codec, grant, mutate);
+        }
+    );
 
     test("validates deterministic role Grant identifiers", { tags: "p0" }, () => {
         expect(GrantId.forRole("membership", 0).value).toMatch(/^role:/);
@@ -606,48 +623,54 @@ describe("typed authority evidence hard gates", () => {
         expect(() => new BindingValidationRequest({ ...validation, nonce: "" })).toThrow(TypeError);
     });
 
-    test("[C13-AUTH-PATH-EVIDENCE] enforces evidence issuer, time, path, and grant matrices", { tags: "p0" }, () => {
-        const request = checkRequest();
-        expect(() => evidence({ issuer: owner })).toThrow(TypeError);
-        expect(() => evidence({ issuerTenant: otherTenant })).toThrow(TypeError);
-        expect(() => evidence({ bindingKey: "" })).toThrow(TypeError);
-        expect(() => evidence({ bindingGeneration: -1 })).toThrow(TypeError);
-        expect(() => evidence({ checkedAt: new Date(Number.NaN) })).toThrow(TypeError);
-        expect(() =>
-            evidence({
-                decision: "deny",
-                reason: "matchingDeny",
-                matchedAllow: [grantId],
-                matchedDeny: [new GrantId("deny")]
-            })
-        ).toThrow(TypeError);
-        expect(() => evidence({ decision: "deny", reason: "allowed" })).toThrow(TypeError);
-        expect(() => evidence({ decision: "allow", reason: "allowed", matchedAllow: [] })).toThrow(
-            TypeError
-        );
-        expect(() =>
-            evidence({
-                decision: "allow",
-                reason: "allowed",
-                matchedDeny: [new GrantId("deny")]
-            })
-        ).toThrow(TypeError);
-        expect(() =>
-            evidence({
-                decision: "deny",
-                reason: "noMatchingAllow",
-                matchedAllow: [grantId]
-            })
-        ).toThrow(TypeError);
-        expect(evidence().binds(request)).toBe(true);
+    test(
+        "[C13-AUTH-PATH-EVIDENCE] enforces evidence issuer, time, path, and grant matrices",
+        { tags: "p0" },
+        () => {
+            const request = checkRequest();
+            expect(() => evidence({ issuer: owner })).toThrow(TypeError);
+            expect(() => evidence({ issuerTenant: otherTenant })).toThrow(TypeError);
+            expect(() => evidence({ bindingKey: "" })).toThrow(TypeError);
+            expect(() => evidence({ bindingGeneration: -1 })).toThrow(TypeError);
+            expect(() => evidence({ checkedAt: new Date(Number.NaN) })).toThrow(TypeError);
+            expect(() =>
+                evidence({
+                    decision: "deny",
+                    reason: "matchingDeny",
+                    matchedAllow: [grantId],
+                    matchedDeny: [new GrantId("deny")]
+                })
+            ).toThrow(TypeError);
+            expect(() => evidence({ decision: "deny", reason: "allowed" })).toThrow(TypeError);
+            expect(() =>
+                evidence({ decision: "allow", reason: "allowed", matchedAllow: [] })
+            ).toThrow(TypeError);
+            expect(() =>
+                evidence({
+                    decision: "allow",
+                    reason: "allowed",
+                    matchedDeny: [new GrantId("deny")]
+                })
+            ).toThrow(TypeError);
+            expect(() =>
+                evidence({
+                    decision: "deny",
+                    reason: "noMatchingAllow",
+                    matchedAllow: [grantId]
+                })
+            ).toThrow(TypeError);
+            expect(evidence().binds(request)).toBe(true);
 
-        const validation = validationRequest();
-        expect(() => validationEvidence({ checkedAt: new Date(Number.NaN) })).toThrow(TypeError);
-        expect(() => validationEvidence({ scope: tenantScope })).toThrow(TypeError);
-        expect(() => validationEvidence({ issuer: owner })).toThrow(TypeError);
-        expect(() => validationEvidence({ issuerTenant: otherTenant })).toThrow(TypeError);
-        expect(validationEvidence().binds(validation)).toBe(true);
-    });
+            const validation = validationRequest();
+            expect(() => validationEvidence({ checkedAt: new Date(Number.NaN) })).toThrow(
+                TypeError
+            );
+            expect(() => validationEvidence({ scope: tenantScope })).toThrow(TypeError);
+            expect(() => validationEvidence({ issuer: owner })).toThrow(TypeError);
+            expect(() => validationEvidence({ issuerTenant: otherTenant })).toThrow(TypeError);
+            expect(validationEvidence().binds(validation)).toBe(true);
+        }
+    );
 
     test("strictly rejects evidence codec enums and duplicate Grant IDs", { tags: "p0" }, () => {
         expect(() => evidence({ matchedAllow: [grantId, grantId] })).toThrow(TypeError);
@@ -715,7 +738,7 @@ describe("materialization and epoch planning operational errors", () => {
     const member = new Membership(
         new MembershipId("hard-member"),
         workspaceScope,
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         role.name,
         "active",
         Revision.initial()

@@ -2,14 +2,23 @@ import { describe, expect, test } from "vitest";
 import { Binding, GrantId } from "../../../src/authority";
 import { Revision } from "../../../src/core";
 import { BindingName, FacetRef, ProtectionDomain } from "../../../src/facets";
-import { PrincipalId, ScopeRef, SubjectRef, TenantId, WorkspaceId } from "../../../src/identity";
+import {
+    PrincipalId,
+    PrincipalRef,
+    ScopeRef,
+    SubjectRef,
+    TenantId,
+    WorkspaceId
+} from "../../../src/identity";
 import { SqliteBindingStore } from "../../../src/substrates/sqlite/binding";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates/sqlite";
 import { TestSqlite } from "../../helpers/sqlite";
 
 const tenant = new TenantId("tenant-binding-mutants");
 const scope = ScopeRef.workspace(tenant, new WorkspaceId("workspace-binding-mutants"));
-const subject = SubjectRef.principal(new PrincipalId("principal-binding-mutants"));
+const subject = SubjectRef.principal(
+    new PrincipalRef(tenant, new PrincipalId("principal-binding-mutants"))
+);
 const domain = new ProtectionDomain("backend", "mutants", "no-secrets");
 const binding = Binding.active(
     scope,
@@ -71,43 +80,47 @@ describe("SQLite Binding store exact failure and persistence behavior", () => {
         expect(store.list()).toEqual([]);
     });
 
-    test("requires generation and revision zero independently for new Bindings", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = new SqliteBindingStore(database, scope);
-        const generationOne = new Binding(
-            scope,
-            subject,
-            domain,
-            binding.name,
-            binding.grantId,
-            binding.facet,
-            1,
-            "active",
-            new Revision(0)
-        );
-        const revisionOne = new Binding(
-            scope,
-            subject,
-            domain,
-            binding.name,
-            binding.grantId,
-            binding.facet,
-            0,
-            "active",
-            new Revision(1)
-        );
-
-        for (const candidate of [generationOne, revisionOne]) {
-            expect(() => store.save(candidate), `generation ${candidate.generation}`).toThrow(
-                expect.objectContaining({
-                    code: "protocol.revision-conflict",
-                    message: "New Bindings require generation and revision zero"
-                })
+    test(
+        "requires generation and revision zero independently for new Bindings",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = new SqliteBindingStore(database, scope);
+            const generationOne = new Binding(
+                scope,
+                subject,
+                domain,
+                binding.name,
+                binding.grantId,
+                binding.facet,
+                1,
+                "active",
+                new Revision(0)
             );
+            const revisionOne = new Binding(
+                scope,
+                subject,
+                domain,
+                binding.name,
+                binding.grantId,
+                binding.facet,
+                0,
+                "active",
+                new Revision(1)
+            );
+
+            for (const candidate of [generationOne, revisionOne]) {
+                expect(() => store.save(candidate), `generation ${candidate.generation}`).toThrow(
+                    expect.objectContaining({
+                        code: "protocol.revision-conflict",
+                        message: "New Bindings require generation and revision zero"
+                    })
+                );
+            }
+            expect(store.list()).toEqual([]);
+            expect(database.all("SELECT binding_key FROM workspace_bindings", [])).toEqual([]);
         }
-        expect(store.list()).toEqual([]);
-        expect(database.all("SELECT binding_key FROM workspace_bindings", [])).toEqual([]);
-    });
+    );
 
     test("reports a silently dropped insert as an exact concurrent change", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -183,47 +196,55 @@ describe("SQLite Binding store exact failure and persistence behavior", () => {
         expect(rows[0]?.["state"]).toBe("active");
     });
 
-    test("persists a same-length replacement instead of treating it as a no-op", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = new SqliteBindingStore(database, scope);
-        store.save(binding);
-        const replacement = binding.replace(
-            new GrantId("tnarg"),
-            new FacetRef("workspace:mail.instance")
-        );
-        store.save(replacement);
-
-        const loaded = store.load(binding.key);
-        expect(loaded?.generation).toBe(1);
-        expect(loaded?.revision.value).toBe(1);
-        expect(loaded?.grantId.value).toBe("tnarg");
-    });
-
-    test("rejects every forged projection column as the exact malformed Binding", { tags: "p1" }, () => {
-        const forgeries: readonly (readonly [string, SqliteValue])[] = [
-            ["scope_key", "forged"],
-            ["subject_key", "forged"],
-            ["domain_key", "forged"],
-            ["name", "forged"],
-            ["grant_id", "forged"],
-            ["facet_ref", "forged"],
-            ["revision", 7],
-            ["state", "inactive"]
-        ];
-
-        for (const [column, value] of forgeries) {
+    test(
+        "persists a same-length replacement instead of treating it as a no-op",
+        { tags: "p0" },
+        () => {
             const database = new TestSqlite();
             const store = new SqliteBindingStore(database, scope);
             store.save(binding);
-            database.run(`UPDATE workspace_bindings SET ${column} = ?`, [value]);
-            expect(() => store.load(binding.key), column).toThrow(
-                expect.objectContaining({
-                    code: "codec.invalid",
-                    message: "Stored Workspace Binding is malformed"
-                })
+            const replacement = binding.replace(
+                new GrantId("tnarg"),
+                new FacetRef("workspace:mail.instance")
             );
+            store.save(replacement);
+
+            const loaded = store.load(binding.key);
+            expect(loaded?.generation).toBe(1);
+            expect(loaded?.revision.value).toBe(1);
+            expect(loaded?.grantId.value).toBe("tnarg");
         }
-    });
+    );
+
+    test(
+        "rejects every forged projection column as the exact malformed Binding",
+        { tags: "p1" },
+        () => {
+            const forgeries: readonly (readonly [string, SqliteValue])[] = [
+                ["scope_key", "forged"],
+                ["subject_key", "forged"],
+                ["domain_key", "forged"],
+                ["name", "forged"],
+                ["grant_id", "forged"],
+                ["facet_ref", "forged"],
+                ["revision", 7],
+                ["state", "inactive"]
+            ];
+
+            for (const [column, value] of forgeries) {
+                const database = new TestSqlite();
+                const store = new SqliteBindingStore(database, scope);
+                store.save(binding);
+                database.run(`UPDATE workspace_bindings SET ${column} = ?`, [value]);
+                expect(() => store.load(binding.key), column).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: "Stored Workspace Binding is malformed"
+                    })
+                );
+            }
+        }
+    );
 
     test("fails closed on a text projection column that is not a string", { tags: "p1" }, () => {
         const database = new ProjectionTamperSqlite();

@@ -1,6 +1,7 @@
 import type { Impact } from "../../src/facets";
 import {
     PrincipalId,
+    PrincipalRef,
     ProjectId,
     ScopeRef,
     SubjectRef,
@@ -19,7 +20,8 @@ export const projectScope = ScopeRef.project(tenantId, projectId);
 export const workspaceScope = ScopeRef.workspace(tenantId, projectId, workspaceId);
 export const principalId = new PrincipalId("principal-authority");
 export const otherPrincipalId = new PrincipalId("principal-other");
-export const principal = SubjectRef.principal(principalId);
+export const principalRef = new PrincipalRef(tenantId, principalId);
+export const principal = SubjectRef.principal(principalRef);
 
 export function capability(
     impacts: readonly [Impact, ...Impact[]] = ["observe"],

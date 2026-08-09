@@ -613,7 +613,7 @@ describe("identity subject references", () => {
             "Guest verification scheme is invalid"
         );
         const subjects: readonly SubjectRef[] = [
-            SubjectRef.principal(principalId),
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
             SubjectRef.team(teamId),
             guestSubject
         ];
@@ -874,7 +874,7 @@ describe("identity membership gates", () => {
                 new Membership(
                     new MembershipId("gate-local"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(principalId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                     readerRole,
                     "active",
                     Revision.initial(),
@@ -960,7 +960,7 @@ describe("identity membership gates", () => {
                 new Membership(
                     new MembershipId("gate-exhausted"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(principalId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
                     readerRole,
                     "active",
                     new Revision(exhausted)
@@ -1007,7 +1007,7 @@ function localMembership(id: string): Membership {
     return new Membership(
         new MembershipId(id),
         ScopeRef.tenant(tenantId),
-        SubjectRef.principal(principalId),
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
         readerRole,
         "active",
         Revision.initial()

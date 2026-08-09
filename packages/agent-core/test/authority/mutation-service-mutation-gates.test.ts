@@ -65,16 +65,20 @@ describe("createTenantControlBootstrapPlan anchor validation", () => {
         );
     });
 
-    test("derives the owner Membership ID deterministically from the anchor", { tags: "p1" }, () => {
-        const plan = createTenantControlBootstrapPlan(anchor, Revision.initial());
-        const replay = createTenantControlBootstrapPlan(anchor, Revision.initial());
-        const other = createTenantControlBootstrapPlan(
-            { ...anchor, principalId: new PrincipalId("mutation-gate-other-owner") },
-            Revision.initial()
-        );
-        expect(plan.ownerMembership.id.value).toBe(replay.ownerMembership.id.value);
-        expect(plan.ownerMembership.id.value).not.toBe(other.ownerMembership.id.value);
-    });
+    test(
+        "derives the owner Membership ID deterministically from the anchor",
+        { tags: "p1" },
+        () => {
+            const plan = createTenantControlBootstrapPlan(anchor, Revision.initial());
+            const replay = createTenantControlBootstrapPlan(anchor, Revision.initial());
+            const other = createTenantControlBootstrapPlan(
+                { ...anchor, principalId: new PrincipalId("mutation-gate-other-owner") },
+                Revision.initial()
+            );
+            expect(plan.ownerMembership.id.value).toBe(replay.ownerMembership.id.value);
+            expect(plan.ownerMembership.id.value).not.toBe(other.ownerMembership.id.value);
+        }
+    );
 });
 
 describe("AuthorityMutationService record-existence taxonomy", () => {
@@ -96,7 +100,12 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
             "Team already exists"
         );
 
-        const project = new Project(new ProjectId("dup-project"), tenantId, "Dup", Revision.initial());
+        const project = new Project(
+            new ProjectId("dup-project"),
+            tenantId,
+            "Dup",
+            Revision.initial()
+        );
         service.createProject(project);
         expectAgentError(
             () => service.createProject(project),
@@ -136,7 +145,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
         const member = new Membership(
             new MembershipId("dup-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -148,7 +157,11 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
             "Membership already exists"
         );
 
-        const record = grant("dup-grant", SubjectRef.principal(ownerId), { kind: "direct" });
+        const record = grant(
+            "dup-grant",
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+            { kind: "direct" }
+        );
         service.createGrant(record);
         expectAgentError(
             () => service.createGrant(record),
@@ -228,7 +241,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
                     new Membership(
                         new MembershipId("missing-role-member"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         new RoleName("missing"),
                         "active",
                         Revision.initial()
@@ -243,7 +256,9 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
                     new Membership(
                         new MembershipId("missing-principal-member"),
                         workspaceScope,
-                        SubjectRef.principal(new PrincipalId("missing")),
+                        SubjectRef.principal(
+                            new PrincipalRef(tenantId, new PrincipalId("missing"))
+                        ),
                         reader.name,
                         "active",
                         Revision.initial()
@@ -279,7 +294,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
         const member = new Membership(
             new MembershipId("taxonomy-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -310,7 +325,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
                     new Grant(
                         new GrantId("missing-parent-child"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         "allow",
                         observeCapability(),
                         { kind: "direct" },
@@ -327,9 +342,15 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
         expectAgentError(
             () =>
                 service.createGrant(
-                    grant("missing-principal-grant", SubjectRef.principal(new PrincipalId("missing")), {
-                        kind: "direct"
-                    })
+                    grant(
+                        "missing-principal-grant",
+                        SubjectRef.principal(
+                            new PrincipalRef(tenantId, new PrincipalId("missing"))
+                        ),
+                        {
+                            kind: "direct"
+                        }
+                    )
                 ),
             "protocol.invalid-state",
             "Principal does not exist"
@@ -380,22 +401,26 @@ describe("AuthorityMutationService creation gate precedence", () => {
         );
     });
 
-    test("Workspace creation validates tenant and revision before its Project", { tags: "p0" }, () => {
-        const { service } = fixture();
-        expectAgentError(
-            () =>
-                service.createWorkspace(
-                    new Workspace(
-                        new WorkspaceId("foreign-workspace"),
-                        new TenantId("foreign"),
-                        new ProjectId("missing"),
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state",
-            "New Workspaces require the local Tenant and revision zero"
-        );
-    });
+    test(
+        "Workspace creation validates tenant and revision before its Project",
+        { tags: "p0" },
+        () => {
+            const { service } = fixture();
+            expectAgentError(
+                () =>
+                    service.createWorkspace(
+                        new Workspace(
+                            new WorkspaceId("foreign-workspace"),
+                            new TenantId("foreign"),
+                            new ProjectId("missing"),
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state",
+                "New Workspaces require the local Tenant and revision zero"
+            );
+        }
+    );
 
     test("Project creation rejects foreign tenants and non-zero revisions", { tags: "p0" }, () => {
         const { service } = fixture();
@@ -415,97 +440,111 @@ describe("AuthorityMutationService creation gate precedence", () => {
         expectAgentError(
             () =>
                 service.createProject(
-                    new Project(new ProjectId("revised-project"), tenantId, "Revised", new Revision(1))
+                    new Project(
+                        new ProjectId("revised-project"),
+                        tenantId,
+                        "Revised",
+                        new Revision(1)
+                    )
                 ),
             "protocol.invalid-state",
             "New Projects require the local Tenant and revision zero"
         );
     });
 
-    test("guest trust creation gate covers host, state, and revision faults", { tags: "p0" }, () => {
-        const { service } = fixture();
-        const message = "New guest trust requires the local host Tenant, active state, and revision zero";
-        expectAgentError(
-            () =>
-                service.createGuestTrust(
-                    new GuestTrust(
-                        new GuestTrustId("foreign-host-trust"),
-                        new TenantId("foreign-host"),
-                        guestHome,
-                        { kind: "callback", endpoint: "https://foreign-host.example/verify" },
-                        "active",
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state",
-            message
-        );
-        expectAgentError(
-            () =>
-                service.createGuestTrust(
-                    new GuestTrust(
-                        new GuestTrustId("revoked-new-trust"),
-                        tenantId,
-                        guestHome,
-                        { kind: "callback", endpoint: "https://revoked-new.example/verify" },
-                        "revoked",
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state",
-            message
-        );
-        expectAgentError(
-            () =>
-                service.createGuestTrust(
-                    new GuestTrust(
-                        new GuestTrustId("revised-new-trust"),
-                        tenantId,
-                        guestHome,
-                        { kind: "callback", endpoint: "https://revised-new.example/verify" },
-                        "active",
-                        new Revision(1)
-                    )
-                ),
-            "protocol.invalid-state",
-            message
-        );
-    });
+    test(
+        "guest trust creation gate covers host, state, and revision faults",
+        { tags: "p0" },
+        () => {
+            const { service } = fixture();
+            const message =
+                "New guest trust requires the local host Tenant, active state, and revision zero";
+            expectAgentError(
+                () =>
+                    service.createGuestTrust(
+                        new GuestTrust(
+                            new GuestTrustId("foreign-host-trust"),
+                            new TenantId("foreign-host"),
+                            guestHome,
+                            { kind: "callback", endpoint: "https://foreign-host.example/verify" },
+                            "active",
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state",
+                message
+            );
+            expectAgentError(
+                () =>
+                    service.createGuestTrust(
+                        new GuestTrust(
+                            new GuestTrustId("revoked-new-trust"),
+                            tenantId,
+                            guestHome,
+                            { kind: "callback", endpoint: "https://revoked-new.example/verify" },
+                            "revoked",
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state",
+                message
+            );
+            expectAgentError(
+                () =>
+                    service.createGuestTrust(
+                        new GuestTrust(
+                            new GuestTrustId("revised-new-trust"),
+                            tenantId,
+                            guestHome,
+                            { kind: "callback", endpoint: "https://revised-new.example/verify" },
+                            "active",
+                            new Revision(1)
+                        )
+                    ),
+                "protocol.invalid-state",
+                message
+            );
+        }
+    );
 
-    test("Membership admission rejects revision and state faults before Role lookup", { tags: "p0" }, () => {
-        const { service } = fixture();
-        const message = "New Memberships must be active at revision zero";
-        expectAgentError(
-            () =>
-                service.assignMembership(
-                    new Membership(
-                        new MembershipId("revised-member"),
-                        workspaceScope,
-                        SubjectRef.principal(ownerId),
-                        new RoleName("missing"),
-                        "active",
-                        new Revision(1)
-                    )
-                ),
-            "protocol.invalid-state",
-            message
-        );
-        expectAgentError(
-            () =>
-                service.assignMembership(
-                    new Membership(
-                        new MembershipId("suspended-member"),
-                        workspaceScope,
-                        SubjectRef.principal(ownerId),
-                        new RoleName("missing"),
-                        "suspended",
-                        Revision.initial()
-                    )
-                ),
-            "protocol.invalid-state",
-            message
-        );
-    });
+    test(
+        "Membership admission rejects revision and state faults before Role lookup",
+        { tags: "p0" },
+        () => {
+            const { service } = fixture();
+            const message = "New Memberships must be active at revision zero";
+            expectAgentError(
+                () =>
+                    service.assignMembership(
+                        new Membership(
+                            new MembershipId("revised-member"),
+                            workspaceScope,
+                            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                            new RoleName("missing"),
+                            "active",
+                            new Revision(1)
+                        )
+                    ),
+                "protocol.invalid-state",
+                message
+            );
+            expectAgentError(
+                () =>
+                    service.assignMembership(
+                        new Membership(
+                            new MembershipId("suspended-member"),
+                            workspaceScope,
+                            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                            new RoleName("missing"),
+                            "suspended",
+                            Revision.initial()
+                        )
+                    ),
+                "protocol.invalid-state",
+                message
+            );
+        }
+    );
 
     test("Scope tenant validation precedes Grant subject existence", { tags: "p0" }, () => {
         const { service } = fixture();
@@ -514,7 +553,9 @@ describe("AuthorityMutationService creation gate precedence", () => {
                 service.createGrant(
                     grant(
                         "foreign-scope-missing-subject",
-                        SubjectRef.principal(new PrincipalId("missing")),
+                        SubjectRef.principal(
+                            new PrincipalRef(new TenantId("foreign"), new PrincipalId("missing"))
+                        ),
                         { kind: "direct" },
                         ScopeRef.tenant(new TenantId("foreign"))
                     )
@@ -540,7 +581,7 @@ describe("AuthorityMutationService creation gate precedence", () => {
         const member = new Membership(
             new MembershipId("project-scope-member"),
             projectScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -566,32 +607,39 @@ describe("AuthorityMutationService guest admission membrane", () => {
         );
     });
 
-    test("guest shape gate rejects revision and state faults before admission", { tags: "p0" }, () => {
-        const { service, trust, reader } = guestFixture();
-        const message = "New guest Memberships require a foreign active subject at revision zero";
-        expectAgentError(
-            () =>
-                service.assignGuestMembership(
-                    guestMembership("revised-guest-member", reader.name, {
-                        revision: new Revision(1)
-                    }),
-                    mintProof(trust),
-                    new Date(150)
-                ),
-            "protocol.invalid-state",
-            message
-        );
-        expectAgentError(
-            () =>
-                service.assignGuestMembership(
-                    guestMembership("suspended-guest-member", reader.name, { state: "suspended" }),
-                    mintProof(trust),
-                    new Date(150)
-                ),
-            "protocol.invalid-state",
-            message
-        );
-    });
+    test(
+        "guest shape gate rejects revision and state faults before admission",
+        { tags: "p0" },
+        () => {
+            const { service, trust, reader } = guestFixture();
+            const message =
+                "New guest Memberships require a foreign active subject at revision zero";
+            expectAgentError(
+                () =>
+                    service.assignGuestMembership(
+                        guestMembership("revised-guest-member", reader.name, {
+                            revision: new Revision(1)
+                        }),
+                        mintProof(trust),
+                        new Date(150)
+                    ),
+                "protocol.invalid-state",
+                message
+            );
+            expectAgentError(
+                () =>
+                    service.assignGuestMembership(
+                        guestMembership("suspended-guest-member", reader.name, {
+                            state: "suspended"
+                        }),
+                        mintProof(trust),
+                        new Date(150)
+                    ),
+                "protocol.invalid-state",
+                message
+            );
+        }
+    );
 
     test("denies inactive trust with matching evidence", { tags: "p0" }, () => {
         const { service, trust, reader } = guestFixture();
@@ -688,40 +736,44 @@ describe("AuthorityMutationService guest admission membrane", () => {
 });
 
 describe("AuthorityMutationService closure and epoch effects", () => {
-    test("suspending a Membership revokes replaced role Grants and delegations", { tags: "p0" }, () => {
-        const { store, service } = fixture();
-        const reader = role("suspend-closure-role");
-        service.createRole(reader);
-        const member = new Membership(
-            new MembershipId("suspend-closure-member"),
-            workspaceScope,
-            SubjectRef.principal(ownerId),
-            reader.name,
-            "active",
-            Revision.initial()
-        );
-        service.assignMembership(member);
-        const roleGrantId = GrantId.forRole(member.id, 0);
-        const child = new Grant(
-            new GrantId("suspend-closure-child"),
-            workspaceScope,
-            SubjectRef.principal(ownerId),
-            "allow",
-            observeCapability(),
-            { kind: "direct" },
-            roleGrantId
-        );
-        service.createGrant(child);
-        const before = store.epoch(workspaceScope).epoch;
-        const suspended = service.changeMembership(member.id, {
-            role: reader.name,
-            state: "suspended"
-        });
-        expect(suspended.state).toBe("suspended");
-        expect(store.grant(roleGrantId)?.isLive).toBe(false);
-        expect(store.grant(child.id)?.isLive).toBe(false);
-        expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
-    });
+    test(
+        "suspending a Membership revokes replaced role Grants and delegations",
+        { tags: "p0" },
+        () => {
+            const { store, service } = fixture();
+            const reader = role("suspend-closure-role");
+            service.createRole(reader);
+            const member = new Membership(
+                new MembershipId("suspend-closure-member"),
+                workspaceScope,
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                reader.name,
+                "active",
+                Revision.initial()
+            );
+            service.assignMembership(member);
+            const roleGrantId = GrantId.forRole(member.id, 0);
+            const child = new Grant(
+                new GrantId("suspend-closure-child"),
+                workspaceScope,
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                "allow",
+                observeCapability(),
+                { kind: "direct" },
+                roleGrantId
+            );
+            service.createGrant(child);
+            const before = store.epoch(workspaceScope).epoch;
+            const suspended = service.changeMembership(member.id, {
+                role: reader.name,
+                state: "suspended"
+            });
+            expect(suspended.state).toBe("suspended");
+            expect(store.grant(roleGrantId)?.isLive).toBe(false);
+            expect(store.grant(child.id)?.isLive).toBe(false);
+            expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
+        }
+    );
 
     test("role swap rematerializes live Grants at stable IDs", { tags: "p0" }, () => {
         const { store, service } = fixture();
@@ -732,7 +784,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const member = new Membership(
             new MembershipId("swap-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -755,7 +807,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const member = new Membership(
             new MembershipId("reconcile-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             original.name,
             "active",
             Revision.initial()
@@ -766,7 +818,9 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         service.changeRole(changed);
         expect(Role.encode(service.changeRole(changed))).toEqual(Role.encode(changed));
         const stored = store.role(changed.name);
-        expect(stored === undefined ? undefined : Role.encode(stored)).toEqual(Role.encode(changed));
+        expect(stored === undefined ? undefined : Role.encode(stored)).toEqual(
+            Role.encode(changed)
+        );
         expect(store.grant(GrantId.forRole(member.id, 0))?.capability.impacts).toEqual(["execute"]);
         expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
 
@@ -785,7 +839,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const member = new Membership(
             new MembershipId("idempotent-revoke-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             reader.name,
             "active",
             Revision.initial()
@@ -800,25 +854,35 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         expect(store.epoch(workspaceScope).epoch).toBe(epochAfter);
     });
 
-    test("disabling a Principal invalidates team-derived Grant Scopes exactly once", { tags: "p0" }, () => {
-        const { store, service } = fixture();
-        const principal = new Principal(new PrincipalId("team-scoped-principal"), "user", "active");
-        service.createPrincipal(principal);
-        const team = new Team(
-            new TeamId("scoped-team"),
-            tenantId,
-            "Scoped",
-            [principal.id],
-            Revision.initial()
-        );
-        service.createTeam(team);
-        service.createGrant(grant("scoped-team-grant", SubjectRef.team(team.id), { kind: "direct" }));
-        const before = store.epoch(workspaceScope).epoch;
-        expect(service.disablePrincipal(principal.id).canAct).toBe(false);
-        expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
-        expect(service.disablePrincipal(principal.id).canAct).toBe(false);
-        expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
-    });
+    test(
+        "disabling a Principal invalidates team-derived Grant Scopes exactly once",
+        { tags: "p0" },
+        () => {
+            const { store, service } = fixture();
+            const principal = new Principal(
+                new PrincipalId("team-scoped-principal"),
+                "user",
+                "active"
+            );
+            service.createPrincipal(principal);
+            const team = new Team(
+                new TeamId("scoped-team"),
+                tenantId,
+                "Scoped",
+                [principal.id],
+                Revision.initial()
+            );
+            service.createTeam(team);
+            service.createGrant(
+                grant("scoped-team-grant", SubjectRef.team(team.id), { kind: "direct" })
+            );
+            const before = store.epoch(workspaceScope).epoch;
+            expect(service.disablePrincipal(principal.id).canAct).toBe(false);
+            expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
+            expect(service.disablePrincipal(principal.id).canAct).toBe(false);
+            expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
+        }
+    );
 
     test("disabling an unrelated Principal leaves epochs untouched", { tags: "p0" }, () => {
         const { store, service } = fixture();
@@ -832,7 +896,9 @@ describe("AuthorityMutationService closure and epoch effects", () => {
             Revision.initial()
         );
         service.createTeam(team);
-        service.createGrant(grant("owner-team-grant", SubjectRef.team(team.id), { kind: "direct" }));
+        service.createGrant(
+            grant("owner-team-grant", SubjectRef.team(team.id), { kind: "direct" })
+        );
         const workspaceBefore = store.epoch(workspaceScope).epoch;
         const tenantBefore = store.epoch(tenantScope).epoch;
         expect(service.disablePrincipal(bystander.id).canAct).toBe(false);
@@ -906,7 +972,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         const child = new Grant(
             new GrantId("cascade-child"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             observeCapability(),
             { kind: "direct" },
@@ -946,12 +1012,17 @@ describe("AuthorityMutationService closure and epoch effects", () => {
 
     test("revoked delegations do not re-enter the revocation closure", { tags: "p0" }, () => {
         const { store, service } = fixture();
-        const parent = grant("closure-parent", SubjectRef.principal(ownerId), { kind: "direct" }, tenantScope);
+        const parent = grant(
+            "closure-parent",
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+            { kind: "direct" },
+            tenantScope
+        );
         service.createGrant(parent);
         const child = new Grant(
             new GrantId("closure-child"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             observeCapability(),
             { kind: "direct" },

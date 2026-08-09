@@ -86,28 +86,32 @@ describe("SQLite Tenant and identity hard gates", () => {
         );
     });
 
-    test("rejects bootstrap through a foreign transaction without partial writes", { tags: "p0" }, () => {
-        const source = new TestSqlite();
-        const foreign = new TestSqlite();
-        const store = createSqliteTenantControlStore(source, anchor);
-        expect(() => store.bootstrapTenant(foreign, anchor, Revision.initial())).toThrow(
-            AgentCoreError
-        );
-        expect(store.isBootstrapEligible()).toBe(true);
-        expect(
-            foreign.all(
-                "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'tenant_%'",
-                []
-            )
-        ).toEqual([]);
+    test(
+        "rejects bootstrap through a foreign transaction without partial writes",
+        { tags: "p0" },
+        () => {
+            const source = new TestSqlite();
+            const foreign = new TestSqlite();
+            const store = createSqliteTenantControlStore(source, anchor);
+            expect(() => store.bootstrapTenant(foreign, anchor, Revision.initial())).toThrow(
+                AgentCoreError
+            );
+            expect(store.isBootstrapEligible()).toBe(true);
+            expect(
+                foreign.all(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'tenant_%'",
+                    []
+                )
+            ).toEqual([]);
 
-        const cloned = new TestSqlite();
-        createSqliteTenantControlStore(cloned, anchor);
-        expect(() => store.bootstrapTenant(cloned, anchor, Revision.initial())).toThrow(
-            AgentCoreError
-        );
-        expect(cloned.all("SELECT * FROM tenant_identities", [])).toEqual([]);
-    });
+            const cloned = new TestSqlite();
+            createSqliteTenantControlStore(cloned, anchor);
+            expect(() => store.bootstrapTenant(cloned, anchor, Revision.initial())).toThrow(
+                AgentCoreError
+            );
+            expect(cloned.all("SELECT * FROM tenant_identities", [])).toEqual([]);
+        }
+    );
 
     test("rejects Tenant kind drift from the immutable anchor", { tags: "p0" }, () => {
         const { database } = fixture();
@@ -120,126 +124,140 @@ describe("SQLite Tenant and identity hard gates", () => {
         expect(() => createSqliteTenantControlStore(database)).toThrow(AgentCoreError);
     });
 
-    test("enforces SQLite Project, Workspace, Team, Principal, and trust revisions", { tags: "p0" }, () => {
-        const { store, service } = fixture();
-        const project = new Project(
-            new ProjectId("sqlite-hard-project"),
-            tenantId,
-            "Project",
-            Revision.initial()
-        );
-        service.createProject(project);
-        expect(() =>
-            store.transaction((candidate) =>
-                candidate.putProject(new Project(project.id, tenantId, "Skipped", new Revision(2)))
-            )
-        ).toThrow(AgentCoreError);
-        expect(() =>
-            store.transaction((candidate) =>
-                candidate.putProject(
-                    new Project(
-                        new ProjectId("revised-new"),
-                        tenantId,
-                        "Revised new",
-                        new Revision(1)
+    test(
+        "enforces SQLite Project, Workspace, Team, Principal, and trust revisions",
+        { tags: "p0" },
+        () => {
+            const { store, service } = fixture();
+            const project = new Project(
+                new ProjectId("sqlite-hard-project"),
+                tenantId,
+                "Project",
+                Revision.initial()
+            );
+            service.createProject(project);
+            expect(() =>
+                store.transaction((candidate) =>
+                    candidate.putProject(
+                        new Project(project.id, tenantId, "Skipped", new Revision(2))
                     )
                 )
-            )
-        ).toThrow(AgentCoreError);
-
-        const workspace = new Workspace(workspaceId, tenantId, project.id, Revision.initial());
-        service.createWorkspace(workspace);
-        expect(() => store.transaction((candidate) => candidate.putWorkspace(workspace))).toThrow(
-            AgentCoreError
-        );
-
-        const team = new Team(
-            new TeamId("sqlite-hard-team"),
-            tenantId,
-            "Team",
-            [ownerId],
-            Revision.initial()
-        );
-        service.createTeam(team);
-        expect(() =>
-            store.transaction((candidate) =>
-                candidate.putTeam(new Team(team.id, tenantId, "Skipped", [], new Revision(2)))
-            )
-        ).toThrow(AgentCoreError);
-
-        const home = new TenantId("sqlite-hard-home");
-        const trust = new GuestTrust(
-            new GuestTrustId("sqlite-hard-trust"),
-            tenantId,
-            home,
-            {
-                kind: "token",
-                issuer: "issuer",
-                key: new SecretRef("tenant", "oidc", "key")
-            },
-            "active",
-            Revision.initial()
-        );
-        service.createGuestTrust(trust);
-        expect(() =>
-            store.transaction((candidate) =>
-                candidate.putGuestTrust(
-                    new GuestTrust(
-                        trust.id,
-                        tenantId,
-                        home,
-                        trust.verifier,
-                        "active",
-                        new Revision(2)
+            ).toThrow(AgentCoreError);
+            expect(() =>
+                store.transaction((candidate) =>
+                    candidate.putProject(
+                        new Project(
+                            new ProjectId("revised-new"),
+                            tenantId,
+                            "Revised new",
+                            new Revision(1)
+                        )
                     )
                 )
-            )
-        ).toThrow();
-    });
+            ).toThrow(AgentCoreError);
+
+            const workspace = new Workspace(workspaceId, tenantId, project.id, Revision.initial());
+            service.createWorkspace(workspace);
+            expect(() =>
+                store.transaction((candidate) => candidate.putWorkspace(workspace))
+            ).toThrow(AgentCoreError);
+
+            const team = new Team(
+                new TeamId("sqlite-hard-team"),
+                tenantId,
+                "Team",
+                [ownerId],
+                Revision.initial()
+            );
+            service.createTeam(team);
+            expect(() =>
+                store.transaction((candidate) =>
+                    candidate.putTeam(new Team(team.id, tenantId, "Skipped", [], new Revision(2)))
+                )
+            ).toThrow(AgentCoreError);
+
+            const home = new TenantId("sqlite-hard-home");
+            const trust = new GuestTrust(
+                new GuestTrustId("sqlite-hard-trust"),
+                tenantId,
+                home,
+                {
+                    kind: "token",
+                    issuer: "issuer",
+                    key: new SecretRef("tenant", "oidc", "key")
+                },
+                "active",
+                Revision.initial()
+            );
+            service.createGuestTrust(trust);
+            expect(() =>
+                store.transaction((candidate) =>
+                    candidate.putGuestTrust(
+                        new GuestTrust(
+                            trust.id,
+                            tenantId,
+                            home,
+                            trust.verifier,
+                            "active",
+                            new Revision(2)
+                        )
+                    )
+                )
+            ).toThrow();
+        }
+    );
 
     test.each([
         ["tenant_identities", "kind", "organization"],
         ["tenant_principals", "kind", "service"],
         ["tenant_roles", "record", Uint8Array.of(0)]
-    ] as const)("rejects corrupt %s projections eagerly", { tags: "p0" }, (table, column, value) => {
-        const { database } = fixture();
-        const keyColumn = table === "tenant_roles" ? "name" : "id";
-        const key =
-            table === "tenant_roles"
-                ? "owner"
-                : table === "tenant_principals"
-                  ? ownerId.value
-                  : tenantId.value;
-        database.run(`UPDATE ${table} SET ${column} = ? WHERE ${keyColumn} = ?`, [value, key]);
-        expect(() => createSqliteTenantControlStore(database)).toThrow();
-    });
+    ] as const)(
+        "rejects corrupt %s projections eagerly",
+        { tags: "p0" },
+        (table, column, value) => {
+            const { database } = fixture();
+            const keyColumn = table === "tenant_roles" ? "name" : "id";
+            const key =
+                table === "tenant_roles"
+                    ? "owner"
+                    : table === "tenant_principals"
+                      ? ownerId.value
+                      : tenantId.value;
+            database.run(`UPDATE ${table} SET ${column} = ? WHERE ${keyColumn} = ?`, [value, key]);
+            expect(() => createSqliteTenantControlStore(database)).toThrow();
+        }
+    );
 
-    test("cross-checks every identity projection through SqliteIdentityReader", { tags: "p1" }, () => {
-        const { database, service } = fixture();
-        const project = new Project(
-            new ProjectId("reader-project"),
-            tenantId,
-            "Reader",
-            Revision.initial()
-        );
-        service.createProject(project);
-        const workspace = new Workspace(
-            new WorkspaceId("reader-workspace"),
-            tenantId,
-            project.id,
-            Revision.initial()
-        );
-        service.createWorkspace(workspace);
-        const reader = new SqliteIdentityReader(database);
-        expect(reader.loadProject(project.id)?.name).toBe("Reader");
-        expect(reader.loadWorkspace(workspace.id)?.scope.equals(workspace.scope)).toBe(true);
-        expect(reader.loadPrincipal(ownerId)?.kind).toBe("user");
-        expect(reader.loadTenant(tenantId)?.status).toBe("active");
-        expect(reader.loadRole(new RoleName("owner"))?.rules.length).toBeGreaterThan(0);
-        expect(reader.loadTeam(new TeamId("missing"))).toBeUndefined();
-        expect(reader.loadMembership(new MembershipId("missing"))).toBeUndefined();
-        expect(reader.loadGuestTrust(new GuestTrustId("missing"))).toBeUndefined();
-    });
+    test(
+        "cross-checks every identity projection through SqliteIdentityReader",
+        { tags: "p1" },
+        () => {
+            const { database, service } = fixture();
+            const project = new Project(
+                new ProjectId("reader-project"),
+                tenantId,
+                "Reader",
+                Revision.initial()
+            );
+            service.createProject(project);
+            const workspace = new Workspace(
+                new WorkspaceId("reader-workspace"),
+                tenantId,
+                project.id,
+                Revision.initial()
+            );
+            service.createWorkspace(workspace);
+            const reader = new SqliteIdentityReader(database);
+            expect(reader.loadProject(project.id)?.name).toBe("Reader");
+            expect(reader.loadWorkspace(workspace.id)?.scope.equals(workspace.scope)).toBe(true);
+            expect(reader.loadPrincipal(ownerId)?.kind).toBe("user");
+            expect(reader.loadTenant(tenantId)?.status).toBe("active");
+            expect(reader.loadRole(new RoleName("owner"))?.rules.length).toBeGreaterThan(0);
+            expect(reader.loadTeam(new TeamId("missing"))).toBeUndefined();
+            expect(reader.loadMembership(new MembershipId("missing"))).toBeUndefined();
+            expect(reader.loadGuestTrust(new GuestTrustId("missing"))).toBeUndefined();
+        }
+    );
 
     test("rejects each mismatched identity query projection", { tags: "p0" }, () => {
         {
@@ -451,7 +469,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                     new Membership(
                         new MembershipId("suspended-writer-member"),
                         workspaceScope,
-                        SubjectRef.principal(ownerId),
+                        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                         role,
                         "suspended",
                         Revision.initial()
@@ -462,7 +480,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         const member = new Membership(
             new MembershipId("writer-member"),
             workspaceScope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             role,
             "active",
             Revision.initial()
@@ -665,7 +683,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const grant = new Grant(
                     new GrantId("closure-principal-grant"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(ownerId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -674,7 +692,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const corrupt = new Grant(
                     grant.id,
                     grant.scope,
-                    SubjectRef.principal(new PrincipalId("missing")),
+                    SubjectRef.principal(new PrincipalRef(tenantId, new PrincipalId("missing"))),
                     grant.effect,
                     grant.capability,
                     grant.origin
@@ -691,7 +709,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const grant = new Grant(
                     new GrantId("closure-child"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(ownerId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -718,7 +736,7 @@ describe("SQLite Tenant and identity hard gates", () => {
                 const parent = new Grant(
                     new GrantId("closure-parent"),
                     ScopeRef.tenant(tenantId),
-                    SubjectRef.principal(ownerId),
+                    SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
                     "allow",
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
@@ -780,7 +798,7 @@ describe("SQLite Binding and watermark hard gates", () => {
     const principal = new PrincipalRef(tenantId, ownerId);
     const binding = Binding.active(
         workspaceScope,
-        SubjectRef.principal(ownerId),
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
         new ProtectionDomain("backend", "sqlite", "no-secrets"),
         new BindingName("sqlite-binding"),
         new GrantId("sqlite-binding-grant"),
@@ -1074,7 +1092,7 @@ describe("SQLite authority adapter taxonomy", () => {
     const grant = new Grant(
         new GrantId("adapter-grant"),
         scope,
-        SubjectRef.principal(ownerId),
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
         "allow",
         new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
         { kind: "direct" }
@@ -1098,79 +1116,83 @@ describe("SQLite authority adapter taxonomy", () => {
         );
     });
 
-    test("converts missing writes and malformed projections to AgentCoreError", { tags: "p1" }, () => {
-        expectErrorCode(
-            () => saveSqliteGrant(new StubSqlite(), grant),
-            "protocol.revision-conflict"
-        );
-        expect(() => saveSqliteEpoch(new StubSqlite(), new ScopeEpoch(scope, 1))).toThrow(
-            AgentCoreError
-        );
+    test(
+        "converts missing writes and malformed projections to AgentCoreError",
+        { tags: "p1" },
+        () => {
+            expectErrorCode(
+                () => saveSqliteGrant(new StubSqlite(), grant),
+                "protocol.revision-conflict"
+            );
+            expect(() => saveSqliteEpoch(new StubSqlite(), new ScopeEpoch(scope, 1))).toThrow(
+                AgentCoreError
+            );
 
-        const grantRow = {
-            id: grant.id.value,
-            scope_key: sqliteScopeKey(grant.scope),
-            subject_key: sqliteSubjectKey(grant.subject),
-            effect: grant.effect,
-            parent_grant_id: null,
-            state: grant.state.name,
-            record: Grant.encode(grant)
-        } satisfies SqliteRow;
-        expect(() => listSqliteGrants(new StubSqlite({ ...grantRow, id: 3 }))).toThrow(
-            AgentCoreError
-        );
-        expect(() => listSqliteGrants(new StubSqlite({ ...grantRow, record: "bad" }))).toThrow(
-            AgentCoreError
-        );
-        expect(() => listSqliteGrants(new StubSqlite({ ...grantRow, state: "revoked" }))).toThrow(
-            AgentCoreError
-        );
+            const grantRow = {
+                id: grant.id.value,
+                scope_key: sqliteScopeKey(grant.scope),
+                subject_key: sqliteSubjectKey(grant.subject),
+                effect: grant.effect,
+                parent_grant_id: null,
+                state: grant.state.name,
+                record: Grant.encode(grant)
+            } satisfies SqliteRow;
+            expect(() => listSqliteGrants(new StubSqlite({ ...grantRow, id: 3 }))).toThrow(
+                AgentCoreError
+            );
+            expect(() => listSqliteGrants(new StubSqlite({ ...grantRow, record: "bad" }))).toThrow(
+                AgentCoreError
+            );
+            expect(() =>
+                listSqliteGrants(new StubSqlite({ ...grantRow, state: "revoked" }))
+            ).toThrow(AgentCoreError);
 
-        const epoch = new ScopeEpoch(scope, 1);
-        const epochRow = {
-            scope_key: scopeKey(scope),
-            epoch: epoch.epoch,
-            record: ScopeEpoch.encode(epoch)
-        } satisfies SqliteRow;
-        expect(() => listSqliteEpochs(new StubSqlite({ ...epochRow, epoch: "bad" }))).toThrow(
-            AgentCoreError
-        );
-        expect(() =>
-            loadSqliteEpoch(new StubSqlite({ ...epochRow, record: "bad" }), scope)
-        ).toThrow(AgentCoreError);
+            const epoch = new ScopeEpoch(scope, 1);
+            const epochRow = {
+                scope_key: scopeKey(scope),
+                epoch: epoch.epoch,
+                record: ScopeEpoch.encode(epoch)
+            } satisfies SqliteRow;
+            expect(() => listSqliteEpochs(new StubSqlite({ ...epochRow, epoch: "bad" }))).toThrow(
+                AgentCoreError
+            );
+            expect(() =>
+                loadSqliteEpoch(new StubSqlite({ ...epochRow, record: "bad" }), scope)
+            ).toThrow(AgentCoreError);
 
-        const rawReadFailure = new StubSqlite();
-        rawReadFailure.failReads = true;
-        expectErrorCode(() => loadSqliteGrant(rawReadFailure, grant.id), "codec.invalid");
-        const typedFailure = new AgentCoreError("protocol.invalid-state", "typed failure");
-        const typedReadFailure = new StubSqlite();
-        typedReadFailure.readFailure = typedFailure;
-        expect(() => loadSqliteGrant(typedReadFailure, grant.id)).toThrow(typedFailure);
-        const typedWriteFailure = new StubSqlite();
-        typedWriteFailure.runFailure = typedFailure;
-        expect(() => saveSqliteGrant(typedWriteFailure, grant)).toThrow(typedFailure);
-        expect(() => saveSqliteEpoch(new StubSqlite(), new ScopeEpoch(scope, 2))).toThrow(
-            AgentCoreError
-        );
-        expect(() =>
-            listSqliteGrants(
-                new StubSqlite({
-                    ...grantRow,
-                    parent_grant_id: 3
-                })
-            )
-        ).toThrow(AgentCoreError);
-        const foreignEpoch = new ScopeEpoch(ScopeRef.tenant(new TenantId("foreign")), 1);
-        expect(() =>
-            loadSqliteEpoch(
-                new StubSqlite({
-                    ...epochRow,
-                    record: ScopeEpoch.encode(foreignEpoch)
-                }),
-                scope
-            )
-        ).toThrow(AgentCoreError);
-    });
+            const rawReadFailure = new StubSqlite();
+            rawReadFailure.failReads = true;
+            expectErrorCode(() => loadSqliteGrant(rawReadFailure, grant.id), "codec.invalid");
+            const typedFailure = new AgentCoreError("protocol.invalid-state", "typed failure");
+            const typedReadFailure = new StubSqlite();
+            typedReadFailure.readFailure = typedFailure;
+            expect(() => loadSqliteGrant(typedReadFailure, grant.id)).toThrow(typedFailure);
+            const typedWriteFailure = new StubSqlite();
+            typedWriteFailure.runFailure = typedFailure;
+            expect(() => saveSqliteGrant(typedWriteFailure, grant)).toThrow(typedFailure);
+            expect(() => saveSqliteEpoch(new StubSqlite(), new ScopeEpoch(scope, 2))).toThrow(
+                AgentCoreError
+            );
+            expect(() =>
+                listSqliteGrants(
+                    new StubSqlite({
+                        ...grantRow,
+                        parent_grant_id: 3
+                    })
+                )
+            ).toThrow(AgentCoreError);
+            const foreignEpoch = new ScopeEpoch(ScopeRef.tenant(new TenantId("foreign")), 1);
+            expect(() =>
+                loadSqliteEpoch(
+                    new StubSqlite({
+                        ...epochRow,
+                        record: ScopeEpoch.encode(foreignEpoch)
+                    }),
+                    scope
+                )
+            ).toThrow(AgentCoreError);
+        }
+    );
 });
 
 function fixture(): {
@@ -1254,7 +1276,7 @@ describe("SQLite authority adapter mutation gates", () => {
     const grant = new Grant(
         new GrantId("gate-grant"),
         scope,
-        SubjectRef.principal(ownerId),
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
         "allow",
         new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
         { kind: "direct" }
@@ -1275,24 +1297,28 @@ describe("SQLite authority adapter mutation gates", () => {
         expect(loadSqliteGrant(database, grant.id)?.state.name).toBe("revoked");
     });
 
-    test("rejects a same-length direct Grant mutation instead of ignoring it", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        initializeSqliteAuthoritySchema(database);
-        saveSqliteGrant(database, grant);
-        const mutated = new Grant(
-            grant.id,
-            scope,
-            SubjectRef.principal(ownerId),
-            "allow",
-            new CapabilitySpec({ facetPattern: "q", impacts: ["observe"] }),
-            { kind: "direct" }
-        );
+    test(
+        "rejects a same-length direct Grant mutation instead of ignoring it",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            initializeSqliteAuthoritySchema(database);
+            saveSqliteGrant(database, grant);
+            const mutated = new Grant(
+                grant.id,
+                scope,
+                SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+                "allow",
+                new CapabilitySpec({ facetPattern: "q", impacts: ["observe"] }),
+                { kind: "direct" }
+            );
 
-        expect(() => saveSqliteGrant(database, mutated)).toThrow(
-            expect.objectContaining({ code: "protocol.invalid-state" })
-        );
-        expect(Grant.encode(loadSqliteGrant(database, grant.id)!)).toEqual(Grant.encode(grant));
-    });
+            expect(() => saveSqliteGrant(database, mutated)).toThrow(
+                expect.objectContaining({ code: "protocol.invalid-state" })
+            );
+            expect(Grant.encode(loadSqliteGrant(database, grant.id)!)).toEqual(Grant.encode(grant));
+        }
+    );
 
     test("fails closed when the parent Grant projection column is absent", { tags: "p1" }, () => {
         const row = {
@@ -1331,7 +1357,7 @@ describe("SQLite authority adapter mutation gates", () => {
         const sibling = new Grant(
             new GrantId("gate-grant-sibling"),
             scope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
             { kind: "direct" }
@@ -1479,11 +1505,10 @@ describe("SQLite authority adapter mutation gates", () => {
     test("a stored zero epoch round-trips", { tags: "p1" }, () => {
         const database = new TestSqlite();
         initializeSqliteAuthoritySchema(database);
-        database.run("INSERT INTO tenant_scope_epochs (scope_key, epoch, record) VALUES (?, ?, ?)", [
-            scopeKey(scope),
-            0,
-            ScopeEpoch.encode(new ScopeEpoch(scope, 0))
-        ]);
+        database.run(
+            "INSERT INTO tenant_scope_epochs (scope_key, epoch, record) VALUES (?, ?, ?)",
+            [scopeKey(scope), 0, ScopeEpoch.encode(new ScopeEpoch(scope, 0))]
+        );
         expect(loadSqliteEpoch(database, scope).epoch).toBe(0);
         expect(
             listSqliteEpochs(database).some(
@@ -1498,7 +1523,7 @@ describe("SQLite authority adapter mutation gates", () => {
         const variant = new Grant(
             grant.id,
             scope,
-            SubjectRef.principal(ownerId),
+            SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
             "allow",
             new CapabilitySpec({ facetPattern: "*", impacts: ["execute"] }),
             { kind: "direct" }
