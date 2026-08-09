@@ -326,7 +326,7 @@ async function attempts(instance: string, deliveryId: string): Promise<number | 
 }
 
 describe("live Cloudflare platform-semantics evidence", () => {
-    it("[P11-ALARM-SCHEDULE] arms a real alarm from the outbox, fires it, and tears the alarm down", async () => {
+    it("[C13-CLOUDFLARE-RECONCILIATION-DRIVER] arms a real alarm from the outbox, fires it, and tears the alarm down", async () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "alarm-sweep", "enqueue", {
                 id: "due-now",
@@ -352,7 +352,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         });
     });
 
-    it("[P11-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it", async () => {
+    it("[C13-CLOUDFLARE-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it", async () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "alarm-kill", "enqueue", {
                 id: "after-kill",
@@ -376,7 +376,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         expect(settled.physicalAlarm).toBeNull();
     });
 
-    it("[P11-ALARM-RETRY] reschedules a failed reconciliation onto a real alarm and settles it", async () => {
+    it("[C13-CLOUDFLARE-RECONCILIATION-RETRY] reschedules a failed reconciliation onto a real alarm and settles it", async () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "alarm-retry", "enqueue", {
                 id: "faulty",
@@ -401,7 +401,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         expect(settled).toEqual({ entries: [], nextDueAt: null, physicalAlarm: null, claims: [] });
     });
 
-    it("[P11-ALARM-ARBITRATION] shares one physical alarm between two claims across a real instance kill", async () => {
+    it("[C13-CLOUDFLARE-ALARM-CLAIMS] shares one physical alarm between two claims across a real instance kill", async () => {
         const early = resultOf(
             await call<ClaimResult>("runtime", "alarm-claims", "claim", {
                 owner: "early",
@@ -454,7 +454,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         saveState("alarmClaim", { owner: "probe.late", dueAt: late.dueAt });
     });
 
-    it("[P11-ALARM-FAULT-RECOVERY] re-fires an alarm whose handler threw, with no external re-arming", async () => {
+    it("[C13-CLOUDFLARE-ALARM-DURABILITY] re-fires an alarm whose handler threw, with no external re-arming", async () => {
         const armed = resultOf(
             await call<ThrowingResult>("runtime", "alarm-throw", "arm-throwing", {
                 delayMs: 1_000,
@@ -480,7 +480,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         });
     });
 
-    it("[P11-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight", async () => {
+    it("[C13-CLOUDFLARE-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight", async () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "fence", "enqueue", {
                 id: "fenced",
@@ -530,7 +530,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         ).toEqual({ entries: [], nextDueAt: null, physicalAlarm: null, claims: [] });
     });
 
-    it("[P11-VIEW-HIBERNATION] replays a hibernating WebSocket and keeps its attachment across an idle eviction window", async () => {
+    it("[C13-CLOUDFLARE-VIEW-ATTACHMENT] replays a hibernating WebSocket and keeps its attachment across an idle eviction window", async () => {
         const socket = await openSocket("socket", { channel: "live", acked: "0" });
         try {
             const replayed = await socket.take(2);
@@ -582,7 +582,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         }
     });
 
-    it("[P11-QUEUE-DELIVERY] acknowledges, redelivers, and dead-letters through a real queue", async () => {
+    it("[C13-CLOUDFLARE-QUEUE-DISPOSITION] acknowledges, redelivers, and dead-letters through a real queue", async () => {
         expect(
             resultOf(
                 await call<{ readonly deliveryId: string; readonly poison: boolean }>(
@@ -618,7 +618,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         expect(await attempts("queue-live", "q-poison")).toBeUndefined();
     });
 
-    it("[P11-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it", async () => {
+    it("[C13-CLOUDFLARE-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it", async () => {
         // The seam's limit is only correct if production actually accepts a row that
         // large, row overhead included — the one thing workerd cannot answer for it.
         const nearLimit = SQL_BLOB_LIMIT_BYTES - 1_000;
@@ -653,7 +653,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
         ).toEqual({ currentRevision: 2, lastByteLength: 1_000 });
     });
 
-    it("[P11-ALARM-REDEPLOY] arms durable reconciliation work for the redeployed worker to finish", async () => {
+    it("[C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] arms durable reconciliation work for the redeployed worker to finish", async () => {
         const enqueued = resultOf(
             await call<EnqueueResult>("runtime", "redeploy", "enqueue", {
                 id: "survivor",

@@ -11,8 +11,8 @@
       "prerequisites": [],
       "sourceSymbols": ["cloudflare/src/alarm-claims.ts#DurableAlarmClaims"],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-ARBITRATION] shares one physical alarm between two claims across a real instance kill",
-        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-ALARM-ARBITRATION] keeps an alarm claim and its physical alarm across a full worker redeployment"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-ALARM-CLAIMS] shares one physical alarm between two claims across a real instance kill",
+        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [C13-CLOUDFLARE-ALARM-CLAIMS] keeps an alarm claim and its physical alarm across a full worker redeployment"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -29,8 +29,8 @@
         "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler"
       ],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it",
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-FAULT-RECOVERY] re-fires an alarm whose handler threw, with no external re-arming"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it",
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-ALARM-DURABILITY] re-fires an alarm whose handler threw, with no external re-arming"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -83,9 +83,9 @@
       "prerequisites": ["C13-CLOUDFLARE-ALARM-DURABILITY"],
       "sourceSymbols": ["cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass"],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-REDEPLOY] arms durable reconciliation work for the redeployed worker to finish",
-        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-ALARM-REDEPLOY] finishes reconciliation work armed before the redeployment",
-        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-STORAGE-LIMIT] keeps the view revision log across a full worker redeployment"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] arms durable reconciliation work for the redeployed worker to finish",
+        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] finishes reconciliation work armed before the redeployment",
+        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps the view revision log across a full worker redeployment"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -99,7 +99,7 @@
       "prerequisites": [],
       "sourceSymbols": ["cloudflare/src/queue.ts#AtLeastOnceQueueAdapter"],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-QUEUE-DELIVERY] acknowledges, redelivers, and dead-letters through a real queue"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-QUEUE-DISPOSITION] acknowledges, redelivers, and dead-letters through a real queue"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -116,7 +116,7 @@
         "cloudflare/src/reconciliation.ts#SqliteReconciliationOutbox"
       ],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-SCHEDULE] arms a real alarm from the outbox, fires it, and tears the alarm down"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-RECONCILIATION-DRIVER] arms a real alarm from the outbox, fires it, and tears the alarm down"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -133,7 +133,7 @@
         "cloudflare/src/reconciliation.ts#SqliteReconciliationOutbox"
       ],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -147,7 +147,7 @@
       "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
       "sourceSymbols": ["cloudflare/src/reconciliation.ts#AlarmOutboxReconciler"],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-ALARM-RETRY] reschedules a failed reconciliation onto a real alarm and settles it"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-RECONCILIATION-RETRY] reschedules a failed reconciliation onto a real alarm and settles it"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -164,7 +164,7 @@
         "cloudflare/src/sqlite.ts#requireStorableBlob"
       ],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
@@ -181,7 +181,7 @@
         "cloudflare/src/websocket.ts#HibernatingViewSocketAdapter"
       ],
       "testSelectors": [
-        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [P11-VIEW-HIBERNATION] replays a hibernating WebSocket and keeps its attachment across an idle eviction window"
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-VIEW-ATTACHMENT] replays a hibernating WebSocket and keeps its attachment across an idle eviction window"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []

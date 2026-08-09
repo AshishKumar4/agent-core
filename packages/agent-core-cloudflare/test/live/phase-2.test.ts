@@ -51,7 +51,7 @@ describe("live Cloudflare substrate evidence after redeployment", () => {
         });
     });
 
-    it("[P11-ALARM-ARBITRATION] keeps an alarm claim and its physical alarm across a full worker redeployment", async () => {
+    it("[C13-CLOUDFLARE-ALARM-CLAIMS] keeps an alarm claim and its physical alarm across a full worker redeployment", async () => {
         const claim = loadState("alarmClaim") as { readonly owner: string; readonly dueAt: number };
         expect(resultOf(await call<LiveAlarmState>("runtime", "alarm-claims", "alarms"))).toEqual({
             physicalAlarm: claim.dueAt,
@@ -66,7 +66,7 @@ describe("live Cloudflare substrate evidence after redeployment", () => {
         ).toEqual({ physicalAlarm: null, claims: [] });
     });
 
-    it("[P11-ALARM-REDEPLOY] finishes reconciliation work armed before the redeployment", async () => {
+    it("[C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] finishes reconciliation work armed before the redeployment", async () => {
         const armed = loadState("redeploy") as {
             readonly id: string;
             readonly scheduledAt: number;
@@ -93,7 +93,7 @@ describe("live Cloudflare substrate evidence after redeployment", () => {
         });
     });
 
-    it("[P11-STORAGE-LIMIT] keeps the view revision log across a full worker redeployment", async () => {
+    it("[C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps the view revision log across a full worker redeployment", async () => {
         expect(
             resultOf(
                 await call<{

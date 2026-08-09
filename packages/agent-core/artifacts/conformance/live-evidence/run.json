@@ -1,7 +1,7 @@
 {
     "edition": "1.0.0",
-    "commit": "56ab6a9748abb4f12a05eeea64bdd005876b97b0",
-    "dirtySources": false,
+    "commit": "e07aea0d4ca0bc36cc30bd2afcc357217fa5a5e9",
+    "dirtySources": true,
     "accountId": "f44999d1ddda7012e9a87729eba250f1",
     "worker": "agent-core-live-harness",
     "bucket": "agent-core-live-evidence",
@@ -9,13 +9,13 @@
     "deployments": [
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
-            "versionId": "5c448bcf-7272-4f2b-9f46-97d90d82e86b",
-            "at": "2026-08-06T07:10:48.070Z"
+            "versionId": "633430f1-3066-4bd6-a0ae-3692e9cc90d3",
+            "at": "2026-08-09T07:01:49.473Z"
         },
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
-            "versionId": "fe5cb278-6a9e-4770-bfdd-84cf42a9bed6",
-            "at": "2026-08-06T07:12:53.037Z"
+            "versionId": "6e0e66e1-4ecd-48ca-b2e3-713e6868650c",
+            "at": "2026-08-09T07:03:39.231Z"
         }
     ],
     "sourceFingerprints": {
@@ -32,11 +32,11 @@
         "packages/agent-core-cloudflare/live/worker.ts": "fbc164d3e371177393c5e3035ce9cd85f18cf38135900798f0d7f15f754a184c",
         "packages/agent-core-cloudflare/live/wrangler.live.jsonc": "df87c58f6504b406791016bf938144fca9225e415bbc1ce3863e778d3ec72af8",
         "packages/agent-core-cloudflare/test/live/harness.ts": "5350c6d1464efc8d4445d0bb24360b1f901f049f8faa341b771bde85da1d09ba",
-        "packages/agent-core-cloudflare/test/live/phase-1.test.ts": "16bdd7b6910306d8a85059b62259feaf81cb7e445b6190e0f1c14ec709dba496",
-        "packages/agent-core-cloudflare/test/live/phase-2.test.ts": "bf688e2a59219e58a1467db4eb4cb71b7deaa789975151063a681a29fcbb1724"
+        "packages/agent-core-cloudflare/test/live/phase-1.test.ts": "610134135c22afa3200a88b5fdd764263a2d5f273f45d75fdcf31c2ce0430a86",
+        "packages/agent-core-cloudflare/test/live/phase-2.test.ts": "a6f4630572684a703aab8853a38cdaacb9373dc87cd6d21de1148464079e5f1d"
     },
     "reports": {
-        "phase-1.vitest.json": "1b1559ef3aef63de1b54526a5f092f0f97545921b42656caace43479aa762105",
-        "phase-2.vitest.json": "e034994c5c865d8a2e772f1b94de2478e92726e0d9972df82071286ba351c84a"
+        "phase-1.vitest.json": "75db0b799fbaa3dd498e0452f1e7e404769da0d09aa60fab3ac85938f7830134",
+        "phase-2.vitest.json": "5a1ee211aa08700fd2fa81e6952a8524dbfce31f38adca0ba6924a786cb1aa46"
     }
 }
