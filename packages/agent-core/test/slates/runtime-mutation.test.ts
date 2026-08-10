@@ -59,24 +59,36 @@ describe("SlateRuntime mutation kills", () => {
         expect(fixture.store.snapshot().deploymentReservations).toHaveLength(0);
     });
 
-    test("reconcile reports activation only for the active deployment", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("activated-flag");
-        const { publication } = await publishedSlate(fixture);
-        const first = await fixture.runtime.deploy(publication.id, "first", "external-active-1");
-        const second = await fixture.runtime.deploy(publication.id, "second", "external-active-2");
-        if (first.outcome !== "succeeded" || second.outcome !== "succeeded") {
-            throw new TypeError("Expected successful deployments");
-        }
+    test(
+        "reconcile reports activation only for the active deployment",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("activated-flag");
+            const { publication } = await publishedSlate(fixture);
+            const first = await fixture.runtime.deploy(
+                publication.id,
+                "first",
+                "external-active-1"
+            );
+            const second = await fixture.runtime.deploy(
+                publication.id,
+                "second",
+                "external-active-2"
+            );
+            if (first.outcome !== "succeeded" || second.outcome !== "succeeded") {
+                throw new TypeError("Expected successful deployments");
+            }
 
-        const firstReplay = await fixture.runtime.reconcileDeployment(first.deployment.id);
-        const secondReplay = await fixture.runtime.reconcileDeployment(second.deployment.id);
-        if (firstReplay.outcome !== "succeeded" || secondReplay.outcome !== "succeeded") {
-            throw new TypeError("Expected successful replays");
-        }
+            const firstReplay = await fixture.runtime.reconcileDeployment(first.deployment.id);
+            const secondReplay = await fixture.runtime.reconcileDeployment(second.deployment.id);
+            if (firstReplay.outcome !== "succeeded" || secondReplay.outcome !== "succeeded") {
+                throw new TypeError("Expected successful replays");
+            }
 
-        expect(firstReplay.activated).toBe(false);
-        expect(secondReplay.activated).toBe(true);
-    });
+            expect(firstReplay.activated).toBe(false);
+            expect(secondReplay.activated).toBe(true);
+        }
+    );
 
     test("reservations pin the frozen expected active deployment", { tags: "p0" }, async () => {
         const fixture = runtimeFixture("expected-pointer");
@@ -224,104 +236,129 @@ describe("SlateRuntime mutation kills", () => {
         });
     });
 
-    test("fork revalidates the exact source graph inside the transaction", { tags: "p1" }, async () => {
-        const store = new DraftDoctoringStore();
-        const fixture = runtimeFixture("fork-revalidate", store);
-        const slate = await fixture.runtime.create(fixture.workspace, ref("fork-source"));
-        const version = await fixture.runtime.commit(slate.id);
-        store.doctorSlate = (current) =>
-            current.id.equals(slate.id)
-                ? new Slate({
-                      id: current.id,
-                      workspaceId: new WorkspaceId("workspace-fork-elsewhere"),
-                      source: current.source,
-                      ...(current.headVersionId === undefined
-                          ? {}
-                          : { headVersionId: current.headVersionId }),
-                      revision: current.revision
-                  })
-                : current;
+    test(
+        "fork revalidates the exact source graph inside the transaction",
+        { tags: "p1" },
+        async () => {
+            const store = new DraftDoctoringStore();
+            const fixture = runtimeFixture("fork-revalidate", store);
+            const slate = await fixture.runtime.create(fixture.workspace, ref("fork-source"));
+            const version = await fixture.runtime.commit(slate.id);
+            store.doctorSlate = (current) =>
+                current.id.equals(slate.id)
+                    ? new Slate({
+                          id: current.id,
+                          workspaceId: new WorkspaceId("workspace-fork-elsewhere"),
+                          source: current.source,
+                          ...(current.headVersionId === undefined
+                              ? {}
+                              : { headVersionId: current.headVersionId }),
+                          revision: current.revision
+                      })
+                    : current;
 
-        await expect(fixture.runtime.fork(version.id, fixture.workspace)).rejects.toMatchObject({
-            code: "protocol.revision-conflict"
-        });
-        expect(fixture.store.listSlates()).toHaveLength(1);
-    });
-
-    test("publish revalidates the version binding inside the transaction", { tags: "p1" }, async () => {
-        const store = new DraftDoctoringStore();
-        const fixture = runtimeFixture("publish-revalidate", store);
-        const slate = await fixture.runtime.create(fixture.workspace, ref("publish-source"));
-        const version = await fixture.runtime.commit(slate.id);
-        store.doctorVersion = (current) =>
-            current.id.equals(version.id)
-                ? new SlateVersion(
-                      current.id,
-                      current.workspaceId,
-                      current.slateId,
-                      ref("publish-drifted"),
-                      current.parentVersionId
-                  )
-                : current;
-
-        await expect(
-            fixture.runtime.publish(version.id, ref("publish-materialization"))
-        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
-        expect(fixture.store.listPublications(slate.id)).toEqual([]);
-    });
-
-    test("preview links pin the exact revision even when the source is unchanged", { tags: "p1" }, async () => {
-        const fixture = runtimeFixture("preview-pin");
-        const slate = await fixture.runtime.create(fixture.workspace, ref("preview-source"));
-        fixture.mutations.beforeMutation = (request) => {
-            if (request.operation !== "preview.link") return;
-            const current = fixture.store.getSlate(slate.id)!;
-            const version = new SlateVersion(
-                new SlateVersionId("version-preview-pin"),
-                fixture.workspace,
-                slate.id,
-                current.source
+            await expect(fixture.runtime.fork(version.id, fixture.workspace)).rejects.toMatchObject(
+                {
+                    code: "protocol.revision-conflict"
+                }
             );
-            fixture.store.addVersion(version);
-            fixture.store.compareAndSetSlate(current.revision, current.commit(version.id));
-        };
+            expect(fixture.store.listSlates()).toHaveLength(1);
+        }
+    );
 
-        await expect(
-            fixture.runtime.linkPreview(
-                slate.id,
-                sessionCapability("preview-pin", 0, 0),
-                new PortExposureId("exposure-preview-pin")
-            )
-        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
-        expect(fixture.store.listPreviews(slate.id)).toEqual([]);
-    });
+    test(
+        "publish revalidates the version binding inside the transaction",
+        { tags: "p1" },
+        async () => {
+            const store = new DraftDoctoringStore();
+            const fixture = runtimeFixture("publish-revalidate", store);
+            const slate = await fixture.runtime.create(fixture.workspace, ref("publish-source"));
+            const version = await fixture.runtime.commit(slate.id);
+            store.doctorVersion = (current) =>
+                current.id.equals(version.id)
+                    ? new SlateVersion(
+                          current.id,
+                          current.workspaceId,
+                          current.slateId,
+                          ref("publish-drifted"),
+                          current.parentVersionId
+                      )
+                    : current;
 
-    test("reconciled completed deployments report inactive slates without activation", { tags: "p1" }, async () => {
-        const graph = inactiveDeploymentStore("reconcile-inactive");
-        const fixture = runtimeFixture("reconcile-inactive", graph.store);
+            await expect(
+                fixture.runtime.publish(version.id, ref("publish-materialization"))
+            ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+            expect(fixture.store.listPublications(slate.id)).toEqual([]);
+        }
+    );
 
-        const outcome = await fixture.runtime.reconcileDeployment(graph.deployment.id);
+    test(
+        "preview links pin the exact revision even when the source is unchanged",
+        { tags: "p1" },
+        async () => {
+            const fixture = runtimeFixture("preview-pin");
+            const slate = await fixture.runtime.create(fixture.workspace, ref("preview-source"));
+            fixture.mutations.beforeMutation = (request) => {
+                if (request.operation !== "preview.link") return;
+                const current = fixture.store.getSlate(slate.id)!;
+                const version = new SlateVersion(
+                    new SlateVersionId("version-preview-pin"),
+                    fixture.workspace,
+                    slate.id,
+                    current.source
+                );
+                fixture.store.addVersion(version);
+                fixture.store.compareAndSetSlate(current.revision, current.commit(version.id));
+            };
 
-        if (outcome.outcome !== "succeeded") throw new TypeError("Expected completed deployment");
-        expect(outcome.activated).toBe(false);
-        expect(outcome.deployment.id.equals(graph.deployment.id)).toBe(true);
-    });
+            await expect(
+                fixture.runtime.linkPreview(
+                    slate.id,
+                    sessionCapability("preview-pin", 0, 0),
+                    new PortExposureId("exposure-preview-pin")
+                )
+            ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+            expect(fixture.store.listPreviews(slate.id)).toEqual([]);
+        }
+    );
 
-    test("rollback pins the expected pointer and activates inactive slates", { tags: "p0" }, async () => {
-        const graph = inactiveDeploymentStore("rollback-inactive");
-        const fixture = runtimeFixture("rollback-inactive", graph.store);
+    test(
+        "reconciled completed deployments report inactive slates without activation",
+        { tags: "p1" },
+        async () => {
+            const graph = inactiveDeploymentStore("reconcile-inactive");
+            const fixture = runtimeFixture("reconcile-inactive", graph.store);
 
-        await expect(
-            fixture.runtime.rollback(graph.slate.id, graph.deployment.id, graph.deployment.id)
-        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
-        expect(graph.store.getSlate(graph.slate.id)?.activeDeploymentId).toBeUndefined();
+            const outcome = await fixture.runtime.reconcileDeployment(graph.deployment.id);
 
-        const activated = await fixture.runtime.rollback(graph.slate.id, graph.deployment.id);
-        expect(activated.activeDeploymentId?.equals(graph.deployment.id)).toBe(true);
-        expect(
-            graph.store.getSlate(graph.slate.id)?.activeDeploymentId?.equals(graph.deployment.id)
-        ).toBe(true);
-    });
+            if (outcome.outcome !== "succeeded")
+                throw new TypeError("Expected completed deployment");
+            expect(outcome.activated).toBe(false);
+            expect(outcome.deployment.id.equals(graph.deployment.id)).toBe(true);
+        }
+    );
+
+    test(
+        "rollback pins the expected pointer and activates inactive slates",
+        { tags: "p0" },
+        async () => {
+            const graph = inactiveDeploymentStore("rollback-inactive");
+            const fixture = runtimeFixture("rollback-inactive", graph.store);
+
+            await expect(
+                fixture.runtime.rollback(graph.slate.id, graph.deployment.id, graph.deployment.id)
+            ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+            expect(graph.store.getSlate(graph.slate.id)?.activeDeploymentId).toBeUndefined();
+
+            const activated = await fixture.runtime.rollback(graph.slate.id, graph.deployment.id);
+            expect(activated.activeDeploymentId?.equals(graph.deployment.id)).toBe(true);
+            expect(
+                graph.store
+                    .getSlate(graph.slate.id)
+                    ?.activeDeploymentId?.equals(graph.deployment.id)
+            ).toBe(true);
+        }
+    );
 
     test("rejects function-shaped and value-less invocation results", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("hostile-results");
@@ -444,7 +481,9 @@ class StubProvider extends SlateProvider {
         if (this.deploymentResult !== undefined) {
             return Promise.resolve(this.deploymentResult as SlateProviderDeployment);
         }
-        return Promise.resolve({ materialization: ref(`deployment-${request.deploymentId.value}`) });
+        return Promise.resolve({
+            materialization: ref(`deployment-${request.deploymentId.value}`)
+        });
     }
 
     public reconcileDeployment(

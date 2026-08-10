@@ -30,63 +30,74 @@ const target = new FacetRef("profile:approval");
 const input = { resource: "account" } as const;
 
 describe("Canonical profile Receipt mediation", () => {
-    test("[P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation", { tags: "p0" }, async () => {
-        const target = new FacetRef("profile:filesystem");
-        const invocation = new InvocationId("filesystem-write-receipt");
-        const harness = new CanonicalBatchHarness<ProtectedOperationRequest>(
-            false,
-            target,
-            FILESYSTEM_OPERATION_CONTRACTS.write.descriptor
-        );
-        const runtime = new ProtectedProfileRuntimePort(
-            new ProfileRuntimeHostBinding(target, new BindingName("filesystem")),
-            new InvocationProtectedOperationPort({ invocation: () => invocation }, harness.port),
-            recordingRuntime("filesystem-effects").effects
-        );
-        runtime.activate();
-        const backend = new MemoryFilesystemBackend();
-        const filesystem = new FilesystemFacet(runtime, backend);
-        const request = { path: "/file", content: new Uint8Array([1]) };
+    test(
+        "[P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation",
+        { tags: "p0" },
+        async () => {
+            const target = new FacetRef("profile:filesystem");
+            const invocation = new InvocationId("filesystem-write-receipt");
+            const harness = new CanonicalBatchHarness<ProtectedOperationRequest>(
+                false,
+                target,
+                FILESYSTEM_OPERATION_CONTRACTS.write.descriptor
+            );
+            const runtime = new ProtectedProfileRuntimePort(
+                new ProfileRuntimeHostBinding(target, new BindingName("filesystem")),
+                new InvocationProtectedOperationPort(
+                    { invocation: () => invocation },
+                    harness.port
+                ),
+                recordingRuntime("filesystem-effects").effects
+            );
+            runtime.activate();
+            const backend = new MemoryFilesystemBackend();
+            const filesystem = new FilesystemFacet(runtime, backend);
+            const request = { path: "/file", content: new Uint8Array([1]) };
 
-        const first = await filesystem.write(request);
-        expect(first).toBeInstanceOf(AttemptReceipt);
-        expect(first).toMatchObject({ outcome: "succeeded" });
-        expect(
-            harness.transactions.transact((transaction) =>
-                harness.ledger.currentReceipt(transaction, invocation, 0)?.id.equals(first.id)
-            )
-        ).toBe(true);
+            const first = await filesystem.write(request);
+            expect(first).toBeInstanceOf(AttemptReceipt);
+            expect(first).toMatchObject({ outcome: "succeeded" });
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.ledger.currentReceipt(transaction, invocation, 0)?.id.equals(first.id)
+                )
+            ).toBe(true);
 
-        harness.transactions.restart();
-        const replayed = await filesystem.write(request);
-        expect(replayed.id.equals(first.id)).toBe(true);
-        expect(
-            harness.transactions.transact((transaction) =>
-                harness.persistence.attemptsForItem(transaction, invocation, 0)
-            )
-        ).toHaveLength(1);
-        expect(backend.read("/file")).toEqual(new Uint8Array([1]));
-    });
+            harness.transactions.restart();
+            const replayed = await filesystem.write(request);
+            expect(replayed.id.equals(first.id)).toBe(true);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toHaveLength(1);
+            expect(backend.read("/file")).toEqual(new Uint8Array([1]));
+        }
+    );
 
-    test("[P11-APPROVAL-GATEWAY-RECEIPTS] persists and replays the canonical W6 Receipt across restart", { tags: "p0" }, async () => {
-        const fixture = approvalFixture("approval-receipt");
+    test(
+        "[P11-APPROVAL-GATEWAY-RECEIPTS] persists and replays the canonical W6 Receipt across restart",
+        { tags: "p0" },
+        async () => {
+            const fixture = approvalFixture("approval-receipt");
 
-        await expect(fixture.facet.applyAction(input)).resolves.toEqual({ applied: true });
-        const first = fixture.harness.transactions.transact((transaction) =>
-            fixture.harness.ledger.currentReceipt(transaction, fixture.invocation, 0)
-        );
-        expect(first).toBeInstanceOf(AttemptReceipt);
-        expect(first).toMatchObject({ outcome: "succeeded" });
-        expect((first as AttemptReceipt).result).toBeDefined();
+            await expect(fixture.facet.applyAction(input)).resolves.toEqual({ applied: true });
+            const first = fixture.harness.transactions.transact((transaction) =>
+                fixture.harness.ledger.currentReceipt(transaction, fixture.invocation, 0)
+            );
+            expect(first).toBeInstanceOf(AttemptReceipt);
+            expect(first).toMatchObject({ outcome: "succeeded" });
+            expect((first as AttemptReceipt).result).toBeDefined();
 
-        fixture.harness.transactions.restart();
-        await expect(fixture.facet.applyAction(input)).resolves.toEqual({ applied: true });
-        const replayed = fixture.harness.transactions.transact((transaction) =>
-            fixture.harness.ledger.currentReceipt(transaction, fixture.invocation, 0)
-        );
-        expect(replayed?.id.equals(first!.id)).toBe(true);
-        expect(fixture.backend.effects).toHaveLength(1);
-    });
+            fixture.harness.transactions.restart();
+            await expect(fixture.facet.applyAction(input)).resolves.toEqual({ applied: true });
+            const replayed = fixture.harness.transactions.transact((transaction) =>
+                fixture.harness.ledger.currentReceipt(transaction, fixture.invocation, 0)
+            );
+            expect(replayed?.id.equals(first!.id)).toBe(true);
+            expect(fixture.backend.effects).toHaveLength(1);
+        }
+    );
 
     test(
         "[P11-APPROVAL-GATEWAY-RECONCILIATION] reconciles one indeterminate W6 attempt after restart without repeating the effect",

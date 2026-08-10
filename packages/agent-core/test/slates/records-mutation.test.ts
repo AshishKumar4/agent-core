@@ -175,7 +175,12 @@ describe("Slate record mutation kills", () => {
         ).toThrow(new TypeError("Slate fork reference is invalid"));
         expect(
             () =>
-                new Slate({ id: invalid, workspaceId: workspace, source, revision: Revision.initial() })
+                new Slate({
+                    id: invalid,
+                    workspaceId: workspace,
+                    source,
+                    revision: Revision.initial()
+                })
         ).toThrow(new TypeError("Slate identity, ownership, source, and revision are required"));
         expect(
             () => new Slate({ id: slateId, workspaceId: workspace, source, revision: invalid })
@@ -325,9 +330,7 @@ describe("Slate record mutation kills", () => {
                     invocation,
                     receipt
                 )
-        ).toThrow(
-            new TypeError("Slate resource name must not be blank or exceed 256 characters")
-        );
+        ).toThrow(new TypeError("Slate resource name must not be blank or exceed 256 characters"));
 
         const longestTarget = "t".repeat(512);
         const deployment = new SlateDeployment(
@@ -357,19 +360,22 @@ describe("Slate record mutation kills", () => {
             new TypeError("Slate deployment target must not be blank or exceed 512 characters")
         );
 
-        expect(() =>
-            new SlateDeploymentReservation({
-                id: deploymentId,
-                workspaceId: workspace,
-                slateId,
-                publicationId,
-                publicationMaterialization: materialization,
-                target: "production",
-                externalKey: " ",
-                invocationId: invocation
-            })
+        expect(
+            () =>
+                new SlateDeploymentReservation({
+                    id: deploymentId,
+                    workspaceId: workspace,
+                    slateId,
+                    publicationId,
+                    publicationMaterialization: materialization,
+                    target: "production",
+                    externalKey: " ",
+                    invocationId: invocation
+                })
         ).toThrow(
-            new TypeError("Slate deployment external key must not be blank or exceed 512 characters")
+            new TypeError(
+                "Slate deployment external key must not be blank or exceed 512 characters"
+            )
         );
     });
 

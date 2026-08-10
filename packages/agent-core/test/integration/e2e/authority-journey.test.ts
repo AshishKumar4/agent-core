@@ -129,25 +129,29 @@ function authorityJourney(name: string, create: AuthorityJourneyFactory): void {
             }
         );
 
-        test("replays a duplicate check without re-evaluating authority", { tags: "p0" }, async () => {
-            const journey = create(`${name}-authority-replay`);
-            const request = journey.checkRequest();
-            const payload = AuthorityCheckRequest.encode(request);
-            const raw = journey.envelope(
-                TENANT_AUTHORITY_COMMANDS.check,
-                "journey-check-replay",
-                payload
-            );
+        test(
+            "replays a duplicate check without re-evaluating authority",
+            { tags: "p0" },
+            async () => {
+                const journey = create(`${name}-authority-replay`);
+                const request = journey.checkRequest();
+                const payload = AuthorityCheckRequest.encode(request);
+                const raw = journey.envelope(
+                    TENANT_AUTHORITY_COMMANDS.check,
+                    "journey-check-replay",
+                    payload
+                );
 
-            const first = await journey.dispatch(raw, payload);
-            const duplicate = await journey.dispatch(raw, payload);
+                const first = await journey.dispatch(raw, payload);
+                const duplicate = await journey.dispatch(raw, payload);
 
-            expect(first.outcome).toBe("committed");
-            expect(duplicate.outcome).toBe("duplicate");
-            expect(duplicate.reply).toEqual(first.reply);
-            expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
-            expect(journey.snapshot().checks).toBe(1);
-        });
+                expect(first.outcome).toBe("committed");
+                expect(duplicate.outcome).toBe("duplicate");
+                expect(duplicate.reply).toEqual(first.reply);
+                expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
+                expect(journey.snapshot().checks).toBe(1);
+            }
+        );
     });
 }
 

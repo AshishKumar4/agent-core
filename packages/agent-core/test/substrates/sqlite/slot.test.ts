@@ -169,26 +169,30 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         expect(stored?.entrySchema.accepts({ heading: "replaced" })).toBe(false);
     });
 
-    test("keeps declarations immutable against same-length conflicting schemas", { tags: "p0" }, () => {
-        const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
-        store.install(slot());
-        const sameLengthConflict = new SlotDeclaration(
-            slotName,
-            new JsonSchema({
-                type: "object",
-                required: ["eltit"],
-                properties: { eltit: { type: "string" } },
-                additionalProperties: false
-            }),
-            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
-        );
+    test(
+        "keeps declarations immutable against same-length conflicting schemas",
+        { tags: "p0" },
+        () => {
+            const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
+            store.install(slot());
+            const sameLengthConflict = new SlotDeclaration(
+                slotName,
+                new JsonSchema({
+                    type: "object",
+                    required: ["eltit"],
+                    properties: { eltit: { type: "string" } },
+                    additionalProperties: false
+                }),
+                new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+            );
 
-        expect(() => store.install(sameLengthConflict)).toThrow(
-            expect.objectContaining({ code: "protocol.invalid-state" })
-        );
-        expect(store.revision().value).toBe(1);
-        expect(store.slot(slotName)?.entrySchema.accepts({ title: "kept" })).toBe(true);
-    });
+            expect(() => store.install(sameLengthConflict)).toThrow(
+                expect.objectContaining({ code: "protocol.invalid-state" })
+            );
+            expect(store.revision().value).toBe(1);
+            expect(store.slot(slotName)?.entrySchema.accepts({ title: "kept" })).toBe(true);
+        }
+    );
 
     test("rejects contributions to uninstalled slots with the exact error", { tags: "p1" }, () => {
         const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
@@ -216,27 +220,31 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         );
     });
 
-    test("rejects every forged entry projection column with the exact error", { tags: "p1" }, () => {
-        const forgeries: readonly (readonly [string, SqliteValue, string])[] = [
-            ["id", "forged-id", "dashboard.card"],
-            ["slot", "forged-slot", "forged-slot"],
-            ["ordinal", 99, "dashboard.card"]
-        ];
+    test(
+        "rejects every forged entry projection column with the exact error",
+        { tags: "p1" },
+        () => {
+            const forgeries: readonly (readonly [string, SqliteValue, string])[] = [
+                ["id", "forged-id", "dashboard.card"],
+                ["slot", "forged-slot", "forged-slot"],
+                ["ordinal", 99, "dashboard.card"]
+            ];
 
-        for (const [column, value, queried] of forgeries) {
-            const database = new TestSqlite();
-            const store = new SqliteWorkspaceSlotStore(owner, database);
-            store.install(slot());
-            store.contribute(entry("workspace:forge", 1, { title: "Forged" }));
-            database.run(`UPDATE facet_slot_entries SET ${column} = ?`, [value]);
-            expect(() => store.entries(new SlotName(queried)), column).toThrow(
-                expect.objectContaining({
-                    code: "codec.invalid",
-                    message: "SQLite Slot entry projection does not match codec bytes"
-                })
-            );
+            for (const [column, value, queried] of forgeries) {
+                const database = new TestSqlite();
+                const store = new SqliteWorkspaceSlotStore(owner, database);
+                store.install(slot());
+                store.contribute(entry("workspace:forge", 1, { title: "Forged" }));
+                database.run(`UPDATE facet_slot_entries SET ${column} = ?`, [value]);
+                expect(() => store.entries(new SlotName(queried)), column).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: "SQLite Slot entry projection does not match codec bytes"
+                    })
+                );
+            }
         }
-    });
+    );
 
     test("reports tampered revision values with the exact column error", { tags: "p2" }, () => {
         const database = new RevisionTamperSqlite();

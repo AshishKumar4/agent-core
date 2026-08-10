@@ -84,10 +84,6 @@ export function digestFromData(value: JsonValue | undefined, subject: string): D
     return new Digest(requireString(value, subject));
 }
 
-export function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
-}
-
 export function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])

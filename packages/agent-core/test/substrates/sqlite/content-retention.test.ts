@@ -22,8 +22,7 @@ const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 
 class InterceptingSqlite extends TransactionalSqlite {
     public mutateRows:
-        | ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[])
-        | undefined;
+        ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]) | undefined;
     public afterRun: ((statement: string) => void) | undefined;
 
     public constructor(public readonly inner: TestSqlite = new TestSqlite()) {
@@ -242,27 +241,31 @@ describe("SQLite content retention state validation", () => {
         );
     });
 
-    test("rejects a negative unowned-since relation column as corruption", { tags: "p1" }, async () => {
-        const database = new InterceptingSqlite();
-        const store = new SqliteContentStore(database);
-        const owner = contentOwner();
-        const retention = store.retention(owner.tenant, owner.actor);
-        const access = store.transient(owner.tenant, owner.actor, () => at(10));
-        await access.acquire(
-            bindingFor("negative-column", "negative-column-envelope", at(30)),
-            encode("negative-column")
-        );
-        database.mutateRows = (statement, rows) =>
-            statement.includes("FROM content_relations")
-                ? rows.map((row) => ({ ...row, unowned_since: -5 }))
-                : rows;
+    test(
+        "rejects a negative unowned-since relation column as corruption",
+        { tags: "p1" },
+        async () => {
+            const database = new InterceptingSqlite();
+            const store = new SqliteContentStore(database);
+            const owner = contentOwner();
+            const retention = store.retention(owner.tenant, owner.actor);
+            const access = store.transient(owner.tenant, owner.actor, () => at(10));
+            await access.acquire(
+                bindingFor("negative-column", "negative-column-envelope", at(30)),
+                encode("negative-column")
+            );
+            database.mutateRows = (statement, rows) =>
+                statement.includes("FROM content_relations")
+                    ? rows.map((row) => ({ ...row, unowned_since: -5 }))
+                    : rows;
 
-        expectExactError(
-            () => collectAll(database, retention, at(20)),
-            "codec.invalid",
-            "Expected nullable non-negative integer column: unowned_since"
-        );
-    });
+            expectExactError(
+                () => collectAll(database, retention, at(20)),
+                "codec.invalid",
+                "Expected nullable non-negative integer column: unowned_since"
+            );
+        }
+    );
 
     test("reports exact malformed relation column diagnostics", { tags: "p1" }, async () => {
         const database = new InterceptingSqlite();
@@ -560,7 +563,12 @@ describe("SQLite content retention collection gating", () => {
             const second = await store.put(encode("snapshot-beta"));
             const [trigger, target] =
                 first.ref.value < second.ref.value ? [first, second] : [second, first];
-            const triggerEdge = new ContentOwnerEdge(tenant, actor, "snapshot-trigger", trigger.ref);
+            const triggerEdge = new ContentOwnerEdge(
+                tenant,
+                actor,
+                "snapshot-trigger",
+                trigger.ref
+            );
             const targetEdge = new ContentOwnerEdge(tenant, actor, "snapshot-target", target.ref);
             database.transaction(() => {
                 retention.retain(database, triggerEdge, at(10));
@@ -643,7 +651,12 @@ describe("SQLite content retention collection gating", () => {
         const [leader, straggler] =
             first.ref.value < second.ref.value ? [first, second] : [second, first];
         const leaderEdge = new ContentOwnerEdge(tenant, actor, "vanish-leader", leader.ref);
-        const stragglerEdge = new ContentOwnerEdge(tenant, actor, "vanish-straggler", straggler.ref);
+        const stragglerEdge = new ContentOwnerEdge(
+            tenant,
+            actor,
+            "vanish-straggler",
+            straggler.ref
+        );
         database.transaction(() => {
             retention.retain(database, leaderEdge, at(10));
             retention.retain(database, stragglerEdge, at(10));
@@ -795,7 +808,10 @@ describe("SQLite transient lease contract", () => {
         const { access } = harness();
         const binding = bindingFor("foreign-binding", "foreign-binding-envelope", at(30));
         await expectExactRejection(
-            access.acquire({ ...binding, tenant: new TenantId("tenant-b") }, encode("foreign-binding")),
+            access.acquire(
+                { ...binding, tenant: new TenantId("tenant-b") },
+                encode("foreign-binding")
+            ),
             "protocol.invalid-state",
             "Transient content binding belongs to a different Tenant"
         );
@@ -842,8 +858,15 @@ describe("SQLite transient lease contract", () => {
             let now = at(10);
             const { database, access } = harness(() => now);
 
-            const acquiredBinding = bindingFor("generation-acquired", "generation-acquired-envelope", at(60));
-            const staleAcquired = await access.acquire(acquiredBinding, encode("generation-acquired"));
+            const acquiredBinding = bindingFor(
+                "generation-acquired",
+                "generation-acquired-envelope",
+                at(60)
+            );
+            const staleAcquired = await access.acquire(
+                acquiredBinding,
+                encode("generation-acquired")
+            );
             expect(staleAcquired).toBeDefined();
             now = at(20);
             await staleAcquired?.close();
@@ -857,13 +880,21 @@ describe("SQLite transient lease contract", () => {
             );
 
             now = at(10);
-            const expiresBinding = bindingFor("generation-expires", "generation-expires-envelope", at(30));
+            const expiresBinding = bindingFor(
+                "generation-expires",
+                "generation-expires-envelope",
+                at(30)
+            );
             const staleExpires = await access.acquire(expiresBinding, encode("generation-expires"));
             expect(staleExpires).toBeDefined();
             now = at(15);
             await staleExpires?.close();
             database.transaction(() =>
-                access.acquireInTransaction(database, { ...expiresBinding, expiresAt: at(50) }, at(10))
+                access.acquireInTransaction(
+                    database,
+                    { ...expiresBinding, expiresAt: at(50) },
+                    at(10)
+                )
             );
             expectExactError(
                 () => staleExpires?.read(),
@@ -932,7 +963,10 @@ describe("SQLite transient lease contract", () => {
         const binding = bindingFor("foreign-handle", "foreign-handle-envelope", at(30));
         const lease = await access.acquire(binding, encode("foreign-handle"));
         expect(lease?.read()).toEqual(encode("foreign-handle"));
-        const handle = (handleTenant: TenantId, handleActor: ActorRef): TransientContentLeaseState =>
+        const handle = (
+            handleTenant: TenantId,
+            handleActor: ActorRef
+        ): TransientContentLeaseState =>
             new TransientContentLeaseState(
                 handleTenant,
                 handleActor,

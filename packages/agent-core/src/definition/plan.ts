@@ -2,6 +2,7 @@ import { ActorId, ActorRef, type ActorKind } from "../actors";
 import {
     Digest,
     RecordCodec,
+    compareText,
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
@@ -20,7 +21,6 @@ import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from 
 import type { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import type { PackagePin } from "./package-lock";
-import { compareText } from "./order";
 import { invalidDefinition } from "./error";
 
 const DERIVED_COMMAND_TRUST: readonly string[] = Object.freeze(["owner", "authenticated", "self"]);

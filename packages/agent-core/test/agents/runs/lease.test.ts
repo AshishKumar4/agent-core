@@ -50,70 +50,78 @@ describe("public Run and Turn values", () => {
 });
 
 describe("TurnLease", () => {
-    test("[turn-lease-verifier] memory and repository implementations enforce the exact durable lease", { tags: "p0" }, () => {
-        const seeded = seedRunningTurn();
-        const verifiers = [
-            new MemoryTurnLeaseVerifier([seeded.running.lease], () => at(1_500)),
-            new RepositoryTurnLeaseVerifier(seeded.repository, () => at(1_500))
-        ];
+    test(
+        "[turn-lease-verifier] memory and repository implementations enforce the exact durable lease",
+        { tags: "p0" },
+        () => {
+            const seeded = seedRunningTurn();
+            const verifiers = [
+                new MemoryTurnLeaseVerifier([seeded.running.lease], () => at(1_500)),
+                new RepositoryTurnLeaseVerifier(seeded.repository, () => at(1_500))
+            ];
 
-        for (const verifier of verifiers) {
-            expect(verifier.permits(seeded.token)).toBe(true);
-            expect(verifier.permits({ ...seeded.token, epoch: seeded.token.epoch + 1 })).toBe(
-                false
-            );
+            for (const verifier of verifiers) {
+                expect(verifier.permits(seeded.token)).toBe(true);
+                expect(verifier.permits({ ...seeded.token, epoch: seeded.token.epoch + 1 })).toBe(
+                    false
+                );
+            }
         }
-    });
+    );
 
-    test("[C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement", { tags: "p0" }, () => {
-        const seeded = seedRunningTurn();
-        const replacementHolder = new PrincipalRef(
-            tenant,
-            new PrincipalId("principal-lease-replacement")
-        );
-        const cancellationPayload = content("c");
-        const reclaimed = seeded.runtime.reclaimTurn(
-            seeded.running.id,
-            seeded.running.revision,
-            replacementHolder,
-            at(5_000),
-            at(9_000),
-            new TurnInboxEntry(
-                new TurnInboxEntryId("inbox-stale-lease-cancellation"),
+    test(
+        "[C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement",
+        { tags: "p0" },
+        () => {
+            const seeded = seedRunningTurn();
+            const replacementHolder = new PrincipalRef(
+                tenant,
+                new PrincipalId("principal-lease-replacement")
+            );
+            const cancellationPayload = content("c");
+            const reclaimed = seeded.runtime.reclaimTurn(
                 seeded.running.id,
-                0,
-                "turn.cancel",
-                cancellationPayload,
-                digest("c"),
-                "stale-lease-cancellation",
-                seeded.token,
-                at(5_000)
-            )
-        );
-        const verifier = new RepositoryTurnLeaseVerifier(seeded.repository, () => at(6_000));
-
-        expect(verifier.permits(seeded.token)).toBe(false);
-        expect(
-            verifier.permits({
-                turn: reclaimed.id,
-                holder: replacementHolder,
-                epoch: reclaimed.lease.epoch
-            })
-        ).toBe(true);
-        try {
-            seeded.runtime.renewTurn(
-                reclaimed.id,
-                reclaimed.revision,
-                seeded.token,
-                at(6_000),
-                at(10_000)
+                seeded.running.revision,
+                replacementHolder,
+                at(5_000),
+                at(9_000),
+                new TurnInboxEntry(
+                    new TurnInboxEntryId("inbox-stale-lease-cancellation"),
+                    seeded.running.id,
+                    0,
+                    "turn.cancel",
+                    cancellationPayload,
+                    digest("c"),
+                    "stale-lease-cancellation",
+                    seeded.token,
+                    at(5_000)
+                )
             );
-            expect.fail("stale lease renewal should fail");
-        } catch (error) {
-            expect(error).toBeInstanceOf(AgentCoreError);
-            expect((error as AgentCoreError).code).toBe("lease.invalid");
+            const verifier = new RepositoryTurnLeaseVerifier(seeded.repository, () => at(6_000));
+
+            expect(verifier.permits(seeded.token)).toBe(false);
+            expect(
+                verifier.permits({
+                    turn: reclaimed.id,
+                    holder: replacementHolder,
+                    epoch: reclaimed.lease.epoch
+                })
+            ).toBe(true);
+            try {
+                seeded.runtime.renewTurn(
+                    reclaimed.id,
+                    reclaimed.revision,
+                    seeded.token,
+                    at(6_000),
+                    at(10_000)
+                );
+                expect.fail("stale lease renewal should fail");
+            } catch (error) {
+                expect(error).toBeInstanceOf(AgentCoreError);
+                expect((error as AgentCoreError).code).toBe("lease.invalid");
+            }
         }
-    });
+    );
 
     test("admits only the exact live Turn, holder, and epoch", { tags: "p0" }, () => {
         const lease = TurnLease.unclaimed(turn).claim(holder, at(1), at(10));

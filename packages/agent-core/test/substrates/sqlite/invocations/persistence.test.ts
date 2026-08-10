@@ -37,19 +37,23 @@ import { invocationLedgerContract } from "../../../invocations/ledger-contract";
 import { createSqliteInvocationPersistence } from "./fixture";
 import { describe, expect, test } from "vitest";
 
-test("[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract", { tags: "p1" }, () => {
-    const memoryState = createInvocationMemoryState();
-    const memory = new MemoryInvocationPersistence(invocationCodecs);
-    verifyPreparedContract(memory, (operation) => operation(memoryState), "memory");
+test(
+    "[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract",
+    { tags: "p1" },
+    () => {
+        const memoryState = createInvocationMemoryState();
+        const memory = new MemoryInvocationPersistence(invocationCodecs);
+        verifyPreparedContract(memory, (operation) => operation(memoryState), "memory");
 
-    const database = new TestSqlite();
-    const sqlite = createSqliteInvocationPersistence(database);
-    verifyPreparedContract(
-        sqlite,
-        (operation) => database.transaction(() => operation(database)),
-        "sqlite"
-    );
-});
+        const database = new TestSqlite();
+        const sqlite = createSqliteInvocationPersistence(database);
+        verifyPreparedContract(
+            sqlite,
+            (operation) => database.transaction(() => operation(database)),
+            "sqlite"
+        );
+    }
+);
 
 class SqliteHarness implements InvocationHarness<TransactionalSqlite> {
     public readonly database = new TestSqlite();
@@ -99,18 +103,22 @@ function verifyPreparedContract<Transaction>(
 invocationLedgerContract("sqlite", () => new SqliteHarness(), "excluded");
 
 describe("SqliteInvocationPersistence transaction scope", () => {
-    test("[C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation", { tags: "p0" }, () => {
-        const harness = new SqliteHarness();
-        expect(() =>
-            harness.persistence.prepared(
-                new RejectingSqlite(),
-                new InvocationId("foreign-transaction")
-            )
-        ).toThrow(/supplied transaction/);
-        expect(() =>
-            harness.persistence.insertPrepared(new RejectingSqlite(), prepared("foreign-write"))
-        ).toThrow(/supplied transaction/);
-    });
+    test(
+        "[C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation",
+        { tags: "p0" },
+        () => {
+            const harness = new SqliteHarness();
+            expect(() =>
+                harness.persistence.prepared(
+                    new RejectingSqlite(),
+                    new InvocationId("foreign-transaction")
+                )
+            ).toThrow(/supplied transaction/);
+            expect(() =>
+                harness.persistence.insertPrepared(new RejectingSqlite(), prepared("foreign-write"))
+            ).toThrow(/supplied transaction/);
+        }
+    );
 
     test("returns undefined for every missing durable lookup", { tags: "p1" }, () => {
         const harness = new SqliteHarness();
@@ -142,67 +150,75 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         });
     });
 
-    test("rejects orphan revisions, Receipts, and duplicate SQLite appends with typed errors", { tags: "p0" }, () => {
-        const harness = new SqliteHarness();
-        const invocation = prepared("sqlite-orphan");
-        const pending = Approval.pending(
-            new ApprovalId("sqlite-orphan"),
-            invocation.header.id,
-            invocation.intentDigest,
-            new Date(1000),
-            new Date(5000)
-        );
-        const approved = pending.approve(new PrincipalId("approver"), new Date(2000));
-        harness.transaction((transaction) => {
-            expect(() => harness.persistence.appendApproval(transaction, approved)).toThrow(
-                /projection/
+    test(
+        "rejects orphan revisions, Receipts, and duplicate SQLite appends with typed errors",
+        { tags: "p0" },
+        () => {
+            const harness = new SqliteHarness();
+            const invocation = prepared("sqlite-orphan");
+            const pending = Approval.pending(
+                new ApprovalId("sqlite-orphan"),
+                invocation.header.id,
+                invocation.intentDigest,
+                new Date(1000),
+                new Date(5000)
+            );
+            const approved = pending.approve(new PrincipalId("approver"), new Date(2000));
+            harness.transaction((transaction) => {
+                expect(() => harness.persistence.appendApproval(transaction, approved)).toThrow(
+                    /projection/
+                );
+                expect(() =>
+                    harness.persistence.appendReceipt(
+                        transaction,
+                        new AttemptReceipt(
+                            new ReceiptId("sqlite-orphan-receipt"),
+                            new EffectAttemptId("missing-attempt"),
+                            "failed",
+                            undefined,
+                            new Date(2000),
+                            undefined
+                        )
+                    )
+                ).toThrow(InvocationError);
+                harness.persistence.insertPrepared(transaction, invocation);
+                expect(() => harness.persistence.insertPrepared(transaction, invocation)).toThrow(
+                    InvocationError
+                );
+            });
+        }
+    );
+
+    test(
+        "decodes source EffectAttempt bytes before appending an AttemptReceipt",
+        { tags: "p0" },
+        () => {
+            const harness = new SqliteHarness();
+            const invocation = prepared("receipt-source-corruption");
+            const claim = systemClaim("receipt-source-corruption", 0);
+            const attempt = systemAttempt(invocation, claim, "receipt-source-corruption");
+            harness.transaction((transaction) =>
+                harness.persistence.appendAttempt(transaction, attempt)
+            );
+            harness.database.run(
+                "UPDATE invocation_effect_attempts SET record = 'corrupt' WHERE id = ?",
+                [attempt.id.value]
             );
             expect(() =>
                 harness.persistence.appendReceipt(
-                    transaction,
+                    harness.database,
                     new AttemptReceipt(
-                        new ReceiptId("sqlite-orphan-receipt"),
-                        new EffectAttemptId("missing-attempt"),
+                        new ReceiptId("receipt-source-corruption"),
+                        attempt.id,
                         "failed",
                         undefined,
-                        new Date(2000),
+                        new Date(3000),
                         undefined
                     )
                 )
-            ).toThrow(InvocationError);
-            harness.persistence.insertPrepared(transaction, invocation);
-            expect(() => harness.persistence.insertPrepared(transaction, invocation)).toThrow(
-                InvocationError
-            );
-        });
-    });
-
-    test("decodes source EffectAttempt bytes before appending an AttemptReceipt", { tags: "p0" }, () => {
-        const harness = new SqliteHarness();
-        const invocation = prepared("receipt-source-corruption");
-        const claim = systemClaim("receipt-source-corruption", 0);
-        const attempt = systemAttempt(invocation, claim, "receipt-source-corruption");
-        harness.transaction((transaction) =>
-            harness.persistence.appendAttempt(transaction, attempt)
-        );
-        harness.database.run(
-            "UPDATE invocation_effect_attempts SET record = 'corrupt' WHERE id = ?",
-            [attempt.id.value]
-        );
-        expect(() =>
-            harness.persistence.appendReceipt(
-                harness.database,
-                new AttemptReceipt(
-                    new ReceiptId("receipt-source-corruption"),
-                    attempt.id,
-                    "failed",
-                    undefined,
-                    new Date(3000),
-                    undefined
-                )
-            )
-        ).toThrow();
-    });
+            ).toThrow();
+        }
+    );
 
     test.each([
         {
@@ -312,100 +328,108 @@ describe("SqliteInvocationPersistence transaction scope", () => {
         expect(setup(harness)).toThrow(/Stored invocation projection|Invalid/);
     });
 
-    test("[C13-PREPARED-APPROVAL-CONTINUATION] fails closed on orphaned Approval and continuation indexes after restart", { tags: "p0" }, () => {
-        const harness = new SqliteHarness();
-        const invocation = prepared("sqlite-restart-indexes");
-        const approval = Approval.pending(
-            new ApprovalId("sqlite-restart-indexes-approval"),
-            invocation.header.id,
-            invocation.intentDigest,
-            new Date(1000)
-        );
-        const continuation = new InvocationContinuation<string>(
-            invocation.header.id,
-            invocation.intentDigest,
-            approval.id,
-            new EffectAttemptId("sqlite-restart-indexes-attempt"),
-            0,
-            0,
-            new ItemClaimId("sqlite-restart-indexes-claim"),
-            {
-                kind: "system",
-                actor: invocation.header.actor,
-                worker: new ClaimWorkerId("sqlite-restart-indexes-worker")
-            },
-            invocation.item(0).idempotencyKey,
-            new Date(2000)
-        );
-        harness.transaction((transaction) => {
-            harness.persistence.appendApproval(transaction, approval);
-            harness.persistence.insertContinuation(transaction, continuation);
-        });
-        expect(
-            harness.persistence.approvalRevision(harness.database, approval.id, 0)
-        ).toMatchObject({
-            id: approval.id
-        });
+    test(
+        "[C13-PREPARED-APPROVAL-CONTINUATION] fails closed on orphaned Approval and continuation indexes after restart",
+        { tags: "p0" },
+        () => {
+            const harness = new SqliteHarness();
+            const invocation = prepared("sqlite-restart-indexes");
+            const approval = Approval.pending(
+                new ApprovalId("sqlite-restart-indexes-approval"),
+                invocation.header.id,
+                invocation.intentDigest,
+                new Date(1000)
+            );
+            const continuation = new InvocationContinuation<string>(
+                invocation.header.id,
+                invocation.intentDigest,
+                approval.id,
+                new EffectAttemptId("sqlite-restart-indexes-attempt"),
+                0,
+                0,
+                new ItemClaimId("sqlite-restart-indexes-claim"),
+                {
+                    kind: "system",
+                    actor: invocation.header.actor,
+                    worker: new ClaimWorkerId("sqlite-restart-indexes-worker")
+                },
+                invocation.item(0).idempotencyKey,
+                new Date(2000)
+            );
+            harness.transaction((transaction) => {
+                harness.persistence.appendApproval(transaction, approval);
+                harness.persistence.insertContinuation(transaction, continuation);
+            });
+            expect(
+                harness.persistence.approvalRevision(harness.database, approval.id, 0)
+            ).toMatchObject({
+                id: approval.id
+            });
 
-        harness.database.run(
-            "UPDATE invocation_approval_identities SET approval_id = 'missing-approval' WHERE invocation_id = ?",
-            [invocation.header.id.value]
-        );
-        harness.database.run(
-            "UPDATE invocation_continuations SET invocation_id = 'substituted-invocation' WHERE invocation_id = ?",
-            [invocation.header.id.value]
-        );
-        harness.restart();
-        expect(() =>
-            harness.persistence.approvalForInvocation(harness.database, invocation.header.id)
-        ).toThrow(/Stored invocation projection/);
-        expect(() =>
-            harness.persistence.continuation(
-                harness.database,
-                new InvocationId("substituted-invocation")
-            )
-        ).toThrow(/Stored invocation projection/);
-    });
+            harness.database.run(
+                "UPDATE invocation_approval_identities SET approval_id = 'missing-approval' WHERE invocation_id = ?",
+                [invocation.header.id.value]
+            );
+            harness.database.run(
+                "UPDATE invocation_continuations SET invocation_id = 'substituted-invocation' WHERE invocation_id = ?",
+                [invocation.header.id.value]
+            );
+            harness.restart();
+            expect(() =>
+                harness.persistence.approvalForInvocation(harness.database, invocation.header.id)
+            ).toThrow(/Stored invocation projection/);
+            expect(() =>
+                harness.persistence.continuation(
+                    harness.database,
+                    new InvocationId("substituted-invocation")
+                )
+            ).toThrow(/Stored invocation projection/);
+        }
+    );
 
-    test("[C13-RECEIPT-ATTEMPT-CHAIN] fails closed when an Attempt Receipt loses or changes its source attempt projection", { tags: "p0" }, () => {
-        const orphan = new SqliteHarness();
-        const invocation = prepared("sqlite-orphaned-receipt-source");
-        const claim = systemClaim("sqlite-orphaned-receipt-source", 0);
-        const attempt = systemAttempt(invocation, claim, "sqlite-orphaned-receipt-source");
-        const receipt = new AttemptReceipt(
-            new ReceiptId("sqlite-orphaned-receipt-source-receipt"),
-            attempt.id,
-            "failed",
-            undefined,
-            new Date(3000),
-            undefined
-        );
-        orphan.transaction((transaction) => {
-            orphan.persistence.appendAttempt(transaction, attempt);
-            orphan.persistence.appendReceipt(transaction, receipt);
-        });
-        orphan.database.run("DELETE FROM invocation_effect_attempts WHERE id = ?", [
-            attempt.id.value
-        ]);
-        orphan.restart();
-        expect(() => orphan.persistence.receipt(orphan.database, receipt.id)).toThrow(
-            /Stored invocation projection/
-        );
+    test(
+        "[C13-RECEIPT-ATTEMPT-CHAIN] fails closed when an Attempt Receipt loses or changes its source attempt projection",
+        { tags: "p0" },
+        () => {
+            const orphan = new SqliteHarness();
+            const invocation = prepared("sqlite-orphaned-receipt-source");
+            const claim = systemClaim("sqlite-orphaned-receipt-source", 0);
+            const attempt = systemAttempt(invocation, claim, "sqlite-orphaned-receipt-source");
+            const receipt = new AttemptReceipt(
+                new ReceiptId("sqlite-orphaned-receipt-source-receipt"),
+                attempt.id,
+                "failed",
+                undefined,
+                new Date(3000),
+                undefined
+            );
+            orphan.transaction((transaction) => {
+                orphan.persistence.appendAttempt(transaction, attempt);
+                orphan.persistence.appendReceipt(transaction, receipt);
+            });
+            orphan.database.run("DELETE FROM invocation_effect_attempts WHERE id = ?", [
+                attempt.id.value
+            ]);
+            orphan.restart();
+            expect(() => orphan.persistence.receipt(orphan.database, receipt.id)).toThrow(
+                /Stored invocation projection/
+            );
 
-        const substituted = new SqliteHarness();
-        substituted.transaction((transaction) => {
-            substituted.persistence.appendAttempt(transaction, attempt);
-            substituted.persistence.appendReceipt(transaction, receipt);
-        });
-        substituted.database.run(
-            "UPDATE invocation_receipts SET invocation_id = 'substituted' WHERE id = ?",
-            [receipt.id.value]
-        );
-        substituted.restart();
-        expect(() => substituted.persistence.receipt(substituted.database, receipt.id)).toThrow(
-            /Stored invocation projection/
-        );
-    });
+            const substituted = new SqliteHarness();
+            substituted.transaction((transaction) => {
+                substituted.persistence.appendAttempt(transaction, attempt);
+                substituted.persistence.appendReceipt(transaction, receipt);
+            });
+            substituted.database.run(
+                "UPDATE invocation_receipts SET invocation_id = 'substituted' WHERE id = ?",
+                [receipt.id.value]
+            );
+            substituted.restart();
+            expect(() => substituted.persistence.receipt(substituted.database, receipt.id)).toThrow(
+                /Stored invocation projection/
+            );
+        }
+    );
 });
 
 describe("SqliteInvocationPersistence append conflict taxonomy", () => {

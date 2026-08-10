@@ -1,3 +1,4 @@
+import { compareText } from "../core";
 import { AgentCoreError } from "../errors";
 import type { ScopeRef } from "../identity";
 import { Binding } from "./binding";
@@ -72,7 +73,7 @@ export class MemoryBindingStore implements BindingStore {
             version: 1,
             records: Object.freeze(
                 [...this.#records.entries()]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareText(left, right))
                     .map(([key, bytes]) =>
                         Object.freeze({
                             key,

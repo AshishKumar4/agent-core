@@ -34,32 +34,36 @@ afterAll(() => {
 });
 
 describe("enforcement tier agrees with the verified model", () => {
-    test("tier agreement over the full (impact, session, placement) domain", { tags: "p0" }, async () => {
-        for (const impact of IMPACTS) {
-            for (const sessionScoped of [true, false]) {
-                for (const placement of MODES) {
-                    const implementation = evaluatePolicy({
-                        impact,
-                        turnOwnedSession: sessionScoped,
-                        placement,
-                        policies: []
-                    }).tier;
-                    const model = (
-                        await oracle.ask({
-                            op: "policy.tier",
+    test(
+        "tier agreement over the full (impact, session, placement) domain",
+        { tags: "p0" },
+        async () => {
+            for (const impact of IMPACTS) {
+                for (const sessionScoped of [true, false]) {
+                    for (const placement of MODES) {
+                        const implementation = evaluatePolicy({
                             impact,
-                            sessionScoped,
+                            turnOwnedSession: sessionScoped,
                             placement,
-                            intercepted: false
-                        })
-                    )["tier"];
-                    expect(implementation, `${impact}/${sessionScoped}/${placement}`).toBe(
-                        model
-                    );
+                            policies: []
+                        }).tier;
+                        const model = (
+                            await oracle.ask({
+                                op: "policy.tier",
+                                impact,
+                                sessionScoped,
+                                placement,
+                                intercepted: false
+                            })
+                        )["tier"];
+                        expect(implementation, `${impact}/${sessionScoped}/${placement}`).toBe(
+                            model
+                        );
+                    }
                 }
             }
         }
-    });
+    );
 
     test(
         "an applicable interceptor forces mediated for every impact, session, and placement",

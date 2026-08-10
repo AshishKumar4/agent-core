@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { SqliteProtocolPersistence, type SqliteRow, type SqliteValue } from "../../../src/substrates";
+import {
+    SqliteProtocolPersistence,
+    type SqliteRow,
+    type SqliteValue
+} from "../../../src/substrates";
 import { TestSqlite } from "../../helpers/sqlite";
 import {
     appendProtocolTestRecords,
@@ -8,7 +12,8 @@ import {
 } from "../../protocol/persistence-contract";
 
 class RowTamperSqlite extends TestSqlite {
-    public tamper: ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]) | undefined;
+    public tamper:
+        ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]) | undefined;
 
     public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = super.all(statement, bindings);
@@ -75,15 +80,19 @@ describe("SQLite protocol persistence exact schema and projection behavior", () 
         );
     });
 
-    test("reopens an initialized schema and keeps the exact version singleton", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        new SqliteProtocolPersistence(database);
-        new SqliteProtocolPersistence(database);
+    test(
+        "reopens an initialized schema and keeps the exact version singleton",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            new SqliteProtocolPersistence(database);
+            new SqliteProtocolPersistence(database);
 
-        expect(database.all("SELECT singleton, version FROM protocol_schema", [])).toEqual([
-            { singleton: 1, version: 4 }
-        ]);
-    });
+            expect(database.all("SELECT singleton, version FROM protocol_schema", [])).toEqual([
+                { singleton: 1, version: 4 }
+            ]);
+        }
+    );
 
     test("names a schema object with the wrong type exactly", { tags: "p1" }, () => {
         const database = new TestSqlite();
@@ -150,24 +159,28 @@ describe("SQLite protocol persistence exact schema and projection behavior", () 
         expect(() => new SqliteProtocolPersistence(forged)).toThrow(unsupported);
     });
 
-    test("rejects a counterfeit identity view projection when its rebuild is lost", { tags: "p0" }, () => {
-        const database = new ViewRebuildLossSqlite();
-        seededPersistence(database, "sqlite-view-tamper");
-        database.run("DROP VIEW protocol_command_identities", []);
-        database.run(
-            `CREATE VIEW protocol_command_identities AS
+    test(
+        "rejects a counterfeit identity view projection when its rebuild is lost",
+        { tags: "p0" },
+        () => {
+            const database = new ViewRebuildLossSqlite();
+            seededPersistence(database, "sqlite-view-tamper");
+            database.run("DROP VIEW protocol_command_identities", []);
+            database.run(
+                `CREATE VIEW protocol_command_identities AS
              SELECT sequence, caller_kind, principal_tenant_id, principal_id, actor_kind, actor_id,
                     idempotency_key, audit_id AS write_id
              FROM protocol_write_records
              WHERE caller_kind IS NOT NULL`,
-            []
-        );
-        database.suppressRebuild = true;
+                []
+            );
+            database.suppressRebuild = true;
 
-        expect(() => new SqliteProtocolPersistence(database)).toThrow(
-            corruptProtocol("SQLite protocol identity view projection is invalid")
-        );
-    });
+            expect(() => new SqliteProtocolPersistence(database)).toThrow(
+                corruptProtocol("SQLite protocol identity view projection is invalid")
+            );
+        }
+    );
 
     test("names a protocol table with reordered columns exactly", { tags: "p1" }, () => {
         const database = new TestSqlite();

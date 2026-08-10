@@ -3,8 +3,8 @@ import { PackageId } from "./id";
 import { PackageLock, PackagePin } from "./package-lock";
 import { MetadataSnapshot, PackageDependency, type PackageRelease } from "./package";
 import { PlatformCompatibility, compatibilityAdmits } from "./compatibility";
-import { compareText } from "./order";
 import { invalidDefinition } from "./error";
+import { compareText } from "../core";
 
 type Constraints = ReadonlyMap<string, readonly string[]>;
 type Selection = ReadonlyMap<string, PackageRelease>;

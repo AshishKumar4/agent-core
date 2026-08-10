@@ -174,39 +174,47 @@ type HarnessFactory = () => ActorHarness;
 
 function actorStoreContract(name: string, create: HarnessFactory): void {
     describe(`${name} ActorStore contract`, () => {
-        test("runs an asynchronous mailbox outside synchronous transactions", { tags: "p1" }, async () => {
-            const harness = create();
+        test(
+            "runs an asynchronous mailbox outside synchronous transactions",
+            { tags: "p1" },
+            async () => {
+                const harness = create();
 
-            expect(harness.actor.id).toBe(ACTOR_ID);
-            expect(harness.actor.ref).toEqual(ACTOR_REF);
-            expect(harness.initializations()).toBe(1);
-            expect(harness.recovery()?.recoveries).toBe(1);
+                expect(harness.actor.id).toBe(ACTOR_ID);
+                expect(harness.actor.ref).toEqual(ACTOR_REF);
+                expect(harness.initializations()).toBe(1);
+                expect(harness.recovery()?.recoveries).toBe(1);
 
-            const first = harness.actor.increment();
-            const second = harness.actor.increment();
+                const first = harness.actor.increment();
+                const second = harness.actor.increment();
 
-            expect(harness.value()).toBe(0);
-            await expect(first).resolves.toBe(1);
-            await expect(second).resolves.toBe(2);
-            expect(harness.initializations()).toBe(1);
-        });
+                expect(harness.value()).toBe(0);
+                await expect(first).resolves.toBe(1);
+                await expect(second).resolves.toBe(2);
+                expect(harness.initializations()).toBe(1);
+            }
+        );
 
-        test("[actor.recovery-state] recovers durable fencing state before a restarted actor serves", { tags: "p0" }, async () => {
-            const harness = create();
-            const firstFence = await harness.actor.currentFence();
+        test(
+            "[actor.recovery-state] recovers durable fencing state before a restarted actor serves",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const firstFence = await harness.actor.currentFence();
 
-            const restarted = harness.restart();
-            await expect(restarted.incrementFenced(firstFence)).rejects.toMatchObject(
-                staleFenceError()
-            );
-            const recoveredFence = await restarted.currentFence();
+                const restarted = harness.restart();
+                await expect(restarted.incrementFenced(firstFence)).rejects.toMatchObject(
+                    staleFenceError()
+                );
+                const recoveredFence = await restarted.currentFence();
 
-            expect(recoveredFence.epoch).toBe(firstFence.epoch + 1);
-            expect(harness.recovery()?.recoveries).toBe(2);
-            await expect(harness.actor.incrementFenced(firstFence)).rejects.toMatchObject(
-                staleFenceError()
-            );
-        });
+                expect(recoveredFence.epoch).toBe(firstFence.epoch + 1);
+                expect(harness.recovery()?.recoveries).toBe(2);
+                await expect(harness.actor.incrementFenced(firstFence)).rejects.toMatchObject(
+                    staleFenceError()
+                );
+            }
+        );
 
         test("rejects a fence that becomes stale while queued", { tags: "p0" }, async () => {
             const harness = create();
@@ -235,154 +243,190 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             expect(harness.recovery()?.recoveries).toBe(1);
         });
 
-        test("rejects runtime thenables and rolls their transaction back", { tags: "p0" }, async () => {
-            const harness = create();
+        test(
+            "rejects runtime thenables and rolls their transaction back",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
 
-            await expect(harness.actor.returnThenable()).rejects.toThrow(
-                "Actor transaction callbacks must be synchronous"
-            );
+                await expect(harness.actor.returnThenable()).rejects.toThrow(
+                    "Actor transaction callbacks must be synchronous"
+                );
 
-            expect(harness.value()).toBe(0);
-            expect(harness.recovery()?.recoveries).toBe(1);
-        });
+                expect(harness.value()).toBe(0);
+                expect(harness.recovery()?.recoveries).toBe(1);
+            }
+        );
 
-        test("rejects unstable thenable objects before committing state", { tags: "p0" }, async () => {
-            const harness = create();
+        test(
+            "rejects unstable thenable objects before committing state",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
 
-            await expect(harness.actor.returnStatefulThenableAfterIncrement()).rejects.toThrow(
-                "Actor transaction callbacks must be synchronous"
-            );
+                await expect(harness.actor.returnStatefulThenableAfterIncrement()).rejects.toThrow(
+                    "Actor transaction callbacks must be synchronous"
+                );
 
-            expect(harness.value()).toBe(0);
-            expect(harness.recovery()?.recoveries).toBe(1);
-        });
+                expect(harness.value()).toBe(0);
+                expect(harness.recovery()?.recoveries).toBe(1);
+            }
+        );
 
-        test("revokes an escaped Promise transaction before continuation", { tags: "p0" }, async () => {
-            const harness = create();
-            const escaped = harness.actor.escapePromise();
+        test(
+            "revokes an escaped Promise transaction before continuation",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const escaped = harness.actor.escapePromise();
 
-            await expect(escaped.execution).rejects.toThrow(
-                "Actor transaction callbacks must be synchronous"
-            );
-            await expect(escaped.lateResult()).rejects.toSatisfy(
-                isOperationalError("actor.closed")
-            );
-            expect(harness.value()).toBe(0);
-            expect(harness.recovery()?.recoveries).toBe(1);
-        });
+                await expect(escaped.execution).rejects.toThrow(
+                    "Actor transaction callbacks must be synchronous"
+                );
+                await expect(escaped.lateResult()).rejects.toSatisfy(
+                    isOperationalError("actor.closed")
+                );
+                expect(harness.value()).toBe(0);
+                expect(harness.recovery()?.recoveries).toBe(1);
+            }
+        );
 
-        test("[C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence", { tags: "p0" }, async () => {
-            const harness = create();
-            const fence = await harness.actor.currentFence();
-            const accepted = harness.actor.increment();
+        test(
+            "[C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const fence = await harness.actor.currentFence();
+                const accepted = harness.actor.increment();
 
-            const closing = harness.actor.close();
-            expect(harness.actor.close()).toBe(closing);
+                const closing = harness.actor.close();
+                expect(harness.actor.close()).toBe(closing);
 
-            await expect(accepted).resolves.toBe(1);
-            await closing;
-            await expect(harness.actor.increment()).rejects.toMatchObject(
-                new AgentCoreError("actor.closed", "Actor is closed")
-            );
-            expect(harness.recovery()?.epoch).toBe(fence.epoch + 1);
-        });
+                await expect(accepted).resolves.toBe(1);
+                await closing;
+                await expect(harness.actor.increment()).rejects.toMatchObject(
+                    new AgentCoreError("actor.closed", "Actor is closed")
+                );
+                expect(harness.recovery()?.epoch).toBe(fence.epoch + 1);
+            }
+        );
 
-        test("orders commands, fence reads, rotation, and close in one mailbox", { tags: "p1" }, async () => {
-            const harness = create();
-            const initial = await harness.actor.currentFence();
-            const increment = harness.actor.increment();
-            const beforeRotation = harness.actor.currentFence();
-            const rotation = harness.actor.rotateFence();
-            const afterRotation = harness.actor.currentFence();
-            const closing = harness.actor.close();
+        test(
+            "orders commands, fence reads, rotation, and close in one mailbox",
+            { tags: "p1" },
+            async () => {
+                const harness = create();
+                const initial = await harness.actor.currentFence();
+                const increment = harness.actor.increment();
+                const beforeRotation = harness.actor.currentFence();
+                const rotation = harness.actor.rotateFence();
+                const afterRotation = harness.actor.currentFence();
+                const closing = harness.actor.close();
 
-            await expect(increment).resolves.toBe(1);
-            expect((await beforeRotation).epoch).toBe(initial.epoch);
-            expect((await rotation).epoch).toBe(initial.epoch + 1);
-            expect((await afterRotation).epoch).toBe(initial.epoch + 1);
-            await closing;
-            expect(harness.recovery()?.epoch).toBe(initial.epoch + 2);
-        });
+                await expect(increment).resolves.toBe(1);
+                expect((await beforeRotation).epoch).toBe(initial.epoch);
+                expect((await rotation).epoch).toBe(initial.epoch + 1);
+                expect((await afterRotation).epoch).toBe(initial.epoch + 1);
+                await closing;
+                expect(harness.recovery()?.epoch).toBe(initial.epoch + 2);
+            }
+        );
 
-        test("fails closed after an unknown commit and recovers on a new incarnation", { tags: "p0" }, async () => {
-            const harness = create();
-            expect(ActorCommitUnknownError.codeDependency).toEqual({
-                requested: "actor.commit-unknown",
-                fallback: "actor.closed"
-            });
-            const previousFence = await harness.actor.currentFence();
-            harness.failNextCommitUnknown();
+        test(
+            "fails closed after an unknown commit and recovers on a new incarnation",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                expect(ActorCommitUnknownError.codeDependency).toEqual({
+                    requested: "actor.commit-unknown",
+                    fallback: "actor.closed"
+                });
+                const previousFence = await harness.actor.currentFence();
+                harness.failNextCommitUnknown();
 
-            const uncertain = harness.actor.increment();
-            const queued = harness.actor.increment();
+                const uncertain = harness.actor.increment();
+                const queued = harness.actor.increment();
 
-            await expect(uncertain).rejects.toEqual(
-                expect.objectContaining({
-                    code: "actor.closed",
-                    name: "ActorCommitUnknownError"
-                })
-            );
-            await expect(queued).rejects.toMatchObject({ code: "actor.closed" });
-            expect(harness.value()).toBe(1);
-            await expect(harness.actor.currentFence()).rejects.toMatchObject({
-                code: "actor.closed"
-            });
-            const closed = harness.actor.close();
-            expect(harness.actor.close()).toBe(closed);
-            await expect(closed).resolves.toBeUndefined();
-            await expect(harness.actor.rotateFence()).rejects.toMatchObject({
-                code: "actor.closed"
-            });
+                await expect(uncertain).rejects.toEqual(
+                    expect.objectContaining({
+                        code: "actor.closed",
+                        name: "ActorCommitUnknownError"
+                    })
+                );
+                await expect(queued).rejects.toMatchObject({ code: "actor.closed" });
+                expect(harness.value()).toBe(1);
+                await expect(harness.actor.currentFence()).rejects.toMatchObject({
+                    code: "actor.closed"
+                });
+                const closed = harness.actor.close();
+                expect(harness.actor.close()).toBe(closed);
+                await expect(closed).resolves.toBeUndefined();
+                await expect(harness.actor.rotateFence()).rejects.toMatchObject({
+                    code: "actor.closed"
+                });
 
-            const restarted = harness.restart();
-            expect((await restarted.currentFence()).epoch).toBe(previousFence.epoch + 1);
-            await expect(restarted.increment()).resolves.toBe(2);
-        });
+                const restarted = harness.restart();
+                expect((await restarted.currentFence()).epoch).toBe(previousFence.epoch + 1);
+                await expect(restarted.increment()).resolves.toBe(2);
+            }
+        );
 
-        test("keeps an unknown close commit poisoned after FIFO prior work", { tags: "p0" }, async () => {
-            const harness = create();
-            const previousFence = await harness.actor.currentFence();
-            harness.failCommitUnknownAfter(2);
-            const accepted = harness.actor.increment();
-            const closing = harness.actor.close();
+        test(
+            "keeps an unknown close commit poisoned after FIFO prior work",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const previousFence = await harness.actor.currentFence();
+                harness.failCommitUnknownAfter(2);
+                const accepted = harness.actor.increment();
+                const closing = harness.actor.close();
 
-            expect(harness.actor.close()).toBe(closing);
-            await expect(accepted).resolves.toBe(1);
-            await expect(closing).rejects.toBeInstanceOf(ActorCommitUnknownError);
-            expect(harness.actor.close()).toBe(closing);
-            await expect(harness.actor.currentFence()).rejects.toMatchObject({
-                code: "actor.closed"
-            });
+                expect(harness.actor.close()).toBe(closing);
+                await expect(accepted).resolves.toBe(1);
+                await expect(closing).rejects.toBeInstanceOf(ActorCommitUnknownError);
+                expect(harness.actor.close()).toBe(closing);
+                await expect(harness.actor.currentFence()).rejects.toMatchObject({
+                    code: "actor.closed"
+                });
 
-            const restarted = harness.restart();
-            expect((await restarted.currentFence()).epoch).toBe(previousFence.epoch + 2);
-            await expect(restarted.increment()).resolves.toBe(2);
-        });
+                const restarted = harness.restart();
+                expect((await restarted.currentFence()).epoch).toBe(previousFence.epoch + 2);
+                await expect(restarted.increment()).resolves.toBe(2);
+            }
+        );
 
-        test("finishes a queued close after prior work poisons the incarnation", { tags: "p1" }, async () => {
-            const harness = create();
-            const previousFence = await harness.actor.currentFence();
-            harness.failNextCommitUnknown();
+        test(
+            "finishes a queued close after prior work poisons the incarnation",
+            { tags: "p1" },
+            async () => {
+                const harness = create();
+                const previousFence = await harness.actor.currentFence();
+                harness.failNextCommitUnknown();
 
-            const uncertain = harness.actor.increment();
-            const closing = harness.actor.close();
+                const uncertain = harness.actor.increment();
+                const closing = harness.actor.close();
 
-            await expect(uncertain).rejects.toBeInstanceOf(ActorCommitUnknownError);
-            await expect(closing).resolves.toBeUndefined();
-            expect(harness.recovery()?.epoch).toBe(previousFence.epoch);
-        });
+                await expect(uncertain).rejects.toBeInstanceOf(ActorCommitUnknownError);
+                await expect(closing).resolves.toBeUndefined();
+                expect(harness.recovery()?.epoch).toBe(previousFence.epoch);
+            }
+        );
 
-        test("poisons trusted commit-unknown subclasses before queued commands", { tags: "p0" }, async () => {
-            const harness = create();
-            class ProtocolCommitUnknownError extends ActorCommitUnknownError {}
-            harness.failNextCommitWith(new ProtocolCommitUnknownError());
-            const uncertain = harness.actor.increment();
-            const queued = harness.actor.increment();
+        test(
+            "poisons trusted commit-unknown subclasses before queued commands",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                class ProtocolCommitUnknownError extends ActorCommitUnknownError {}
+                harness.failNextCommitWith(new ProtocolCommitUnknownError());
+                const uncertain = harness.actor.increment();
+                const queued = harness.actor.increment();
 
-            await expect(uncertain).rejects.toBeInstanceOf(ProtocolCommitUnknownError);
-            await expect(queued).rejects.toMatchObject({ code: "actor.closed" });
-            expect(harness.value()).toBe(1);
-        });
+                await expect(uncertain).rejects.toBeInstanceOf(ProtocolCommitUnknownError);
+                await expect(queued).rejects.toMatchObject({ code: "actor.closed" });
+                expect(harness.value()).toBe(1);
+            }
+        );
 
         test("does not let lookalike errors forge poisoning", { tags: "p0" }, async () => {
             const harness = create();
@@ -398,28 +442,36 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             await expect(harness.actor.increment()).resolves.toBe(4);
         });
 
-        test("does not trust commit uncertainty thrown by a command callback", { tags: "p0" }, async () => {
-            const harness = create();
+        test(
+            "does not trust commit uncertainty thrown by a command callback",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
 
-            await expect(harness.actor.forgeCommitUnknown()).rejects.toEqual(
-                expect.objectContaining({
-                    code: "protocol.invalid-state",
-                    message: "Commit uncertainty cannot originate inside an Actor transaction"
-                })
-            );
-            await expect(harness.actor.increment()).resolves.toBe(1);
-        });
+                await expect(harness.actor.forgeCommitUnknown()).rejects.toEqual(
+                    expect.objectContaining({
+                        code: "protocol.invalid-state",
+                        message: "Commit uncertainty cannot originate inside an Actor transaction"
+                    })
+                );
+                await expect(harness.actor.increment()).resolves.toBe(1);
+            }
+        );
 
-        test("closes a stale incarnation without advancing the current incarnation", { tags: "p0" }, async () => {
-            const harness = create();
-            const restarted = harness.restart();
-            const current = await restarted.currentFence();
+        test(
+            "closes a stale incarnation without advancing the current incarnation",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const restarted = harness.restart();
+                const current = await restarted.currentFence();
 
-            await expect(harness.actor.close()).resolves.toBeUndefined();
+                await expect(harness.actor.close()).resolves.toBeUndefined();
 
-            expect((await restarted.currentFence()).epoch).toBe(current.epoch);
-            await expect(restarted.increment()).resolves.toBe(1);
-        });
+                expect((await restarted.currentFence()).epoch).toBe(current.epoch);
+                await expect(restarted.increment()).resolves.toBe(1);
+            }
+        );
     });
 }
 
@@ -427,28 +479,32 @@ actorStoreContract("Memory", createMemoryHarness);
 actorStoreContract("SQLite", createSqliteHarness);
 
 describe("MemoryActorStore isolation", () => {
-    test("reports created and recovered activation without virtual construction", { tags: "p1" }, () => {
-        const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
-        const activations: ActorActivation[] = [];
-        const start: ActorStartOperation<{ starts: number }> = (transaction, activation) => {
-            transaction.starts += 1;
-            activations.push(activation);
-        };
+    test(
+        "reports created and recovered activation without virtual construction",
+        { tags: "p1" },
+        () => {
+            const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
+            const activations: ActorActivation[] = [];
+            const start: ActorStartOperation<{ starts: number }> = (transaction, activation) => {
+                transaction.starts += 1;
+                activations.push(activation);
+            };
 
-        new StartActor(createActorContext(ACTOR_REF, store), start);
-        new StartActor(createActorContext(ACTOR_REF, store), start);
+            new StartActor(createActorContext(ACTOR_REF, store), start);
+            new StartActor(createActorContext(ACTOR_REF, store), start);
 
-        expect(activations.map((value) => value.kind)).toEqual(["created", "recovered"]);
-        expect(activations.map((value) => value.recovery.recoveries)).toEqual([1, 2]);
-        expect(activations.every(Object.isFrozen)).toBe(true);
-        expect(store.snapshot().state.starts).toBe(2);
-        expect(() => ActorActivation.created(new ActorRecoveryState(ACTOR_REF, 1, 1))).toThrow(
-            /requires initial recovery state/
-        );
-        expect(() => ActorActivation.recovered(ActorRecoveryState.initial(ACTOR_REF))).toThrow(
-            /requires recovered state/
-        );
-    });
+            expect(activations.map((value) => value.kind)).toEqual(["created", "recovered"]);
+            expect(activations.map((value) => value.recovery.recoveries)).toEqual([1, 2]);
+            expect(activations.every(Object.isFrozen)).toBe(true);
+            expect(store.snapshot().state.starts).toBe(2);
+            expect(() => ActorActivation.created(new ActorRecoveryState(ACTOR_REF, 1, 1))).toThrow(
+                /requires initial recovery state/
+            );
+            expect(() => ActorActivation.recovered(ActorRecoveryState.initial(ACTOR_REF))).toThrow(
+                /requires recovered state/
+            );
+        }
+    );
 
     test("validates and narrows generic Actor stores without casts", { tags: "p1" }, () => {
         const atomic = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
@@ -474,80 +530,92 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rolls back Actor identity, recovery, and state when eager start fails", { tags: "p0" }, () => {
-        interface State {
-            starts: number;
+    test(
+        "rolls back Actor identity, recovery, and state when eager start fails",
+        { tags: "p0" },
+        () => {
+            interface State {
+                starts: number;
+            }
+            const store = new MemoryActorStore<State>({ starts: 0 }, structuredClone);
+            const failing = new ActorRef("run", new ActorId("failing-start"));
+
+            expect(
+                () =>
+                    new StartActor({ actor: failing, store }, (transaction) => {
+                        transaction.starts += 1;
+                        throw new TypeError("Injected start failure");
+                    })
+            ).toThrow("Injected start failure");
+            expect(store.snapshot()).toMatchObject({
+                actor: null,
+                recoveryState: null,
+                state: { starts: 0 }
+            });
+
+            const replacement = new ActorRef("run", new ActorId("replacement-start"));
+            expect(
+                () =>
+                    new StartActor({ actor: replacement, store }, (transaction) => {
+                        transaction.starts += 1;
+                    })
+            ).not.toThrow();
+            expect(store.snapshot()).toMatchObject({
+                actor: { kind: "run", id: "replacement-start" },
+                state: { starts: 1 }
+            });
         }
-        const store = new MemoryActorStore<State>({ starts: 0 }, structuredClone);
-        const failing = new ActorRef("run", new ActorId("failing-start"));
+    );
 
-        expect(
-            () =>
-                new StartActor({ actor: failing, store }, (transaction) => {
-                    transaction.starts += 1;
-                    throw new TypeError("Injected start failure");
-                })
-        ).toThrow("Injected start failure");
-        expect(store.snapshot()).toMatchObject({
-            actor: null,
-            recoveryState: null,
-            state: { starts: 0 }
-        });
+    test(
+        "rejects a runtime thenable from eager start and rolls activation back",
+        { tags: "p0" },
+        () => {
+            const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
+            const thenableStart = (transaction: { starts: number }) => {
+                transaction.starts += 1;
+                return new Proxy(
+                    {},
+                    {
+                        get: (_target, property) => (property === "then" ? noop : undefined)
+                    }
+                );
+            };
 
-        const replacement = new ActorRef("run", new ActorId("replacement-start"));
-        expect(
-            () =>
-                new StartActor({ actor: replacement, store }, (transaction) => {
-                    transaction.starts += 1;
-                })
-        ).not.toThrow();
-        expect(store.snapshot()).toMatchObject({
-            actor: { kind: "run", id: "replacement-start" },
-            state: { starts: 1 }
-        });
-    });
-
-    test("rejects a runtime thenable from eager start and rolls activation back", { tags: "p0" }, () => {
-        const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
-        const thenableStart = (transaction: { starts: number }) => {
-            transaction.starts += 1;
-            return new Proxy(
-                {},
-                {
-                    get: (_target, property) => (property === "then" ? noop : undefined)
-                }
+            expect(() => new StartActor({ actor: ACTOR_REF, store }, thenableStart)).toThrow(
+                "Actor transaction callbacks must be synchronous"
             );
-        };
+            expect(store.snapshot()).toMatchObject({
+                actor: null,
+                recoveryState: null,
+                state: { starts: 0 }
+            });
+        }
+    );
 
-        expect(() => new StartActor({ actor: ACTOR_REF, store }, thenableStart)).toThrow(
-            "Actor transaction callbacks must be synchronous"
-        );
-        expect(store.snapshot()).toMatchObject({
-            actor: null,
-            recoveryState: null,
-            state: { starts: 0 }
-        });
-    });
+    test(
+        "fails closed when an existing Actor identity has no recovery state",
+        { tags: "p0" },
+        () => {
+            const store = MemoryActorStore.restore<{ starts: number }>(
+                {
+                    version: 1,
+                    state: { starts: 0 },
+                    actor: { kind: ACTOR_REF.kind, id: ACTOR_REF.id.value },
+                    recoveryState: null
+                },
+                structuredClone
+            );
 
-    test("fails closed when an existing Actor identity has no recovery state", { tags: "p0" }, () => {
-        const store = MemoryActorStore.restore<{ starts: number }>(
-            {
-                version: 1,
-                state: { starts: 0 },
-                actor: { kind: ACTOR_REF.kind, id: ACTOR_REF.id.value },
-                recoveryState: null
-            },
-            structuredClone
-        );
-
-        expect(
-            () =>
-                new StartActor({ actor: ACTOR_REF, store }, (transaction) => {
-                    transaction.starts += 1;
-                })
-        ).toSatisfy(throwsOperationalError("codec.invalid"));
-        expect(store.snapshot().state.starts).toBe(0);
-    });
+            expect(
+                () =>
+                    new StartActor({ actor: ACTOR_REF, store }, (transaction) => {
+                        transaction.starts += 1;
+                    })
+            ).toSatisfy(throwsOperationalError("codec.invalid"));
+            expect(store.snapshot().state.starts).toBe(0);
+        }
+    );
 
     test("rejects sharing one store across different Actor identities", { tags: "p0" }, () => {
         const store = new MemoryActorStore({ value: 0 }, structuredClone);
@@ -585,64 +653,77 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rejects nested transactions and recovery access outside its Actor scope", { tags: "p0" }, () => {
-        const store = new MemoryActorStore({ value: 0 }, structuredClone);
-        const other = new ActorRef("run", new ActorId("other-memory-actor"));
-        store.bindActor(ACTOR_REF);
+    test(
+        "rejects nested transactions and recovery access outside its Actor scope",
+        { tags: "p0" },
+        () => {
+            const store = new MemoryActorStore({ value: 0 }, structuredClone);
+            const other = new ActorRef("run", new ActorId("other-memory-actor"));
+            store.bindActor(ACTOR_REF);
 
-        expect(() => store.loadRecoveryState({ value: 0 }, ACTOR_REF)).toSatisfy(
-            throwsOperationalError("actor.stale-callback")
-        );
-        store.transaction((transaction) => {
-            expect(() => store.transaction(() => undefined)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
+            expect(() => store.loadRecoveryState({ value: 0 }, ACTOR_REF)).toSatisfy(
+                throwsOperationalError("actor.stale-callback")
             );
-            expect(() => store.loadRecoveryState(transaction, other)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
-            );
-        });
-    });
-
-    test("commits a detached draft that cannot be changed through nested references", { tags: "p0" }, () => {
-        interface State {
-            readonly nested: { value: number };
+            store.transaction((transaction) => {
+                expect(() => store.transaction(() => undefined)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+                expect(() => store.loadRecoveryState(transaction, other)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+            });
         }
+    );
 
-        const store = new MemoryActorStore<State>({ nested: { value: 0 } }, structuredClone);
-        let captured: State["nested"] | undefined;
-        const returned = store.transaction((transaction) => {
-            transaction.nested.value = 1;
-            captured = transaction.nested;
-            return transaction.nested;
-        });
+    test(
+        "commits a detached draft that cannot be changed through nested references",
+        { tags: "p0" },
+        () => {
+            interface State {
+                readonly nested: { value: number };
+            }
 
-        returned.value = 2;
-        if (captured === undefined) {
-            throw new TypeError("Transaction did not capture its nested draft");
+            const store = new MemoryActorStore<State>({ nested: { value: 0 } }, structuredClone);
+            let captured: State["nested"] | undefined;
+            const returned = store.transaction((transaction) => {
+                transaction.nested.value = 1;
+                captured = transaction.nested;
+                return transaction.nested;
+            });
+
+            returned.value = 2;
+            if (captured === undefined) {
+                throw new TypeError("Transaction did not capture its nested draft");
+            }
+            captured.value = 3;
+
+            expect(store.snapshot().state.nested.value).toBe(1);
         }
-        captured.value = 3;
+    );
 
-        expect(store.snapshot().state.nested.value).toBe(1);
-    });
+    test(
+        "expires an escaped write transaction with a typed capability error",
+        { tags: "p0" },
+        () => {
+            const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
+            let escaped: { value: number } | undefined;
 
-    test("expires an escaped write transaction with a typed capability error", { tags: "p0" }, () => {
-        const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
-        let escaped: { value: number } | undefined;
+            store.transaction((transaction) => {
+                escaped = transaction;
+                transaction.value = 1;
+            });
 
-        store.transaction((transaction) => {
-            escaped = transaction;
-            transaction.value = 1;
-        });
-
-        expect(() => escaped!.value).toSatisfy(throwsOperationalError("actor.closed"));
-        expect(() => {
-            escaped!.value = 2;
-        }).toSatisfy(throwsOperationalError("actor.closed"));
-        expect(store.snapshot().state.value).toBe(1);
-    });
+            expect(() => escaped!.value).toSatisfy(throwsOperationalError("actor.closed"));
+            expect(() => {
+                escaped!.value = 2;
+            }).toSatisfy(throwsOperationalError("actor.closed"));
+            expect(store.snapshot().state.value).toBe(1);
+        }
+    );
 
     test.each(["commit", "rollback"] as const)(
-        "expires every reflective transaction capability after %s", { tags: "p0" },
+        "expires every reflective transaction capability after %s",
+        { tags: "p0" },
         (outcome) => {
             const store = new MemoryActorStore<{ value: number }>({ value: 0 }, structuredClone);
             let escaped: object | undefined;
@@ -688,131 +769,151 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.nested.value).toBe(0);
     });
 
-    test("exposes detached immutable reads only inside the active transaction", { tags: "p0" }, () => {
-        interface State {
-            nested: { value: number };
-        }
-        const store = new MemoryActorStore<State>({ nested: { value: 1 } }, structuredClone);
-        let escaped: { readonly nested: { readonly value: number } } | undefined;
+    test(
+        "exposes detached immutable reads only inside the active transaction",
+        { tags: "p0" },
+        () => {
+            interface State {
+                nested: { value: number };
+            }
+            const store = new MemoryActorStore<State>({ nested: { value: 1 } }, structuredClone);
+            let escaped: { readonly nested: { readonly value: number } } | undefined;
 
-        expect(() => store.read({ nested: { value: 1 } }, (value) => value)).toSatisfy(
-            throwsOperationalError("actor.stale-callback")
-        );
-        store.transaction((transaction) => {
-            store.read(transaction, (view) => {
-                escaped = view;
-                expect(Object.isFrozen(view)).toBe(true);
-                expect(Object.isFrozen(view.nested)).toBe(true);
-                expect(() => {
-                    view.nested.value = 2;
-                }).toSatisfy(throwsOperationalError("protocol.invalid-state"));
+            expect(() => store.read({ nested: { value: 1 } }, (value) => value)).toSatisfy(
+                throwsOperationalError("actor.stale-callback")
+            );
+            store.transaction((transaction) => {
+                store.read(transaction, (view) => {
+                    escaped = view;
+                    expect(Object.isFrozen(view)).toBe(true);
+                    expect(Object.isFrozen(view.nested)).toBe(true);
+                    expect(() => {
+                        view.nested.value = 2;
+                    }).toSatisfy(throwsOperationalError("protocol.invalid-state"));
+                });
             });
-        });
 
-        expect(store.snapshot().state.nested.value).toBe(1);
-        expect(escaped?.nested.value).toBe(1);
-        expect(() => {
-            (escaped!.nested as { value: number }).value = 3;
-        }).toSatisfy(throwsOperationalError("protocol.invalid-state"));
-    });
-
-    test("snapshots and restores detached Actor identity and recovery bytes", { tags: "p0" }, () => {
-        interface State {
-            nested: { value: number };
+            expect(store.snapshot().state.nested.value).toBe(1);
+            expect(escaped?.nested.value).toBe(1);
+            expect(() => {
+                (escaped!.nested as { value: number }).value = 3;
+            }).toSatisfy(throwsOperationalError("protocol.invalid-state"));
         }
-        const actorId = new ActorId("snapshot-actor");
-        const store = new MemoryActorStore<State>({ nested: { value: 1 } }, structuredClone);
-        const actor = new ActorRef("run", actorId);
-        store.bindActor(actor);
-        store.transaction((transaction) => {
-            transaction.nested.value = 2;
-            store.saveRecoveryState(transaction, ActorRecoveryState.initial(actor));
-        });
-        const snapshot = store.snapshot();
-        const restored = MemoryActorStore.restore<State>(snapshot, structuredClone);
-        snapshot.state.nested.value = 9;
-        snapshot.recoveryState?.fill(0);
+    );
 
-        expect(store.snapshot().state.nested.value).toBe(2);
-        expect(restored.snapshot().state.nested.value).toBe(2);
-        expect(restored.snapshot().actor).toEqual({ kind: actor.kind, id: actor.id.value });
-        expect(
-            restored.transaction(
-                (transaction) => restored.loadRecoveryState(transaction, actor)?.epoch
-            )
-        ).toBe(0);
-    });
+    test(
+        "snapshots and restores detached Actor identity and recovery bytes",
+        { tags: "p0" },
+        () => {
+            interface State {
+                nested: { value: number };
+            }
+            const actorId = new ActorId("snapshot-actor");
+            const store = new MemoryActorStore<State>({ nested: { value: 1 } }, structuredClone);
+            const actor = new ActorRef("run", actorId);
+            store.bindActor(actor);
+            store.transaction((transaction) => {
+                transaction.nested.value = 2;
+                store.saveRecoveryState(transaction, ActorRecoveryState.initial(actor));
+            });
+            const snapshot = store.snapshot();
+            const restored = MemoryActorStore.restore<State>(snapshot, structuredClone);
+            snapshot.state.nested.value = 9;
+            snapshot.recoveryState?.fill(0);
 
-    test("restores a valid unbound snapshot without inventing Actor recovery", { tags: "p0" }, () => {
-        const restored = MemoryActorStore.restore(
-            {
-                version: 1,
-                state: { value: 3 },
-                actor: null,
-                recoveryState: null
-            },
-            structuredClone
-        );
+            expect(store.snapshot().state.nested.value).toBe(2);
+            expect(restored.snapshot().state.nested.value).toBe(2);
+            expect(restored.snapshot().actor).toEqual({ kind: actor.kind, id: actor.id.value });
+            expect(
+                restored.transaction(
+                    (transaction) => restored.loadRecoveryState(transaction, actor)?.epoch
+                )
+            ).toBe(0);
+        }
+    );
 
-        expect(restored.snapshot()).toEqual({
-            version: 1,
-            state: { value: 3 },
-            actor: null,
-            recoveryState: null
-        });
-    });
-
-    test("fails closed on malformed, future-major, and mismatched recovery snapshots", { tags: "p0" }, () => {
-        const actorId = new ActorId("snapshot-actor");
-        const actor = new ActorRef("run", actorId);
-        const snapshot = (recoveryState: Uint8Array) => ({
-            version: 1 as const,
-            state: { value: 0 },
-            actor: { kind: actor.kind, id: actor.id.value },
-            recoveryState
-        });
-        const malformed = new TextEncoder().encode("{");
-        const future = encodeCanonicalJson({
-            kind: "actor.recovery-state",
-            payload: { actor: { kind: actor.kind, id: actor.id.value }, epoch: 0, recoveries: 1 },
-            version: { major: 2, minor: 0 }
-        });
-        const mismatched = ActorRecoveryState.codec.encode(
-            ActorRecoveryState.initial(new ActorRef("run", new ActorId("other-actor")))
-        );
-
-        expect(() => MemoryActorStore.restore(snapshot(malformed), structuredClone)).toSatisfy(
-            throwsOperationalError("codec.invalid")
-        );
-        expect(() => MemoryActorStore.restore(snapshot(future), structuredClone)).toSatisfy(
-            throwsOperationalError("codec.unknown-major")
-        );
-        expect(() => MemoryActorStore.restore(snapshot(mismatched), structuredClone)).toSatisfy(
-            throwsOperationalError("codec.invalid")
-        );
-        expect(() =>
-            MemoryActorStore.restore(
+    test(
+        "restores a valid unbound snapshot without inventing Actor recovery",
+        { tags: "p0" },
+        () => {
+            const restored = MemoryActorStore.restore(
                 {
                     version: 1,
-                    state: { value: 0 },
-                    actor: null,
-                    recoveryState: mismatched
-                },
-                structuredClone
-            )
-        ).toSatisfy(throwsOperationalError("codec.invalid"));
-        expect(() =>
-            Reflect.apply(MemoryActorStore.restore, MemoryActorStore, [
-                {
-                    version: 1,
-                    state: null,
+                    state: { value: 3 },
                     actor: null,
                     recoveryState: null
                 },
                 structuredClone
-            ])
-        ).toSatisfy(throwsOperationalError("codec.invalid"));
-    });
+            );
+
+            expect(restored.snapshot()).toEqual({
+                version: 1,
+                state: { value: 3 },
+                actor: null,
+                recoveryState: null
+            });
+        }
+    );
+
+    test(
+        "fails closed on malformed, future-major, and mismatched recovery snapshots",
+        { tags: "p0" },
+        () => {
+            const actorId = new ActorId("snapshot-actor");
+            const actor = new ActorRef("run", actorId);
+            const snapshot = (recoveryState: Uint8Array) => ({
+                version: 1 as const,
+                state: { value: 0 },
+                actor: { kind: actor.kind, id: actor.id.value },
+                recoveryState
+            });
+            const malformed = new TextEncoder().encode("{");
+            const future = encodeCanonicalJson({
+                kind: "actor.recovery-state",
+                payload: {
+                    actor: { kind: actor.kind, id: actor.id.value },
+                    epoch: 0,
+                    recoveries: 1
+                },
+                version: { major: 2, minor: 0 }
+            });
+            const mismatched = ActorRecoveryState.codec.encode(
+                ActorRecoveryState.initial(new ActorRef("run", new ActorId("other-actor")))
+            );
+
+            expect(() => MemoryActorStore.restore(snapshot(malformed), structuredClone)).toSatisfy(
+                throwsOperationalError("codec.invalid")
+            );
+            expect(() => MemoryActorStore.restore(snapshot(future), structuredClone)).toSatisfy(
+                throwsOperationalError("codec.unknown-major")
+            );
+            expect(() => MemoryActorStore.restore(snapshot(mismatched), structuredClone)).toSatisfy(
+                throwsOperationalError("codec.invalid")
+            );
+            expect(() =>
+                MemoryActorStore.restore(
+                    {
+                        version: 1,
+                        state: { value: 0 },
+                        actor: null,
+                        recoveryState: mismatched
+                    },
+                    structuredClone
+                )
+            ).toSatisfy(throwsOperationalError("codec.invalid"));
+            expect(() =>
+                Reflect.apply(MemoryActorStore.restore, MemoryActorStore, [
+                    {
+                        version: 1,
+                        state: null,
+                        actor: null,
+                        recoveryState: null
+                    },
+                    structuredClone
+                ])
+            ).toSatisfy(throwsOperationalError("codec.invalid"));
+        }
+    );
 
     test("rejects shared-memory state that cannot be detached", { tags: "p0" }, () => {
         if (typeof SharedArrayBuffer === "undefined") return;
@@ -854,23 +955,27 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rejects aliases retained through symbol and non-enumerable properties", { tags: "p0" }, () => {
-        const symbol = Symbol("hidden-alias");
-        const nested = { value: 1 };
-        const state = { visible: 1 } as { visible: number; [symbol]?: typeof nested };
-        Object.defineProperty(state, "hidden", { value: nested, enumerable: false });
-        state[symbol] = nested;
+    test(
+        "rejects aliases retained through symbol and non-enumerable properties",
+        { tags: "p0" },
+        () => {
+            const symbol = Symbol("hidden-alias");
+            const nested = { value: 1 };
+            const state = { visible: 1 } as { visible: number; [symbol]?: typeof nested };
+            Object.defineProperty(state, "hidden", { value: nested, enumerable: false });
+            state[symbol] = nested;
 
-        expect(
-            () =>
-                new MemoryActorStore(state, (source) => {
-                    const copy = { visible: source.visible } as typeof state;
-                    Object.defineProperty(copy, "hidden", { value: nested, enumerable: false });
-                    copy[symbol] = nested;
-                    return copy;
-                })
-        ).toThrow(/detach all mutable state/);
-    });
+            expect(
+                () =>
+                    new MemoryActorStore(state, (source) => {
+                        const copy = { visible: source.visible } as typeof state;
+                        Object.defineProperty(copy, "hidden", { value: nested, enumerable: false });
+                        copy[symbol] = nested;
+                        return copy;
+                    })
+            ).toThrow(/detach all mutable state/);
+        }
+    );
 
     test("walks a non-callable snapshot-key value as ordinary state", { tags: "p0" }, () => {
         // The snapshot key names a method the store calls to obtain owned state.
@@ -916,25 +1021,29 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
-    test("does not exempt extensible TextId subclass state from clone ownership", { tags: "p0" }, () => {
-        class ExtensibleId extends TextId {
-            public constructor(
-                value: string,
-                public readonly metadata: { value: number }
-            ) {
-                super(value, "Extensible ID");
+    test(
+        "does not exempt extensible TextId subclass state from clone ownership",
+        { tags: "p0" },
+        () => {
+            class ExtensibleId extends TextId {
+                public constructor(
+                    value: string,
+                    public readonly metadata: { value: number }
+                ) {
+                    super(value, "Extensible ID");
+                }
             }
-        }
-        const metadata = { value: 1 };
-        const state = { id: new ExtensibleId("id", metadata) };
+            const metadata = { value: 1 };
+            const state = { id: new ExtensibleId("id", metadata) };
 
-        expect(
-            () =>
-                new MemoryActorStore(state, (source) => ({
-                    id: new ExtensibleId(source.id.value, source.id.metadata)
-                }))
-        ).toThrow(/detach all mutable state/);
-    });
+            expect(
+                () =>
+                    new MemoryActorStore(state, (source) => ({
+                        id: new ExtensibleId(source.id.value, source.id.metadata)
+                    }))
+            ).toThrow(/detach all mutable state/);
+        }
+    );
 
     test("does not treat an extensible TextId itself as an immutable leaf", { tags: "p0" }, () => {
         class ExtensibleId extends TextId {
@@ -976,34 +1085,38 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
-    test("traverses attached string, symbol, and non-enumerable TextId metadata", { tags: "p0" }, () => {
-        class ExtensibleId extends TextId {
-            public constructor(value: string) {
-                super(value, "Extensible ID");
+    test(
+        "traverses attached string, symbol, and non-enumerable TextId metadata",
+        { tags: "p0" },
+        () => {
+            class ExtensibleId extends TextId {
+                public constructor(value: string) {
+                    super(value, "Extensible ID");
+                }
+            }
+            const symbol = Symbol("id-metadata");
+            const properties: readonly [PropertyKey, boolean][] = [
+                ["metadata", true],
+                [symbol, true],
+                ["hidden", false]
+            ];
+
+            for (const [property, enumerable] of properties) {
+                const metadata = { value: 1 };
+                const id = new ExtensibleId("id");
+                Object.defineProperty(id, property, { value: metadata, enumerable });
+
+                expect(
+                    () =>
+                        new MemoryActorStore({ id }, (source) => {
+                            const copy = new ExtensibleId(source.id.value);
+                            Object.defineProperty(copy, property, { value: metadata, enumerable });
+                            return { id: copy };
+                        })
+                ).toThrow(/detach all mutable state/);
             }
         }
-        const symbol = Symbol("id-metadata");
-        const properties: readonly [PropertyKey, boolean][] = [
-            ["metadata", true],
-            [symbol, true],
-            ["hidden", false]
-        ];
-
-        for (const [property, enumerable] of properties) {
-            const metadata = { value: 1 };
-            const id = new ExtensibleId("id");
-            Object.defineProperty(id, property, { value: metadata, enumerable });
-
-            expect(
-                () =>
-                    new MemoryActorStore({ id }, (source) => {
-                        const copy = new ExtensibleId(source.id.value);
-                        Object.defineProperty(copy, property, { value: metadata, enumerable });
-                        return { id: copy };
-                    })
-            ).toThrow(/detach all mutable state/);
-        }
-    });
+    );
 
     test("traverses mutable metadata held by a frozen TextId subclass", { tags: "p0" }, () => {
         class FrozenMetadataId extends TextId {
@@ -1026,109 +1139,117 @@ describe("MemoryActorStore isolation", () => {
         ).toThrow(/detach all mutable state/);
     });
 
-    test("detaches frozen TextIds with private, symbol, and non-enumerable state", { tags: "p0" }, () => {
-        const symbol = Symbol("private-id-symbol");
-        class FrozenPrivateId extends TextId {
-            readonly #privateMetadata: { value: number };
-            readonly #symbolMetadata: { value: number };
-            readonly #hiddenMetadata: { value: number };
+    test(
+        "detaches frozen TextIds with private, symbol, and non-enumerable state",
+        { tags: "p0" },
+        () => {
+            const symbol = Symbol("private-id-symbol");
+            class FrozenPrivateId extends TextId {
+                readonly #privateMetadata: { value: number };
+                readonly #symbolMetadata: { value: number };
+                readonly #hiddenMetadata: { value: number };
 
-            public constructor(
-                value: string,
-                privateMetadata: { value: number },
-                symbolMetadata: { value: number },
-                hiddenMetadata: { value: number }
-            ) {
-                super(value, "Frozen private ID");
-                this.#privateMetadata = privateMetadata;
-                this.#symbolMetadata = symbolMetadata;
-                this.#hiddenMetadata = hiddenMetadata;
-                Object.defineProperty(this, symbol, {
-                    value: symbolMetadata,
-                    enumerable: true
-                });
-                Object.defineProperty(this, "hidden", {
-                    value: hiddenMetadata,
-                    enumerable: false
-                });
-                Object.freeze(this);
-            }
+                public constructor(
+                    value: string,
+                    privateMetadata: { value: number },
+                    symbolMetadata: { value: number },
+                    hiddenMetadata: { value: number }
+                ) {
+                    super(value, "Frozen private ID");
+                    this.#privateMetadata = privateMetadata;
+                    this.#symbolMetadata = symbolMetadata;
+                    this.#hiddenMetadata = hiddenMetadata;
+                    Object.defineProperty(this, symbol, {
+                        value: symbolMetadata,
+                        enumerable: true
+                    });
+                    Object.defineProperty(this, "hidden", {
+                        value: hiddenMetadata,
+                        enumerable: false
+                    });
+                    Object.freeze(this);
+                }
 
-            public detached(): FrozenPrivateId {
-                return new FrozenPrivateId(
-                    this.value,
-                    structuredClone(this.#privateMetadata),
-                    structuredClone(this.#symbolMetadata),
-                    structuredClone(this.#hiddenMetadata)
-                );
-            }
+                public detached(): FrozenPrivateId {
+                    return new FrozenPrivateId(
+                        this.value,
+                        structuredClone(this.#privateMetadata),
+                        structuredClone(this.#symbolMetadata),
+                        structuredClone(this.#hiddenMetadata)
+                    );
+                }
 
-            public mutate(value: number): void {
-                this.#privateMetadata.value = value;
-                this.#symbolMetadata.value = value;
-                this.#hiddenMetadata.value = value;
-            }
+                public mutate(value: number): void {
+                    this.#privateMetadata.value = value;
+                    this.#symbolMetadata.value = value;
+                    this.#hiddenMetadata.value = value;
+                }
 
-            public values(): readonly number[] {
-                return [
-                    this.#privateMetadata.value,
-                    this.#symbolMetadata.value,
-                    this.#hiddenMetadata.value
-                ];
+                public values(): readonly number[] {
+                    return [
+                        this.#privateMetadata.value,
+                        this.#symbolMetadata.value,
+                        this.#hiddenMetadata.value
+                    ];
+                }
             }
+            const id = new FrozenPrivateId("id", { value: 1 }, { value: 2 }, { value: 3 });
+
+            expect(Object.getOwnPropertyDescriptor(id, symbol)?.enumerable).toBe(true);
+            expect(Object.getOwnPropertyDescriptor(id, "hidden")?.enumerable).toBe(false);
+            expect(() => new MemoryActorStore({ id }, (source) => ({ id: source.id }))).toThrow(
+                /detach all mutable state/
+            );
+
+            const store = new MemoryActorStore({ id }, (source) => ({ id: source.id.detached() }));
+            id.mutate(4);
+            expect(store.snapshot().state.id.values()).toEqual([1, 2, 3]);
+
+            const snapshot = store.snapshot();
+            snapshot.state.id.mutate(5);
+            expect(store.snapshot().state.id.values()).toEqual([1, 2, 3]);
+            store.transaction((transaction) =>
+                store.read(transaction, (view) => {
+                    expect(view.id.value).toBe("id");
+                    expect(() => view.id.mutate(6)).toThrow(/immutable/);
+                })
+            );
+            expect(store.snapshot().state.id.values()).toEqual([1, 2, 3]);
         }
-        const id = new FrozenPrivateId("id", { value: 1 }, { value: 2 }, { value: 3 });
+    );
 
-        expect(Object.getOwnPropertyDescriptor(id, symbol)?.enumerable).toBe(true);
-        expect(Object.getOwnPropertyDescriptor(id, "hidden")?.enumerable).toBe(false);
-        expect(() => new MemoryActorStore({ id }, (source) => ({ id: source.id }))).toThrow(
-            /detach all mutable state/
-        );
-
-        const store = new MemoryActorStore({ id }, (source) => ({ id: source.id.detached() }));
-        id.mutate(4);
-        expect(store.snapshot().state.id.values()).toEqual([1, 2, 3]);
-
-        const snapshot = store.snapshot();
-        snapshot.state.id.mutate(5);
-        expect(store.snapshot().state.id.values()).toEqual([1, 2, 3]);
-        store.transaction((transaction) =>
-            store.read(transaction, (view) => {
-                expect(view.id.value).toBe("id");
-                expect(() => view.id.mutate(6)).toThrow(/immutable/);
-            })
-        );
-        expect(store.snapshot().state.id.values()).toEqual([1, 2, 3]);
-    });
-
-    test("accepts detached extensible TextIds and protects their read metadata", { tags: "p1" }, () => {
-        class ExtensibleId extends TextId {
-            public constructor(
-                value: string,
-                public readonly metadata: { value: number }
-            ) {
-                super(value, "Extensible ID");
+    test(
+        "accepts detached extensible TextIds and protects their read metadata",
+        { tags: "p1" },
+        () => {
+            class ExtensibleId extends TextId {
+                public constructor(
+                    value: string,
+                    public readonly metadata: { value: number }
+                ) {
+                    super(value, "Extensible ID");
+                }
             }
-        }
-        const metadata = { value: 1 };
-        const clone = (state: { id: ExtensibleId }): { id: ExtensibleId } => ({
-            id: new ExtensibleId(state.id.value, structuredClone(state.id.metadata))
-        });
-        const store = new MemoryActorStore({ id: new ExtensibleId("id", metadata) }, clone);
-        metadata.value = 2;
+            const metadata = { value: 1 };
+            const clone = (state: { id: ExtensibleId }): { id: ExtensibleId } => ({
+                id: new ExtensibleId(state.id.value, structuredClone(state.id.metadata))
+            });
+            const store = new MemoryActorStore({ id: new ExtensibleId("id", metadata) }, clone);
+            metadata.value = 2;
 
-        expect(store.snapshot().state.id.metadata.value).toBe(1);
-        store.transaction((transaction) =>
-            store.read(transaction, (view) => {
-                expect(view.id.value).toBe("id");
-                expect(view.id.toString()).toBe("id");
-                expect(() => {
-                    view.id.metadata.value = 3;
-                }).toThrow(/immutable/);
-            })
-        );
-        expect(store.snapshot().state.id.metadata.value).toBe(1);
-    });
+            expect(store.snapshot().state.id.metadata.value).toBe(1);
+            store.transaction((transaction) =>
+                store.read(transaction, (view) => {
+                    expect(view.id.value).toBe("id");
+                    expect(view.id.toString()).toBe("id");
+                    expect(() => {
+                        view.id.metadata.value = 3;
+                    }).toThrow(/immutable/);
+                })
+            );
+            expect(store.snapshot().state.id.metadata.value).toBe(1);
+        }
+    );
 
     test("freezes ActorId only after TextId initialization", { tags: "p1" }, () => {
         const id = new ActorId("frozen-actor-id");
@@ -1149,41 +1270,45 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("makes cyclic collections, dates, and typed views immutable during reads", { tags: "p0" }, () => {
-        interface State {
-            map: Map<string, { value: number }>;
-            set: Set<string>;
-            date: Date;
-            bytes: Uint8Array;
-            self?: State;
+    test(
+        "makes cyclic collections, dates, and typed views immutable during reads",
+        { tags: "p0" },
+        () => {
+            interface State {
+                map: Map<string, { value: number }>;
+                set: Set<string>;
+                date: Date;
+                bytes: Uint8Array;
+                self?: State;
+            }
+            const initial: State = {
+                map: new Map([["key", { value: 1 }]]),
+                set: new Set(["one"]),
+                date: new Date(1_000),
+                bytes: Uint8Array.of(1)
+            };
+            initial.self = initial;
+            const store = new MemoryActorStore<State>(initial, structuredClone);
+
+            store.transaction((transaction) =>
+                store.read(transaction, (view) => {
+                    expect(view.self).toBe(view);
+                    expect(() => view.map.set("other", { value: 2 })).toThrow(/immutable/);
+                    expect(() => (view.map.get("key")!.value = 2)).toThrow(/immutable/);
+                    expect(() => view.set.add("two")).toThrow(/immutable/);
+                    expect(() => view.date.setTime(2_000)).toThrow(/immutable/);
+                    expect(() => (view.bytes[0] = 2)).toThrow(/immutable/);
+                    expect(() => view.bytes.fill(2)).toThrow(/immutable/);
+                })
+            );
+
+            const state = store.snapshot().state;
+            expect(state.map.get("key")?.value).toBe(1);
+            expect(state.set.has("two")).toBe(false);
+            expect(state.date.getTime()).toBe(1_000);
+            expect(state.bytes[0]).toBe(1);
         }
-        const initial: State = {
-            map: new Map([["key", { value: 1 }]]),
-            set: new Set(["one"]),
-            date: new Date(1_000),
-            bytes: Uint8Array.of(1)
-        };
-        initial.self = initial;
-        const store = new MemoryActorStore<State>(initial, structuredClone);
-
-        store.transaction((transaction) =>
-            store.read(transaction, (view) => {
-                expect(view.self).toBe(view);
-                expect(() => view.map.set("other", { value: 2 })).toThrow(/immutable/);
-                expect(() => (view.map.get("key")!.value = 2)).toThrow(/immutable/);
-                expect(() => view.set.add("two")).toThrow(/immutable/);
-                expect(() => view.date.setTime(2_000)).toThrow(/immutable/);
-                expect(() => (view.bytes[0] = 2)).toThrow(/immutable/);
-                expect(() => view.bytes.fill(2)).toThrow(/immutable/);
-            })
-        );
-
-        const state = store.snapshot().state;
-        expect(state.map.get("key")?.value).toBe(1);
-        expect(state.set.has("two")).toBe(false);
-        expect(state.date.getTime()).toBe(1_000);
-        expect(state.bytes[0]).toBe(1);
-    });
+    );
 
     test("read-view dates copy without losing milliseconds", { tags: "p0" }, () => {
         interface State {
@@ -1235,26 +1360,30 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("preserves typed view offsets and shared backing in immutable reads", { tags: "p1" }, () => {
-        const buffer = new ArrayBuffer(8);
-        const initial = {
-            first: new Uint8Array(buffer, 1, 4),
-            second: new DataView(buffer, 2, 3)
-        };
-        const store = new MemoryActorStore<typeof initial>(initial, structuredClone);
+    test(
+        "preserves typed view offsets and shared backing in immutable reads",
+        { tags: "p1" },
+        () => {
+            const buffer = new ArrayBuffer(8);
+            const initial = {
+                first: new Uint8Array(buffer, 1, 4),
+                second: new DataView(buffer, 2, 3)
+            };
+            const store = new MemoryActorStore<typeof initial>(initial, structuredClone);
 
-        store.transaction((transaction) =>
-            store.read(transaction, (view) => {
-                expect(view.first.byteOffset).toBe(1);
-                expect(view.first.byteLength).toBe(4);
-                expect(view.second.byteOffset).toBe(2);
-                expect(view.second.byteLength).toBe(3);
-                expect(view.first.buffer).toBe(view.second.buffer);
-                expect(() => (view.first[0] = 1)).toThrow(/immutable/);
-                expect(() => view.second.setUint8(0, 1)).toThrow(/immutable/);
-            })
-        );
-    });
+            store.transaction((transaction) =>
+                store.read(transaction, (view) => {
+                    expect(view.first.byteOffset).toBe(1);
+                    expect(view.first.byteLength).toBe(4);
+                    expect(view.second.byteOffset).toBe(2);
+                    expect(view.second.byteLength).toBe(3);
+                    expect(view.first.buffer).toBe(view.second.buffer);
+                    expect(() => (view.first[0] = 1)).toThrow(/immutable/);
+                    expect(() => view.second.setUint8(0, 1)).toThrow(/immutable/);
+                })
+            );
+        }
+    );
 
     test("permits value reads across immutable built-in wrappers", { tags: "p1" }, () => {
         const buffer = Uint8Array.of(1, 2, 3).buffer;
@@ -1292,23 +1421,27 @@ describe("MemoryActorStore isolation", () => {
         );
     });
 
-    test("rejects mutable custom class instances without an ownership contract", { tags: "p0" }, () => {
-        class MutableBox {
-            public constructor(public value: number) {}
-            public increment(): void {
-                this.value += 1;
+    test(
+        "rejects mutable custom class instances without an ownership contract",
+        { tags: "p0" },
+        () => {
+            class MutableBox {
+                public constructor(public value: number) {}
+                public increment(): void {
+                    this.value += 1;
+                }
+                public clone(): MutableBox {
+                    return new MutableBox(this.value);
+                }
             }
-            public clone(): MutableBox {
-                return new MutableBox(this.value);
-            }
+            const clone = (state: { box: MutableBox }): { box: MutableBox } => ({
+                box: state.box.clone()
+            });
+            expect(() => new MemoryActorStore({ box: new MutableBox(1) }, clone)).toThrow(
+                /custom state objects must be frozen/
+            );
         }
-        const clone = (state: { box: MutableBox }): { box: MutableBox } => ({
-            box: state.box.clone()
-        });
-        expect(() => new MemoryActorStore({ box: new MutableBox(1) }, clone)).toThrow(
-            /custom state objects must be frozen/
-        );
-    });
+    );
 
     test("detaches clone-owned custom class data from immutable reads", { tags: "p0" }, () => {
         class CloneOwnedBox implements ActorCloneOwnedState {
@@ -1350,86 +1483,102 @@ describe("MemoryActorStore isolation", () => {
         expect(store.snapshot().state.box.nested.value).toBe(1);
     });
 
-    test("restored Actors advance recovery once and reject the prior fence", { tags: "p0" }, async () => {
-        interface State {
-            value: number;
-            initializations: number;
-        }
-        const operations: CounterOperations<State> = {
-            initialize: (transaction) => {
-                transaction.initializations += 1;
-            },
-            increment: (transaction) => ++transaction.value,
-            value: () => 0,
-            initializations: () => 0
-        };
-        const firstStore = new MemoryActorStore<State>(
-            { value: 0, initializations: 0 },
-            structuredClone
-        );
-        const first = new CounterActor({ actor: ACTOR_REF, store: firstStore }, operations);
-        await first.increment();
-        const oldFence = await first.currentFence();
-        const restoredStore = MemoryActorStore.restore(firstStore.snapshot(), structuredClone);
-        const restarted = new CounterActor({ actor: ACTOR_REF, store: restoredStore }, operations);
+    test(
+        "restored Actors advance recovery once and reject the prior fence",
+        { tags: "p0" },
+        async () => {
+            interface State {
+                value: number;
+                initializations: number;
+            }
+            const operations: CounterOperations<State> = {
+                initialize: (transaction) => {
+                    transaction.initializations += 1;
+                },
+                increment: (transaction) => ++transaction.value,
+                value: () => 0,
+                initializations: () => 0
+            };
+            const firstStore = new MemoryActorStore<State>(
+                { value: 0, initializations: 0 },
+                structuredClone
+            );
+            const first = new CounterActor({ actor: ACTOR_REF, store: firstStore }, operations);
+            await first.increment();
+            const oldFence = await first.currentFence();
+            const restoredStore = MemoryActorStore.restore(firstStore.snapshot(), structuredClone);
+            const restarted = new CounterActor(
+                { actor: ACTOR_REF, store: restoredStore },
+                operations
+            );
 
-        await expect(restarted.incrementFenced(oldFence)).rejects.toMatchObject({
-            code: "actor.stale-callback"
-        });
-        expect((await restarted.currentFence()).epoch).toBe(oldFence.epoch + 1);
-        expect(
-            restoredStore.transaction(
-                (transaction) => restoredStore.loadRecoveryState(transaction, ACTOR_REF)?.recoveries
-            )
-        ).toBe(2);
-    });
+            await expect(restarted.incrementFenced(oldFence)).rejects.toMatchObject({
+                code: "actor.stale-callback"
+            });
+            expect((await restarted.currentFence()).epoch).toBe(oldFence.epoch + 1);
+            expect(
+                restoredStore.transaction(
+                    (transaction) =>
+                        restoredStore.loadRecoveryState(transaction, ACTOR_REF)?.recoveries
+                )
+            ).toBe(2);
+        }
+    );
 });
 
 describe("SqliteActorStore recovery storage", () => {
-    test("fences two live incarnations using separate stores on one database", { tags: "p0" }, async () => {
-        const database = new TestSqlite();
-        const activations: ActorActivation[] = [];
-        const first = new StartActor(
-            { actor: ACTOR_REF, store: new SqliteActorStore(database) },
-            (_transaction, activation) => {
-                activations.push(activation);
-            }
-        );
-        const firstFence = await first.currentFence();
-        const second = new StartActor(
-            { actor: ACTOR_REF, store: new SqliteActorStore(database) },
-            (_transaction, activation) => {
-                activations.push(activation);
-            }
-        );
-        const secondFence = await second.currentFence();
+    test(
+        "fences two live incarnations using separate stores on one database",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const activations: ActorActivation[] = [];
+            const first = new StartActor(
+                { actor: ACTOR_REF, store: new SqliteActorStore(database) },
+                (_transaction, activation) => {
+                    activations.push(activation);
+                }
+            );
+            const firstFence = await first.currentFence();
+            const second = new StartActor(
+                { actor: ACTOR_REF, store: new SqliteActorStore(database) },
+                (_transaction, activation) => {
+                    activations.push(activation);
+                }
+            );
+            const secondFence = await second.currentFence();
 
-        expect(secondFence.epoch).toBe(firstFence.epoch + 1);
-        await expect(first.currentFence()).rejects.toMatchObject(staleFenceError());
-        await expect(first.close()).resolves.toBeUndefined();
-        expect((await second.currentFence()).epoch).toBe(secondFence.epoch);
-        expect(activations.map((value) => value.kind)).toEqual(["created", "recovered"]);
-        expect(activations.map((value) => value.recovery.epoch)).toEqual([0, 1]);
-    });
+            expect(secondFence.epoch).toBe(firstFence.epoch + 1);
+            await expect(first.currentFence()).rejects.toMatchObject(staleFenceError());
+            await expect(first.close()).resolves.toBeUndefined();
+            expect((await second.currentFence()).epoch).toBe(secondFence.epoch);
+            expect(activations.map((value) => value.kind)).toEqual(["created", "recovered"]);
+            expect(activations.map((value) => value.recovery.epoch)).toEqual([0, 1]);
+        }
+    );
 
-    test("rolls back SQLite identity, recovery, and state when eager start fails", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        database.run("CREATE TABLE start_counter (value INTEGER NOT NULL)", []);
-        database.run("INSERT INTO start_counter (value) VALUES (0)", []);
-        const store = new SqliteActorStore(database);
+    test(
+        "rolls back SQLite identity, recovery, and state when eager start fails",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            database.run("CREATE TABLE start_counter (value INTEGER NOT NULL)", []);
+            database.run("INSERT INTO start_counter (value) VALUES (0)", []);
+            const store = new SqliteActorStore(database);
 
-        expect(
-            () =>
-                new StartActor({ actor: ACTOR_REF, store }, (transaction) => {
-                    transaction.run("UPDATE start_counter SET value = 1", []);
-                    throw new TypeError("Injected start failure");
-                })
-        ).toThrow("Injected start failure");
+            expect(
+                () =>
+                    new StartActor({ actor: ACTOR_REF, store }, (transaction) => {
+                        transaction.run("UPDATE start_counter SET value = 1", []);
+                        throw new TypeError("Injected start failure");
+                    })
+            ).toThrow("Injected start failure");
 
-        expect(database.all("SELECT * FROM actor_identity", [])).toEqual([]);
-        expect(database.all("SELECT * FROM actor_recovery_state", [])).toEqual([]);
-        expect(database.all("SELECT value FROM start_counter", [])[0]?.["value"]).toBe(0);
-    });
+            expect(database.all("SELECT * FROM actor_identity", [])).toEqual([]);
+            expect(database.all("SELECT * FROM actor_recovery_state", [])).toEqual([]);
+            expect(database.all("SELECT value FROM start_counter", [])[0]?.["value"]).toBe(0);
+        }
+    );
 
     test("fails closed when a SQLite Actor identity has no recovery state", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -1441,26 +1590,30 @@ describe("SqliteActorStore recovery storage", () => {
         );
     });
 
-    test("does not recreate a deleted recovery row under an existing identity", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        new StartActor({ actor: ACTOR_REF, store: new SqliteActorStore(database) }, noop);
-        database.run("DELETE FROM actor_recovery_state WHERE actor_kind = ? AND actor_id = ?", [
-            ACTOR_REF.kind,
-            ACTOR_REF.id.value
-        ]);
+    test(
+        "does not recreate a deleted recovery row under an existing identity",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            new StartActor({ actor: ACTOR_REF, store: new SqliteActorStore(database) }, noop);
+            database.run("DELETE FROM actor_recovery_state WHERE actor_kind = ? AND actor_id = ?", [
+                ACTOR_REF.kind,
+                ACTOR_REF.id.value
+            ]);
 
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-            expect(
-                () =>
-                    new StartActor(
-                        { actor: ACTOR_REF, store: new SqliteActorStore(database) },
-                        noop
-                    )
-            ).toSatisfy(throwsOperationalError("codec.invalid"));
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                expect(
+                    () =>
+                        new StartActor(
+                            { actor: ACTOR_REF, store: new SqliteActorStore(database) },
+                            noop
+                        )
+                ).toSatisfy(throwsOperationalError("codec.invalid"));
+            }
+            expect(database.all("SELECT * FROM actor_identity", [])).toHaveLength(1);
+            expect(database.all("SELECT * FROM actor_recovery_state", [])).toEqual([]);
         }
-        expect(database.all("SELECT * FROM actor_identity", [])).toHaveLength(1);
-        expect(database.all("SELECT * FROM actor_recovery_state", [])).toEqual([]);
-    });
+    );
 
     test("fails closed when SQLite recovery state has no Actor identity", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -1481,71 +1634,83 @@ describe("SqliteActorStore recovery storage", () => {
         expect(database.all("SELECT * FROM actor_identity", [])).toEqual([]);
     });
 
-    test("binds reads and recovery operations to its exact active transaction", { tags: "p0" }, () => {
-        const firstDatabase = new TestSqlite();
-        const secondDatabase = new TestSqlite();
-        const first = new SqliteActorStore(firstDatabase);
-        const second = new SqliteActorStore(secondDatabase);
-        first.bindActor(ACTOR_REF);
-        second.bindActor(ACTOR_REF);
+    test(
+        "binds reads and recovery operations to its exact active transaction",
+        { tags: "p0" },
+        () => {
+            const firstDatabase = new TestSqlite();
+            const secondDatabase = new TestSqlite();
+            const first = new SqliteActorStore(firstDatabase);
+            const second = new SqliteActorStore(secondDatabase);
+            first.bindActor(ACTOR_REF);
+            second.bindActor(ACTOR_REF);
 
-        first.transaction((transaction) => {
-            expect(() => first.transaction(() => undefined)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
-            );
-            expect(() => second.read(transaction, () => undefined)).toSatisfy(
-                throwsOperationalError("actor.stale-callback")
-            );
-            expect(() => second.loadRecoveryState(transaction, ACTOR_REF)).toSatisfy(
-                throwsOperationalError("actor.stale-callback")
-            );
-        });
-        expect(() =>
-            first.saveRecoveryState(firstDatabase, ActorRecoveryState.initial(ACTOR_REF))
-        ).toSatisfy(throwsOperationalError("actor.stale-callback"));
-    });
-
-    test("rejects nested Actor transactions across stores sharing one database", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const first = new SqliteActorStore(database);
-        const second = new SqliteActorStore(database);
-        first.bindActor(ACTOR_REF);
-        second.bindActor(ACTOR_REF);
-
-        first.transaction(() => {
-            expect(() => second.transaction(() => undefined)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
-            );
-        });
-    });
-
-    test("rejects nested SQLite scope transactions and expires escaped scopes", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = new SqliteActorStore(database);
-        store.bindActor(ACTOR_REF);
-        let escapedTransaction: TransactionalSqlite | undefined;
-        let escapedRead: ReadableSqlite | undefined;
-
-        store.transaction((transaction) => {
-            escapedTransaction = transaction;
-            expect(() => transaction.transaction(() => undefined)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
-            );
-            store.read(transaction, (read) => {
-                escapedRead = read;
+            first.transaction((transaction) => {
+                expect(() => first.transaction(() => undefined)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+                expect(() => second.read(transaction, () => undefined)).toSatisfy(
+                    throwsOperationalError("actor.stale-callback")
+                );
+                expect(() => second.loadRecoveryState(transaction, ACTOR_REF)).toSatisfy(
+                    throwsOperationalError("actor.stale-callback")
+                );
             });
-        });
+            expect(() =>
+                first.saveRecoveryState(firstDatabase, ActorRecoveryState.initial(ACTOR_REF))
+            ).toSatisfy(throwsOperationalError("actor.stale-callback"));
+        }
+    );
 
-        expect(() => escapedTransaction!.all("SELECT 1", [])).toSatisfy(
-            throwsOperationalError("actor.closed")
-        );
-        expect(() => escapedTransaction!.run("CREATE TABLE escaped (value INTEGER)", [])).toSatisfy(
-            throwsOperationalError("actor.closed")
-        );
-        expect(() => escapedRead!.all("SELECT 1", [])).toSatisfy(
-            throwsOperationalError("actor.closed")
-        );
-    });
+    test(
+        "rejects nested Actor transactions across stores sharing one database",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const first = new SqliteActorStore(database);
+            const second = new SqliteActorStore(database);
+            first.bindActor(ACTOR_REF);
+            second.bindActor(ACTOR_REF);
+
+            first.transaction(() => {
+                expect(() => second.transaction(() => undefined)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+            });
+        }
+    );
+
+    test(
+        "rejects nested SQLite scope transactions and expires escaped scopes",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = new SqliteActorStore(database);
+            store.bindActor(ACTOR_REF);
+            let escapedTransaction: TransactionalSqlite | undefined;
+            let escapedRead: ReadableSqlite | undefined;
+
+            store.transaction((transaction) => {
+                escapedTransaction = transaction;
+                expect(() => transaction.transaction(() => undefined)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+                store.read(transaction, (read) => {
+                    escapedRead = read;
+                });
+            });
+
+            expect(() => escapedTransaction!.all("SELECT 1", [])).toSatisfy(
+                throwsOperationalError("actor.closed")
+            );
+            expect(() =>
+                escapedTransaction!.run("CREATE TABLE escaped (value INTEGER)", [])
+            ).toSatisfy(throwsOperationalError("actor.closed"));
+            expect(() => escapedRead!.all("SELECT 1", [])).toSatisfy(
+                throwsOperationalError("actor.closed")
+            );
+        }
+    );
 
     test("rejects mutation statements from SQLite read scopes", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -1652,25 +1817,29 @@ describe("SqliteActorStore recovery storage", () => {
         ).toSatisfy(throwsOperationalError("codec.invalid"));
     });
 
-    test("rejects Actor identity changes inside and beside an active transaction", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const first = new SqliteActorStore(database);
-        const second = new SqliteActorStore(database);
-        const other = new ActorRef("run", new ActorId("other-active-actor"));
-        first.bindActor(ACTOR_REF);
+    test(
+        "rejects Actor identity changes inside and beside an active transaction",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const first = new SqliteActorStore(database);
+            const second = new SqliteActorStore(database);
+            const other = new ActorRef("run", new ActorId("other-active-actor"));
+            first.bindActor(ACTOR_REF);
 
-        first.transaction((transaction) => {
-            expect(() => first.bindActor(other)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
-            );
-            expect(() => first.loadRecoveryState(transaction, other)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
-            );
-            expect(() => second.bindActor(ACTOR_REF)).toSatisfy(
-                throwsOperationalError("protocol.invalid-state")
-            );
-        });
-    });
+            first.transaction((transaction) => {
+                expect(() => first.bindActor(other)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+                expect(() => first.loadRecoveryState(transaction, other)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+                expect(() => second.bindActor(ACTOR_REF)).toSatisfy(
+                    throwsOperationalError("protocol.invalid-state")
+                );
+            });
+        }
+    );
 
     test("does not repair an incompatible pre-existing Actor schema", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -1803,7 +1972,10 @@ describe("MemoryActorStore readonly view members", () => {
     });
 
     test("keeps plain arrays array-like through read views", { tags: "p1" }, () => {
-        const store = new MemoryActorStore<{ list: number[] }>({ list: [1, 2, 3] }, structuredClone);
+        const store = new MemoryActorStore<{ list: number[] }>(
+            { list: [1, 2, 3] },
+            structuredClone
+        );
 
         store.transaction((transaction) =>
             store.read(transaction, (view) => {

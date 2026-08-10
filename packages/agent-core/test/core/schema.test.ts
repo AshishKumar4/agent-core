@@ -10,11 +10,15 @@ import {
 import { AgentCoreError } from "../../src/errors";
 
 describe("JSON Schema values", () => {
-    test("[json-schema-validator] strict memory reference enforces the shared validation contract", { tags: "p1" }, () => {
-        const validator = new StrictJsonSchemaValidator();
-        expect(validator.validate({ type: "integer" }, 1)).toBe(true);
-        expect(validator.validate({ type: "integer" }, "1")).toBe(false);
-    });
+    test(
+        "[json-schema-validator] strict memory reference enforces the shared validation contract",
+        { tags: "p1" },
+        () => {
+            const validator = new StrictJsonSchemaValidator();
+            expect(validator.validate({ type: "integer" }, 1)).toBe(true);
+            expect(validator.validate({ type: "integer" }, "1")).toBe(false);
+        }
+    );
 
     test("stores a deeply frozen canonical copy", { tags: "p0" }, () => {
         const source = {
@@ -57,35 +61,43 @@ describe("JSON Schema values", () => {
         expect(validator.validate).not.toHaveBeenCalled();
     });
 
-    test("does not let an injected validator loosen strict production validation", { tags: "p0" }, () => {
-        const permissive: JsonSchemaValidator = { validate: vi.fn(() => true) };
+    test(
+        "does not let an injected validator loosen strict production validation",
+        { tags: "p0" },
+        () => {
+            const permissive: JsonSchemaValidator = { validate: vi.fn(() => true) };
 
-        expect(new JsonSchema({ type: "integer" }).accepts("1", permissive)).toBe(false);
-        expect(permissive.validate).not.toHaveBeenCalled();
-        expect(() =>
-            new JsonSchema({
-                $ref: "https://example.com/remote.json"
-            }).accepts({}, permissive)
-        ).toThrow(/Remote JSON Schema reference/);
+            expect(new JsonSchema({ type: "integer" }).accepts("1", permissive)).toBe(false);
+            expect(permissive.validate).not.toHaveBeenCalled();
+            expect(() =>
+                new JsonSchema({
+                    $ref: "https://example.com/remote.json"
+                }).accepts({}, permissive)
+            ).toThrow(/Remote JSON Schema reference/);
 
-        const mutating: JsonSchemaValidator = {
-            validate: (_schema, value) => {
-                (value as { injected?: boolean }).injected = true;
-                return true;
-            }
-        };
-        const original = {};
-        expect(() => JsonSchema.any().accepts(original, mutating)).toThrow(/must not mutate input/);
-        expect(original).toEqual({});
-        const throwing: JsonSchemaValidator = {
-            validate: (_schema, value) => {
-                (value as { injected?: boolean }).injected = true;
-                throw new TypeError("custom failure");
-            }
-        };
-        expect(() => JsonSchema.any().accepts(original, throwing)).toThrow(/must not mutate input/);
-        expect(original).toEqual({});
-    });
+            const mutating: JsonSchemaValidator = {
+                validate: (_schema, value) => {
+                    (value as { injected?: boolean }).injected = true;
+                    return true;
+                }
+            };
+            const original = {};
+            expect(() => JsonSchema.any().accepts(original, mutating)).toThrow(
+                /must not mutate input/
+            );
+            expect(original).toEqual({});
+            const throwing: JsonSchemaValidator = {
+                validate: (_schema, value) => {
+                    (value as { injected?: boolean }).injected = true;
+                    throw new TypeError("custom failure");
+                }
+            };
+            expect(() => JsonSchema.any().accepts(original, throwing)).toThrow(
+                /must not mutate input/
+            );
+            expect(original).toEqual({});
+        }
+    );
 
     test("rejects non-JSON and cyclic schema documents", { tags: "p1" }, () => {
         const cycle: { self?: unknown } = {};
@@ -104,40 +116,44 @@ describe("JSON Schema values", () => {
         expect(() => new JsonSchema(Object.create({ type: "string" }) as never)).toThrow(TypeError);
     });
 
-    test("validates draft 2020-12 synchronously without coercion or defaults", { tags: "p1" }, () => {
-        const validator = new StrictJsonSchemaValidator();
-        const value: { count: string; added?: string } = { count: "1" };
-        const before = structuredClone(value);
+    test(
+        "validates draft 2020-12 synchronously without coercion or defaults",
+        { tags: "p1" },
+        () => {
+            const validator = new StrictJsonSchemaValidator();
+            const value: { count: string; added?: string } = { count: "1" };
+            const before = structuredClone(value);
 
-        expect(
-            validator.validate(
-                {
-                    $schema: "https://json-schema.org/draft/2020-12/schema",
-                    properties: {
-                        added: { default: "injected", type: "string" },
-                        count: { type: "integer" }
+            expect(
+                validator.validate(
+                    {
+                        $schema: "https://json-schema.org/draft/2020-12/schema",
+                        properties: {
+                            added: { default: "injected", type: "string" },
+                            count: { type: "integer" }
+                        },
+                        required: ["count"],
+                        type: "object"
                     },
-                    required: ["count"],
-                    type: "object"
-                },
-                value
-            )
-        ).toBe(false);
-        expect(value).toEqual(before);
-        expect(
-            validator.validate(
-                {
-                    properties: { added: { default: "injected", type: "string" } },
-                    type: "object"
-                },
-                {}
-            )
-        ).toBe(true);
-        expect(validator.validate(true, null)).toBe(true);
-        expect(validator.validate({ minimum: 0 }, 1)).toBe(true);
-        validator.assertSchema({ type: "string" });
-        new JsonSchema({ type: "string" }).assertValid();
-    });
+                    value
+                )
+            ).toBe(false);
+            expect(value).toEqual(before);
+            expect(
+                validator.validate(
+                    {
+                        properties: { added: { default: "injected", type: "string" } },
+                        type: "object"
+                    },
+                    {}
+                )
+            ).toBe(true);
+            expect(validator.validate(true, null)).toBe(true);
+            expect(validator.validate({ minimum: 0 }, 1)).toBe(true);
+            validator.assertSchema({ type: "string" });
+            new JsonSchema({ type: "string" }).assertValid();
+        }
+    );
 
     test("supports uri format without warnings and rejects unknown formats", { tags: "p1" }, () => {
         const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -152,94 +168,102 @@ describe("JSON Schema values", () => {
         warning.mockRestore();
     });
 
-    test("rejects remote references and non-2020 dialects deterministically", { tags: "p0" }, () => {
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    $ref: "https://example.com/schema.json"
-                },
-                {}
-            )
-        ).toThrow(/Remote JSON Schema reference/);
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    $schema: "http://json-schema.org/draft-07/schema#"
-                },
-                {}
-            )
-        ).toThrow(/Only JSON Schema 2020-12/);
-        expect(
-            strictJsonSchemaValidator.validate(
-                {
-                    $defs: { name: { type: "string" } },
-                    $ref: "#/$defs/name"
-                },
-                "valid"
-            )
-        ).toBe(true);
-        expect(
-            strictJsonSchemaValidator.validate(
-                {
-                    $defs: { name: { type: "string" } },
-                    $id: "https://example.com/root.json",
-                    $ref: "https://example.com/root.json#/$defs/name"
-                },
-                "valid"
-            )
-        ).toBe(true);
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    $recursiveRef: "#"
-                },
-                {}
-            )
-        ).toThrow(/\$recursiveRef is not supported/);
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    $dynamicRef: "https://example.com/dynamic"
-                },
-                {}
-            )
-        ).toThrow(/Remote JSON Schema reference.*\$dynamicRef/);
-    });
+    test(
+        "rejects remote references and non-2020 dialects deterministically",
+        { tags: "p0" },
+        () => {
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        $ref: "https://example.com/schema.json"
+                    },
+                    {}
+                )
+            ).toThrow(/Remote JSON Schema reference/);
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        $schema: "http://json-schema.org/draft-07/schema#"
+                    },
+                    {}
+                )
+            ).toThrow(/Only JSON Schema 2020-12/);
+            expect(
+                strictJsonSchemaValidator.validate(
+                    {
+                        $defs: { name: { type: "string" } },
+                        $ref: "#/$defs/name"
+                    },
+                    "valid"
+                )
+            ).toBe(true);
+            expect(
+                strictJsonSchemaValidator.validate(
+                    {
+                        $defs: { name: { type: "string" } },
+                        $id: "https://example.com/root.json",
+                        $ref: "https://example.com/root.json#/$defs/name"
+                    },
+                    "valid"
+                )
+            ).toBe(true);
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        $recursiveRef: "#"
+                    },
+                    {}
+                )
+            ).toThrow(/\$recursiveRef is not supported/);
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        $dynamicRef: "https://example.com/dynamic"
+                    },
+                    {}
+                )
+            ).toThrow(/Remote JSON Schema reference.*\$dynamicRef/);
+        }
+    );
 
-    test("checks unsupported behavior in every schema-bearing keyword shape", { tags: "p2" }, () => {
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    allOf: [{ format: "email" }]
-                },
-                "value"
-            )
-        ).toThrow(/Unsupported JSON Schema format: email/);
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    items: { format: "email" }
-                },
-                []
-            )
-        ).toThrow(/Unsupported JSON Schema format: email/);
-        expect(
-            strictJsonSchemaValidator.validate(
-                {
-                    $id: "://invalid"
-                },
-                {}
-            )
-        ).toBe(true);
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    unknownKeyword: true
-                },
-                {}
-            )
-        ).toThrow(/Unsupported JSON Schema/);
-    });
+    test(
+        "checks unsupported behavior in every schema-bearing keyword shape",
+        { tags: "p2" },
+        () => {
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        allOf: [{ format: "email" }]
+                    },
+                    "value"
+                )
+            ).toThrow(/Unsupported JSON Schema format: email/);
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        items: { format: "email" }
+                    },
+                    []
+                )
+            ).toThrow(/Unsupported JSON Schema format: email/);
+            expect(
+                strictJsonSchemaValidator.validate(
+                    {
+                        $id: "://invalid"
+                    },
+                    {}
+                )
+            ).toBe(true);
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        unknownKeyword: true
+                    },
+                    {}
+                )
+            ).toThrow(/Unsupported JSON Schema/);
+        }
+    );
 
     test("does not interpret const and annotation data as nested schemas", { tags: "p1" }, () => {
         expect(
@@ -260,85 +284,95 @@ describe("JSON Schema values", () => {
         ).toBe(true);
     });
 
-    test("rejects asynchronous validation and inherited required properties", { tags: "p1" }, () => {
-        expect(() =>
-            strictJsonSchemaValidator.validate(
-                {
-                    $async: true,
-                    type: "integer"
-                },
-                1
-            )
-        ).toThrow(/Asynchronous JSON Schema validation/);
-        const asynchronous = {
-            validate: () => Promise.resolve(true)
-        } as unknown as JsonSchemaValidator;
-        expect(() => JsonSchema.any().accepts({}, asynchronous)).toThrow(
-            /return a boolean synchronously/
-        );
+    test(
+        "rejects asynchronous validation and inherited required properties",
+        { tags: "p1" },
+        () => {
+            expect(() =>
+                strictJsonSchemaValidator.validate(
+                    {
+                        $async: true,
+                        type: "integer"
+                    },
+                    1
+                )
+            ).toThrow(/Asynchronous JSON Schema validation/);
+            const asynchronous = {
+                validate: () => Promise.resolve(true)
+            } as unknown as JsonSchemaValidator;
+            expect(() => JsonSchema.any().accepts({}, asynchronous)).toThrow(
+                /return a boolean synchronously/
+            );
 
-        const cyclicMutating: JsonSchemaValidator = {
-            validate: (_schema, value) => {
-                (value as { self?: unknown }).self = value;
-                return true;
+            const cyclicMutating: JsonSchemaValidator = {
+                validate: (_schema, value) => {
+                    (value as { self?: unknown }).self = value;
+                    return true;
+                }
+            };
+            expect(() => JsonSchema.any().accepts({}, cyclicMutating)).toThrow(
+                /must not mutate input/
+            );
+
+            const throwing: JsonSchemaValidator = {
+                validate: () => {
+                    throw new TypeError("validator failure");
+                }
+            };
+            expect(() => JsonSchema.any().accepts({}, throwing)).toThrow("validator failure");
+
+            const prototype = Object.prototype as { admin?: boolean };
+            Object.defineProperty(prototype, "admin", {
+                configurable: true,
+                enumerable: false,
+                value: true,
+                writable: true
+            });
+            try {
+                expect(
+                    strictJsonSchemaValidator.validate(
+                        {
+                            properties: { admin: { const: true } },
+                            required: ["admin"],
+                            type: "object"
+                        },
+                        {}
+                    )
+                ).toBe(false);
+            } finally {
+                delete prototype.admin;
             }
-        };
-        expect(() => JsonSchema.any().accepts({}, cyclicMutating)).toThrow(/must not mutate input/);
+        }
+    );
 
-        const throwing: JsonSchemaValidator = {
-            validate: () => {
-                throw new TypeError("validator failure");
-            }
-        };
-        expect(() => JsonSchema.any().accepts({}, throwing)).toThrow("validator failure");
-
-        const prototype = Object.prototype as { admin?: boolean };
-        Object.defineProperty(prototype, "admin", {
-            configurable: true,
-            enumerable: false,
-            value: true,
-            writable: true
-        });
-        try {
+    test(
+        "uses immutable schema snapshots without cross-schema id retention",
+        { tags: "p0" },
+        () => {
+            const mutable: { type: string } = { type: "string" };
+            expect(strictJsonSchemaValidator.validate(mutable, "value")).toBe(true);
+            mutable.type = "number";
+            expect(strictJsonSchemaValidator.validate(mutable, 1)).toBe(true);
             expect(
                 strictJsonSchemaValidator.validate(
                     {
-                        properties: { admin: { const: true } },
-                        required: ["admin"],
-                        type: "object"
+                        $id: "https://example.com/reused.json",
+                        type: "string"
                     },
-                    {}
+                    "first"
                 )
-            ).toBe(false);
-        } finally {
-            delete prototype.admin;
+            ).toBe(true);
+            expect(
+                strictJsonSchemaValidator.validate(
+                    {
+                        $id: "https://example.com/reused.json",
+                        type: "integer"
+                    },
+                    2
+                )
+            ).toBe(true);
         }
-    });
-
-    test("uses immutable schema snapshots without cross-schema id retention", { tags: "p0" }, () => {
-        const mutable: { type: string } = { type: "string" };
-        expect(strictJsonSchemaValidator.validate(mutable, "value")).toBe(true);
-        mutable.type = "number";
-        expect(strictJsonSchemaValidator.validate(mutable, 1)).toBe(true);
-        expect(
-            strictJsonSchemaValidator.validate(
-                {
-                    $id: "https://example.com/reused.json",
-                    type: "string"
-                },
-                "first"
-            )
-        ).toBe(true);
-        expect(
-            strictJsonSchemaValidator.validate(
-                {
-                    $id: "https://example.com/reused.json",
-                    type: "integer"
-                },
-                2
-            )
-        ).toBe(true);
-    });
+    );
 
     test("enforces RFC 3986 uri syntax", { tags: "p2" }, () => {
         for (const invalid of [
@@ -353,35 +387,39 @@ describe("JSON Schema values", () => {
         }
     });
 
-    test("[core.json-schema] round-trips canonical bytes and rejects unknown fields", { tags: "p0" }, () => {
-        const schema = new JsonSchema({ type: "string", minLength: 1 });
-        const encoded = JsonSchema.encode(schema);
+    test(
+        "[core.json-schema] round-trips canonical bytes and rejects unknown fields",
+        { tags: "p0" },
+        () => {
+            const schema = new JsonSchema({ type: "string", minLength: 1 });
+            const encoded = JsonSchema.encode(schema);
 
-        expect(JsonSchema.encode(JsonSchema.decode(encoded))).toEqual(encoded);
-        expect(JsonSchema.decode(encoded).document).toEqual({ minLength: 1, type: "string" });
-        expectCodecError(
-            () =>
-                JsonSchema.decode(
-                    encodeCanonicalJson({
-                        kind: "core.json-schema",
-                        payload: { document: {}, extra: true },
-                        version: { major: 1, minor: 0 }
-                    })
-                ),
-            "codec.invalid"
-        );
-        expectCodecError(
-            () =>
-                JsonSchema.decode(
-                    encodeCanonicalJson({
-                        kind: "core.json-schema",
-                        payload: { document: null },
-                        version: { major: 1, minor: 0 }
-                    })
-                ),
-            "codec.invalid"
-        );
-    });
+            expect(JsonSchema.encode(JsonSchema.decode(encoded))).toEqual(encoded);
+            expect(JsonSchema.decode(encoded).document).toEqual({ minLength: 1, type: "string" });
+            expectCodecError(
+                () =>
+                    JsonSchema.decode(
+                        encodeCanonicalJson({
+                            kind: "core.json-schema",
+                            payload: { document: {}, extra: true },
+                            version: { major: 1, minor: 0 }
+                        })
+                    ),
+                "codec.invalid"
+            );
+            expectCodecError(
+                () =>
+                    JsonSchema.decode(
+                        encodeCanonicalJson({
+                            kind: "core.json-schema",
+                            payload: { document: null },
+                            version: { major: 1, minor: 0 }
+                        })
+                    ),
+                "codec.invalid"
+            );
+        }
+    );
 
     test("[core.json-schema] reports malformed payloads verbatim", { tags: "p1" }, () => {
         expectCodecFailure(

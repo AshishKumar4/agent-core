@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../../src/actors";
-import { Revision, SemVer, decodeCanonicalJson, strictJsonSchemaValidator } from "../../../src/core";
+import {
+    Revision,
+    SemVer,
+    decodeCanonicalJson,
+    strictJsonSchemaValidator
+} from "../../../src/core";
 import {
     Blueprint,
     BlueprintDeclarationCodecPort,

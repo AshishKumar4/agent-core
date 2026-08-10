@@ -1,4 +1,4 @@
-import { Digest, SemVer } from "../../core";
+import { Digest, SemVer, compareText } from "../../core";
 import { MetadataSnapshot, PackageId, PackageLock, PackageRelease } from "../../definition";
 import { AgentCoreError } from "../../errors";
 import type { SqliteRow } from "./sqlite";
@@ -354,10 +354,6 @@ function compareReleases(left: PackageRelease, right: PackageRelease): number {
 
 function releaseKey(release: PackageRelease): string {
     return `${release.id.value}\0${release.version.toString()}`;
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {

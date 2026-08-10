@@ -1,9 +1,8 @@
-import { JsonSchema } from "../core";
+import { JsonSchema, compareText } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
     canonicalFacetData,
-    compareText,
     requireArray,
     requireBoolean,
     requireDataObject,

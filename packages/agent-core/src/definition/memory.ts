@@ -5,7 +5,7 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../actors";
-import { Digest, Revision, SemVer } from "../core";
+import { Digest, Revision, SemVer, compareText } from "../core";
 import { MaterializationGenerationId, PackageId, type DeploymentId } from "./id";
 import {
     DeploymentRecord,
@@ -17,7 +17,6 @@ import {
     requirePlanAttestation,
     requireExactOutboxClosure
 } from "./rollout";
-import { compareText } from "./order";
 import type { MaterializationPlan } from "./plan";
 import { ValidationAttestation } from "./attestation";
 import { corruptDefinition, definitionRevisionConflict, invalidDefinitionState } from "./error";

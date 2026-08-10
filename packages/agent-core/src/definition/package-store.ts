@@ -3,8 +3,8 @@ import { AgentCoreError } from "../errors";
 import { PackageId } from "./id";
 import { PackageLock } from "./package-lock";
 import { MetadataSnapshot, PackageRelease } from "./package";
-import { compareText } from "./order";
 import { invalidDefinitionState } from "./error";
+import { compareText } from "../core";
 
 export interface StoredPackageRelease {
     readonly packageId: PackageId;

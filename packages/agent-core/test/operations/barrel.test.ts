@@ -26,12 +26,16 @@ describe("W3 operations context barrel", () => {
         expect(new operations.OperationRequestKey("request-1").value).toBe("request-1");
     });
 
-    test("reports a confirmed Operation failure as an invalid invocation with its evidence", { tags: "p0" }, () => {
-        const evidence = ContentRef.fromDigest(Digest.sha256(new Uint8Array([1, 2, 3])));
-        const failure = new operations.ConfirmedOperationFailure("handler refused", evidence);
-        expect(failure).toBeInstanceOf(AgentCoreError);
-        expect(failure.code).toBe("invocation.invalid");
-        expect(failure.message).toBe("handler refused");
-        expect(failure.evidence).toBe(evidence);
-    });
+    test(
+        "reports a confirmed Operation failure as an invalid invocation with its evidence",
+        { tags: "p0" },
+        () => {
+            const evidence = ContentRef.fromDigest(Digest.sha256(new Uint8Array([1, 2, 3])));
+            const failure = new operations.ConfirmedOperationFailure("handler refused", evidence);
+            expect(failure).toBeInstanceOf(AgentCoreError);
+            expect(failure.code).toBe("invocation.invalid");
+            expect(failure.message).toBe("handler refused");
+            expect(failure.evidence).toBe(evidence);
+        }
+    );
 });

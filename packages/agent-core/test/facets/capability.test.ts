@@ -37,9 +37,12 @@ describe("CapabilitySpec authority semantics", () => {
                 if (!cap(parent).covers(cap(child))) continue;
                 for (const facet of values) {
                     if (!cap(child).matches(intent({ facet }))) continue;
-                    expect(
-                        [parent, child, facet, cap(parent).matches(intent({ facet }))]
-                    ).toStrictEqual([parent, child, facet, true]);
+                    expect([
+                        parent,
+                        child,
+                        facet,
+                        cap(parent).matches(intent({ facet }))
+                    ]).toStrictEqual([parent, child, facet, true]);
                 }
             }
         }
@@ -64,9 +67,7 @@ describe("CapabilitySpec authority semantics", () => {
             cap("*", { operations: ["read", "write"] }).covers(cap("*", { operations: ["read"] }))
         ).toBe(true);
         expect(
-            cap("*", { operations: ["read"] }).covers(
-                cap("*", { operations: ["read", "write"] })
-            )
+            cap("*", { operations: ["read"] }).covers(cap("*", { operations: ["read", "write"] }))
         ).toBe(false);
 
         const constrained = cap("*", { argumentConstraints: { tier: "gold" } });
@@ -111,7 +112,9 @@ describe("CapabilitySpec authority semantics", () => {
         expect(cap("*", { impacts: ["delegate"] }).grantsElevation()).toBe(true);
         expect(cap("*", { impacts: ["administer"] }).grantsElevation()).toBe(true);
         expect(
-            cap("*", { impacts: ["observe", "mutate", "externalSend", "execute"] }).grantsElevation()
+            cap("*", {
+                impacts: ["observe", "mutate", "externalSend", "execute"]
+            }).grantsElevation()
         ).toBe(false);
     });
 
@@ -127,9 +130,9 @@ describe("CapabilitySpec authority semantics", () => {
         expect(() => cap("*", { operations: [" pad "] })).toThrow(
             "Capability operations must contain canonical nonblank strings"
         );
-        expect(() =>
-            cap("*", { impacts: ["observe", "bogus"] as unknown as [Impact] })
-        ).toThrow("Capability impacts must contain known values");
+        expect(() => cap("*", { impacts: ["observe", "bogus"] as unknown as [Impact] })).toThrow(
+            "Capability impacts must contain known values"
+        );
         expect(() => cap("*", { impacts: ["observe", "observe"] })).toThrow(
             "Capability impacts must be unique"
         );

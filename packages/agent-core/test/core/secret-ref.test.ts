@@ -24,13 +24,17 @@ describe("SecretRef", () => {
         expect(ref.id).toBe("id");
     });
 
-    test("rejects blank, oversized, non-string, and invalid Unicode components", { tags: "p2" }, () => {
-        for (const value of ["", "   ", "x".repeat(2049), "\ud800", null, 1]) {
-            expect(() => new SecretRef(value as string, "vault", "id")).toThrow(TypeError);
-            expect(() => new SecretRef("tenant", value as string, "id")).toThrow(TypeError);
-            expect(() => new SecretRef("tenant", "vault", value as string)).toThrow(TypeError);
+    test(
+        "rejects blank, oversized, non-string, and invalid Unicode components",
+        { tags: "p2" },
+        () => {
+            for (const value of ["", "   ", "x".repeat(2049), "\ud800", null, 1]) {
+                expect(() => new SecretRef(value as string, "vault", "id")).toThrow(TypeError);
+                expect(() => new SecretRef("tenant", value as string, "id")).toThrow(TypeError);
+                expect(() => new SecretRef("tenant", "vault", value as string)).toThrow(TypeError);
+            }
         }
-    });
+    );
 
     test("compares source, provider, and id independently", { tags: "p1" }, () => {
         const ref = new SecretRef("tenant", "vault", "id");

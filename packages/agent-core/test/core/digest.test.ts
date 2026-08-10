@@ -21,13 +21,17 @@ describe("Digest", () => {
         expect(digest.algorithm).toBe("sha256");
     });
 
-    test("rejects malformed values, unsupported algorithms, and non-byte input", { tags: "p0" }, () => {
-        for (const value of ["", "A".repeat(64), "0".repeat(63), "g".repeat(64)]) {
-            expect(() => new Digest(value)).toThrow(TypeError);
+    test(
+        "rejects malformed values, unsupported algorithms, and non-byte input",
+        { tags: "p0" },
+        () => {
+            for (const value of ["", "A".repeat(64), "0".repeat(63), "g".repeat(64)]) {
+                expect(() => new Digest(value)).toThrow(TypeError);
+            }
+            expect(() => new Digest(ABC_SHA256, "sha512" as DigestAlgorithm)).toThrow(TypeError);
+            expect(() => Digest.sha256("abc" as unknown as Uint8Array)).toThrow(TypeError);
         }
-        expect(() => new Digest(ABC_SHA256, "sha512" as DigestAlgorithm)).toThrow(TypeError);
-        expect(() => Digest.sha256("abc" as unknown as Uint8Array)).toThrow(TypeError);
-    });
+    );
 
     test("anchors the hexadecimal pattern at both ends", { tags: "p0" }, () => {
         for (const value of [`z${ABC_SHA256}`, `${ABC_SHA256}z`, ` ${ABC_SHA256}`]) {

@@ -61,57 +61,66 @@ test("SQLite protocol persistence survives a file-backed database restart", { ta
     }
 });
 
-test("SQLite reads every hand-seeded codec-representable non-write audit projection", { tags: "p1" }, () => {
-    const database = new TestSqlite();
-    const persistence = new SqliteProtocolPersistence(database);
-    const audits = protocolUnsupportedAuditRecords("sqlite-unsupported");
-    for (const audit of audits) {
-        database.run(
-            `INSERT INTO protocol_audit_records (
+test(
+    "SQLite reads every hand-seeded codec-representable non-write audit projection",
+    { tags: "p1" },
+    () => {
+        const database = new TestSqlite();
+        const persistence = new SqliteProtocolPersistence(database);
+        const audits = protocolUnsupportedAuditRecords("sqlite-unsupported");
+        for (const audit of audits) {
+            database.run(
+                `INSERT INTO protocol_audit_records (
                 id, evidence_identity, evidence_kind, write_id, write_outcome, record
              ) VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-                audit.id.value,
-                auditEvidenceIdentity(audit.actor, audit.kind).value,
-                audit.kind.kind,
-                null,
-                null,
-                AuditRecordCodec.encode(audit)
-            ]
+                [
+                    audit.id.value,
+                    auditEvidenceIdentity(audit.actor, audit.kind).value,
+                    audit.kind.kind,
+                    null,
+                    null,
+                    AuditRecordCodec.encode(audit)
+                ]
+            );
+        }
+
+        for (const expected of audits) {
+            const actual = persistence.findAudit(database, expected.id);
+            expect(actual).toBeDefined();
+            if (actual === undefined) throw new TypeError("Expected stored audit record");
+            expect(AuditRecordCodec.encode(actual)).toEqual(AuditRecordCodec.encode(expected));
+        }
+        expect(() => new SqliteProtocolPersistence(database)).toThrow(
+            expect.objectContaining({ code: "protocol.invalid-state" })
         );
     }
+);
 
-    for (const expected of audits) {
-        const actual = persistence.findAudit(database, expected.id);
-        expect(actual).toBeDefined();
-        if (actual === undefined) throw new TypeError("Expected stored audit record");
-        expect(AuditRecordCodec.encode(actual)).toEqual(AuditRecordCodec.encode(expected));
+test.each(["audit", "write"] as const)(
+    "SQLite reads reject corrupt %s codec bytes",
+    { tags: "p0" },
+    (record) => {
+        const database = new TestSqlite();
+        const persistence = new SqliteProtocolPersistence(database);
+        const expected = protocolTestRecords(`sqlite-codec-${record}`);
+        database.transaction(() => {
+            appendProtocolTestRecords(persistence, database, expected);
+        });
+        database.run(`UPDATE protocol_${record}_records SET record = ?`, [new Uint8Array([0])]);
+
+        expectAgentCoreError(
+            () =>
+                record === "audit"
+                    ? persistence.findAudit(database, expected.audit.id)
+                    : persistence.findWriteById(database, expected.write.id),
+            "codec.invalid"
+        );
     }
-    expect(() => new SqliteProtocolPersistence(database)).toThrow(
-        expect.objectContaining({ code: "protocol.invalid-state" })
-    );
-});
-
-test.each(["audit", "write"] as const)("SQLite reads reject corrupt %s codec bytes", { tags: "p0" }, (record) => {
-    const database = new TestSqlite();
-    const persistence = new SqliteProtocolPersistence(database);
-    const expected = protocolTestRecords(`sqlite-codec-${record}`);
-    database.transaction(() => {
-        appendProtocolTestRecords(persistence, database, expected);
-    });
-    database.run(`UPDATE protocol_${record}_records SET record = ?`, [new Uint8Array([0])]);
-
-    expectAgentCoreError(
-        () =>
-            record === "audit"
-                ? persistence.findAudit(database, expected.audit.id)
-                : persistence.findWriteById(database, expected.write.id),
-        "codec.invalid"
-    );
-});
+);
 
 test.each(["evidenceKind", "writeId", "writeOutcome"] as const)(
-    "SQLite reads reject a corrupt write-audit %s projection", { tags: "p0" },
+    "SQLite reads reject a corrupt write-audit %s projection",
+    { tags: "p0" },
     (projection) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -146,7 +155,8 @@ test.each(["evidenceKind", "writeId", "writeOutcome"] as const)(
 );
 
 test.each(["missing", "actor", "tenant", "correlation"] as const)(
-    "SQLite write reads reject a %s Invocation cause", { tags: "p0" },
+    "SQLite write reads reject a %s Invocation cause",
+    { tags: "p0" },
     (corruption) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -190,7 +200,8 @@ test.each(["missing", "actor", "tenant", "correlation"] as const)(
 );
 
 test.each(["audit", "write"] as const)(
-    "SQLite reads reject a corrupt %s projection", { tags: "p0" },
+    "SQLite reads reject a corrupt %s projection",
+    { tags: "p0" },
     (projection) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -227,193 +238,220 @@ test.each(["audit", "write"] as const)(
     }
 );
 
-test("SQLite rejects an audit evidence identity that disagrees with codec bytes", { tags: "p0" }, () => {
-    const database = new TestSqlite();
-    const persistence = new SqliteProtocolPersistence(database);
-    const expected = protocolTestRecords("sqlite-corrupt-evidence-identity");
-    database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
-    database.run("UPDATE protocol_audit_records SET evidence_identity = ? WHERE id = ?", [
-        "0".repeat(64),
-        expected.root.id.value
-    ]);
+test(
+    "SQLite rejects an audit evidence identity that disagrees with codec bytes",
+    { tags: "p0" },
+    () => {
+        const database = new TestSqlite();
+        const persistence = new SqliteProtocolPersistence(database);
+        const expected = protocolTestRecords("sqlite-corrupt-evidence-identity");
+        database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
+        database.run("UPDATE protocol_audit_records SET evidence_identity = ? WHERE id = ?", [
+            "0".repeat(64),
+            expected.root.id.value
+        ]);
 
-    expectAgentCoreError(() => new SqliteProtocolPersistence(database), "codec.invalid");
-    expectAgentCoreError(() => persistence.findAudit(database, expected.root.id), "codec.invalid");
-});
+        expectAgentCoreError(() => new SqliteProtocolPersistence(database), "codec.invalid");
+        expectAgentCoreError(
+            () => persistence.findAudit(database, expected.root.id),
+            "codec.invalid"
+        );
+    }
+);
 
-test("SQLite repairs corrupt identity projections from canonical write bytes", { tags: "p1" }, () => {
-    const database = new TestSqlite();
-    const persistence = new SqliteProtocolPersistence(database);
-    const expected = protocolTestRecords("sqlite-repair-identity");
-    database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
-    database.run(
-        `UPDATE protocol_write_records SET principal_id = ?, idempotency_key = ?
+test(
+    "SQLite repairs corrupt identity projections from canonical write bytes",
+    { tags: "p1" },
+    () => {
+        const database = new TestSqlite();
+        const persistence = new SqliteProtocolPersistence(database);
+        const expected = protocolTestRecords("sqlite-repair-identity");
+        database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
+        database.run(
+            `UPDATE protocol_write_records SET principal_id = ?, idempotency_key = ?
          WHERE id = ?`,
-        ["corrupt-principal", "corrupt-key", expected.write.id.value]
-    );
+            ["corrupt-principal", "corrupt-key", expected.write.id.value]
+        );
 
-    expect(persistence.findWrite(database, expected.identity)?.id.value).toBe(
-        expected.write.id.value
-    );
-    expect(
-        database.all(
-            `SELECT principal_id, idempotency_key FROM protocol_write_records WHERE id = ?`,
-            [expected.write.id.value]
-        )[0]
-    ).toMatchObject({
-        principal_id: "persistence-principal",
-        idempotency_key: expected.identity.idempotencyKey
-    });
-});
+        expect(persistence.findWrite(database, expected.identity)?.id.value).toBe(
+            expected.write.id.value
+        );
+        expect(
+            database.all(
+                `SELECT principal_id, idempotency_key FROM protocol_write_records WHERE id = ?`,
+                [expected.write.id.value]
+            )[0]
+        ).toMatchObject({
+            principal_id: "persistence-principal",
+            idempotency_key: expected.identity.idempotencyKey
+        });
+    }
+);
 
-test("SQLite repairs deleted identity projections and lost or corrupt indexes", { tags: "p1" }, () => {
-    const database = new TestSqlite();
-    const persistence = new SqliteProtocolPersistence(database);
-    const expected = protocolTestRecords("sqlite-rebuild-projection");
-    database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
-    database.run(
-        `UPDATE protocol_write_records SET caller_kind = NULL, principal_tenant_id = NULL,
+test(
+    "SQLite repairs deleted identity projections and lost or corrupt indexes",
+    { tags: "p1" },
+    () => {
+        const database = new TestSqlite();
+        const persistence = new SqliteProtocolPersistence(database);
+        const expected = protocolTestRecords("sqlite-rebuild-projection");
+        database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
+        database.run(
+            `UPDATE protocol_write_records SET caller_kind = NULL, principal_tenant_id = NULL,
             principal_id = NULL,
             actor_kind = NULL, actor_id = NULL, idempotency_key = NULL`,
-        []
-    );
-    database.run("DROP INDEX protocol_principal_identity", []);
-    database.run("DROP INDEX protocol_actor_identity", []);
-    database.run("CREATE INDEX protocol_principal_identity ON protocol_write_records (id)", []);
+            []
+        );
+        database.run("DROP INDEX protocol_principal_identity", []);
+        database.run("DROP INDEX protocol_actor_identity", []);
+        database.run("CREATE INDEX protocol_principal_identity ON protocol_write_records (id)", []);
 
-    expect(persistence.findWrite(database, expected.identity)?.id.value).toBe(
-        expected.write.id.value
-    );
-    const indexes = database.all(
-        `SELECT name, sql FROM sqlite_schema
+        expect(persistence.findWrite(database, expected.identity)?.id.value).toBe(
+            expected.write.id.value
+        );
+        const indexes = database.all(
+            `SELECT name, sql FROM sqlite_schema
          WHERE name IN ('protocol_principal_identity', 'protocol_actor_identity')`,
-        []
-    );
-    expect(indexes).toHaveLength(2);
-    expect(
-        indexes.every(
-            (row) => typeof row["sql"] === "string" && row["sql"].startsWith("CREATE UNIQUE INDEX")
-        )
-    ).toBe(true);
-});
+            []
+        );
+        expect(indexes).toHaveLength(2);
+        expect(
+            indexes.every(
+                (row) =>
+                    typeof row["sql"] === "string" && row["sql"].startsWith("CREATE UNIQUE INDEX")
+            )
+        ).toBe(true);
+    }
+);
 
-test("SQLite rebuilds missing and counterfeit command identity views canonically", { tags: "p1" }, () => {
-    const counterfeitViews: readonly (string | undefined)[] = [
-        undefined,
-        `CREATE VIEW protocol_command_identities AS
+test(
+    "SQLite rebuilds missing and counterfeit command identity views canonically",
+    { tags: "p1" },
+    () => {
+        const counterfeitViews: readonly (string | undefined)[] = [
+            undefined,
+            `CREATE VIEW protocol_command_identities AS
             SELECT sequence, caller_kind, principal_id, actor_kind, actor_id,
                    idempotency_key, id AS write_id
             FROM protocol_write_records`,
-        `CREATE VIEW protocol_command_identities AS
+            `CREATE VIEW protocol_command_identities AS
             SELECT sequence, caller_kind, principal_id, actor_kind, actor_id,
                    idempotency_key, audit_id AS write_id
             FROM protocol_write_records
             WHERE caller_kind IS NOT NULL`
-    ];
-    for (const counterfeit of counterfeitViews) {
-        const database = new TestSqlite();
-        const persistence = new SqliteProtocolPersistence(database);
-        const indexed = protocolTestRecords("sqlite-view-indexed");
-        const unindexed = protocolTestRecords("sqlite-view-unindexed", undefined, {
-            outcome: "rejectedAuthentication"
-        });
-        database.transaction(() => {
-            appendProtocolTestRecords(persistence, database, indexed);
-            appendProtocolTestRecords(persistence, database, unindexed, null);
-        });
-        database.run("DROP VIEW protocol_command_identities", []);
-        if (counterfeit !== undefined) database.run(counterfeit, []);
+        ];
+        for (const counterfeit of counterfeitViews) {
+            const database = new TestSqlite();
+            const persistence = new SqliteProtocolPersistence(database);
+            const indexed = protocolTestRecords("sqlite-view-indexed");
+            const unindexed = protocolTestRecords("sqlite-view-unindexed", undefined, {
+                outcome: "rejectedAuthentication"
+            });
+            database.transaction(() => {
+                appendProtocolTestRecords(persistence, database, indexed);
+                appendProtocolTestRecords(persistence, database, unindexed, null);
+            });
+            database.run("DROP VIEW protocol_command_identities", []);
+            if (counterfeit !== undefined) database.run(counterfeit, []);
 
-        new SqliteProtocolPersistence(database);
+            new SqliteProtocolPersistence(database);
 
-        expect(
-            database
-                .all("PRAGMA table_info(protocol_command_identities)", [])
-                .map((row) => row["name"])
-        ).toEqual([
-            "sequence",
-            "caller_kind",
-            "principal_tenant_id",
-            "principal_id",
-            "actor_kind",
-            "actor_id",
-            "idempotency_key",
-            "write_id"
-        ]);
-        expect(
-            database.all(
-                `SELECT caller_kind, principal_tenant_id, principal_id, actor_kind, actor_id,
+            expect(
+                database
+                    .all("PRAGMA table_info(protocol_command_identities)", [])
+                    .map((row) => row["name"])
+            ).toEqual([
+                "sequence",
+                "caller_kind",
+                "principal_tenant_id",
+                "principal_id",
+                "actor_kind",
+                "actor_id",
+                "idempotency_key",
+                "write_id"
+            ]);
+            expect(
+                database.all(
+                    `SELECT caller_kind, principal_tenant_id, principal_id, actor_kind, actor_id,
                     idempotency_key, write_id
              FROM protocol_command_identities ORDER BY sequence`,
-                []
-            )
-        ).toEqual([
-            {
-                caller_kind: "principal",
-                principal_tenant_id: "persistence-tenant",
-                principal_id: "persistence-principal",
-                actor_kind: null,
-                actor_id: null,
-                idempotency_key: indexed.identity.idempotencyKey,
-                write_id: indexed.write.id.value
-            }
-        ]);
-        expect(
-            database.all(
-                "SELECT sql FROM sqlite_schema WHERE name = 'protocol_command_identities'",
-                []
-            )[0]?.["sql"]
-        ).toContain("WHERE caller_kind IS NOT NULL");
+                    []
+                )
+            ).toEqual([
+                {
+                    caller_kind: "principal",
+                    principal_tenant_id: "persistence-tenant",
+                    principal_id: "persistence-principal",
+                    actor_kind: null,
+                    actor_id: null,
+                    idempotency_key: indexed.identity.idempotencyKey,
+                    write_id: indexed.write.id.value
+                }
+            ]);
+            expect(
+                database.all(
+                    "SELECT sql FROM sqlite_schema WHERE name = 'protocol_command_identities'",
+                    []
+                )[0]?.["sql"]
+            ).toContain("WHERE caller_kind IS NOT NULL");
+        }
     }
-});
+);
 
-test("SQLite clears swapped identity projections before rebuilding unique indexes", { tags: "p1" }, () => {
-    const database = new TestSqlite();
-    const persistence = new SqliteProtocolPersistence(database);
-    const first = protocolTestRecords("sqlite-swap-first");
-    const second = protocolTestRecords("sqlite-swap-second", undefined, { key: "second-key" });
-    database.transaction(() => {
-        appendProtocolTestRecords(persistence, database, first);
-        appendProtocolTestRecords(persistence, database, second);
-    });
-    database.run("DROP INDEX protocol_principal_identity", []);
-    database.run("DROP INDEX protocol_actor_identity", []);
-    database.run(
-        `UPDATE protocol_write_records SET
+test(
+    "SQLite clears swapped identity projections before rebuilding unique indexes",
+    { tags: "p1" },
+    () => {
+        const database = new TestSqlite();
+        const persistence = new SqliteProtocolPersistence(database);
+        const first = protocolTestRecords("sqlite-swap-first");
+        const second = protocolTestRecords("sqlite-swap-second", undefined, { key: "second-key" });
+        database.transaction(() => {
+            appendProtocolTestRecords(persistence, database, first);
+            appendProtocolTestRecords(persistence, database, second);
+        });
+        database.run("DROP INDEX protocol_principal_identity", []);
+        database.run("DROP INDEX protocol_actor_identity", []);
+        database.run(
+            `UPDATE protocol_write_records SET
             idempotency_key = CASE id WHEN ? THEN ? WHEN ? THEN ? END
          WHERE id IN (?, ?)`,
-        [
-            first.write.id.value,
-            second.identity.idempotencyKey,
-            second.write.id.value,
-            first.identity.idempotencyKey,
-            first.write.id.value,
-            second.write.id.value
-        ]
-    );
-    database.run(
-        `CREATE UNIQUE INDEX protocol_principal_identity
+            [
+                first.write.id.value,
+                second.identity.idempotencyKey,
+                second.write.id.value,
+                first.identity.idempotencyKey,
+                first.write.id.value,
+                second.write.id.value
+            ]
+        );
+        database.run(
+            `CREATE UNIQUE INDEX protocol_principal_identity
          ON protocol_write_records (principal_tenant_id, principal_id, idempotency_key)
          WHERE caller_kind = 'principal'`,
-        []
-    );
-    database.run(
-        `CREATE UNIQUE INDEX protocol_actor_identity
+            []
+        );
+        database.run(
+            `CREATE UNIQUE INDEX protocol_actor_identity
          ON protocol_write_records (actor_kind, actor_id, idempotency_key)
          WHERE caller_kind = 'actor'`,
-        []
-    );
+            []
+        );
 
-    expect(persistence.findWrite(database, first.identity)?.id.value).toBe(first.write.id.value);
-    expect(
-        database.all("SELECT idempotency_key FROM protocol_write_records WHERE id = ?", [
+        expect(persistence.findWrite(database, first.identity)?.id.value).toBe(
             first.write.id.value
-        ])[0]?.["idempotency_key"]
-    ).toBe(first.identity.idempotencyKey);
-});
+        );
+        expect(
+            database.all("SELECT idempotency_key FROM protocol_write_records WHERE id = ?", [
+                first.write.id.value
+            ])[0]?.["idempotency_key"]
+        ).toBe(first.identity.idempotencyKey);
+    }
+);
 
 test.each(["missing-audit", "orphan-write-audit", "missing-cause", "duplicate-lineage"] as const)(
-    "SQLite startup repair rejects %s corruption", { tags: "p0" },
+    "SQLite startup repair rejects %s corruption",
+    { tags: "p0" },
     (corruption) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -487,25 +525,30 @@ test("SQLite fails closed when canonical writes conflict after index loss", { ta
     );
 });
 
-test("SQLite validates STRICT protocol schema version without accepting legacy tables", { tags: "p1" }, () => {
-    const database = new TestSqlite();
-    new SqliteProtocolPersistence(database);
-    const strict = new Map(
-        database.all("PRAGMA table_list", []).map((row) => [row["name"], row["strict"]])
-    );
-    expect(strict.get("protocol_schema")).toBe(1);
-    expect(strict.get("protocol_audit_records")).toBe(1);
-    expect(strict.get("protocol_write_records")).toBe(1);
-    database.run("UPDATE protocol_schema SET version = version + 1", []);
-    expectAgentCoreError(() => new SqliteProtocolPersistence(database), "codec.invalid");
+test(
+    "SQLite validates STRICT protocol schema version without accepting legacy tables",
+    { tags: "p1" },
+    () => {
+        const database = new TestSqlite();
+        new SqliteProtocolPersistence(database);
+        const strict = new Map(
+            database.all("PRAGMA table_list", []).map((row) => [row["name"], row["strict"]])
+        );
+        expect(strict.get("protocol_schema")).toBe(1);
+        expect(strict.get("protocol_audit_records")).toBe(1);
+        expect(strict.get("protocol_write_records")).toBe(1);
+        database.run("UPDATE protocol_schema SET version = version + 1", []);
+        expectAgentCoreError(() => new SqliteProtocolPersistence(database), "codec.invalid");
 
-    const legacy = new TestSqlite();
-    legacy.run("CREATE TABLE protocol_write_records (id TEXT)", []);
-    expectAgentCoreError(() => new SqliteProtocolPersistence(legacy), "codec.invalid");
-});
+        const legacy = new TestSqlite();
+        legacy.run("CREATE TABLE protocol_write_records (id TEXT)", []);
+        expectAgentCoreError(() => new SqliteProtocolPersistence(legacy), "codec.invalid");
+    }
+);
 
 test.each(["wrong-type", "non-strict", "columns"] as const)(
-    "SQLite rejects %s protocol schema corruption", { tags: "p0" },
+    "SQLite rejects %s protocol schema corruption",
+    { tags: "p0" },
     (corruption) => {
         const database = new TestSqlite();
         new SqliteProtocolPersistence(database);
@@ -562,32 +605,37 @@ test("SQLite schema validation propagates an unexpected driver TypeError", { tag
 test.each([
     ["audit kind", "audit", "evidence_kind", "invalid-kind"],
     ["write outcome", "write", "outcome", "invalid-outcome"]
-] as const)("SQLite rejects an invalid stored %s", { tags: "p0" }, (_case, record, column, value) => {
-    const database = new TestSqlite();
-    const persistence = new SqliteProtocolPersistence(database);
-    const expected = protocolTestRecords(`sqlite-invalid-${record}`);
-    database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
-    const id = record === "audit" ? expected.root.id : expected.write.id;
-    database.run(`UPDATE protocol_${record}_records SET ${column} = ? WHERE id = ?`, [
-        value,
-        id.value
-    ]);
+] as const)(
+    "SQLite rejects an invalid stored %s",
+    { tags: "p0" },
+    (_case, record, column, value) => {
+        const database = new TestSqlite();
+        const persistence = new SqliteProtocolPersistence(database);
+        const expected = protocolTestRecords(`sqlite-invalid-${record}`);
+        database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
+        const id = record === "audit" ? expected.root.id : expected.write.id;
+        database.run(`UPDATE protocol_${record}_records SET ${column} = ? WHERE id = ?`, [
+            value,
+            id.value
+        ]);
 
-    expectAgentCoreError(
-        () =>
-            record === "audit"
-                ? persistence.findAudit(database, expected.root.id)
-                : persistence.findWriteById(database, expected.write.id),
-        "codec.invalid"
-    );
-});
+        expectAgentCoreError(
+            () =>
+                record === "audit"
+                    ? persistence.findAudit(database, expected.root.id)
+                    : persistence.findWriteById(database, expected.write.id),
+            "codec.invalid"
+        );
+    }
+);
 
 test.each([
     ["byte", "record", "not-bytes"],
     ["text", "id", 7],
     ["nullable text", "write_id", 7]
 ] as const)(
-    "SQLite rejects a projected %s column with the wrong runtime type", { tags: "p0" },
+    "SQLite rejects a projected %s column with the wrong runtime type",
+    { tags: "p0" },
     (_case, column, corruptValue) => {
         const database = new TestSqlite();
         const persistence = new SqliteProtocolPersistence(database);
@@ -616,28 +664,35 @@ test.each([
 test.each([
     ["Error", new Error("index rebuild fault")],
     ["non-Error", "index rebuild fault"]
-] as const)("SQLite rolls back an %s identity-index rebuild fault", { tags: "p0" }, (_case, fault) => {
-    const database = new TestSqlite();
-    new SqliteProtocolPersistence(database);
-    const run = database.run.bind(database);
-    Object.defineProperty(database, "run", {
-        value(statement: string, bindings: Parameters<TestSqlite["run"]>[1]) {
-            if (statement.startsWith("CREATE UNIQUE INDEX protocol_principal_identity")) {
-                throw fault;
+] as const)(
+    "SQLite rolls back an %s identity-index rebuild fault",
+    { tags: "p0" },
+    (_case, fault) => {
+        const database = new TestSqlite();
+        new SqliteProtocolPersistence(database);
+        const run = database.run.bind(database);
+        Object.defineProperty(database, "run", {
+            value(statement: string, bindings: Parameters<TestSqlite["run"]>[1]) {
+                if (statement.startsWith("CREATE UNIQUE INDEX protocol_principal_identity")) {
+                    throw fault;
+                }
+                run(statement, bindings);
             }
-            run(statement, bindings);
-        }
-    });
+        });
 
-    expectAgentCoreError(() => new SqliteProtocolPersistence(database), "protocol.invalid-state");
-    expect(
-        database.all(
-            `SELECT name FROM sqlite_schema
+        expectAgentCoreError(
+            () => new SqliteProtocolPersistence(database),
+            "protocol.invalid-state"
+        );
+        expect(
+            database.all(
+                `SELECT name FROM sqlite_schema
          WHERE name IN ('protocol_principal_identity', 'protocol_actor_identity')`,
-            []
-        )
-    ).toHaveLength(2);
-});
+                []
+            )
+        ).toHaveLength(2);
+    }
+);
 
 function createSqliteHarness(): ProtocolPersistenceHarness<TransactionalSqlite> {
     const directory = mkdtempSync(join(tmpdir(), "agent-core-protocol-contract-"));

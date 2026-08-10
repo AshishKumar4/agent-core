@@ -39,97 +39,124 @@ describe("deterministic package resolution", () => {
         expect(versions(lock)).toEqual({ a: "1.0.0", b: "1.0.0", c: "1.5.0" });
     });
 
-    test("excludes prereleases unless every accumulated range admits the same base", { tags: "p1" }, () => {
-        const simple = metadata([release("app", "2.0.0-beta.2"), release("app", "1.9.0")]);
-        expect(versions(resolvePackageLock(simple, [dependency("app", ">=1.0.0")]))).toEqual({
-            app: "1.9.0"
-        });
-        expect(
-            versions(resolvePackageLock(simple, [dependency("app", ">=2.0.0-beta.1 <2.0.0")]))
-        ).toEqual({
-            app: "2.0.0-beta.2"
-        });
+    test(
+        "excludes prereleases unless every accumulated range admits the same base",
+        { tags: "p1" },
+        () => {
+            const simple = metadata([release("app", "2.0.0-beta.2"), release("app", "1.9.0")]);
+            expect(versions(resolvePackageLock(simple, [dependency("app", ">=1.0.0")]))).toEqual({
+                app: "1.9.0"
+            });
+            expect(
+                versions(resolvePackageLock(simple, [dependency("app", ">=2.0.0-beta.1 <2.0.0")]))
+            ).toEqual({
+                app: "2.0.0-beta.2"
+            });
 
-        const accumulated = metadata([
-            release("a", "1.0.0", [dependency("shared", ">=2.0.0-beta.1 <2.0.0")]),
-            release("b", "1.0.0", [dependency("shared", ">=1.0.0")]),
-            release("shared", "2.0.0-beta.2")
-        ]);
-        expect(() =>
-            resolvePackageLock(accumulated, [dependency("a", "*"), dependency("b", "*")])
-        ).toThrow(/No version of package shared/);
+            const accumulated = metadata([
+                release("a", "1.0.0", [dependency("shared", ">=2.0.0-beta.1 <2.0.0")]),
+                release("b", "1.0.0", [dependency("shared", ">=1.0.0")]),
+                release("shared", "2.0.0-beta.2")
+            ]);
+            expect(() =>
+                resolvePackageLock(accumulated, [dependency("a", "*"), dependency("b", "*")])
+            ).toThrow(/No version of package shared/);
 
-        const admitted = metadata([
-            release("a", "1.0.0", [dependency("shared", ">=2.0.0-beta.1 <2.0.0")]),
-            release("b", "1.0.0", [dependency("shared", "2.0.0-beta.2")]),
-            release("shared", "2.0.0-beta.2")
-        ]);
-        expect(
-            versions(resolvePackageLock(admitted, [dependency("a", "*"), dependency("b", "*")]))
-                .shared
-        ).toBe("2.0.0-beta.2");
-    });
+            const admitted = metadata([
+                release("a", "1.0.0", [dependency("shared", ">=2.0.0-beta.1 <2.0.0")]),
+                release("b", "1.0.0", [dependency("shared", "2.0.0-beta.2")]),
+                release("shared", "2.0.0-beta.2")
+            ]);
+            expect(
+                versions(resolvePackageLock(admitted, [dependency("a", "*"), dependency("b", "*")]))
+                    .shared
+            ).toBe("2.0.0-beta.2");
+        }
+    );
 
-    test("breaks equal-precedence build ties by ascending full canonical version", { tags: "p1" }, () => {
-        const alphaFirst = metadata([release("app", "1.0.0+alpha"), release("app", "1.0.0+zeta")]);
-        const zetaFirst = metadata([release("app", "1.0.0+zeta"), release("app", "1.0.0+alpha")]);
+    test(
+        "breaks equal-precedence build ties by ascending full canonical version",
+        { tags: "p1" },
+        () => {
+            const alphaFirst = metadata([
+                release("app", "1.0.0+alpha"),
+                release("app", "1.0.0+zeta")
+            ]);
+            const zetaFirst = metadata([
+                release("app", "1.0.0+zeta"),
+                release("app", "1.0.0+alpha")
+            ]);
 
-        const first = resolvePackageLock(alphaFirst, [dependency("app", "*")]);
-        const second = resolvePackageLock(zetaFirst, [dependency("app", "*")]);
-        expect(versions(first)).toEqual({ app: "1.0.0+alpha" });
-        expect(alphaFirst.digest.equals(zetaFirst.digest)).toBe(true);
-        expect(PackageLock.encode(first)).toEqual(PackageLock.encode(second));
-    });
+            const first = resolvePackageLock(alphaFirst, [dependency("app", "*")]);
+            const second = resolvePackageLock(zetaFirst, [dependency("app", "*")]);
+            expect(versions(first)).toEqual({ app: "1.0.0+alpha" });
+            expect(alphaFirst.digest.equals(zetaFirst.digest)).toBe(true);
+            expect(PackageLock.encode(first)).toEqual(PackageLock.encode(second));
+        }
+    );
 
-    test("resolves byte-identically across root, release, and dependency insertion orders", { tags: "p1" }, () => {
-        const first = metadata(
-            [
-                release("root-b", "1.0.0", [dependency("z", "^1"), dependency("a", "^1")]),
-                release("z", "1.0.0"),
-                release("root-a", "1.0.0", [dependency("a", "^1")]),
-                release("a", "1.1.0")
-            ],
-            9
-        );
-        const second = metadata(
-            [
-                release("a", "1.1.0"),
-                release("root-a", "1.0.0", [dependency("a", "^1")]),
-                release("z", "1.0.0"),
-                release("root-b", "1.0.0", [dependency("a", "^1"), dependency("z", "^1")])
-            ],
-            9
-        );
+    test(
+        "resolves byte-identically across root, release, and dependency insertion orders",
+        { tags: "p1" },
+        () => {
+            const first = metadata(
+                [
+                    release("root-b", "1.0.0", [dependency("z", "^1"), dependency("a", "^1")]),
+                    release("z", "1.0.0"),
+                    release("root-a", "1.0.0", [dependency("a", "^1")]),
+                    release("a", "1.1.0")
+                ],
+                9
+            );
+            const second = metadata(
+                [
+                    release("a", "1.1.0"),
+                    release("root-a", "1.0.0", [dependency("a", "^1")]),
+                    release("z", "1.0.0"),
+                    release("root-b", "1.0.0", [dependency("a", "^1"), dependency("z", "^1")])
+                ],
+                9
+            );
 
-        const left = resolvePackageLock(first, [
-            dependency("root-b", "*"),
-            dependency("root-a", "*")
-        ]);
-        const right = resolvePackageLock(second, [
-            dependency("root-a", "*"),
-            dependency("root-b", "*")
-        ]);
-        expect(PackageLock.encode(left)).toEqual(PackageLock.encode(right));
-        expect(left.packages.map((pin) => pin.id.value)).toEqual(["a", "root-a", "root-b", "z"]);
-    });
+            const left = resolvePackageLock(first, [
+                dependency("root-b", "*"),
+                dependency("root-a", "*")
+            ]);
+            const right = resolvePackageLock(second, [
+                dependency("root-a", "*"),
+                dependency("root-b", "*")
+            ]);
+            expect(PackageLock.encode(left)).toEqual(PackageLock.encode(right));
+            expect(left.packages.map((pin) => pin.id.value)).toEqual([
+                "a",
+                "root-a",
+                "root-b",
+                "z"
+            ]);
+        }
+    );
 
-    test("rejects duplicate roots, missing packages, and incompatible intersections", { tags: "p1" }, () => {
-        const snapshot = metadata([
-            release("a", "1.0.0", [dependency("shared", "^1")]),
-            release("b", "1.0.0", [dependency("shared", "^2")]),
-            release("shared", "1.0.0"),
-            release("shared", "2.0.0")
-        ]);
-        expect(() =>
-            resolvePackageLock(snapshot, [dependency("a", "*"), dependency("a", "^1")])
-        ).toThrow("Duplicate root package ID a");
-        expect(() => resolvePackageLock(snapshot, [dependency("missing", "*")])).toThrow(
-            "Missing package missing"
-        );
-        expect(() =>
-            resolvePackageLock(snapshot, [dependency("a", "*"), dependency("b", "*")])
-        ).toThrow(/No version of package shared satisfies/);
-    });
+    test(
+        "rejects duplicate roots, missing packages, and incompatible intersections",
+        { tags: "p1" },
+        () => {
+            const snapshot = metadata([
+                release("a", "1.0.0", [dependency("shared", "^1")]),
+                release("b", "1.0.0", [dependency("shared", "^2")]),
+                release("shared", "1.0.0"),
+                release("shared", "2.0.0")
+            ]);
+            expect(() =>
+                resolvePackageLock(snapshot, [dependency("a", "*"), dependency("a", "^1")])
+            ).toThrow("Duplicate root package ID a");
+            expect(() => resolvePackageLock(snapshot, [dependency("missing", "*")])).toThrow(
+                "Missing package missing"
+            );
+            expect(() =>
+                resolvePackageLock(snapshot, [dependency("a", "*"), dependency("b", "*")])
+            ).toThrow(/No version of package shared satisfies/);
+        }
+    );
 
     test("rejects self and multi-package cycles with canonical paths", { tags: "p1" }, () => {
         const self = metadata([release("self", "1.0.0", [dependency("self", "*")])]);
@@ -148,145 +175,167 @@ describe("deterministic package resolution", () => {
     });
 
     test("a wildcard range skips prerelease candidates instead of crashing", { tags: "p1" }, () => {
-        const snapshot = metadata([
-            release("app", "2.0.0-beta.2"),
-            release("app", "1.0.0")
-        ]);
+        const snapshot = metadata([release("app", "2.0.0-beta.2"), release("app", "1.0.0")]);
 
         expect(versions(resolvePackageLock(snapshot, [dependency("app", "*")]))).toEqual({
             app: "1.0.0"
         });
     });
 
-    test("backtracks away from a cyclic candidate when a complete closure exists", { tags: "p1" }, () => {
-        const snapshot = metadata([
-            release("a", "2.0.0", [dependency("b", "^2")]),
-            release("a", "1.0.0", [dependency("b", "^1")]),
-            release("b", "2.0.0", [dependency("a", "^2")]),
-            release("b", "1.0.0")
-        ]);
-
-        expect(versions(resolvePackageLock(snapshot, [dependency("a", "*")]))).toEqual({
-            a: "1.0.0",
-            b: "1.0.0"
-        });
-    });
-
-    test("re-checks earlier selections when later dependencies narrow their ranges", { tags: "p1" }, () => {
-        const snapshot = metadata([
-            release("a", "2.0.0"),
-            release("a", "1.0.0"),
-            release("b", "1.0.0", [dependency("a", "^1")])
-        ]);
-
-        const lock = resolvePackageLock(snapshot, [dependency("a", "*"), dependency("b", "*")]);
-
-        expect(versions(lock)).toEqual({ a: "1.0.0", b: "1.0.0" });
-    });
-
-    test("selects unresolved packages in lexicographic order independent of root order", { tags: "p1" }, () => {
-        const snapshot = metadata([
-            release("a", "2.0.0", [dependency("x", "^1")]),
-            release("a", "1.0.0", [dependency("x", "^2")]),
-            release("b", "2.0.0", [dependency("x", "^2")]),
-            release("b", "1.0.0", [dependency("x", "^1")]),
-            release("x", "2.0.0"),
-            release("x", "1.0.0")
-        ]);
-
-        const lock = resolvePackageLock(snapshot, [dependency("b", "*"), dependency("a", "*")]);
-
-        expect(versions(lock)).toEqual({ a: "2.0.0", b: "1.0.0", x: "1.0.0" });
-    });
-
-    test("excludes a release when any of its Facet manifests is incompatible", { tags: "p1" }, () => {
-        const manifests = [
-            manifest("dual.compatible", "1.0.0"),
-            manifest("dual.incompatible", "1.0.0", new CompatRange("*", ">=2"))
-        ] as [FacetManifest, FacetManifest];
-        const dual = new PackageRelease({
-            id: new PackageId("dual"),
-            version: new SemVer("1.0.0"),
-            compatibility: CompatRange.any(),
-            dependencies: [],
-            manifests,
-            codeManifest: new PackageCodeManifest({
-                compatibilityDate: "2026-07-10",
-                modules: [
-                    new PackageCodeModule({
-                        specifier: "./main.js",
-                        content: ContentRef.fromDigest(digestOf("code:dual")),
-                        media: new MediaHint("application/javascript")
-                    })
-                ],
-                entrypoints: manifests.map(
-                    (facet) =>
-                        new PackageCodeEntrypoint({
-                            facet: facet.id,
-                            version: facet.version,
-                            module: "./main.js"
-                        })
-                ) as [PackageCodeEntrypoint, PackageCodeEntrypoint]
-            }),
-            provenance: { registry: "test" }
-        });
-
-        expect(() => resolvePackageLock(metadata([dual]), [dependency("dual", "*")])).toThrow(
-            /No version of package dual/
-        );
-    });
-
-    test("admits prereleases only through an explicitly matching comparator clause", { tags: "p1" }, () => {
-        const cases: readonly {
-            readonly range: string;
-            readonly prerelease: string;
-            readonly stable: string;
-            readonly expected: string;
-        }[] = [
-            {
-                range: ">=1.0.0 <1.5.0 || 2.0.0-beta.2",
-                prerelease: "2.0.0-beta.2",
-                stable: "1.0.0",
-                expected: "2.0.0-beta.2"
-            },
-            {
-                range: ">=1.0.0 || >=2.0.0-beta.1 <2.0.0-beta.3",
-                prerelease: "2.0.0-beta.5",
-                stable: "1.2.0",
-                expected: "1.2.0"
-            },
-            { range: "<=2.0.0", prerelease: "2.0.0-beta.2", stable: "1.0.0", expected: "1.0.0" },
-            {
-                range: ">=1.0.0-beta.1",
-                prerelease: "2.0.0-beta.2",
-                stable: "1.0.0",
-                expected: "1.0.0"
-            },
-            {
-                range: "<=2.1.0-beta.1",
-                prerelease: "2.0.0-beta.2",
-                stable: "1.0.0",
-                expected: "1.0.0"
-            },
-            {
-                range: "<=2.0.1-beta.1",
-                prerelease: "2.0.0-beta.2",
-                stable: "1.0.0",
-                expected: "1.0.0"
-            }
-        ];
-        for (const candidate of cases) {
+    test(
+        "backtracks away from a cyclic candidate when a complete closure exists",
+        { tags: "p1" },
+        () => {
             const snapshot = metadata([
-                release("app", candidate.prerelease),
-                release("app", candidate.stable)
+                release("a", "2.0.0", [dependency("b", "^2")]),
+                release("a", "1.0.0", [dependency("b", "^1")]),
+                release("b", "2.0.0", [dependency("a", "^2")]),
+                release("b", "1.0.0")
             ]);
-            const lock = resolvePackageLock(snapshot, [dependency("app", candidate.range)]);
-            expect({ range: candidate.range, versions: versions(lock) }).toEqual({
-                range: candidate.range,
-                versions: { app: candidate.expected }
+
+            expect(versions(resolvePackageLock(snapshot, [dependency("a", "*")]))).toEqual({
+                a: "1.0.0",
+                b: "1.0.0"
             });
         }
-    });
+    );
+
+    test(
+        "re-checks earlier selections when later dependencies narrow their ranges",
+        { tags: "p1" },
+        () => {
+            const snapshot = metadata([
+                release("a", "2.0.0"),
+                release("a", "1.0.0"),
+                release("b", "1.0.0", [dependency("a", "^1")])
+            ]);
+
+            const lock = resolvePackageLock(snapshot, [dependency("a", "*"), dependency("b", "*")]);
+
+            expect(versions(lock)).toEqual({ a: "1.0.0", b: "1.0.0" });
+        }
+    );
+
+    test(
+        "selects unresolved packages in lexicographic order independent of root order",
+        { tags: "p1" },
+        () => {
+            const snapshot = metadata([
+                release("a", "2.0.0", [dependency("x", "^1")]),
+                release("a", "1.0.0", [dependency("x", "^2")]),
+                release("b", "2.0.0", [dependency("x", "^2")]),
+                release("b", "1.0.0", [dependency("x", "^1")]),
+                release("x", "2.0.0"),
+                release("x", "1.0.0")
+            ]);
+
+            const lock = resolvePackageLock(snapshot, [dependency("b", "*"), dependency("a", "*")]);
+
+            expect(versions(lock)).toEqual({ a: "2.0.0", b: "1.0.0", x: "1.0.0" });
+        }
+    );
+
+    test(
+        "excludes a release when any of its Facet manifests is incompatible",
+        { tags: "p1" },
+        () => {
+            const manifests = [
+                manifest("dual.compatible", "1.0.0"),
+                manifest("dual.incompatible", "1.0.0", new CompatRange("*", ">=2"))
+            ] as [FacetManifest, FacetManifest];
+            const dual = new PackageRelease({
+                id: new PackageId("dual"),
+                version: new SemVer("1.0.0"),
+                compatibility: CompatRange.any(),
+                dependencies: [],
+                manifests,
+                codeManifest: new PackageCodeManifest({
+                    compatibilityDate: "2026-07-10",
+                    modules: [
+                        new PackageCodeModule({
+                            specifier: "./main.js",
+                            content: ContentRef.fromDigest(digestOf("code:dual")),
+                            media: new MediaHint("application/javascript")
+                        })
+                    ],
+                    entrypoints: manifests.map(
+                        (facet) =>
+                            new PackageCodeEntrypoint({
+                                facet: facet.id,
+                                version: facet.version,
+                                module: "./main.js"
+                            })
+                    ) as [PackageCodeEntrypoint, PackageCodeEntrypoint]
+                }),
+                provenance: { registry: "test" }
+            });
+
+            expect(() => resolvePackageLock(metadata([dual]), [dependency("dual", "*")])).toThrow(
+                /No version of package dual/
+            );
+        }
+    );
+
+    test(
+        "admits prereleases only through an explicitly matching comparator clause",
+        { tags: "p1" },
+        () => {
+            const cases: readonly {
+                readonly range: string;
+                readonly prerelease: string;
+                readonly stable: string;
+                readonly expected: string;
+            }[] = [
+                {
+                    range: ">=1.0.0 <1.5.0 || 2.0.0-beta.2",
+                    prerelease: "2.0.0-beta.2",
+                    stable: "1.0.0",
+                    expected: "2.0.0-beta.2"
+                },
+                {
+                    range: ">=1.0.0 || >=2.0.0-beta.1 <2.0.0-beta.3",
+                    prerelease: "2.0.0-beta.5",
+                    stable: "1.2.0",
+                    expected: "1.2.0"
+                },
+                {
+                    range: "<=2.0.0",
+                    prerelease: "2.0.0-beta.2",
+                    stable: "1.0.0",
+                    expected: "1.0.0"
+                },
+                {
+                    range: ">=1.0.0-beta.1",
+                    prerelease: "2.0.0-beta.2",
+                    stable: "1.0.0",
+                    expected: "1.0.0"
+                },
+                {
+                    range: "<=2.1.0-beta.1",
+                    prerelease: "2.0.0-beta.2",
+                    stable: "1.0.0",
+                    expected: "1.0.0"
+                },
+                {
+                    range: "<=2.0.1-beta.1",
+                    prerelease: "2.0.0-beta.2",
+                    stable: "1.0.0",
+                    expected: "1.0.0"
+                }
+            ];
+            for (const candidate of cases) {
+                const snapshot = metadata([
+                    release("app", candidate.prerelease),
+                    release("app", candidate.stable)
+                ]);
+                const lock = resolvePackageLock(snapshot, [dependency("app", candidate.range)]);
+                expect({ range: candidate.range, versions: versions(lock) }).toEqual({
+                    range: candidate.range,
+                    versions: { app: candidate.expected }
+                });
+            }
+        }
+    );
 
     test("reports conflict constraints as a sorted unique conjunction", { tags: "p2" }, () => {
         const incompatible = metadata([release("only", "1.0.0", [], new CompatRange(">=2", "*"))]);
@@ -393,70 +442,84 @@ describe("deterministic package resolution", () => {
         );
     });
 
-    test("resolves multi-dependency graphs without reporting spurious cycles", { tags: "p1" }, () => {
-        const snapshot = metadata([
-            release("a", "1.0.0", [dependency("b", "*"), dependency("c", "*")]),
-            release("b", "1.0.0"),
-            release("c", "1.0.0"),
-            release("z", "1.0.0", [dependency("a", "*")])
-        ]);
+    test(
+        "resolves multi-dependency graphs without reporting spurious cycles",
+        { tags: "p1" },
+        () => {
+            const snapshot = metadata([
+                release("a", "1.0.0", [dependency("b", "*"), dependency("c", "*")]),
+                release("b", "1.0.0"),
+                release("c", "1.0.0"),
+                release("z", "1.0.0", [dependency("a", "*")])
+            ]);
 
-        expect(versions(resolvePackageLock(snapshot, [dependency("z", "*")]))).toEqual({
-            a: "1.0.0",
-            b: "1.0.0",
-            c: "1.0.0",
-            z: "1.0.0"
-        });
-    });
-
-    test("resolves a deep shared-dependency lattice without revisiting subgraphs", { tags: "p1" }, () => {
-        // kills src/definition/resolver.ts:188 (cycle detection's visited guard:
-        // without it the 2-wide lattice below is re-traversed once per path, which
-        // is exponential in depth and can never finish inside the test timeout)
-        const levels = 30;
-        const releases: PackageRelease[] = [];
-        for (let level = 0; level < levels; level += 1) {
-            const next = String(level + 1).padStart(2, "0");
-            const deps =
-                level === levels - 1
-                    ? []
-                    : [dependency(`n${next}a`, "1.0.0"), dependency(`n${next}b`, "1.0.0")];
-            const current = String(level).padStart(2, "0");
-            releases.push(release(`n${current}a`, "1.0.0", deps));
-            releases.push(release(`n${current}b`, "1.0.0", deps));
+            expect(versions(resolvePackageLock(snapshot, [dependency("z", "*")]))).toEqual({
+                a: "1.0.0",
+                b: "1.0.0",
+                c: "1.0.0",
+                z: "1.0.0"
+            });
         }
-        const lock = resolvePackageLock(metadata(releases), [
-            dependency("n00a", "1.0.0"),
-            dependency("n00b", "1.0.0")
-        ]);
-        expect(lock.packages).toHaveLength(2 * levels);
-        expect(lock.packages.every((pin) => pin.version.toString() === "1.0.0")).toBe(true);
-    });
+    );
 
-    test("filters Package and Facet compatibility before deterministic selection", { tags: "p1" }, () => {
-        const snapshot = metadata([
-            release("app", "3.0.0", [], new CompatRange(">=2", "*")),
-            release("app", "2.0.0", [], CompatRange.any(), new CompatRange("*", ">=2")),
-            release("app", "1.0.0")
-        ]);
-        expect(versions(resolvePackageLock(snapshot, [dependency("app", "*")]))).toEqual({
-            app: "1.0.0"
-        });
+    test(
+        "resolves a deep shared-dependency lattice without revisiting subgraphs",
+        { tags: "p1" },
+        () => {
+            // kills src/definition/resolver.ts:188 (cycle detection's visited guard:
+            // without it the 2-wide lattice below is re-traversed once per path, which
+            // is exponential in depth and can never finish inside the test timeout)
+            const levels = 30;
+            const releases: PackageRelease[] = [];
+            for (let level = 0; level < levels; level += 1) {
+                const next = String(level + 1).padStart(2, "0");
+                const deps =
+                    level === levels - 1
+                        ? []
+                        : [dependency(`n${next}a`, "1.0.0"), dependency(`n${next}b`, "1.0.0")];
+                const current = String(level).padStart(2, "0");
+                releases.push(release(`n${current}a`, "1.0.0", deps));
+                releases.push(release(`n${current}b`, "1.0.0", deps));
+            }
+            const lock = resolvePackageLock(metadata(releases), [
+                dependency("n00a", "1.0.0"),
+                dependency("n00b", "1.0.0")
+            ]);
+            expect(lock.packages).toHaveLength(2 * levels);
+            expect(lock.packages.every((pin) => pin.version.toString() === "1.0.0")).toBe(true);
+        }
+    );
 
-        const otherTarget = new PlatformCompatibility({
-            spec: new SemVer("2.0.0"),
-            host: new SemVer("2.0.0")
-        });
-        const other = resolveWithTarget(snapshot, [dependency("app", "*")], otherTarget);
-        expect(versions(other)).toEqual({ app: "3.0.0" });
-        expect(
-            other.digest.equals(resolvePackageLock(snapshot, [dependency("app", "*")]).digest)
-        ).toBe(false);
-        const incompatible = metadata([release("only", "1.0.0", [], new CompatRange(">=2", "*"))]);
-        expect(() => resolvePackageLock(incompatible, [dependency("only", "*")])).toThrow(
-            /No version/
-        );
-    });
+    test(
+        "filters Package and Facet compatibility before deterministic selection",
+        { tags: "p1" },
+        () => {
+            const snapshot = metadata([
+                release("app", "3.0.0", [], new CompatRange(">=2", "*")),
+                release("app", "2.0.0", [], CompatRange.any(), new CompatRange("*", ">=2")),
+                release("app", "1.0.0")
+            ]);
+            expect(versions(resolvePackageLock(snapshot, [dependency("app", "*")]))).toEqual({
+                app: "1.0.0"
+            });
+
+            const otherTarget = new PlatformCompatibility({
+                spec: new SemVer("2.0.0"),
+                host: new SemVer("2.0.0")
+            });
+            const other = resolveWithTarget(snapshot, [dependency("app", "*")], otherTarget);
+            expect(versions(other)).toEqual({ app: "3.0.0" });
+            expect(
+                other.digest.equals(resolvePackageLock(snapshot, [dependency("app", "*")]).digest)
+            ).toBe(false);
+            const incompatible = metadata([
+                release("only", "1.0.0", [], new CompatRange(">=2", "*"))
+            ]);
+            expect(() => resolvePackageLock(incompatible, [dependency("only", "*")])).toThrow(
+                /No version/
+            );
+        }
+    );
 });
 
 function metadata(releases: readonly PackageRelease[], revision = 1): MetadataSnapshot {

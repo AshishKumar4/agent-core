@@ -35,71 +35,89 @@ export function workspaceSlotStoreContract<Transaction>(
     create: (owner: WorkspaceId) => SlotStoreContract<Transaction>
 ): void {
     describe(`${name} [workspace-slot-store] Workspace Slot store`, () => {
-        test("persists codec records with deterministic ordering and idempotent replay", { tags: "p0" }, () => {
-            const store = create(new WorkspaceId("workspace"));
-            const declaration = slot();
-            const second = entry("workspace:second", 20, { title: "Second" });
-            const first = entry("workspace:first", 10, { title: "First" });
+        test(
+            "persists codec records with deterministic ordering and idempotent replay",
+            { tags: "p0" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                const declaration = slot();
+                const second = entry("workspace:second", 20, { title: "Second" });
+                const first = entry("workspace:first", 10, { title: "First" });
 
-            install(store, declaration);
-            install(store, declaration);
-            contribute(store, second);
-            contribute(store, first);
-            contribute(store, first);
+                install(store, declaration);
+                install(store, declaration);
+                contribute(store, second);
+                contribute(store, first);
+                contribute(store, first);
 
-            expect(store.transaction((transaction) => store.loadRevision(transaction)).value).toBe(
-                3
-            );
-            expect(
-                store
-                    .transaction((transaction) => store.listEntries(transaction, declaration.name))
-                    .map((value) => value.value)
-            ).toEqual([{ title: "First" }, { title: "Second" }]);
-            expect(
-                store
-                    .transaction((transaction) => store.loadEntry(transaction, first.id))
-                    ?.id.equals(first.id)
-            ).toBe(true);
-        });
+                expect(
+                    store.transaction((transaction) => store.loadRevision(transaction)).value
+                ).toBe(3);
+                expect(
+                    store
+                        .transaction((transaction) =>
+                            store.listEntries(transaction, declaration.name)
+                        )
+                        .map((value) => value.value)
+                ).toEqual([{ title: "First" }, { title: "Second" }]);
+                expect(
+                    store
+                        .transaction((transaction) => store.loadEntry(transaction, first.id))
+                        ?.id.equals(first.id)
+                ).toBe(true);
+            }
+        );
 
-        test("rejects missing slots, invalid schemas, and conflicting contribution origins", { tags: "p1" }, () => {
-            const store = create(new WorkspaceId("workspace"));
-            const declaration = slot();
-            const accepted = entry("workspace:facet", 1, { title: "Accepted" });
-            const conflict = entry("workspace:facet", 1, { title: "Conflict" });
+        test(
+            "rejects missing slots, invalid schemas, and conflicting contribution origins",
+            { tags: "p1" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                const declaration = slot();
+                const accepted = entry("workspace:facet", 1, { title: "Accepted" });
+                const conflict = entry("workspace:facet", 1, { title: "Conflict" });
 
-            expect(() => contribute(store, accepted)).toThrow(/not installed/);
-            install(store, declaration);
-            expect(() => contribute(store, entry("workspace:bad", 2, { value: 1 }))).toThrow(
-                /schema/
-            );
-            contribute(store, accepted);
-            expect(() => contribute(store, conflict)).toThrow(/immutable|UNIQUE/);
-            expect(
-                store.transaction((transaction) => store.listEntries(transaction, declaration.name))
-            ).toHaveLength(1);
-        });
+                expect(() => contribute(store, accepted)).toThrow(/not installed/);
+                install(store, declaration);
+                expect(() => contribute(store, entry("workspace:bad", 2, { value: 1 }))).toThrow(
+                    /schema/
+                );
+                contribute(store, accepted);
+                expect(() => contribute(store, conflict)).toThrow(/immutable|UNIQUE/);
+                expect(
+                    store.transaction((transaction) =>
+                        store.listEntries(transaction, declaration.name)
+                    )
+                ).toHaveLength(1);
+            }
+        );
 
-        test("rolls back failed writes and rejects asynchronous transactions", { tags: "p0" }, async () => {
-            const store = create(new WorkspaceId("workspace"));
-            const declaration = slot();
-            expect(() =>
-                store.transaction((transaction) => {
-                    store.insertSlot(transaction, declaration);
-                    throw new TypeError("injected rollback");
-                })
-            ).toThrow(/injected rollback/);
-            expect(
-                store.transaction((transaction) => store.loadSlot(transaction, declaration.name))
-            ).toBeUndefined();
+        test(
+            "rolls back failed writes and rejects asynchronous transactions",
+            { tags: "p0" },
+            async () => {
+                const store = create(new WorkspaceId("workspace"));
+                const declaration = slot();
+                expect(() =>
+                    store.transaction((transaction) => {
+                        store.insertSlot(transaction, declaration);
+                        throw new TypeError("injected rollback");
+                    })
+                ).toThrow(/injected rollback/);
+                expect(
+                    store.transaction((transaction) =>
+                        store.loadSlot(transaction, declaration.name)
+                    )
+                ).toBeUndefined();
 
-            const operation = (async () => true) as unknown as TransactionOperation<
-                Transaction,
-                never
-            >;
-            expect(() => store.transaction(operation)).toThrow(/synchronous|Promise/);
-            await Promise.resolve();
-        });
+                const operation = (async () => true) as unknown as TransactionOperation<
+                    Transaction,
+                    never
+                >;
+                expect(() => store.transaction(operation)).toThrow(/synchronous|Promise/);
+                await Promise.resolve();
+            }
+        );
     });
 }
 

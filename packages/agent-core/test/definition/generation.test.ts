@@ -30,24 +30,28 @@ describe("materialization generation identity and canonicalization", () => {
         );
     });
 
-    test("canonicalizes generation managed record IDs into sorted unique order", { tags: "p1" }, () => {
-        const generation = MaterializationGeneration.fromActorPlan(actorPlan(origin(1)));
-        const unsorted = [digest("record-low"), digest("record-high")].sort((left, right) =>
-            left.value < right.value ? 1 : -1
-        );
+    test(
+        "canonicalizes generation managed record IDs into sorted unique order",
+        { tags: "p1" },
+        () => {
+            const generation = MaterializationGeneration.fromActorPlan(actorPlan(origin(1)));
+            const unsorted = [digest("record-low"), digest("record-high")].sort((left, right) =>
+                left.value < right.value ? 1 : -1
+            );
 
-        const rebuilt = new MaterializationGeneration({
-            actor,
-            origin: origin(1),
-            actorPlanId: generation.actorPlanId,
-            managedRecordIds: unsorted
-        });
+            const rebuilt = new MaterializationGeneration({
+                actor,
+                origin: origin(1),
+                actorPlanId: generation.actorPlanId,
+                managedRecordIds: unsorted
+            });
 
-        expect(rebuilt.managedRecordIds.map((id) => id.value)).toEqual(
-            unsorted.map((id) => id.value).sort()
-        );
-        expect(rebuilt.id.equals(generation.id)).toBe(true);
-    });
+            expect(rebuilt.managedRecordIds.map((id) => id.value)).toEqual(
+                unsorted.map((id) => id.value).sort()
+            );
+            expect(rebuilt.id.equals(generation.id)).toBe(true);
+        }
+    );
 
     test("freezes canonical desired data recursively", { tags: "p1" }, () => {
         const record = ManagedStateRecord.fromProjection(
@@ -122,7 +126,11 @@ describe("materialization generation identity and canonicalization", () => {
             MaterializationGeneration.fromData({ ...generationData, managedRecordIds: [7] })
         ).toThrow("Materialization generation managed state ID 0 must be a string");
 
-        const pointer = MaterializationGenerationPointer.initial(actor, deploymentId, generation.id);
+        const pointer = MaterializationGenerationPointer.initial(
+            actor,
+            deploymentId,
+            generation.id
+        );
         expect(() =>
             MaterializationGenerationPointer.fromData({
                 ...(pointer.toData() as object),
@@ -141,12 +149,16 @@ describe("materialization generation identity and canonicalization", () => {
 
     test("rejects malformed pointer revisions with the exact subject", { tags: "p2" }, () => {
         const generation = MaterializationGeneration.fromActorPlan(actorPlan(origin(1)));
-        const pointer = MaterializationGenerationPointer.initial(actor, deploymentId, generation.id);
+        const pointer = MaterializationGenerationPointer.initial(
+            actor,
+            deploymentId,
+            generation.id
+        );
         const data = pointer.toData() as object;
         for (const revision of ["1", -1, 0.5]) {
-            expect(() =>
-                MaterializationGenerationPointer.fromData({ ...data, revision })
-            ).toThrow("Generation pointer revision must be a non-negative safe integer");
+            expect(() => MaterializationGenerationPointer.fromData({ ...data, revision })).toThrow(
+                "Generation pointer revision must be a non-negative safe integer"
+            );
         }
     });
 });

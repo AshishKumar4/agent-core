@@ -238,12 +238,7 @@ describe("event routing and view replay at volume", () => {
             expect(floors).toEqual([...floors].sort((left, right) => left - right));
             expect(new Set(floors).size).toBe(floors.length);
             expectAgentCoreError(
-                () =>
-                    protocol.replay(
-                        records,
-                        view.surface,
-                        new Revision(view.revision.value + 1)
-                    ),
+                () => protocol.replay(records, view.surface, new Revision(view.revision.value + 1)),
                 "protocol.revision-conflict"
             );
         }
@@ -292,10 +287,7 @@ describe("event routing and view replay at volume", () => {
             for (const [index, scope] of scopes.entries()) {
                 expect(loaded?.epoch(scope)).toBe(highest.get(`watermark-scope-${index}`));
             }
-            expectAgentCoreError(
-                () => store.save(empty),
-                "protocol.revision-conflict"
-            );
+            expectAgentCoreError(() => store.save(empty), "protocol.revision-conflict");
         }
     );
 });

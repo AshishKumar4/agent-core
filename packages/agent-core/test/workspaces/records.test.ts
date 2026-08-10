@@ -50,32 +50,40 @@ describe("workspace durable records", () => {
         ["ContentRetentionReference", ContentRetentionReference.codec, retention]
     ] as const;
 
-    test.each(records)("round-trips %s through canonical codec bytes", { tags: "p1" }, (_name, codec, record) => {
-        const recordCodec = codec as {
-            encode(value: unknown): Uint8Array;
-            decode(bytes: Uint8Array): unknown;
-        };
-        const encoded = recordCodec.encode(record);
-        const decoded = recordCodec.decode(encoded);
+    test.each(records)(
+        "round-trips %s through canonical codec bytes",
+        { tags: "p1" },
+        (_name, codec, record) => {
+            const recordCodec = codec as {
+                encode(value: unknown): Uint8Array;
+                decode(bytes: Uint8Array): unknown;
+            };
+            const encoded = recordCodec.encode(record);
+            const decoded = recordCodec.decode(encoded);
 
-        expect(recordCodec.encode(decoded)).toEqual(encoded);
-        expect(Object.isFrozen(decoded)).toBe(true);
-    });
+            expect(recordCodec.encode(decoded)).toEqual(encoded);
+            expect(Object.isFrozen(decoded)).toBe(true);
+        }
+    );
 
-    test.each(records)("rejects an unknown major for %s", { tags: "p2" }, (_name, codec, record) => {
-        const recordCodec = codec as {
-            encode(value: unknown): Uint8Array;
-            decode(bytes: Uint8Array): unknown;
-        };
-        const envelope = JSON.parse(new TextDecoder().decode(recordCodec.encode(record))) as {
-            version: { major: number; minor: number };
-        };
-        envelope.version.major += 1;
+    test.each(records)(
+        "rejects an unknown major for %s",
+        { tags: "p2" },
+        (_name, codec, record) => {
+            const recordCodec = codec as {
+                encode(value: unknown): Uint8Array;
+                decode(bytes: Uint8Array): unknown;
+            };
+            const envelope = JSON.parse(new TextDecoder().decode(recordCodec.encode(record))) as {
+                version: { major: number; minor: number };
+            };
+            envelope.version.major += 1;
 
-        expect(() =>
-            recordCodec.decode(encodeCanonicalJson(envelope as unknown as JsonValue))
-        ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
-    });
+            expect(() =>
+                recordCodec.decode(encodeCanonicalJson(envelope as unknown as JsonValue))
+            ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
+        }
+    );
 
     test("defensively copies and deeply freezes mutable record inputs", { tags: "p1" }, () => {
         const claims = { nested: { role: "operator" }, groups: ["alpha"] };
@@ -157,115 +165,139 @@ describe("workspace durable records", () => {
 });
 
 describe("event policy", () => {
-    test("derives host trust only from the complete host-and-lease fact set", { tags: "p0" }, () => {
-        expect(
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: true,
-                hostEmission: true
-            })
-        ).toEqual({ tier: "self", initiator: principal });
-        expect(() =>
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: true,
-                hostEmission: false
-            })
-        ).toThrow(/host emission under a valid Turn lease/);
-        expect(() =>
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: false,
-                hostEmission: true
-            })
-        ).toThrow(/host emission under a valid Turn lease/);
-    });
+    test(
+        "derives host trust only from the complete host-and-lease fact set",
+        { tags: "p0" },
+        () => {
+            expect(
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: true,
+                    hostEmission: true
+                })
+            ).toEqual({ tier: "self", initiator: principal });
+            expect(() =>
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: true,
+                    hostEmission: false
+                })
+            ).toThrow(/host emission under a valid Turn lease/);
+            expect(() =>
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: false,
+                    hostEmission: true
+                })
+            ).toThrow(/host emission under a valid Turn lease/);
+        }
+    );
 
-    test("derives owner, authenticated, and external trust without elevation", { tags: "p0" }, () => {
-        expect(
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: true,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toEqual({ tier: "owner", initiator: principal });
-        expect(() =>
-            deriveEventTrust({
-                principalOwnsScope: true,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toThrow(/authenticated Principal/);
-        expect(
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toEqual({ tier: "authenticated", initiator: principal });
-        expect(
-            deriveEventTrust({
-                principalOwnsScope: false,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toEqual({ tier: "external" });
-    });
+    test(
+        "derives owner, authenticated, and external trust without elevation",
+        { tags: "p0" },
+        () => {
+            expect(
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: true,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toEqual({ tier: "owner", initiator: principal });
+            expect(() =>
+                deriveEventTrust({
+                    principalOwnsScope: true,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toThrow(/authenticated Principal/);
+            expect(
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toEqual({ tier: "authenticated", initiator: principal });
+            expect(
+                deriveEventTrust({
+                    principalOwnsScope: false,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toEqual({ tier: "external" });
+        }
+    );
 
-    test("matches exact and categorical kind/source patterns plus accepted trust", { tags: "p1" }, () => {
-        const facetEvent = eventFixture("pattern", { kind: "task.created" });
-        expect(eventMatches(subscriptionFixture("pattern").source, facetEvent)).toBe(true);
-        expect(
-            eventMatches(
-                new EventPattern("task.created", ["authenticated"], "facet.test"),
-                facetEvent
-            )
-        ).toBe(true);
-        expect(eventMatches(new EventPattern("task.*", ["authenticated"]), facetEvent)).toBe(true);
-        expect(eventMatches(new EventPattern("other.*", ["authenticated"]), facetEvent)).toBe(
-            false
-        );
-        expect(eventMatches(new EventPattern("task.*", ["external"]), facetEvent)).toBe(false);
+    test(
+        "matches exact and categorical kind/source patterns plus accepted trust",
+        { tags: "p1" },
+        () => {
+            const facetEvent = eventFixture("pattern", { kind: "task.created" });
+            expect(eventMatches(subscriptionFixture("pattern").source, facetEvent)).toBe(true);
+            expect(
+                eventMatches(
+                    new EventPattern("task.created", ["authenticated"], "facet.test"),
+                    facetEvent
+                )
+            ).toBe(true);
+            expect(eventMatches(new EventPattern("task.*", ["authenticated"]), facetEvent)).toBe(
+                true
+            );
+            expect(eventMatches(new EventPattern("other.*", ["authenticated"]), facetEvent)).toBe(
+                false
+            );
+            expect(eventMatches(new EventPattern("task.*", ["external"]), facetEvent)).toBe(false);
 
-        const actorEvent = eventFixture("actor-pattern", { source: "actor" });
-        expect(
-            eventMatches(new EventPattern("task.*", ["authenticated"], "workspace-*"), actorEvent)
-        ).toBe(true);
-        expect(
-            eventMatches(new EventPattern("task.*", ["authenticated"], "other-actor"), actorEvent)
-        ).toBe(false);
-    });
+            const actorEvent = eventFixture("actor-pattern", { source: "actor" });
+            expect(
+                eventMatches(
+                    new EventPattern("task.*", ["authenticated"], "workspace-*"),
+                    actorEvent
+                )
+            ).toBe(true);
+            expect(
+                eventMatches(
+                    new EventPattern("task.*", ["authenticated"], "other-actor"),
+                    actorEvent
+                )
+            ).toBe(false);
+        }
+    );
 
-    test("maps root, arrays, escaped tokens, and literals without aliasing source data", { tags: "p1" }, () => {
-        const source = { payload: { values: ["first", "second"] }, "a/b": { "~key": 3 } };
-        const root = applyPayloadMapping(
-            new PayloadMapping([new FieldMove("", { from: "/payload" })]),
-            source
-        );
-        expect(root).toEqual({ values: ["first", "second"] });
-        expect(root).not.toBe(source.payload);
-        expect(Object.isFrozen(root)).toBe(true);
+    test(
+        "maps root, arrays, escaped tokens, and literals without aliasing source data",
+        { tags: "p1" },
+        () => {
+            const source = { payload: { values: ["first", "second"] }, "a/b": { "~key": 3 } };
+            const root = applyPayloadMapping(
+                new PayloadMapping([new FieldMove("", { from: "/payload" })]),
+                source
+            );
+            expect(root).toEqual({ values: ["first", "second"] });
+            expect(root).not.toBe(source.payload);
+            expect(Object.isFrozen(root)).toBe(true);
 
-        const mapped = applyPayloadMapping(
-            new PayloadMapping([
-                new FieldMove("/items/0/name", { from: "/payload/values/0" }),
-                new FieldMove("/items/1/name", { from: "/payload/values/1" }),
-                new FieldMove("/escaped", { from: "/a~1b/~0key" }),
-                new FieldMove("/literal", { literal: { ok: true } })
-            ]),
-            source
-        );
-        expect(mapped).toEqual({
-            escaped: 3,
-            items: [{ name: "first" }, { name: "second" }],
-            literal: { ok: true }
-        });
-    });
+            const mapped = applyPayloadMapping(
+                new PayloadMapping([
+                    new FieldMove("/items/0/name", { from: "/payload/values/0" }),
+                    new FieldMove("/items/1/name", { from: "/payload/values/1" }),
+                    new FieldMove("/escaped", { from: "/a~1b/~0key" }),
+                    new FieldMove("/literal", { literal: { ok: true } })
+                ]),
+                source
+            );
+            expect(mapped).toEqual({
+                escaped: 3,
+                items: [{ name: "first" }, { name: "second" }],
+                literal: { ok: true }
+            });
+        }
+    );
 
     test("rejects missing source pointers and overlapping targets", { tags: "p2" }, () => {
         expect(() =>
@@ -288,16 +320,20 @@ describe("event policy", () => {
         }
     });
 
-    test("rejects overlapping mapping targets when constructing a durable Subscription", { tags: "p1" }, () => {
-        expect(() =>
-            subscriptionFixture("overlap-install", {
-                mapping: new PayloadMapping([
-                    new FieldMove("/parent", { literal: {} }),
-                    new FieldMove("/parent/child", { literal: true })
-                ])
-            })
-        ).toThrow(/duplicate or overlap/);
-    });
+    test(
+        "rejects overlapping mapping targets when constructing a durable Subscription",
+        { tags: "p1" },
+        () => {
+            expect(() =>
+                subscriptionFixture("overlap-install", {
+                    mapping: new PayloadMapping([
+                        new FieldMove("/parent", { literal: {} }),
+                        new FieldMove("/parent/child", { literal: true })
+                    ])
+                })
+            ).toThrow(/duplicate or overlap/);
+        }
+    );
 
     test("treats prototype names as inert own JSON keys", { tags: "p1" }, () => {
         delete (Object.prototype as { polluted?: unknown }).polluted;

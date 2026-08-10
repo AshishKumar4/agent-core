@@ -127,21 +127,25 @@ describe("W6 mediated replay record", () => {
         }
     );
 
-    test("rejects presentation while the record has not completed preparation", { tags: "p1" }, () => {
-        const partial = directRecord(
-            { kind: "batch", itemCount: 2 },
-            [preparedItem(0), reservedItem(1)],
-            undefined,
-            0
-        );
-        let failure: unknown;
-        try {
-            partial.present(0, [], {});
-        } catch (error) {
-            failure = error;
+    test(
+        "rejects presentation while the record has not completed preparation",
+        { tags: "p1" },
+        () => {
+            const partial = directRecord(
+                { kind: "batch", itemCount: 2 },
+                [preparedItem(0), reservedItem(1)],
+                undefined,
+                0
+            );
+            let failure: unknown;
+            try {
+                partial.present(0, [], {});
+            } catch (error) {
+                failure = error;
+            }
+            expect(failure).toBeInstanceOf(TypeError);
         }
-        expect(failure).toBeInstanceOf(TypeError);
-    });
+    );
 
     test("names the replay execution kind before decoding its digest", { tags: "p2" }, () => {
         const bytes = MediatedReplayRecord.encode(
@@ -158,9 +162,11 @@ describe("W6 mediated replay record", () => {
     });
 
     test("rejects effect transitions for out-of-range items", { tags: "p1" }, () => {
-        const prepared = MediatedReplayRecord.reserve(
-            replayReservation("out-of-range")
-        ).prepare(new InvocationId("out-of-range-invocation"), [{}], [[]]);
+        const prepared = MediatedReplayRecord.reserve(replayReservation("out-of-range")).prepare(
+            new InvocationId("out-of-range-invocation"),
+            [{}],
+            [[]]
+        );
         expect(() => prepared.recordEffect(1, { value: 1 }, new ReceiptId("late"))).toThrow(
             /has not completed preparation/
         );
@@ -290,9 +296,9 @@ describe("W6 mediated replay record", () => {
         expect(decode((payload) => (payload["id"] = "0".repeat(64)))).toThrow(
             /does not match its canonical reservation identity/
         );
-        expect(
-            decode((payload) => (payloadItem(payload, 1)["receipt"] = 42))
-        ).toThrow(/Replay Receipt is malformed/);
+        expect(decode((payload) => (payloadItem(payload, 1)["receipt"] = 42))).toThrow(
+            /Replay Receipt is malformed/
+        );
         expect(decode((payload) => (payloadItem(payload, 0)["phase"] = "bogus"))).toThrow(
             /item phase is invalid/
         );
@@ -302,9 +308,9 @@ describe("W6 mediated replay record", () => {
         expect(
             decode((payload) => (payloadTrace(payloadItem(payload, 0))["outcome"] = "bogus"))
         ).toThrow(/interceptor trace is invalid/);
-        expect(
-            decode((payload) => (payload["shape"] = { itemCount: 2, kind: "bogus" }))
-        ).toThrow(/shape is invalid/);
+        expect(decode((payload) => (payload["shape"] = { itemCount: 2, kind: "bogus" }))).toThrow(
+            /shape is invalid/
+        );
         expect(
             decode((payload) => {
                 const execution = payload["execution"] as { [key: string]: JsonValue };

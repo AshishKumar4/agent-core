@@ -1,9 +1,8 @@
 import type { ActorRef } from "../actors";
-import { Digest, Revision } from "../core";
+import { Digest, Revision, compareText } from "../core";
 import type { TenantId } from "../identity";
 import type { DeploymentId } from "./id";
 import type { ManagedStateRecord } from "./generation";
-import { compareText } from "./order";
 import { invalidDefinitionState } from "./error";
 
 export type PinEvidenceKind = "clear" | "blocked" | "unknown" | "stale" | "partial";

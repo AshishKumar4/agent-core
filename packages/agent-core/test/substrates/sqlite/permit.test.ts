@@ -76,7 +76,8 @@ describe("SQLite authority permit store exact behavior", () => {
         target.transaction((transaction) =>
             target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
         );
-        expect(target.transaction((transaction) => target.issued(transaction, "state-nonce"))
+        expect(
+            target.transaction((transaction) => target.issued(transaction, "state-nonce"))
         ).toBeUndefined();
         expect(
             target.transaction((transaction) => target.consumed(transaction, "state-nonce"))?.value
@@ -115,8 +116,7 @@ describe("SQLite authority permit store exact behavior", () => {
             "Authority permit nonce was already used by this Actor owner"
         );
         expect(
-            target.transaction((transaction) => target.consumed(transaction, "replay-nonce"))
-                ?.value
+            target.transaction((transaction) => target.consumed(transaction, "replay-nonce"))?.value
         ).toBe(permit.digest().value);
     });
 
@@ -280,7 +280,11 @@ class StoreIssuedRecordSource extends AuthorityPermitIssuedRecordSource {
         super();
     }
 
-    public issued(issuer: ActorRef, nonce: string, digest: Digest): Promise<Uint8Array | undefined> {
+    public issued(
+        issuer: ActorRef,
+        nonce: string,
+        digest: Digest
+    ): Promise<Uint8Array | undefined> {
         const stored = this.store.transaction((transaction) =>
             this.store.issued(transaction, nonce)
         );

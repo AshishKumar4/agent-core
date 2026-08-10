@@ -2627,27 +2627,6 @@
         }
       }
     },
-    "packages/agent-core/src/definition/order.ts": {
-      "sha256": "670343d854ac2e4f6b915604badbe0d429b77ad831ca202dc3a72302b69dc46e",
-      "metrics": {
-        "statements": {
-          "covered": 3,
-          "total": 3
-        },
-        "branches": {
-          "covered": 4,
-          "total": 4
-        },
-        "functions": {
-          "covered": 1,
-          "total": 1
-        },
-        "lines": {
-          "covered": 2,
-          "total": 2
-        }
-      }
-    },
     "packages/agent-core/src/definition/origin.ts": {
       "sha256": "321cf393d554c04a6dcfd2dbb00e70adcf739da297f88a1c4f09d1dfa08d6835",
       "metrics": {

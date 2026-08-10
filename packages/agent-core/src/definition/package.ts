@@ -6,6 +6,7 @@ import {
     RecordCodec,
     Revision,
     SemVer,
+    compareText,
     encodeCanonicalJson,
     hasExactJsonKeys,
     type JsonValue
@@ -14,7 +15,6 @@ import { FacetManifest, canonicalFacetDataMap, isFacetDataMap, type FacetDataMap
 import { PackageId } from "./id";
 import { canonicalCompatibilityRange } from "./compatibility";
 import { PackageCodeManifest } from "./code-manifest";
-import { compareText } from "./order";
 
 export type PackageProvenance = FacetDataMap;
 

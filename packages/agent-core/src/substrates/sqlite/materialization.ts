@@ -4,7 +4,7 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../../actors";
-import { Digest, Revision, SemVer } from "../../core";
+import { Digest, Revision, SemVer, compareText } from "../../core";
 import {
     Blueprint,
     DeploymentId,
@@ -1956,10 +1956,6 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
     );
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function requireMaterializationKindCheck(column: string): string {

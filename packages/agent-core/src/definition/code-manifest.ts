@@ -3,13 +3,13 @@ import {
     Digest,
     RecordCodec,
     SemVer,
+    compareText,
     encodeCanonicalJson,
     hasExactJsonKeys,
     type JsonValue
 } from "../core";
 import type { MediaHint } from "../content";
 import { FacetPackageId } from "../facets";
-import { compareText } from "./order";
 
 export interface PackageCodeModuleInit {
     readonly specifier: string;

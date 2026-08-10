@@ -253,17 +253,21 @@ describe("SQLite materialization rollout control", () => {
         }
     );
 
-    test("rejects truncated target outbox closure on completion and restart", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        const store = SqliteMaterializationStore.control(database, tenantActor);
-        const controller = controllerFor(store);
-        const rollout = beginRollout(controller, plan(1));
-        database.run("DELETE FROM definition_materialization_outbox", []);
-        expect(() => controller.complete(rollout.id)).toThrow(/exact target closure/);
-        expect(() => SqliteMaterializationStore.control(database, tenantActor)).toThrow(
-            /exact target closure/
-        );
-    });
+    test(
+        "rejects truncated target outbox closure on completion and restart",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            const store = SqliteMaterializationStore.control(database, tenantActor);
+            const controller = controllerFor(store);
+            const rollout = beginRollout(controller, plan(1));
+            database.run("DELETE FROM definition_materialization_outbox", []);
+            expect(() => controller.complete(rollout.id)).toThrow(/exact target closure/);
+            expect(() => SqliteMaterializationStore.control(database, tenantActor)).toThrow(
+                /exact target closure/
+            );
+        }
+    );
 
     test("fails closed on missing or multiply returned control writes", { tags: "p0" }, () => {
         for (const fault of ["deployment-empty", "deployment-multiple"] as const) {
@@ -423,155 +427,183 @@ function controllerFor(
 }
 
 describe("SQLite materialization rollout control corruption and lineage", () => {
-    test("rejects each drifted deployment projection with the exact corruption error", { tags: "p1" }, () => {
-        const corruption = expect.objectContaining({
-            code: "codec.invalid",
-            message: "Stored deployment key or Tenant does not match codec bytes"
-        });
-        for (const [column, value] of [
-            ["tenant_id", "other-tenant"],
-            ["revision", 7],
-            ["id", digest("swapped-deployment").value]
-        ] as const) {
-            const database = new TestSqlite();
+    test(
+        "rejects each drifted deployment projection with the exact corruption error",
+        { tags: "p1" },
+        () => {
+            const corruption = expect.objectContaining({
+                code: "codec.invalid",
+                message: "Stored deployment key or Tenant does not match codec bytes"
+            });
+            for (const [column, value] of [
+                ["tenant_id", "other-tenant"],
+                ["revision", 7],
+                ["id", digest("swapped-deployment").value]
+            ] as const) {
+                const database = new TestSqlite();
+                const store = SqliteMaterializationStore.control(database, tenantActor);
+                beginRollout(controllerFor(store), plan(1));
+                database.run(`UPDATE definition_deployments SET ${column} = ?`, [value]);
+                const lookup = column === "id" ? digest("swapped-deployment") : deploymentId;
+                expect(() =>
+                    store.transaction((transaction) =>
+                        store.loadDeployment(transaction, new DeploymentId(lookup.value))
+                    )
+                ).toThrowError(corruption);
+                expect(() =>
+                    SqliteMaterializationStore.control(database, tenantActor)
+                ).toThrowError(corruption);
+            }
+        }
+    );
+
+    test(
+        "reports the exact immutable attestation identity when the insert row vanishes",
+        { tags: "p1" },
+        () => {
+            const database = new AttestationDropSqlite();
             const store = SqliteMaterializationStore.control(database, tenantActor);
-            beginRollout(controllerFor(store), plan(1));
-            database.run(`UPDATE definition_deployments SET ${column} = ?`, [value]);
-            const lookup = column === "id" ? digest("swapped-deployment") : deploymentId;
+            const attestation = validationAttestation(1);
+            database.drop = true;
             expect(() =>
                 store.transaction((transaction) =>
-                    store.loadDeployment(transaction, new DeploymentId(lookup.value))
+                    store.insertAttestation(transaction, attestation)
                 )
-            ).toThrowError(corruption);
-            expect(() => SqliteMaterializationStore.control(database, tenantActor)).toThrowError(
-                corruption
-            );
-        }
-    });
-
-    test("reports the exact immutable attestation identity when the insert row vanishes", { tags: "p1" }, () => {
-        const database = new AttestationDropSqlite();
-        const store = SqliteMaterializationStore.control(database, tenantActor);
-        const attestation = validationAttestation(1);
-        database.drop = true;
-        expect(() =>
-            store.transaction((transaction) => store.insertAttestation(transaction, attestation))
-        ).toThrowError(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: `Validation attestation ${attestation.id.value} is immutable`
-            })
-        );
-    });
-
-    test("rejects attestation rows whose key does not match their codec bytes", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        const store = SqliteMaterializationStore.control(database, tenantActor);
-        const attestation = validationAttestation(1);
-        const mismatch = expect.objectContaining({
-            code: "codec.invalid",
-            message: "Stored validation attestation key does not match codec bytes"
-        });
-        database.run("INSERT INTO definition_validation_attestations (id, record) VALUES (?, ?)", [
-            digest("forged-attestation-key").value,
-            ValidationAttestation.encode(attestation)
-        ]);
-        expect(() =>
-            store.transaction((transaction) =>
-                store.loadAttestation(transaction, digest("forged-attestation-key"))
-            )
-        ).toThrowError(mismatch);
-        expect(() => SqliteMaterializationStore.control(database, tenantActor)).toThrowError(
-            mismatch
-        );
-    });
-
-    test("requires the stored validation attestation before accepting a rollout", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        const store = SqliteMaterializationStore.control(database, tenantActor);
-        store.transaction((transaction) => {
-            expect(
-                store.compareAndSetDeployment(
-                    transaction,
-                    undefined,
-                    DeploymentRecord.initial(tenantId, key)
-                )
-            ).toBe(true);
-        });
-        expect(() =>
-            store.transaction((transaction) =>
-                store.insertRollout(transaction, new MaterializationRollout({ plan: plan(1) }))
-            )
-        ).toThrowError(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Materialization rollout requires its stored validation attestation"
-            })
-        );
-    });
-
-    test("rejects drifted rollout and outbox key projections with exact corruption errors", { tags: "p1" }, () => {
-        for (const [column, value] of [
-            ["deployment_id", digest("drifted-deployment").value],
-            ["generation", 5]
-        ] as const) {
-            const database = new TestSqlite();
-            const store = SqliteMaterializationStore.control(database, tenantActor);
-            const rollout = beginRollout(controllerFor(store), plan(1));
-            database.run(`UPDATE definition_materialization_rollouts SET ${column} = ?`, [value]);
-            expect(() =>
-                store.transaction((transaction) => store.loadRollout(transaction, rollout.id))
             ).toThrowError(
                 expect.objectContaining({
-                    code: "codec.invalid",
-                    message: "Stored rollout projection does not match codec bytes"
+                    code: "protocol.invalid-state",
+                    message: `Validation attestation ${attestation.id.value} is immutable`
                 })
             );
         }
+    );
 
-        const database = new TestSqlite();
-        const store = SqliteMaterializationStore.control(database, tenantActor);
-        beginRollout(controllerFor(store), plan(1));
-        database.run("UPDATE definition_materialization_outbox SET id = ?", [
-            digest("forged-outbox-id").value
-        ]);
-        expect(() =>
-            store.transaction((transaction) =>
-                store.loadOutbox(transaction, digest("forged-outbox-id"))
-            )
-        ).toThrowError(
-            expect.objectContaining({
+    test(
+        "rejects attestation rows whose key does not match their codec bytes",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            const store = SqliteMaterializationStore.control(database, tenantActor);
+            const attestation = validationAttestation(1);
+            const mismatch = expect.objectContaining({
                 code: "codec.invalid",
-                message: "Stored outbox projection does not match codec bytes"
-            })
-        );
-    });
+                message: "Stored validation attestation key does not match codec bytes"
+            });
+            database.run(
+                "INSERT INTO definition_validation_attestations (id, record) VALUES (?, ?)",
+                [digest("forged-attestation-key").value, ValidationAttestation.encode(attestation)]
+            );
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.loadAttestation(transaction, digest("forged-attestation-key"))
+                )
+            ).toThrowError(mismatch);
+            expect(() => SqliteMaterializationStore.control(database, tenantActor)).toThrowError(
+                mismatch
+            );
+        }
+    );
 
-    test("resolves plans only by their exact identity across stored rollouts", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        const store = SqliteMaterializationStore.control(database, tenantActor);
-        const rollout1 = beginRollout(controllerFor(store), plan(1));
-        const secondPlan = plan(2);
-        const rollout2 = new MaterializationRollout({ plan: secondPlan });
-        store.transaction((transaction) => {
-            store.insertAttestation(transaction, validationAttestation(2));
-            store.insertRollout(transaction, rollout2);
-        });
+    test(
+        "requires the stored validation attestation before accepting a rollout",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            const store = SqliteMaterializationStore.control(database, tenantActor);
+            store.transaction((transaction) => {
+                expect(
+                    store.compareAndSetDeployment(
+                        transaction,
+                        undefined,
+                        DeploymentRecord.initial(tenantId, key)
+                    )
+                ).toBe(true);
+            });
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.insertRollout(transaction, new MaterializationRollout({ plan: plan(1) }))
+                )
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "Materialization rollout requires its stored validation attestation"
+                })
+            );
+        }
+    );
 
-        const first = store.transaction((transaction) =>
-            store.loadPlan(transaction, rollout1.plan.id)
-        );
-        const second = store.transaction((transaction) =>
-            store.loadPlan(transaction, secondPlan.id)
-        );
-        expect(first?.id.value).toBe(rollout1.plan.id.value);
-        expect(second?.id.value).toBe(secondPlan.id.value);
-        expect(
-            store.transaction((transaction) =>
-                store.loadPlan(transaction, digest("missing-plan-id"))
-            )
-        ).toBeUndefined();
-    });
+    test(
+        "rejects drifted rollout and outbox key projections with exact corruption errors",
+        { tags: "p1" },
+        () => {
+            for (const [column, value] of [
+                ["deployment_id", digest("drifted-deployment").value],
+                ["generation", 5]
+            ] as const) {
+                const database = new TestSqlite();
+                const store = SqliteMaterializationStore.control(database, tenantActor);
+                const rollout = beginRollout(controllerFor(store), plan(1));
+                database.run(`UPDATE definition_materialization_rollouts SET ${column} = ?`, [
+                    value
+                ]);
+                expect(() =>
+                    store.transaction((transaction) => store.loadRollout(transaction, rollout.id))
+                ).toThrowError(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: "Stored rollout projection does not match codec bytes"
+                    })
+                );
+            }
+
+            const database = new TestSqlite();
+            const store = SqliteMaterializationStore.control(database, tenantActor);
+            beginRollout(controllerFor(store), plan(1));
+            database.run("UPDATE definition_materialization_outbox SET id = ?", [
+                digest("forged-outbox-id").value
+            ]);
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.loadOutbox(transaction, digest("forged-outbox-id"))
+                )
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: "Stored outbox projection does not match codec bytes"
+                })
+            );
+        }
+    );
+
+    test(
+        "resolves plans only by their exact identity across stored rollouts",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            const store = SqliteMaterializationStore.control(database, tenantActor);
+            const rollout1 = beginRollout(controllerFor(store), plan(1));
+            const secondPlan = plan(2);
+            const rollout2 = new MaterializationRollout({ plan: secondPlan });
+            store.transaction((transaction) => {
+                store.insertAttestation(transaction, validationAttestation(2));
+                store.insertRollout(transaction, rollout2);
+            });
+
+            const first = store.transaction((transaction) =>
+                store.loadPlan(transaction, rollout1.plan.id)
+            );
+            const second = store.transaction((transaction) =>
+                store.loadPlan(transaction, secondPlan.id)
+            );
+            expect(first?.id.value).toBe(rollout1.plan.id.value);
+            expect(second?.id.value).toBe(secondPlan.id.value);
+            expect(
+                store.transaction((transaction) =>
+                    store.loadPlan(transaction, digest("missing-plan-id"))
+                )
+            ).toBeUndefined();
+        }
+    );
 
     test("fails outbox CAS closed before validating an illegal transition", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -616,33 +648,37 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
         expect(persisted?.revision.value).toBe(0);
     });
 
-    test("fails outbox CAS closed on missing, duplicated, or tampered returned rows", { tags: "p0" }, () => {
-        for (const fault of ["update-empty", "update-duplicate", "update-tamper"] as const) {
-            const database = new OutboxCasFaultSqlite();
-            const store = SqliteMaterializationStore.control(database, tenantActor);
-            const rollout = beginRollout(controllerFor(store), plan(1));
-            const entry = store.transaction(
-                (transaction) => store.listOutbox(transaction, rollout.id)[0]
-            );
-            expect(entry).toBeDefined();
-            if (entry === undefined) return;
-            database.fault = fault;
-            const attempt = (): boolean =>
-                store.transaction((transaction) =>
-                    store.compareAndSetOutbox(transaction, entry.revision, entry.attempted())
+    test(
+        "fails outbox CAS closed on missing, duplicated, or tampered returned rows",
+        { tags: "p0" },
+        () => {
+            for (const fault of ["update-empty", "update-duplicate", "update-tamper"] as const) {
+                const database = new OutboxCasFaultSqlite();
+                const store = SqliteMaterializationStore.control(database, tenantActor);
+                const rollout = beginRollout(controllerFor(store), plan(1));
+                const entry = store.transaction(
+                    (transaction) => store.listOutbox(transaction, rollout.id)[0]
                 );
-            if (fault === "update-empty") {
-                expect(attempt()).toBe(false);
-            } else {
-                expect(attempt).toThrowError(
-                    expect.objectContaining({
-                        code: "codec.invalid",
-                        message: "Materialization outbox CAS returned malformed state"
-                    })
-                );
+                expect(entry).toBeDefined();
+                if (entry === undefined) return;
+                database.fault = fault;
+                const attempt = (): boolean =>
+                    store.transaction((transaction) =>
+                        store.compareAndSetOutbox(transaction, entry.revision, entry.attempted())
+                    );
+                if (fault === "update-empty") {
+                    expect(attempt()).toBe(false);
+                } else {
+                    expect(attempt).toThrowError(
+                        expect.objectContaining({
+                            code: "codec.invalid",
+                            message: "Materialization outbox CAS returned malformed state"
+                        })
+                    );
+                }
             }
         }
-    });
+    );
 
     test("revalidates rollout closure dependencies on restart", { tags: "p1" }, () => {
         const missingDeployment = new TestSqlite();
@@ -864,51 +900,55 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
         );
     });
 
-    test("requires exactly one control marker row bound to the owning Tenant kind", { tags: "p1" }, () => {
-        const ownerOrVersion = expect.objectContaining({
-            name: "AgentCoreError",
-            code: "codec.invalid",
-            message:
-                "Materialization reset required (reset-required): Materialization control schema owner or version is unsupported"
-        });
+    test(
+        "requires exactly one control marker row bound to the owning Tenant kind",
+        { tags: "p1" },
+        () => {
+            const ownerOrVersion = expect.objectContaining({
+                name: "AgentCoreError",
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): Materialization control schema owner or version is unsupported"
+            });
 
-        const extraRow = new TestSqlite();
-        SqliteMaterializationStore.control(extraRow, tenantActor);
-        extraRow.run("PRAGMA ignore_check_constraints = ON", []);
-        extraRow.run(
-            `INSERT INTO definition_materialization_control_schema (version, owner_kind, owner_id)
+            const extraRow = new TestSqlite();
+            SqliteMaterializationStore.control(extraRow, tenantActor);
+            extraRow.run("PRAGMA ignore_check_constraints = ON", []);
+            extraRow.run(
+                `INSERT INTO definition_materialization_control_schema (version, owner_kind, owner_id)
              VALUES (?, ?, ?)`,
-            [2, tenantActor.kind, tenantActor.id.value]
-        );
-        extraRow.run("PRAGMA ignore_check_constraints = OFF", []);
-        expect(() => SqliteMaterializationStore.control(extraRow, tenantActor)).toThrowError(
-            ownerOrVersion
-        );
-        expect(
-            extraRow.all(
-                "SELECT version FROM definition_materialization_control_schema ORDER BY version",
-                []
-            )
-        ).toEqual([{ version: 1 }, { version: 2 }]);
+                [2, tenantActor.kind, tenantActor.id.value]
+            );
+            extraRow.run("PRAGMA ignore_check_constraints = OFF", []);
+            expect(() => SqliteMaterializationStore.control(extraRow, tenantActor)).toThrowError(
+                ownerOrVersion
+            );
+            expect(
+                extraRow.all(
+                    "SELECT version FROM definition_materialization_control_schema ORDER BY version",
+                    []
+                )
+            ).toEqual([{ version: 1 }, { version: 2 }]);
 
-        const foreignKind = new TestSqlite();
-        SqliteMaterializationStore.control(foreignKind, tenantActor);
-        foreignKind.run("PRAGMA ignore_check_constraints = ON", []);
-        foreignKind.run(
-            "UPDATE definition_materialization_control_schema SET owner_kind = 'workspace'",
-            []
-        );
-        foreignKind.run("PRAGMA ignore_check_constraints = OFF", []);
-        expect(() => SqliteMaterializationStore.control(foreignKind, tenantActor)).toThrowError(
-            ownerOrVersion
-        );
-        expect(
-            foreignKind.all(
-                "SELECT owner_kind FROM definition_materialization_control_schema",
+            const foreignKind = new TestSqlite();
+            SqliteMaterializationStore.control(foreignKind, tenantActor);
+            foreignKind.run("PRAGMA ignore_check_constraints = ON", []);
+            foreignKind.run(
+                "UPDATE definition_materialization_control_schema SET owner_kind = 'workspace'",
                 []
-            )
-        ).toEqual([{ owner_kind: "workspace" }]);
-    });
+            );
+            foreignKind.run("PRAGMA ignore_check_constraints = OFF", []);
+            expect(() => SqliteMaterializationStore.control(foreignKind, tenantActor)).toThrowError(
+                ownerOrVersion
+            );
+            expect(
+                foreignKind.all(
+                    "SELECT owner_kind FROM definition_materialization_control_schema",
+                    []
+                )
+            ).toEqual([{ owner_kind: "workspace" }]);
+        }
+    );
 
     test("fails outbox CAS closed for an entry that was never stored", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -928,50 +968,54 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
         expect(database.all("SELECT id FROM definition_materialization_outbox", [])).toEqual([]);
     });
 
-    test("fails deployment lineage closed when a referenced rollout is missing", { tags: "p0" }, () => {
-        const lineageConflict = expect.objectContaining({
-            name: "AgentCoreError",
-            code: "protocol.revision-conflict",
-            message: "Deployment CAS has a foreign owner or skipped revision"
-        });
-        const database = new TestSqlite();
-        const store = SqliteMaterializationStore.control(database, tenantActor);
-        const rollout = beginRollout(controllerFor(store), plan(1));
-        const pending = store.transaction((transaction) =>
-            store.loadDeployment(transaction, deploymentId)
-        );
-        expect(pending?.pendingRolloutId?.value).toBe(rollout.id.value);
-        if (pending === undefined) return;
+    test(
+        "fails deployment lineage closed when a referenced rollout is missing",
+        { tags: "p0" },
+        () => {
+            const lineageConflict = expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.revision-conflict",
+                message: "Deployment CAS has a foreign owner or skipped revision"
+            });
+            const database = new TestSqlite();
+            const store = SqliteMaterializationStore.control(database, tenantActor);
+            const rollout = beginRollout(controllerFor(store), plan(1));
+            const pending = store.transaction((transaction) =>
+                store.loadDeployment(transaction, deploymentId)
+            );
+            expect(pending?.pendingRolloutId?.value).toBe(rollout.id.value);
+            if (pending === undefined) return;
 
-        expect(() =>
-            store.transaction((transaction) =>
-                store.compareAndSetDeployment(
-                    transaction,
-                    pending.revision,
-                    pending.compensate(
-                        rollout.id,
-                        digest("absent-compensation"),
-                        pending.nextGeneration
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.compareAndSetDeployment(
+                        transaction,
+                        pending.revision,
+                        pending.compensate(
+                            rollout.id,
+                            digest("absent-compensation"),
+                            pending.nextGeneration
+                        )
                     )
                 )
-            )
-        ).toThrowError(lineageConflict);
+            ).toThrowError(lineageConflict);
 
-        database.run("DELETE FROM definition_materialization_rollouts", []);
-        expect(() =>
-            store.transaction((transaction) =>
-                store.compareAndSetDeployment(
-                    transaction,
-                    pending.revision,
-                    pending.complete(rollout.id, rollout.plan.id)
+            database.run("DELETE FROM definition_materialization_rollouts", []);
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.compareAndSetDeployment(
+                        transaction,
+                        pending.revision,
+                        pending.complete(rollout.id, rollout.plan.id)
+                    )
                 )
-            )
-        ).toThrowError(lineageConflict);
-        expect(
-            store.transaction((transaction) => store.loadDeployment(transaction, deploymentId))
-                ?.revision.value
-        ).toBe(pending.revision.value);
-    });
+            ).toThrowError(lineageConflict);
+            expect(
+                store.transaction((transaction) => store.loadDeployment(transaction, deploymentId))
+                    ?.revision.value
+            ).toBe(pending.revision.value);
+        }
+    );
 });
 
 class AttestationDropSqlite extends TestSqlite {

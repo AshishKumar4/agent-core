@@ -1,4 +1,4 @@
-import { Revision } from "../core";
+import { Revision, compareText } from "../core";
 import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
@@ -229,10 +229,6 @@ function compareEntries(left: SlotEntry, right: SlotEntry): number {
     return (
         left.ordinal - right.ordinal || compareText(left.contributor.value, right.contributor.value)
     );
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : 1;
 }
 
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {

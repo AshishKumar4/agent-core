@@ -41,8 +41,9 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         () => {
             const store = seededStore();
 
-            expect(store.compareAndSetEnvironment(new Revision(9), revisionRecord, environment))
-                .toBe(true);
+            expect(
+                store.compareAndSetEnvironment(new Revision(9), revisionRecord, environment)
+            ).toBe(true);
             expect(store.getEnvironment(environmentId)?.recordRevision.value).toBe(0);
             expect(store.getEnvironment(environmentId)?.activeRevision.value).toBe(0);
         }
@@ -255,7 +256,10 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         const store = seededStore();
         expect(store.compareAndSetSession(undefined, sessionRecord(sessionId.value))).toBe(true);
         expect(
-            store.compareAndSetSnapshot(undefined, creatingSnapshot("snapshot-key", sessionId.value))
+            store.compareAndSetSnapshot(
+                undefined,
+                creatingSnapshot("snapshot-key", sessionId.value)
+            )
         ).toBe(true);
         expect(
             store.compareAndSetExposure(

@@ -75,18 +75,22 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             expect(store.list()).toHaveLength(1);
         });
 
-        test("rejects a different release under an immutable full-version key", { tags: "p0" }, () => {
-            const store = create();
-            const original = packageRelease("same", "1.0.0");
-            const conflict = packageRelease("same", "1.0.0", digestOf("different-code"));
-            store.add(original);
+        test(
+            "rejects a different release under an immutable full-version key",
+            { tags: "p0" },
+            () => {
+                const store = create();
+                const original = packageRelease("same", "1.0.0");
+                const conflict = packageRelease("same", "1.0.0", digestOf("different-code"));
+                store.add(original);
 
-            expect(() => store.add(conflict)).toThrow(/immutable/);
-            expect(PackageRelease.encode(store.get(original.id, original.version)!)).toEqual(
-                PackageRelease.encode(original)
-            );
-            expect(store.list()).toHaveLength(1);
-        });
+                expect(() => store.add(conflict)).toThrow(/immutable/);
+                expect(PackageRelease.encode(store.get(original.id, original.version)!)).toEqual(
+                    PackageRelease.encode(original)
+                );
+                expect(store.list()).toHaveLength(1);
+            }
+        );
 
         test("persists exact metadata snapshots", { tags: "p1" }, () => {
             const store = create();
@@ -108,40 +112,42 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             ]);
         });
 
-        test("misses absent snapshots and orders them by revision then digest", { tags: "p1" }, () => {
-            const store = create();
-            expect(store.getSnapshot(digestOf("missing-snapshot"))).toBeUndefined();
+        test(
+            "misses absent snapshots and orders them by revision then digest",
+            { tags: "p1" },
+            () => {
+                const store = create();
+                expect(store.getSnapshot(digestOf("missing-snapshot"))).toBeUndefined();
 
-            const first = new MetadataSnapshot({
-                revision: new Revision(1),
-                releases: [packageRelease("m-two", "1.0.0")]
-            });
-            const second = new MetadataSnapshot({
-                revision: new Revision(2),
-                releases: [packageRelease("m-three", "1.0.0")]
-            });
-            const third = new MetadataSnapshot({
-                revision: new Revision(3),
-                releases: [packageRelease("m-five", "1.0.0")]
-            });
-            expect([first, second, third].map((snapshot) => snapshot.digest.value).sort()).toEqual([
-                third.digest.value,
-                second.digest.value,
-                first.digest.value
-            ]);
-            store.addSnapshot(second);
-            store.addSnapshot(first);
-            store.addSnapshot(third);
+                const first = new MetadataSnapshot({
+                    revision: new Revision(1),
+                    releases: [packageRelease("m-two", "1.0.0")]
+                });
+                const second = new MetadataSnapshot({
+                    revision: new Revision(2),
+                    releases: [packageRelease("m-three", "1.0.0")]
+                });
+                const third = new MetadataSnapshot({
+                    revision: new Revision(3),
+                    releases: [packageRelease("m-five", "1.0.0")]
+                });
+                expect(
+                    [first, second, third].map((snapshot) => snapshot.digest.value).sort()
+                ).toEqual([third.digest.value, second.digest.value, first.digest.value]);
+                store.addSnapshot(second);
+                store.addSnapshot(first);
+                store.addSnapshot(third);
 
-            expect(store.listSnapshots().map((snapshot) => snapshot.revision.value)).toEqual([
-                1, 2, 3
-            ]);
-            expect(store.listSnapshots().map((snapshot) => snapshot.digest.value)).toEqual([
-                first.digest.value,
-                second.digest.value,
-                third.digest.value
-            ]);
-        });
+                expect(store.listSnapshots().map((snapshot) => snapshot.revision.value)).toEqual([
+                    1, 2, 3
+                ]);
+                expect(store.listSnapshots().map((snapshot) => snapshot.digest.value)).toEqual([
+                    first.digest.value,
+                    second.digest.value,
+                    third.digest.value
+                ]);
+            }
+        );
 
         test("persists package locks by canonical lock digest", { tags: "p1" }, () => {
             const store = create();
@@ -159,25 +165,29 @@ export function packageStoreContract(name: string, create: () => PackageStore): 
             expect(store.getLock(digestOf("missing"))).toBeUndefined();
         });
 
-        test("makes equal lock replay idempotent and stores multiple locks per snapshot", { tags: "p0" }, () => {
-            const store = create();
-            const digest = digestOf("snapshot");
-            const original = packageLock(digest, 3, [packageRelease("root", "1.0.0")]);
-            const replay = PackageLock.decode(PackageLock.encode(original));
-            const other = packageLock(digest, 3, [packageRelease("other", "2.0.0")]);
+        test(
+            "makes equal lock replay idempotent and stores multiple locks per snapshot",
+            { tags: "p0" },
+            () => {
+                const store = create();
+                const digest = digestOf("snapshot");
+                const original = packageLock(digest, 3, [packageRelease("root", "1.0.0")]);
+                const replay = PackageLock.decode(PackageLock.encode(original));
+                const other = packageLock(digest, 3, [packageRelease("other", "2.0.0")]);
 
-            store.addLock(original);
-            expect(() => store.addLock(replay)).not.toThrow();
-            expect(() => store.addLock(other)).not.toThrow();
-            expect(PackageLock.encode(store.getLock(original.digest)!)).toEqual(
-                PackageLock.encode(original)
-            );
-            expect(PackageLock.encode(store.getLock(other.digest)!)).toEqual(
-                PackageLock.encode(other)
-            );
-            expect(original.snapshotDigest.equals(other.snapshotDigest)).toBe(true);
-            expect(original.digest.equals(other.digest)).toBe(false);
-        });
+                store.addLock(original);
+                expect(() => store.addLock(replay)).not.toThrow();
+                expect(() => store.addLock(other)).not.toThrow();
+                expect(PackageLock.encode(store.getLock(original.digest)!)).toEqual(
+                    PackageLock.encode(original)
+                );
+                expect(PackageLock.encode(store.getLock(other.digest)!)).toEqual(
+                    PackageLock.encode(other)
+                );
+                expect(original.snapshotDigest.equals(other.snapshotDigest)).toBe(true);
+                expect(original.digest.equals(other.digest)).toBe(false);
+            }
+        );
     });
 }
 

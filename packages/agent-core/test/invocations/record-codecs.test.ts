@@ -81,27 +81,33 @@ describe("durable invocation record codecs", () => {
         expect(claimCodec.decode(claimCodec.encode(record)).id.equals(record.id)).toBe(true);
     });
 
-    test("[invocation.effect-attempt] round-trips an actual immutable fixture", { tags: "p1" }, () => {
-        const record = new EffectAttempt(
-            new EffectAttemptId("static-attempt"),
-            new InvocationId("static-attempt-invocation"),
-            0,
-            0,
-            new ItemClaimId("static-attempt-claim"),
-            "lease",
-            admissionFor("static-attempt-invocation", 0, 0),
-            new Date(1000),
-            "agent-core.item.v1:static",
-            new AuditRecordId("static-attempt-audit")
-        );
-        const decoded = EffectAttempt.decode(
-            EffectAttempt.encode(record, referenceCodec, referenceCodec),
-            referenceCodec,
-            referenceCodec
-        );
-        expect(decoded.id.equals(record.id)).toBe(true);
-        expect(attemptCodec.decode(attemptCodec.encode(record)).id.equals(record.id)).toBe(true);
-    });
+    test(
+        "[invocation.effect-attempt] round-trips an actual immutable fixture",
+        { tags: "p1" },
+        () => {
+            const record = new EffectAttempt(
+                new EffectAttemptId("static-attempt"),
+                new InvocationId("static-attempt-invocation"),
+                0,
+                0,
+                new ItemClaimId("static-attempt-claim"),
+                "lease",
+                admissionFor("static-attempt-invocation", 0, 0),
+                new Date(1000),
+                "agent-core.item.v1:static",
+                new AuditRecordId("static-attempt-audit")
+            );
+            const decoded = EffectAttempt.decode(
+                EffectAttempt.encode(record, referenceCodec, referenceCodec),
+                referenceCodec,
+                referenceCodec
+            );
+            expect(decoded.id.equals(record.id)).toBe(true);
+            expect(attemptCodec.decode(attemptCodec.encode(record)).id.equals(record.id)).toBe(
+                true
+            );
+        }
+    );
 
     test("[invocation.receipt] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const record = new PreEffectReceipt(
@@ -160,79 +166,95 @@ describe("durable invocation record codecs", () => {
         );
     });
 
-    test("decodes every claim owner Actor kind and rejects malformed owners precisely", { tags: "p1" }, () => {
-        const envelope = (owner: unknown) =>
-            encodeCanonicalJson({
-                kind: "invocation.item-claim",
-                version: { major: 1, minor: 0 },
-                payload: {
-                    attemptOrdinal: 0,
-                    expiresAt: new Date(9000).toISOString(),
-                    id: "wire-owner-claim",
-                    invocation: "wire-owner-invocation",
-                    itemIndex: 0,
-                    owner: owner as never
-                }
-            });
-        for (const owner of [null, [], "executor"]) {
-            expect(() => claimCodec.decode(envelope(owner))).toThrow(
-                /Claim owner must be an object/
-            );
+    test(
+        "decodes every claim owner Actor kind and rejects malformed owners precisely",
+        { tags: "p1" },
+        () => {
+            const envelope = (owner: unknown) =>
+                encodeCanonicalJson({
+                    kind: "invocation.item-claim",
+                    version: { major: 1, minor: 0 },
+                    payload: {
+                        attemptOrdinal: 0,
+                        expiresAt: new Date(9000).toISOString(),
+                        id: "wire-owner-claim",
+                        invocation: "wire-owner-invocation",
+                        itemIndex: 0,
+                        owner: owner as never
+                    }
+                });
+            for (const owner of [null, [], "executor"]) {
+                expect(() => claimCodec.decode(envelope(owner))).toThrow(
+                    /Claim owner must be an object/
+                );
+            }
+            expect(() =>
+                claimCodec.decode(envelope({ kind: "unknown", worker: "worker" }))
+            ).toThrow(/Claim owner kind is invalid/);
+            for (const kind of ["tenant", "workspace", "run", "environment", "slate"]) {
+                const decoded = claimCodec.decode(
+                    envelope({
+                        actor: { id: "wire-actor", kind },
+                        kind: "system",
+                        worker: "worker"
+                    })
+                );
+                expect(systemActorKind(decoded.owner)).toBe(kind);
+            }
+            expect(() =>
+                claimCodec.decode(
+                    envelope({
+                        actor: { id: "wire-actor", kind: "unknown" },
+                        kind: "system",
+                        worker: "worker"
+                    })
+                )
+            ).toThrow(/Claim owner Actor kind is invalid/);
         }
-        expect(() => claimCodec.decode(envelope({ kind: "unknown", worker: "worker" }))).toThrow(
-            /Claim owner kind is invalid/
-        );
-        for (const kind of ["tenant", "workspace", "run", "environment", "slate"]) {
-            const decoded = claimCodec.decode(
-                envelope({ actor: { id: "wire-actor", kind }, kind: "system", worker: "worker" })
-            );
-            expect(systemActorKind(decoded.owner)).toBe(kind);
-        }
-        expect(() =>
-            claimCodec.decode(
-                envelope({
-                    actor: { id: "wire-actor", kind: "unknown" },
-                    kind: "system",
-                    worker: "worker"
-                })
-            )
-        ).toThrow(/Claim owner Actor kind is invalid/);
-    });
+    );
 
-    test("decodes every continuation owner Actor kind and rejects unknown kinds precisely", { tags: "p1" }, () => {
-        const envelope = (owner: unknown) =>
-            encodeCanonicalJson({
-                kind: "invocation.continuation",
-                version: { major: 1, minor: 0 },
-                payload: {
-                    admittedAt: new Date(3000).toISOString(),
-                    approval: "wire-continuation-approval",
-                    firstAttempt: "wire-continuation-attempt",
-                    firstClaim: "wire-continuation-claim",
-                    firstClaimOwner: owner as never,
-                    firstItemIndex: 0,
-                    firstItemKey: "agent-core.item.v1:wire",
-                    firstOrdinal: 0,
-                    intentDigest: digest("wire-continuation").value,
-                    invocation: "wire-continuation-invocation"
-                }
-            });
-        for (const kind of ["tenant", "workspace", "run", "environment", "slate"]) {
-            const decoded = continuationCodec.decode(
-                envelope({ actor: { id: "wire-actor", kind }, kind: "system", worker: "worker" })
-            );
-            expect(systemActorKind(decoded.firstClaimOwner)).toBe(kind);
+    test(
+        "decodes every continuation owner Actor kind and rejects unknown kinds precisely",
+        { tags: "p1" },
+        () => {
+            const envelope = (owner: unknown) =>
+                encodeCanonicalJson({
+                    kind: "invocation.continuation",
+                    version: { major: 1, minor: 0 },
+                    payload: {
+                        admittedAt: new Date(3000).toISOString(),
+                        approval: "wire-continuation-approval",
+                        firstAttempt: "wire-continuation-attempt",
+                        firstClaim: "wire-continuation-claim",
+                        firstClaimOwner: owner as never,
+                        firstItemIndex: 0,
+                        firstItemKey: "agent-core.item.v1:wire",
+                        firstOrdinal: 0,
+                        intentDigest: digest("wire-continuation").value,
+                        invocation: "wire-continuation-invocation"
+                    }
+                });
+            for (const kind of ["tenant", "workspace", "run", "environment", "slate"]) {
+                const decoded = continuationCodec.decode(
+                    envelope({
+                        actor: { id: "wire-actor", kind },
+                        kind: "system",
+                        worker: "worker"
+                    })
+                );
+                expect(systemActorKind(decoded.firstClaimOwner)).toBe(kind);
+            }
+            expect(() =>
+                continuationCodec.decode(
+                    envelope({
+                        actor: { id: "wire-actor", kind: "unknown" },
+                        kind: "system",
+                        worker: "worker"
+                    })
+                )
+            ).toThrow(/Continuation Actor kind is invalid/);
         }
-        expect(() =>
-            continuationCodec.decode(
-                envelope({
-                    actor: { id: "wire-actor", kind: "unknown" },
-                    kind: "system",
-                    worker: "worker"
-                })
-            )
-        ).toThrow(/Continuation Actor kind is invalid/);
-    });
+    );
 
     test("rejects malformed Receipt payloads with their precise errors", { tags: "p2" }, () => {
         const envelope = (payload: unknown) =>

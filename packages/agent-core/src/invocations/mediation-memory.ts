@@ -1,4 +1,4 @@
-import { Digest, encodeCanonicalJson } from "../core";
+import { Digest, compareText, encodeCanonicalJson } from "../core";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import {
@@ -174,7 +174,7 @@ export class MemoryInvocationMediationPersistence
             [...transaction.publications.values()]
                 .map((bytes) => InvocationPublicationOutbox.decode(bytes.slice()))
                 .filter((record) => record.state.kind === "pending")
-                .sort((left, right) => left.id.value.localeCompare(right.id.value))
+                .sort((left, right) => compareText(left.id.value, right.id.value))
         );
     }
 

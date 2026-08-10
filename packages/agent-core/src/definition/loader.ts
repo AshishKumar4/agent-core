@@ -1,4 +1,4 @@
-import { Digest, type ContentRef } from "../core";
+import { Digest, compareText, type ContentRef } from "../core";
 import type { ContentStore } from "../content";
 import type { PackageCodeModule } from "./code-manifest";
 import type { PackageRelease } from "./package";
@@ -10,7 +10,6 @@ import {
     type ValidatedBlueprint
 } from "./validator";
 import type { Blueprint } from "./blueprint";
-import { compareText } from "./order";
 import { invalidDefinition } from "./error";
 
 export interface VerifiedPackageModule {

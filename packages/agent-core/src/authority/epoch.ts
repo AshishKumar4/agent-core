@@ -1,5 +1,5 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import { RecordCodec, Revision, compareText, type JsonValue, type RecordVersion } from "../core";
 import { AgentCoreError } from "../errors";
 import { PrincipalId, PrincipalRef, TenantId, type ScopeRef } from "../identity";
 import {
@@ -181,7 +181,7 @@ export class InvalidationWatermark {
         }
         this.delivered = Object.freeze(
             [...unique.values()].sort((left, right) =>
-                scopeKey(left.scope).localeCompare(scopeKey(right.scope))
+                compareText(scopeKey(left.scope), scopeKey(right.scope))
             )
         );
         Object.freeze(this);

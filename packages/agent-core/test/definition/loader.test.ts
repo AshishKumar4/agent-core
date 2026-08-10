@@ -28,36 +28,44 @@ const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
 
 describe("production Blueprint validation-before-load", () => {
-    test("does not resolve or evaluate code when config validation fails", { tags: "p0" }, async () => {
-        const fixture = packageFixture();
-        const get = vi.fn(async () => fixture.mainBytes);
-        const evaluate = vi.fn(async () => "loaded");
-        const loader = blueprintLoader(fixture, get, evaluate);
+    test(
+        "does not resolve or evaluate code when config validation fails",
+        { tags: "p0" },
+        async () => {
+            const fixture = packageFixture();
+            const get = vi.fn(async () => fixture.mainBytes);
+            const evaluate = vi.fn(async () => "loaded");
+            const loader = blueprintLoader(fixture, get, evaluate);
 
-        await expect(loader.load(blueprint(fixture.release, { enabled: "wrong" }))).rejects.toThrow(
-            /composed config schema/
-        );
-        expect(get).not.toHaveBeenCalled();
-        expect(evaluate).not.toHaveBeenCalled();
-    });
+            await expect(
+                loader.load(blueprint(fixture.release, { enabled: "wrong" }))
+            ).rejects.toThrow(/composed config schema/);
+            expect(get).not.toHaveBeenCalled();
+            expect(evaluate).not.toHaveBeenCalled();
+        }
+    );
 
-    test("rejects an inspected import outside the declared closure before evaluation", { tags: "p0" }, async () => {
-        const fixture = packageFixture();
-        const evaluate = vi.fn(async () => "loaded");
-        const loader = blueprintLoader(
-            fixture,
-            async (reference) =>
-                reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
-            evaluate,
-            async (module) =>
-                module.specifier === "./main.js" ? ["https://hostile.example/module.js"] : []
-        );
+    test(
+        "rejects an inspected import outside the declared closure before evaluation",
+        { tags: "p0" },
+        async () => {
+            const fixture = packageFixture();
+            const evaluate = vi.fn(async () => "loaded");
+            const loader = blueprintLoader(
+                fixture,
+                async (reference) =>
+                    reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
+                evaluate,
+                async (module) =>
+                    module.specifier === "./main.js" ? ["https://hostile.example/module.js"] : []
+            );
 
-        await expect(loader.load(blueprint(fixture.release, { enabled: true }))).rejects.toThrow(
-            /Inspected imports/
-        );
-        expect(evaluate).not.toHaveBeenCalled();
-    });
+            await expect(
+                loader.load(blueprint(fixture.release, { enabled: true }))
+            ).rejects.toThrow(/Inspected imports/);
+            expect(evaluate).not.toHaveBeenCalled();
+        }
+    );
 
     test.each([
         [[]],
@@ -79,241 +87,275 @@ describe("production Blueprint validation-before-load", () => {
         expect(evaluate).not.toHaveBeenCalled();
     });
 
-    test("preflights every exact module byte before invoking the evaluator", { tags: "p0" }, async () => {
-        const fixture = packageFixture();
-        const get = vi.fn(async (reference: ContentRef) =>
-            reference.equals(fixture.dependencyRef)
-                ? fixture.dependencyBytes
-                : encoder.encode("substituted")
-        );
-        const evaluate = vi.fn(async () => "loaded");
-        const loader = blueprintLoader(fixture, get, evaluate);
+    test(
+        "preflights every exact module byte before invoking the evaluator",
+        { tags: "p0" },
+        async () => {
+            const fixture = packageFixture();
+            const get = vi.fn(async (reference: ContentRef) =>
+                reference.equals(fixture.dependencyRef)
+                    ? fixture.dependencyBytes
+                    : encoder.encode("substituted")
+            );
+            const evaluate = vi.fn(async () => "loaded");
+            const loader = blueprintLoader(fixture, get, evaluate);
 
-        await expect(loader.load(blueprint(fixture.release, { enabled: true }))).rejects.toThrow(
-            /Loaded module bytes do not match/
-        );
-        expect(get).toHaveBeenCalledTimes(2);
-        expect(evaluate).not.toHaveBeenCalled();
-    });
+            await expect(
+                loader.load(blueprint(fixture.release, { enabled: true }))
+            ).rejects.toThrow(/Loaded module bytes do not match/);
+            expect(get).toHaveBeenCalledTimes(2);
+            expect(evaluate).not.toHaveBeenCalled();
+        }
+    );
 
-    test("rejects a non-byte content adapter result before inspection or evaluation", { tags: "p0" }, async () => {
-        const fixture = packageFixture();
-        const evaluate = vi.fn(async () => "loaded");
-        const inspect = vi.fn(async (module: PackageCodeModule) => module.imports);
-        const loader = blueprintLoader(
-            fixture,
-            async () => "not-bytes" as never,
-            evaluate,
-            inspect
-        );
+    test(
+        "rejects a non-byte content adapter result before inspection or evaluation",
+        { tags: "p0" },
+        async () => {
+            const fixture = packageFixture();
+            const evaluate = vi.fn(async () => "loaded");
+            const inspect = vi.fn(async (module: PackageCodeModule) => module.imports);
+            const loader = blueprintLoader(
+                fixture,
+                async () => "not-bytes" as never,
+                evaluate,
+                inspect
+            );
 
-        await expect(loader.load(blueprint(fixture.release, { enabled: true }))).rejects.toThrow(
-            /Loaded module bytes do not match/
-        );
-        expect(inspect).not.toHaveBeenCalled();
-        expect(evaluate).not.toHaveBeenCalled();
-    });
+            await expect(
+                loader.load(blueprint(fixture.release, { enabled: true }))
+            ).rejects.toThrow(/Loaded module bytes do not match/);
+            expect(inspect).not.toHaveBeenCalled();
+            expect(evaluate).not.toHaveBeenCalled();
+        }
+    );
 
-    test("[C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order", { tags: "p0" }, async () => {
-        const fixture = packageFixture();
-        const source = new Map([
-            [fixture.mainRef.value, fixture.mainBytes],
-            [fixture.dependencyRef.value, fixture.dependencyBytes]
-        ]);
-        const evaluated: string[] = [];
-        const disposed: string[] = [];
-        const loader = blueprintLoader(
-            fixture,
-            async (reference) => source.get(reference.value)!.slice(),
-            async (module) => {
-                evaluated.push(module.module.specifier);
-                expect(module.pin.id.equals(module.release.id)).toBe(true);
-                expect(module.pin.version.equals(module.release.version)).toBe(true);
-                expect(module.pin.manifestDigest.equals(module.release.manifestDigest)).toBe(true);
-                expect(module.pin.codeDigest.equals(module.release.codeDigest)).toBe(true);
-                module.bytes.fill(0);
-                return module.module.specifier;
-            },
-            undefined,
-            (module) => {
-                disposed.push(module.module.specifier);
-            }
-        );
-
-        const loaded = await loader.load(blueprint(fixture.release, { enabled: true }));
-
-        expect(evaluated).toEqual(["./dependency.js", "./main.js"]);
-        expect(loaded.modules.map((module) => module.value)).toEqual(evaluated);
-        expect(source.get(fixture.mainRef.value)).toEqual(fixture.mainBytes);
-        expect(
-            loaded.validated.attestation.packageLockDigest.equals(loaded.validated.lock.digest)
-        ).toBe(true);
-        expect(loaded.modules.every((module) => module.value.length > 0)).toBe(true);
-        await loaded.dispose();
-        await loaded[Symbol.asyncDispose]();
-        expect(disposed).toEqual(["./main.js", "./dependency.js"]);
-    });
-
-    test("does not fall back after evaluator failure and disposes completed handles", { tags: "p1" }, async () => {
-        const fixture = packageFixture();
-        const evaluated: string[] = [];
-        const disposed: string[] = [];
-        const loader = blueprintLoader(
-            fixture,
-            async (reference) =>
-                reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
-            async (module) => {
-                evaluated.push(`${module.selected}:${module.module.specifier}`);
-                if (module.module.specifier === "./main.js") throw new TypeError("adapter failed");
-                return module.module.specifier;
-            },
-            undefined,
-            (module) => {
-                disposed.push(module.module.specifier);
-                throw new TypeError("cleanup failed");
-            }
-        );
-
-        await expect(loader.load(blueprint(fixture.release, { enabled: true }))).rejects.toThrow(
-            "adapter failed"
-        );
-        expect(evaluated).toEqual(["dynamic:./dependency.js", "dynamic:./main.js"]);
-        expect(disposed).toEqual(["./dependency.js"]);
-    });
-
-    test("surfaces disposal failure and still closes the scope only once", { tags: "p1" }, async () => {
-        const fixture = packageFixture();
-        let disposals = 0;
-        const loader = blueprintLoader(
-            fixture,
-            async (reference) =>
-                reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
-            async (module) => module.module.specifier,
-            undefined,
-            () => {
-                disposals += 1;
-                throw new TypeError("dispose failed");
-            }
-        );
-        const loaded = await loader.load(blueprint(fixture.release, { enabled: true }));
-
-        await expect(loaded.dispose()).rejects.toThrow("dispose failed");
-        await expect(loaded.dispose()).resolves.toBeUndefined();
-        expect(disposals).toBe(2);
-    });
-
-    test("retains the verified snapshot when the source buffer mutates during inspection", { tags: "p0" }, async () => {
-        const fixture = packageFixture();
-        const sharedMain = fixture.mainBytes.slice();
-        const seen: Uint8Array[] = [];
-        const loader = blueprintLoader(
-            fixture,
-            async (reference) =>
-                reference.equals(fixture.mainRef) ? sharedMain : fixture.dependencyBytes,
-            async (module) => {
-                seen.push(module.bytes.slice());
-                return module.module.specifier;
-            },
-            async (module) => {
-                if (module.specifier === "./main.js") sharedMain.fill(0);
-                return module.imports;
-            }
-        );
-        await loader.load(blueprint(fixture.release, { enabled: true }));
-        expect(
-            seen.find((bytes) => new TextDecoder().decode(bytes).includes("export { value }"))
-        ).toBeDefined();
-    });
-
-    test("rejects a transitive module shared across incompatible placement modes", { tags: "p0" }, async () => {
-        const fixture = packageFixture();
-        const dynamic = fixture.release.manifests[0]!;
-        const providerBytes = encoder.encode("export { value } from './dependency.js';");
-        const providerRef = ContentRef.fromDigest(Digest.sha256(providerBytes));
-        const provider = new FacetManifest({
-            id: new FacetPackageId("provider.facet"),
-            version: new SemVer("1.0.0"),
-            compat: CompatRange.any(),
-            isolation: ["provider"],
-            bindings: [],
-            contributions: Contributions.empty()
-        });
-        const codeManifest = new PackageCodeManifest({
-            compatibilityDate: fixture.release.codeManifest.compatibilityDate,
-            modules: [
-                ...fixture.release.codeManifest.modules,
-                new PackageCodeModule({
-                    specifier: "./provider.js",
-                    content: providerRef,
-                    media: new MediaHint("application/javascript"),
-                    imports: ["./dependency.js"]
-                })
-            ],
-            entrypoints: [
-                new PackageCodeEntrypoint({
-                    facet: dynamic.id,
-                    version: dynamic.version,
-                    module: "./main.js"
-                }),
-                new PackageCodeEntrypoint({
-                    facet: provider.id,
-                    version: provider.version,
-                    module: "./provider.js"
-                })
-            ]
-        });
-        const release = new PackageRelease({
-            id: new PackageId("mixed"),
-            version: new SemVer("1.0.0"),
-            compatibility: CompatRange.any(),
-            dependencies: [],
-            manifests: [dynamic, provider],
-            codeManifest,
-            provenance: { registry: "test" }
-        });
-        const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
-        const root = new PackageDependency(release.id, "1.0.0");
-        const content = new Map([
-            [fixture.mainRef.value, fixture.mainBytes],
-            [fixture.dependencyRef.value, fixture.dependencyBytes],
-            [providerRef.value, providerBytes]
-        ]);
-        const loader = new BlueprintLoader({
-            lock: resolvePackageLock(snapshot, [root], target),
-            releases: [release],
-            target,
-            placement: new (class extends PlacementSourcePort {
-                public sources() {
-                    return {
-                        substrate: ["dynamic", "provider"],
-                        trust: ["dynamic", "provider"]
-                    } as const;
+    test(
+        "[C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order",
+        { tags: "p0" },
+        async () => {
+            const fixture = packageFixture();
+            const source = new Map([
+                [fixture.mainRef.value, fixture.mainBytes],
+                [fixture.dependencyRef.value, fixture.dependencyBytes]
+            ]);
+            const evaluated: string[] = [];
+            const disposed: string[] = [];
+            const loader = blueprintLoader(
+                fixture,
+                async (reference) => source.get(reference.value)!.slice(),
+                async (module) => {
+                    evaluated.push(module.module.specifier);
+                    expect(module.pin.id.equals(module.release.id)).toBe(true);
+                    expect(module.pin.version.equals(module.release.version)).toBe(true);
+                    expect(module.pin.manifestDigest.equals(module.release.manifestDigest)).toBe(
+                        true
+                    );
+                    expect(module.pin.codeDigest.equals(module.release.codeDigest)).toBe(true);
+                    module.bytes.fill(0);
+                    return module.module.specifier;
+                },
+                undefined,
+                (module) => {
+                    disposed.push(module.module.specifier);
                 }
-            })(),
-            content: { get: async (reference) => content.get(reference.value)!.slice() },
-            inspector: new (class extends PackageModuleInspector {
-                public async imports(module: PackageCodeModule) {
+            );
+
+            const loaded = await loader.load(blueprint(fixture.release, { enabled: true }));
+
+            expect(evaluated).toEqual(["./dependency.js", "./main.js"]);
+            expect(loaded.modules.map((module) => module.value)).toEqual(evaluated);
+            expect(source.get(fixture.mainRef.value)).toEqual(fixture.mainBytes);
+            expect(
+                loaded.validated.attestation.packageLockDigest.equals(loaded.validated.lock.digest)
+            ).toBe(true);
+            expect(loaded.modules.every((module) => module.value.length > 0)).toBe(true);
+            await loaded.dispose();
+            await loaded[Symbol.asyncDispose]();
+            expect(disposed).toEqual(["./main.js", "./dependency.js"]);
+        }
+    );
+
+    test(
+        "does not fall back after evaluator failure and disposes completed handles",
+        { tags: "p1" },
+        async () => {
+            const fixture = packageFixture();
+            const evaluated: string[] = [];
+            const disposed: string[] = [];
+            const loader = blueprintLoader(
+                fixture,
+                async (reference) =>
+                    reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
+                async (module) => {
+                    evaluated.push(`${module.selected}:${module.module.specifier}`);
+                    if (module.module.specifier === "./main.js")
+                        throw new TypeError("adapter failed");
+                    return module.module.specifier;
+                },
+                undefined,
+                (module) => {
+                    disposed.push(module.module.specifier);
+                    throw new TypeError("cleanup failed");
+                }
+            );
+
+            await expect(
+                loader.load(blueprint(fixture.release, { enabled: true }))
+            ).rejects.toThrow("adapter failed");
+            expect(evaluated).toEqual(["dynamic:./dependency.js", "dynamic:./main.js"]);
+            expect(disposed).toEqual(["./dependency.js"]);
+        }
+    );
+
+    test(
+        "surfaces disposal failure and still closes the scope only once",
+        { tags: "p1" },
+        async () => {
+            const fixture = packageFixture();
+            let disposals = 0;
+            const loader = blueprintLoader(
+                fixture,
+                async (reference) =>
+                    reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
+                async (module) => module.module.specifier,
+                undefined,
+                () => {
+                    disposals += 1;
+                    throw new TypeError("dispose failed");
+                }
+            );
+            const loaded = await loader.load(blueprint(fixture.release, { enabled: true }));
+
+            await expect(loaded.dispose()).rejects.toThrow("dispose failed");
+            await expect(loaded.dispose()).resolves.toBeUndefined();
+            expect(disposals).toBe(2);
+        }
+    );
+
+    test(
+        "retains the verified snapshot when the source buffer mutates during inspection",
+        { tags: "p0" },
+        async () => {
+            const fixture = packageFixture();
+            const sharedMain = fixture.mainBytes.slice();
+            const seen: Uint8Array[] = [];
+            const loader = blueprintLoader(
+                fixture,
+                async (reference) =>
+                    reference.equals(fixture.mainRef) ? sharedMain : fixture.dependencyBytes,
+                async (module) => {
+                    seen.push(module.bytes.slice());
+                    return module.module.specifier;
+                },
+                async (module) => {
+                    if (module.specifier === "./main.js") sharedMain.fill(0);
                     return module.imports;
                 }
-            })(),
-            evaluator: new (class extends PackageModuleEvaluator<string> {
-                public async evaluate(module: VerifiedPackageModule) {
-                    return module.module.specifier;
-                }
-                public dispose() {}
-            })(),
-            correspondence: new (class extends PackageCorrespondencePort<string> {
-                public async validate() {}
-            })()
-        });
-        const source = new Blueprint({
-            meta: { name: "mixed", version: new SemVer("1.0.0") },
-            packages: [new PackageInstall({ request: root })],
-            policies: PolicySet.empty(),
-            agents: []
-        });
-        await expect(loader.load(source)).rejects.toThrow(/spans incompatible placement modes/);
-    });
+            );
+            await loader.load(blueprint(fixture.release, { enabled: true }));
+            expect(
+                seen.find((bytes) => new TextDecoder().decode(bytes).includes("export { value }"))
+            ).toBeDefined();
+        }
+    );
+
+    test(
+        "rejects a transitive module shared across incompatible placement modes",
+        { tags: "p0" },
+        async () => {
+            const fixture = packageFixture();
+            const dynamic = fixture.release.manifests[0]!;
+            const providerBytes = encoder.encode("export { value } from './dependency.js';");
+            const providerRef = ContentRef.fromDigest(Digest.sha256(providerBytes));
+            const provider = new FacetManifest({
+                id: new FacetPackageId("provider.facet"),
+                version: new SemVer("1.0.0"),
+                compat: CompatRange.any(),
+                isolation: ["provider"],
+                bindings: [],
+                contributions: Contributions.empty()
+            });
+            const codeManifest = new PackageCodeManifest({
+                compatibilityDate: fixture.release.codeManifest.compatibilityDate,
+                modules: [
+                    ...fixture.release.codeManifest.modules,
+                    new PackageCodeModule({
+                        specifier: "./provider.js",
+                        content: providerRef,
+                        media: new MediaHint("application/javascript"),
+                        imports: ["./dependency.js"]
+                    })
+                ],
+                entrypoints: [
+                    new PackageCodeEntrypoint({
+                        facet: dynamic.id,
+                        version: dynamic.version,
+                        module: "./main.js"
+                    }),
+                    new PackageCodeEntrypoint({
+                        facet: provider.id,
+                        version: provider.version,
+                        module: "./provider.js"
+                    })
+                ]
+            });
+            const release = new PackageRelease({
+                id: new PackageId("mixed"),
+                version: new SemVer("1.0.0"),
+                compatibility: CompatRange.any(),
+                dependencies: [],
+                manifests: [dynamic, provider],
+                codeManifest,
+                provenance: { registry: "test" }
+            });
+            const snapshot = new MetadataSnapshot({
+                revision: new Revision(1),
+                releases: [release]
+            });
+            const root = new PackageDependency(release.id, "1.0.0");
+            const content = new Map([
+                [fixture.mainRef.value, fixture.mainBytes],
+                [fixture.dependencyRef.value, fixture.dependencyBytes],
+                [providerRef.value, providerBytes]
+            ]);
+            const loader = new BlueprintLoader({
+                lock: resolvePackageLock(snapshot, [root], target),
+                releases: [release],
+                target,
+                placement: new (class extends PlacementSourcePort {
+                    public sources() {
+                        return {
+                            substrate: ["dynamic", "provider"],
+                            trust: ["dynamic", "provider"]
+                        } as const;
+                    }
+                })(),
+                content: { get: async (reference) => content.get(reference.value)!.slice() },
+                inspector: new (class extends PackageModuleInspector {
+                    public async imports(module: PackageCodeModule) {
+                        return module.imports;
+                    }
+                })(),
+                evaluator: new (class extends PackageModuleEvaluator<string> {
+                    public async evaluate(module: VerifiedPackageModule) {
+                        return module.module.specifier;
+                    }
+                    public dispose() {}
+                })(),
+                correspondence: new (class extends PackageCorrespondencePort<string> {
+                    public async validate() {}
+                })()
+            });
+            const source = new Blueprint({
+                meta: { name: "mixed", version: new SemVer("1.0.0") },
+                packages: [new PackageInstall({ request: root })],
+                policies: PolicySet.empty(),
+                agents: []
+            });
+            await expect(loader.load(source)).rejects.toThrow(/spans incompatible placement modes/);
+        }
+    );
 });
 
 describe("Blueprint loader byte custody and placement selection", () => {
@@ -379,76 +421,80 @@ describe("Blueprint loader byte custody and placement selection", () => {
         await loaded.dispose();
     });
 
-    test("validates correspondence per release with only its own modules", { tags: "p1" }, async () => {
-        const fixture = packageFixture();
-        const second = singleModuleRelease("second", "export const second = 1;", ["dynamic"]);
-        const snapshot = new MetadataSnapshot({
-            revision: new Revision(1),
-            releases: [fixture.release, second.release]
-        });
-        const roots = [
-            new PackageDependency(fixture.release.id, "1.0.0"),
-            new PackageDependency(second.release.id, "1.0.0")
-        ];
-        const store = contentStore([
-            [fixture.mainRef, fixture.mainBytes],
-            [fixture.dependencyRef, fixture.dependencyBytes],
-            ...second.content
-        ]);
-        const observed: [string, readonly string[], boolean][] = [];
-        const loader = new BlueprintLoader({
-            lock: resolvePackageLock(snapshot, roots, target),
-            releases: [fixture.release, second.release],
-            target,
-            placement: allModePlacement(),
-            content: { get: store },
-            inspector: new (class extends PackageModuleInspector {
-                public async imports(module: PackageCodeModule) {
-                    return module.imports;
-                }
-            })(),
-            evaluator: new (class extends PackageModuleEvaluator<string> {
-                public async evaluate(module: VerifiedPackageModule) {
-                    return module.module.specifier;
-                }
-                public dispose() {}
-            })(),
-            correspondence: new (class extends PackageCorrespondencePort<string> {
-                public async validate(
-                    release: PackageRelease,
-                    modules: readonly import("../../src/definition").LoadedPackageModule<string>[]
-                ) {
-                    observed.push([
-                        release.id.value,
-                        modules.map((module) => module.module.specifier).sort(),
-                        modules.every((module) => module.release === release)
-                    ]);
-                }
-            })()
-        });
-        const source = new Blueprint({
-            meta: { name: "pair", version: new SemVer("1.0.0") },
-            packages: [
-                new PackageInstall({
-                    request: roots[0] ?? new PackageDependency(fixture.release.id, "1.0.0"),
-                    config: new Config({ enabled: true })
-                }),
-                new PackageInstall({
-                    request: roots[1] ?? new PackageDependency(second.release.id, "1.0.0")
-                })
-            ],
-            policies: PolicySet.empty(),
-            agents: []
-        });
+    test(
+        "validates correspondence per release with only its own modules",
+        { tags: "p1" },
+        async () => {
+            const fixture = packageFixture();
+            const second = singleModuleRelease("second", "export const second = 1;", ["dynamic"]);
+            const snapshot = new MetadataSnapshot({
+                revision: new Revision(1),
+                releases: [fixture.release, second.release]
+            });
+            const roots = [
+                new PackageDependency(fixture.release.id, "1.0.0"),
+                new PackageDependency(second.release.id, "1.0.0")
+            ];
+            const store = contentStore([
+                [fixture.mainRef, fixture.mainBytes],
+                [fixture.dependencyRef, fixture.dependencyBytes],
+                ...second.content
+            ]);
+            const observed: [string, readonly string[], boolean][] = [];
+            const loader = new BlueprintLoader({
+                lock: resolvePackageLock(snapshot, roots, target),
+                releases: [fixture.release, second.release],
+                target,
+                placement: allModePlacement(),
+                content: { get: store },
+                inspector: new (class extends PackageModuleInspector {
+                    public async imports(module: PackageCodeModule) {
+                        return module.imports;
+                    }
+                })(),
+                evaluator: new (class extends PackageModuleEvaluator<string> {
+                    public async evaluate(module: VerifiedPackageModule) {
+                        return module.module.specifier;
+                    }
+                    public dispose() {}
+                })(),
+                correspondence: new (class extends PackageCorrespondencePort<string> {
+                    public async validate(
+                        release: PackageRelease,
+                        modules: readonly import("../../src/definition").LoadedPackageModule<string>[]
+                    ) {
+                        observed.push([
+                            release.id.value,
+                            modules.map((module) => module.module.specifier).sort(),
+                            modules.every((module) => module.release === release)
+                        ]);
+                    }
+                })()
+            });
+            const source = new Blueprint({
+                meta: { name: "pair", version: new SemVer("1.0.0") },
+                packages: [
+                    new PackageInstall({
+                        request: roots[0] ?? new PackageDependency(fixture.release.id, "1.0.0"),
+                        config: new Config({ enabled: true })
+                    }),
+                    new PackageInstall({
+                        request: roots[1] ?? new PackageDependency(second.release.id, "1.0.0")
+                    })
+                ],
+                policies: PolicySet.empty(),
+                agents: []
+            });
 
-        const loaded = await loader.load(source);
-        await loaded.dispose();
+            const loaded = await loader.load(source);
+            await loaded.dispose();
 
-        expect(observed).toEqual([
-            ["second", ["./second.js"], true],
-            ["test", ["./dependency.js", "./main.js"], true]
-        ]);
-    });
+            expect(observed).toEqual([
+                ["second", ["./second.js"], true],
+                ["test", ["./dependency.js", "./main.js"], true]
+            ]);
+        }
+    );
 
     test("selects each module's placement from its own Package alone", { tags: "p0" }, async () => {
         const alpha = releaseWithContent(
@@ -508,31 +554,36 @@ describe("Blueprint loader byte custody and placement selection", () => {
         ]);
     });
 
-    test("propagates correspondence failure after disposing evaluated modules", { tags: "p1" }, async () => {
-        const fixture = packageFixture();
-        const disposed: string[] = [];
-        const loader = blueprintLoader(
-            fixture,
-            async (reference) =>
-                reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
-            async (module) => module.module.specifier,
-            undefined,
-            (module) => {
-                disposed.push(module.module.specifier);
-            },
-            async () => {
-                throw new TypeError("correspondence failed");
-            }
-        );
+    test(
+        "propagates correspondence failure after disposing evaluated modules",
+        { tags: "p1" },
+        async () => {
+            const fixture = packageFixture();
+            const disposed: string[] = [];
+            const loader = blueprintLoader(
+                fixture,
+                async (reference) =>
+                    reference.equals(fixture.mainRef) ? fixture.mainBytes : fixture.dependencyBytes,
+                async (module) => module.module.specifier,
+                undefined,
+                (module) => {
+                    disposed.push(module.module.specifier);
+                },
+                async () => {
+                    throw new TypeError("correspondence failed");
+                }
+            );
 
-        const failure = await loader
-            .load(blueprint(fixture.release, { enabled: true }))
-            .then(() => "resolved", (error: unknown) => error);
+            const failure = await loader.load(blueprint(fixture.release, { enabled: true })).then(
+                () => "resolved",
+                (error: unknown) => error
+            );
 
-        expect(failure).toBeInstanceOf(TypeError);
-        expect(failure).toMatchObject({ message: "correspondence failed" });
-        expect(disposed).toEqual(["./main.js", "./dependency.js"]);
-    });
+            expect(failure).toBeInstanceOf(TypeError);
+            expect(failure).toMatchObject({ message: "correspondence failed" });
+            expect(disposed).toEqual(["./main.js", "./dependency.js"]);
+        }
+    );
 
     test("disposes modules exactly once through async disposal", { tags: "p1" }, async () => {
         const fixture = packageFixture();
@@ -569,40 +620,51 @@ describe("Blueprint loader byte custody and placement selection", () => {
         );
         const loaded = await loader.load(blueprint(fixture.release, { enabled: true }));
 
-        const failure = await loaded.dispose().then(() => "resolved", (error: unknown) => error);
+        const failure = await loaded.dispose().then(
+            () => "resolved",
+            (error: unknown) => error
+        );
         expect(failure).toBeInstanceOf(TypeError);
         expect(failure).toMatchObject({ message: "dispose failed" });
         await expect(loaded.dispose()).resolves.toBeUndefined();
     });
 
-    test("selects the placement mode of the single reaching Facet per module", { tags: "p0" }, async () => {
-        const release = dualFacetRelease(false);
-        const selections = new Map<string, string>();
-        const loader = releaseLoader(release, undefined, (module) => {
-            selections.set(module.module.specifier, module.selected);
-        });
+    test(
+        "selects the placement mode of the single reaching Facet per module",
+        { tags: "p0" },
+        async () => {
+            const release = dualFacetRelease(false);
+            const selections = new Map<string, string>();
+            const loader = releaseLoader(release, undefined, (module) => {
+                selections.set(module.module.specifier, module.selected);
+            });
 
-        const loaded = await loader.load(installOnly(release));
-        await loaded.dispose();
+            const loaded = await loader.load(installOnly(release));
+            await loaded.dispose();
 
-        expect(selections.get("./a.js")).toBe("dynamic");
-        expect(selections.get("./b.js")).toBe("provider");
-    });
+            expect(selections.get("./a.js")).toBe("dynamic");
+            expect(selections.get("./b.js")).toBe("provider");
+        }
+    );
 
-    test("terminates reachability analysis across cyclic module imports", { tags: "p1" }, async () => {
-        const release = dualFacetRelease(true);
-        const selections = new Map<string, string>();
-        const loader = releaseLoader(release, undefined, (module) => {
-            selections.set(module.module.specifier, module.selected);
-        });
+    test(
+        "terminates reachability analysis across cyclic module imports",
+        { tags: "p1" },
+        async () => {
+            const release = dualFacetRelease(true);
+            const selections = new Map<string, string>();
+            const loader = releaseLoader(release, undefined, (module) => {
+                selections.set(module.module.specifier, module.selected);
+            });
 
-        const loaded = await loader.load(installOnly(release));
-        await loaded.dispose();
+            const loaded = await loader.load(installOnly(release));
+            await loaded.dispose();
 
-        expect(selections.get("./a.js")).toBe("dynamic");
-        expect(selections.get("./a2.js")).toBe("dynamic");
-        expect(selections.get("./b.js")).toBe("provider");
-    });
+            expect(selections.get("./a.js")).toBe("dynamic");
+            expect(selections.get("./a2.js")).toBe("dynamic");
+            expect(selections.get("./b.js")).toBe("provider");
+        }
+    );
 });
 
 interface PackageFixture {
@@ -718,7 +780,10 @@ function blueprintLoader(
         placement: allModePlacement(),
         content: { get },
         inspector: new (class extends PackageModuleInspector {
-            public imports(module: PackageCodeModule, bytes: Uint8Array): Promise<readonly string[]> {
+            public imports(
+                module: PackageCodeModule,
+                bytes: Uint8Array
+            ): Promise<readonly string[]> {
                 return (inspect ?? ((candidate) => Promise.resolve(candidate.imports)))(
                     module,
                     bytes
@@ -780,9 +845,7 @@ function releaseWithContent(
     moduleSources: readonly ModuleSource[],
     facets: readonly FacetEntry[]
 ): ReleaseWithContent {
-    const content = moduleSources.map(
-        (module) => [module, encoder.encode(module.source)] as const
-    );
+    const content = moduleSources.map((module) => [module, encoder.encode(module.source)] as const);
     const manifests = facets.map(
         (entry) =>
             new FacetManifest({
@@ -923,7 +986,10 @@ function releaseLoader(
         placement: allModePlacement(),
         content: { get: contentStore(entry.content) },
         inspector: new (class extends PackageModuleInspector {
-            public imports(module: PackageCodeModule, bytes: Uint8Array): Promise<readonly string[]> {
+            public imports(
+                module: PackageCodeModule,
+                bytes: Uint8Array
+            ): Promise<readonly string[]> {
                 return (inspect ?? ((candidate) => Promise.resolve(candidate.imports)))(
                     module,
                     bytes

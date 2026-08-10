@@ -55,8 +55,14 @@ describe("Environment record mutation kills", () => {
         const failed = sessionIn(EnvironmentSessionState.failed);
         const closed = sessionIn(EnvironmentSessionState.closed);
         const cases = [
-            [() => reserved.opened(), "Cannot complete open an Environment session in reserved state"],
-            [() => reserved.failOpen(), "Cannot fail open an Environment session in reserved state"],
+            [
+                () => reserved.opened(),
+                "Cannot complete open an Environment session in reserved state"
+            ],
+            [
+                () => reserved.failOpen(),
+                "Cannot fail open an Environment session in reserved state"
+            ],
             [() => reserved.lost(), "Cannot mark lost an Environment session in reserved state"],
             [() => closed.beginOpen(), "Cannot open an Environment session in closed state"],
             [() => failed.closed(), "Cannot complete close an Environment session in failed state"],
@@ -131,7 +137,12 @@ describe("Environment record mutation kills", () => {
             url: null,
             recordRevision: 0
         };
-        const environment = new Environment(environmentId, Revision.initial(), 0, Revision.initial());
+        const environment = new Environment(
+            environmentId,
+            Revision.initial(),
+            0,
+            Revision.initial()
+        );
         const revisionRecord = new EnvironmentRevisionRecord(
             environmentId,
             Revision.initial(),
@@ -351,20 +362,24 @@ describe("Environment record mutation kills", () => {
         }
     });
 
-    test("exposure URLs allow http, forbid credentials, and must be strings", { tags: "p1" }, () => {
-        expect(exposureWithUrl("http://preview.example.test/").url).toBe(
-            "http://preview.example.test/"
-        );
-        expect(() => exposureWithUrl("https://user@example.test/")).toThrow(
-            new TypeError("Port exposure URL must not contain credentials or bearer material")
-        );
-        expect(() => exposureWithUrl("https://:secret@example.test/")).toThrow(
-            new TypeError("Port exposure URL must not contain credentials or bearer material")
-        );
-        expect(() => exposureWithUrl(42 as unknown as string)).toThrow(
-            new TypeError("Port exposure URL must be a string")
-        );
-    });
+    test(
+        "exposure URLs allow http, forbid credentials, and must be strings",
+        { tags: "p1" },
+        () => {
+            expect(exposureWithUrl("http://preview.example.test/").url).toBe(
+                "http://preview.example.test/"
+            );
+            expect(() => exposureWithUrl("https://user@example.test/")).toThrow(
+                new TypeError("Port exposure URL must not contain credentials or bearer material")
+            );
+            expect(() => exposureWithUrl("https://:secret@example.test/")).toThrow(
+                new TypeError("Port exposure URL must not contain credentials or bearer material")
+            );
+            expect(() => exposureWithUrl(42 as unknown as string)).toThrow(
+                new TypeError("Port exposure URL must be a string")
+            );
+        }
+    );
 
     test("provider versions admit exactly 128 characters", { tags: "p2" }, () => {
         const limit = new ProviderDescriptor(provider.id, "v".repeat(128), provider.configuration);
@@ -374,11 +389,7 @@ describe("Environment record mutation kills", () => {
         ).toThrow(new TypeError("Provider version must contain between 1 and 128 characters"));
         expect(
             () =>
-                new ProviderDescriptor(
-                    provider.id,
-                    42 as unknown as string,
-                    provider.configuration
-                )
+                new ProviderDescriptor(provider.id, 42 as unknown as string, provider.configuration)
         ).toThrow(new TypeError("Provider version must contain between 1 and 128 characters"));
     });
 

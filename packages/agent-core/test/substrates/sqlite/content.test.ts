@@ -16,8 +16,7 @@ const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b78
 
 class InterceptingSqlite extends TransactionalSqlite {
     public mutateRows:
-        | ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[])
-        | undefined;
+        ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]) | undefined;
 
     public constructor(public readonly inner: TestSqlite = new TestSqlite()) {
         super();
@@ -56,26 +55,30 @@ async function expectExactRejection(
 }
 
 describe("SQLite content store", () => {
-    test("reports the exact diagnostic for every malformed blob column", { tags: "p1" }, async () => {
-        const corruptions: readonly [column: string, value: SqliteValue, message: string][] = [
-            ["ref", 1, "Expected string column: ref"],
-            ["media_type", 1, "Expected nullable string column: media_type"],
-            ["bytes", "not-bytes", "Expected byte column: bytes"],
-            ["size", -1, "Expected non-negative safe integer column: size"],
-            ["size", "1", "Expected non-negative safe integer column: size"],
-            ["size", 1.5, "Expected non-negative safe integer column: size"]
-        ];
-        for (const [name, value, message] of corruptions) {
-            const database = new InterceptingSqlite();
-            const store = new SqliteContentStore(database);
-            const stored = await store.put(encode("column-shape"));
-            database.mutateRows = (statement, rows) =>
-                statement.includes("FROM content_blobs")
-                    ? rows.map((row) => ({ ...row, [name]: value }))
-                    : rows;
-            await expectExactRejection(store.get(stored.ref), "codec.invalid", message);
+    test(
+        "reports the exact diagnostic for every malformed blob column",
+        { tags: "p1" },
+        async () => {
+            const corruptions: readonly [column: string, value: SqliteValue, message: string][] = [
+                ["ref", 1, "Expected string column: ref"],
+                ["media_type", 1, "Expected nullable string column: media_type"],
+                ["bytes", "not-bytes", "Expected byte column: bytes"],
+                ["size", -1, "Expected non-negative safe integer column: size"],
+                ["size", "1", "Expected non-negative safe integer column: size"],
+                ["size", 1.5, "Expected non-negative safe integer column: size"]
+            ];
+            for (const [name, value, message] of corruptions) {
+                const database = new InterceptingSqlite();
+                const store = new SqliteContentStore(database);
+                const stored = await store.put(encode("column-shape"));
+                database.mutateRows = (statement, rows) =>
+                    statement.includes("FROM content_blobs")
+                        ? rows.map((row) => ({ ...row, [name]: value }))
+                        : rows;
+                await expectExactRejection(store.get(stored.ref), "codec.invalid", message);
+            }
         }
-    });
+    );
 
     test("round-trips empty content with the exact address", { tags: "p2" }, async () => {
         const database = new TestSqlite();

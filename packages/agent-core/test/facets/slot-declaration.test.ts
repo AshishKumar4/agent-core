@@ -15,20 +15,24 @@ describe("Slot declaration vocabulary", () => {
         expect(policy.visibility).toEqual(["y.read", "z.read"]);
     });
 
-    test("names the offending authority list in every policy validation error", { tags: "p2" }, () => {
-        expect(() => new SlotAuthorityPolicy([], ["read"])).toThrow(
-            /Slot contribute authority must not be empty/
-        );
-        expect(() => new SlotAuthorityPolicy(["write"], [])).toThrow(
-            /Slot visibility authority must not be empty/
-        );
-        expect(() => new SlotAuthorityPolicy([" "], ["read"])).toThrow(
-            /Slot contribute authority selector must be a nonblank canonical string/
-        );
-        expect(() => new SlotAuthorityPolicy(["write"], [" "])).toThrow(
-            /Slot visibility authority selector must be a nonblank canonical string/
-        );
-    });
+    test(
+        "names the offending authority list in every policy validation error",
+        { tags: "p2" },
+        () => {
+            expect(() => new SlotAuthorityPolicy([], ["read"])).toThrow(
+                /Slot contribute authority must not be empty/
+            );
+            expect(() => new SlotAuthorityPolicy(["write"], [])).toThrow(
+                /Slot visibility authority must not be empty/
+            );
+            expect(() => new SlotAuthorityPolicy([" "], ["read"])).toThrow(
+                /Slot contribute authority selector must be a nonblank canonical string/
+            );
+            expect(() => new SlotAuthorityPolicy(["write"], [" "])).toThrow(
+                /Slot visibility authority selector must be a nonblank canonical string/
+            );
+        }
+    );
 
     test("freezes constructed declarations", { tags: "p1" }, () => {
         const declaration = new SlotDeclaration(

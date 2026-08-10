@@ -1,10 +1,9 @@
-import { RecordCodec, SemVer, type JsonValue } from "../core";
+import { RecordCodec, SemVer, compareText, type JsonValue } from "../core";
 import { canonicalFacetData, type FacetDataMap } from "../facets";
 import { Config, type ConfigData, type ConfigInputMap } from "./config";
 import { PackageId } from "./id";
 import { PackageDependency } from "./package";
 import { PolicySet } from "./policy";
-import { compareText } from "./order";
 
 export interface CanonicalDeclaration {
     toData(): JsonValue;

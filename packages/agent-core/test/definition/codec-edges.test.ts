@@ -83,85 +83,89 @@ describe("definition codec adversarial edges", () => {
         ).toThrow(/required|missing/);
     });
 
-    test("rejects forged managed resource generation and pointer identities", { tags: "p0" }, () => {
-        const plan = actorPlan(origin(1));
-        const generation = MaterializationGeneration.fromActorPlan(plan);
-        const record = ManagedStateRecord.fromProjection(
-            actor,
-            plan.origin,
-            generation.id,
-            plan.projections[0]!
-        );
-        expect(() => new ManagedStateRecord({ ...record, desiredDigest: digest("wrong") })).toThrow(
-            /state digest/
-        );
-        expect(() => new ManagedStateRecord({ ...record, resourceId: digest("wrong") })).toThrow(
-            /resource ID/
-        );
-        expect(() => new ManagedStateRecord({ ...record, id: digest("wrong") })).toThrow(
-            /state ID/
-        );
-        expect(() =>
-            ManagedStateRecord.fromData({
-                ...(record.toData() as object),
-                desired: undefined
-            } as never)
-        ).toThrow(/required|missing/);
-        expect(() =>
-            ManagedStateRecord.fromData({
-                ...(record.toData() as object),
-                actor: { id: "workspace", kind: "bad" }
-            })
-        ).toThrow(/Actor kind/);
-        expect(() => ManagedStateRecord.fromData(null)).toThrow(/object/);
-        expect(() => managedResourceId(actor, plan.origin, " padded ", "policy-set")).toThrow(
-            /canonical/
-        );
-        expect(
-            () =>
-                new MaterializationGeneration({
-                    ...generation,
-                    id: digest("wrong")
+    test(
+        "rejects forged managed resource generation and pointer identities",
+        { tags: "p0" },
+        () => {
+            const plan = actorPlan(origin(1));
+            const generation = MaterializationGeneration.fromActorPlan(plan);
+            const record = ManagedStateRecord.fromProjection(
+                actor,
+                plan.origin,
+                generation.id,
+                plan.projections[0]!
+            );
+            expect(
+                () => new ManagedStateRecord({ ...record, desiredDigest: digest("wrong") })
+            ).toThrow(/state digest/);
+            expect(
+                () => new ManagedStateRecord({ ...record, resourceId: digest("wrong") })
+            ).toThrow(/resource ID/);
+            expect(() => new ManagedStateRecord({ ...record, id: digest("wrong") })).toThrow(
+                /state ID/
+            );
+            expect(() =>
+                ManagedStateRecord.fromData({
+                    ...(record.toData() as object),
+                    desired: undefined
+                } as never)
+            ).toThrow(/required|missing/);
+            expect(() =>
+                ManagedStateRecord.fromData({
+                    ...(record.toData() as object),
+                    actor: { id: "workspace", kind: "bad" }
                 })
-        ).toThrow(/generation ID/);
-        expect(
-            () =>
-                new MaterializationGeneration({
-                    ...generation,
-                    managedRecordIds: [record.id, record.id]
+            ).toThrow(/Actor kind/);
+            expect(() => ManagedStateRecord.fromData(null)).toThrow(/object/);
+            expect(() => managedResourceId(actor, plan.origin, " padded ", "policy-set")).toThrow(
+                /canonical/
+            );
+            expect(
+                () =>
+                    new MaterializationGeneration({
+                        ...generation,
+                        id: digest("wrong")
+                    })
+            ).toThrow(/generation ID/);
+            expect(
+                () =>
+                    new MaterializationGeneration({
+                        ...generation,
+                        managedRecordIds: [record.id, record.id]
+                    })
+            ).toThrow(/unique/);
+            expect(() =>
+                MaterializationGeneration.fromData({
+                    ...(generation.toData() as object),
+                    managedRecordIds: null
                 })
-        ).toThrow(/unique/);
-        expect(() =>
-            MaterializationGeneration.fromData({
-                ...(generation.toData() as object),
-                managedRecordIds: null
-            })
-        ).toThrow(/array/);
-        expect(() =>
-            MaterializationGeneration.fromData({
-                ...(generation.toData() as object),
-                managedRecordIds: [7]
-            })
-        ).toThrow(/string/);
+            ).toThrow(/array/);
+            expect(() =>
+                MaterializationGeneration.fromData({
+                    ...(generation.toData() as object),
+                    managedRecordIds: [7]
+                })
+            ).toThrow(/string/);
 
-        const pointer = MaterializationGenerationPointer.initial(
-            actor,
-            deploymentId,
-            generation.id
-        );
-        expect(() =>
-            MaterializationGenerationPointer.fromData({
-                ...(pointer.toData() as object),
-                revision: -1
-            })
-        ).toThrow(/non-negative/);
-        expect(() =>
-            MaterializationGenerationPointer.fromData({
-                ...(pointer.toData() as object),
-                actor: { id: "workspace", kind: "bad" }
-            })
-        ).toThrow(/Actor kind/);
-    });
+            const pointer = MaterializationGenerationPointer.initial(
+                actor,
+                deploymentId,
+                generation.id
+            );
+            expect(() =>
+                MaterializationGenerationPointer.fromData({
+                    ...(pointer.toData() as object),
+                    revision: -1
+                })
+            ).toThrow(/non-negative/);
+            expect(() =>
+                MaterializationGenerationPointer.fromData({
+                    ...(pointer.toData() as object),
+                    actor: { id: "workspace", kind: "bad" }
+                })
+            ).toThrow(/Actor kind/);
+        }
+    );
 
     test("accepts generation zero and distinguishes origins by every field", { tags: "p1" }, () => {
         const zero = new ManagedOrigin({ ...originInit(), generation: 0 });
@@ -208,9 +212,7 @@ describe("definition codec adversarial edges", () => {
         );
         expect(() => ManagedOrigin.fromData(null)).toThrow("Managed origin must be an object");
         expect(() => ManagedOrigin.fromData([])).toThrow("Managed origin must be an object");
-        expect(() => ManagedOrigin.fromData("payload")).toThrow(
-            "Managed origin must be an object"
-        );
+        expect(() => ManagedOrigin.fromData("payload")).toThrow("Managed origin must be an object");
     });
 
     test("rejects every malformed managed origin generation shape", { tags: "p1" }, () => {

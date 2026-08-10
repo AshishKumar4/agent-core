@@ -43,10 +43,7 @@ function cancelEntry(
         token: { turn: TurnId; holder: PrincipalRef; epoch: number } | undefined;
     }> = {}
 ): TurnInboxEntry {
-    const token =
-        "token" in over
-            ? over.token
-            : { turn: ids.turn, holder: ids.holder, epoch: 1 };
+    const token = "token" in over ? over.token : { turn: ids.turn, holder: ids.holder, epoch: 1 };
     return new TurnInboxEntry(
         new TurnInboxEntryId(id),
         ids.turn,
@@ -118,11 +115,7 @@ function claimSibling(value: ReturnType<typeof seedRunningTurn>, id: string): Tu
     );
 }
 
-function forcedEvidence(
-    value: ReturnType<typeof seedRunningTurn>,
-    sibling: Turn,
-    suffix: string
-) {
+function forcedEvidence(value: ReturnType<typeof seedRunningTurn>, sibling: Turn, suffix: string) {
     const receipt = new ReceiptId(`forced-control-${suffix}`);
     const controlAudit = new AuditRecordId(`forced-control-audit-${suffix}`);
     const event = new EventId(`forced-event-${suffix}`);
@@ -164,8 +157,8 @@ function terminalRequest(
     return {
         run: ids.run,
         turn: ids.turn,
-        expectedRunRevision: value.repository.transaction((tx) =>
-            must(value.repository.loadRun(tx, ids.run)).revision
+        expectedRunRevision: value.repository.transaction(
+            (tx) => must(value.repository.loadRun(tx, ids.run)).revision
         ),
         expectedTurnRevision: value.running.revision,
         expectedBranchRevision: new Revision(0),
@@ -389,9 +382,8 @@ describe("held cancellation and timeout fencing", () => {
             value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
         ).toHaveLength(2);
         expect(
-            value.repository.transaction((tx) =>
-                must(value.repository.loadTurn(tx, ids.turn))
-            ).status.kind
+            value.repository.transaction((tx) => must(value.repository.loadTurn(tx, ids.turn)))
+                .status.kind
         ).toBe("cancelled");
     });
 
@@ -725,9 +717,7 @@ describe("forced sibling cancellation", () => {
                     value.runtime.terminalizeRun(
                         terminalRequest(value, {
                             forcedCancellationControl: forced.control,
-                            siblingCancellations: new Map([
-                                [sibling.id.value, forced.evidence]
-                            ])
+                            siblingCancellations: new Map([[sibling.id.value, forced.evidence]])
                         })
                     ),
                 "authority.denied",
@@ -843,9 +833,7 @@ describe("forced sibling cancellation", () => {
                     value.runtime.terminalizeRun(
                         terminalRequest(value, {
                             forcedCancellationControl: forced.control,
-                            siblingCancellations: new Map([
-                                [sibling.id.value, forced.evidence]
-                            ])
+                            siblingCancellations: new Map([[sibling.id.value, forced.evidence]])
                         })
                     ),
                 "run.invalid-state",
@@ -882,8 +870,8 @@ describe("forced sibling cancellation", () => {
         expect(record.fencedLeaseEpoch).toBe(2);
         expect(record.terminalTurn.equals(ids.turn)).toBe(true);
         expect(
-            value.repository.transaction((tx) =>
-                must(value.repository.loadRun(tx, ids.run)).lifecycle.kind
+            value.repository.transaction(
+                (tx) => must(value.repository.loadRun(tx, ids.run)).lifecycle.kind
             )
         ).toBe("terminal");
     });
@@ -915,79 +903,98 @@ describe("forced sibling cancellation", () => {
         expect(record.fencedLeaseEpoch).toBe(1);
     });
 
-    test("terminalizes cleanly over succeeded, failed, and cancelled siblings", { tags: "p0" }, () => {
-        const value = seedRunningTurn();
-        const succeeded = claimSibling(value, "sibling-succeeded");
-        const succeededResult = resultCommit("sibling-succeeded-result", succeeded.id, ids.root, {
-            turn: succeeded.id,
-            holder: ids.holder,
-            epoch: 1
-        });
-        value.runtime.completeTurn({
-            turn: succeeded.id,
-            expectedTurnRevision: succeeded.revision,
-            expectedBranchRevision: new Revision(0),
-            token: { turn: succeeded.id, holder: ids.holder, epoch: 1 },
-            outcome: "succeeded",
-            commit: succeededResult,
-            now: new Date(1200)
-        });
-
-        const failedId = queueSibling(value, "sibling-failed", new Revision(1), succeededResult.id);
-        const failed = value.runtime.claimTurn(
-            failedId,
-            new Revision(0),
-            ids.holder,
-            new Date(1200),
-            new Date(5000)
-        );
-        const failedResult = resultCommit("sibling-failed-result", failedId, succeededResult.id, {
-            turn: failedId,
-            holder: ids.holder,
-            epoch: 1
-        });
-        value.runtime.completeTurn({
-            turn: failedId,
-            expectedTurnRevision: failed.revision,
-            expectedBranchRevision: new Revision(1),
-            token: { turn: failedId, holder: ids.holder, epoch: 1 },
-            outcome: "failed",
-            commit: failedResult,
-            now: new Date(1300)
-        });
-
-        const cancelledId = queueSibling(
-            value,
-            "sibling-cancelled",
-            new Revision(2),
-            failedResult.id
-        );
-        value.runtime.cancelUnheldTurn(cancelledId, new Revision(0));
-
-        const snapshot = value.runtime.terminalizeRun(
-            terminalRequest(value, {
-                outcome: "succeeded",
-                expectedBranchRevision: new Revision(2),
-                commit: resultCommit("terminal-final", ids.turn, failedResult.id, value.token)
-            })
-        );
-        expect(snapshot.outcome).toBe("succeeded");
-        expect(
-            value.repository.transaction((tx) =>
-                value.repository.listForcedCancellations(tx, ids.run)
-            )
-        ).toEqual([]);
-        for (const [turnId, status] of [
-            [succeeded.id, "succeeded"],
-            [failedId, "failed"],
-            [cancelledId, "cancelled"]
-        ] as const) {
-            const sibling = value.repository.transaction((tx) =>
-                must(value.repository.loadTurn(tx, turnId))
+    test(
+        "terminalizes cleanly over succeeded, failed, and cancelled siblings",
+        { tags: "p0" },
+        () => {
+            const value = seedRunningTurn();
+            const succeeded = claimSibling(value, "sibling-succeeded");
+            const succeededResult = resultCommit(
+                "sibling-succeeded-result",
+                succeeded.id,
+                ids.root,
+                {
+                    turn: succeeded.id,
+                    holder: ids.holder,
+                    epoch: 1
+                }
             );
-            expect(sibling.status.kind).toBe(status);
-            expect(sibling.lease.holder).toBeUndefined();
+            value.runtime.completeTurn({
+                turn: succeeded.id,
+                expectedTurnRevision: succeeded.revision,
+                expectedBranchRevision: new Revision(0),
+                token: { turn: succeeded.id, holder: ids.holder, epoch: 1 },
+                outcome: "succeeded",
+                commit: succeededResult,
+                now: new Date(1200)
+            });
+
+            const failedId = queueSibling(
+                value,
+                "sibling-failed",
+                new Revision(1),
+                succeededResult.id
+            );
+            const failed = value.runtime.claimTurn(
+                failedId,
+                new Revision(0),
+                ids.holder,
+                new Date(1200),
+                new Date(5000)
+            );
+            const failedResult = resultCommit(
+                "sibling-failed-result",
+                failedId,
+                succeededResult.id,
+                {
+                    turn: failedId,
+                    holder: ids.holder,
+                    epoch: 1
+                }
+            );
+            value.runtime.completeTurn({
+                turn: failedId,
+                expectedTurnRevision: failed.revision,
+                expectedBranchRevision: new Revision(1),
+                token: { turn: failedId, holder: ids.holder, epoch: 1 },
+                outcome: "failed",
+                commit: failedResult,
+                now: new Date(1300)
+            });
+
+            const cancelledId = queueSibling(
+                value,
+                "sibling-cancelled",
+                new Revision(2),
+                failedResult.id
+            );
+            value.runtime.cancelUnheldTurn(cancelledId, new Revision(0));
+
+            const snapshot = value.runtime.terminalizeRun(
+                terminalRequest(value, {
+                    outcome: "succeeded",
+                    expectedBranchRevision: new Revision(2),
+                    commit: resultCommit("terminal-final", ids.turn, failedResult.id, value.token)
+                })
+            );
+            expect(snapshot.outcome).toBe("succeeded");
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.listForcedCancellations(tx, ids.run)
+                )
+            ).toEqual([]);
+            for (const [turnId, status] of [
+                [succeeded.id, "succeeded"],
+                [failedId, "failed"],
+                [cancelledId, "cancelled"]
+            ] as const) {
+                const sibling = value.repository.transaction((tx) =>
+                    must(value.repository.loadTurn(tx, turnId))
+                );
+                expect(sibling.status.kind).toBe(status);
+                expect(sibling.lease.holder).toBeUndefined();
+            }
+            expect(value.runtime.settled(ids.run)).toBe(true);
         }
-        expect(value.runtime.settled(ids.run)).toBe(true);
-    });
+    );
 });

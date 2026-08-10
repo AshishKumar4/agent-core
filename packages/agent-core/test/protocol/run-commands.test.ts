@@ -141,44 +141,60 @@ const requests: readonly RunProtocolRequest[] = [
 ];
 
 describe("Run protocol family", () => {
-    it("declares every closed command with fixed revision and lease policies", { tags: "p1" }, () => {
-        const commands = createRunProtocolCommands(new TestPort(), owner);
-        expect(commands.map((command) => command.command)).toEqual(Object.values(RUN_COMMANDS));
-        expect(Object.values(RUN_COMMANDS)).not.toContain("turn.retry");
-        expect("retryTurn" in RUN_COMMANDS).toBe(false);
-        expect(
-            commands.find((command) => command.command === RUN_COMMANDS.create)?.expectedRevision
-        ).toBe("forbidden");
-        expect(commands.find((command) => command.command === RUN_COMMANDS.renewTurn)?.lease).toBe(
-            "required"
-        );
-        expect(commands.find((command) => command.command === RUN_COMMANDS.appendTurn)?.lease).toBe(
-            "required"
-        );
-        expect(
-            commands.find((command) => command.command === RUN_COMMANDS.reclaimTurn)?.lease
-        ).toBe("forbidden");
-        expect(
-            commands.find((command) => command.command === RUN_COMMANDS.cancelUnheldTurn)?.lease
-        ).toBe("forbidden");
-        expect(() =>
-            createRunProtocolCommands(new TestPort(), new ActorRef("tenant", new ActorId("tenant")))
-        ).toThrow(/Workspace or Run/);
-    });
-
-    it("round-trips exact canonical payloads through command-specific codecs", { tags: "p1" }, () => {
-        const commands = createRunProtocolCommands(new TestPort(), owner);
-        for (const [index, request] of requests.entries()) {
-            const decoded = commands[index]!.payload.decode(
-                RunCommandPayload.encode(request)
-            ) as RunProtocolRequest;
-            expect(decoded.kind).toBe(request.kind);
-            expect(RunCommandPayload.encode(decoded)).toEqual(RunCommandPayload.encode(request));
+    it(
+        "declares every closed command with fixed revision and lease policies",
+        { tags: "p1" },
+        () => {
+            const commands = createRunProtocolCommands(new TestPort(), owner);
+            expect(commands.map((command) => command.command)).toEqual(Object.values(RUN_COMMANDS));
+            expect(Object.values(RUN_COMMANDS)).not.toContain("turn.retry");
+            expect("retryTurn" in RUN_COMMANDS).toBe(false);
+            expect(
+                commands.find((command) => command.command === RUN_COMMANDS.create)
+                    ?.expectedRevision
+            ).toBe("forbidden");
+            expect(
+                commands.find((command) => command.command === RUN_COMMANDS.renewTurn)?.lease
+            ).toBe("required");
+            expect(
+                commands.find((command) => command.command === RUN_COMMANDS.appendTurn)?.lease
+            ).toBe("required");
+            expect(
+                commands.find((command) => command.command === RUN_COMMANDS.reclaimTurn)?.lease
+            ).toBe("forbidden");
+            expect(
+                commands.find((command) => command.command === RUN_COMMANDS.cancelUnheldTurn)?.lease
+            ).toBe("forbidden");
+            expect(() =>
+                createRunProtocolCommands(
+                    new TestPort(),
+                    new ActorRef("tenant", new ActorId("tenant"))
+                )
+            ).toThrow(/Workspace or Run/);
         }
-        expect(() =>
-            commands[0]!.payload.decode(new TextEncoder().encode('{"extra":true,"run":"run-1"}'))
-        ).toThrow(/fields/);
-    });
+    );
+
+    it(
+        "round-trips exact canonical payloads through command-specific codecs",
+        { tags: "p1" },
+        () => {
+            const commands = createRunProtocolCommands(new TestPort(), owner);
+            for (const [index, request] of requests.entries()) {
+                const decoded = commands[index]!.payload.decode(
+                    RunCommandPayload.encode(request)
+                ) as RunProtocolRequest;
+                expect(decoded.kind).toBe(request.kind);
+                expect(RunCommandPayload.encode(decoded)).toEqual(
+                    RunCommandPayload.encode(request)
+                );
+            }
+            expect(() =>
+                commands[0]!.payload.decode(
+                    new TextEncoder().encode('{"extra":true,"run":"run-1"}')
+                )
+            ).toThrow(/fields/);
+        }
+    );
 
     it("keeps system commands restricted to the exact owning Actor", { tags: "p0" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
@@ -233,7 +249,10 @@ describe("Run protocol family", () => {
     it("rejects fractional expirations and admits every terminal outcome", { tags: "p1" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
         const claim = requireRunCommand(commands, RUN_COMMANDS.claimTurn);
-        for (const payload of ['{"expiresAt":1.5,"turn":"turn"}', '{"expiresAt":0.5,"turn":"turn"}']) {
+        for (const payload of [
+            '{"expiresAt":1.5,"turn":"turn"}',
+            '{"expiresAt":0.5,"turn":"turn"}'
+        ]) {
             expect(() => claim.payload.decode(new TextEncoder().encode(payload))).toThrow(
                 /expiration/
             );

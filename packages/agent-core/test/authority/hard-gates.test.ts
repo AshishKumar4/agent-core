@@ -560,6 +560,24 @@ describe("Binding and epoch hard gates", () => {
 });
 
 describe("typed authority evidence hard gates", () => {
+    test("orders matched Grants by content, not by arrival", { tags: "p0" }, () => {
+        // A GrantId is a bare TextId, so U+0000 and the other UCA-ignorable code points
+        // are legal inside one. Collation reports those ids equal to their stripped form,
+        // and a comparator that returns 0 for distinct values leaves a stable sort holding
+        // arrival order -- so the same Grant set encodes to different bytes, and the
+        // evidence digest stops being a function of the evidence.
+        for (const pair of ["\u0000", "\u00ad", "\u200b"].map((ignorable) => [
+            new GrantId("matched-grant"),
+            new GrantId(`matched-grant${ignorable}`)
+        ])) {
+            const forward = AuthorityCheckEvidence.encode(evidence({ matchedAllow: pair }));
+            const reversed = AuthorityCheckEvidence.encode(
+                evidence({ matchedAllow: [...pair].reverse() })
+            );
+            expect(new Uint8Array(forward)).toStrictEqual(new Uint8Array(reversed));
+        }
+    });
+
     test("gives requests uniform static codecs", { tags: "p0" }, () => {
         const request = checkRequest();
         expect(

@@ -3,6 +3,7 @@ import {
     Digest,
     RecordCodec,
     Revision,
+    compareText,
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
@@ -15,7 +16,6 @@ import {
 import { ManagedOrigin } from "./origin";
 import type { ActorPlan, DesiredProjection } from "./plan";
 import { DeploymentId, MaterializationGenerationId } from "./id";
-import { compareText } from "./order";
 
 export interface ManagedStateRecordInit {
     readonly actor: ActorRef;

@@ -57,11 +57,7 @@ function submit(harness: CounterFixture, key: string): Submission {
  * Drives one concurrent wave carrying `duplicates` copies of a single idempotency key
  * interleaved with `distinctKeys` unique keys, in a seed-determined order.
  */
-async function runStorm(
-    harness: CounterFixture,
-    shape: StormShape,
-    seed: string
-): Promise<Storm> {
+async function runStorm(harness: CounterFixture, shape: StormShape, seed: string): Promise<Storm> {
     const planned: Submission[] = [];
     for (let index = 0; index < shape.duplicates; index += 1) {
         planned.push(submit(harness, STORM_KEY));
@@ -81,9 +77,7 @@ function resultsForKey(storm: Storm, key: string): readonly CommandDispatchResul
 }
 
 function committedFor(storm: Storm, key: string): CommandDispatchResult {
-    const committed = resultsForKey(storm, key).filter(
-        (result) => result.outcome === "committed"
-    );
+    const committed = resultsForKey(storm, key).filter((result) => result.outcome === "committed");
     expect(committed).toHaveLength(1);
     const only = committed[0];
     if (only === undefined) throw new TypeError("Storm key has no committed write");
@@ -205,9 +199,7 @@ function dedupStormContract(
                 expect(after.identityCount).toBe(settled.identityCount);
                 expect(after.value).toBe(settled.value);
                 expect(after.revision.value).toBe(settled.revision.value);
-                expect(after.writes).toHaveLength(
-                    total + shape.replayRounds * storm.keys.length
-                );
+                expect(after.writes).toHaveLength(total + shape.replayRounds * storm.keys.length);
                 expect(writeAuditBijection(after.writes, after.audits)).toEqual({
                     covered: after.writes.length,
                     writeAudits: after.writes.length

@@ -254,7 +254,10 @@ describe("MemoryMaterializationControlStore integrity", () => {
         });
         expect(() =>
             bare.transaction((transaction) =>
-                bare.insertRollout(transaction, new MaterializationRollout({ plan: plan(1, ["a"]) }))
+                bare.insertRollout(
+                    transaction,
+                    new MaterializationRollout({ plan: plan(1, ["a"]) })
+                )
             )
         ).toThrow(/Materialization rollout requires its stored validation attestation/);
 
@@ -269,9 +272,7 @@ describe("MemoryMaterializationControlStore integrity", () => {
             store.transaction((transaction) => store.insertOutbox(transaction, entry))
         ).not.toThrow();
         expect(() =>
-            store.transaction((transaction) =>
-                store.insertOutbox(transaction, entry.attempted())
-            )
+            store.transaction((transaction) => store.insertOutbox(transaction, entry.attempted()))
         ).toThrow(/Materialization outbox entry .* is immutable/);
     });
 

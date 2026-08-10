@@ -1,8 +1,15 @@
-import { Digest, RecordCodec, Revision, SemVer, hasExactJsonKeys, type JsonValue } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    Revision,
+    SemVer,
+    compareText,
+    hasExactJsonKeys,
+    type JsonValue
+} from "../core";
 import { PackageId } from "./id";
 import { PlatformCompatibility } from "./compatibility";
 import { PackageDependency } from "./package";
-import { compareText } from "./order";
 
 export class PackagePin {
     public constructor(

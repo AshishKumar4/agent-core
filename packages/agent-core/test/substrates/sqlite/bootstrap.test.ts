@@ -113,20 +113,24 @@ function content(): CounterContentStore {
 }
 
 describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
-    test("fails closed with the exact error when the anchor vanishes under the composition", { tags: "p0" }, () => {
-        const database = new AnchorVanishSqlite();
-        bootstrap(database, content());
-        // The control store reads the anchor twice while reopening; the third
-        // read is the composition's own re-check, which must fail closed.
-        database.vanishAfter = 2;
+    test(
+        "fails closed with the exact error when the anchor vanishes under the composition",
+        { tags: "p0" },
+        () => {
+            const database = new AnchorVanishSqlite();
+            bootstrap(database, content());
+            // The control store reads the anchor twice while reopening; the third
+            // read is the composition's own re-check, which must fail closed.
+            database.vanishAfter = 2;
 
-        expect(() => bootstrap(database, content(), false)).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "SQLite Tenant bootstrap anchor is missing"
-            })
-        );
-    });
+            expect(() => bootstrap(database, content(), false)).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "SQLite Tenant bootstrap anchor is missing"
+                })
+            );
+        }
+    );
 
     test("preserves a typed protocol ID initialization failure exactly", { tags: "p1" }, () => {
         const database = new StatementFaultSqlite();
@@ -155,7 +159,10 @@ describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
         expect(result.outcome).toBe("committed");
         expect(result.write.id.value).toMatch(/^write-\d+$/);
         expect(result.write.audit.value).toMatch(/^audit-\d+$/);
-        const writeIds = database.all("SELECT id FROM protocol_write_records ORDER BY sequence", []);
+        const writeIds = database.all(
+            "SELECT id FROM protocol_write_records ORDER BY sequence",
+            []
+        );
         expect(writeIds).toHaveLength(1);
         for (const row of writeIds) expect(row["id"]).toMatch(/^write-\d+$/);
         const auditRows = database.all(
@@ -178,24 +185,28 @@ describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
         expect(kinds.sort()).toEqual(["invocation", "write"]);
     });
 
-    test("translates a raw protocol ID write fault into the exact conflict error", { tags: "p0" }, async () => {
-        const database = new StatementFaultSqlite();
-        const store = content();
-        const composition = bootstrap(database, store);
-        database.onRun = (statement) => {
-            if (statement.startsWith("UPDATE tenant_bootstrap_protocol_ids")) {
-                throw new Error("raw ID write fault");
-            }
-            return undefined;
-        };
+    test(
+        "translates a raw protocol ID write fault into the exact conflict error",
+        { tags: "p0" },
+        async () => {
+            const database = new StatementFaultSqlite();
+            const store = content();
+            const composition = bootstrap(database, store);
+            database.onRun = (statement) => {
+                if (statement.startsWith("UPDATE tenant_bootstrap_protocol_ids")) {
+                    throw new Error("raw ID write fault");
+                }
+                return undefined;
+            };
 
-        await expect(
-            composition.dispatch(envelope(store, "raw-write-fault"), ownerTransport)
-        ).rejects.toMatchObject({
-            code: "protocol.revision-conflict",
-            message: "Tenant bootstrap protocol ID write failed"
-        });
-    });
+            await expect(
+                composition.dispatch(envelope(store, "raw-write-fault"), ownerTransport)
+            ).rejects.toMatchObject({
+                code: "protocol.revision-conflict",
+                message: "Tenant bootstrap protocol ID write failed"
+            });
+        }
+    );
 
     test("preserves a typed protocol ID write fault exactly", { tags: "p0" }, async () => {
         const database = new StatementFaultSqlite();
@@ -203,7 +214,10 @@ describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
         const composition = bootstrap(database, store);
         database.onRun = (statement) => {
             if (statement.startsWith("UPDATE tenant_bootstrap_protocol_ids")) {
-                throw new AgentCoreError("protocol.invalid-state", "injected typed ID write failure");
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "injected typed ID write failure"
+                );
             }
             return undefined;
         };
@@ -216,42 +230,53 @@ describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
         });
     });
 
-    test("detects a lost protocol ID increment with the exact conflict error", { tags: "p0" }, async () => {
-        const database = new StatementFaultSqlite();
-        const store = content();
-        const composition = bootstrap(database, store);
-        database.onRun = (statement) =>
-            statement.startsWith("UPDATE tenant_bootstrap_protocol_ids") ? "skip" : undefined;
+    test(
+        "detects a lost protocol ID increment with the exact conflict error",
+        { tags: "p0" },
+        async () => {
+            const database = new StatementFaultSqlite();
+            const store = content();
+            const composition = bootstrap(database, store);
+            database.onRun = (statement) =>
+                statement.startsWith("UPDATE tenant_bootstrap_protocol_ids") ? "skip" : undefined;
 
-        await expect(
-            composition.dispatch(envelope(store, "lost-increment"), ownerTransport)
-        ).rejects.toMatchObject({
-            code: "protocol.revision-conflict",
-            message: "Tenant bootstrap protocol ID changed concurrently"
-        });
-    });
+            await expect(
+                composition.dispatch(envelope(store, "lost-increment"), ownerTransport)
+            ).rejects.toMatchObject({
+                code: "protocol.revision-conflict",
+                message: "Tenant bootstrap protocol ID changed concurrently"
+            });
+        }
+    );
 
-    test("translates a raw protocol ID read fault into the exact codec error", { tags: "p1" }, () => {
-        const database = new StatementFaultSqlite();
-        database.onAll = (statement) => {
-            if (statement.includes("SELECT next_id FROM tenant_bootstrap_protocol_ids")) {
-                throw new Error("raw ID read fault");
-            }
-        };
+    test(
+        "translates a raw protocol ID read fault into the exact codec error",
+        { tags: "p1" },
+        () => {
+            const database = new StatementFaultSqlite();
+            database.onAll = (statement) => {
+                if (statement.includes("SELECT next_id FROM tenant_bootstrap_protocol_ids")) {
+                    throw new Error("raw ID read fault");
+                }
+            };
 
-        expect(() => bootstrap(database, content())).toThrow(
-            expect.objectContaining({
-                code: "codec.invalid",
-                message: "Tenant bootstrap protocol ID read failed"
-            })
-        );
-    });
+            expect(() => bootstrap(database, content())).toThrow(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: "Tenant bootstrap protocol ID read failed"
+                })
+            );
+        }
+    );
 
     test("preserves a typed protocol ID read fault exactly", { tags: "p1" }, () => {
         const database = new StatementFaultSqlite();
         database.onAll = (statement) => {
             if (statement.includes("SELECT next_id FROM tenant_bootstrap_protocol_ids")) {
-                throw new AgentCoreError("protocol.invalid-state", "injected typed ID read failure");
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "injected typed ID read failure"
+                );
             }
         };
 
@@ -263,28 +288,35 @@ describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
         );
     });
 
-    test("rejects missing and negative persisted protocol ID state exactly", { tags: "p0" }, async () => {
-        const malformed = {
-            code: "codec.invalid",
-            message: "Tenant bootstrap protocol ID state is malformed"
-        };
+    test(
+        "rejects missing and negative persisted protocol ID state exactly",
+        { tags: "p0" },
+        async () => {
+            const malformed = {
+                code: "codec.invalid",
+                message: "Tenant bootstrap protocol ID state is malformed"
+            };
 
-        const missing = new TestSqlite();
-        const missingContent = content();
-        const composition = bootstrap(missing, missingContent);
-        missing.run("DELETE FROM tenant_bootstrap_protocol_ids", []);
-        await expect(
-            composition.dispatch(envelope(missingContent, "missing-id-state"), ownerTransport)
-        ).rejects.toMatchObject(malformed);
+            const missing = new TestSqlite();
+            const missingContent = content();
+            const composition = bootstrap(missing, missingContent);
+            missing.run("DELETE FROM tenant_bootstrap_protocol_ids", []);
+            await expect(
+                composition.dispatch(envelope(missingContent, "missing-id-state"), ownerTransport)
+            ).rejects.toMatchObject(malformed);
 
-        const negative = new TestSqlite();
-        bootstrap(negative, content());
-        negative.run("PRAGMA ignore_check_constraints = ON", []);
-        negative.run("UPDATE tenant_bootstrap_protocol_ids SET next_id = -1 WHERE singleton = 1", []);
-        expect(() => bootstrap(negative, content(), false)).toThrow(
-            expect.objectContaining(malformed)
-        );
-    });
+            const negative = new TestSqlite();
+            bootstrap(negative, content());
+            negative.run("PRAGMA ignore_check_constraints = ON", []);
+            negative.run(
+                "UPDATE tenant_bootstrap_protocol_ids SET next_id = -1 WHERE singleton = 1",
+                []
+            );
+            expect(() => bootstrap(negative, content(), false)).toThrow(
+                expect.objectContaining(malformed)
+            );
+        }
+    );
 
     test("rejects a fractional persisted protocol ID exactly", { tags: "p0" }, () => {
         const database = new ProtocolIdTamperSqlite();
@@ -299,21 +331,25 @@ describe("SQLite Tenant bootstrap exact failure and identity behavior", () => {
         );
     });
 
-    test("wraps a foreign dispatcher construction fault with the exact Actor state error", { tags: "p0" }, () => {
-        const database = new StatementFaultSqlite();
-        database.onAll = (statement) => {
-            if (statement.startsWith("PRAGMA table_info(protocol_")) {
-                throw new TypeError("injected protocol schema fault");
-            }
-        };
+    test(
+        "wraps a foreign dispatcher construction fault with the exact Actor state error",
+        { tags: "p0" },
+        () => {
+            const database = new StatementFaultSqlite();
+            database.onAll = (statement) => {
+                if (statement.startsWith("PRAGMA table_info(protocol_")) {
+                    throw new TypeError("injected protocol schema fault");
+                }
+            };
 
-        expect(() => bootstrap(database, content())).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Tenant bootstrap Actor state is invalid"
-            })
-        );
-    });
+            expect(() => bootstrap(database, content())).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "Tenant bootstrap Actor state is invalid"
+                })
+            );
+        }
+    );
 
     test("preserves a typed dispatcher construction fault exactly", { tags: "p0" }, () => {
         const database = new StatementFaultSqlite();

@@ -1,4 +1,4 @@
-import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../../core";
+import { Digest, RecordCodec, compareText, encodeCanonicalJson, type JsonValue } from "../../core";
 import { FacetRef, type IsolationMode } from "../../facets";
 import { PLACEMENT_PREFERENCE } from "../../definition";
 import { TurnId } from "../../execution-references";
@@ -98,7 +98,7 @@ export class TurnPlacementSnapshot extends CodecRecord {
         super();
         const canonical = [...placements]
             .map((placement) => PlacementPin.fromData(placement.toData()))
-            .sort((left, right) => left.facet.value.localeCompare(right.facet.value));
+            .sort((left, right) => compareText(left.facet.value, right.facet.value));
         if (
             new Set(canonical.map((placement) => placement.facet.value)).size !== canonical.length
         ) {

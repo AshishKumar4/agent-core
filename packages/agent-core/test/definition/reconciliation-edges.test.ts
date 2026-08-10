@@ -84,144 +84,158 @@ describe("reconciliation adversarial boundaries", () => {
         );
     });
 
-    test("rejects malformed pin evidence and owner adapters that lie about mutation", { tags: "p0" }, () => {
-        const previous = record(1, "policy:a", PolicySet.empty());
-        const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
-        const state = memoryState(snapshotOf(previous));
-        const malformed = new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
-            public pinEvidence(): import("../../src/definition").RunPinEvidence {
-                return {} as import("../../src/definition").RunPinEvidence;
-            }
-        })();
-        expect(() => planReconciliation(state, malformed, owner(), [previous], [desired])).toThrow(
-            /malformed RunPins/
-        );
+    test(
+        "rejects malformed pin evidence and owner adapters that lie about mutation",
+        { tags: "p0" },
+        () => {
+            const previous = record(1, "policy:a", PolicySet.empty());
+            const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
+            const state = memoryState(snapshotOf(previous));
+            const malformed =
+                new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
+                    public pinEvidence(): import("../../src/definition").RunPinEvidence {
+                        return {} as import("../../src/definition").RunPinEvidence;
+                    }
+                })();
+            expect(() =>
+                planReconciliation(state, malformed, owner(), [previous], [desired])
+            ).toThrow(/malformed RunPins/);
 
-        const noRemove = new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
-            public remove(): void {}
-        })();
-        const removal = planReconciliation(state, noRemove, owner(), [previous], []);
-        expect(() => applyReconciliation(state, noRemove, removal)).toThrow(
-            /removal did not persist/
-        );
+            const noRemove =
+                new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
+                    public remove(): void {}
+                })();
+            const removal = planReconciliation(state, noRemove, owner(), [previous], []);
+            expect(() => applyReconciliation(state, noRemove, removal)).toThrow(
+                /removal did not persist/
+            );
 
-        const wrongCreate =
-            new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
-                public create(_transaction: MemoryManagedResourceState, next: ManagedStateRecord) {
-                    return snapshotOf(next);
-                }
-            })();
-        expect(() =>
-            applyReconciliation(
-                memoryState(),
-                wrongCreate,
-                planReconciliation(memoryState(), wrongCreate, owner(), [], [previous])
-            )
-        ).toThrow(/mutation did not persist/);
+            const wrongCreate =
+                new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
+                    public create(
+                        _transaction: MemoryManagedResourceState,
+                        next: ManagedStateRecord
+                    ) {
+                        return snapshotOf(next);
+                    }
+                })();
+            expect(() =>
+                applyReconciliation(
+                    memoryState(),
+                    wrongCreate,
+                    planReconciliation(memoryState(), wrongCreate, owner(), [], [previous])
+                )
+            ).toThrow(/mutation did not persist/);
 
-        expect(() =>
-            applyReconciliation(state, noRemove, {
-                actions: [],
-                blockers: ["unknown:w5"]
-            })
-        ).not.toThrow();
-        expect(() =>
-            applyReconciliation(state, noRemove, {
-                actions: [{ kind: "noop", current: snapshotOf(previous), desired: previous }],
-                blockers: []
-            })
-        ).not.toThrow();
-    });
+            expect(() =>
+                applyReconciliation(state, noRemove, {
+                    actions: [],
+                    blockers: ["unknown:w5"]
+                })
+            ).not.toThrow();
+            expect(() =>
+                applyReconciliation(state, noRemove, {
+                    actions: [{ kind: "noop", current: snapshotOf(previous), desired: previous }],
+                    blockers: []
+                })
+            ).not.toThrow();
+        }
+    );
 
-    test("derives removals from the previous closure even when list omits resources", { tags: "p1" }, () => {
-        const previous = record(1, "policy:a", PolicySet.empty());
-        const state = memoryState(snapshotOf(previous));
-        const omitted = new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
-            public list(): readonly ManagedResourceSnapshot[] {
-                return [];
-            }
-        })();
-        expect(planReconciliation(state, omitted, owner(), [previous], []).actions).toMatchObject([
-            { kind: "remove" }
-        ]);
+    test(
+        "derives removals from the previous closure even when list omits resources",
+        { tags: "p1" },
+        () => {
+            const previous = record(1, "policy:a", PolicySet.empty());
+            const state = memoryState(snapshotOf(previous));
+            const omitted =
+                new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
+                    public list(): readonly ManagedResourceSnapshot[] {
+                        return [];
+                    }
+                })();
+            expect(
+                planReconciliation(state, omitted, owner(), [previous], []).actions
+            ).toMatchObject([{ kind: "remove" }]);
 
-        const extra = record(1, "policy:extra", PolicySet.empty());
-        state.resources.set(extra.resourceId.value, snapshotOf(extra));
-        expect(() => planReconciliation(state, omitted, owner(), [previous], [])).not.toThrow();
-        const listing = new MemoryManagedResourcePort<MemoryManagedResourceState>();
-        expect(() => planReconciliation(state, listing, owner(), [previous], [])).toThrow(
-            /absent from generation closure/
-        );
+            const extra = record(1, "policy:extra", PolicySet.empty());
+            state.resources.set(extra.resourceId.value, snapshotOf(extra));
+            expect(() => planReconciliation(state, omitted, owner(), [previous], [])).not.toThrow();
+            const listing = new MemoryManagedResourcePort<MemoryManagedResourceState>();
+            expect(() => planReconciliation(state, listing, owner(), [previous], [])).toThrow(
+                /absent from generation closure/
+            );
 
-        const missing = memoryState();
-        expect(() => planReconciliation(missing, listing, owner(), [previous], [])).toThrow(
-            /drifted missing before removal/
-        );
-    });
+            const missing = memoryState();
+            expect(() => planReconciliation(missing, listing, owner(), [previous], [])).toThrow(
+                /drifted missing before removal/
+            );
+        }
+    );
 });
 
 describe("reconciliation ordering and persistence proof", () => {
-    test("orders actions create update noop remove with identity tie-breaks", { tags: "p1" }, () => {
-        const candidates = ["a", "b", "c", "d", "e", "f", "g", "h"].map((suffix) =>
-            record(1, `policy:${suffix}`, PolicySet.empty())
-        );
-        const ranked = [...candidates].sort((left, right) =>
-            left.resourceId.value < right.resourceId.value ? -1 : 1
-        );
-        const updatePrevious = ranked[0]!;
-        const updateDesired = record(
-            2,
-            updatePrevious.logicalKey,
-            new PolicySet({ approvals: ["execute"] })
-        );
-        const noop = ranked[1]!;
-        const removeSmall = ranked[2]!;
-        const removeLarge = ranked[3]!;
-        const createSmall = ranked[4]!;
-        const createLarge = ranked[5]!;
-        const state = memoryState();
-        for (const kept of [updatePrevious, noop, removeSmall, removeLarge]) {
-            state.resources.set(kept.resourceId.value, snapshotOf(kept));
+    test(
+        "orders actions create update noop remove with identity tie-breaks",
+        { tags: "p1" },
+        () => {
+            const candidates = ["a", "b", "c", "d", "e", "f", "g", "h"].map((suffix) =>
+                record(1, `policy:${suffix}`, PolicySet.empty())
+            );
+            const ranked = [...candidates].sort((left, right) =>
+                left.resourceId.value < right.resourceId.value ? -1 : 1
+            );
+            const updatePrevious = ranked[0]!;
+            const updateDesired = record(
+                2,
+                updatePrevious.logicalKey,
+                new PolicySet({ approvals: ["execute"] })
+            );
+            const noop = ranked[1]!;
+            const removeSmall = ranked[2]!;
+            const removeLarge = ranked[3]!;
+            const createSmall = ranked[4]!;
+            const createLarge = ranked[5]!;
+            const state = memoryState();
+            for (const kept of [updatePrevious, noop, removeSmall, removeLarge]) {
+                state.resources.set(kept.resourceId.value, snapshotOf(kept));
+            }
+            const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
+
+            const plan = planReconciliation(
+                state,
+                port,
+                owner(),
+                [removeLarge, removeSmall, updatePrevious, noop],
+                [updateDesired, createLarge, noop, createSmall]
+            );
+
+            expect(plan.blockers).toEqual([]);
+            expect(plan.actions.map((action) => action.kind)).toEqual([
+                "create",
+                "create",
+                "update",
+                "noop",
+                "remove",
+                "remove"
+            ]);
+            expect(
+                plan.actions.map((action) =>
+                    action.kind === "create"
+                        ? action.desired.resourceId.value
+                        : action.current.resourceId.value
+                )
+            ).toEqual(
+                [createSmall, createLarge, updatePrevious, noop, removeSmall, removeLarge].map(
+                    (entry) => entry.resourceId.value
+                )
+            );
         }
-        const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
-
-        const plan = planReconciliation(
-            state,
-            port,
-            owner(),
-            [removeLarge, removeSmall, updatePrevious, noop],
-            [updateDesired, createLarge, noop, createSmall]
-        );
-
-        expect(plan.blockers).toEqual([]);
-        expect(plan.actions.map((action) => action.kind)).toEqual([
-            "create",
-            "create",
-            "update",
-            "noop",
-            "remove",
-            "remove"
-        ]);
-        expect(
-            plan.actions.map((action) =>
-                action.kind === "create"
-                    ? action.desired.resourceId.value
-                    : action.current.resourceId.value
-            )
-        ).toEqual(
-            [createSmall, createLarge, updatePrevious, noop, removeSmall, removeLarge].map(
-                (entry) => entry.resourceId.value
-            )
-        );
-    });
+    );
 
     test("sorts blocker labels canonically across evidence kinds", { tags: "p1" }, () => {
         const updatePrevious = record(1, "policy:update", PolicySet.empty());
-        const updateDesired = record(
-            2,
-            "policy:update",
-            new PolicySet({ approvals: ["execute"] })
-        );
+        const updateDesired = record(2, "policy:update", new PolicySet({ approvals: ["execute"] }));
         const removed = record(1, "policy:removed", PolicySet.empty());
         const state = memoryState();
         state.resources.set(updatePrevious.resourceId.value, snapshotOf(updatePrevious));

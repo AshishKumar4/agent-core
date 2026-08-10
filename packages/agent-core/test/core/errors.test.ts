@@ -11,14 +11,18 @@ describe("AgentCoreError", () => {
         expect(String(error)).toBe("AgentCoreError: grant is not held");
     });
 
-    test("invariant throws the coded error exactly when its condition fails", { tags: "p1" }, () => {
-        expect(() => invariant(false, "lease.invalid", "lease expired")).toThrowError(
-            expect.objectContaining({
-                name: "AgentCoreError",
-                code: "lease.invalid",
-                message: "lease expired"
-            })
-        );
-        expect(() => invariant(true, "lease.invalid", "lease expired")).not.toThrow();
-    });
+    test(
+        "invariant throws the coded error exactly when its condition fails",
+        { tags: "p1" },
+        () => {
+            expect(() => invariant(false, "lease.invalid", "lease expired")).toThrowError(
+                expect.objectContaining({
+                    name: "AgentCoreError",
+                    code: "lease.invalid",
+                    message: "lease expired"
+                })
+            );
+            expect(() => invariant(true, "lease.invalid", "lease expired")).not.toThrow();
+        }
+    );
 });

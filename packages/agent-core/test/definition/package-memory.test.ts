@@ -15,55 +15,71 @@ import {
 
 packageStoreContract("memory", () => new MemoryPackageStore());
 
-test("[package-store] memory and SQLite satisfy one shared codec-storage contract", { tags: "p1" }, () => {
-    const stores = [new MemoryPackageStore(), new SqlitePackageStore(new TestSqlite())];
-    for (const [index, store] of stores.entries()) {
-        const value = packageRelease(`seam-${index}`, "1.0.0");
-        store.add(value);
-        expect(store.get(value.id, value.version)?.codeDigest.equals(value.codeDigest)).toBe(true);
+test(
+    "[package-store] memory and SQLite satisfy one shared codec-storage contract",
+    { tags: "p1" },
+    () => {
+        const stores = [new MemoryPackageStore(), new SqlitePackageStore(new TestSqlite())];
+        for (const [index, store] of stores.entries()) {
+            const value = packageRelease(`seam-${index}`, "1.0.0");
+            store.add(value);
+            expect(store.get(value.id, value.version)?.codeDigest.equals(value.codeDigest)).toBe(
+                true
+            );
+        }
     }
-});
+);
 
 describe("MemoryPackageStore persistence", () => {
-    test("[definition.package-release] [definition.metadata-snapshot] [definition.package-lock] restores releases, snapshots, and locks from a detached sorted snapshot", { tags: "p1" }, () => {
-        const store = new MemoryPackageStore();
-        const zeta = packageRelease("zeta", "2.0.0");
-        const alpha = packageRelease("alpha", "1.0.0");
-        const metadata = new MetadataSnapshot({
-            revision: new Revision(5),
-            releases: [zeta, alpha]
-        });
-        const lock = packageLock(metadata.digest, metadata.revision.value, [zeta, alpha]);
-        store.add(zeta);
-        store.add(alpha);
-        store.addSnapshot(metadata);
-        store.addLock(lock);
+    test(
+        "[definition.package-release] [definition.metadata-snapshot] [definition.package-lock] restores releases, snapshots, and locks from a detached sorted snapshot",
+        { tags: "p1" },
+        () => {
+            const store = new MemoryPackageStore();
+            const zeta = packageRelease("zeta", "2.0.0");
+            const alpha = packageRelease("alpha", "1.0.0");
+            const metadata = new MetadataSnapshot({
+                revision: new Revision(5),
+                releases: [zeta, alpha]
+            });
+            const lock = packageLock(metadata.digest, metadata.revision.value, [zeta, alpha]);
+            store.add(zeta);
+            store.add(alpha);
+            store.addSnapshot(metadata);
+            store.addLock(lock);
 
-        const snapshot = store.snapshot();
-        expect(snapshot.releases[0]!.packageId).toBeInstanceOf(PackageId);
-        expect(snapshot.releases.map((release) => release.packageId.value)).toEqual([
-            "alpha",
-            "zeta"
-        ]);
-        expect(snapshot.snapshots.map((entry) => entry.digest)).toEqual([metadata.digest.value]);
-        expect(snapshot.locks.map((entry) => entry.lockDigest)).toEqual([lock.digest.value]);
-        snapshot.releases[0]!.bytes.fill(0);
-        snapshot.snapshots[0]!.bytes.fill(0);
-        snapshot.locks[0]!.bytes.fill(0);
+            const snapshot = store.snapshot();
+            expect(snapshot.releases[0]!.packageId).toBeInstanceOf(PackageId);
+            expect(snapshot.releases.map((release) => release.packageId.value)).toEqual([
+                "alpha",
+                "zeta"
+            ]);
+            expect(snapshot.snapshots.map((entry) => entry.digest)).toEqual([
+                metadata.digest.value
+            ]);
+            expect(snapshot.locks.map((entry) => entry.lockDigest)).toEqual([lock.digest.value]);
+            snapshot.releases[0]!.bytes.fill(0);
+            snapshot.snapshots[0]!.bytes.fill(0);
+            snapshot.locks[0]!.bytes.fill(0);
 
-        expect(PackageRelease.encode(store.get(alpha.id, alpha.version)!)).toEqual(
-            PackageRelease.encode(alpha)
-        );
-        expect(MetadataSnapshot.encode(store.getSnapshot(metadata.digest)!)).toEqual(
-            MetadataSnapshot.encode(metadata)
-        );
-        expect(PackageLock.encode(store.getLock(lock.digest)!)).toEqual(PackageLock.encode(lock));
+            expect(PackageRelease.encode(store.get(alpha.id, alpha.version)!)).toEqual(
+                PackageRelease.encode(alpha)
+            );
+            expect(MetadataSnapshot.encode(store.getSnapshot(metadata.digest)!)).toEqual(
+                MetadataSnapshot.encode(metadata)
+            );
+            expect(PackageLock.encode(store.getLock(lock.digest)!)).toEqual(
+                PackageLock.encode(lock)
+            );
 
-        const restored = new MemoryPackageStore(store.snapshot());
-        const cloned = restored.clone();
-        expect(cloned.list().map((release) => release.id.value)).toEqual(["alpha", "zeta"]);
-        expect(PackageLock.encode(cloned.getLock(lock.digest)!)).toEqual(PackageLock.encode(lock));
-    });
+            const restored = new MemoryPackageStore(store.snapshot());
+            const cloned = restored.clone();
+            expect(cloned.list().map((release) => release.id.value)).toEqual(["alpha", "zeta"]);
+            expect(PackageLock.encode(cloned.getLock(lock.digest)!)).toEqual(
+                PackageLock.encode(lock)
+            );
+        }
+    );
 
     test("orders detached snapshot rows deterministically", { tags: "p1" }, () => {
         const store = new MemoryPackageStore();
@@ -119,26 +135,31 @@ describe("MemoryPackageStore persistence", () => {
         ]);
     });
 
-    test("restores boundary revisions and re-validates stored snapshot rows", { tags: "p1" }, () => {
-        const store = new MemoryPackageStore();
-        const release = packageRelease("package", "1.0.0");
-        const metadata = new MetadataSnapshot({ revision: new Revision(0), releases: [release] });
-        store.addSnapshot(metadata);
-        store.addLock(packageLock(metadata.digest, 0, [release]));
+    test(
+        "restores boundary revisions and re-validates stored snapshot rows",
+        { tags: "p1" },
+        () => {
+            const store = new MemoryPackageStore();
+            const release = packageRelease("package", "1.0.0");
+            const metadata = new MetadataSnapshot({
+                revision: new Revision(0),
+                releases: [release]
+            });
+            store.addSnapshot(metadata);
+            store.addLock(packageLock(metadata.digest, 0, [release]));
 
-        expect(() => new MemoryPackageStore(store.snapshot())).not.toThrow();
+            expect(() => new MemoryPackageStore(store.snapshot())).not.toThrow();
 
-        const snapshot = store.snapshot();
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...snapshot,
-                    snapshots: [
-                        { ...snapshot.snapshots[0]!, digest: digestOf("other").value }
-                    ]
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-    });
+            const snapshot = store.snapshot();
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...snapshot,
+                        snapshots: [{ ...snapshot.snapshots[0]!, digest: digestOf("other").value }]
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+        }
+    );
 
     test(
         "keeps a stored metadata snapshot and package lock immutable against byte-divergent rewrites",
@@ -198,7 +219,8 @@ describe("MemoryPackageStore persistence", () => {
     });
 
     test.each(["packageId", "version", "manifestDigest", "codeDigest"] as const)(
-        "rejects a snapshot with a corrupt release %s projection", { tags: "p0" },
+        "rejects a snapshot with a corrupt release %s projection",
+        { tags: "p0" },
         (projection) => {
             const snapshot = releaseSnapshot();
             const release = snapshot.releases[0]!;
@@ -231,7 +253,8 @@ describe("MemoryPackageStore persistence", () => {
     });
 
     test.each(["lockDigest", "snapshotDigest", "snapshotRevision"] as const)(
-        "rejects a snapshot with a corrupt lock %s projection", { tags: "p0" },
+        "rejects a snapshot with a corrupt lock %s projection",
+        { tags: "p0" },
         (projection) => {
             const snapshot = lockSnapshot();
             const lock = snapshot.locks[0]!;
@@ -283,65 +306,72 @@ describe("MemoryPackageStore persistence", () => {
         ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
     });
 
-    test("rejects duplicate snapshots and malformed snapshot scalar and byte fields", { tags: "p1" }, () => {
-        const store = new MemoryPackageStore();
-        const release = packageRelease("package", "1.0.0");
-        const metadata = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
-        store.addSnapshot(metadata);
-        const snapshot = store.snapshot();
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...snapshot,
-                    snapshots: [snapshot.snapshots[0]!, snapshot.snapshots[0]!]
-                })
-        ).toThrow(/duplicate metadata snapshots/);
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...snapshot,
-                    snapshots: [{ ...snapshot.snapshots[0]!, revision: -1 }]
-                })
-        ).toThrow(/metadata revision is malformed/);
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...snapshot,
-                    snapshots: [{ ...snapshot.snapshots[0]!, digest: "" }]
-                })
-        ).toThrow(/snapshot digest is malformed/);
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...snapshot,
-                    snapshots: [{ ...snapshot.snapshots[0]!, bytes: "bad" as never }]
-                })
-        ).toThrow(/Memory package snapshot metadata snapshot bytes are malformed/);
+    test(
+        "rejects duplicate snapshots and malformed snapshot scalar and byte fields",
+        { tags: "p1" },
+        () => {
+            const store = new MemoryPackageStore();
+            const release = packageRelease("package", "1.0.0");
+            const metadata = new MetadataSnapshot({
+                revision: new Revision(1),
+                releases: [release]
+            });
+            store.addSnapshot(metadata);
+            const snapshot = store.snapshot();
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...snapshot,
+                        snapshots: [snapshot.snapshots[0]!, snapshot.snapshots[0]!]
+                    })
+            ).toThrow(/duplicate metadata snapshots/);
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...snapshot,
+                        snapshots: [{ ...snapshot.snapshots[0]!, revision: -1 }]
+                    })
+            ).toThrow(/metadata revision is malformed/);
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...snapshot,
+                        snapshots: [{ ...snapshot.snapshots[0]!, digest: "" }]
+                    })
+            ).toThrow(/snapshot digest is malformed/);
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...snapshot,
+                        snapshots: [{ ...snapshot.snapshots[0]!, bytes: "bad" as never }]
+                    })
+            ).toThrow(/Memory package snapshot metadata snapshot bytes are malformed/);
 
-        const releaseRows = releaseSnapshot();
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...releaseRows,
-                    releases: [{ ...releaseRows.releases[0]!, packageId: "" as never }]
-                })
-        ).toThrow(/package ID is malformed/);
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...releaseRows,
-                    releases: [{ ...releaseRows.releases[0]!, bytes: "bad" as never }]
-                })
-        ).toThrow(/Memory package snapshot package release bytes are malformed/);
-        const lockRows = lockSnapshot();
-        expect(
-            () =>
-                new MemoryPackageStore({
-                    ...lockRows,
-                    locks: [{ ...lockRows.locks[0]!, snapshotRevision: -1 }]
-                })
-        ).toThrow(/lock revision is malformed/);
-    });
+            const releaseRows = releaseSnapshot();
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...releaseRows,
+                        releases: [{ ...releaseRows.releases[0]!, packageId: "" as never }]
+                    })
+            ).toThrow(/package ID is malformed/);
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...releaseRows,
+                        releases: [{ ...releaseRows.releases[0]!, bytes: "bad" as never }]
+                    })
+            ).toThrow(/Memory package snapshot package release bytes are malformed/);
+            const lockRows = lockSnapshot();
+            expect(
+                () =>
+                    new MemoryPackageStore({
+                        ...lockRows,
+                        locks: [{ ...lockRows.locks[0]!, snapshotRevision: -1 }]
+                    })
+            ).toThrow(/lock revision is malformed/);
+        }
+    );
 });
 
 function duplicatedReleaseSnapshotBytes(snapshot: MetadataSnapshot): Uint8Array {

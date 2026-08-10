@@ -41,102 +41,117 @@ interface MemoryState {
 
 protocolPersistenceContract("memory", createMemoryHarness);
 
-test("[write-record] memory protocol records survive adapter and snapshot restoration", { tags: "p1" }, () => {
-    const records = new MemoryProtocolRecords();
-    const persistence = persistenceForRecords();
-    const expected = protocolTestRecords("memory-restart");
-    appendProtocolTestRecords(persistence, records, expected);
-    const snapshot = records.snapshot();
+test(
+    "[write-record] memory protocol records survive adapter and snapshot restoration",
+    { tags: "p1" },
+    () => {
+        const records = new MemoryProtocolRecords();
+        const persistence = persistenceForRecords();
+        const expected = protocolTestRecords("memory-restart");
+        appendProtocolTestRecords(persistence, records, expected);
+        const snapshot = records.snapshot();
 
-    expect(snapshot.audits.find((audit) => audit.writeId !== undefined)?.writeId).toBeInstanceOf(
-        WriteRecordId
-    );
-    expect(snapshot.writes[0]?.auditId).toBeInstanceOf(AuditRecordId);
-    expect(snapshot.identities[0]?.writeId).toBeInstanceOf(WriteRecordId);
+        expect(
+            snapshot.audits.find((audit) => audit.writeId !== undefined)?.writeId
+        ).toBeInstanceOf(WriteRecordId);
+        expect(snapshot.writes[0]?.auditId).toBeInstanceOf(AuditRecordId);
+        expect(snapshot.identities[0]?.writeId).toBeInstanceOf(WriteRecordId);
 
-    const restored = new MemoryProtocolRecords(snapshot);
-    const restarted = persistenceForRecords();
+        const restored = new MemoryProtocolRecords(snapshot);
+        const restarted = persistenceForRecords();
 
-    expect(restarted.findWrite(restored, expected.identity)?.id.value).toBe(
-        expected.write.id.value
-    );
-    expect(restarted.findAudit(restored, expected.audit.id)?.kind).toMatchObject({
-        kind: "write",
-        id: expected.write.id
-    });
-});
-
-test("memory restart preserves actor source identity without aliasing principal callers", { tags: "p1" }, () => {
-    const actor = new ActorRef("workspace", new ActorId("memory-source-actor"));
-    const actorCaller = { kind: "actor" as const, actor };
-    const records = new MemoryProtocolRecords();
-    const persistence = persistenceForRecords();
-    const expected = protocolTestRecords("memory-actor-restart", actorCaller);
-    appendProtocolTestRecords(persistence, records, expected);
-
-    const restored = new MemoryProtocolRecords(records.snapshot());
-    expect(persistence.findWrite(restored, expected.identity)?.id.value).toBe(
-        expected.write.id.value
-    );
-    const actorProjection = protocolIdentityProjection(expected.identity);
-    const principalProjection = protocolIdentityProjection(
-        protocolTestRecords("memory-principal-projection").identity
-    );
-    expect(protocolIdentityProjectionsEqual(actorProjection, actorProjection)).toBe(true);
-    expect(protocolIdentityProjectionsEqual(actorProjection, principalProjection)).toBe(false);
-    expect(protocolIdentityProjectionsEqual(principalProjection, principalProjection)).toBe(true);
-    expect(
-        protocolIdentityProjectionsEqual(principalProjection, {
-            ...principalProjection,
-            caller:
-                principalProjection.caller.kind === "principal"
-                    ? {
-                          ...principalProjection.caller,
-                          tenantId: new TenantId("memory-other-source-tenant")
-                      }
-                    : principalProjection.caller
-        })
-    ).toBe(false);
-});
-
-test("memory snapshots rebuild non-authoritative identity projections from writes", { tags: "p1" }, () => {
-    const records = new MemoryProtocolRecords();
-    const persistence = persistenceForRecords();
-    const expected = protocolTestRecords("memory-identity-alias");
-    appendProtocolTestRecords(persistence, records, expected);
-    const snapshot = records.snapshot();
-    const identity = snapshot.identities[0]!;
-    expect(identity.identity.caller.kind).toBe("principal");
-    if (identity.identity.caller.kind === "principal") {
-        expect(identity.identity.caller.tenantId).toBeInstanceOf(TenantId);
+        expect(restarted.findWrite(restored, expected.identity)?.id.value).toBe(
+            expected.write.id.value
+        );
+        expect(restarted.findAudit(restored, expected.audit.id)?.kind).toMatchObject({
+            kind: "write",
+            id: expected.write.id
+        });
     }
+);
 
-    const restored = new MemoryProtocolRecords({
-        ...snapshot,
-        identities: [
-            identity,
-            {
-                identity: {
-                    caller: {
-                        kind: "principal",
-                        tenantId: new TenantId("memory-other-tenant"),
-                        id: "memory-other-caller"
+test(
+    "memory restart preserves actor source identity without aliasing principal callers",
+    { tags: "p1" },
+    () => {
+        const actor = new ActorRef("workspace", new ActorId("memory-source-actor"));
+        const actorCaller = { kind: "actor" as const, actor };
+        const records = new MemoryProtocolRecords();
+        const persistence = persistenceForRecords();
+        const expected = protocolTestRecords("memory-actor-restart", actorCaller);
+        appendProtocolTestRecords(persistence, records, expected);
+
+        const restored = new MemoryProtocolRecords(records.snapshot());
+        expect(persistence.findWrite(restored, expected.identity)?.id.value).toBe(
+            expected.write.id.value
+        );
+        const actorProjection = protocolIdentityProjection(expected.identity);
+        const principalProjection = protocolIdentityProjection(
+            protocolTestRecords("memory-principal-projection").identity
+        );
+        expect(protocolIdentityProjectionsEqual(actorProjection, actorProjection)).toBe(true);
+        expect(protocolIdentityProjectionsEqual(actorProjection, principalProjection)).toBe(false);
+        expect(protocolIdentityProjectionsEqual(principalProjection, principalProjection)).toBe(
+            true
+        );
+        expect(
+            protocolIdentityProjectionsEqual(principalProjection, {
+                ...principalProjection,
+                caller:
+                    principalProjection.caller.kind === "principal"
+                        ? {
+                              ...principalProjection.caller,
+                              tenantId: new TenantId("memory-other-source-tenant")
+                          }
+                        : principalProjection.caller
+            })
+        ).toBe(false);
+    }
+);
+
+test(
+    "memory snapshots rebuild non-authoritative identity projections from writes",
+    { tags: "p1" },
+    () => {
+        const records = new MemoryProtocolRecords();
+        const persistence = persistenceForRecords();
+        const expected = protocolTestRecords("memory-identity-alias");
+        appendProtocolTestRecords(persistence, records, expected);
+        const snapshot = records.snapshot();
+        const identity = snapshot.identities[0]!;
+        expect(identity.identity.caller.kind).toBe("principal");
+        if (identity.identity.caller.kind === "principal") {
+            expect(identity.identity.caller.tenantId).toBeInstanceOf(TenantId);
+        }
+
+        const restored = new MemoryProtocolRecords({
+            ...snapshot,
+            identities: [
+                identity,
+                {
+                    identity: {
+                        caller: {
+                            kind: "principal",
+                            tenantId: new TenantId("memory-other-tenant"),
+                            id: "memory-other-caller"
+                        },
+                        idempotencyKey: "memory-other-key"
                     },
-                    idempotencyKey: "memory-other-key"
-                },
-                writeId: identity.writeId
-            }
-        ]
-    });
+                    writeId: identity.writeId
+                }
+            ]
+        });
 
-    expect(restored.snapshot().identities).toEqual([identity]);
-    expect(persistence.findWrite(restored, expected.identity)?.id.value).toBe(
-        expected.write.id.value
-    );
-});
+        expect(restored.snapshot().identities).toEqual([identity]);
+        expect(persistence.findWrite(restored, expected.identity)?.id.value).toBe(
+            expected.write.id.value
+        );
+    }
+);
 
 test.each(["audit", "write"] as const)(
-    "memory snapshots reject duplicate %s identifiers", { tags: "p0" },
+    "memory snapshots reject duplicate %s identifiers",
+    { tags: "p0" },
     (kind) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -161,7 +176,8 @@ test.each(["audit", "write"] as const)(
 );
 
 test.each(["audit", "write"] as const)(
-    "memory records enforce append-only %s insertion directly", { tags: "p0" },
+    "memory records enforce append-only %s insertion directly",
+    { tags: "p0" },
     (kind) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -197,116 +213,138 @@ test("memory snapshots and reads do not expose mutable record bytes", { tags: "p
     );
 });
 
-test.each(["audit", "write"] as const)("memory reads reject non-byte %s storage", { tags: "p0" }, (kind) => {
-    const records = new MemoryProtocolRecords();
-    const persistence = persistenceForRecords();
-    const expected = protocolTestRecords(`memory-non-byte-${kind}`);
-    appendProtocolTestRecords(persistence, records, expected);
-    const snapshot = records.snapshot();
-    const nonBytes = "not bytes" as unknown as Uint8Array;
-    expectAgentCoreError(
-        () =>
-            new MemoryProtocolRecords({
-                ...snapshot,
-                ...(kind === "audit"
-                    ? {
-                          audits: snapshot.audits.map((audit) =>
-                              audit.id === expected.audit.id.value
-                                  ? { ...audit, bytes: nonBytes }
-                                  : audit
-                          )
-                      }
-                    : { writes: snapshot.writes.map((write) => ({ ...write, bytes: nonBytes })) })
-            }),
-        "codec.invalid"
-    );
-});
-
-test("memory fails closed when canonical snapshot writes reserve one identity", { tags: "p0" }, () => {
-    const first = new MemoryProtocolRecords();
-    const second = new MemoryProtocolRecords();
-    const persistence = persistenceForRecords();
-    const original = protocolTestRecords("memory-conflict-original");
-    const conflict = protocolTestRecords("memory-conflict-second", undefined, {
-        key: original.identity.idempotencyKey
-    });
-    appendProtocolTestRecords(persistence, first, original);
-    appendProtocolTestRecords(persistence, second, conflict);
-    const firstSnapshot = first.snapshot();
-    const secondSnapshot = second.snapshot();
-    const restored = new MemoryProtocolRecords({
-        audits: [...firstSnapshot.audits, ...secondSnapshot.audits],
-        writes: [...firstSnapshot.writes, ...secondSnapshot.writes],
-        identities: []
-    });
-
-    expectAgentCoreError(
-        () => persistence.findWrite(restored, original.identity),
-        "protocol.invalid-state"
-    );
-});
-
-test("memory reads every hand-seeded codec-representable non-write audit projection", { tags: "p1" }, () => {
-    const audits = protocolUnsupportedAuditRecords("memory-unsupported");
-    const records = new MemoryProtocolRecords({
-        audits: audits.map((audit) => ({
-            id: audit.id.value,
-            evidenceIdentity: auditEvidenceIdentity(audit.actor, audit.kind).value,
-            evidenceKind: audit.kind.kind,
-            bytes: AuditRecordCodec.encode(audit)
-        })),
-        writes: [],
-        identities: []
-    });
-
-    const persistence = persistenceForRecords();
-    for (const expected of audits) {
-        const actual = persistence.findAudit(records, expected.id);
-        expect(actual).toBeDefined();
-        if (actual === undefined) throw new TypeError("Expected stored audit record");
-        expect(AuditRecordCodec.encode(actual)).toEqual(AuditRecordCodec.encode(expected));
+test.each(["audit", "write"] as const)(
+    "memory reads reject non-byte %s storage",
+    { tags: "p0" },
+    (kind) => {
+        const records = new MemoryProtocolRecords();
+        const persistence = persistenceForRecords();
+        const expected = protocolTestRecords(`memory-non-byte-${kind}`);
+        appendProtocolTestRecords(persistence, records, expected);
+        const snapshot = records.snapshot();
+        const nonBytes = "not bytes" as unknown as Uint8Array;
+        expectAgentCoreError(
+            () =>
+                new MemoryProtocolRecords({
+                    ...snapshot,
+                    ...(kind === "audit"
+                        ? {
+                              audits: snapshot.audits.map((audit) =>
+                                  audit.id === expected.audit.id.value
+                                      ? { ...audit, bytes: nonBytes }
+                                      : audit
+                              )
+                          }
+                        : {
+                              writes: snapshot.writes.map((write) => ({
+                                  ...write,
+                                  bytes: nonBytes
+                              }))
+                          })
+                }),
+            "codec.invalid"
+        );
     }
-    expect(() => persistence.repair(records)).toThrow(
-        expect.objectContaining({ code: "protocol.invalid-state" })
-    );
-});
+);
 
-test.each(["audit", "write"] as const)("memory reads reject corrupt %s codec bytes", { tags: "p0" }, (record) => {
-    const records = new MemoryProtocolRecords();
-    const persistence = persistenceForRecords();
-    const expected = protocolTestRecords(`memory-codec-${record}`);
-    appendProtocolTestRecords(persistence, records, expected);
-    const snapshot = records.snapshot();
-    const restored = new MemoryProtocolRecords(
-        record === "audit"
-            ? {
-                  ...snapshot,
-                  audits: snapshot.audits.map((audit) =>
-                      audit.id === expected.audit.id.value
-                          ? { ...audit, bytes: new Uint8Array([0]) }
-                          : audit
-                  )
-              }
-            : {
-                  ...snapshot,
-                  writes: snapshot.writes.map((write) => ({
-                      ...write,
-                      bytes: new Uint8Array([0])
-                  }))
-              }
-    );
+test(
+    "memory fails closed when canonical snapshot writes reserve one identity",
+    { tags: "p0" },
+    () => {
+        const first = new MemoryProtocolRecords();
+        const second = new MemoryProtocolRecords();
+        const persistence = persistenceForRecords();
+        const original = protocolTestRecords("memory-conflict-original");
+        const conflict = protocolTestRecords("memory-conflict-second", undefined, {
+            key: original.identity.idempotencyKey
+        });
+        appendProtocolTestRecords(persistence, first, original);
+        appendProtocolTestRecords(persistence, second, conflict);
+        const firstSnapshot = first.snapshot();
+        const secondSnapshot = second.snapshot();
+        const restored = new MemoryProtocolRecords({
+            audits: [...firstSnapshot.audits, ...secondSnapshot.audits],
+            writes: [...firstSnapshot.writes, ...secondSnapshot.writes],
+            identities: []
+        });
 
-    expectAgentCoreError(
-        () =>
+        expectAgentCoreError(
+            () => persistence.findWrite(restored, original.identity),
+            "protocol.invalid-state"
+        );
+    }
+);
+
+test(
+    "memory reads every hand-seeded codec-representable non-write audit projection",
+    { tags: "p1" },
+    () => {
+        const audits = protocolUnsupportedAuditRecords("memory-unsupported");
+        const records = new MemoryProtocolRecords({
+            audits: audits.map((audit) => ({
+                id: audit.id.value,
+                evidenceIdentity: auditEvidenceIdentity(audit.actor, audit.kind).value,
+                evidenceKind: audit.kind.kind,
+                bytes: AuditRecordCodec.encode(audit)
+            })),
+            writes: [],
+            identities: []
+        });
+
+        const persistence = persistenceForRecords();
+        for (const expected of audits) {
+            const actual = persistence.findAudit(records, expected.id);
+            expect(actual).toBeDefined();
+            if (actual === undefined) throw new TypeError("Expected stored audit record");
+            expect(AuditRecordCodec.encode(actual)).toEqual(AuditRecordCodec.encode(expected));
+        }
+        expect(() => persistence.repair(records)).toThrow(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+    }
+);
+
+test.each(["audit", "write"] as const)(
+    "memory reads reject corrupt %s codec bytes",
+    { tags: "p0" },
+    (record) => {
+        const records = new MemoryProtocolRecords();
+        const persistence = persistenceForRecords();
+        const expected = protocolTestRecords(`memory-codec-${record}`);
+        appendProtocolTestRecords(persistence, records, expected);
+        const snapshot = records.snapshot();
+        const restored = new MemoryProtocolRecords(
             record === "audit"
-                ? persistence.findAudit(restored, expected.audit.id)
-                : persistence.findWriteById(restored, expected.write.id),
-        "codec.invalid"
-    );
-});
+                ? {
+                      ...snapshot,
+                      audits: snapshot.audits.map((audit) =>
+                          audit.id === expected.audit.id.value
+                              ? { ...audit, bytes: new Uint8Array([0]) }
+                              : audit
+                      )
+                  }
+                : {
+                      ...snapshot,
+                      writes: snapshot.writes.map((write) => ({
+                          ...write,
+                          bytes: new Uint8Array([0])
+                      }))
+                  }
+        );
+
+        expectAgentCoreError(
+            () =>
+                record === "audit"
+                    ? persistence.findAudit(restored, expected.audit.id)
+                    : persistence.findWriteById(restored, expected.write.id),
+            "codec.invalid"
+        );
+    }
+);
 
 test.each(["evidenceIdentity", "evidenceKind", "writeId", "writeOutcome"] as const)(
-    "memory reads reject a corrupt write-audit %s projection", { tags: "p0" },
+    "memory reads reject a corrupt write-audit %s projection",
+    { tags: "p0" },
     (projection) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -344,7 +382,8 @@ test.each(["evidenceIdentity", "evidenceKind", "writeId", "writeOutcome"] as con
 );
 
 test.each(["missing", "actor", "tenant", "correlation"] as const)(
-    "memory write reads reject a %s Invocation cause", { tags: "p0" },
+    "memory write reads reject a %s Invocation cause",
+    { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -391,30 +430,35 @@ test.each(["missing", "actor", "tenant", "correlation"] as const)(
     }
 );
 
-test("memory rejects write and audit records whose reciprocal record is missing", { tags: "p0" }, () => {
-    const records = new MemoryProtocolRecords();
-    const persistence = persistenceForRecords();
-    const expected = protocolTestRecords("memory-missing-reciprocal");
-    appendProtocolTestRecords(persistence, records, expected);
-    const snapshot = records.snapshot();
-    const missingAudit = new MemoryProtocolRecords({
-        ...snapshot,
-        audits: snapshot.audits.filter((audit) => audit.id !== expected.audit.id.value)
-    });
-    const missingWrite = new MemoryProtocolRecords({ ...snapshot, writes: [] });
+test(
+    "memory rejects write and audit records whose reciprocal record is missing",
+    { tags: "p0" },
+    () => {
+        const records = new MemoryProtocolRecords();
+        const persistence = persistenceForRecords();
+        const expected = protocolTestRecords("memory-missing-reciprocal");
+        appendProtocolTestRecords(persistence, records, expected);
+        const snapshot = records.snapshot();
+        const missingAudit = new MemoryProtocolRecords({
+            ...snapshot,
+            audits: snapshot.audits.filter((audit) => audit.id !== expected.audit.id.value)
+        });
+        const missingWrite = new MemoryProtocolRecords({ ...snapshot, writes: [] });
 
-    expectAgentCoreError(
-        () => persistence.findWriteById(missingAudit, expected.write.id),
-        "protocol.invalid-state"
-    );
-    expectAgentCoreError(
-        () => persistence.findAudit(missingWrite, expected.audit.id),
-        "protocol.invalid-state"
-    );
-});
+        expectAgentCoreError(
+            () => persistence.findWriteById(missingAudit, expected.write.id),
+            "protocol.invalid-state"
+        );
+        expectAgentCoreError(
+            () => persistence.findAudit(missingWrite, expected.audit.id),
+            "protocol.invalid-state"
+        );
+    }
+);
 
 test.each(["wrong-kind", "cause-free"] as const)(
-    "memory rejects a %s write audit cause", { tags: "p0" },
+    "memory rejects a %s write audit cause",
+    { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -455,22 +499,27 @@ test.each(["wrong-kind", "cause-free"] as const)(
     }
 );
 
-test("[C13-PROTOCOL-REJECTION-ROOT] audit values reject nested Invocation roots before persistence", { tags: "p1" }, () => {
-    expect(
-        () =>
-            new AuditRecord({
-                id: new AuditRecordId("memory-nested-root"),
-                actor: new ActorRef("run", new ActorId("memory-nested-actor")),
-                tenant: new TenantId("memory-nested-tenant"),
-                correlation: new CorrelationId("memory-nested-correlation"),
-                cause: new AuditRecordId("memory-earlier-root"),
-                kind: { kind: "invocation", id: new InvocationId("memory-nested-invocation") }
-            })
-    ).toThrow("Invocation audit roots cannot have a cause");
-});
+test(
+    "[C13-PROTOCOL-REJECTION-ROOT] audit values reject nested Invocation roots before persistence",
+    { tags: "p1" },
+    () => {
+        expect(
+            () =>
+                new AuditRecord({
+                    id: new AuditRecordId("memory-nested-root"),
+                    actor: new ActorRef("run", new ActorId("memory-nested-actor")),
+                    tenant: new TenantId("memory-nested-tenant"),
+                    correlation: new CorrelationId("memory-nested-correlation"),
+                    cause: new AuditRecordId("memory-earlier-root"),
+                    kind: { kind: "invocation", id: new InvocationId("memory-nested-invocation") }
+                })
+        ).toThrow("Invocation audit roots cannot have a cause");
+    }
+);
 
 test.each(["identity", "actor", "reply", "unreserved-original"] as const)(
-    "memory rejects a duplicate with corrupt %s lineage", { tags: "p0" },
+    "memory rejects a duplicate with corrupt %s lineage",
+    { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -539,7 +588,8 @@ test.each(["identity", "actor", "reply", "unreserved-original"] as const)(
 );
 
 test.each(["audit", "write"] as const)(
-    "memory reads reject a corrupt %s projection", { tags: "p0" },
+    "memory reads reject a corrupt %s projection",
+    { tags: "p0" },
     (projection) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
@@ -562,7 +612,8 @@ test.each(["audit", "write"] as const)(
 );
 
 test.each(["missing-audit", "orphan-write-audit", "missing-cause", "duplicate-lineage"] as const)(
-    "memory startup repair rejects %s corruption", { tags: "p0" },
+    "memory startup repair rejects %s corruption",
+    { tags: "p0" },
     (corruption) => {
         const records = new MemoryProtocolRecords();
         const persistence = persistenceForRecords();
