@@ -114,27 +114,43 @@ private def attemptedState : SystemState := {
 
 private def expectation : PermitExpectation :=
   ⟨prepared, scope, resolutionId, none, [], claim, issuer, owner, owner, 0, 1⟩
+private def targetRequest : TargetPermitRequest := ⟨expectation, nonce⟩
 private def permit : AuthorityPermit := ⟨expectation, nonce, ⟨1⟩, ⟨5⟩⟩
-private def candidate : PermitMessage := .candidate permit
+private def requestMessage : PermitMessage := .request targetRequest
+private def candidate : PermitMessage := .issued permit
 
 private def trustedDistributed : DistributedSystemState := ⟨trustedGenesis, default⟩
 private def auditedDistributed : DistributedSystemState := ⟨auditedState, default⟩
 private def intentDistributed : DistributedSystemState := ⟨intentState, default⟩
 private def claimedDistributed : DistributedSystemState := ⟨claimedState, default⟩
+private def localAttemptedDistributed : DistributedSystemState := ⟨attemptedState, default⟩
 private def timedPermits : PermitProtocolState := { (default : PermitProtocolState) with now := ⟨1⟩ }
 private def timedState : DistributedSystemState := ⟨claimedState, timedPermits⟩
-private def issuedPermits : PermitProtocolState := {
+private def requestedPermits : PermitProtocolState := {
   timedPermits with
-  issuerRecords := tableSet2 timedPermits.issuerRecords issuer nonce (some (.issued permit))
+  targetRequests := tableSet2 timedPermits.targetRequests owner nonce (some targetRequest)
+}
+private def requestedState : DistributedSystemState := ⟨claimedState, requestedPermits⟩
+private def forwardedPermits : PermitProtocolState := {
+  requestedPermits with transport := [requestMessage]
+}
+private def forwardedState : DistributedSystemState := ⟨claimedState, forwardedPermits⟩
+private def issuedPermits : PermitProtocolState := {
+  forwardedPermits with
+  issuerRecords := tableSet2 forwardedPermits.issuerRecords issuer nonce (some (.issued permit))
 }
 private def issuedState : DistributedSystemState := ⟨claimedState, issuedPermits⟩
-private def emittedPermits : PermitProtocolState := { issuedPermits with transport := [candidate] }
+private def emittedPermits : PermitProtocolState := {
+  issuedPermits with transport := [requestMessage, candidate]
+}
 private def emittedState : DistributedSystemState := ⟨claimedState, emittedPermits⟩
 private def duplicatedPermits : PermitProtocolState := {
-  emittedPermits with transport := [candidate, candidate]
+  emittedPermits with transport := [requestMessage, candidate, candidate]
 }
 private def duplicatedState : DistributedSystemState := ⟨claimedState, duplicatedPermits⟩
-private def deliveredPermits : PermitProtocolState := { duplicatedPermits with transport := [candidate] }
+private def deliveredPermits : PermitProtocolState := {
+  duplicatedPermits with transport := [requestMessage, candidate]
+}
 private def deliveredState : DistributedSystemState := ⟨claimedState, deliveredPermits⟩
 private def restartedPermits : PermitProtocolState := {
   deliveredPermits with incarnation := fun actor => if actor = owner then 1 else 0
@@ -159,38 +175,27 @@ private def authenticatedPermits : PermitProtocolState := {
     (some ⟨permit, resetPermits.incarnation owner⟩)
 }
 private def authenticatedState : DistributedSystemState := ⟨claimedState, authenticatedPermits⟩
-private def postIssueRevokedAuthority : AuthorityLedger := {
-  resolvedAuthority.bumpScope scope with revoked := mark resolvedAuthority.revoked grantId
-}
-private def postIssueRevokedClaimedState : SystemState := {
-  claimedState with authority := postIssueRevokedAuthority
-}
-private def postIssueRevokedAuthenticatedState : DistributedSystemState :=
-  ⟨postIssueRevokedClaimedState, authenticatedPermits⟩
-private def postIssueRevokedAttemptedState : SystemState := {
-  attemptedState with authority := postIssueRevokedAuthority
-}
 private def consumedPermits : PermitProtocolState := {
   authenticatedPermits with
   consumptions := tableSet2 authenticatedPermits.consumptions owner nonce
     (some ⟨permit, attemptId⟩)
 }
 private def attemptedDistributed : DistributedSystemState :=
-  ⟨postIssueRevokedAttemptedState, consumedPermits⟩
+  ⟨attemptedState, consumedPermits⟩
 private def replayRestartedPermits : PermitProtocolState := {
   consumedPermits with incarnation := fun actor =>
     if actor = owner then consumedPermits.incarnation actor + 1
     else consumedPermits.incarnation actor
 }
 private def replayRestartedState : DistributedSystemState :=
-  ⟨postIssueRevokedAttemptedState, replayRestartedPermits⟩
+  ⟨attemptedState, replayRestartedPermits⟩
 private def replayAuthenticatedPermits : PermitProtocolState := {
   replayRestartedPermits with
   authentications := tableSet2 replayRestartedPermits.authentications owner nonce
     (some ⟨permit, replayRestartedPermits.incarnation owner⟩)
 }
 private def replayAuthenticatedState : DistributedSystemState :=
-  ⟨postIssueRevokedAttemptedState, replayAuthenticatedPermits⟩
+  ⟨attemptedState, replayAuthenticatedPermits⟩
 
 private theorem appendRootAudit :
     MediatedStep trustedGenesis (.audit (.append rootAuditId)) auditedState := by
@@ -478,29 +483,46 @@ private theorem targetAttemptForAuthority (authority : AuthorityLedger) :
         some attemptAudit
       exact tableSet_self ..
 
-private theorem permitReady : PermitIssueReady timedState expectation := by
-  refine ⟨?_, rfl, ?_, ?_, ?_⟩
+private theorem targetRequestReady : TargetRequestReady timedState targetRequest := by
+  refine ⟨rfl, targetLocalReady, ?_⟩
+  exact targetClaimReadyForAuthority resolvedAuthority
+
+private theorem permitReady :
+    PermitIssueReady (tenantIssueView forwardedState issuer) targetRequest := by
+  refine ⟨rfl, ⟨?_, by decide⟩, ?_, ?_⟩
   · exact ⟨rfl, rfl, rfl, rfl⟩
   · refine ⟨binding, ?_, rfl, rfl⟩
     change tableSet grantedAuthority.bindings bindingId binding bindingId = some binding
     exact tableSet_self ..
-  · refine ⟨⟨item, rfl, rfl⟩, rfl, ?_, ?_, ?_, by decide⟩
-    · change claimedEffects.invocations invocationId = some prepared
-      simp [claimedEffects, EffectLedger.setClaim, intentEffects]
-    · change claimedEffects.claims claimId = some claim
-      simp [claimedEffects, EffectLedger.setClaim, claim]
-    · change claimedEffects.currentClaim invocationId 0 = some claimId
-      simp [claimedEffects, EffectLedger.setClaim, claim]
-  · simpa [timedState, expectation, PermitExpectation.requestAt] using claimedReady
+  · refine ⟨resolution, ?_, ?_⟩
+    · change tableSet boundAuthority.resolutions resolutionId resolution resolutionId =
+        some resolution
+      exact tableSet_self ..
+    · refine ⟨?_, rfl, resolvedAuthorized, resolvedPathComplete⟩
+      change tableSet boundAuthority.resolutions resolutionId resolution resolutionId =
+        some resolution
+      exact tableSet_self ..
 
 private theorem advanceToIssueTime :
     PermitStep claimedDistributed (.advanceTime ⟨1⟩) timedState := by
   apply PermitStep.advanceTime
   decide
 
+private theorem recordTargetRequest :
+    PermitStep timedState (.request owner nonce .acknowledged) requestedState := by
+  apply PermitStep.request (request := targetRequest)
+  · exact targetRequestReady
+  · rfl
+
+private theorem forwardTargetRequest :
+    PermitStep requestedState (.forwardRequest owner nonce) forwardedState := by
+  apply PermitStep.forwardRequest (request := targetRequest)
+  simp [exactRequested, requestedState, requestedPermits, targetRequest, expectation]
+
 private theorem issuePermit :
-    PermitStep timedState (.issue issuer nonce .unknown) issuedState := by
-  apply PermitStep.issue (expectation := expectation) (expiresAt := ⟨5⟩)
+    PermitStep forwardedState (.issue issuer nonce .unknown) issuedState := by
+  apply PermitStep.issue (request := targetRequest) (expiresAt := ⟨5⟩)
+  · simp [forwardedState, forwardedPermits, requestMessage]
   · exact permitReady
   · rfl
   · decide
@@ -517,7 +539,7 @@ private theorem duplicatePermit :
 
 private theorem loseOneCopy :
     PermitStep duplicatedState (.drop candidate) deliveredState := by
-  apply PermitStep.drop (beforeMessages := []) (afterMessages := [candidate])
+  apply PermitStep.drop (beforeMessages := [requestMessage]) (afterMessages := [candidate])
   rfl
 
 private theorem reorderDelivery :
@@ -533,8 +555,9 @@ private theorem authenticateOnce :
     PermitStep restartedState (.authenticate owner nonce) authenticatedOnceState := by
   apply PermitStep.authenticate (permit := permit)
   · simp [restartedState, restartedPermits, deliveredPermits, candidate]
-  · simp [exactIssued, restartedState, restartedPermits, deliveredPermits,
-      duplicatedPermits, emittedPermits, issuedPermits, permit, expectation]
+  · simp [exactRequested, restartedState, restartedPermits, deliveredPermits,
+      duplicatedPermits, emittedPermits, issuedPermits, forwardedPermits,
+      requestedPermits, targetRequest, permit, expectation]
   · rfl
 
 private theorem resetTarget :
@@ -546,39 +569,32 @@ private theorem authenticateAfterReset :
   apply PermitStep.authenticate (permit := permit)
   · simp [resetState, resetPermits, authenticatedOncePermits, restartedPermits,
       deliveredPermits, candidate]
-  · simp [exactIssued, resetState, resetPermits, authenticatedOncePermits,
+  · simp [exactRequested, resetState, resetPermits, authenticatedOncePermits,
       restartedPermits, deliveredPermits, duplicatedPermits, emittedPermits, issuedPermits,
-      permit, expectation]
+      forwardedPermits, requestedPermits, targetRequest, permit, expectation]
   · rfl
 
-private theorem revokeAfterIssuance :
-    SystemStep authenticatedState (.authority (.revoke grantId))
-      postIssueRevokedAuthenticatedState := by
-  apply SystemStep.authority
-  apply AuthorityLedger.AuthorityStep.revoke (grant := grant)
-  change tableSet (default : AuthorityLedger).grants grantId grant grantId = some grant
-  exact tableSet_self ..
-
-private theorem postIssueRevokedTargetAttempt :
-    TargetAttemptStep postIssueRevokedClaimedState expectation ⟨1⟩ attemptId attempt
-      attemptAuditId postIssueRevokedAttemptedState := by
-  exact targetAttemptForAuthority postIssueRevokedAuthority
+private theorem targetAttempt :
+    TargetAttemptStep claimedState expectation ⟨1⟩ attemptId attempt
+      attemptAuditId attemptedState := by
+  simpa [claimedState, attemptedState] using targetAttemptForAuthority resolvedAuthority
 
 private theorem consumePermit :
-    PermitStep postIssueRevokedAuthenticatedState (.consume owner nonce attemptId .unknown)
+    PermitStep authenticatedState (.consume owner nonce attemptId .unknown)
       attemptedDistributed := by
   apply PermitStep.consume (permit := permit) (attempt := attempt)
       (auditId := attemptAuditId)
-  · simp [exactIssued, postIssueRevokedAuthenticatedState, authenticatedPermits, resetPermits,
-      authenticatedOncePermits, restartedPermits, deliveredPermits, duplicatedPermits,
-      emittedPermits, issuedPermits, permit, expectation]
-  · simp [exactAuthenticated, postIssueRevokedAuthenticatedState, authenticatedPermits,
+  · simp [exactAuthenticated, authenticatedState, authenticatedPermits,
       permit, expectation]
+  · simp [exactRequested, authenticatedState, authenticatedPermits, resetPermits,
+      authenticatedOncePermits, restartedPermits, deliveredPermits, duplicatedPermits,
+      emittedPermits, issuedPermits, forwardedPermits, requestedPermits,
+      targetRequest, permit, expectation]
   · rfl
   · decide
   · decide
   · rfl
-  · exact postIssueRevokedTargetAttempt
+  · exact targetAttempt
 
 private theorem restartAfterConsumption :
     PermitStep attemptedDistributed (.restart owner) replayRestartedState := by
@@ -590,9 +606,10 @@ private theorem authenticateReplay :
   · simp [replayRestartedState, replayRestartedPermits, consumedPermits,
       authenticatedPermits, resetPermits, authenticatedOncePermits, restartedPermits,
       deliveredPermits, candidate]
-  · simp [exactIssued, replayRestartedState, replayRestartedPermits, consumedPermits,
+  · simp [exactRequested, replayRestartedState, replayRestartedPermits, consumedPermits,
       authenticatedPermits, resetPermits, authenticatedOncePermits, restartedPermits,
-      deliveredPermits, duplicatedPermits, emittedPermits, issuedPermits, permit, expectation]
+      deliveredPermits, duplicatedPermits, emittedPermits, issuedPermits, forwardedPermits,
+      requestedPermits, targetRequest, permit, expectation]
   · rfl
 
 private theorem trustedBootstrap : TrustedGenesis trustedDistributed := by
@@ -603,19 +620,29 @@ private theorem trustedBootstrap : TrustedGenesis trustedDistributed := by
 private theorem trustedReachable : Reachable trustedDistributed := .initial trustedBootstrap
 
 private theorem auditedReachable : Reachable auditedDistributed :=
-  .step trustedReachable (.mediated (label := .audit (.append rootAuditId)) trivial appendRootAudit)
+  .step trustedReachable (.mediated (label := .audit (.append rootAuditId)) appendRootAudit)
 
 private theorem intentReachable : Reachable intentDistributed :=
-  .step auditedReachable (.mediated (label := .persistIntent invocationId) trivial persistIntent)
+  .step auditedReachable (.mediated (label := .persistIntent invocationId) persistIntent)
 
 private theorem claimedReachable : Reachable claimedDistributed :=
-  .step intentReachable (.mediated (label := .claimItem invocationId 0 ⟨1⟩) trivial claimItem)
+  .step intentReachable (.mediated (label := .claimItem invocationId 0 ⟨1⟩) claimItem)
+
+private theorem localAttemptedReachable : Reachable localAttemptedDistributed :=
+  .step claimedReachable (.mediated (label := .start invocationId attemptId attemptAuditId)
+    startAttempt)
 
 private theorem timedReachable : Reachable timedState :=
   .step claimedReachable (.permit advanceToIssueTime)
 
+private theorem requestedReachable : Reachable requestedState :=
+  .step timedReachable (.permit recordTargetRequest)
+
+private theorem forwardedReachable : Reachable forwardedState :=
+  .step requestedReachable (.permit forwardTargetRequest)
+
 private theorem issuedReachable : Reachable issuedState :=
-  .step timedReachable (.permit issuePermit)
+  .step forwardedReachable (.permit issuePermit)
 
 private theorem emittedReachable : Reachable emittedState :=
   .step issuedReachable (.permit emitPermit)
@@ -641,11 +668,8 @@ private theorem resetReachable : Reachable resetState :=
 private theorem authenticatedReachable : Reachable authenticatedState :=
   .step resetReachable (.permit authenticateAfterReset)
 
-private theorem postIssueRevokedReachable : Reachable postIssueRevokedAuthenticatedState :=
-  .step authenticatedReachable revokeAfterIssuance
-
 private theorem attemptedReachable : Reachable attemptedDistributed :=
-  .step postIssueRevokedReachable (.permit consumePermit)
+  .step authenticatedReachable (.permit consumePermit)
 
 private theorem replayRestartedReachable : Reachable replayRestartedState :=
   .step attemptedReachable (.permit restartAfterConsumption)
@@ -663,6 +687,21 @@ theorem canonical_single_item_mediated_attempt_reachable :
   · rfl
   · rfl
 
+theorem canonical_actor_local_attempt_reachable :
+    Reachable localAttemptedDistributed ∧
+    localAttemptedDistributed.core.effects.attempts attemptId = some attempt :=
+  ⟨localAttemptedReachable, rfl⟩
+
+theorem canonical_actor_local_attempt_step :
+    ∃ before after invocation attemptId auditId attempt,
+      Reachable before ∧
+      SystemStep before (.mediated (.start invocation attemptId auditId)) after ∧
+      after.core.effects.attempts attemptId = some attempt ∧
+      after.permits = before.permits := by
+  refine ⟨claimedDistributed, localAttemptedDistributed, invocationId, attemptId,
+    attemptAuditId, attempt, claimedReachable, ?_, rfl, rfl⟩
+  exact .mediated startAttempt
+
 theorem canonical_witness_has_guarded_admission :
     AttemptsHaveGuardedAdmission attemptedDistributed.core.effects :=
   reachable_attempts_have_guarded_admission attemptedReachable
@@ -674,34 +713,33 @@ theorem canonical_witness_attempt_and_audit_are_atomic :
       auditEntry.kind = .attempt attemptId storedAttempt.invocation ∧
       auditEntry.cause = some storedAttempt.auditCause := by
   refine ⟨attempt, attemptAudit, ?_, ?_, rfl, rfl⟩
-  · simp [attemptedDistributed, postIssueRevokedAttemptedState, attemptedState,
-      attemptedEffects, EffectLedger.addAttempt]
-  · simp [attemptedDistributed, postIssueRevokedAttemptedState, attemptedState,
-      attemptAuditLog, AuditLog.append]
+  · simp [attemptedDistributed, attemptedState, attemptedEffects, EffectLedger.addAttempt]
+  · simp [attemptedDistributed, attemptedState, attemptAuditLog, AuditLog.append]
 
 theorem canonical_witness_reachability_preserves_exact_audit :
     AttemptsHaveExactAudit attemptedDistributed.core :=
   reachable_attempts_have_exact_audits attemptedReachable
 
-theorem canonical_postissuance_revocation_allows_issued_permit_consumption :
-    ∃ before after permit binding attemptId,
-      Reachable before ∧
-      before.core.authority.bindings permit.expectation.prepared.header.binding = some binding ∧
-      before.core.authority.revoked binding.grant ∧
-      exactIssued before.permits permit ∧ exactAuthenticated before.permits permit ∧
-      PermitStep before
-        (.consume permit.expectation.target permit.nonce attemptId .unknown) after := by
-  refine ⟨postIssueRevokedAuthenticatedState, attemptedDistributed, permit, binding,
-    attemptId, postIssueRevokedReachable, ?_, ?_, ?_, ?_, consumePermit⟩
-  · change tableSet grantedAuthority.bindings bindingId binding bindingId = some binding
-    exact tableSet_self ..
-  · simp [postIssueRevokedAuthenticatedState, postIssueRevokedClaimedState,
-      postIssueRevokedAuthority, mark, binding]
-  · simp [exactIssued, postIssueRevokedAuthenticatedState, authenticatedPermits, resetPermits,
-      authenticatedOncePermits, restartedPermits, deliveredPermits, duplicatedPermits,
-      emittedPermits, issuedPermits, permit, expectation]
-  · simp [exactAuthenticated, postIssueRevokedAuthenticatedState, authenticatedPermits,
-      permit, expectation]
+theorem canonical_cross_actor_consumption_has_historical_issuance :
+    ∃ consumption,
+      attemptedDistributed.permits.consumptions owner nonce = some consumption ∧
+      exactRequested attemptedDistributed.permits
+        ⟨consumption.permit.expectation, consumption.permit.nonce⟩ ∧
+      exactIssued attemptedDistributed.permits consumption.permit ∧
+      exactAuthenticated attemptedDistributed.permits consumption.permit ∧
+      consumption.permit.expectation.issuer ≠ owner := by
+  refine ⟨⟨permit, attemptId⟩, rfl, ?_, ?_, ?_, ?_⟩
+  · simp [exactRequested, attemptedDistributed, consumedPermits, authenticatedPermits,
+      resetPermits, authenticatedOncePermits, restartedPermits, deliveredPermits,
+      duplicatedPermits, emittedPermits, issuedPermits, forwardedPermits,
+      requestedPermits, targetRequest, permit, expectation]
+  have consumed : attemptedDistributed.permits.consumptions owner nonce =
+      some (⟨permit, attemptId⟩ : PermitConsumption) := by
+    simp [attemptedDistributed, consumedPermits]
+  exact reachable_consumption_has_exact_historical_issuance attemptedReachable consumed
+  · simp [exactAuthenticated, attemptedDistributed, consumedPermits,
+      authenticatedPermits, permit, expectation]
+  decide
 
 theorem canonical_replay_after_restart_is_reauthenticated_but_cannot_reconsume :
     Reachable replayAuthenticatedState ∧

@@ -49,13 +49,19 @@ structure AuthorityPermit where
   expiresAt : Time
   deriving DecidableEq, Repr
 
+/-- The target-owned immutable request from which the Tenant may issue one permit. -/
+structure TargetPermitRequest where
+  expectation : PermitExpectation
+  nonce : PermitNonce
+  deriving DecidableEq, Repr
+
 inductive IssuerPermitRecord where
   | issued (permit : AuthorityPermit)
-  | corrupt
   deriving DecidableEq, Repr
 
 inductive PermitMessage where
-  | candidate (permit : AuthorityPermit)
+  | request (request : TargetPermitRequest)
+  | issued (permit : AuthorityPermit)
   | malformed
   deriving DecidableEq, Repr
 
@@ -76,6 +82,7 @@ inductive CommitObservation where
 
 structure PermitProtocolState where
   now : Time
+  targetRequests : ActorRef → PermitNonce → Option TargetPermitRequest
   issuerRecords : ActorRef → PermitNonce → Option IssuerPermitRecord
   transport : List PermitMessage
   authentications : ActorRef → PermitNonce → Option PermitAuthentication
@@ -84,7 +91,7 @@ structure PermitProtocolState where
   targetFence : ActorRef → Nat
 
 instance : Inhabited PermitProtocolState where
-  default := ⟨⟨0⟩, fun _ _ => none, [], fun _ _ => none, fun _ _ => none,
+  default := ⟨⟨0⟩, fun _ _ => none, fun _ _ => none, [], fun _ _ => none, fun _ _ => none,
     fun _ => 0, fun _ => 0⟩
 
 structure DistributedSystemState where
@@ -137,13 +144,30 @@ def PermitExpectation.CurrentBinding (expectation : PermitExpectation)
     binding.generation = expectation.bindingGeneration ∧
     binding.facet = expectation.prepared.header.operation.facet
 
-def PermitIssueReady (state : DistributedSystemState)
-    (expectation : PermitExpectation) : Prop :=
-  expectation.IssuerAuthenticated ∧
-  expectation.targetFence = state.permits.targetFence expectation.target ∧
-  expectation.CurrentBinding state.core.authority ∧
-  expectation.ClaimReady state.core state.permits.now ∧
-  MediatedReady state.core (expectation.requestAt state.permits.now)
+/-- The complete state a Tenant-local issuance decision may inspect. Target-owned
+state is represented only by the authenticated immutable request payload. -/
+structure TenantIssueView where
+  actor : ActorRef
+  authority : AuthorityLedger
+  now : Time
+  records : PermitNonce → Option IssuerPermitRecord
+
+def tenantIssueView (state : DistributedSystemState) (actor : ActorRef) : TenantIssueView :=
+  ⟨actor, state.core.authority, state.permits.now, state.permits.issuerRecords actor⟩
+
+def TargetPermitRequest.AuthenticatedForTenant (request : TargetPermitRequest) : Prop :=
+  request.expectation.IssuerAuthenticated ∧
+  request.expectation.issuer ≠ request.expectation.target
+
+def PermitIssueReady (tenant : TenantIssueView) (request : TargetPermitRequest) : Prop :=
+  tenant.actor = request.expectation.issuer ∧
+  request.AuthenticatedForTenant ∧
+  request.expectation.CurrentBinding tenant.authority ∧
+  ∃ resolution,
+    tenant.authority.resolutions request.expectation.resolution = some resolution ∧
+    tenant.authority.MediatedResolutionUsable resolution
+      request.expectation.prepared.header.authority.principal
+      request.expectation.prepared.header request.expectation.scope
 
 def TargetLocalReady (state : SystemState) (request : AdmissionRequest) : Prop :=
   request.prepared.header.placement.Valid ∧
@@ -152,6 +176,15 @@ def TargetLocalReady (state : SystemState) (request : AdmissionRequest) : Prop :
     request.prepared.header.lease.isSome request.intercepted = .mediated ∧
   MediatedLeaseGate state request.prepared.header request.now ∧
   RunReservationGate state request
+
+def TargetRequestReady (state : DistributedSystemState)
+    (request : TargetPermitRequest) : Prop :=
+  request.expectation.targetFence = state.permits.targetFence request.expectation.target ∧
+  TargetLocalReady state.core (request.expectation.requestAt state.permits.now) ∧
+  request.expectation.ClaimReady state.core state.permits.now
+
+def exactRequested (state : PermitProtocolState) (request : TargetPermitRequest) : Prop :=
+  state.targetRequests request.expectation.target request.nonce = some request
 
 inductive TargetAttemptStep : SystemState → PermitExpectation → Time →
     AttemptId → EffectAttempt → AuditId → SystemState → Prop
@@ -254,6 +287,8 @@ def exactAuthenticated (state : PermitProtocolState) (permit : AuthorityPermit) 
     some ⟨permit, state.incarnation permit.expectation.target⟩
 
 inductive PermitLabel where
+  | request (target : ActorRef) (nonce : PermitNonce) (observation : CommitObservation)
+  | forwardRequest (target : ActorRef) (nonce : PermitNonce)
   | issue (issuer : ActorRef) (nonce : PermitNonce) (observation : CommitObservation)
   | issueUnknownBefore (issuer : ActorRef) (nonce : PermitNonce)
   | emit (issuer : ActorRef) (nonce : PermitNonce)
@@ -272,24 +307,39 @@ inductive PermitLabel where
   deriving DecidableEq, Repr
 
 inductive PermitStep : DistributedSystemState → PermitLabel → DistributedSystemState → Prop
-  | issue {state expectation nonce expiresAt observation} :
-      PermitIssueReady state expectation →
-      state.permits.issuerRecords expectation.issuer nonce = none →
-      state.permits.now.tick < expiresAt.tick →
-      PermitStep state (.issue expectation.issuer nonce observation) {
+  | request {state request observation} :
+      TargetRequestReady state request →
+      state.permits.targetRequests request.expectation.target request.nonce = none →
+      PermitStep state (.request request.expectation.target request.nonce observation) {
         state with permits := { state.permits with
-          issuerRecords := tableSet2 state.permits.issuerRecords expectation.issuer nonce
-            (some (.issued ⟨expectation, nonce, state.permits.now, expiresAt⟩)) } }
+          targetRequests := tableSet2 state.permits.targetRequests
+            request.expectation.target request.nonce (some request) } }
+  | forwardRequest {state request} :
+      exactRequested state.permits request →
+      PermitStep state (.forwardRequest request.expectation.target request.nonce) {
+        state with permits := { state.permits with
+          transport := state.permits.transport ++ [.request request] } }
+  | issue {state request expiresAt observation} :
+      .request request ∈ state.permits.transport →
+      PermitIssueReady (tenantIssueView state request.expectation.issuer) request →
+      (tenantIssueView state request.expectation.issuer).records request.nonce = none →
+      (tenantIssueView state request.expectation.issuer).now.tick < expiresAt.tick →
+      PermitStep state (.issue request.expectation.issuer request.nonce observation) {
+        state with permits := { state.permits with
+          issuerRecords := tableSet2 state.permits.issuerRecords
+            request.expectation.issuer request.nonce
+            (some (.issued ⟨request.expectation, request.nonce,
+              (tenantIssueView state request.expectation.issuer).now, expiresAt⟩)) } }
   | issueUnknownBefore {state issuer nonce} :
       PermitStep state (.issueUnknownBefore issuer nonce) state
   | emit {state permit} :
       exactIssued state.permits permit →
       PermitStep state (.emit permit.expectation.issuer permit.nonce) {
         state with permits := { state.permits with
-          transport := state.permits.transport ++ [.candidate permit] } }
-  | inject {state message} :
-      PermitStep state (.inject message) { state with permits := { state.permits with
-        transport := state.permits.transport ++ [message] } }
+          transport := state.permits.transport ++ [.issued permit] } }
+  | injectMalformed {state} :
+      PermitStep state (.inject .malformed) { state with permits := { state.permits with
+        transport := state.permits.transport ++ [.malformed] } }
   | drop {state message beforeMessages afterMessages} :
       state.permits.transport = beforeMessages ++ message :: afterMessages →
       PermitStep state (.drop message) { state with permits := { state.permits with
@@ -303,8 +353,9 @@ inductive PermitStep : DistributedSystemState → PermitLabel → DistributedSys
       PermitStep state .reorder { state with permits := { state.permits with
         transport := reordered } }
   | authenticate {state permit} :
-      .candidate permit ∈ state.permits.transport →
-      exactIssued state.permits permit →
+      .issued permit ∈ state.permits.transport →
+      exactRequested state.permits
+        ⟨permit.expectation, permit.nonce⟩ →
       permit.expectation.targetFence = state.permits.targetFence permit.expectation.target →
       PermitStep state (.authenticate permit.expectation.target permit.nonce) {
         state with permits := { state.permits with
@@ -312,7 +363,9 @@ inductive PermitStep : DistributedSystemState → PermitLabel → DistributedSys
             permit.expectation.target permit.nonce
             (some ⟨permit, state.permits.incarnation permit.expectation.target⟩) } }
   | consume {state permit attemptId attempt auditId core' observation} :
-      exactIssued state.permits permit → exactAuthenticated state.permits permit →
+      exactAuthenticated state.permits permit →
+      exactRequested state.permits
+        ⟨permit.expectation, permit.nonce⟩ →
       permit.expectation.targetFence = state.permits.targetFence permit.expectation.target →
       permit.issuedAt.tick ≤ state.permits.now.tick →
       state.permits.now.tick < permit.expiresAt.tick →
@@ -347,34 +400,41 @@ inductive PermitStep : DistributedSystemState → PermitLabel → DistributedSys
           if candidate = target then state.permits.targetFence candidate + 1
           else state.permits.targetFence candidate } }
 
-theorem authentication_requires_exact_issued_record {before after target nonce}
+theorem authentication_requires_exact_target_request {before after target nonce}
     (step : PermitStep before (.authenticate target nonce) after) :
     ∃ permit, target = permit.expectation.target ∧ nonce = permit.nonce ∧
-      exactIssued before.permits permit ∧
+      .issued permit ∈ before.permits.transport ∧
+      exactRequested before.permits
+        ⟨permit.expectation, permit.nonce⟩ ∧
       exactAuthenticated after.permits permit := by
   cases step with
-  | authenticate message issued fence =>
-      refine ⟨_, rfl, rfl, issued, ?_⟩
+  | authenticate message requested fence =>
+      refine ⟨_, rfl, rfl, message, requested, ?_⟩
       simp [exactAuthenticated]
 
 theorem permit_issue_requires_exact_authenticated_binding
     {before after issuer nonce observation}
     (step : PermitStep before (.issue issuer nonce observation) after) :
-    ∃ (permit : AuthorityPermit) (binding : Binding),
+    ∃ (request : TargetPermitRequest) (permit : AuthorityPermit) (binding : Binding),
+      .request request ∈ before.permits.transport ∧
       issuer = permit.expectation.issuer ∧ nonce = permit.nonce ∧
       permit.expectation.issuer = .tenant permit.expectation.prepared.header.domain.tenant ∧
       permit.expectation.source = permit.expectation.prepared.header.caller.actor ∧
+      permit.expectation.prepared.header.caller.authenticated = true ∧
       permit.expectation.target = domainOwner permit.expectation.prepared.header.domain ∧
+      permit.expectation.issuer ≠ permit.expectation.target ∧
       before.core.authority.bindings permit.expectation.prepared.header.binding = some binding ∧
       binding.generation = permit.expectation.bindingGeneration ∧
       binding.facet = permit.expectation.prepared.header.operation.facet := by
   cases step with
-  | @issue issuedExpectation issuedNonce expiresAt issuedObservation ready fresh expiry =>
-      obtain ⟨authenticatedIssuer, fence, currentBinding, claimReady, mediatedReady⟩ := ready
+  | @issue issuedRequest expiresAt issuedObservation transported ready fresh expiry =>
+      obtain ⟨actor, authenticated, currentBinding, mediatedReady⟩ := ready
       obtain ⟨binding, lookup, generation, facet⟩ := currentBinding
-      exact ⟨⟨issuedExpectation, nonce, before.permits.now, expiresAt⟩,
-        binding, rfl, rfl, authenticatedIssuer.1, authenticatedIssuer.2.1,
-        authenticatedIssuer.2.2.2, lookup, generation, facet⟩
+      exact ⟨issuedRequest,
+        ⟨issuedRequest.expectation, issuedRequest.nonce, before.permits.now, expiresAt⟩,
+        binding, transported, rfl, rfl, authenticated.1.1, authenticated.1.2.1,
+        authenticated.1.2.2.1, authenticated.1.2.2.2, authenticated.2,
+        lookup, generation, facet⟩
 
 theorem exact_issued_permit_substitution_resistant
     {state : PermitProtocolState} {left right : AuthorityPermit}
@@ -386,16 +446,17 @@ theorem exact_issued_permit_substitution_resistant
   cases Option.some.inj leftIssued
   rfl
 
-theorem missing_or_corrupt_issuer_record_cannot_authenticate
+theorem missing_target_request_cannot_authenticate
     {before after target nonce}
-    (unavailable : ∀ permit, target = permit.expectation.target → nonce = permit.nonce →
-      before.permits.issuerRecords permit.expectation.issuer permit.nonce ≠
-        some (.issued permit)) :
+    (unavailable : ∀ permit : AuthorityPermit,
+      target = permit.expectation.target → nonce = permit.nonce →
+      ¬ exactRequested before.permits
+        ⟨permit.expectation, permit.nonce⟩) :
     ¬ PermitStep before (.authenticate target nonce) after := by
   intro step
-  obtain ⟨permit, targetEq, nonceEq, issued, _⟩ :=
-    authentication_requires_exact_issued_record step
-  exact unavailable permit targetEq nonceEq issued
+  obtain ⟨permit, targetEq, nonceEq, _, requested, _⟩ :=
+    authentication_requires_exact_target_request step
+  exact unavailable permit targetEq nonceEq requested
 
 theorem restart_invalidates_volatile_authentication {before after actor}
     (step : PermitStep before (.restart actor) after)
@@ -409,10 +470,11 @@ theorem restart_invalidates_volatile_authentication {before after actor}
 
 theorem reset_preserves_durable_permit_state {before after actor}
     (step : PermitStep before (.reset actor) after) :
+    after.permits.targetRequests = before.permits.targetRequests ∧
     after.permits.issuerRecords = before.permits.issuerRecords ∧
     after.permits.consumptions = before.permits.consumptions := by
   cases step
-  exact ⟨rfl, rfl⟩
+  exact ⟨rfl, rfl, rfl⟩
 
 theorem target_attempt_step_stores_exact_attempt
     {before expectation now attemptId attempt auditId after}
@@ -463,11 +525,13 @@ private theorem target_attempt_step_requires_claim_ready
     expectation.ClaimReady before now := by
   cases step <;> assumption
 
-theorem consume_is_exact_issued_authenticated_and_atomic
+theorem consume_is_exact_requested_authenticated_and_atomic
     {before after target nonce attemptId observation}
     (step : PermitStep before (.consume target nonce attemptId observation) after) :
     ∃ permit attempt,
-      exactIssued before.permits permit ∧ exactAuthenticated before.permits permit ∧
+      exactAuthenticated before.permits permit ∧
+      exactRequested before.permits
+        ⟨permit.expectation, permit.nonce⟩ ∧
       permit.expectation.ClaimReady before.core before.permits.now ∧
       target = permit.expectation.target ∧ nonce = permit.nonce ∧
       after.core.effects.attempts attemptId = some attempt ∧
@@ -475,10 +539,10 @@ theorem consume_is_exact_issued_authenticated_and_atomic
         some (PermitConsumption.mk permit attemptId) ∧
       permit.expectation.MatchesAttempt attempt := by
   cases step with
-  | consume issued authenticated fence issuedAt expires unused localStep =>
+  | consume authenticated requested fence issuedAt expires unused localStep =>
       obtain ⟨stored, exactMatch⟩ := target_attempt_step_stores_exact_attempt localStep
       have claimReady := target_attempt_step_requires_claim_ready localStep
-      refine ⟨_, _, issued, authenticated, claimReady, rfl, rfl, stored, ?_, exactMatch⟩
+      refine ⟨_, _, authenticated, requested, claimReady, rfl, rfl, stored, ?_, exactMatch⟩
       simp
 
 theorem consumed_nonce_identifies_at_most_one_attempt
@@ -498,21 +562,20 @@ theorem consumed_nonce_cannot_be_consumed_again
     ¬ PermitStep state (.consume target nonce attempt observation) after := by
   intro step
   cases step with
-  | consume issued authenticated fence issuedAt expiry unused localStep =>
+  | consume authenticated requested fence issuedAt expiry unused localStep =>
       exact consumed unused
 
 theorem revoked_current_binding_blocks_preissuance
-    {state : DistributedSystemState} {expectation : PermitExpectation} {binding : Binding}
-    (bindingLookup : state.core.authority.bindings
-      expectation.prepared.header.binding = some binding)
-    (revoked : state.core.authority.revoked binding.grant) :
-    ¬ PermitIssueReady state expectation := by
+    {tenant : TenantIssueView} {request : TargetPermitRequest} {binding : Binding}
+    (bindingLookup : tenant.authority.bindings
+      request.expectation.prepared.header.binding = some binding)
+    (revoked : tenant.authority.revoked binding.grant) :
+    ¬ PermitIssueReady tenant request := by
   intro ready
-  obtain ⟨_, _, _, _, mediatedReady⟩ := ready
-  obtain ⟨_, _, _, _, _, _, resolution, _, usable⟩ := mediatedReady
+  obtain ⟨_, _, _, resolution, _, usable⟩ := ready
   obtain ⟨_, _, authorized, _⟩ := usable
   obtain ⟨authorizedBinding, allow, authorizedLookup, _, _, _, _, live, _⟩ := authorized
-  change state.core.authority.bindings expectation.prepared.header.binding =
+  change tenant.authority.bindings request.expectation.prepared.header.binding =
     some authorizedBinding at authorizedLookup
   rw [bindingLookup] at authorizedLookup
   cases Option.some.inj authorizedLookup

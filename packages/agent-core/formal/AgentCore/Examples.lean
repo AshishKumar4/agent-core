@@ -2176,205 +2176,34 @@ theorem nonvacuous_nonroot_cause_free_append_impossible :
   · simp [RootKindAllowed, orphanAttemptAudit]
   · rfl
 
-private def actionPermitNonce : PermitNonce := ⟨50⟩
-private def actionPermitExpectation : PermitExpectation :=
-  ⟨actionPrepared, scope, actionResolution.id, actionFirstRequest.reservation, [], actionClaim,
-    .tenant tenant, actionHeader.caller.actor, domainOwner actionHeader.domain, 0, 1⟩
-private def actionPermit : AuthorityPermit :=
-  ⟨actionPermitExpectation, actionPermitNonce, ⟨1⟩, ⟨5⟩⟩
-private def actionPermitInitialProtocol : PermitProtocolState := {
-  (default : PermitProtocolState) with now := ⟨1⟩
-}
-private def actionPermitInitial : DistributedSystemState :=
-  ⟨claimedState, actionPermitInitialProtocol⟩
-private def actionPermitIssuedProtocol : PermitProtocolState := {
-  actionPermitInitialProtocol with
-  issuerRecords := tableSet2 actionPermitInitialProtocol.issuerRecords (.tenant tenant)
-    actionPermitNonce (some (.issued actionPermit))
-}
-private def actionPermitIssued : DistributedSystemState :=
-  ⟨claimedState, actionPermitIssuedProtocol⟩
-private def actionPermitDeliveredProtocol : PermitProtocolState := {
-  actionPermitIssuedProtocol with transport := [.candidate actionPermit]
-}
-private def actionPermitDelivered : DistributedSystemState :=
-  ⟨claimedState, actionPermitDeliveredProtocol⟩
-private def actionPermitAuthenticatedProtocol : PermitProtocolState := {
-  actionPermitDeliveredProtocol with
-  authentications := tableSet2 actionPermitDeliveredProtocol.authentications
-    (domainOwner actionHeader.domain) actionPermitNonce
-    (some ⟨actionPermit,
-      actionPermitDeliveredProtocol.incarnation (domainOwner actionHeader.domain)⟩)
-}
-private def actionPermitAuthenticated : DistributedSystemState :=
-  ⟨claimedState, actionPermitAuthenticatedProtocol⟩
-private def actionPermitConsumedProtocol : PermitProtocolState := {
-  actionPermitAuthenticatedProtocol with
-  consumptions := tableSet2 actionPermitAuthenticatedProtocol.consumptions
-    (domainOwner actionHeader.domain) actionPermitNonce (some ⟨actionPermit, ⟨50⟩⟩)
-}
-private def actionPermitStarted : DistributedSystemState :=
-  ⟨startedState, actionPermitConsumedProtocol⟩
-
-private theorem actionPermitReady :
-    PermitIssueReady actionPermitInitial actionPermitExpectation := by
-  refine ⟨?_, rfl, ?_, ?_, ?_⟩
-  · exact ⟨rfl, rfl, rfl, rfl⟩
-  · refine ⟨actionBinding, ?_, rfl, rfl⟩
-    simp [actionPermitInitial, claimedState, approvedState, requestedState, actionState,
-      actionAuthority, AuthorityLedger.issueResolution, actionAuthorityBase, actionHeader,
-      actionPermitExpectation, actionPrepared, noTurnHeader, InvocationHeader.binding,
-      AuthoritySource.binding]
-  · refine ⟨?_, rfl, ?_, ?_, ?_, by decide⟩
-    · change actionFirstRequest.ReservesItem 0
-      refine ⟨⟨0, firstArgs,
-        deriveItemKey actionHeader actionPrepared.payload 0 firstArgs⟩, rfl, ?_⟩
-      simp [AdmissionRequest.ReservedFor, actionFirstRequest, actionRequest,
-        actionFirstObligation, actionPrepared, actionHeader, noTurnHeader, actionInvocation,
-        header]
-    · simp [actionPermitInitial, claimedState, claimedEffects, requestedEffects,
-        EffectLedger.setClaim, actionPermitExpectation, actionPrepared, actionHeader,
-        noTurnHeader, header, actionInvocation]
-    · simp [actionPermitInitial, claimedState, claimedEffects, requestedEffects,
-        EffectLedger.setClaim, actionPermitExpectation, actionPrepared, actionHeader, actionClaim]
-    · simp [actionPermitInitial, claimedState, claimedEffects, requestedEffects,
-        EffectLedger.setClaim, actionPermitExpectation, actionPrepared, actionHeader, actionClaim]
-  · have ready : MediatedReady claimedState actionFirstRequest := by
-      simpa [claimedState, approvedState, requestedState] using actionFirstReady
-    simpa [actionPermitInitial, actionPermitExpectation, PermitExpectation.requestAt,
-      actionFirstRequest, actionRequest] using ready
-
-private theorem actionPermitTargetAttempt :
-    TargetAttemptStep claimedState actionPermitExpectation ⟨1⟩ ⟨50⟩ actionAttempt ⟨50⟩
-      startedState := by
-  have ready : MediatedReady claimedState actionFirstRequest := by
-    simpa [claimedState, approvedState, requestedState] using actionFirstReady
-  apply TargetAttemptStep.approvalFirst (approvalId := actionApproval)
-  · exact ⟨ready.1, ready.2.1, ready.2.2.1, ready.2.2.2.1,
-      ready.2.2.2.2.1, ready.2.2.2.2.2.1⟩
-  · have claimReady := actionPermitReady.2.2.2.1
-    simpa [actionPermitInitial] using claimReady
-  · simp [AdmissionRequest.ReservedFor, actionPermitExpectation,
-      PermitExpectation.requestAt, actionFirstRequest, actionRequest, actionFirstObligation,
-      actionAttempt, actionPrepared, actionHeader, noTurnHeader, actionInvocation, header]
-  · simp [claimedState, claimedEffects, EffectLedger.setClaim, requestedEffects,
-      actionPermitExpectation, actionPrepared, actionHeader, noTurnHeader, header,
-      actionInvocation]
-  · exact ⟨approvedTicket,
-      by simp [claimedState, approvedState, approvedApprovals, ApprovalLedger.setTicket,
-        actionApproval], rfl, rfl, rfl, rfl, by decide,
-      by simp [claimedState, approvedState, approvedApprovals, ApprovalLedger.setTicket,
-        requestedApprovals, actionTicket, actionApproval, actionFirstRequest, actionRequest,
-        actionPrepared, approvedTicket, actionHeader, noTurnHeader, actionInvocation,
-        actionPermitExpectation, tableSet_self], rfl, rfl⟩
-  · simp [claimedState, claimedEffects, requestedEffects, EffectLedger.setClaim,
-      actionPermitExpectation, actionPrepared, actionHeader, actionClaim]
-  · refine ⟨rfl, rfl, rfl, rfl, rfl,
-      ⟨0, firstArgs, deriveItemKey actionHeader actionPrepared.payload 0 firstArgs⟩,
-      rfl, rfl⟩
-  · refine ⟨rfl, rfl, ⟨0, firstArgs,
-      deriveItemKey actionHeader actionPrepared.payload 0 firstArgs⟩, rfl, rfl, ?_⟩
-    simp [actionPermitExpectation, actionPrepared, actionHeader, noTurnHeader,
-      actionAttempt]
-  · apply EffectStep.firstAttempt (prepared := actionPrepared)
-    · rfl
-    · simp [EffectLedger.recordAdmission, claimedState, claimedEffects,
-        EffectLedger.setClaim, requestedEffects, actionAttempt]
-    · refine ⟨⟨actionPermitExpectation.prepared.identity,
-        actionPermitExpectation.prepared.header.authority.principal,
-        actionPermitExpectation.scope, actionPermitExpectation.resolution⟩, ?_, rfl, rfl,
-        ⟨⟨0, firstArgs, deriveItemKey actionHeader actionPrepared.payload 0 firstArgs⟩,
-          rfl, rfl, by simp [actionPrepared, actionHeader, noTurnHeader, actionAttempt]⟩⟩
-      simp [EffectLedger.recordAdmission]
-    · exact ⟨⟨0, firstArgs,
-        deriveItemKey actionHeader actionPrepared.payload 0 firstArgs⟩, rfl, rfl, by
-        simp [actionPrepared, actionHeader, noTurnHeader, actionAttempt]⟩
-    · rfl
-    · exact ⟨actionClaim,
-        by simp [EffectLedger.recordAdmission, claimedState, claimedEffects,
-          EffectLedger.setClaim, actionClaim, actionAttempt],
-        by simp [EffectLedger.recordAdmission, claimedState, claimedEffects,
-          EffectLedger.setClaim, actionClaim, actionAttempt],
-        ⟨rfl, rfl, rfl, rfl, rfl⟩, by decide⟩
-    · rfl
-    · rfl
-  · simp [startedEffects, EffectLedger.addAttempt, tableSet_self]
-  · exact firstActionAttemptAuditAppend
-
-private theorem issueActionPermit :
-    PermitStep actionPermitInitial
-      (.issue (.tenant tenant) actionPermitNonce .acknowledged) actionPermitIssued := by
-  apply PermitStep.issue (expectation := actionPermitExpectation) (expiresAt := ⟨5⟩)
-  · exact actionPermitReady
-  · rfl
-  · decide
-
-private theorem emitActionPermit :
-    PermitStep actionPermitIssued (.emit (.tenant tenant) actionPermitNonce)
-      actionPermitDelivered := by
-  apply PermitStep.emit (permit := actionPermit)
-  simp [exactIssued, actionPermitIssued, actionPermitIssuedProtocol, actionPermit,
-    actionPermitExpectation]
-
-private theorem authenticateActionPermit :
-    PermitStep actionPermitDelivered
-      (.authenticate (domainOwner actionHeader.domain) actionPermitNonce)
-      actionPermitAuthenticated := by
-  apply PermitStep.authenticate (permit := actionPermit)
-  · simp [actionPermitDelivered, actionPermitDeliveredProtocol]
-  · simp [exactIssued, actionPermitDelivered, actionPermitDeliveredProtocol,
-      actionPermitIssuedProtocol, actionPermit, actionPermitExpectation]
-  · rfl
-
-private theorem consumeActionPermit :
-    PermitStep actionPermitAuthenticated
-      (.consume (domainOwner actionHeader.domain) actionPermitNonce ⟨50⟩ .acknowledged)
-      actionPermitStarted := by
-  apply PermitStep.consume (permit := actionPermit) (attempt := actionAttempt) (auditId := ⟨50⟩)
-  · simp [exactIssued, actionPermitAuthenticated, actionPermitAuthenticatedProtocol,
-      actionPermitDeliveredProtocol, actionPermitIssuedProtocol, actionPermit,
-      actionPermitExpectation]
-  · simp [exactAuthenticated, actionPermitAuthenticated,
-      actionPermitAuthenticatedProtocol, actionPermit, actionPermitExpectation]
-  · rfl
-  · decide
-  · decide
-  · rfl
-  · exact actionPermitTargetAttempt
-
 theorem nonvacuous_guarded_attempt_reachability :
-    ReachableFrom actionPermitInitial actionPermitStarted ∧
-    ∃ attempt admission,
-      actionPermitStarted.core.effects.attempts ⟨50⟩ = some attempt ∧
-      actionPermitStarted.core.effects.admissions ⟨50⟩ = some admission ∧
-      admission.identity = actionPrepared.identity ∧
-      admission.principal = actionPrepared.header.authority.principal := by
-  have reachable : ReachableFrom actionPermitInitial actionPermitStarted :=
-    .step (.step (.step (.step .initial (.permit issueActionPermit))
-      (.permit emitActionPermit)) (.permit authenticateActionPermit))
-      (.permit consumeActionPermit)
-  refine ⟨reachable, actionAttempt, admissionFor actionFirstRequest, ?_, ?_, rfl, rfl⟩
-  · rfl
-  · rfl
+    ∃ state attemptId attempt,
+      Reachable state ∧ state.core.effects.attempts attemptId = some attempt := by
+  obtain ⟨reachable, stored⟩ := CanonicalMediatedTrace.canonical_actor_local_attempt_reachable
+  exact ⟨_, _, _, reachable, stored⟩
+
+theorem nonvacuous_actor_local_mediated_attempt :
+    ∃ before after invocation attemptId auditId attempt,
+      Reachable before ∧
+      SystemStep before (.mediated (.start invocation attemptId auditId)) after ∧
+      after.core.effects.attempts attemptId = some attempt ∧
+      after.permits = before.permits :=
+  CanonicalMediatedTrace.canonical_actor_local_attempt_step
 
 theorem nonvacuous_distributed_permit_issue_consume :
-    ∃ initial final permit attempt,
-      ReachableFrom initial final ∧ exactIssued final.permits permit ∧
-      final.permits.consumptions permit.expectation.target permit.nonce =
-        some ⟨permit, ⟨50⟩⟩ ∧
-      final.core.effects.attempts ⟨50⟩ = some attempt ∧
-      permit.expectation.MatchesAttempt attempt := by
-  refine ⟨actionPermitInitial, actionPermitStarted, actionPermit, actionAttempt, ?_, ?_, ?_,
-    rfl, ?_⟩
-  · exact nonvacuous_guarded_attempt_reachability.1
-  · simp [exactIssued, actionPermitStarted, actionPermitConsumedProtocol,
-      actionPermitAuthenticatedProtocol, actionPermitDeliveredProtocol,
-      actionPermitIssuedProtocol, actionPermit, actionPermitExpectation]
-  · simp [actionPermitStarted, actionPermitConsumedProtocol, actionPermit,
-      actionPermitExpectation]
-  · refine ⟨rfl, rfl, rfl, rfl, rfl,
-      ⟨0, firstArgs, deriveItemKey actionHeader actionPrepared.payload 0 firstArgs⟩,
-      rfl, rfl⟩
+    ∃ state target nonce consumption,
+      Reachable state ∧
+      state.permits.consumptions target nonce = some consumption ∧
+      exactRequested state.permits
+        ⟨consumption.permit.expectation, consumption.permit.nonce⟩ ∧
+      exactIssued state.permits consumption.permit ∧
+      exactAuthenticated state.permits consumption.permit ∧
+      consumption.permit.expectation.issuer ≠ target := by
+  obtain ⟨reachable, _, _, _, _, _, _, _⟩ :=
+    CanonicalMediatedTrace.canonical_single_item_mediated_attempt_reachable
+  obtain ⟨consumption, consumed, requested, issued, authenticated, crossActor⟩ :=
+    CanonicalMediatedTrace.canonical_cross_actor_consumption_has_historical_issuance
+  exact ⟨_, _, _, consumption, reachable, consumed, requested, issued, authenticated, crossActor⟩
 
 theorem nonvacuous_distributed_permit_replay_after_restart :
     ∃ state permit,
@@ -2387,49 +2216,14 @@ theorem nonvacuous_distributed_permit_replay_after_restart :
   refine ⟨_, _, reachable, authenticated, ?_⟩
   simpa using blocked
 
-theorem nonvacuous_postissuance_revocation_does_not_cancel_permit :
-    ∃ before after permit binding attemptId,
-      Reachable before ∧
-      before.core.authority.bindings permit.expectation.prepared.header.binding = some binding ∧
-      before.core.authority.revoked binding.grant ∧
-      exactIssued before.permits permit ∧ exactAuthenticated before.permits permit ∧
-      PermitStep before
-        (.consume permit.expectation.target permit.nonce attemptId .unknown) after :=
-  CanonicalMediatedTrace.canonical_postissuance_revocation_allows_issued_permit_consumption
-
-private def corruptActionPermitProtocol : PermitProtocolState := {
-  actionPermitInitialProtocol with
-  issuerRecords := tableSet2 actionPermitInitialProtocol.issuerRecords (.tenant tenant)
-    actionPermitNonce (some .corrupt)
-  transport := [.candidate actionPermit]
-}
-private def corruptActionPermitState : DistributedSystemState :=
-  ⟨claimedState, corruptActionPermitProtocol⟩
-
-theorem nonvacuous_corrupt_permit_authentication_fails_closed :
-    ¬ PermitStep corruptActionPermitState
-      (.authenticate (domainOwner actionHeader.domain) actionPermitNonce)
-      actionPermitAuthenticated := by
-  apply missing_or_corrupt_issuer_record_cannot_authenticate
-  intro candidate target nonce
-  simp [corruptActionPermitState, corruptActionPermitProtocol, exactIssued]
-  by_cases sameIssuer : candidate.expectation.issuer = .tenant tenant
-  · simp [tableSet2, sameIssuer, nonce]
-  · simp [tableSet2, sameIssuer, actionPermitInitialProtocol]
-
-private def revokedActionState : DistributedSystemState := {
-  actionPermitInitial with core := { claimedState with authority := {
-    claimedState.authority with revoked := mark claimedState.authority.revoked actionGrantId } }
-}
-
-theorem nonvacuous_preissuance_revocation_blocks_permit :
-    ¬ PermitIssueReady revokedActionState actionPermitExpectation := by
-  apply revoked_current_binding_blocks_preissuance (binding := actionBinding)
-  · simp [revokedActionState, actionPermitInitial, claimedState, approvedState,
-      requestedState, actionState, actionAuthority, AuthorityLedger.issueResolution,
-      actionAuthorityBase, actionPermitExpectation, actionPrepared, actionHeader,
-      noTurnHeader, InvocationHeader.binding, AuthoritySource.binding]
-  · simp [revokedActionState, mark, actionBinding]
+theorem nonvacuous_missing_target_request_authentication_fails_closed :
+    ∃ state target nonce,
+      ∀ after, ¬ PermitStep state (.authenticate target nonce) after := by
+  refine ⟨default, .workspace ⟨1⟩ ⟨1⟩, ⟨1⟩, ?_⟩
+  intro after
+  apply missing_target_request_cannot_authenticate
+  intro permit targetEq nonceEq
+  simp [exactRequested]
 
 private def renewedLease : TurnLease := { lease with expiresAt := ⟨12⟩ }
 

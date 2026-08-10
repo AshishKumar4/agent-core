@@ -5,9 +5,10 @@ import AgentCore.DistributedPermit
 # Canonical system reachability
 
 Trusted bootstrap establishes the initial authority endowment. Runtime reachability
-then includes authority administration and the distributed permit protocol. Attempt
-admission is absent from the generic mediated branch: only the target-local permit
-consume transition may append an attempt. Direct admission remains nondurable.
+then includes Actor-local mediation and the distributed permit protocol. Live
+authority administration is deliberately absent until its capability-mediated command
+path is modeled; raw `AuthorityStep` is not a runtime authorization boundary. Direct
+admission remains nondurable.
 -/
 
 namespace AgentCore
@@ -40,13 +41,27 @@ def AttemptsHaveExactAudit (state : SystemState) : Prop :=
       entry.kind = .attempt id attempt.invocation ∧
       entry.cause = some attempt.auditCause
 
-def AttemptsHavePermitEvidence (state : DistributedSystemState) : Prop :=
-  ∀ id attempt, state.core.effects.attempts id = some attempt →
-    ∃ target nonce consumption,
-      state.permits.consumptions target nonce = some consumption ∧
-      consumption.attempt = id ∧ consumption.permit.expectation.target = target ∧
-      consumption.permit.nonce = nonce ∧ exactIssued state.permits consumption.permit ∧
-      consumption.permit.expectation.MatchesAttempt attempt
+def TransportRequestsAreExact (state : DistributedSystemState) : Prop :=
+  ∀ request, .request request ∈ state.permits.transport →
+    exactRequested state.permits request
+
+def TransportPermitsWereIssued (state : DistributedSystemState) : Prop :=
+  ∀ permit, .issued permit ∈ state.permits.transport →
+    exactIssued state.permits permit
+
+def AuthenticationsWereIssued (state : DistributedSystemState) : Prop :=
+  ∀ target nonce authentication,
+    state.permits.authentications target nonce = some authentication →
+    exactIssued state.permits authentication.permit
+
+def ConsumptionsWereIssued (state : DistributedSystemState) : Prop :=
+  ∀ target nonce consumption,
+    state.permits.consumptions target nonce = some consumption →
+    exactIssued state.permits consumption.permit
+
+def PermitProtocolIntegrity (state : DistributedSystemState) : Prop :=
+  TransportRequestsAreExact state ∧ TransportPermitsWereIssued state ∧
+  AuthenticationsWereIssued state ∧ ConsumptionsWereIssued state
 
 theorem bootstrap_step_preserves_effects {before label after}
     (step : BootstrapStep before label after) : after.effects = before.effects := by
@@ -63,30 +78,16 @@ theorem trusted_genesis_effects_default {state} (genesis : TrustedGenesis state)
   obtain ⟨_, exec, _⟩ := genesis
   exact bootstrap_exec_preserves_effects exec
 
-def MediatedLabel.NonAttempt : MediatedLabel → Prop
-  | .start .. | .approvalStart .. | .approvalContinue .. | .retry .. => False
-  | _ => True
-
 inductive SystemLabel where
   | mediated (label : MediatedLabel)
-  | authority (label : AuthorityLedger.AuthorityLabel)
-  | rematerialize (membership : Membership) (role : Role)
   | permit (label : PermitLabel)
   deriving DecidableEq, Repr
 
 inductive SystemStep : DistributedSystemState → SystemLabel →
     DistributedSystemState → Prop
   | mediated {before label core'} :
-      label.NonAttempt → MediatedStep before.core label core' →
+      MediatedStep before.core label core' →
       SystemStep before (.mediated label) { before with core := core' }
-  | authority {before label authority'} :
-      AuthorityLedger.AuthorityStep before.core.authority label authority' →
-      SystemStep before (.authority label)
-        { before with core := { before.core with authority := authority' } }
-  | rematerialize {before membership role authority'} :
-      MaterializationStep before.core.authority membership role authority' →
-      SystemStep before (.rematerialize membership role)
-        { before with core := { before.core with authority := authority' } }
   | permit {before label after} :
       PermitStep before label after → SystemStep before (.permit label) after
 
@@ -304,33 +305,6 @@ theorem mediated_step_preserves_exact_attempt_audits {before label after}
   | event eventStep leases source => exact audited
   | graph graphStep => exact audited
 
-theorem mediated_nonattempt_preserves_attempts {before label after}
-    (nonAttempt : label.NonAttempt) (step : MediatedStep before label after) :
-    after.effects.attempts = before.effects.attempts := by
-  cases step with
-  | persistIntent ready effectStep => exact persist_intent_preserves_attempts effectStep
-  | requestApproval ready required reserved invocation identity digest pending intent approval stored =>
-      exact persist_intent_preserves_attempts intent
-  | start => simp [MediatedLabel.NonAttempt] at nonAttempt
-  | approvalStart => simp [MediatedLabel.NonAttempt] at nonAttempt
-  | approvalContinue => simp [MediatedLabel.NonAttempt] at nonAttempt
-  | retry => simp [MediatedLabel.NonAttempt] at nonAttempt
-  | claimItem ready reserved persisted exact effectStep =>
-      exact claim_item_preserves_attempts effectStep
-  | recoverItemClaim ready reserved persisted exact effectStep stored =>
-      exact recover_item_claim_preserves_attempts effectStep
-  | staleDenied resolution exact intent stale holder observed invocation item denied effectStep stored auditAppend =>
-      exact pre_receipt_preserves_attempts effectStep
-  | preReceipt intent effectStep stored exact auditAppend =>
-      exact pre_receipt_preserves_attempts effectStep
-  | attemptReceipt attempt exact effectStep stored auditAppend =>
-      exact attempt_receipt_preserves_attempts effectStep
-  | supersedeReceipt old attempt exact effectStep stored sameAttempt auditAppend =>
-      exact supersede_receipt_preserves_attempts effectStep
-  | audit auditStep => rfl
-  | event eventStep leases source => rfl
-  | graph graphStep => rfl
-
 theorem target_attempt_step_preserves_guarded_admissions
     {before expectation now attemptId attempt auditId after}
     (guarded : AttemptsHaveGuardedAdmission before.effects)
@@ -413,15 +387,17 @@ theorem permit_step_preserves_guarded_attempt_admissions {before label after}
     (step : PermitStep before label after) :
     AttemptsHaveGuardedAdmission after.core.effects := by
   cases step with
+  | request ready fresh => exact guarded
+  | forwardRequest requested => exact guarded
   | issue ready fresh expiry => exact guarded
   | issueUnknownBefore => exact guarded
   | emit issued => exact guarded
-  | inject => exact guarded
+  | injectMalformed => exact guarded
   | drop split => exact guarded
   | duplicate member => exact guarded
   | reorder permutation => exact guarded
-  | authenticate member issued fence => exact guarded
-  | consume issued authenticated fence issuedAt expiry unused localStep =>
+  | authenticate member requested fence => exact guarded
+  | consume authenticated requested fence issuedAt expiry unused localStep =>
       exact target_attempt_step_preserves_guarded_admissions guarded localStep
   | consumeUnknownBefore => exact guarded
   | restart => exact guarded
@@ -433,15 +409,17 @@ theorem permit_step_preserves_receipt_id_disjointness {before label after}
     (disjoint : ReceiptIdsDisjoint before.core.effects)
     (step : PermitStep before label after) : ReceiptIdsDisjoint after.core.effects := by
   cases step with
+  | request ready fresh => exact disjoint
+  | forwardRequest requested => exact disjoint
   | issue ready fresh expiry => exact disjoint
   | issueUnknownBefore => exact disjoint
   | emit issued => exact disjoint
-  | inject => exact disjoint
+  | injectMalformed => exact disjoint
   | drop split => exact disjoint
   | duplicate member => exact disjoint
   | reorder permutation => exact disjoint
-  | authenticate member issued fence => exact disjoint
-  | consume issued authenticated fence issuedAt expiry unused localStep =>
+  | authenticate member requested fence => exact disjoint
+  | consume authenticated requested fence issuedAt expiry unused localStep =>
       exact target_attempt_step_preserves_receipt_id_disjointness disjoint localStep
   | consumeUnknownBefore => exact disjoint
   | restart => exact disjoint
@@ -453,15 +431,17 @@ theorem permit_step_preserves_exact_attempt_audits {before label after}
     (audited : AttemptsHaveExactAudit before.core)
     (step : PermitStep before label after) : AttemptsHaveExactAudit after.core := by
   cases step with
+  | request ready fresh => exact audited
+  | forwardRequest requested => exact audited
   | issue ready fresh expiry => exact audited
   | issueUnknownBefore => exact audited
   | emit issued => exact audited
-  | inject => exact audited
+  | injectMalformed => exact audited
   | drop split => exact audited
   | duplicate member => exact audited
   | reorder permutation => exact audited
-  | authenticate member issued fence => exact audited
-  | consume issued authenticated fence issuedAt expiry unused localStep =>
+  | authenticate member requested fence => exact audited
+  | consume authenticated requested fence issuedAt expiry unused localStep =>
       exact target_attempt_step_preserves_exact_attempt_audits audited localStep
   | consumeUnknownBefore => exact audited
   | restart => exact audited
@@ -474,13 +454,19 @@ theorem permit_step_preserves_issued_records {before label after}
     ∀ permit, exactIssued before.permits permit → exactIssued after.permits permit := by
   intro permit issued
   cases step with
-  | @issue issuedExpectation issuedNonce expiresAt observation ready fresh expiry =>
+  | request ready fresh => exact issued
+  | forwardRequest requested => exact issued
+  | @issue issuedRequest expiresAt observation transported ready fresh expiry =>
       unfold exactIssued at issued
-      change tableSet2 before.permits.issuerRecords issuedExpectation.issuer issuedNonce
-        (some (.issued ⟨issuedExpectation, issuedNonce, before.permits.now, expiresAt⟩))
+      change before.permits.issuerRecords issuedRequest.expectation.issuer
+        issuedRequest.nonce = none at fresh
+      change tableSet2 before.permits.issuerRecords issuedRequest.expectation.issuer
+        issuedRequest.nonce
+        (some (.issued ⟨issuedRequest.expectation, issuedRequest.nonce,
+          before.permits.now, expiresAt⟩))
         permit.expectation.issuer permit.nonce = some (.issued permit)
-      by_cases sameIssuer : permit.expectation.issuer = issuedExpectation.issuer
-      · by_cases sameNonce : permit.nonce = issuedNonce
+      by_cases sameIssuer : permit.expectation.issuer = issuedRequest.expectation.issuer
+      · by_cases sameNonce : permit.nonce = issuedRequest.nonce
         · rw [sameIssuer, sameNonce] at issued
           rw [fresh] at issued
           contradiction
@@ -492,116 +478,322 @@ theorem permit_step_preserves_issued_records {before label after}
         · exact Or.inl sameIssuer
   | issueUnknownBefore => exact issued
   | emit emitted => exact issued
-  | inject => exact issued
+  | injectMalformed => exact issued
   | drop split => exact issued
   | duplicate member => exact issued
   | reorder permutation => exact issued
-  | authenticate member exact fence => exact issued
-  | consume exact authenticated fence issuedAt expiry unused localStep => exact issued
+  | authenticate member requested fence => exact issued
+  | consume authenticated requested fence issuedAt expiry unused localStep => exact issued
   | consumeUnknownBefore => exact issued
   | restart => exact issued
   | reset => exact issued
   | advanceTime monotone => exact issued
   | advanceFence => exact issued
 
-theorem permit_step_preserves_attempt_permit_evidence {before label after}
-    (evidence : AttemptsHavePermitEvidence before)
-    (step : PermitStep before label after) : AttemptsHavePermitEvidence after := by
+theorem permit_step_preserves_requested_records {before label after}
+    (step : PermitStep before label after) :
+    ∀ request, exactRequested before.permits request →
+      exactRequested after.permits request := by
+  intro request requested
+  cases step with
+  | @request newRequest observation ready fresh =>
+      unfold exactRequested at requested ⊢
+      change tableSet2 before.permits.targetRequests newRequest.expectation.target
+        newRequest.nonce (some newRequest) request.expectation.target request.nonce = some request
+      by_cases sameTarget : request.expectation.target = newRequest.expectation.target
+      · by_cases sameNonce : request.nonce = newRequest.nonce
+        · rw [sameTarget, sameNonce] at requested
+          rw [fresh] at requested
+          contradiction
+        · rw [tableSet2_other]
+          · exact requested
+          · exact Or.inr sameNonce
+      · rw [tableSet2_other]
+        · exact requested
+        · exact Or.inl sameTarget
+  | forwardRequest exact => exact requested
+  | issue transported ready fresh expiry => exact requested
+  | issueUnknownBefore => exact requested
+  | emit issued => exact requested
+  | injectMalformed => exact requested
+  | drop split => exact requested
+  | duplicate member => exact requested
+  | reorder permutation => exact requested
+  | authenticate member exact fence => exact requested
+  | consume authenticated exact fence issuedAt expiry unused localStep => exact requested
+  | consumeUnknownBefore => exact requested
+  | restart => exact requested
+  | reset => exact requested
+  | advanceTime monotone => exact requested
+  | advanceFence => exact requested
+
+theorem permit_step_preserves_transport_request_integrity {before label after}
+    (integrity : TransportRequestsAreExact before)
+    (step : PermitStep before label after) : TransportRequestsAreExact after := by
+  have requestedPreserved := permit_step_preserves_requested_records step
+  cases step with
+  | request ready fresh => exact fun request member => requestedPreserved request (integrity request member)
+  | @forwardRequest request requested =>
+      intro candidate member
+      simp only [List.mem_append, List.mem_singleton] at member
+      rcases member with old | new
+      · exact requestedPreserved candidate (integrity candidate old)
+      · cases new
+        exact requestedPreserved request requested
+  | issue transported ready fresh expiry =>
+      exact fun request member => requestedPreserved request (integrity request member)
+  | issueUnknownBefore => exact integrity
+  | emit issued =>
+      intro request member
+      simp only [List.mem_append, List.mem_singleton] at member
+      rcases member with old | impossible
+      · exact requestedPreserved request (integrity request old)
+      · contradiction
+  | injectMalformed =>
+      intro request member
+      simp only [List.mem_append, List.mem_singleton] at member
+      rcases member with old | impossible
+      · exact requestedPreserved request (integrity request old)
+      · contradiction
+  | @drop message beforeMessages afterMessages split =>
+      intro request member
+      apply requestedPreserved request
+      apply integrity request
+      rw [split]
+      simp only [List.mem_append, List.mem_cons]
+      simp only [List.mem_append] at member
+      rcases member with beforeMember | afterMember
+      · exact Or.inl beforeMember
+      · exact Or.inr (Or.inr afterMember)
+  | @duplicate message member =>
+      intro request candidate
+      simp only [List.mem_append, List.mem_singleton] at candidate
+      rcases candidate with old | copied
+      · exact requestedPreserved request (integrity request old)
+      · cases copied
+        exact requestedPreserved request (integrity request member)
+  | reorder permutation =>
+      intro request member
+      apply requestedPreserved request
+      apply integrity request
+      exact permutation.mem_iff.mpr member
+  | authenticate member requested fence =>
+      exact fun request member => requestedPreserved request (integrity request member)
+  | consume authenticated requested fence issuedAt expiry unused localStep =>
+      exact fun request member => requestedPreserved request (integrity request member)
+  | consumeUnknownBefore => exact integrity
+  | restart => exact integrity
+  | reset => exact integrity
+  | advanceTime monotone => exact integrity
+  | advanceFence => exact integrity
+
+theorem permit_step_preserves_transport_permit_integrity {before label after}
+    (integrity : TransportPermitsWereIssued before)
+    (step : PermitStep before label after) : TransportPermitsWereIssued after := by
   have issuedPreserved := permit_step_preserves_issued_records step
   cases step with
-  | issue ready fresh expiry =>
-      intro id attempt lookup
-      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq, issued,
-        exactMatch⟩ := evidence id attempt lookup
-      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
-        issuedPreserved consumption.permit issued, exactMatch⟩
-  | issueUnknownBefore => exact evidence
-  | emit issued => exact evidence
-  | inject => exact evidence
-  | drop split => exact evidence
-  | duplicate member => exact evidence
-  | reorder permutation => exact evidence
-  | authenticate member issued fence => exact evidence
-  | @consume permit attemptId newAttempt auditId core' observation issued authenticated fence
+  | request ready fresh => exact fun permit member => issuedPreserved permit (integrity permit member)
+  | forwardRequest requested =>
+      intro permit member
+      simp only [List.mem_append, List.mem_singleton] at member
+      rcases member with old | impossible
+      · exact issuedPreserved permit (integrity permit old)
+      · contradiction
+  | issue transported ready fresh expiry =>
+      exact fun permit member => issuedPreserved permit (integrity permit member)
+  | issueUnknownBefore => exact integrity
+  | @emit permit issued =>
+      intro candidate member
+      simp only [List.mem_append, List.mem_singleton] at member
+      rcases member with old | new
+      · exact issuedPreserved candidate (integrity candidate old)
+      · cases new
+        exact issuedPreserved permit issued
+  | injectMalformed =>
+      intro permit member
+      simp only [List.mem_append, List.mem_singleton] at member
+      rcases member with old | impossible
+      · exact issuedPreserved permit (integrity permit old)
+      · contradiction
+  | @drop message beforeMessages afterMessages split =>
+      intro permit member
+      apply issuedPreserved permit
+      apply integrity permit
+      rw [split]
+      simp only [List.mem_append, List.mem_cons]
+      simp only [List.mem_append] at member
+      rcases member with beforeMember | afterMember
+      · exact Or.inl beforeMember
+      · exact Or.inr (Or.inr afterMember)
+  | @duplicate message member =>
+      intro permit candidate
+      simp only [List.mem_append, List.mem_singleton] at candidate
+      rcases candidate with old | copied
+      · exact issuedPreserved permit (integrity permit old)
+      · cases copied
+        exact issuedPreserved permit (integrity permit member)
+  | reorder permutation =>
+      intro permit member
+      exact issuedPreserved permit (integrity permit (permutation.mem_iff.mpr member))
+  | authenticate member requested fence =>
+      exact fun permit member => issuedPreserved permit (integrity permit member)
+  | consume authenticated requested fence issuedAt expiry unused localStep =>
+      exact fun permit member => issuedPreserved permit (integrity permit member)
+  | consumeUnknownBefore => exact integrity
+  | restart => exact integrity
+  | reset => exact integrity
+  | advanceTime monotone => exact integrity
+  | advanceFence => exact integrity
+
+theorem permit_step_preserves_authentication_integrity {before label after}
+    (transportIntegrity : TransportPermitsWereIssued before)
+    (integrity : AuthenticationsWereIssued before)
+    (step : PermitStep before label after) : AuthenticationsWereIssued after := by
+  have issuedPreserved := permit_step_preserves_issued_records step
+  cases step with
+  | @authenticate permit transported requested fence =>
+      intro target nonce authentication lookup
+      change tableSet2 before.permits.authentications permit.expectation.target permit.nonce
+        (some ⟨permit, before.permits.incarnation permit.expectation.target⟩)
+        target nonce = some authentication at lookup
+      by_cases sameTarget : target = permit.expectation.target
+      · by_cases sameNonce : nonce = permit.nonce
+        · subst target
+          subst nonce
+          simp only [tableSet2_self] at lookup
+          cases Option.some.inj lookup
+          exact issuedPreserved permit (transportIntegrity permit transported)
+        · rw [tableSet2_other] at lookup
+          · exact issuedPreserved authentication.permit (integrity target nonce authentication lookup)
+          · exact Or.inr sameNonce
+      · rw [tableSet2_other] at lookup
+        · exact issuedPreserved authentication.permit (integrity target nonce authentication lookup)
+        · exact Or.inl sameTarget
+  | request ready fresh =>
+      intro target nonce auth lookup
+      exact issuedPreserved auth.permit (integrity target nonce auth lookup)
+  | forwardRequest requested =>
+      intro target nonce auth lookup
+      exact issuedPreserved auth.permit (integrity target nonce auth lookup)
+  | issue transported ready fresh expiry =>
+      intro target nonce auth lookup
+      exact issuedPreserved auth.permit (integrity target nonce auth lookup)
+  | issueUnknownBefore => exact integrity
+  | emit issued =>
+      intro target nonce auth lookup
+      exact issuedPreserved auth.permit (integrity target nonce auth lookup)
+  | injectMalformed => exact integrity
+  | drop split =>
+      intro target nonce auth lookup
+      exact issuedPreserved auth.permit (integrity target nonce auth lookup)
+  | duplicate member =>
+      intro target nonce auth lookup
+      exact issuedPreserved auth.permit (integrity target nonce auth lookup)
+  | reorder permutation => exact integrity
+  | consume authenticated requested fence issuedAt expiry unused localStep =>
+      intro target nonce auth lookup
+      exact issuedPreserved auth.permit (integrity target nonce auth lookup)
+  | consumeUnknownBefore => exact integrity
+  | restart => exact integrity
+  | reset => exact integrity
+  | advanceTime monotone => exact integrity
+  | advanceFence => exact integrity
+
+theorem permit_step_preserves_consumption_integrity {before label after}
+    (authenticationIntegrity : AuthenticationsWereIssued before)
+    (integrity : ConsumptionsWereIssued before)
+    (step : PermitStep before label after) : ConsumptionsWereIssued after := by
+  have issuedPreserved := permit_step_preserves_issued_records step
+  cases step with
+  | @consume permit attemptId attempt auditId core' observation authenticated requested fence
       issuedAt expiry unused localStep =>
-      intro id storedAttempt lookup
-      have updated := target_attempt_step_updates_only_exact_attempt localStep
-      rw [updated] at lookup
-      by_cases sameAttempt : id = attemptId
-      · subst id
-        rw [tableSet_self] at lookup
-        cases Option.some.inj lookup
-        obtain ⟨_, exactMatch⟩ := target_attempt_step_stores_exact_attempt localStep
-        refine ⟨_, _, ⟨_, _⟩, ?_, rfl, rfl, rfl, ?_, exactMatch⟩
-        · exact tableSet2_self ..
-        · exact issued
-      · have oldLookup : before.core.effects.attempts id = some storedAttempt := by
-          rw [← tableSet_other before.core.effects.attempts _ id sameAttempt]
-          exact lookup
-        obtain ⟨oldTarget, oldNonce, consumption, consumed, attemptId, targetEq, nonceEq,
-          oldIssued, exactMatch⟩ := evidence id storedAttempt oldLookup
-        have differentKey :
-            oldTarget ≠ permit.expectation.target ∨ oldNonce ≠ permit.nonce := by
-          by_cases sameTarget : oldTarget = permit.expectation.target
-          · right
-            intro sameNonce
-            rw [sameTarget, sameNonce, unused] at consumed
-            contradiction
-          · exact Or.inl sameTarget
-        refine ⟨oldTarget, oldNonce, consumption, ?_, attemptId, targetEq, nonceEq,
-          oldIssued, exactMatch⟩
-        exact (tableSet2_other before.permits.consumptions _ _ _ oldTarget oldNonce
-          differentKey).trans consumed
-  | consumeUnknownBefore => exact evidence
-  | restart => exact evidence
-  | reset => exact evidence
-  | advanceTime monotone => exact evidence
-  | advanceFence => exact evidence
+      intro target nonce consumption lookup
+      change tableSet2 before.permits.consumptions permit.expectation.target permit.nonce
+        (some ⟨permit, attemptId⟩) target nonce = some consumption at lookup
+      by_cases sameTarget : target = permit.expectation.target
+      · by_cases sameNonce : nonce = permit.nonce
+        · subst target
+          subst nonce
+          simp only [tableSet2_self] at lookup
+          cases Option.some.inj lookup
+          exact issuedPreserved permit
+            (authenticationIntegrity permit.expectation.target permit.nonce
+              ⟨permit, before.permits.incarnation permit.expectation.target⟩ authenticated)
+        · rw [tableSet2_other] at lookup
+          · exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+          · exact Or.inr sameNonce
+      · rw [tableSet2_other] at lookup
+        · exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+        · exact Or.inl sameTarget
+  | request ready fresh =>
+      intro target nonce consumption lookup
+      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+  | forwardRequest requested =>
+      intro target nonce consumption lookup
+      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+  | issue transported ready fresh expiry =>
+      intro target nonce consumption lookup
+      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+  | issueUnknownBefore => exact integrity
+  | emit issued =>
+      intro target nonce consumption lookup
+      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+  | injectMalformed => exact integrity
+  | drop split =>
+      intro target nonce consumption lookup
+      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+  | duplicate member =>
+      intro target nonce consumption lookup
+      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+  | reorder permutation => exact integrity
+  | authenticate transported requested fence =>
+      intro target nonce consumption lookup
+      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+  | consumeUnknownBefore => exact integrity
+  | restart => exact integrity
+  | reset => exact integrity
+  | advanceTime monotone => exact integrity
+  | advanceFence => exact integrity
+
+theorem permit_step_preserves_protocol_integrity {before label after}
+    (integrity : PermitProtocolIntegrity before)
+    (step : PermitStep before label after) : PermitProtocolIntegrity after := by
+  exact ⟨permit_step_preserves_transport_request_integrity integrity.1 step,
+    permit_step_preserves_transport_permit_integrity integrity.2.1 step,
+    permit_step_preserves_authentication_integrity integrity.2.1 integrity.2.2.1 step,
+    permit_step_preserves_consumption_integrity integrity.2.2.1 integrity.2.2.2 step⟩
 
 theorem system_step_preserves_guarded_attempt_admissions {before label after}
     (guarded : AttemptsHaveGuardedAdmission before.core.effects)
     (step : SystemStep before label after) :
     AttemptsHaveGuardedAdmission after.core.effects := by
   cases step with
-  | mediated nonAttempt transition =>
+  | mediated transition =>
       exact mediated_step_preserves_guarded_attempt_admissions guarded transition
-  | authority transition => exact guarded
-  | rematerialize transition => exact guarded
   | permit transition => exact permit_step_preserves_guarded_attempt_admissions guarded transition
 
 theorem system_step_preserves_receipt_id_disjointness {before label after}
     (disjoint : ReceiptIdsDisjoint before.core.effects)
     (step : SystemStep before label after) : ReceiptIdsDisjoint after.core.effects := by
   cases step with
-  | mediated nonAttempt transition =>
+  | mediated transition =>
       exact mediated_step_preserves_receipt_id_disjointness disjoint transition
-  | authority transition => exact disjoint
-  | rematerialize transition => exact disjoint
   | permit transition => exact permit_step_preserves_receipt_id_disjointness disjoint transition
 
 theorem system_step_preserves_exact_attempt_audits {before label after}
     (audited : AttemptsHaveExactAudit before.core)
     (step : SystemStep before label after) : AttemptsHaveExactAudit after.core := by
   cases step with
-  | mediated nonAttempt transition =>
+  | mediated transition =>
       exact mediated_step_preserves_exact_attempt_audits audited transition
-  | authority transition => exact audited
-  | rematerialize transition => exact audited
   | permit transition => exact permit_step_preserves_exact_attempt_audits audited transition
 
-theorem system_step_preserves_attempt_permit_evidence {before label after}
-    (evidence : AttemptsHavePermitEvidence before)
-    (step : SystemStep before label after) : AttemptsHavePermitEvidence after := by
+theorem system_step_preserves_protocol_integrity {before label after}
+    (integrity : PermitProtocolIntegrity before)
+    (step : SystemStep before label after) : PermitProtocolIntegrity after := by
   cases step with
-  | mediated nonAttempt transition =>
-      intro id attempt lookup
-      apply evidence id attempt
-      rw [mediated_nonattempt_preserves_attempts nonAttempt transition] at lookup
-      exact lookup
-  | authority transition => exact evidence
-  | rematerialize transition => exact evidence
-  | permit transition =>
-      exact permit_step_preserves_attempt_permit_evidence evidence transition
+  | mediated transition => exact integrity
+  | permit transition => exact permit_step_preserves_protocol_integrity integrity transition
 
 theorem reachable_attempts_have_guarded_admission {state} (reachable : Reachable state) :
     AttemptsHaveGuardedAdmission state.core.effects := by
@@ -636,16 +828,63 @@ theorem reachable_attempts_have_exact_audits {state} (reachable : Reachable stat
   | step reachable transition ih =>
       exact system_step_preserves_exact_attempt_audits ih transition
 
-theorem reachable_attempts_have_exact_issued_permits {state} (reachable : Reachable state) :
-    AttemptsHavePermitEvidence state := by
+theorem reachable_permit_protocol_has_historical_issuance {state} (reachable : Reachable state) :
+    PermitProtocolIntegrity state := by
   induction reachable with
   | initial genesis =>
-      intro id attempt lookup
-      have defaultEffects := trusted_genesis_effects_default genesis
-      rw [defaultEffects] at lookup
-      contradiction
+      obtain ⟨_, _, permits⟩ := genesis
+      constructor
+      · intro request member
+        rw [permits] at member
+        contradiction
+      constructor
+      · intro permit member
+        rw [permits] at member
+        contradiction
+      constructor
+      · intro target nonce authentication lookup
+        rw [permits] at lookup
+        contradiction
+      · intro target nonce consumption lookup
+        rw [permits] at lookup
+        contradiction
   | step reachable transition ih =>
-      exact system_step_preserves_attempt_permit_evidence ih transition
+      exact system_step_preserves_protocol_integrity ih transition
+
+theorem reachable_consumption_has_exact_historical_issuance {state target nonce consumption}
+    (reachable : Reachable state)
+    (consumed : state.permits.consumptions target nonce = some consumption) :
+    exactIssued state.permits consumption.permit :=
+  (reachable_permit_protocol_has_historical_issuance reachable).2.2.2
+    target nonce consumption consumed
+
+theorem reachable_issue_uses_exact_target_request {before after issuer nonce observation}
+    (reachable : Reachable before)
+    (step : PermitStep before (.issue issuer nonce observation) after) :
+    ∃ request,
+      .request request ∈ before.permits.transport ∧
+      exactRequested before.permits request ∧
+      PermitIssueReady (tenantIssueView before issuer) request := by
+  cases step with
+  | @issue request expiresAt issuedObservation transported ready fresh expiry =>
+      refine ⟨request, transported, ?_, ?_⟩
+      · exact (reachable_permit_protocol_has_historical_issuance reachable).1
+          request transported
+      · simpa using ready
+
+theorem reachable_authentication_uses_historically_issued_transport
+    {before after target nonce}
+    (reachable : Reachable before)
+    (step : PermitStep before (.authenticate target nonce) after) :
+    ∃ permit,
+      target = permit.expectation.target ∧ nonce = permit.nonce ∧
+      exactRequested before.permits ⟨permit.expectation, permit.nonce⟩ ∧
+      exactIssued before.permits permit ∧ exactAuthenticated after.permits permit := by
+  obtain ⟨permit, targetEq, nonceEq, transported, requested, authenticated⟩ :=
+    authentication_requires_exact_target_request step
+  exact ⟨permit, targetEq, nonceEq, requested,
+    (reachable_permit_protocol_has_historical_issuance reachable).2.1 permit transported,
+    authenticated⟩
 
 theorem reachable_from_preserves_guarded_attempt_admissions {initial state}
     (initialGuarded : AttemptsHaveGuardedAdmission initial.core.effects)

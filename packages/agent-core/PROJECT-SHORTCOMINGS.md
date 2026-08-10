@@ -20,18 +20,21 @@ evidence agree where applicable.
       deployments refine that model. This is an assurance shortcoming to close, not an
       acceptable final boundary.
 - [x] **Model the abstract distributed authority protocol.** Lean now separates
-      Tenant-local authority issuance, lossy/duplicating/reordering transport, exact
-      issued-record authentication, and target-local nonce-consumption plus
-      EffectAttempt/audit atomicity. It models replay, expiry, pre/post-issuance revoke
-      timing, restart/reset, and before/after commit-unknown observations without a
-      cross-Actor transaction. This closes the abstract-model P0 only; the unchecked
-      TypeScript/storage/Cloudflare refinement P0 above remains open.
-- [x] **Integrate runtime authority administration into reachability.** Canonical
-      reachability now admits every `AuthorityStep` (including revoke, bind, membership,
-      and foreign verification) plus Role rematerialization after bootstrap. Generic
-      mediated attempt constructors are excluded from canonical reachability; all first,
-      approved-first, approval-continuation, and retry attempts enter through the
-      permit-consume transition, and reachable attempts retain exact issued evidence.
+      a target-owned immutable request, Tenant-local issuance from current authority and
+      the authenticated request payload, typed lossy/duplicating/reordering transport,
+      volatile target authentication, and target-local nonce-consumption plus
+      EffectAttempt/audit atomicity. Reachability proves that transported, authenticated,
+      and consumed permits have historical Tenant issuance without making consumption
+      read issuer storage. It covers replay, expiry, restart/reset, and before/after
+      commit-unknown observations without a cross-Actor transaction. Ordinary Actor-local
+      mediated attempts remain a separate legal path. This closes the abstract-model P0
+      only; the unchecked TypeScript/storage/Cloudflare refinement P0 above remains open.
+- [ ] **Model live authority administration through mediated capabilities.** Canonical
+      reachability currently initializes authority only in trusted bootstrap. It does not
+      admit raw `AuthorityStep` or Role rematerialization as an ungated runtime path.
+      Revocation, binding, membership, foreign-verification, and role-materialization
+      interleavings remain incomplete until an actual object-capability/mediated admin
+      transition exists; post-issuance revocation timing is therefore not claimed.
 - [ ] **Finish the release gate honestly.** The source stage is `building`, conformance
       is 394/412, and 1,599 mutation survivors remain actionable. `check:final` must not
       pass until conformance is complete, mutation is closed, all aggregate coverage is at
@@ -174,11 +177,12 @@ evidence agree where applicable.
 - [ ] Prove Actor-local persistence refinement over transaction, uniqueness,
       rollback, restart, and commit-unknown states. Keep SQLite itself in the documented
       trusted base unless it is independently verified.
-- [x] Model Tenant Actor permit issuance, target Actor authentication/consumption,
-      transport, monotonic time, restart/reset, replay, and commit-unknown observations
-      separately. The abstract safety theorems cover loss/duplication/reorder/replay/reset;
-      no liveness theorem is claimed without explicit fairness/eventual-delivery
-      assumptions. Route transport remains owned by the separate routing LTS.
+- [x] Model the target-owned request, Tenant Actor permit issuance, typed transport,
+      target Actor authentication/consumption, monotonic time, restart/reset, replay, and
+      commit-unknown observations separately. The abstract safety theorems cover
+      loss/duplication/reorder/replay/reset and historical issuance; no liveness theorem
+      is claimed without explicit fairness/eventual-delivery assumptions. Route transport
+      remains owned by the separate routing LTS.
 - [ ] Build the release assurance chain:
 
     ```text
