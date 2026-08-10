@@ -351,6 +351,24 @@ describe("deterministic package resolution", () => {
         ).toThrow("Package dependency cycle: m -> z -> m");
     });
 
+    test(
+        "canonicalizes NUL-bearing PackageId cycles by structured sequence identity",
+        { tags: "p0" },
+        () => {
+            const enteredAtCollidingRotation = metadata([
+                release("0", "1.0.0", [dependency("a\0b", "*")]),
+                release("a\0b", "1.0.0", [dependency("c", "*")]),
+                release("c", "1.0.0", [dependency("a", "*")]),
+                release("a", "1.0.0", [dependency("b\0c", "*")]),
+                release("b\0c", "1.0.0", [dependency("a\0b", "*")])
+            ]);
+
+            expect(() =>
+                resolvePackageLock(enteredAtCollidingRotation, [dependency("0", "*")])
+            ).toThrow("Package dependency cycle: a -> b\0c -> a\0b -> c -> a");
+        }
+    );
+
     test("reports each cycle rotation exactly once", { tags: "p1" }, () => {
         const self = metadata([release("self", "1.0.0", [dependency("self", "*")])]);
         expect(() => resolvePackageLock(self, [dependency("self", "*")])).toThrow(
