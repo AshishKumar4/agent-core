@@ -24,5 +24,8 @@ export default {
     thresholds: { high: 90, low: 80, break: null },
     tempDirName: ".stryker-tmp",
     concurrency: 8,
-    timeoutMS: 20000
+    timeoutMS: 20000,
+    // The instrumented dry run executes the whole behavior suite once; the 5-minute
+    // default is calibrated for far smaller suites and aborts a healthy run here.
+    dryRunTimeoutMinutes: 15
 };

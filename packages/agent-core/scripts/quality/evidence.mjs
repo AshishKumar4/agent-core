@@ -19,6 +19,23 @@ export function createProgram() {
 }
 
 export function resolveSourceSymbol(program, selector) {
+    locateSourceSymbol(selector, (path) => program.getSourceFile(path));
+}
+
+/**
+ * The 1-based line span of the declaration a source symbol selects — the member's span
+ * when the selector names one, the whole declaration otherwise. Resolution and staleness
+ * semantics are exactly resolveSourceSymbol's.
+ */
+export function sourceSymbolLines(selector, getSourceFile = () => undefined) {
+    const { source, node } = locateSourceSymbol(selector, getSourceFile);
+    return {
+        startLine: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+        endLine: source.getLineAndCharacterOfPosition(node.end).line + 1
+    };
+}
+
+function locateSourceSymbol(selector, getSourceFile) {
     const separator = selector.indexOf("#");
     if (separator < 1) throw new TypeError(`Invalid source symbol ${selector}`);
     const selectedPath = selector.slice(0, separator);
@@ -47,7 +64,7 @@ export function resolveSourceSymbol(program, selector) {
         );
     }
     const source =
-        program.getSourceFile(path) ??
+        getSourceFile(path) ??
         (ts.sys.fileExists(path)
             ? ts.createSourceFile(
                   path,
@@ -70,15 +87,20 @@ export function resolveSourceSymbol(program, selector) {
         .filter(ts.isVariableStatement)
         .flatMap((statement) => statement.declarationList.declarations)
         .find((node) => ts.isIdentifier(node.name) && node.name.text === parts[0]);
-    const found =
-        (declaration !== undefined &&
-            (parts[1] === undefined ||
-                ("members" in declaration &&
-                    declaration.members.some(
+    const node =
+        declaration !== undefined
+            ? parts[1] === undefined
+                ? declaration
+                : "members" in declaration
+                  ? declaration.members.find(
                         (candidate) => candidate.name?.getText(source) === parts[1]
-                    )))) ||
-        (variable !== undefined && parts[1] === undefined);
-    if (!found) throw new TypeError(`Stale source symbol ${selector}`);
+                    )
+                  : undefined
+            : parts[1] === undefined
+              ? variable
+              : undefined;
+    if (node === undefined) throw new TypeError(`Stale source symbol ${selector}`);
+    return { source, node };
 }
 
 export async function executedTestSelectors(path) {
