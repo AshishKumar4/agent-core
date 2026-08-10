@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef, type SynchronousResultGuard } from "../../../src/actors";
 import { Revision, SecretRef } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
-import { CapabilitySpec } from "../../../src/facets";
+import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../../src/facets";
 import {
     Membership,
     MembershipId,
@@ -22,6 +22,7 @@ import {
 } from "../../../src/identity";
 import {
     AuthorityMutationService,
+    Binding,
     Grant,
     GrantId,
     ScopeEpoch,
@@ -755,6 +756,34 @@ describe("SQLite Tenant and identity hard gates", () => {
             }
         ],
         [
+            "malformed Binding record",
+            (state: ReturnType<typeof fixture>) => {
+                const binding = closureBinding(state);
+                state.database.run("UPDATE tenant_bindings SET record = ? WHERE binding_key = ?", [
+                    Uint8Array.of(0),
+                    binding.key
+                ]);
+            }
+        ],
+        [
+            "Binding missing Grant authority",
+            (state: ReturnType<typeof fixture>) => {
+                const binding = closureBinding(state);
+                const corrupt = binding.replace(new GrantId("missing"), binding.facet);
+                state.database.run(
+                    `UPDATE tenant_bindings SET grant_id = ?, generation = ?, revision = ?, record = ?
+                     WHERE binding_key = ?`,
+                    [
+                        corrupt.grantId.value,
+                        corrupt.generation,
+                        corrupt.revision.value,
+                        Binding.encode(corrupt),
+                        binding.key
+                    ]
+                );
+            }
+        ],
+        [
             "foreign Scope epoch",
             (state: ReturnType<typeof fixture>) => {
                 const foreign = new ScopeEpoch(ScopeRef.tenant(new TenantId("foreign")), 1);
@@ -1073,6 +1102,35 @@ function fixture(): {
     const store = createSqliteTenantControlStore(database, anchor);
     database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
     return { database, store, service: new AuthorityMutationService(store) };
+}
+
+function closureBinding(state: ReturnType<typeof fixture>): Binding {
+    const workspace = new Workspace(
+        new WorkspaceId("closure-binding-workspace"),
+        tenantId,
+        undefined,
+        Revision.initial()
+    );
+    state.service.createWorkspace(workspace);
+    const grant = new Grant(
+        new GrantId("closure-binding-grant"),
+        workspace.scope,
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+        "allow",
+        new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+        { kind: "direct" }
+    );
+    state.service.createGrant(grant);
+    const binding = Binding.active(
+        workspace.scope,
+        grant.subject,
+        new ProtectionDomain("backend", "closure", "no-secrets"),
+        new BindingName("closure-binding"),
+        grant.id,
+        new FacetRef("core:closure")
+    );
+    state.service.createBinding(binding);
+    return binding;
 }
 
 function expectErrorCode(operation: () => void, code: AgentCoreError["code"]): void {
