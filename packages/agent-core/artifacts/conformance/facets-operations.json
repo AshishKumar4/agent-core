@@ -53,6 +53,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
+        "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COLLISION] keeps NUL-bearing surface and Command name tuples distinct within one scope",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],

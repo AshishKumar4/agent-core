@@ -863,8 +863,12 @@
       "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/mediation-memory.ts#MemoryInvocationMediationPersistence",
+        "src/invocations/prepared.ts#PreparedInvocation"
+      ],
       "testSelectors": [
+        "test/invocations/mediation.test.ts#W6 mediation memory persistence [C13-PREPARED-REPLAY-IDENTITY] keeps NUL-bearing replay scope and request-key tuples distinct",
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-PREPARED-REPLAY-IDENTITY] distinguishes single, one-item batch, batch order, lease, authority, domain, seed, and pin"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],

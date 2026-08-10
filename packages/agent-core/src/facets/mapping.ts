@@ -9,6 +9,7 @@ import {
     requireOptionalString,
     requireString
 } from "./data";
+import { encodeCanonicalJson } from "../core";
 import { FacetPackageId } from "./id";
 
 export class FieldMove {
@@ -237,8 +238,15 @@ function decodeMoves(payload: FacetData, subject: string): readonly FieldMove[] 
     return requireArray(payload, subject).map(FieldMove.fromData);
 }
 
+const patternKeyDecoder = new TextDecoder();
+
 function patternKey(pattern: OperationPattern): string {
-    return `${pattern.facet?.value ?? ""}\u0000${pattern.operation}`;
+    // Both components accept U+0000, so no delimiter separates them: a facet ending in
+    // NUL and an operation starting with one collide with the pair that splits the
+    // other way. Canonical JSON escapes the delimiter, so equal keys mean equal pairs.
+    return patternKeyDecoder.decode(
+        encodeCanonicalJson([pattern.facet?.value ?? "", pattern.operation])
+    );
 }
 
 function ensureUnique(values: readonly string[], message: string): void {

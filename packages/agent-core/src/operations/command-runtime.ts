@@ -14,6 +14,7 @@ import {
     type SurfaceId
 } from "../facets";
 const DEFAULT_COMMAND_TRUST = ["owner", "authenticated", "self"] as const;
+const commandKeyDecoder = new TextDecoder("utf-8", { fatal: true });
 
 export interface CommandInstallationTarget {
     readonly package: FacetPackageId;
@@ -375,11 +376,11 @@ function facetScope(contributor: FacetRef): string {
 }
 
 function commandKey(scope: string, id: string): string {
-    return `${scope}\u0000${id}`;
+    return commandKeyDecoder.decode(encodeCanonicalJson([scope, id]));
 }
 
 function surfaceKey(scope: string, surface: string, name: string): string {
-    return `${scope}\u0000${surface}\u0000${name}`;
+    return commandKeyDecoder.decode(encodeCanonicalJson([scope, surface, name]));
 }
 
 function sameInstallation(existing: InstalledCommand, installation: CommandInstallation): boolean {

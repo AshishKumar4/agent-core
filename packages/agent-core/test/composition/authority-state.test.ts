@@ -40,7 +40,12 @@ import {
     WorkspaceId
 } from "../../src/identity";
 import { AuditRecord, InvocationPlacementPin, PreEffectReceipt } from "../../src/invocations";
-import { AuditRecordId, CorrelationId, InvocationId } from "../../src/interaction-references";
+import {
+    AuditRecordId,
+    CorrelationId,
+    InvocationId,
+    RouteReservationId
+} from "../../src/interaction-references";
 import { ReceiptId } from "../../src/invocation-references";
 import { TurnId, TurnLease, type LeaseToken } from "../../src/agents";
 import { SqliteInvalidationWatermarkStore } from "../../src/substrates";
@@ -223,6 +228,128 @@ class StateHarness implements ActorAuthorityHost {
             ScopeEpoch.initial(tenantScope),
             new ScopeEpoch(workspaceScope, 1)
         ]);
+    }
+}
+
+class IdentityCacheHarness implements ActorAuthorityHost {
+    public readonly state: ActorAuthorityState;
+    public readonly authority: TenantOperationAuthority<PrincipalRef>;
+    public readonly requests: { readonly caller: PrincipalRef; readonly binding: BindingName }[] =
+        [];
+    public candidateOverride:
+        ((candidate: OperationResolutionCandidate) => OperationResolutionCandidate) | undefined;
+    readonly #resolutions: {
+        readonly caller: PrincipalRef;
+        readonly binding: BindingName;
+    }[] = [];
+
+    public constructor(
+        public readonly tenant: TenantId,
+        private readonly actor: ActorRef = new ActorRef(
+            "workspace",
+            new ActorId("identity-cache-owner")
+        )
+    ) {
+        this.state = new ActorAuthorityState(
+            tenant,
+            actor,
+            new MemoryInvalidationWatermarkStore(tenant, actor),
+            this
+        );
+        this.authority = new TenantOperationAuthority(this.state, () => new Date(RESOLVED_AT));
+    }
+
+    public register(caller: PrincipalRef, binding: BindingName): void {
+        this.#resolutions.push({ caller, binding });
+    }
+
+    public resolve(
+        caller: PrincipalRef,
+        binding: BindingName
+    ): OperationResolutionCandidate | undefined {
+        this.requests.push({ caller, binding });
+        const registered = this.#resolutions.find(
+            (entry) => entry.caller.equals(caller) && entry.binding.equals(binding)
+        );
+        if (registered === undefined) return undefined;
+        const workspace = ScopeRef.workspace(
+            this.tenant,
+            new WorkspaceId(`identity-cache-${this.requests.length}`)
+        );
+        const candidate: OperationResolutionCandidate = {
+            principal: caller,
+            binding: Binding.active(
+                workspace,
+                SubjectRef.principal(caller),
+                domain,
+                binding,
+                new GrantId(`identity-cache-grant-${this.requests.length}`),
+                facetRef
+            ),
+            pathEpochs: new PathEpochEvidence([
+                ScopeEpoch.initial(ScopeRef.tenant(this.tenant)),
+                ScopeEpoch.initial(workspace)
+            ]),
+            watermark: this.state.currentWatermark(caller),
+            lease: undefined,
+            originalLease: undefined,
+            route: new RouteReservationId(`identity-cache-route-${this.requests.length}`),
+            package: new PackagePin(
+                new PackageId("identity-cache-package"),
+                new SemVer("1.0.0"),
+                new Digest("d".repeat(64)),
+                new Digest("d".repeat(64))
+            ),
+            placement: new InvocationPlacementPin({
+                manifest: ["provider"],
+                policy: ["provider"],
+                substrate: ["provider"],
+                trust: ["provider"],
+                selected: "provider"
+            }),
+            owner: this.actor,
+            policies: [],
+            turnOwnedSession: false,
+            turnActorAuthorityLocal: false,
+            directAuthority: undefined
+        };
+        return this.candidateOverride?.(candidate) ?? candidate;
+    }
+
+    public currentBinding(): Binding | undefined {
+        return undefined;
+    }
+    public currentPath(binding: Binding): PathEpochEvidence {
+        return new PathEpochEvidence(
+            binding.scope.path.map(ScopeEpoch.initial) as [ScopeEpoch, ...ScopeEpoch[]]
+        );
+    }
+    public currentLease(): TurnLease | undefined {
+        return undefined;
+    }
+    public admits(): boolean {
+        return false;
+    }
+    public contributorDomain(): ProtectionDomain | undefined {
+        return undefined;
+    }
+    public admitsInterception(): boolean {
+        return false;
+    }
+    public appendDenial(): void {
+        throw new AgentCoreError(
+            "protocol.invalid-state",
+            "Identity cache harness does not persist denials"
+        );
+    }
+    public denialEvidence(): { readonly receipt: PreEffectReceipt; readonly audit: AuditRecord } {
+        throw new AgentCoreError(
+            "protocol.invalid-state",
+            "Identity cache harness does not create denial evidence"
+        );
+    }
+    public transaction<Result>(operation: () => Result): Result {
+        return operation();
     }
 }
 
@@ -514,6 +641,198 @@ describe("production authority state seams (memory)", () => {
             expect(harness.resolves).toBe(2);
         }
     );
+
+    test(
+        "[C13-AUTH-PRINCIPAL-REF] rejects an exact cross-Tenant NUL collision without consulting or poisoning the local cache",
+        { tags: "p0" },
+        async () => {
+            const localTenant = new TenantId("tenant:雪");
+            const local = new PrincipalRef(localTenant, new PrincipalId("alice\0team"));
+            const foreign = new PrincipalRef(
+                new TenantId("tenant:雪\0alice"),
+                new PrincipalId("team")
+            );
+            const binding = new BindingName("terminal");
+            const harness = new IdentityCacheHarness(localTenant);
+            harness.register(local, binding);
+
+            expect(`${local.tenantId.value}\0${local.principalId.value}\0${binding.value}`).toBe(
+                `${foreign.tenantId.value}\0${foreign.principalId.value}\0${binding.value}`
+            );
+
+            const first = await harness.authority.resolve(local, binding);
+            await expect(harness.authority.resolve(foreign, binding)).rejects.toMatchObject({
+                code: "authority.denied"
+            });
+            const cached = await harness.authority.resolve(local, binding);
+
+            expect(first.resolution.principal.equals(local)).toBe(true);
+            expect(cached.resolution.principal.equals(local)).toBe(true);
+            expect(cached.resolution.binding.name.equals(binding)).toBe(true);
+            expect(harness.requests).toHaveLength(1);
+        }
+    );
+
+    test(
+        "keeps same-Tenant Principal and Binding tuples distinct across Unicode and NUL boundaries",
+        { tags: "p0" },
+        async () => {
+            const localTenant = new TenantId("tenant:雪");
+            const firstPrincipal = new PrincipalRef(localTenant, new PrincipalId("α"));
+            const secondPrincipal = new PrincipalRef(localTenant, new PrincipalId("α\0β"));
+            const firstBinding = new BindingName("β\0γ");
+            const secondBinding = new BindingName("γ");
+            const harness = new IdentityCacheHarness(localTenant);
+            harness.register(firstPrincipal, firstBinding);
+            harness.register(secondPrincipal, secondBinding);
+
+            expect(
+                `${localTenant.value}\0${firstPrincipal.principalId.value}\0${firstBinding.value}`
+            ).toBe(
+                `${localTenant.value}\0${secondPrincipal.principalId.value}\0${secondBinding.value}`
+            );
+
+            const first = await harness.authority.resolve(firstPrincipal, firstBinding);
+            const second = await harness.authority.resolve(secondPrincipal, secondBinding);
+            const firstCached = await harness.authority.resolve(firstPrincipal, firstBinding);
+            const secondCached = await harness.authority.resolve(secondPrincipal, secondBinding);
+
+            expect(first.resolution.principal.equals(firstPrincipal)).toBe(true);
+            expect(second.resolution.principal.equals(secondPrincipal)).toBe(true);
+            expect(firstCached.resolution.principal.equals(firstPrincipal)).toBe(true);
+            expect(secondCached.resolution.principal.equals(secondPrincipal)).toBe(true);
+            expect(harness.requests).toHaveLength(2);
+        }
+    );
+
+    test(
+        "fails closed and does not cache a host candidate that disagrees with caller, Tenant, or Binding",
+        { tags: "p0" },
+        async () => {
+            const localTenant = new TenantId("identity-candidate-tenant");
+            const caller = new PrincipalRef(localTenant, new PrincipalId("identity-caller"));
+            const binding = new BindingName("identity-binding");
+            const mismatches: readonly {
+                readonly name: string;
+                readonly override: (
+                    candidate: OperationResolutionCandidate
+                ) => OperationResolutionCandidate;
+            }[] = [
+                {
+                    name: "caller",
+                    override: (candidate) => ({
+                        ...candidate,
+                        principal: new PrincipalRef(
+                            localTenant,
+                            new PrincipalId("substituted-caller")
+                        )
+                    })
+                },
+                {
+                    name: "Tenant",
+                    override: (candidate) => ({
+                        ...candidate,
+                        principal: new PrincipalRef(
+                            new TenantId("substituted-tenant"),
+                            caller.principalId
+                        )
+                    })
+                },
+                {
+                    name: "Binding name",
+                    override: (candidate) => ({
+                        ...candidate,
+                        binding: Binding.active(
+                            candidate.binding.scope,
+                            candidate.binding.subject,
+                            candidate.binding.domain,
+                            new BindingName("substituted-binding"),
+                            candidate.binding.grantId,
+                            candidate.binding.facet
+                        )
+                    })
+                },
+                {
+                    name: "Binding Tenant",
+                    override: (candidate) => {
+                        const foreignTenant = new TenantId("foreign-binding-tenant");
+                        return {
+                            ...candidate,
+                            binding: Binding.active(
+                                ScopeRef.workspace(
+                                    foreignTenant,
+                                    new WorkspaceId("foreign-binding-workspace")
+                                ),
+                                SubjectRef.principal(
+                                    new PrincipalRef(foreignTenant, caller.principalId)
+                                ),
+                                candidate.binding.domain,
+                                candidate.binding.name,
+                                candidate.binding.grantId,
+                                candidate.binding.facet
+                            )
+                        };
+                    }
+                }
+            ];
+
+            for (const mismatch of mismatches) {
+                const harness = new IdentityCacheHarness(localTenant);
+                harness.register(caller, binding);
+                harness.candidateOverride = mismatch.override;
+
+                expect(
+                    harness.state.resolve(caller, binding),
+                    `${mismatch.name} state boundary`
+                ).toBeUndefined();
+                await expect(
+                    harness.authority.resolve(caller, binding),
+                    mismatch.name
+                ).rejects.toMatchObject({ code: "authority.denied" });
+                expect(harness.requests, mismatch.name).toHaveLength(2);
+            }
+        }
+    );
+
+    test(
+        "fails closed when a previously cached host candidate no longer agrees with its caller",
+        { tags: "p0" },
+        () => {
+            const localTenant = new TenantId("identity-cache-revalidation-tenant");
+            const caller = new PrincipalRef(localTenant, new PrincipalId("identity-caller"));
+            const binding = new BindingName("identity-binding");
+            const harness = new IdentityCacheHarness(localTenant);
+            const foreign = new PrincipalRef(
+                new TenantId("identity-cache-revalidation-foreign"),
+                caller.principalId
+            );
+            let presentedPrincipal = caller;
+            harness.register(caller, binding);
+            harness.candidateOverride = (candidate) => ({
+                ...candidate,
+                get principal(): PrincipalRef {
+                    return presentedPrincipal;
+                }
+            });
+
+            expect(harness.state.resolve(caller, binding)?.principal.equals(caller)).toBe(true);
+            presentedPrincipal = foreign;
+
+            expect(harness.state.resolve(caller, binding)).toBeUndefined();
+            expect(harness.requests).toHaveLength(1);
+        }
+    );
+
+    test("returns a cache miss when the host has no candidate", { tags: "p0" }, () => {
+        const tenant = new TenantId("identity-cache-miss-tenant");
+        const caller = new PrincipalRef(tenant, new PrincipalId("identity-cache-miss-caller"));
+        const harness = new IdentityCacheHarness(tenant);
+
+        expect(
+            harness.state.resolve(caller, new BindingName("identity-cache-miss"))
+        ).toBeUndefined();
+        expect(harness.requests).toHaveLength(1);
+    });
 
     test(
         "authorizes a fresh mediated intent through the composed Actor state",

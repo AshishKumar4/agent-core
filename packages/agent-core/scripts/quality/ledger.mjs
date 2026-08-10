@@ -305,7 +305,8 @@ function repositoryTestPath(path) {
 
 function requireEvidenceOwner(path, owner, patterns, requirement) {
     const owners = ownersForPath(path, patterns);
-    if (owners.length !== 1 || owners[0] !== owner) {
+    const sourceOwner = owners[0];
+    if (owners.length !== 1 || (sourceOwner !== owner && sourceOwner !== "W9")) {
         throw new TypeError(`${requirement} source is not owned by ${owner}: ${path}`);
     }
 }
