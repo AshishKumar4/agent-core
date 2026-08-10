@@ -29,6 +29,7 @@ import {
     type TenantKind
 } from "../identity";
 import { ScopeEpoch } from "./epoch";
+import { Binding } from "./binding";
 import { Grant } from "./grant";
 import { GrantId } from "./id";
 import { RoleGrantMaterializer } from "./materializer";
@@ -134,6 +135,9 @@ export interface AuthorityMutationStore {
     grant(id: GrantId): Grant | undefined;
     grants(): readonly Grant[];
     putGrant(grant: Grant): void;
+    binding(key: string): Binding | undefined;
+    bindings(): readonly Binding[];
+    putBinding(binding: Binding): void;
     epochs(): readonly ScopeEpoch[];
     epoch(scope: ScopeEpoch["scope"]): ScopeEpoch;
     putEpoch(epoch: ScopeEpoch): void;
@@ -440,6 +444,27 @@ export class AuthorityMutationService {
         });
     }
 
+    public createBinding(binding: Binding): Binding {
+        return this.store.transaction((store) => {
+            requireAbsent(store.binding(binding.key), "Binding");
+            requireBindingAuthority(store, binding);
+            store.putBinding(binding);
+            this.bump(store, [{ kind: "bindingTransition", affectedScopes: [binding.scope] }]);
+            return binding;
+        });
+    }
+
+    public replaceBinding(key: string, grantId: GrantId, facet: Binding["facet"]): Binding {
+        return this.store.transaction((store) => {
+            const current = requireRecord(store.binding(key), "Binding");
+            const replacement = current.replace(grantId, facet);
+            requireBindingAuthority(store, replacement);
+            store.putBinding(replacement);
+            this.bump(store, [{ kind: "bindingTransition", affectedScopes: [replacement.scope] }]);
+            return replacement;
+        });
+    }
+
     private reconcile(
         store: AuthorityMutationStore,
         membership: Membership,
@@ -495,6 +520,22 @@ export class AuthorityMutationService {
         const plan = this.#planner.plan(store.epochs(), mutations);
         for (const epoch of plan.bumped) store.putEpoch(epoch);
         return plan.bumped;
+    }
+}
+
+function requireBindingAuthority(store: AuthorityMutationStore, binding: Binding): void {
+    requireCanonicalScope(store, binding.scope);
+    const grant = requireRecord(store.grant(binding.grantId), "Binding Grant");
+    if (
+        !grant.isLive ||
+        grant.effect !== "allow" ||
+        subjectKey(grant.subject) !== subjectKey(binding.subject) ||
+        !binding.scope.path.some((scope) => scope.equals(grant.scope))
+    ) {
+        throw new AgentCoreError(
+            "authority.denied",
+            "Binding requires a live allow Grant for its subject and Workspace path"
+        );
     }
 }
 

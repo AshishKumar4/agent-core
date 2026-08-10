@@ -113,6 +113,7 @@ structure Binding where
   domain : ProtectionDomain
   scope : Scope
   name : String
+  generation : Nat
   grant : GrantId
   facet : FacetId
   deriving DecidableEq, Repr

@@ -159,6 +159,7 @@ describe("R1 integration governance", subprocessTestOptions, () => {
             []
         );
         expect(transitions.map((item) => item.id).sort()).toEqual([
+            "TRANSITION-BINDING-AUTHORITY-PLANE",
             "TRANSITION-ENVIRONMENT-PIN-IDENTITY",
             "TRANSITION-FACET-CAPABILITY-IDENTITY",
             "TRANSITION-FOUNDATION-PUBLIC-CONTRACT",

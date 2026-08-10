@@ -4,7 +4,6 @@ import {
     AuthorityMutationService,
     createTenantControlBootstrapPlan,
     subjectKey,
-    type BindingStore,
     type TenantControlBootstrapAnchor
 } from "../authority";
 import { Revision } from "../core";
@@ -57,7 +56,6 @@ export interface SingleTenantPolicyAssembly {
 
 export function assembleSingleTenantPolicy(
     control: MemoryTenantControlStore,
-    bindings: BindingStore,
     init: SingleTenantPolicyAssemblyInit
 ): SingleTenantPolicyAssembly {
     const policy = TenantMultiplicityPolicy.singleTenant();
@@ -76,7 +74,8 @@ export function assembleSingleTenantPolicy(
         undefined,
         Revision.initial()
     );
-    new AuthorityMutationService(control).createWorkspace(workspace);
+    const authority = new AuthorityMutationService(control);
+    authority.createWorkspace(workspace);
 
     const ownerGrant = plan.grants.find(
         (grant) =>
@@ -97,7 +96,7 @@ export function assembleSingleTenantPolicy(
         ownerGrant.id,
         init.binding.facet
     );
-    bindings.save(binding);
+    authority.createBinding(binding);
 
     return Object.freeze({
         policy,
@@ -105,7 +104,7 @@ export function assembleSingleTenantPolicy(
         owner: plan.owner,
         ownerMembership: plan.ownerMembership,
         grants: plan.grants,
-        binding: bindings.load(binding.key)!,
+        binding: control.binding(binding.key)!,
         workspace
     });
 }

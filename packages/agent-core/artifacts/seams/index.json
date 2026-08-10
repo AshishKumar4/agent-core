@@ -4,7 +4,6 @@
     "actor-local-store",
     "authority-permit-owner-store",
     "authority-mutation-store",
-    "binding-store",
     "content-retention",
     "content-store",
     "identity-repository",

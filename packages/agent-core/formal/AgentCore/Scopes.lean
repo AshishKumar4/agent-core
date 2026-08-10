@@ -184,6 +184,7 @@ inductive AuthorityLabel where
   | setForeignVerification (home : TenantId) (principal : PrincipalId) (scope : Scope)
   | resolve (resolution : Resolution)
   | observe (holder : PrincipalRef) (target : Scope)
+  deriving DecidableEq, Repr
 
 inductive AuthorityStep : AuthorityLedger → AuthorityLabel → AuthorityLedger → Prop
   | issueGrant {ledger id grant} :
@@ -294,4 +295,3 @@ theorem direct_holder_watermark_is_not_ahead {ledger : AuthorityLedger}
 end AuthorityLedger
 
 end AgentCore
-

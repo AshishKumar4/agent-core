@@ -3,8 +3,6 @@ export { Grant } from "./grant";
 export { ScopeEpoch } from "./epoch";
 export { InvalidationWatermark, PathEpochEvidence } from "./epoch";
 export { Binding, domainKey } from "./binding";
-export { MemoryBindingStore } from "./binding-store";
-export type { BindingStore, MemoryBindingSnapshot } from "./binding-store";
 export { BindingValidationEvidence, BindingValidationRequest } from "./binding-evidence";
 export { AuthorityCheckEvidence, AuthorityCheckRequest } from "./evidence";
 export { RoleGrantMaterializer } from "./materializer";
