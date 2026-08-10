@@ -282,6 +282,12 @@ describe("settlement obligation integrity", () => {
     });
 
     test("derives the exact ordered audit projection", { tags: "p0" }, () => {
+        const earlierItem: RunObligation = {
+            kind: "invocationItem",
+            invocation,
+            itemIndex: 1,
+            itemKey: "asm-earlier-item"
+        };
         const obligation = new SettlementObligation({
             registryEpoch: 1,
             obligations: [
@@ -289,13 +295,15 @@ describe("settlement obligation integrity", () => {
                 item,
                 { kind: "route", reservation: route },
                 { kind: "reconciliation", attempt },
-                { kind: "systemCommit", commit: systemCommit }
+                { kind: "systemCommit", commit: systemCommit },
+                earlierItem
             ]
         });
 
         expect(obligation.requiredAudits.map(settlementAuditKey)).toEqual([
             "commit:asm-system-commit",
             "delivery:asm-route",
+            "receipt:asm-invocation:1:asm-earlier-item",
             "receipt:asm-invocation:2:asm-item"
         ]);
     });

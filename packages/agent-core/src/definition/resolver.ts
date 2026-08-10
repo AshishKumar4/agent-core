@@ -216,9 +216,18 @@ function canonicalCycle(cycle: readonly string[]): readonly string[] {
         ...members.slice(index),
         ...members.slice(0, index)
     ]);
-    rotations.sort((left, right) => compareText(left.join("\0"), right.join("\0")));
+    rotations.sort(comparePackageIdSequences);
     const canonical = rotations[0]!;
     return [...canonical, canonical[0]!];
+}
+
+function comparePackageIdSequences(left: readonly string[], right: readonly string[]): number {
+    const sharedLength = Math.min(left.length, right.length);
+    for (let index = 0; index < sharedLength; index += 1) {
+        const comparison = compareText(left[index]!, right[index]!);
+        if (comparison !== 0) return comparison;
+    }
+    return left.length - right.length;
 }
 
 function failedConflict(id: string, ranges: readonly string[]): SearchResult {

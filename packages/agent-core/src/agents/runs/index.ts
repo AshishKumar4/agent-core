@@ -1,4 +1,12 @@
-export { AcceptanceId, RunBranchId, RunCommitId, RunId, TurnId, TurnInboxEntryId } from "./id";
+export {
+    AcceptanceId,
+    RunBranchId,
+    RunCheckpointId,
+    RunCommitId,
+    RunId,
+    TurnId,
+    TurnInboxEntryId
+} from "./id";
 export {
     AcceptanceCriterion,
     AcceptanceCriterionCodec,
@@ -22,7 +30,8 @@ export type { LeaseToken, TurnLeaseVerifier } from "./lease";
 export { MemoryTurnLeaseVerifier, RepositoryTurnLeaseVerifier } from "./lease-verifier";
 export { RunCommit } from "./commit";
 export { RunConfigurationSnapshot } from "./pins";
-export { TurnPlacementSnapshot } from "./placement";
+export { PlacementPin, TurnPlacementSnapshot } from "./placement";
+export type { PlacementPinInit } from "./placement";
 export { Run, RunBranch } from "./run";
 export { MemoryRunStorage } from "./memory";
 export type { MemoryRunStorageSnapshot } from "./memory";
@@ -57,3 +66,39 @@ export {
 } from "./settlement";
 export type { RunOutcome, SettlementAuditObligation, SettlementObligationInit } from "./settlement";
 export { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
+export {
+    OperationGatewayTurnInvocationPort,
+    TurnBoundTool,
+    TurnCheckpointHandle,
+    TurnCommitHandle,
+    TurnContentHandle,
+    TurnExecutor,
+    TurnExecutorHost,
+    TurnInboxHandle,
+    TurnInvocationHandle,
+    TurnMediatedInvocationPort,
+    TurnModelHandle,
+    TurnModelPort,
+    TurnOutcomeHandle,
+    TurnOperationGatewayFactory,
+    TurnPromptAssembler,
+    TurnStreamHandle,
+    TurnStreamPort,
+    TurnToolSource
+} from "./executor";
+export type {
+    TurnContext,
+    TurnExecutionScope,
+    TurnExecutorHostInit,
+    TurnMediatedInvocationRequest,
+    TurnMediatedInvocationResult,
+    TurnModelCall,
+    TurnModelRequest,
+    TurnModelResult,
+    TurnModelUsage,
+    TurnOperationGatewayScope,
+    TurnOutcome,
+    TurnPromptAssembly,
+    TurnStreamEvent,
+    TurnStreamPublication
+} from "./executor";

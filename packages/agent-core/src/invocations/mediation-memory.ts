@@ -1,4 +1,4 @@
-import { Digest } from "../core";
+import { Digest, encodeCanonicalJson } from "../core";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import {
@@ -193,8 +193,10 @@ export class MemoryInvocationMediationPersistence
     }
 }
 
+const requestIdentityDecoder = new TextDecoder("utf-8", { fatal: true });
+
 function requestIdentity(scope: string, requestKey: string): string {
-    return `${scope}\u0000${requestKey}`;
+    return requestIdentityDecoder.decode(encodeCanonicalJson([scope, requestKey]));
 }
 
 function revisionKey(id: string, revision: number): string {

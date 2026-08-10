@@ -50,13 +50,14 @@ function target(
 function makeCommand(
     init: {
         readonly arguments?: JsonSchema;
+        readonly name?: string;
         readonly mapping?: FieldMapping;
         readonly completion?: OperationRef;
         readonly surfaces?: readonly SlotName[];
     } = {}
 ): Command {
     return new Command({
-        name: "render",
+        name: init.name ?? "render",
         title: "Render",
         arguments: init.arguments ?? numberArguments,
         operation: new OperationRef(`${PACKAGE}:${OPERATION}`),
@@ -70,6 +71,7 @@ function makeCommand(
 function installation(
     init: {
         readonly arguments?: JsonSchema;
+        readonly name?: string;
         readonly mapping?: FieldMapping;
         readonly completion?: OperationRef;
         readonly input?: JsonSchema;
@@ -166,6 +168,33 @@ describe("CommandRuntime installation", () => {
         );
         expect(runtime.install(installation())).toBe(installed);
     });
+
+    test(
+        "[C13-COMMAND-COLLISION] keeps NUL-bearing surface and Command name tuples distinct within one scope",
+        { tags: "p0" },
+        () => {
+            const runtime = new CommandRuntime();
+            const scope = "workspace";
+            const firstSurface = new SlotName("left");
+            const firstName = "right\0tail";
+            const secondSurface = new SlotName("left\0right");
+            const secondName = "tail";
+
+            expect(`${scope}\0${firstSurface.value}\0${firstName}`).toBe(
+                `${scope}\0${secondSurface.value}\0${secondName}`
+            );
+
+            const first = runtime.install(
+                installation({ name: firstName, surfaces: [firstSurface] })
+            );
+            const second = runtime.install(
+                installation({ name: secondName, surfaces: [secondSurface] })
+            );
+
+            expect(first.command.name).toBe(firstName);
+            expect(second.command.name).toBe(secondName);
+        }
+    );
 
     test("rejects a target whose package or operation differs from the Command's Operation reference", { tags: "p1" }, () => {
         expectInstallError(

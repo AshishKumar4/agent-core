@@ -17,7 +17,7 @@ import {
 import type { RunEvidencePort, RunMergePort } from "./evidence";
 import { ForcedTurnCancellation } from "./forced-cancellation";
 import type { AcceptanceId, RunBranchId, RunId } from "./id";
-import type { LeaseToken } from "./lease";
+import { leaseTokensEqual, type LeaseToken } from "./lease";
 import { RunConfigurationSnapshot, RunPins } from "./pins";
 import { TurnPlacementSnapshot } from "./placement";
 import { Run, RunBranch, RunLifecycle } from "./run";
@@ -693,7 +693,7 @@ export class RunRuntime<Transaction> {
             request.commit.kind !== "checkpoint" ||
             !request.commit.subjectTurn?.equals(turn.id) ||
             request.commit.writer.kind !== "turn" ||
-            !tokensEqual(request.commit.writer.token, request.token) ||
+            !leaseTokensEqual(request.commit.writer.token, request.token) ||
             !request.commit.content?.equals(request.checkpoint.state) ||
             !optionalRefsEqual(request.commit.treeCheckpoint, request.checkpoint.tree) ||
             request.checkpoint.inboxCursor > this.repository.listInbox(tx, turn.id).length
@@ -725,7 +725,7 @@ export class RunRuntime<Transaction> {
             request.commit.content === undefined ||
             !request.commit.subjectTurn?.equals(turn.id) ||
             request.commit.writer.kind !== "turn" ||
-            !tokensEqual(request.commit.writer.token, request.token)
+            !leaseTokensEqual(request.commit.writer.token, request.token)
         ) {
             throw invalidTurn("Turn completion requires a result commit");
         }
@@ -1096,11 +1096,10 @@ export class RunRuntime<Transaction> {
     ): void {
         const inbox = this.repository.listInbox(tx, turn.id);
         if (
-            entry.event !== "turn.cancel" ||
             !entry.turn.equals(turn.id) ||
             entry.sequence !== inbox.length ||
             entry.cancellationToken === undefined ||
-            !tokensEqual(entry.cancellationToken, displaced) ||
+            !leaseTokensEqual(entry.cancellationToken, displaced) ||
             inbox.some((existing) => existing.idempotencyKey === entry.idempotencyKey)
         ) {
             throw invalidTurn(
@@ -1352,14 +1351,6 @@ function isTerminalTurn(turn: Turn): boolean {
         turn.status.kind === "succeeded" ||
         turn.status.kind === "failed" ||
         turn.status.kind === "cancelled"
-    );
-}
-
-function tokensEqual(left: LeaseToken, right: LeaseToken): boolean {
-    return (
-        left.turn.equals(right.turn) &&
-        left.holder.equals(right.holder) &&
-        left.epoch === right.epoch
     );
 }
 

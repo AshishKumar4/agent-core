@@ -10,6 +10,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
@@ -28,6 +30,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
@@ -46,6 +50,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
@@ -134,6 +140,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
@@ -152,6 +160,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
@@ -184,6 +194,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/epoch.ts#InvalidationWatermark",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
@@ -275,6 +287,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/runtime.ts#TenantAuthorityRuntime.check",
         "src/authority/watermark-store.ts#InvalidationWatermarkStore",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
@@ -339,11 +353,14 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/identity/principal-ref.ts#PrincipalRef",
         "src/identity/subject.ts#PrincipalSubjectRef",
         "src/identity/subject.ts#requireSubjectTenant"
       ],
       "testSelectors": [
+        "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-PRINCIPAL-REF] rejects an exact cross-Tenant NUL collision without consulting or poisoning the local cache",
         "test/identity/authority-foundation.test.ts#qualified identity and Tenant topology [C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically",
         "test/authority/permit.test.ts#AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant",
         "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
@@ -408,6 +425,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority",
         "src/authority/epoch.ts#InvalidationWatermark",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"

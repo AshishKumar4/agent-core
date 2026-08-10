@@ -291,25 +291,5 @@ function deriveRequiredAudits(
                 return [];
         }
     });
-    return Object.freeze(
-        audits.sort((left, right) =>
-            auditObligationKey(left).localeCompare(auditObligationKey(right))
-        )
-    );
-}
-
-function auditObligationKey(audit: SettlementAuditObligation): string {
-    switch (audit.kind) {
-        case "receipt":
-            return JSON.stringify([
-                audit.kind,
-                audit.invocation.value,
-                audit.itemIndex,
-                audit.itemKey
-            ]);
-        case "delivery":
-            return JSON.stringify([audit.kind, audit.reservation.value]);
-        case "commit":
-            return JSON.stringify([audit.kind, audit.commit.value]);
-    }
+    return Object.freeze(audits.sort((left, right) => left.kind.localeCompare(right.kind)));
 }

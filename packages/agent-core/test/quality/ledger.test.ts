@@ -401,6 +401,32 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(result.stderr).toContain("stale SPEC evidence");
     });
 
+    test("admits exclusive W9 composition sources for cross-context requirement evidence", async () => {
+        const fixture = await ledgerFixture();
+        const seed = JSON.parse(await readFile(resolve(fixture, "conformance/seed.json"), "utf8"));
+        const requirement = seed.requirements.find(
+            (item: Record<string, unknown>) => item.id === "C13-AUTH-PRINCIPAL-REF"
+        );
+        const selector =
+            "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-PRINCIPAL-REF] rejects an exact cross-Tenant NUL collision without consulting or poisoning the local cache";
+        markVerified(
+            requirement,
+            "src/composition/authority-state.ts#ActorAuthorityState",
+            selector
+        );
+        await addFragment(fixture, "identity-authority.json", "W2", requirement);
+        await writePassingSelectors(fixture, [selector]);
+
+        let result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        await addFragment(fixture, "identity-authority.json", "W2", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("source is not owned by W2");
+    });
+
     test("rejects stale source symbols and tests that did not execute", async () => {
         const fixture = await ledgerFixture();
         const seedPath = resolve(fixture, "conformance/seed.json");
@@ -566,6 +592,34 @@ async function addFragment(
     await writeFile(
         resolve(root, "conformance", name),
         `${JSON.stringify({ edition: "1.0.0", owner, requirements: [requirement] }, null, 2)}\n`,
+        "utf8"
+    );
+}
+
+async function writePassingSelectors(root: string, selectors: readonly string[]): Promise<void> {
+    await writeFile(
+        resolve(root, "vitest.json"),
+        `${JSON.stringify(
+            {
+                success: true,
+                numTotalTests: selectors.length,
+                numPassedTests: selectors.length,
+                numFailedTests: 0,
+                numPendingTests: 0,
+                numTodoTests: 0,
+                testResults: selectors.map((selector) => {
+                    const separator = selector.indexOf("#");
+                    return {
+                        name: selector.slice(0, separator),
+                        assertionResults: [
+                            { fullName: selector.slice(separator + 1), status: "passed" }
+                        ]
+                    };
+                })
+            },
+            null,
+            2
+        )}\n`,
         "utf8"
     );
 }

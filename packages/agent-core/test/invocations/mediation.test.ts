@@ -1943,6 +1943,41 @@ describe("W6 invocation publication drainer", () => {
 });
 
 describe("W6 mediation memory persistence", () => {
+    test(
+        "[C13-PREPARED-REPLAY-IDENTITY] keeps NUL-bearing replay scope and request-key tuples distinct",
+        { tags: "p0" },
+        () => {
+            const persistence = new MemoryInvocationMediationPersistence();
+            const state = createInvocationMediationMemoryState();
+            const firstScope = "scope";
+            const firstRequest = "request\0tail";
+            const secondScope = "scope\0request";
+            const secondRequest = "tail";
+            const first = MediatedReplayRecord.reserve({
+                ...replayReservation("memory-replay-tuple-first"),
+                scope: firstScope,
+                requestKey: firstRequest
+            });
+            const second = MediatedReplayRecord.reserve({
+                ...replayReservation("memory-replay-tuple-second"),
+                scope: secondScope,
+                requestKey: secondRequest
+            });
+
+            expect(`${firstScope}\0${firstRequest}`).toBe(`${secondScope}\0${secondRequest}`);
+
+            persistence.appendReplay(state, first);
+            persistence.appendReplay(state, second);
+
+            expect(persistence.replay(state, firstScope, firstRequest)?.id.equals(first.id)).toBe(
+                true
+            );
+            expect(
+                persistence.replay(state, secondScope, secondRequest)?.id.equals(second.id)
+            ).toBe(true);
+        }
+    );
+
     test("verifies replay projections against their codec bytes", { tags: "p1" }, () => {
         const persistence = new MemoryInvocationMediationPersistence();
         const state = createInvocationMediationMemoryState();
