@@ -444,8 +444,8 @@ describe("memory Run runtime", () => {
             subjectTurn: ids.turn,
             content: content("c")
         });
-        value.runtime.appendCommit(winner, new Revision(0), new Date(1500));
-        expect(() => value.runtime.appendCommit(loser, new Revision(0), new Date(1500))).toThrow(
+        value.runtime.appendTurnCommit(winner, new Revision(0), new Date(1500));
+        expect(() => value.runtime.appendTurnCommit(loser, new Revision(0), new Date(1500))).toThrow(
             /revision/
         );
         expect(
@@ -788,7 +788,7 @@ describe("memory Run runtime", () => {
                 audit: refs.audit,
                 invocation: refs.invocation
             });
-            value.runtime.appendCommit(sourceHead, new Revision(0), new Date(1000));
+            value.runtime.appendSystemEvidenceCommit(sourceHead, new Revision(0), new Date(1000));
             const merge = new RunCommit({
                 id: new RunCommitId("merge-commit"),
                 run: ids.run,
@@ -820,10 +820,10 @@ describe("memory Run runtime", () => {
             });
             value.merge.acceptsTree = false;
             expect(() =>
-                value.runtime.appendCommit(merge, new Revision(0), new Date(1000))
+                value.runtime.mergeRun(merge, new Revision(0), new Date(1000))
             ).toThrow(/base, Environment, or conflict/);
             value.merge.acceptsTree = true;
-            value.runtime.appendCommit(merge, new Revision(0), new Date(1000));
+            value.runtime.mergeRun(merge, new Revision(0), new Date(1000));
             expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(merge.id)).toBe(true);
         }
     );
@@ -855,7 +855,7 @@ describe("memory Run runtime", () => {
                 audit: refs.audit,
                 proposalDigest: undo.proposalDigest.value
             });
-            value.runtime.appendCommit(undo, new Revision(0), new Date(1000));
+            value.runtime.undoRun(undo, new Revision(0), new Date(1000));
             expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
             expect(
                 value.repository.transaction((tx) =>
@@ -1001,8 +1001,23 @@ describe("memory Run runtime", () => {
                         ...(snapshot === undefined ? {} : { terminal: snapshot })
                     })
             ).toThrow(/different Run/);
+            const postTerminalMessage = new RunCommit({
+                id: new RunCommitId("post-terminal-message"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "message",
+                parents: [result.id],
+                pins: pins(),
+                writer: { kind: "turn", token },
+                subjectTurn: ids.turn,
+                content: content("c")
+            });
             expect(() =>
-                value.runtime.appendCommit(result, new Revision(1), new Date(2100))
+                value.runtime.appendTurnCommit(
+                    postTerminalMessage,
+                    new Revision(1),
+                    new Date(2100)
+                )
             ).toThrow(/Terminal Runs reject ordinary commits/);
             expect(() =>
                 value.runtime.createBranch(ids.run, genesis().branch, new Revision(0))

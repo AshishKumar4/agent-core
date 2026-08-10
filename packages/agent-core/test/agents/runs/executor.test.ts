@@ -741,117 +741,97 @@ describe("TurnExecutor seam", () => {
     it("recovers only the terminal result matching the Turn outcome", async () => {
         const seeded = seedRunningTurn();
         const boundaries = await TestBoundaries.create();
-        const premature = resultCommitFor(seeded, "premature-result", boundaries.prompt, ids.root);
-        seeded.runtime.appendCommit(premature, new Revision(0), new Date(2_000));
-        const executor = new FunctionExecutor(async (context) => {
-            return context.outcome.succeed(
-                resultCommit(context, "terminal-result", boundaries.output, premature.id)
-            );
-        });
-        const expected = {
-            kind: "succeeded" as const,
-            result: boundaries.output,
-            commit: new RunCommitId("terminal-result")
-        };
-
-        await expect(boundaries.host(seeded, executor).execute(seeded.token)).resolves.toEqual(
-            expected
-        );
-        const restarted = harness(seeded.storage.snapshot());
+        const matching = resultCommitFor(seeded, "matching-result", boundaries.output, ids.root);
+        completeSeededTurn(seeded, matching);
         const mustNotRun = new FunctionExecutor(async () => {
             throw new TypeError("recovery must not rerun the executor");
         });
-        await expect(boundaries.host(restarted, mustNotRun).execute(seeded.token)).resolves.toEqual(
-            expected
-        );
+        await expect(boundaries.host(seeded, mustNotRun).execute(seeded.token)).resolves.toEqual({
+            kind: "succeeded",
+            result: boundaries.output,
+            commit: matching.id
+        });
+
+        const diverged = seedRunningTurn();
+        diverged.repository.transaction((transaction) => {
+            const running = diverged.repository.loadTurn(transaction, ids.turn);
+            if (running === undefined) throw new TypeError("Seeded Turn must exist");
+            diverged.repository.insertCommit(
+                transaction,
+                resultCommitFor(diverged, "diverged-result", boundaries.output, ids.root)
+            );
+            diverged.repository.replaceTurn(
+                transaction,
+                running.revision,
+                running.complete(
+                    diverged.token,
+                    "succeeded",
+                    boundaries.checkpointState,
+                    new Date(2_000)
+                )
+            );
+        });
+        await expect(
+            boundaries.host(diverged, mustNotRun).execute(diverged.token)
+        ).rejects.toMatchObject({ code: "lease.invalid" });
         expect(mustNotRun.calls).toBe(0);
     });
 
     it("rejects ambiguous same-token terminal result evidence", async () => {
         const seeded = seedRunningTurn();
         const boundaries = await TestBoundaries.create();
-        const premature = resultCommitFor(
-            seeded,
-            "ambiguous-premature-result",
-            boundaries.output,
-            ids.root
-        );
-        seeded.runtime.appendCommit(premature, new Revision(0), new Date(2_000));
-        const executor = new FunctionExecutor(async (context) => {
-            return context.outcome.succeed(
-                resultCommit(context, "ambiguous-terminal-result", boundaries.output, premature.id)
-            );
-        });
-
-        await expect(boundaries.host(seeded, executor).execute(seeded.token)).rejects.toMatchObject(
-            {
-                code: "turn.invalid-state"
-            }
-        );
-        const persisted = seeded.repository.transaction((transaction) => ({
-            turn: seeded.repository.loadTurn(transaction, ids.turn),
-            branch: seeded.repository.loadBranch(transaction, ids.branch)
-        }));
-        expect(persisted.turn?.status.kind).toBe("succeeded");
-        expect(persisted.turn?.result).toEqual(boundaries.output);
-        expect(persisted.branch?.head).toEqual(new RunCommitId("ambiguous-terminal-result"));
-
-        const restarted = harness(seeded.storage.snapshot());
+        const result = resultCommitFor(seeded, "ambiguous-result", boundaries.output, ids.root);
+        completeSeededTurn(seeded, result);
         const mustNotRun = new FunctionExecutor(async () => {
             throw new TypeError("recovery must not rerun the executor");
         });
+        await expect(boundaries.host(seeded, mustNotRun).execute(seeded.token)).resolves.toEqual({
+            kind: "succeeded",
+            result: boundaries.output,
+            commit: result.id
+        });
+
+        seeded.repository.transaction((transaction) => {
+            seeded.repository.insertCommit(
+                transaction,
+                resultCommitFor(seeded, "ambiguous-duplicate", boundaries.output, ids.root)
+            );
+        });
         await expect(
-            boundaries.host(restarted, mustNotRun).execute(seeded.token)
+            boundaries.host(seeded, mustNotRun).execute(seeded.token)
         ).rejects.toMatchObject({ code: "turn.invalid-state" });
         expect(mustNotRun.calls).toBe(0);
     });
 
-    it("recovers the Turn-selected checkpoint instead of an earlier same-token checkpoint commit", async () => {
+    it("rejects checkpoint and result commits outside their atomic lifecycle transitions", async () => {
         const seeded = seedRunningTurn();
         const boundaries = await TestBoundaries.create();
-        const premature = checkpointCommitFor(
-            seeded,
-            "premature-checkpoint-commit",
-            boundaries.prompt,
-            ids.root
-        );
-        seeded.runtime.appendCommit(premature, new Revision(0), new Date(2_000));
-        const checkpoint = new RunCheckpoint(
-            new RunCheckpointId("selected-checkpoint"),
-            ids.turn,
-            new RunCommitId("selected-checkpoint-commit"),
-            boundaries.checkpointState,
-            0,
-            undefined
-        );
-        const executor = new FunctionExecutor(async (context) => {
-            return context.checkpoint.persist(
-                checkpoint,
-                checkpointCommit(
-                    context,
-                    "selected-checkpoint-commit",
-                    boundaries.checkpointState,
-                    premature.id
-                )
+        const invalid = [
+            resultCommitFor(seeded, "premature-result", boundaries.output, ids.root),
+            checkpointCommitFor(
+                seeded,
+                "premature-checkpoint",
+                boundaries.checkpointState,
+                ids.root
+            )
+        ];
+        for (const commit of invalid) {
+            expect(() =>
+                seeded.runtime.appendTurnCommit(commit, new Revision(0), new Date(2_000))
+            ).toThrow(
+                expect.objectContaining({
+                    code: "run.invalid-state"
+                })
             );
-        });
-        const expected = {
-            kind: "suspended" as const,
-            checkpoint,
-            commit: new RunCommitId("selected-checkpoint-commit")
-        };
-
-        await expect(boundaries.host(seeded, executor).execute(seeded.token)).resolves.toEqual(
-            expected
-        );
-        const restarted = harness(seeded.storage.snapshot());
-        const mustNotRun = new FunctionExecutor(async () => {
-            throw new TypeError("recovery must not rerun the executor");
-        });
-        await expect(boundaries.host(restarted, mustNotRun).execute(seeded.token)).resolves.toEqual(
-            expected
-        );
-        expect(mustNotRun.calls).toBe(0);
+        }
+        const persisted = seeded.repository.transaction((transaction) => ({
+            turn: seeded.repository.loadTurn(transaction, ids.turn),
+            branch: seeded.repository.loadBranch(transaction, ids.branch),
+            commits: seeded.repository.listCommits(transaction)
+        }));
+        expect(persisted.turn?.status.kind).toBe("running");
+        expect(persisted.branch?.head).toEqual(ids.root);
+        expect(persisted.commits.map((commit) => commit.id)).toEqual([ids.root]);
     });
 
     it("leaves canonical state unchanged when the executor crashes before a transition", async () => {
@@ -1708,6 +1688,22 @@ function checkpointCommitFor(
     parent: RunCommitId
 ): RunCommit {
     return seededTurnCommit(seeded, id, "checkpoint", output, parent);
+}
+
+function completeSeededTurn(seeded: ReturnType<typeof seedRunningTurn>, commit: RunCommit): void {
+    const branchRevision = seeded.repository.transaction(
+        (transaction) => seeded.repository.loadBranch(transaction, seeded.running.branch)?.revision
+    );
+    if (branchRevision === undefined) throw new TypeError("Seeded branch must exist");
+    seeded.runtime.completeTurn({
+        turn: seeded.running.id,
+        expectedTurnRevision: seeded.running.revision,
+        expectedBranchRevision: branchRevision,
+        token: seeded.token,
+        outcome: "succeeded",
+        commit,
+        now: new Date(2_000)
+    });
 }
 
 function seededTurnCommit(
