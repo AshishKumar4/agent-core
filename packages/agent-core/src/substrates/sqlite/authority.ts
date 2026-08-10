@@ -41,7 +41,7 @@ const CREATE_BINDINGS = `CREATE TABLE IF NOT EXISTS tenant_bindings (
 ) STRICT`;
 
 const CREATE_BINDING_LOOKUP = `CREATE UNIQUE INDEX IF NOT EXISTS tenant_binding_lookup
-    ON tenant_bindings (subject_key, domain_key, name)`;
+    ON tenant_bindings (scope_key, subject_key, domain_key, name)`;
 
 const CREATE_SCOPE_EPOCHS = `CREATE TABLE IF NOT EXISTS tenant_scope_epochs (
     scope_key TEXT PRIMARY KEY CHECK (length(scope_key) > 0),
