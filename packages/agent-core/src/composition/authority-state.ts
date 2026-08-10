@@ -208,9 +208,8 @@ export class ActorAuthorityState implements OperationAuthorityStatePort<Principa
         candidate: OperationResolutionCandidate
     ): boolean {
         return (
-            caller.tenantId.equals(this.tenant) &&
             candidate.principal.tenantId.equals(this.tenant) &&
-            candidate.principal.equals(caller) &&
+            candidate.principal.principalId.equals(caller.principalId) &&
             candidate.binding.name.equals(name) &&
             candidate.binding.scope.tenantId.equals(this.tenant) &&
             candidate.binding.scope.equals(candidate.pathEpochs.target.scope) &&
@@ -223,10 +222,6 @@ const cacheKeyDecoder = new TextDecoder("utf-8", { fatal: true });
 
 function resolutionCacheKey(caller: PrincipalRef, binding: BindingName): string {
     return cacheKeyDecoder.decode(
-        encodeCanonicalJson([
-            caller.tenantId.value,
-            caller.principalId.value,
-            binding.value
-        ])
+        encodeCanonicalJson([caller.tenantId.value, caller.principalId.value, binding.value])
     );
 }

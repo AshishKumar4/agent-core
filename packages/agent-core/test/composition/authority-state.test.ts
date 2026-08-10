@@ -781,18 +781,58 @@ describe("production authority state seams (memory)", () => {
                 harness.register(caller, binding);
                 harness.candidateOverride = mismatch.override;
 
+                expect(
+                    harness.state.resolve(caller, binding),
+                    `${mismatch.name} state boundary`
+                ).toBeUndefined();
                 await expect(
                     harness.authority.resolve(caller, binding),
                     mismatch.name
-                ).rejects.toMatchObject({ code: "authority.denied" });
-                await expect(
-                    harness.authority.resolve(caller, binding),
-                    `${mismatch.name} cache retry`
                 ).rejects.toMatchObject({ code: "authority.denied" });
                 expect(harness.requests, mismatch.name).toHaveLength(2);
             }
         }
     );
+
+    test(
+        "fails closed when a previously cached host candidate no longer agrees with its caller",
+        { tags: "p0" },
+        () => {
+            const localTenant = new TenantId("identity-cache-revalidation-tenant");
+            const caller = new PrincipalRef(localTenant, new PrincipalId("identity-caller"));
+            const binding = new BindingName("identity-binding");
+            const harness = new IdentityCacheHarness(localTenant);
+            const foreign = new PrincipalRef(
+                new TenantId("identity-cache-revalidation-foreign"),
+                caller.principalId
+            );
+            let presentedPrincipal = caller;
+            harness.register(caller, binding);
+            harness.candidateOverride = (candidate) => ({
+                ...candidate,
+                get principal(): PrincipalRef {
+                    return presentedPrincipal;
+                }
+            });
+
+            expect(harness.state.resolve(caller, binding)?.principal.equals(caller)).toBe(true);
+            presentedPrincipal = foreign;
+
+            expect(harness.state.resolve(caller, binding)).toBeUndefined();
+            expect(harness.requests).toHaveLength(1);
+        }
+    );
+
+    test("returns a cache miss when the host has no candidate", { tags: "p0" }, () => {
+        const tenant = new TenantId("identity-cache-miss-tenant");
+        const caller = new PrincipalRef(tenant, new PrincipalId("identity-cache-miss-caller"));
+        const harness = new IdentityCacheHarness(tenant);
+
+        expect(
+            harness.state.resolve(caller, new BindingName("identity-cache-miss"))
+        ).toBeUndefined();
+        expect(harness.requests).toHaveLength(1);
+    });
 
     test(
         "authorizes a fresh mediated intent through the composed Actor state",
