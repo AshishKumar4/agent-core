@@ -172,9 +172,10 @@
       },
       "tests": [
         "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage creates only the retained strict Tenant control schema",
-        "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact"
+        "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
+        "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage stores the same Binding identity independently in two Workspaces"
       ],
-      "digest": "aed2ee90ebe95d20fcd915f83139102c2740e08e3eaa91316dbf009a00d979b8"
+      "digest": "530f7b7d8a15193a76164c4dfa05c429b5e22ea567b55f662fd7137b79f19a6f"
     }
   ]
 }

@@ -46,13 +46,14 @@
     "Packed consumer proves removed standalone Binding stores remain unavailable",
     "Memory Tenant control restores canonical Binding and Grant records from one snapshot",
     "SQLite Tenant control reopens canonical Binding, Grant, and ScopeEpoch records from one database",
+    "Tenant-wide SQLite Binding lookup preserves identical Binding identities in distinct Workspaces",
     "Tenant authority runtime rejects substituted request Binding bytes",
     "Ownership, records, coverage, and import-boundary gates admit the single authority plane"
   ],
   "blockers": [],
   "completion": {
-    "commit": "e5e96b788aea4a6dce97acbc82747cf9afa5eefe",
-    "tree": "f7f041d00a1174e3ed2519e6cfa3eeb4b32e4b3d",
+    "commit": "215650ce70eabde8d0c8c86f101fb14b3a6e8614",
+    "tree": "2b3fb4f9561fc556643c43ab07137fdfbd98d559",
     "artifacts": [
       {
         "path": "packages/agent-core/src/authority/memory.ts",
@@ -66,8 +67,8 @@
       },
       {
         "path": "packages/agent-core/src/substrates/sqlite/authority.ts",
-        "blob": "395155fd5b9d94412b553f1ce61d22d577139f87",
-        "sha256": "d854162f6139bc4379b374e9c9ae5f1ec22b5f1f876eb8328ff6645e25077e33"
+        "blob": "00d4e3381d63c7fbf21c807f7ba371286275998e",
+        "sha256": "4e6c90ffce785e9cdd96f438bceb58be07518834d7f25ad85f1d7031e44ba69f"
       },
       {
         "path": "packages/agent-core/test/authority/memory.test.ts",
@@ -76,15 +77,16 @@
       },
       {
         "path": "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts",
-        "blob": "d615c35d1816d853e2010ccf5f009cbe6327e069",
-        "sha256": "81285813037574f82dd90a7e23178a1c645df377a033c7c28700c0fb2f8e0f82"
+        "blob": "fd0803af6ecb3abd1adc9dfae9dd14868cd94111",
+        "sha256": "627d5c6af65a3867c64474fa42029dd57209b1d770f75760c2bcd66ce14aad16"
       }
     ],
     "tests": [
       "test/authority/memory.test.ts#MemoryTenantControlStore [authority.binding] keeps the canonical Binding in the Tenant transaction with its path epoch",
       "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates rejects request Binding bytes that differ from the canonical Tenant record",
       "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage creates only the retained strict Tenant control schema",
-      "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact"
+      "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
+      "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage stores the same Binding identity independently in two Workspaces"
     ],
     "checks": ["exports"]
   }

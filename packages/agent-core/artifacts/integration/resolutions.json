@@ -2077,8 +2077,8 @@
       "outcome": {
         "kind": "applied",
         "treatment": "accepted",
-        "commit": "e5e96b788aea4a6dce97acbc82747cf9afa5eefe",
-        "tree": "f7f041d00a1174e3ed2519e6cfa3eeb4b32e4b3d",
+        "commit": "215650ce70eabde8d0c8c86f101fb14b3a6e8614",
+        "tree": "2b3fb4f9561fc556643c43ab07137fdfbd98d559",
         "rationale": "The seam registry binds the canonical Tenant authority contract to memory and SQLite implementations without a separate Binding store.",
         "tests": [
           "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
@@ -2108,8 +2108,8 @@
           },
           {
             "path": "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts",
-            "blob": "d615c35d1816d853e2010ccf5f009cbe6327e069",
-            "sha256": "81285813037574f82dd90a7e23178a1c645df377a033c7c28700c0fb2f8e0f82"
+            "blob": "fd0803af6ecb3abd1adc9dfae9dd14868cd94111",
+            "sha256": "627d5c6af65a3867c64474fa42029dd57209b1d770f75760c2bcd66ce14aad16"
           }
         ],
         "items": [
