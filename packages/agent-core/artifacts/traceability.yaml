@@ -194,7 +194,7 @@
       "id": "AC-AUTH-RESOLUTION-001",
       "summary": "Authorized resolution issuance with exact root-to-target path ordering, epoch staleness, lease-expiry bounds, per-holder epoch join, and direct watermark inequality",
       "status": "proved-safety",
-      "boundary": "Path evidence and holder watermarks retain tenant-qualified PrincipalRef identity. Concrete permit issuance, signatures, target checks, nonce consumption, and transactions remain external and have no theorem claim.",
+      "boundary": "Path evidence and holder watermarks retain tenant-qualified PrincipalRef identity. The separate abstract distributed permit LTS and its safety claims are owned by AC-COMPOSED-001; complete §10.3 record representation, signatures, concrete target checks, storage, and transactions remain external.",
       "definitions": [
         "AgentCore.Resolution",
         "AgentCore.PathEpoch",
@@ -893,7 +893,7 @@
         ]
       },
       "remainingEvidence": [
-        "runtime authority evolution beyond trusted bootstrap",
+        "complete concrete runtime authority-administration and permit-storage refinement",
         "trusted concrete time, expiry scheduling fairness, and provider idempotency",
         "concrete atomic attempt, Receipt, audit, aggregate, crash-recovery, and reconciliation persistence refinement"
       ]
@@ -1416,9 +1416,9 @@
     },
     {
       "id": "AC-COMPOSED-001",
-      "summary": "Direct admission with exact Turn/run/domain/placement and lease expiry; mediated exact Run-owner reservation/epoch, optional-Turn owner audit, routed projection digest, stale denial, persisted approval identity, and coherent settlement",
+      "summary": "Direct admission, distributed authority-permit admission, exact mediated reservation and approval identity, runtime authority interleavings, and coherent settlement",
       "status": "proved-safety",
-      "boundary": "The exact lease gate binds the token to a running Turn, owning Run domain, and Turn placement, while direct checks bind actual lease expiry and the separate holder-watermark inequality. Every Run-domain MediatedReady resolves the exact owning Run and validates its carried AdmissionReservation against the current open registry epoch and outstanding canonical obligation; Approval, item-claim, approved-effect, and continuation constructors bind that reservation to their exact obligation, and a changed epoch blocks readiness. Optional-Turn mediation still requires an authenticated owning-Actor audit entry. Settled is constructively inhabited on a graph reached from the empty graph by GraphStep, not a general preservation theorem.",
+      "boundary": "The distributed LTS separates Tenant-local issuance, lossy/duplicating/reordering transport, exact issued-record authentication, and target-local nonce-consume plus EffectAttempt/audit atomicity. No cross-Actor atomic premise exists. Issuance is the only authoritative Grant/Binding/path comparison; target consumption rechecks the exact local claim, reservation, fence, time window, and permit identity without a second authority decision. Canonical reachability admits live AuthorityStep and role-rematerialization interleavings while excluding generic mediated attempt constructors, so every reachable durable attempt has an exact historical issued permit and durable consumption. Restart and reset invalidate volatile authentication by incarnation while preserving issuer records and consumption. This is an abstract protocol over the modeled PreparedInvocation/claim/reservation/binding fields, not the complete §10.3 wire record or any TypeScript, storage, signature, provider, or deployment refinement. Direct admission and settlement retain their prior narrow boundaries.",
       "definitions": [
         "AgentCore.SystemState",
         "AgentCore.AdmissionRequest",
@@ -1437,6 +1437,22 @@
         "AgentCore.MediatedReady",
         "AgentCore.DirectStep",
         "AgentCore.MediatedStep",
+        "AgentCore.PermitExpectation",
+        "AgentCore.AuthorityPermit",
+        "AgentCore.IssuerPermitRecord",
+        "AgentCore.PermitMessage",
+        "AgentCore.PermitAuthentication",
+        "AgentCore.PermitConsumption",
+        "AgentCore.CommitObservation",
+        "AgentCore.PermitProtocolState",
+        "AgentCore.DistributedSystemState",
+        "AgentCore.PermitIssueReady",
+        "AgentCore.TargetLocalReady",
+        "AgentCore.TargetAttemptStep",
+        "AgentCore.PermitStep",
+        "AgentCore.AttemptsHavePermitEvidence",
+        "AgentCore.SystemStep",
+        "AgentCore.Reachable",
         "AgentCore.CurrentReceiptAudited",
         "AgentCore.RouteDeliveryAudited",
         "AgentCore.ExactAuditObligationDischarged",
@@ -1461,6 +1477,17 @@
         "AgentCore.stale_mediated_denial_matches_intent",
         "AgentCore.settled_has_coherent_snapshot_and_exact_obligations",
         "AgentCore.item_obligation_uses_exact_audit",
+        "AgentCore.permit_issue_requires_exact_authenticated_binding",
+        "AgentCore.exact_issued_permit_substitution_resistant",
+        "AgentCore.authentication_requires_exact_issued_record",
+        "AgentCore.missing_or_corrupt_issuer_record_cannot_authenticate",
+        "AgentCore.restart_invalidates_volatile_authentication",
+        "AgentCore.reset_preserves_durable_permit_state",
+        "AgentCore.consume_is_exact_issued_authenticated_and_atomic",
+        "AgentCore.consumed_nonce_identifies_at_most_one_attempt",
+        "AgentCore.consumed_nonce_cannot_be_consumed_again",
+        "AgentCore.revoked_current_binding_blocks_preissuance",
+        "AgentCore.reachable_attempts_have_exact_issued_permits",
         "AgentCore.direct_has_no_durable_side_effect",
         "AgentCore.mediated_rechecks_current_authority_path",
         "AgentCore.approved_execution_uses_persisted_identity"
@@ -1469,7 +1496,12 @@
         "AgentCore.Examples.nonvacuous_optional_turn_owner_audit",
         "AgentCore.Examples.nonvacuous_stale_mediated_denial",
         "AgentCore.Examples.nonvacuous_exact_mediated_run_reservation",
-        "AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected"
+        "AgentCore.Examples.nonvacuous_changed_run_registry_epoch_rejected",
+        "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume",
+        "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart",
+        "AgentCore.Examples.nonvacuous_postissuance_revocation_does_not_cancel_permit",
+        "AgentCore.Examples.nonvacuous_corrupt_permit_authentication_fails_closed",
+        "AgentCore.Examples.nonvacuous_preissuance_revocation_blocks_permit"
       ],
       "witnessCoverage": {
         "AgentCore.direct_admission_is_nondurable": [
@@ -1524,6 +1556,43 @@
         ],
         "AgentCore.item_obligation_uses_exact_audit": [
           "AgentCore.Examples.nonvacuous_audit_complete_derived_settled"
+        ],
+        "AgentCore.permit_issue_requires_exact_authenticated_binding": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume"
+        ],
+        "AgentCore.exact_issued_permit_substitution_resistant": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume",
+          "AgentCore.Examples.nonvacuous_corrupt_permit_authentication_fails_closed"
+        ],
+        "AgentCore.authentication_requires_exact_issued_record": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume"
+        ],
+        "AgentCore.missing_or_corrupt_issuer_record_cannot_authenticate": [
+          "AgentCore.Examples.nonvacuous_corrupt_permit_authentication_fails_closed"
+        ],
+        "AgentCore.restart_invalidates_volatile_authentication": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart"
+        ],
+        "AgentCore.reset_preserves_durable_permit_state": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart"
+        ],
+        "AgentCore.consume_is_exact_issued_authenticated_and_atomic": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume",
+          "AgentCore.Examples.nonvacuous_postissuance_revocation_does_not_cancel_permit"
+        ],
+        "AgentCore.consumed_nonce_identifies_at_most_one_attempt": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart"
+        ],
+        "AgentCore.consumed_nonce_cannot_be_consumed_again": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart"
+        ],
+        "AgentCore.revoked_current_binding_blocks_preissuance": [
+          "AgentCore.Examples.nonvacuous_preissuance_revocation_blocks_permit"
+        ],
+        "AgentCore.reachable_attempts_have_exact_issued_permits": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume",
+          "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart",
+          "AgentCore.Examples.nonvacuous_postissuance_revocation_does_not_cancel_permit"
         ],
         "AgentCore.direct_has_no_durable_side_effect": [
           "AgentCore.Examples.nonvacuous_direct_nondurable"
@@ -2132,6 +2201,8 @@
         ]
       },
       "remainingEvidence": [
+        "full §10.3 AuthorityPermit field representation, issuer signature and codec semantics",
+        "TypeScript, Memory/SQLite, Cloudflare Durable Object, bundle, configuration, and deployment refinement",
         "runtime candidate discovery and durable trace persistence refinement",
         "prompt.assemble, input.submitted, and turn.step cut points"
       ]
@@ -2145,17 +2216,17 @@
     },
     {
       "id": "ASM-TRUTHFUL-VERIFICATION-INPUTS",
-      "summary": "Verification, authentication, provenance, Principal, Actor, Tenant, and bridge-authority inputs supplied to the model are truthful.",
+      "summary": "Host-supplied Principal, Actor, Tenant, caller-authentication, provenance, and bridge-authority inputs map to the intended qualified identities. Permit-record exactness and substitution rejection are modeled; concrete signatures, codecs, and identity extraction are not.",
       "status": "operational-assumption"
     },
     {
       "id": "ASM-LIVENESS-TIME-INVALIDATION",
-      "summary": "Time is monotonic and external invalidation is eventually delivered only for liveness; safety assumes neither delivery, fairness, nor progress.",
+      "summary": "Modeled time advances monotonically. Eventual transport delivery, scheduling, and invalidation require explicit fairness assumptions only for liveness; no designated safety theorem assumes delivery, fairness, or progress.",
       "status": "operational-assumption"
     },
     {
       "id": "ASM-TRANSITION-ATOMICITY",
-      "summary": "Each abstract transition is atomic and guarded writes linearize; concrete storage must establish this separately.",
+      "summary": "Only each owning-Actor transition is atomic: Tenant issuance linearizes locally, and target nonce consumption plus EffectAttempt/audit linearize locally. No cross-Actor atomic premise exists; concrete storage must establish each local transaction separately.",
       "status": "operational-assumption"
     },
     {
@@ -2165,7 +2236,7 @@
     },
     {
       "id": "ASM-CLOSED-WORLD-TRANSITIONS",
-      "summary": "The modeled transition and writer vocabularies are closed; no unmodeled mutation path changes modeled state.",
+      "summary": "The modeled transition and writer vocabularies are closed. Provider or storage operations may fail before or after a locally committed transition, including commit-unknown observations, but arbitrary Byzantine mutation, durable-record erasure, or corruption outside the modeled corrupt/missing evidence cases is outside the safety theorem boundary.",
       "status": "operational-assumption"
     },
     {
@@ -2242,7 +2313,7 @@
     },
     {
       "id": "NC-CLOUDFLARE-BEHAVIOR",
-      "summary": "Concrete Cloudflare permit issuance, signatures, substitution checks, nonce consumption, Durable Object transactions, storage, network, topology, and deployment behavior are not modeled.",
+      "summary": "AC-COMPOSED-001 models an abstract distributed authority-permit protocol, not the concrete Cloudflare record, signatures, codecs, Durable Object transactions, storage failure semantics, network/RPC implementation, topology, bundle, configuration, or deployment behavior.",
       "status": "specified-not-modeled"
     },
     {
@@ -2286,7 +2357,8 @@
         "requirementIds": [
           "AC-AUTH-001",
           "AC-AUTH-RESOLUTION-001",
-          "AC-MATERIALIZE-001"
+          "AC-MATERIALIZE-001",
+          "AC-COMPOSED-001"
         ],
         "nonClaimIds": [],
         "assumptionIds": [
@@ -2462,7 +2534,9 @@
       {
         "id": "CLOUDFLARE_PROFILE",
         "spec": "SPEC §10",
-        "requirementIds": [],
+        "requirementIds": [
+          "AC-COMPOSED-001"
+        ],
         "nonClaimIds": [
           "NC-CLOUDFLARE-BEHAVIOR"
         ],

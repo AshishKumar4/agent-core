@@ -300,6 +300,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const authority = traceability.requirements.find(
             (item) => item.id === "AC-AUTH-RESOLUTION-001"
         );
+        const composed = traceability.requirements.find((item) => item.id === "AC-COMPOSED-001");
         const structural = traceability.requirements.find(
             (item) => item.id === "AC-STRUCTURAL-001"
         );
@@ -319,7 +320,11 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(authority?.theorems).not.toContain(
             "AgentCore.post_issuance_watermark_cannot_cancel_permit"
         );
-        expect(authority?.boundary).toContain("have no theorem claim");
+        expect(authority?.boundary).toContain("owned by AC-COMPOSED-001");
+        expect(composed?.theorems).toContain(
+            "AgentCore.reachable_attempts_have_exact_issued_permits"
+        );
+        expect(composed?.boundary).toContain("No cross-Actor atomic premise");
         expect(structural?.theorems).toContain("AgentCore.replay_preserves_item_order_and_keys");
         const interceptor = traceability.requirements.find(
             (item) => item.id === "AC-INTERCEPTOR-001"
@@ -334,7 +339,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         ).toContain("durable trace persistence");
         expect(
             traceability.nonClaims.find((item) => item.id === "NC-CLOUDFLARE-BEHAVIOR")?.summary
-        ).toContain("are not modeled");
+        ).toContain("not the concrete Cloudflare record");
 
         const runGraph = await readFile(
             resolve(packageRoot, "formal/AgentCore/RunGraph.lean"),

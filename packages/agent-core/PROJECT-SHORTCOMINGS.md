@@ -19,15 +19,19 @@ evidence agree where applicable.
       adapters, Memory/SQLite storage, provider calls, codecs, bundles, configuration, or
       deployments refine that model. This is an assurance shortcoming to close, not an
       acceptable final boundary.
-- [ ] **Model the real distributed authority protocol.** Lean's atomic mediated step
-      does not represent the actual split between asynchronous permit authentication and
-      target-local nonce-consumption/effect-attempt transaction. Model loss, duplication,
-      reordering, replay, expiry, revoke races, restart, reset, and commit-unknown states
-      without assuming a cross-Actor transaction.
-- [ ] **Integrate runtime authority administration into reachability.** The canonical
-      reachable system excludes revoke, bind, rematerialize, membership, and foreign
-      verification transitions after bootstrap. Prove mediation safety across these live
-      interleavings.
+- [x] **Model the abstract distributed authority protocol.** Lean now separates
+      Tenant-local authority issuance, lossy/duplicating/reordering transport, exact
+      issued-record authentication, and target-local nonce-consumption plus
+      EffectAttempt/audit atomicity. It models replay, expiry, pre/post-issuance revoke
+      timing, restart/reset, and before/after commit-unknown observations without a
+      cross-Actor transaction. This closes the abstract-model P0 only; the unchecked
+      TypeScript/storage/Cloudflare refinement P0 above remains open.
+- [x] **Integrate runtime authority administration into reachability.** Canonical
+      reachability now admits every `AuthorityStep` (including revoke, bind, membership,
+      and foreign verification) plus Role rematerialization after bootstrap. Generic
+      mediated attempt constructors are excluded from canonical reachability; all first,
+      approved-first, approval-continuation, and retry attempts enter through the
+      permit-consume transition, and reachable attempts retain exact issued evidence.
 - [ ] **Finish the release gate honestly.** The source stage is `building`, conformance
       is 394/412, and 1,599 mutation survivors remain actionable. `check:final` must not
       pass until conformance is complete, mutation is closed, all aggregate coverage is at
@@ -170,9 +174,11 @@ evidence agree where applicable.
 - [ ] Prove Actor-local persistence refinement over transaction, uniqueness,
       rollback, restart, and commit-unknown states. Keep SQLite itself in the documented
       trusted base unless it is independently verified.
-- [ ] Model Tenant Actor, target Actor, transport, time, crash/restart, permit, and
-      route machines separately. Prove safety under loss/duplication/reorder/replay/reset;
-      state liveness only under explicit fairness/eventual-delivery assumptions.
+- [x] Model Tenant Actor permit issuance, target Actor authentication/consumption,
+      transport, monotonic time, restart/reset, replay, and commit-unknown observations
+      separately. The abstract safety theorems cover loss/duplication/reorder/replay/reset;
+      no liveness theorem is claimed without explicit fairness/eventual-delivery
+      assumptions. Route transport remains owned by the separate routing LTS.
 - [ ] Build the release assurance chain:
 
     ```text
