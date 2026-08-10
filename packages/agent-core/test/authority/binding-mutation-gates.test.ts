@@ -196,9 +196,7 @@ describe("Tenant Binding mutation surface", () => {
         "[C13-AUTH-BINDING-RESOLUTION] exposes exactly the creation and replacement transitions",
         { tags: "p0" },
         () => {
-            const bindingMutators = Object.getOwnPropertyNames(
-                AuthorityMutationService.prototype
-            )
+            const bindingMutators = Object.getOwnPropertyNames(AuthorityMutationService.prototype)
                 .filter((name) => name.toLowerCase().includes("binding"))
                 .sort();
             expect(bindingMutators).toEqual(["createBinding", "replaceBinding"]);
