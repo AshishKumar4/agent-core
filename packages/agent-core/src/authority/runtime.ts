@@ -15,8 +15,10 @@ import type {
     Workspace
 } from "../identity";
 import { SubjectRef as Subjects } from "../identity";
+import { Binding } from "./binding";
 import type { BindingValidationRequest } from "./binding-evidence";
 import { BindingValidationEvidence } from "./binding-evidence";
+import { bytesEqual } from "./data";
 import {
     AuthorityCheckEvidence,
     type AuthorityCheckRequest,
@@ -34,6 +36,7 @@ export interface TenantAuthorityReadStore {
     workspace(id: WorkspaceId): Workspace | undefined;
     membership(id: MembershipId): Membership | undefined;
     guestTrust(id: GuestTrustId): GuestTrust | undefined;
+    binding(key: string): Binding | undefined;
     grant(id: GrantId): Grant | undefined;
     grants(): readonly Grant[];
     epoch(scope: ScopeRef): ScopeEpoch;
@@ -85,10 +88,18 @@ export class TenantAuthorityRuntime {
         this.requireTenant(request.ownerTenant);
         const workspace = this.requireWorkspace(request.binding.scope);
         const currentPath = this.currentPath(workspace);
+        const binding = this.store.binding(request.binding.key);
+        const canonicalBinding =
+            binding !== undefined &&
+            bytesEqual(Binding.encode(binding), Binding.encode(request.binding))
+                ? binding
+                : undefined;
         const stale = !request.expectedPath.equals(currentPath);
         const result = stale
             ? { reason: "stalePath" as const, allow: [] as Grant[], deny: [] as Grant[] }
-            : this.evaluate(request, workspace.scope.path, now);
+            : canonicalBinding === undefined
+              ? { reason: "invalidBinding" as const, allow: [] as Grant[], deny: [] as Grant[] }
+              : this.evaluate(request, canonicalBinding, workspace.scope.path, now);
         return new AuthorityCheckEvidence(
             this.store.tenantId,
             this.issuer,
@@ -106,6 +117,7 @@ export class TenantAuthorityRuntime {
 
     private evaluate(
         request: AuthorityCheckRequest,
+        binding: Binding,
         exactPath: readonly ScopeRef[],
         now: Date
     ): {
@@ -113,10 +125,7 @@ export class TenantAuthorityRuntime {
         readonly allow: readonly Grant[];
         readonly deny: readonly Grant[];
     } {
-        if (
-            !request.binding.resolves ||
-            !request.binding.scope.equals(exactPath[exactPath.length - 1]!)
-        ) {
+        if (!binding.resolves || !binding.scope.equals(exactPath[exactPath.length - 1]!)) {
             return { reason: "invalidBinding", allow: [], deny: [] };
         }
         const subjects = this.effectiveSubjects(request);
@@ -153,7 +162,7 @@ export class TenantAuthorityRuntime {
             return { reason: "guestElevation", allow: [], deny: [] };
         }
 
-        const backing = this.store.grant(request.binding.grantId);
+        const backing = this.store.grant(binding.grantId);
         if (backing === undefined || backing.effect !== "allow") {
             return { reason: "missingGrant", allow: [], deny: [] };
         }
@@ -171,9 +180,9 @@ export class TenantAuthorityRuntime {
         }
         if (
             !subjects.has(subjectKey(backing.subject)) ||
-            subjectKey(backing.subject) !== subjectKey(request.binding.subject) ||
+            subjectKey(backing.subject) !== subjectKey(binding.subject) ||
             !path.has(scopeKey(backing.scope)) ||
-            request.binding.facet.value !== request.intent.facet.value ||
+            binding.facet.value !== request.intent.facet.value ||
             !backing.capability.matches(intent)
         ) {
             return { reason: "noMatchingAllow", allow: [], deny: [] };

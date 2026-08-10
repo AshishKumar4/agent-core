@@ -1,4 +1,5 @@
 import {
+    Binding,
     Grant,
     GrantId,
     ScopeEpoch,
@@ -31,10 +32,13 @@ import {
 import { TenantBootstrapAnchorRecord, type TenantBootstrapAnchor } from "../../protocol";
 import {
     initializeSqliteAuthoritySchema,
+    listSqliteBindings,
     listSqliteEpochs,
     listSqliteGrants,
+    loadSqliteBinding,
     loadSqliteEpoch,
     loadSqliteGrant,
+    saveSqliteBinding,
     saveSqliteEpoch,
     saveSqliteGrant
 } from "./authority";
@@ -292,6 +296,7 @@ export class SqliteTenantControlStore
              UNION ALL SELECT 1 AS present FROM tenant_roles
              UNION ALL SELECT 1 AS present FROM tenant_memberships
              UNION ALL SELECT 1 AS present FROM tenant_grants
+             UNION ALL SELECT 1 AS present FROM tenant_bindings
              UNION ALL SELECT 1 AS present FROM tenant_scope_epochs
              LIMIT 1`,
                 []
@@ -370,6 +375,19 @@ export class SqliteTenantControlStore
     public putGrant(grant: Grant): void {
         requireCanonicalScope(this, grant.scope);
         saveSqliteGrant(this.writeDatabase(), grant);
+    }
+
+    public binding(key: string): Binding | undefined {
+        return loadSqliteBinding(this.database, key);
+    }
+
+    public bindings(): readonly Binding[] {
+        return listSqliteBindings(this.database);
+    }
+
+    public putBinding(binding: Binding): void {
+        requireCanonicalScope(this, binding.scope);
+        saveSqliteBinding(this.writeDatabase(), binding);
     }
 
     public epochs(): readonly ScopeEpoch[] {
@@ -889,6 +907,18 @@ export class SqliteTenantControlStore
                     throw corruptTenantControl();
                 }
                 child = parent;
+            }
+        }
+        for (const binding of this.bindings()) {
+            requireCanonicalScope(this, binding.scope);
+            const grant = grantsById.get(binding.grantId.value);
+            if (
+                grant === undefined ||
+                grant.effect !== "allow" ||
+                sqliteSubjectKey(grant.subject) !== sqliteSubjectKey(binding.subject) ||
+                !binding.scope.path.some((scope) => scope.equals(grant.scope))
+            ) {
+                throw corruptTenantControl();
             }
         }
         for (const membership of this.memberships()) {

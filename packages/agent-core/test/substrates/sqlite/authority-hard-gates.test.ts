@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef, type SynchronousResultGuard } from "../../../src/actors";
 import { Revision, SecretRef } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
-import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../../src/facets";
+import { CapabilitySpec } from "../../../src/facets";
 import {
     Membership,
     MembershipId,
@@ -29,13 +29,7 @@ import {
     subjectKey
 } from "../../../src/authority";
 import { GuestTrust, GuestTrustId, PrincipalRef, Workspace } from "../../identity/internal-fixture";
-import {
-    Binding,
-    InvalidationWatermark,
-    domainKey,
-    watermarkKey
-} from "../../authority/internal-fixture";
-import { SqliteBindingStore } from "../../../src/substrates/sqlite/binding";
+import { InvalidationWatermark, watermarkKey } from "../../authority/internal-fixture";
 import {
     initializeSqliteAuthoritySchema,
     listSqliteEpochs,
@@ -793,40 +787,12 @@ describe("SQLite Tenant and identity hard gates", () => {
     });
 });
 
-describe("SQLite Binding and watermark hard gates", () => {
+describe("SQLite watermark hard gates", () => {
     const owner = new ActorRef("workspace", new ActorId("sqlite-binding-owner"));
     const principal = new PrincipalRef(tenantId, ownerId);
-    const binding = Binding.active(
-        workspaceScope,
-        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
-        new ProtectionDomain("backend", "sqlite", "no-secrets"),
-        new BindingName("sqlite-binding"),
-        new GrantId("sqlite-binding-grant"),
-        new FacetRef("workspace:sqlite.binding.facet")
-    );
 
     test("anchors stores and enforces monotonic revisions", { tags: "p0" }, () => {
-        expect(() => new SqliteBindingStore(new TestSqlite(), ScopeRef.tenant(tenantId))).toThrow(
-            TypeError
-        );
         const database = new TestSqlite();
-        const bindings = new SqliteBindingStore(database, workspaceScope);
-        expect(bindings.load(binding.key)).toBeUndefined();
-        expect(() =>
-            bindings.save(
-                binding.replace(new GrantId("unstaged"), new FacetRef("workspace:unstaged"))
-            )
-        ).toThrow(AgentCoreError);
-        bindings.save(binding);
-        bindings.save(binding);
-        expect(bindings.list()).toHaveLength(1);
-        const replacement = binding.replace(
-            new GrantId("next"),
-            new FacetRef("workspace:next.facet")
-        );
-        bindings.save(replacement);
-        expect(bindings.load(binding.key)?.generation).toBe(1);
-
         const watermarks = new SqliteInvalidationWatermarkStore(database, tenantId, owner);
         const watermark = InvalidationWatermark.empty(tenantId, owner, principal);
         expect(watermarks.load("missing")).toBeUndefined();
@@ -839,27 +805,7 @@ describe("SQLite Binding and watermark hard gates", () => {
         expect(watermarks.join(watermarkKey(watermark), []).revision.value).toBe(0);
     });
 
-    test("rejects foreign owner records and projection corruption", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const bindings = new SqliteBindingStore(database, workspaceScope);
-        expect(() =>
-            bindings.save(
-                Binding.active(
-                    ScopeRef.workspace(tenantId, new WorkspaceId("other")),
-                    binding.subject,
-                    binding.domain,
-                    binding.name,
-                    binding.grantId,
-                    binding.facet
-                )
-            )
-        ).toThrow(AgentCoreError);
-        bindings.save(binding);
-        database.run("UPDATE workspace_bindings SET generation = 2 WHERE binding_key = ?", [
-            binding.key
-        ]);
-        expect(() => bindings.load(binding.key)).toThrow();
-
+    test("rejects foreign owner records", { tags: "p0" }, () => {
         const second = new TestSqlite();
         const watermarks = new SqliteInvalidationWatermarkStore(second, tenantId, owner);
         expect(() =>
@@ -882,81 +828,8 @@ describe("SQLite Binding and watermark hard gates", () => {
         );
     });
 
-    test("rejects foreign rows loaded after store initialization", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const local = new SqliteBindingStore(database, workspaceScope);
-        const otherScope = ScopeRef.workspace(tenantId, new WorkspaceId("other-binding-workspace"));
-        const foreign = Binding.active(
-            otherScope,
-            binding.subject,
-            binding.domain,
-            new BindingName("foreign-row"),
-            binding.grantId,
-            binding.facet
-        );
-        new SqliteBindingStore(database, otherScope).save(foreign);
-        expect(() => local.load(foreign.key)).toThrow(AgentCoreError);
-        expect(() => new SqliteBindingStore(database, workspaceScope)).toThrow(AgentCoreError);
-    });
-
     test("rejects malformed SQLite driver row types and lost writes", { tags: "p0" }, () => {
-        const bindingRow = bindingProjection(binding);
-        expect(
-            () =>
-                new SqliteBindingStore(
-                    new StubSqlite({
-                        ...bindingRow,
-                        binding_key: 3
-                    }),
-                    workspaceScope
-                )
-        ).toThrow(AgentCoreError);
-        expect(
-            () =>
-                new SqliteBindingStore(
-                    new StubSqlite({
-                        ...bindingRow,
-                        record: "not-bytes"
-                    }),
-                    workspaceScope
-                )
-        ).toThrow(AgentCoreError);
-        expect(
-            () =>
-                new SqliteBindingStore(
-                    new StubSqlite({
-                        ...bindingRow,
-                        generation: "bad"
-                    }),
-                    workspaceScope
-                )
-        ).toThrow(AgentCoreError);
-        expect(() =>
-            new SqliteBindingStore(new StubSqlite(), workspaceScope).save(binding)
-        ).toThrow(AgentCoreError);
-        const bindingSchemaFailure = new StubSqlite();
-        bindingSchemaFailure.failRuns = true;
-        expect(() => new SqliteBindingStore(bindingSchemaFailure, workspaceScope)).toThrow(
-            AgentCoreError
-        );
-        const bindingReadFailure = new StubSqlite();
-        const readableBindings = new SqliteBindingStore(bindingReadFailure, workspaceScope);
-        bindingReadFailure.failReads = true;
-        expect(() => readableBindings.load(binding.key)).toThrow(AgentCoreError);
         const typedFailure = new AgentCoreError("protocol.invalid-state", "typed failure");
-        const typedBindingSchemaFailure = new StubSqlite();
-        typedBindingSchemaFailure.runFailure = typedFailure;
-        expect(() => new SqliteBindingStore(typedBindingSchemaFailure, workspaceScope)).toThrow(
-            typedFailure
-        );
-        const typedBindingReadFailure = new StubSqlite();
-        const typedReadableBindings = new SqliteBindingStore(
-            typedBindingReadFailure,
-            workspaceScope
-        );
-        typedBindingReadFailure.readFailure = typedFailure;
-        expect(() => typedReadableBindings.load(binding.key)).toThrow(typedFailure);
-
         const watermark = InvalidationWatermark.empty(tenantId, owner, principal);
         const watermarkRow = watermarkProjection(watermark);
         expect(
@@ -1054,10 +927,6 @@ describe("SQLite Binding and watermark hard gates", () => {
             typedFailure
         );
 
-        const throwingBindingDatabase = new StubSqlite();
-        const throwingBindings = new SqliteBindingStore(throwingBindingDatabase, workspaceScope);
-        throwingBindingDatabase.failRuns = true;
-        expect(() => throwingBindings.save(binding)).toThrow(AgentCoreError);
         const throwingWatermarkDatabase = new StubSqlite();
         const throwingWatermarks = new SqliteInvalidationWatermarkStore(
             throwingWatermarkDatabase,
@@ -1239,22 +1108,6 @@ class StubSqlite extends TransactionalSqlite {
     ): Result {
         return operation();
     }
-}
-
-function bindingProjection(record: Binding): SqliteRow {
-    return {
-        binding_key: record.key,
-        scope_key: scopeKey(record.scope),
-        subject_key: subjectKey(record.subject),
-        domain_key: domainKey(record.domain),
-        name: record.name.value,
-        grant_id: record.grantId.value,
-        facet_ref: record.facet.value,
-        generation: record.generation,
-        revision: record.revision.value,
-        state: record.state,
-        record: Binding.encode(record)
-    };
 }
 
 function watermarkProjection(record: InvalidationWatermark): SqliteRow {

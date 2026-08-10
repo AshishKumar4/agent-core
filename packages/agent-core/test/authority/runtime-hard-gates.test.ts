@@ -152,24 +152,45 @@ describe("TenantAuthorityRuntime hard gates", () => {
 
             const missing = activeBinding(allow, { grantId: new GrantId("missing") });
             expect(runtime.check(checkRequest(missing, path), new Date(10)).reason).toBe(
-                "missingGrant"
+                "invalidBinding"
             );
             const wrongSubject = activeBinding(allow, {
                 subject: SubjectRef.principal(new PrincipalRef(tenantId, new PrincipalId("other")))
             });
             expect(runtime.check(checkRequest(wrongSubject, path), new Date(10)).reason).toBe(
-                "noMatchingAllow"
+                "invalidBinding"
             );
             const wrongFacet = activeBinding(allow, {
                 facet: new FacetRef("workspace:other.facet")
             });
             expect(runtime.check(checkRequest(wrongFacet, path), new Date(10)).reason).toBe(
-                "noMatchingAllow"
+                "invalidBinding"
             );
 
             store.grantRecords[0] = allow.revoke();
             expect(runtime.check(checkRequest(binding, path), new Date(10)).reason).toBe(
                 "revokedGrant"
+            );
+        }
+    );
+
+    test(
+        "rejects request Binding bytes that differ from the canonical Tenant record",
+        { tags: "p0" },
+        () => {
+            const store = new FakeAuthorityStore();
+            store.principalRecord = new Principal(principalId, "user", "active");
+            const allow = directGrant("canonical-binding");
+            store.grantRecords.push(allow);
+            const canonical = activeBinding(allow);
+            const substituted = canonical.replace(allow.id, new FacetRef("workspace:forged"));
+            const runtime = new TenantAuthorityRuntime(store, issuer);
+
+            expect(runtime.check(checkRequest(substituted, fixedPath()), new Date(10)).reason).toBe(
+                "invalidBinding"
+            );
+            expect(runtime.check(checkRequest(canonical, fixedPath()), new Date(10)).allowed).toBe(
+                true
             );
         }
     );
@@ -1157,6 +1178,11 @@ class FakeAuthorityStore implements TenantAuthorityReadStore {
     }
     public guestTrust(id: GuestTrustId): GuestTrust | undefined {
         return this.trustRecords.find((record) => record.id.equals(id));
+    }
+    public binding(key: string): Binding | undefined {
+        return this.grantRecords
+            .map((grant) => activeBinding(grant))
+            .find((record) => record.key === key);
     }
     public grant(id: GrantId): Grant | undefined {
         return this.grantRecords.find((record) => record.id.equals(id));

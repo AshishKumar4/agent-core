@@ -229,8 +229,11 @@ direct and team Memberships under the precedence rule of §3.3.
 - a **Project** groups Workspaces for organization, policy, and sharing. It is a
   record owned by the Tenant's Actor, not a coordination unit of its own (§8.1,
   §10.1) — grouping your workspaces costs nothing at runtime.
-- a **Workspace** is the composition boundary. It hosts Facet installs, Bindings,
-  Events, Subscriptions, Agents, Runs, and Slates, and enforces workspace policy.
+- a **Workspace** is the composition boundary. It hosts Facet installs and the
+  subject-local names selected by Bindings, plus Events, Subscriptions, Agents, Runs,
+  and Slates, and enforces workspace policy. The Tenant Actor owns each canonical
+  Binding alongside its backing Grants and path epochs; a Workspace retains only
+  Binding ids or disposable lookup indexes.
 
 *Why a fixed chain rather than arbitrary nesting:* two container levels are what most
 mature resource hierarchies converged on (cloud providers, code forges), they cover
@@ -1991,6 +1994,12 @@ record, and durable records never own live substrate resources.
 6. Conformance includes an **ownership map** artifact — record type → owning Actor —
    verified against the implementation.
 
+In particular, the Tenant Actor is the sole durable owner of Binding, Grant, and
+ScopeEpoch records. Creating, replacing, or deactivating a Binding and advancing its
+affected path epoch occur in one Tenant-local control transaction. Workspace and Run
+Actors may retain Binding ids and rebuildable indexes, never canonical or mirrored
+Binding records.
+
 These rules exist because mirrored state is the most expensive class of bug a durable
 platform can have: two copies of the truth always eventually disagree, and by the time
 they do, both copies have already been read by something.
@@ -2169,8 +2178,8 @@ against those facts.
 
 | Construct | Hosting |
 | --- | --- |
-| Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
-| Workspace Actor | one DO per Workspace (SQLite): facet installs, bindings, its event log, subscriptions, runs (default) or run index (dedicated), tasks |
+| Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, canonical Bindings, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
+| Workspace Actor | one DO per Workspace (SQLite): facet installs, Binding ids and rebuildable lookup indexes only, its event log, subscriptions, runs (default) or run index (dedicated), tasks |
 | Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2. |
 | Turn execution | in the Run-owning DO; each Turn retains a placement snapshot, and offloaded callbacks carry exact Turn, holder, and epoch — delivery is at-least-once and mismatches reject |
 | Environment | Sandbox SDK container or session DO; tree checkpoints and filesystem durability via R2 snapshots; preview via authenticated exposed ports |

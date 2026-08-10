@@ -25,11 +25,12 @@ import {
     type TenantKind
 } from "../identity";
 import { bytesEqual } from "./data";
+import { Binding } from "./binding";
 import { ScopeEpoch } from "./epoch";
 import { Grant } from "./grant";
 import type { GrantId } from "./id";
 import { RoleGrantMaterializer } from "./materializer";
-import { scopeKey } from "./reference";
+import { scopeKey, subjectKey } from "./reference";
 import {
     createTenantControlBootstrapPlan,
     type AuthorityMutationStore,
@@ -66,6 +67,7 @@ export interface MemoryTenantControlSnapshot {
     readonly marker: MemoryTenantControlMarkerSnapshot | null;
     readonly identity: MemoryIdentitySnapshot;
     readonly grants: readonly StoredTenantControlRecord[];
+    readonly bindings: readonly StoredTenantControlRecord[];
     readonly epochs: readonly StoredTenantControlRecord[];
 }
 
@@ -82,6 +84,7 @@ type WriteMode = "bootstrap" | "mutation";
 export class MemoryTenantControlStore implements AuthorityMutationStore {
     #identity: Map<string, StoredIdentityRecord>;
     #grants: RecordMap;
+    #bindings: RecordMap;
     #epochs: RecordMap;
     readonly #anchor: MemoryTenantControlAnchorSnapshot;
     #marker: MemoryTenantControlMarkerSnapshot | null;
@@ -107,6 +110,12 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             (record) => record.id.value,
             "Grant"
         );
+        this.#bindings = loadRecords(
+            snapshot.bindings,
+            Binding.decode,
+            (record) => record.key,
+            "Binding"
+        );
         this.#epochs = loadRecords(
             snapshot.epochs,
             ScopeEpoch.decode,
@@ -124,6 +133,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 marker: null,
                 identity: Object.freeze({ version: SNAPSHOT_VERSION, records: Object.freeze([]) }),
                 grants: Object.freeze([]),
+                bindings: Object.freeze([]),
                 epochs: Object.freeze([])
             })
         );
@@ -157,6 +167,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             this.#marker === null &&
             this.#identity.size === 0 &&
             this.#grants.size === 0 &&
+            this.#bindings.size === 0 &&
             this.#epochs.size === 0
         );
     }
@@ -198,6 +209,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             marker: this.#marker === null ? null : copyMarkerSnapshot(this.#marker),
             identity: this.identitySnapshot(),
             grants: snapshotRecords(this.#grants),
+            bindings: snapshotRecords(this.#bindings),
             epochs: snapshotRecords(this.#epochs)
         });
     }
@@ -350,6 +362,14 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         return decodeRecords(this.#grants, Grant.decode, (record) => record.id.value, "Grant");
     }
 
+    public binding(key: string): Binding | undefined {
+        return decodeRecord(this.#bindings, key, Binding.decode, (record) => record.key, "Binding");
+    }
+
+    public bindings(): readonly Binding[] {
+        return decodeRecords(this.#bindings, Binding.decode, (record) => record.key, "Binding");
+    }
+
     public epoch(scope: ScopeEpoch["scope"]): ScopeEpoch {
         return (
             decodeRecord(
@@ -467,6 +487,31 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             Grant.decode,
             (value) => value.id.value,
             "Grant"
+        );
+    }
+
+    public putBinding(record: Binding): void {
+        this.requireWrite();
+        requireCanonicalScope(this, record.scope);
+        const previous = this.binding(record.key);
+        if (previous === undefined) {
+            if (record.generation !== 0 || record.revision.value !== 0) {
+                throw new AgentCoreError(
+                    "protocol.revision-conflict",
+                    "New Bindings require generation and revision zero"
+                );
+            }
+        } else {
+            if (bytesEqual(Binding.encode(previous), Binding.encode(record))) return;
+            previous.assertCanReplace(record);
+        }
+        putCanonical(
+            this.#bindings,
+            record.key,
+            Binding.encode(record),
+            Binding.decode,
+            (value) => value.key,
+            "Binding"
         );
     }
 
@@ -751,6 +796,18 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 }
             }
         }
+        for (const binding of this.bindings()) {
+            requireCanonicalScope(this, binding.scope);
+            const grant = grantsById.get(binding.grantId.value);
+            if (
+                grant === undefined ||
+                grant.effect !== "allow" ||
+                subjectKey(grant.subject) !== subjectKey(binding.subject) ||
+                !binding.scope.path.some((scope) => scope.equals(grant.scope))
+            ) {
+                throw corruptMemoryTenantControl("Binding references invalid Tenant authority");
+            }
+        }
         for (const membership of this.memberships()) {
             const role = this.role(membership.role)!;
             const owned = grants.filter(
@@ -785,6 +842,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             [...candidate.#identity].map(([key, record]) => [key, copyIdentityRecord(record)])
         );
         this.#grants = copyMap(candidate.#grants);
+        this.#bindings = copyMap(candidate.#bindings);
         this.#epochs = copyMap(candidate.#epochs);
         this.#marker = candidate.#marker === null ? null : copyMarkerSnapshot(candidate.#marker);
     }
@@ -794,9 +852,18 @@ function requireSnapshot(snapshot: MemoryTenantControlSnapshot): void {
     if (
         snapshot === null ||
         typeof snapshot !== "object" ||
-        !hasExactKeys(snapshot, ["anchor", "epochs", "grants", "identity", "marker", "version"]) ||
+        !hasExactKeys(snapshot, [
+            "anchor",
+            "bindings",
+            "epochs",
+            "grants",
+            "identity",
+            "marker",
+            "version"
+        ]) ||
         snapshot.version !== SNAPSHOT_VERSION ||
         !Array.isArray(snapshot.grants) ||
+        !Array.isArray(snapshot.bindings) ||
         !Array.isArray(snapshot.epochs) ||
         (snapshot.marker !== null && typeof snapshot.marker !== "object")
     ) {
