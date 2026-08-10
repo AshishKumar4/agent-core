@@ -29,21 +29,21 @@ evidence agree where applicable.
       verification transitions after bootstrap. Prove mediation safety across these live
       interleavings.
 - [ ] **Finish the release gate honestly.** The source stage is `building`, conformance
-      is 394/412, and 1,599 mutation survivors remain actionable. `check:final` must not
+      is 395/412, and 1,599 mutation survivors remain actionable. `check:final` must not
       pass until conformance is complete, mutation is closed, all aggregate coverage is at
       least 95%, and live evidence is bound to the exact release tree and deployment.
 
 ## P1 — missing normative implementation
 
-- [ ] **Implement the concrete Turn host and agent harness.** `TurnExecutor` is only an
-      internal abstract seam with a fake test subclass. No production host calls a model,
-      binds tools, streams output, checkpoints, recovers, or settles a Turn. Reopen the
-      integration-ledger entry that falsely marks TurnExecutor host composition accepted
-      using unrelated Run-frontier evidence.
-- [ ] **Make the executor boundary typed and public.** Replace raw facet/operation
-      strings with the existing typed `OperationDescriptor` source of truth; provide
+- [x] **Implement the concrete Turn host and agent harness.** `TurnExecutorHost` now calls
+      the model, binds tools, streams ephemeral output, checkpoints, recovers, and settles
+      the exact leased Turn through canonical Run records. The integration-ledger entry
+      now cites this host and its adversarial tests instead of unrelated Run-frontier
+      evidence.
+- [x] **Make the executor boundary typed and public.** `TurnBoundTool` uses the existing
+      `OperationDescriptor` source of truth, and the supported Run export exposes
       lease-scoped prompt/content, inbox, invocation, commit, checkpoint, cancellation,
-      model-call, usage, and stream contracts through a supported package export.
+      model-call, usage, and stream contracts.
 - [ ] **Implement all interceptor cut points through one engine.** Only
       `operation.before` and `operation.after` execute. `prompt.assemble`,
       `input.submitted`, and `turn.step` are declarations without runtime behavior.
@@ -217,7 +217,7 @@ evidence agree where applicable.
 - [ ] `C13-RUN-CHECKPOINT-KINDS`
 - [ ] `C13-RUN-PIN-IDENTITY-TYPES`
 - [ ] `C13-RUN-TREE-CONFLICT-EXPLICIT`
-- [ ] `C13-TURN-MODEL-CALL`
+- [x] `C13-TURN-MODEL-CALL`
 - [ ] `C13-VIEW-APPROVAL-PROVENANCE`
 - [ ] `P11-ENVIRONMENT-NO-AMBIENT-EGRESS`
 
@@ -226,7 +226,7 @@ evidence agree where applicable.
 1. Fix identity/cache security and inaccurate evidence mappings.
 2. Reconcile bounded contexts, ownership, and public contracts before adding harness
    types.
-3. Close the 18 conformance atoms, coherence findings, mutation survivors, and final
+3. Close the 17 conformance atoms, coherence findings, mutation survivors, and final
    release gate.
 4. Implement one typed, crash-safe pi Turn vertical slice.
 5. Add the shared step pipeline, dynamic context, and ACP adapters.

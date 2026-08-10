@@ -4322,23 +4322,43 @@
       "outcome": {
         "kind": "applied",
         "treatment": "accepted",
-        "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
-        "tree": "fd32865cc559459b7ff45c358d5a7a8e6a8a5b54",
-        "rationale": "Concrete composition adapters bind W5 ports without copying foreign records.",
+        "commit": "e31679e1f113b4de569123ef92733415240fd140",
+        "tree": "6cd8602b8c72157f71399bdb0a32e1928bb0996d",
+        "rationale": "Concrete composition adapters bind W5 ports without copying foreign records, and TurnExecutorHost binds the exact leased Turn to canonical Run state and mediated Operations.",
         "tests": [
-          "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition captures exact reserved-minus-completed Run frontier across restart and close races"
+          "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition captures exact reserved-minus-completed Run frontier across restart and close races",
+          "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
+          "test/agents/runs/executor.test.ts#TurnExecutor seam adapts one exact bound tool to the existing mediated OperationGateway and disposes it",
+          "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle",
+          "test/agents/runs/executor.test.ts#TurnExecutor seam atomically suspends with the canonical checkpoint and recovers it after restart",
+          "test/agents/runs/executor.test.ts#TurnExecutor seam recovers a committed result when the executor crashes before returning and never reruns it"
         ],
         "checks": [],
         "artifacts": [
           {
             "path": "packages/agent-core/src/composition/run-evidence.ts",
-            "blob": "fb5a4c500c050971daedd23534f2efe2aa4f5cfc",
-            "sha256": "3a1339869d642af473a138cfc59993109ae834f3037cd9f8eefa4e0eb597acbf"
+            "blob": "a4638e771f023e47b575cfe9c3acaa7c5008d868",
+            "sha256": "fa353ef1b2f4f35ac552bfd6080fdc5884dc2288d7c726da41bd88138296c3ab"
           },
           {
             "path": "packages/agent-core/test/integration/conformance/w9-composition.test.ts",
-            "blob": "819e383cb25fe05d873b0dc680f9a3dafb98d06e",
-            "sha256": "8c9b39284054af95991e49d14bedba2c9fb8b288afe080ef144d66e552cfc4ab"
+            "blob": "ba8492aaf693518d222d30258855a1048f7d0772",
+            "sha256": "e51cf5409e9e3baac43fbe8865c5786c0cae514f8c4441a9af3b7fe4d747ed28"
+          },
+          {
+            "path": "packages/agent-core/src/agents/runs/executor.ts",
+            "blob": "58db6d0e95375a4d07ee0b70a3403d9b8e0ec8bb",
+            "sha256": "65ecbc38d5d4a7b774c4bead8fbfa5cf65aa74053611ed33008949f631b8d9ea"
+          },
+          {
+            "path": "packages/agent-core/src/agents/runs/index.ts",
+            "blob": "b7ef2e0cb0998ff8b68b24ee9a86879b2de31619",
+            "sha256": "53bd4e464cc8903524699be5a19877ce9f471f46d8440ff6bcc389cf9375da79"
+          },
+          {
+            "path": "packages/agent-core/test/agents/runs/executor.test.ts",
+            "blob": "401d246b26b039ae029abcaf27dcf237d0be6f18",
+            "sha256": "8af11117778219a29ae011da6a045872358eba6d38609fb137fdc76adba575d2"
           }
         ],
         "items": [
@@ -4508,13 +4528,18 @@
             "anchor": "#/ports/10",
             "atomSha256": "5a80de82138d223473066e11dc1a84a741bb53b4f512b886f6f3567c927f8dfa",
             "treatment": "accepted",
-            "rationale": "Concrete composition adapters bind W5 ports without copying foreign records. Atomic obligation packages/agent-core/artifacts/requests/W5/ports.json::ports::TurnExecutor host composition is explicitly classified.",
+            "rationale": "TurnExecutorHost binds exact lease-scoped prompt and content access, durable inbox cancellation, mediated OperationGateway invocation, Run commits, checkpoints, model calls, ephemeral streams, and canonical outcome recovery without copying foreign records or creating alternate durable history.",
             "artifactPaths": [
-              "packages/agent-core/src/composition/run-evidence.ts",
-              "packages/agent-core/test/integration/conformance/w9-composition.test.ts"
+              "packages/agent-core/src/agents/runs/executor.ts",
+              "packages/agent-core/src/agents/runs/index.ts",
+              "packages/agent-core/test/agents/runs/executor.test.ts"
             ],
             "tests": [
-              "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition captures exact reserved-minus-completed Run frontier across restart and close races"
+              "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
+              "test/agents/runs/executor.test.ts#TurnExecutor seam adapts one exact bound tool to the existing mediated OperationGateway and disposes it",
+              "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle",
+              "test/agents/runs/executor.test.ts#TurnExecutor seam atomically suspends with the canonical checkpoint and recovers it after restart",
+              "test/agents/runs/executor.test.ts#TurnExecutor seam recovers a committed result when the executor crashes before returning and never reruns it"
             ],
             "checks": []
           }
