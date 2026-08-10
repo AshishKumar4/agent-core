@@ -344,40 +344,17 @@ class LeaseScopedTurn<Transaction> {
             if (findCancellation(repository.listInbox(transaction, turn.id), this.token)) {
                 this.#controller.abort();
             }
-            turn.requireToken(this.token, now);
-            const branch = required(
-                repository.loadBranch(transaction, turn.branch),
-                "Turn executor branch does not exist"
-            );
-            const head = required(
-                repository.loadCommit(transaction, branch.head),
-                "Turn executor branch head does not exist"
-            );
-            const effectiveCommit = required(
-                repository.loadCommit(transaction, turn.effectiveInput),
-                "Turn executor effective input does not exist"
-            );
-            const placement = required(
-                repository.loadPlacement(transaction, turn.id),
-                "Turn executor placement does not exist"
-            );
-            const checkpoint =
-                turn.checkpoint === undefined
-                    ? undefined
-                    : required(
-                          repository.loadCheckpoint(transaction, turn.checkpoint),
-                          "Turn executor checkpoint does not exist"
-                      );
+            const joined = repository.loadExecutionScope(transaction, this.token, now);
             return Object.freeze({
                 scope: Object.freeze({
-                    turn,
+                    turn: joined.turn,
                     token: this.token,
-                    effectiveCommit,
-                    placement,
-                    resumeCheckpoint: checkpoint
+                    effectiveCommit: joined.effectiveCommit,
+                    placement: joined.placement,
+                    resumeCheckpoint: joined.checkpoint
                 }),
-                branch,
-                head,
+                branch: joined.branch,
+                head: joined.head,
                 now
             });
         });
@@ -614,7 +591,7 @@ class ScopedCommitHandle<Transaction> extends TurnCommitHandle {
         }
         await this.scope.requireContent(required(commit.content, "Turn commit requires content"));
         const snapshot = this.scope.active();
-        this.scope.init.runtime.appendCommit(commit, snapshot.branch.revision, snapshot.now);
+        this.scope.init.runtime.appendTurnCommit(commit, snapshot.branch.revision, snapshot.now);
         this.scope.active();
         return commit.id;
     }
@@ -772,11 +749,15 @@ function findCancellation(
     entries: readonly TurnInboxEntry[],
     token: LeaseToken
 ): TurnInboxEntry | undefined {
-    return entries.find(
+    const matches = entries.filter(
         (entry) =>
             entry.cancellationToken !== undefined &&
             leaseTokensEqual(entry.cancellationToken, token)
     );
+    if (matches.some((entry) => entry.event !== "turn.cancel") || matches.length > 1) {
+        throw invalidTurn("Turn executor cancellation evidence is not canonical");
+    }
+    return matches[0];
 }
 
 function outcomesEqual(left: TurnOutcome, right: TurnOutcome): boolean {
