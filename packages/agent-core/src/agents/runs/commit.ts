@@ -14,7 +14,7 @@ import {
     requireString
 } from "../record-data";
 import { RunBranchId, RunId } from "./id";
-import { leaseTokenFromData, leaseTokenToData, type LeaseToken } from "./lease";
+import { leaseTokenFromData, leaseTokenToData, leaseTokensEqual, type LeaseToken } from "./lease";
 import { RunPins } from "./pins";
 import type { RunEvidencePort } from "./evidence";
 
@@ -141,6 +141,15 @@ export class RunCommit extends CodecRecord {
         validateClosedShape(this);
         this.proposalDigest = Digest.sha256(encodeCanonicalJson(this.proposalData()));
         Object.freeze(this);
+    }
+
+    public isTurnAuthored(kind: RunCommitKind, token: LeaseToken): boolean {
+        if (this.writer.kind !== "turn") return false;
+        return (
+            this.kind === kind &&
+            this.subjectTurn?.equals(token.turn) === true &&
+            leaseTokensEqual(this.writer.token, token)
+        );
     }
 
     public toData(): JsonValue {
@@ -363,7 +372,7 @@ export function validateCommitWriter<Transaction>(
             synthesis === undefined ||
             !synthesis.run.equals(commit.run) ||
             !synthesis.receipt.equals(commit.resolution.receipt) ||
-            !tokensEqual(synthesis.token, commit.resolution.token) ||
+            !leaseTokensEqual(synthesis.token, commit.resolution.token) ||
             !commit.content?.equals(synthesis.content)
         ) {
             throw deniedEvidence("Synthesis evidence does not match the exact token and content");
@@ -543,24 +552,19 @@ function writerData(writer: CommitWriter): JsonValue {
     if (writer.kind === "root") return { kind: "root" };
     if (writer.kind === "turn") return { kind: "turn", token: tokenData(writer.token) };
     const cause = writer.cause;
-    return cause.kind === "receipt"
+    return cause.kind === "delivery"
         ? {
               kind: "system",
-              cause: { kind: cause.kind, audit: cause.audit.value, receipt: cause.receipt.value }
+              cause: {
+                  kind: cause.kind,
+                  audit: cause.audit.value,
+                  reservation: cause.reservation.value
+              }
           }
-        : cause.kind === "delivery"
-          ? {
-                kind: "system",
-                cause: {
-                    kind: cause.kind,
-                    audit: cause.audit.value,
-                    reservation: cause.reservation.value
-                }
-            }
-          : {
-                kind: "system",
-                cause: { kind: cause.kind, audit: cause.audit.value, receipt: cause.receipt.value }
-            };
+        : {
+              kind: "system",
+              cause: { kind: cause.kind, audit: cause.audit.value, receipt: cause.receipt.value }
+          };
 }
 
 function requireCommitWriter(value: JsonValue): CommitWriter {
@@ -743,14 +747,6 @@ function copyToken(token: LeaseToken): LeaseToken {
     return Object.freeze({ turn: token.turn, holder: token.holder, epoch: token.epoch });
 }
 
-function tokensEqual(left: LeaseToken, right: LeaseToken): boolean {
-    return (
-        left.turn.equals(right.turn) &&
-        left.holder.equals(right.holder) &&
-        left.epoch === right.epoch
-    );
-}
-
 function optionalIdsEqual(left: TurnId | undefined, right: TurnId | undefined): boolean {
     return left === undefined ? right === undefined : right !== undefined && left.equals(right);
 }
@@ -776,8 +772,7 @@ function requireCommitKind(value: JsonValue | undefined): RunCommitKind {
         "undo",
         "migration"
     ];
-    if (typeof value === "string" && kinds.includes(value as RunCommitKind))
-        return value as RunCommitKind;
+    if (kinds.includes(value as RunCommitKind)) return value as RunCommitKind;
     throw new TypeError("Run commit kind is invalid");
 }
 

@@ -9,6 +9,14 @@ export interface LeaseToken {
     readonly epoch: number;
 }
 
+export function leaseTokensEqual(left: LeaseToken, right: LeaseToken): boolean {
+    return (
+        left.turn.equals(right.turn) &&
+        left.holder.equals(right.holder) &&
+        left.epoch === right.epoch
+    );
+}
+
 export interface TurnLeaseVerifier {
     permits(token: LeaseToken): boolean;
 }

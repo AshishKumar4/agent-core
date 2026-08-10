@@ -262,14 +262,19 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-CHECKPOINT-KINDS",
       "specTextSha256": "sha256:68d92df0f54f00c2a831180e616216e664e59ee259164084697b2911828d209f",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#ScopedModelHandle",
+        "src/agents/runs/executor.ts#TurnExecutorHost"
+      ],
+      "testSelectors": [
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-EQUAL-PIN-MERGE",
