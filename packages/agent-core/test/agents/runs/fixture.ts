@@ -42,7 +42,7 @@ import {
 import { RunRepository } from "../../../src/agents/runs/store";
 import { AcceptanceId, RunBranchId, RunId } from "../../../src/agents/runs/id";
 import { Turn, type TurnInit } from "../../../src/agents/runs/turn";
-import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
+import { type PlacementPin, TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 
 export const ids = Object.freeze({
     actor: new ActorRef("workspace", new ActorId("workspace-1")),
@@ -273,12 +273,16 @@ export function harness(snapshot?: ReturnType<MemoryRunStorage["snapshot"]>) {
     };
 }
 
-export function seedRunningTurn(value = harness(), init: Partial<TurnInit> = {}) {
+export function seedRunningTurn(
+    value = harness(),
+    init: Partial<TurnInit> = {},
+    placements: readonly PlacementPin[] = []
+) {
     if (value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run)) === undefined) {
         value.runtime.createRun(genesis());
     }
     const turnId = init.id ?? ids.turn;
-    const placement = new TurnPlacementSnapshot(turnId, init.pins ?? pins(), []);
+    const placement = new TurnPlacementSnapshot(turnId, init.pins ?? pins(), placements);
     const queued = new Turn({
         id: turnId,
         run: init.run ?? ids.run,
