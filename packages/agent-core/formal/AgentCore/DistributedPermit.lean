@@ -468,6 +468,16 @@ theorem restart_invalidates_volatile_authentication {before after actor}
   simp only [exactAuthenticated] at authenticated ⊢
   simp [authenticated]
 
+theorem reset_invalidates_volatile_authentication {before after actor}
+    (step : PermitStep before (.reset actor) after)
+    {permit : AuthorityPermit} (target : permit.expectation.target = actor)
+    (authenticated : exactAuthenticated before.permits permit) :
+    ¬ exactAuthenticated after.permits permit := by
+  cases step
+  subst actor
+  simp only [exactAuthenticated] at authenticated ⊢
+  simp [authenticated]
+
 theorem reset_preserves_durable_permit_state {before after actor}
     (step : PermitStep before (.reset actor) after) :
     after.permits.targetRequests = before.permits.targetRequests ∧
@@ -475,6 +485,28 @@ theorem reset_preserves_durable_permit_state {before after actor}
     after.permits.consumptions = before.permits.consumptions := by
   cases step
   exact ⟨rfl, rfl, rfl⟩
+
+theorem commit_unknown_before_issue_preserves_state {before after issuer nonce}
+    (step : PermitStep before (.issueUnknownBefore issuer nonce) after) :
+    after = before := by
+  cases step
+  rfl
+
+theorem commit_unknown_after_issue_persists_exact_record {before after issuer nonce}
+    (step : PermitStep before (.issue issuer nonce .unknown) after) :
+    ∃ permit, exactIssued after.permits permit ∧
+      permit.expectation.issuer = issuer ∧ permit.nonce = nonce := by
+  cases step with
+  | @issue request expiresAt observation transported ready fresh expiry =>
+      refine ⟨⟨request.expectation, request.nonce,
+        (tenantIssueView before request.expectation.issuer).now, expiresAt⟩, ?_, rfl, rfl⟩
+      simp [exactIssued]
+
+theorem commit_unknown_before_consume_preserves_state {before after target nonce}
+    (step : PermitStep before (.consumeUnknownBefore target nonce) after) :
+    after = before := by
+  cases step
+  rfl
 
 theorem target_attempt_step_stores_exact_attempt
     {before expectation now attemptId attempt auditId after}
@@ -544,6 +576,77 @@ theorem consume_is_exact_requested_authenticated_and_atomic
       have claimReady := target_attempt_step_requires_claim_ready localStep
       refine ⟨_, _, authenticated, requested, claimReady, rfl, rfl, stored, ?_, exactMatch⟩
       simp
+
+theorem commit_unknown_after_consume_persists_attempt_and_consumption
+    {before after target nonce attemptId}
+    (step : PermitStep before (.consume target nonce attemptId .unknown) after) :
+    ∃ permit attempt,
+      exactAuthenticated before.permits permit ∧
+      exactRequested before.permits ⟨permit.expectation, permit.nonce⟩ ∧
+      after.core.effects.attempts attemptId = some attempt ∧
+      after.permits.consumptions target nonce = some ⟨permit, attemptId⟩ ∧
+      permit.expectation.MatchesAttempt attempt := by
+  obtain ⟨permit, attempt, authenticated, requested, claimReady, targetEq, nonceEq,
+    stored, consumed, exactMatch⟩ :=
+    consume_is_exact_requested_authenticated_and_atomic step
+  exact ⟨permit, attempt, authenticated, requested, stored, consumed, exactMatch⟩
+
+theorem exact_authenticated_permit_substitution_resistant
+    {state : PermitProtocolState} {left right : AuthorityPermit}
+    (leftAuthenticated : exactAuthenticated state left)
+    (rightAuthenticated : exactAuthenticated state right)
+    (sameTarget : left.expectation.target = right.expectation.target)
+    (sameNonce : left.nonce = right.nonce) : left = right := by
+  unfold exactAuthenticated at leftAuthenticated rightAuthenticated
+  rw [sameTarget, sameNonce, rightAuthenticated] at leftAuthenticated
+  cases Option.some.inj leftAuthenticated
+  rfl
+
+theorem consume_requires_current_fence_and_unexpired
+    {before after target nonce attempt observation}
+    (step : PermitStep before (.consume target nonce attempt observation) after) :
+    ∃ permit,
+      exactAuthenticated before.permits permit ∧
+      target = permit.expectation.target ∧ nonce = permit.nonce ∧
+      permit.expectation.targetFence =
+        before.permits.targetFence permit.expectation.target ∧
+      before.permits.now.tick < permit.expiresAt.tick := by
+  cases step with
+  | consume authenticated requested fence issuedAt unexpired unused localStep =>
+      exact ⟨_, authenticated, rfl, rfl, fence, unexpired⟩
+
+theorem expired_permit_cannot_consume
+    {before after : DistributedSystemState} {permit : AuthorityPermit}
+    {attempt : AttemptId} {observation : CommitObservation}
+    (authenticated : exactAuthenticated before.permits permit)
+    (expired : permit.expiresAt.tick ≤ before.permits.now.tick) :
+    ¬ PermitStep before
+      (.consume permit.expectation.target permit.nonce attempt observation) after := by
+  intro step
+  obtain ⟨candidate, candidateAuthenticated, targetEq, nonceEq, _, unexpired⟩ :=
+    consume_requires_current_fence_and_unexpired step
+  have same : candidate = permit :=
+    exact_authenticated_permit_substitution_resistant candidateAuthenticated authenticated
+      targetEq.symm nonceEq.symm
+  subst candidate
+  omega
+
+theorem changed_target_fence_cannot_consume
+    {before after : DistributedSystemState} {permit : AuthorityPermit}
+    {attempt : AttemptId} {observation : CommitObservation}
+    (authenticated : exactAuthenticated before.permits permit)
+    (changed : permit.expectation.targetFence ≠
+      before.permits.targetFence permit.expectation.target) :
+    ¬ PermitStep before
+      (.consume permit.expectation.target permit.nonce attempt observation) after := by
+  intro step
+  obtain ⟨candidate, candidateAuthenticated, targetEq, nonceEq, fence, _⟩ :=
+    consume_requires_current_fence_and_unexpired step
+  have same : candidate = permit :=
+    exact_authenticated_permit_substitution_resistant candidateAuthenticated authenticated
+      targetEq.symm nonceEq.symm
+  subst candidate
+  exact changed fence
 
 theorem consumed_nonce_identifies_at_most_one_attempt
     {state : DistributedSystemState} {target : ActorRef} {nonce : PermitNonce}

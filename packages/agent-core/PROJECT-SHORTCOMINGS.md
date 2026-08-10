@@ -26,9 +26,12 @@ evidence agree where applicable.
       EffectAttempt/audit atomicity. Reachability proves that transported, authenticated,
       and consumed permits have historical Tenant issuance without making consumption
       read issuer storage. It covers replay, expiry, restart/reset, and before/after
-      commit-unknown observations without a cross-Actor transaction. Ordinary Actor-local
-      mediated attempts remain a separate legal path. This closes the abstract-model P0
-      only; the unchecked TypeScript/storage/Cloudflare refinement P0 above remains open.
+      commit-unknown observations without a cross-Actor transaction. Every attempt in the
+      current reachable system requires exact request, issuance, consumption, and attempt
+      evidence; no Actor-local boolean or claimed admission path exists. A generic
+      Actor-local path remains open only if future canonical authority ownership makes it
+      realizable in one owner transaction. This closes the abstract-model P0 only; the
+      unchecked TypeScript/storage/Cloudflare refinement P0 above remains open.
 - [ ] **Model live authority administration through mediated capabilities.** Canonical
       reachability currently initializes authority only in trusted bootstrap. It does not
       admit raw `AuthorityStep` or Role rematerialization as an ungated runtime path.

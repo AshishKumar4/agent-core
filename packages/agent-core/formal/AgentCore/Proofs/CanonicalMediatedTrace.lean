@@ -123,7 +123,6 @@ private def trustedDistributed : DistributedSystemState := ⟨trustedGenesis, de
 private def auditedDistributed : DistributedSystemState := ⟨auditedState, default⟩
 private def intentDistributed : DistributedSystemState := ⟨intentState, default⟩
 private def claimedDistributed : DistributedSystemState := ⟨claimedState, default⟩
-private def localAttemptedDistributed : DistributedSystemState := ⟨attemptedState, default⟩
 private def timedPermits : PermitProtocolState := { (default : PermitProtocolState) with now := ⟨1⟩ }
 private def timedState : DistributedSystemState := ⟨claimedState, timedPermits⟩
 private def requestedPermits : PermitProtocolState := {
@@ -175,6 +174,16 @@ private def authenticatedPermits : PermitProtocolState := {
     (some ⟨permit, resetPermits.incarnation owner⟩)
 }
 private def authenticatedState : DistributedSystemState := ⟨claimedState, authenticatedPermits⟩
+private def expiredPermits : PermitProtocolState := {
+  authenticatedPermits with now := permit.expiresAt
+}
+private def expiredState : DistributedSystemState := ⟨claimedState, expiredPermits⟩
+private def fencedPermits : PermitProtocolState := {
+  authenticatedPermits with targetFence := fun actor =>
+    if actor = owner then authenticatedPermits.targetFence actor + 1
+    else authenticatedPermits.targetFence actor
+}
+private def fencedState : DistributedSystemState := ⟨claimedState, fencedPermits⟩
 private def consumedPermits : PermitProtocolState := {
   authenticatedPermits with
   consumptions := tableSet2 authenticatedPermits.consumptions owner nonce
@@ -596,6 +605,15 @@ private theorem consumePermit :
   · rfl
   · exact targetAttempt
 
+private theorem advancePastPermitExpiry :
+    PermitStep authenticatedState (.advanceTime permit.expiresAt) expiredState := by
+  apply PermitStep.advanceTime
+  decide
+
+private theorem changeTargetFence :
+    PermitStep authenticatedState (.advanceFence owner) fencedState := by
+  apply PermitStep.advanceFence
+
 private theorem restartAfterConsumption :
     PermitStep attemptedDistributed (.restart owner) replayRestartedState := by
   apply PermitStep.restart
@@ -620,17 +638,13 @@ private theorem trustedBootstrap : TrustedGenesis trustedDistributed := by
 private theorem trustedReachable : Reachable trustedDistributed := .initial trustedBootstrap
 
 private theorem auditedReachable : Reachable auditedDistributed :=
-  .step trustedReachable (.mediated (label := .audit (.append rootAuditId)) appendRootAudit)
+  .step trustedReachable (.mediated (by trivial) appendRootAudit)
 
 private theorem intentReachable : Reachable intentDistributed :=
-  .step auditedReachable (.mediated (label := .persistIntent invocationId) persistIntent)
+  .step auditedReachable (.mediated (by trivial) persistIntent)
 
 private theorem claimedReachable : Reachable claimedDistributed :=
-  .step intentReachable (.mediated (label := .claimItem invocationId 0 ⟨1⟩) claimItem)
-
-private theorem localAttemptedReachable : Reachable localAttemptedDistributed :=
-  .step claimedReachable (.mediated (label := .start invocationId attemptId attemptAuditId)
-    startAttempt)
+  .step intentReachable (.mediated (by trivial) claimItem)
 
 private theorem timedReachable : Reachable timedState :=
   .step claimedReachable (.permit advanceToIssueTime)
@@ -671,6 +685,12 @@ private theorem authenticatedReachable : Reachable authenticatedState :=
 private theorem attemptedReachable : Reachable attemptedDistributed :=
   .step authenticatedReachable (.permit consumePermit)
 
+private theorem expiredReachable : Reachable expiredState :=
+  .step authenticatedReachable (.permit advancePastPermitExpiry)
+
+private theorem fencedReachable : Reachable fencedState :=
+  .step authenticatedReachable (.permit changeTargetFence)
+
 private theorem replayRestartedReachable : Reachable replayRestartedState :=
   .step attemptedReachable (.permit restartAfterConsumption)
 
@@ -686,21 +706,6 @@ theorem canonical_single_item_mediated_attempt_reachable :
   refine ⟨attemptedReachable, attempt, admissionFor request, ?_, ?_, rfl, rfl⟩
   · rfl
   · rfl
-
-theorem canonical_actor_local_attempt_reachable :
-    Reachable localAttemptedDistributed ∧
-    localAttemptedDistributed.core.effects.attempts attemptId = some attempt :=
-  ⟨localAttemptedReachable, rfl⟩
-
-theorem canonical_actor_local_attempt_step :
-    ∃ before after invocation attemptId auditId attempt,
-      Reachable before ∧
-      SystemStep before (.mediated (.start invocation attemptId auditId)) after ∧
-      after.core.effects.attempts attemptId = some attempt ∧
-      after.permits = before.permits := by
-  refine ⟨claimedDistributed, localAttemptedDistributed, invocationId, attemptId,
-    attemptAuditId, attempt, claimedReachable, ?_, rfl, rfl⟩
-  exact .mediated startAttempt
 
 theorem canonical_witness_has_guarded_admission :
     AttemptsHaveGuardedAdmission attemptedDistributed.core.effects :=
@@ -740,6 +745,82 @@ theorem canonical_cross_actor_consumption_has_historical_issuance :
   · simp [exactAuthenticated, attemptedDistributed, consumedPermits,
       authenticatedPermits, permit, expectation]
   decide
+
+theorem canonical_reset_invalidates_authentication :
+    Reachable authenticatedOnceState ∧
+    PermitStep authenticatedOnceState (.reset owner) resetState ∧
+    exactAuthenticated authenticatedOnceState.permits permit ∧
+    ¬ exactAuthenticated resetState.permits permit := by
+  refine ⟨authenticatedOnceReachable, resetTarget, ?_, ?_⟩
+  · simp [exactAuthenticated, authenticatedOnceState, authenticatedOncePermits,
+      permit, expectation]
+  · exact reset_invalidates_volatile_authentication resetTarget rfl (by
+      simp [exactAuthenticated, authenticatedOnceState, authenticatedOncePermits,
+        permit, expectation])
+
+theorem canonical_expired_permit_cannot_consume :
+    Reachable expiredState ∧ exactAuthenticated expiredState.permits permit ∧
+    permit.expiresAt.tick ≤ expiredState.permits.now.tick ∧
+    ∀ next observation after,
+      ¬ PermitStep expiredState (.consume owner nonce next observation) after := by
+  refine ⟨expiredReachable, ?_, ?_, ?_⟩
+  · have authenticated : exactAuthenticated authenticatedState.permits permit := by
+      simp [exactAuthenticated, authenticatedState, authenticatedPermits,
+        permit, expectation]
+    simpa [expiredState, expiredPermits, authenticatedState] using authenticated
+  · simp [expiredState, expiredPermits]
+  · intro next observation after
+    have authenticated : exactAuthenticated expiredState.permits permit := by
+      have before : exactAuthenticated authenticatedState.permits permit := by
+        simp [exactAuthenticated, authenticatedState, authenticatedPermits,
+          permit, expectation]
+      simpa [expiredState, expiredPermits, authenticatedState] using before
+    simpa [permit, expectation] using
+      (expired_permit_cannot_consume (after := after)
+        (attempt := next) (observation := observation) authenticated (by
+          simp [expiredState, expiredPermits]))
+
+theorem canonical_changed_fence_cannot_consume :
+    Reachable fencedState ∧ exactAuthenticated fencedState.permits permit ∧
+    permit.expectation.targetFence ≠
+      fencedState.permits.targetFence permit.expectation.target ∧
+    ∀ next observation after,
+      ¬ PermitStep fencedState (.consume owner nonce next observation) after := by
+  refine ⟨fencedReachable, ?_, ?_, ?_⟩
+  · have authenticated : exactAuthenticated authenticatedState.permits permit := by
+      simp [exactAuthenticated, authenticatedState, authenticatedPermits,
+        permit, expectation]
+    simpa [fencedState, fencedPermits, authenticatedState] using authenticated
+  · simp [fencedState, fencedPermits, permit, expectation, owner]
+  · intro next observation after
+    have authenticated : exactAuthenticated fencedState.permits permit := by
+      have before : exactAuthenticated authenticatedState.permits permit := by
+        simp [exactAuthenticated, authenticatedState, authenticatedPermits,
+          permit, expectation]
+      simpa [fencedState, fencedPermits, authenticatedState] using before
+    simpa [permit, expectation] using
+      (changed_target_fence_cannot_consume (after := after)
+        (attempt := next) (observation := observation) authenticated (by
+          simp [fencedState, fencedPermits, permit, expectation, owner]))
+
+theorem canonical_commit_unknown_before_after_issue :
+    Reachable forwardedState ∧
+    PermitStep forwardedState (.issueUnknownBefore issuer nonce) forwardedState ∧
+    PermitStep forwardedState (.issue issuer nonce .unknown) issuedState ∧
+    forwardedState.permits.issuerRecords issuer nonce = none ∧
+    exactIssued issuedState.permits permit := by
+  refine ⟨forwardedReachable, .issueUnknownBefore, issuePermit, rfl, ?_⟩
+  simp [exactIssued, issuedState, issuedPermits, permit, expectation]
+
+theorem canonical_commit_unknown_before_after_consume :
+    Reachable authenticatedState ∧
+    PermitStep authenticatedState (.consumeUnknownBefore owner nonce) authenticatedState ∧
+    PermitStep authenticatedState (.consume owner nonce attemptId .unknown)
+      attemptedDistributed ∧
+    authenticatedState.core.effects.attempts attemptId = none ∧
+    attemptedDistributed.core.effects.attempts attemptId = some attempt ∧
+    attemptedDistributed.permits.consumptions owner nonce = some ⟨permit, attemptId⟩ := by
+  exact ⟨authenticatedReachable, .consumeUnknownBefore, consumePermit, rfl, rfl, rfl⟩
 
 theorem canonical_replay_after_restart_is_reauthenticated_but_cannot_reconsume :
     Reachable replayAuthenticatedState ∧

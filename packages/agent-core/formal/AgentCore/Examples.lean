@@ -2179,16 +2179,9 @@ theorem nonvacuous_nonroot_cause_free_append_impossible :
 theorem nonvacuous_guarded_attempt_reachability :
     ∃ state attemptId attempt,
       Reachable state ∧ state.core.effects.attempts attemptId = some attempt := by
-  obtain ⟨reachable, stored⟩ := CanonicalMediatedTrace.canonical_actor_local_attempt_reachable
-  exact ⟨_, _, _, reachable, stored⟩
-
-theorem nonvacuous_actor_local_mediated_attempt :
-    ∃ before after invocation attemptId auditId attempt,
-      Reachable before ∧
-      SystemStep before (.mediated (.start invocation attemptId auditId)) after ∧
-      after.core.effects.attempts attemptId = some attempt ∧
-      after.permits = before.permits :=
-  CanonicalMediatedTrace.canonical_actor_local_attempt_step
+  obtain ⟨reachable, attempt, _, stored, _⟩ :=
+    CanonicalMediatedTrace.canonical_single_item_mediated_attempt_reachable
+  exact ⟨_, _, attempt, reachable, stored⟩
 
 theorem nonvacuous_distributed_permit_issue_consume :
     ∃ state target nonce consumption,
@@ -2204,6 +2197,67 @@ theorem nonvacuous_distributed_permit_issue_consume :
   obtain ⟨consumption, consumed, requested, issued, authenticated, crossActor⟩ :=
     CanonicalMediatedTrace.canonical_cross_actor_consumption_has_historical_issuance
   exact ⟨_, _, _, consumption, reachable, consumed, requested, issued, authenticated, crossActor⟩
+
+theorem nonvacuous_attempt_permit_evidence :
+    ∃ state attemptId attempt,
+      Reachable state ∧
+      state.core.effects.attempts attemptId = some attempt ∧
+      AttemptsHavePermitEvidence state := by
+  obtain ⟨reachable, attempt, _, stored, _⟩ :=
+    CanonicalMediatedTrace.canonical_single_item_mediated_attempt_reachable
+  exact ⟨_, _, attempt, reachable, stored,
+    reachable_attempts_have_exact_issued_permits reachable⟩
+
+theorem nonvacuous_reset_auth :
+    ∃ before after target permit,
+      Reachable before ∧
+      PermitStep before (.reset target) after ∧
+      exactAuthenticated before.permits permit ∧
+      ¬ exactAuthenticated after.permits permit := by
+  exact ⟨_, _, _, _,
+    CanonicalMediatedTrace.canonical_reset_invalidates_authentication⟩
+
+theorem nonvacuous_expired_permit_cannot_consume :
+    ∃ state permit,
+      Reachable state ∧
+      exactAuthenticated state.permits permit ∧
+      permit.expiresAt.tick ≤ state.permits.now.tick ∧
+      ∀ next observation after,
+        ¬ PermitStep state
+          (.consume permit.expectation.target permit.nonce next observation) after := by
+  exact ⟨_, _, CanonicalMediatedTrace.canonical_expired_permit_cannot_consume⟩
+
+theorem nonvacuous_changed_fence :
+    ∃ state permit,
+      Reachable state ∧
+      exactAuthenticated state.permits permit ∧
+      permit.expectation.targetFence ≠
+        state.permits.targetFence permit.expectation.target ∧
+      ∀ next observation after,
+        ¬ PermitStep state
+          (.consume permit.expectation.target permit.nonce next observation) after := by
+  exact ⟨_, _, CanonicalMediatedTrace.canonical_changed_fence_cannot_consume⟩
+
+theorem nonvacuous_commit_unknown_before_after_issue :
+    ∃ before after issuer nonce permit,
+      Reachable before ∧
+      PermitStep before (.issueUnknownBefore issuer nonce) before ∧
+      PermitStep before (.issue issuer nonce .unknown) after ∧
+      before.permits.issuerRecords issuer nonce = none ∧
+      exactIssued after.permits permit := by
+  exact ⟨_, _, _, _, _,
+    CanonicalMediatedTrace.canonical_commit_unknown_before_after_issue⟩
+
+theorem nonvacuous_commit_unknown_before_after_consume :
+    ∃ before after target nonce attemptId attempt permit,
+      Reachable before ∧
+      PermitStep before (.consumeUnknownBefore target nonce) before ∧
+      PermitStep before (.consume target nonce attemptId .unknown) after ∧
+      before.core.effects.attempts attemptId = none ∧
+      after.core.effects.attempts attemptId = some attempt ∧
+      after.permits.consumptions target nonce = some ⟨permit, attemptId⟩ := by
+  exact ⟨_, _, _, _, _, _, _,
+    CanonicalMediatedTrace.canonical_commit_unknown_before_after_consume⟩
 
 theorem nonvacuous_distributed_permit_replay_after_restart :
     ∃ state permit,

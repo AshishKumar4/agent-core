@@ -41,6 +41,17 @@ def AttemptsHaveExactAudit (state : SystemState) : Prop :=
       entry.kind = .attempt id attempt.invocation ∧
       entry.cause = some attempt.auditCause
 
+def AttemptsHavePermitEvidence (state : DistributedSystemState) : Prop :=
+  ∀ id attempt, state.core.effects.attempts id = some attempt →
+    ∃ target nonce consumption,
+      state.permits.consumptions target nonce = some consumption ∧
+      consumption.attempt = id ∧ consumption.permit.expectation.target = target ∧
+      consumption.permit.nonce = nonce ∧
+      exactRequested state.permits
+        ⟨consumption.permit.expectation, consumption.permit.nonce⟩ ∧
+      exactIssued state.permits consumption.permit ∧
+      consumption.permit.expectation.MatchesAttempt attempt
+
 def TransportRequestsAreExact (state : DistributedSystemState) : Prop :=
   ∀ request, .request request ∈ state.permits.transport →
     exactRequested state.permits request
@@ -78,6 +89,10 @@ theorem trusted_genesis_effects_default {state} (genesis : TrustedGenesis state)
   obtain ⟨_, exec, _⟩ := genesis
   exact bootstrap_exec_preserves_effects exec
 
+def MediatedLabel.NonAttempt : MediatedLabel → Prop
+  | .start .. | .approvalStart .. | .approvalContinue .. | .retry .. => False
+  | _ => True
+
 inductive SystemLabel where
   | mediated (label : MediatedLabel)
   | permit (label : PermitLabel)
@@ -86,7 +101,7 @@ inductive SystemLabel where
 inductive SystemStep : DistributedSystemState → SystemLabel →
     DistributedSystemState → Prop
   | mediated {before label core'} :
-      MediatedStep before.core label core' →
+      label.NonAttempt → MediatedStep before.core label core' →
       SystemStep before (.mediated label) { before with core := core' }
   | permit {before label after} :
       PermitStep before label after → SystemStep before (.permit label) after
@@ -304,6 +319,32 @@ theorem mediated_step_preserves_exact_attempt_audits {before label after}
       simpa [AttemptsHaveExactAudit, unchanged] using audited
   | event eventStep leases source => exact audited
   | graph graphStep => exact audited
+
+theorem mediated_nonattempt_preserves_attempts {before label after}
+    (nonAttempt : label.NonAttempt) (step : MediatedStep before label after) :
+    after.effects.attempts = before.effects.attempts := by
+  cases step with
+  | persistIntent ready effectStep => exact persist_intent_preserves_attempts effectStep
+  | requestApproval ready required reserved invocation identity digest pending intent approval stored =>
+      exact persist_intent_preserves_attempts intent
+  | start => simp [MediatedLabel.NonAttempt] at nonAttempt
+  | approvalStart => simp [MediatedLabel.NonAttempt] at nonAttempt
+  | approvalContinue => simp [MediatedLabel.NonAttempt] at nonAttempt
+  | retry => simp [MediatedLabel.NonAttempt] at nonAttempt
+  | claimItem ready reserved persisted exact effectStep =>
+      exact claim_item_preserves_attempts effectStep
+  | recoverItemClaim ready reserved persisted exact effectStep stored =>
+      exact recover_item_claim_preserves_attempts effectStep
+  | staleDenied resolution exact intent stale holder observed invocation item denied effectStep stored =>
+      exact pre_receipt_preserves_attempts effectStep
+  | preReceipt intent effectStep stored exact => exact pre_receipt_preserves_attempts effectStep
+  | attemptReceipt attempt exact effectStep stored =>
+      exact attempt_receipt_preserves_attempts effectStep
+  | supersedeReceipt old attempt exact effectStep stored sameAttempt =>
+      exact supersede_receipt_preserves_attempts effectStep
+  | audit => rfl
+  | event => rfl
+  | graph => rfl
 
 theorem target_attempt_step_preserves_guarded_admissions
     {before expectation now attemptId attempt auditId after}
@@ -763,12 +804,103 @@ theorem permit_step_preserves_protocol_integrity {before label after}
     permit_step_preserves_authentication_integrity integrity.2.1 integrity.2.2.1 step,
     permit_step_preserves_consumption_integrity integrity.2.2.1 integrity.2.2.2 step⟩
 
+theorem permit_step_preserves_attempt_permit_evidence {before label after}
+    (authenticationIntegrity : AuthenticationsWereIssued before)
+    (evidence : AttemptsHavePermitEvidence before)
+    (step : PermitStep before label after) : AttemptsHavePermitEvidence after := by
+  have issuedPreserved := permit_step_preserves_issued_records step
+  have requestedPreserved := permit_step_preserves_requested_records step
+  cases step with
+  | request ready fresh =>
+      intro id attempt lookup
+      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requested, issued, exactMatch⟩ := evidence id attempt lookup
+      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requestedPreserved _ requested, issuedPreserved _ issued, exactMatch⟩
+  | forwardRequest requested =>
+      intro id attempt lookup
+      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        exactRequest, issued, exactMatch⟩ := evidence id attempt lookup
+      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requestedPreserved _ exactRequest, issuedPreserved _ issued, exactMatch⟩
+  | issue transported ready fresh expiry =>
+      intro id attempt lookup
+      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requested, issued, exactMatch⟩ := evidence id attempt lookup
+      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requestedPreserved _ requested, issuedPreserved _ issued, exactMatch⟩
+  | issueUnknownBefore => exact evidence
+  | emit issued =>
+      intro id attempt lookup
+      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requested, oldIssued, exactMatch⟩ := evidence id attempt lookup
+      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requestedPreserved _ requested, issuedPreserved _ oldIssued, exactMatch⟩
+  | injectMalformed => exact evidence
+  | drop split =>
+      intro id attempt lookup
+      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requested, issued, exactMatch⟩ := evidence id attempt lookup
+      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requestedPreserved _ requested, issuedPreserved _ issued, exactMatch⟩
+  | duplicate member =>
+      intro id attempt lookup
+      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requested, issued, exactMatch⟩ := evidence id attempt lookup
+      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requestedPreserved _ requested, issuedPreserved _ issued, exactMatch⟩
+  | reorder permutation => exact evidence
+  | authenticate transported requested fence =>
+      intro id attempt lookup
+      obtain ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        exactRequest, issued, exactMatch⟩ := evidence id attempt lookup
+      exact ⟨target, nonce, consumption, consumed, attemptId, targetEq, nonceEq,
+        requestedPreserved _ exactRequest, issuedPreserved _ issued, exactMatch⟩
+  | @consume permit attemptId newAttempt auditId core' observation authenticated requested fence
+      issuedAt expiry unused localStep =>
+      intro id storedAttempt lookup
+      have updated := target_attempt_step_updates_only_exact_attempt localStep
+      rw [updated] at lookup
+      by_cases sameAttempt : id = attemptId
+      · subst id
+        rw [tableSet_self] at lookup
+        cases Option.some.inj lookup
+        obtain ⟨_, exactMatch⟩ := target_attempt_step_stores_exact_attempt localStep
+        have issued : exactIssued before.permits permit :=
+          authenticationIntegrity permit.expectation.target permit.nonce
+            ⟨permit, before.permits.incarnation permit.expectation.target⟩ authenticated
+        refine ⟨_, _, ⟨_, _⟩, ?_, rfl, rfl, rfl,
+          requestedPreserved _ requested, issuedPreserved _ issued, exactMatch⟩
+        exact tableSet2_self ..
+      · have oldLookup : before.core.effects.attempts id = some storedAttempt := by
+          rw [← tableSet_other before.core.effects.attempts _ id sameAttempt]
+          exact lookup
+        obtain ⟨oldTarget, oldNonce, consumption, consumed, oldAttemptId, targetEq, nonceEq,
+          exactRequest, oldIssued, exactMatch⟩ := evidence id storedAttempt oldLookup
+        have differentKey :
+            oldTarget ≠ permit.expectation.target ∨ oldNonce ≠ permit.nonce := by
+          by_cases sameTarget : oldTarget = permit.expectation.target
+          · right
+            intro sameNonce
+            rw [sameTarget, sameNonce, unused] at consumed
+            contradiction
+          · exact Or.inl sameTarget
+        refine ⟨oldTarget, oldNonce, consumption, ?_, oldAttemptId, targetEq, nonceEq,
+          requestedPreserved _ exactRequest, issuedPreserved _ oldIssued, exactMatch⟩
+        exact (tableSet2_other before.permits.consumptions _ _ _ oldTarget oldNonce
+          differentKey).trans consumed
+  | consumeUnknownBefore => exact evidence
+  | restart => exact evidence
+  | reset => exact evidence
+  | advanceTime monotone => exact evidence
+  | advanceFence => exact evidence
+
 theorem system_step_preserves_guarded_attempt_admissions {before label after}
     (guarded : AttemptsHaveGuardedAdmission before.core.effects)
     (step : SystemStep before label after) :
     AttemptsHaveGuardedAdmission after.core.effects := by
   cases step with
-  | mediated transition =>
+  | mediated nonAttempt transition =>
       exact mediated_step_preserves_guarded_attempt_admissions guarded transition
   | permit transition => exact permit_step_preserves_guarded_attempt_admissions guarded transition
 
@@ -776,7 +908,7 @@ theorem system_step_preserves_receipt_id_disjointness {before label after}
     (disjoint : ReceiptIdsDisjoint before.core.effects)
     (step : SystemStep before label after) : ReceiptIdsDisjoint after.core.effects := by
   cases step with
-  | mediated transition =>
+  | mediated nonAttempt transition =>
       exact mediated_step_preserves_receipt_id_disjointness disjoint transition
   | permit transition => exact permit_step_preserves_receipt_id_disjointness disjoint transition
 
@@ -784,7 +916,7 @@ theorem system_step_preserves_exact_attempt_audits {before label after}
     (audited : AttemptsHaveExactAudit before.core)
     (step : SystemStep before label after) : AttemptsHaveExactAudit after.core := by
   cases step with
-  | mediated transition =>
+  | mediated nonAttempt transition =>
       exact mediated_step_preserves_exact_attempt_audits audited transition
   | permit transition => exact permit_step_preserves_exact_attempt_audits audited transition
 
@@ -792,8 +924,21 @@ theorem system_step_preserves_protocol_integrity {before label after}
     (integrity : PermitProtocolIntegrity before)
     (step : SystemStep before label after) : PermitProtocolIntegrity after := by
   cases step with
-  | mediated transition => exact integrity
+  | mediated nonAttempt transition => exact integrity
   | permit transition => exact permit_step_preserves_protocol_integrity integrity transition
+
+theorem system_step_preserves_attempt_permit_evidence {before label after}
+    (protocol : PermitProtocolIntegrity before)
+    (evidence : AttemptsHavePermitEvidence before)
+    (step : SystemStep before label after) : AttemptsHavePermitEvidence after := by
+  cases step with
+  | mediated nonAttempt transition =>
+      intro id attempt lookup
+      apply evidence id attempt
+      rw [mediated_nonattempt_preserves_attempts nonAttempt transition] at lookup
+      exact lookup
+  | permit transition =>
+      exact permit_step_preserves_attempt_permit_evidence protocol.2.2.1 evidence transition
 
 theorem reachable_attempts_have_guarded_admission {state} (reachable : Reachable state) :
     AttemptsHaveGuardedAdmission state.core.effects := by
@@ -850,6 +995,18 @@ theorem reachable_permit_protocol_has_historical_issuance {state} (reachable : R
         contradiction
   | step reachable transition ih =>
       exact system_step_preserves_protocol_integrity ih transition
+
+theorem reachable_attempts_have_exact_issued_permits {state} (reachable : Reachable state) :
+    AttemptsHavePermitEvidence state := by
+  induction reachable with
+  | initial genesis =>
+      intro id attempt lookup
+      have defaultEffects := trusted_genesis_effects_default genesis
+      rw [defaultEffects] at lookup
+      contradiction
+  | step reachable transition ih =>
+      exact system_step_preserves_attempt_permit_evidence
+        (reachable_permit_protocol_has_historical_issuance reachable) ih transition
 
 theorem reachable_consumption_has_exact_historical_issuance {state target nonce consumption}
     (reachable : Reachable state)
