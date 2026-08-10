@@ -1,6 +1,6 @@
 import type { ContentPutResult } from "../../content";
 import { ContentStore, type ContentStat, type MediaHint } from "../../content";
-import type { ContentRef } from "../../core";
+import { encodeBase64, encodeCanonicalJson, type ContentRef, type JsonValue } from "../../core";
 import type { RunCommitId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import {
@@ -14,8 +14,9 @@ import {
 } from "../../facets";
 import { OperationGateway, type OperationRequestKey } from "../../operations";
 import { RunCommit } from "./commit";
-import type { LeaseToken } from "./lease";
+import { leaseTokensEqual, type LeaseToken } from "./lease";
 import type { TurnPlacementSnapshot } from "./placement";
+import { bytesEqual } from "../record-data";
 import type { RunBranch } from "./run";
 import { RunRuntime } from "./runtime";
 import { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
@@ -325,18 +326,14 @@ interface ActiveTurnSnapshot {
 
 class LeaseScopedTurn<Transaction> {
     readonly #controller = new AbortController();
+    public readonly signal = this.#controller.signal;
 
     public constructor(
         public readonly init: TurnExecutorHostInit<Transaction>,
         public readonly token: LeaseToken
     ) {}
 
-    public get signal(): AbortSignal {
-        return this.#controller.signal;
-    }
-
     public active(): ActiveTurnSnapshot {
-        this.refreshCancellation();
         const now = this.init.now();
         return this.init.runtime.repository.transaction((transaction) => {
             const repository = this.init.runtime.repository;
@@ -344,11 +341,10 @@ class LeaseScopedTurn<Transaction> {
                 repository.loadTurn(transaction, this.token.turn),
                 "Turn executor target does not exist"
             );
+            if (findCancellation(repository.listInbox(transaction, turn.id), this.token)) {
+                this.#controller.abort();
+            }
             turn.requireToken(this.token, now);
-            const run = required(
-                repository.loadRun(transaction, turn.run),
-                "Turn executor Run does not exist"
-            );
             const branch = required(
                 repository.loadBranch(transaction, turn.branch),
                 "Turn executor branch does not exist"
@@ -372,21 +368,6 @@ class LeaseScopedTurn<Transaction> {
                           repository.loadCheckpoint(transaction, turn.checkpoint),
                           "Turn executor checkpoint does not exist"
                       );
-            if (
-                run.lifecycle.kind !== "active" ||
-                !branch.run.equals(run.id) ||
-                !head.run.equals(run.id) ||
-                !head.pins.equals(turn.pins) ||
-                !effectiveCommit.run.equals(run.id) ||
-                !placement.turn.equals(turn.id) ||
-                !placement.digest.equals(turn.placement) ||
-                !placement.pins.equals(turn.pins) ||
-                (checkpoint !== undefined && !checkpoint.turn.equals(turn.id)) ||
-                !repository.isAncestor(transaction, turn.startHead, branch.head) ||
-                !repository.isAncestor(transaction, turn.effectiveInput, turn.startHead)
-            ) {
-                throw invalidTurn("Turn executor scope does not match canonical Run state");
-            }
             return Object.freeze({
                 scope: Object.freeze({
                     turn,
@@ -425,12 +406,9 @@ class LeaseScopedTurn<Transaction> {
     public async withActive<Result>(operation: () => Promise<Result>): Promise<Result> {
         this.active();
         try {
-            const result = await operation();
+            return await operation();
+        } finally {
             this.active();
-            return result;
-        } catch (error) {
-            this.refreshCancellation();
-            throw error;
         }
     }
 
@@ -439,34 +417,32 @@ class LeaseScopedTurn<Transaction> {
             const repository = this.init.runtime.repository;
             const turn = repository.loadTurn(transaction, this.token.turn);
             if (turn === undefined) return undefined;
-            const commits = repository.listCommits(transaction);
-            const resultCommits = commits.filter(
-                (commit) =>
-                    commit.kind === "result" &&
-                    commit.subjectTurn?.equals(turn.id) === true &&
-                    commit.writer.kind === "turn" &&
-                    tokensEqual(commit.writer.token, this.token) &&
-                    commit.content !== undefined &&
-                    turn.result?.equals(commit.content) === true
-            );
+            const resultCommits = repository
+                .listCommits(transaction)
+                .filter(
+                    (commit) =>
+                        commit.isTurnAuthored("result", this.token) &&
+                        commit.content !== undefined &&
+                        turn.result?.equals(commit.content) === true
+                );
             if (resultCommits.length > 1) {
                 throw invalidTurn("Turn executor has multiple terminal commits for one token");
             }
             const resultCommit = resultCommits[0];
             if (turn.status.kind === "succeeded" || turn.status.kind === "failed") {
                 if (resultCommit === undefined) return undefined;
-                if (turn.result === undefined) {
-                    throw invalidTurn("Terminal Turn is missing its exact result commit");
-                }
                 return Object.freeze({
                     kind: turn.status.kind,
-                    result: turn.result,
+                    result: required(turn.result, "Terminal Turn is missing its result"),
                     commit: resultCommit.id
                 });
             }
-            if (turn.status.kind === "suspended" && turn.checkpoint !== undefined) {
+            if (turn.status.kind === "suspended") {
                 const checkpoint = required(
-                    repository.loadCheckpoint(transaction, turn.checkpoint),
+                    repository.loadCheckpoint(
+                        transaction,
+                        required(turn.checkpoint, "Suspended Turn is missing its checkpoint")
+                    ),
                     "Suspended Turn checkpoint does not exist"
                 );
                 const commit = required(
@@ -474,29 +450,15 @@ class LeaseScopedTurn<Transaction> {
                     "Suspended Turn checkpoint commit does not exist"
                 );
                 if (
-                    commit.kind !== "checkpoint" ||
-                    commit.writer.kind !== "turn" ||
-                    !tokensEqual(commit.writer.token, this.token) ||
-                    !commit.subjectTurn?.equals(turn.id) ||
+                    !commit.isTurnAuthored("checkpoint", this.token) ||
                     !commit.content?.equals(checkpoint.state)
                 ) {
                     return undefined;
                 }
                 return Object.freeze({ kind: "suspended", checkpoint, commit: commit.id });
             }
-            const cancellations = repository
-                .listInbox(transaction, turn.id)
-                .filter(
-                    (entry) =>
-                        entry.event === "turn.cancel" &&
-                        entry.cancellationToken !== undefined &&
-                        tokensEqual(entry.cancellationToken, this.token)
-                );
-            if (cancellations.length > 1) {
-                throw invalidTurn("Turn executor has multiple cancellations for one token");
-            }
-            if (cancellations.length === 1) {
-                this.abort();
+            if (findCancellation(repository.listInbox(transaction, turn.id), this.token)) {
+                this.#controller.abort();
                 return Object.freeze({
                     kind: "cancelled",
                     ...(resultCommit?.content === undefined
@@ -522,38 +484,14 @@ class LeaseScopedTurn<Transaction> {
             const entries = repository
                 .listInbox(transaction, turn.id)
                 .filter((entry) => entry.sequence >= afterSequence);
-            const cancellation = entries.find(
-                (entry) =>
-                    entry.event === "turn.cancel" &&
-                    entry.cancellationToken !== undefined &&
-                    tokensEqual(entry.cancellationToken, this.token)
-            );
+            const cancellation = findCancellation(entries, this.token);
             if (cancellation !== undefined) {
-                this.abort();
+                this.#controller.abort();
                 return Object.freeze(entries);
             }
             turn.requireToken(this.token, this.init.now());
             return Object.freeze(entries);
         });
-    }
-
-    public refreshCancellation(): void {
-        if (this.signal.aborted) return;
-        const cancellation = this.init.runtime.repository.transaction((transaction) =>
-            this.init.runtime.repository
-                .listInbox(transaction, this.token.turn)
-                .some(
-                    (entry) =>
-                        entry.event === "turn.cancel" &&
-                        entry.cancellationToken !== undefined &&
-                        tokensEqual(entry.cancellationToken, this.token)
-                )
-        );
-        if (cancellation) this.abort();
-    }
-
-    public abort(): void {
-        if (!this.signal.aborted) this.#controller.abort();
     }
 }
 
@@ -639,8 +577,7 @@ class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
         requestKey: OperationRequestKey,
         input: FacetData
     ): Promise<TurnMediatedInvocationResult> {
-        const tool = this.tools.find((candidate) => toolsEqual(candidate, requested));
-        if (tool === undefined) {
+        if (!this.tools.includes(requested)) {
             throw new AgentCoreError(
                 "operation.missing",
                 "Turn invocation requires one exact bound tool"
@@ -652,7 +589,7 @@ class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
                 Object.freeze({
                     turn,
                     token: this.scope.token,
-                    tool,
+                    tool: requested,
                     requestKey,
                     input: canonicalFacetData(input),
                     signal: this.scope.signal
@@ -677,7 +614,6 @@ class ScopedCommitHandle<Transaction> extends TurnCommitHandle {
         }
         await this.scope.requireContent(required(commit.content, "Turn commit requires content"));
         const snapshot = this.scope.active();
-        requireExactCommit(snapshot, this.scope.token, commit);
         this.scope.init.runtime.appendCommit(commit, snapshot.branch.revision, snapshot.now);
         this.scope.active();
         return commit.id;
@@ -697,7 +633,6 @@ class ScopedCheckpointHandle<Transaction> extends TurnCheckpointHandle {
         await this.scope.requireContent(checkpoint.state);
         if (checkpoint.tree !== undefined) await this.scope.requireContent(checkpoint.tree);
         const snapshot = this.scope.active();
-        requireExactCommit(snapshot, this.scope.token, commit);
         this.scope.init.runtime.suspendTurn({
             turn: snapshot.scope.turn.id,
             expectedTurnRevision: snapshot.scope.turn.revision,
@@ -707,7 +642,7 @@ class ScopedCheckpointHandle<Transaction> extends TurnCheckpointHandle {
             commit,
             now: snapshot.now
         });
-        return requiredOutcome(this.scope.recover(), "Turn suspension was not durably recorded");
+        return canonicalOutcome(this.scope);
     }
 }
 
@@ -738,7 +673,6 @@ class ScopedOutcomeHandle<Transaction> extends TurnOutcomeHandle {
         await this.scope.requireContent(required(commit.content, "Turn result requires content"));
         await this.scope.requireContent(cancellation.payload);
         const snapshot = this.scope.active();
-        requireExactCommit(snapshot, this.scope.token, commit);
         this.scope.init.runtime.cancelHeldTurn(
             {
                 turn: snapshot.scope.turn.id,
@@ -751,11 +685,10 @@ class ScopedOutcomeHandle<Transaction> extends TurnOutcomeHandle {
             },
             cancellation
         );
-        return requiredOutcome(this.scope.recover(), "Turn cancellation was not durably recorded");
+        return canonicalOutcome(this.scope);
     }
 
     public async cancelled(): Promise<TurnOutcome> {
-        this.scope.refreshCancellation();
         const outcome = this.scope.recover();
         if (outcome?.kind !== "cancelled") {
             throw invalidTurn("Turn token has no canonical cancellation evidence");
@@ -769,7 +702,6 @@ class ScopedOutcomeHandle<Transaction> extends TurnOutcomeHandle {
     ): Promise<TurnOutcome> {
         await this.scope.requireContent(required(commit.content, "Turn result requires content"));
         const snapshot = this.scope.active();
-        requireExactCommit(snapshot, this.scope.token, commit);
         this.scope.init.runtime.completeTurn({
             turn: snapshot.scope.turn.id,
             expectedTurnRevision: snapshot.scope.turn.revision,
@@ -779,7 +711,7 @@ class ScopedOutcomeHandle<Transaction> extends TurnOutcomeHandle {
             commit,
             now: snapshot.now
         });
-        return requiredOutcome(this.scope.recover(), "Turn completion was not durably recorded");
+        return canonicalOutcome(this.scope);
     }
 }
 
@@ -802,25 +734,6 @@ function validateTools(
         return tool;
     });
     return Object.freeze(canonical);
-}
-
-function requireExactCommit(
-    snapshot: ActiveTurnSnapshot,
-    token: LeaseToken,
-    commit: RunCommit
-): void {
-    if (
-        !commit.run.equals(snapshot.scope.turn.run) ||
-        !commit.branch.equals(snapshot.scope.turn.branch) ||
-        commit.parents.length !== 1 ||
-        !commit.parents[0]?.equals(snapshot.head.id) ||
-        !commit.pins.equals(snapshot.scope.turn.pins) ||
-        commit.writer.kind !== "turn" ||
-        !tokensEqual(commit.writer.token, token) ||
-        !commit.subjectTurn?.equals(snapshot.scope.turn.id)
-    ) {
-        throw invalidTurn("Turn commit does not match the exact token and current branch head");
-    }
 }
 
 function canonicalStreamEvent(event: TurnStreamEvent): TurnStreamEvent {
@@ -855,61 +768,37 @@ function freezeUsage(usage: TurnModelUsage): TurnModelUsage {
     });
 }
 
-function toolsEqual(left: TurnBoundTool, right: TurnBoundTool): boolean {
-    return (
-        left.binding.equals(right.binding) &&
-        left.facet.equals(right.facet) &&
-        left.operation.equals(right.operation) &&
-        bytesEqual(
-            OperationDescriptor.encode(left.descriptor),
-            OperationDescriptor.encode(right.descriptor)
-        )
+function findCancellation(
+    entries: readonly TurnInboxEntry[],
+    token: LeaseToken
+): TurnInboxEntry | undefined {
+    return entries.find(
+        (entry) =>
+            entry.cancellationToken !== undefined &&
+            leaseTokensEqual(entry.cancellationToken, token)
     );
 }
 
 function outcomesEqual(left: TurnOutcome, right: TurnOutcome): boolean {
-    if (left.kind !== right.kind) return false;
-    if (left.kind === "suspended" && right.kind === "suspended") {
-        return left.checkpoint.id.equals(right.checkpoint.id) && left.commit.equals(right.commit);
-    }
-    if (left.kind === "cancelled" && right.kind === "cancelled") {
-        return optionalContentEqual(left.result, right.result) && optionalCommitEqual(left, right);
-    }
-    if (
-        (left.kind === "succeeded" || left.kind === "failed") &&
-        (right.kind === "succeeded" || right.kind === "failed")
-    ) {
-        return left.result.equals(right.result) && left.commit.equals(right.commit);
-    }
-    return false;
-}
-
-function optionalCommitEqual(
-    left: Extract<TurnOutcome, { readonly kind: "cancelled" }>,
-    right: Extract<TurnOutcome, { readonly kind: "cancelled" }>
-): boolean {
-    return left.commit === undefined
-        ? right.commit === undefined
-        : right.commit !== undefined && left.commit.equals(right.commit);
-}
-
-function optionalContentEqual(
-    left: ContentRef | undefined,
-    right: ContentRef | undefined
-): boolean {
-    return left === undefined ? right === undefined : right !== undefined && left.equals(right);
-}
-
-function tokensEqual(left: LeaseToken, right: LeaseToken): boolean {
-    return (
-        left.turn.equals(right.turn) &&
-        left.holder.equals(right.holder) &&
-        left.epoch === right.epoch
+    return bytesEqual(
+        encodeCanonicalJson(outcomeIdentity(left)),
+        encodeCanonicalJson(outcomeIdentity(right))
     );
 }
 
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-    return left.length === right.length && left.every((value, index) => value === right[index]);
+function outcomeIdentity(outcome: TurnOutcome): JsonValue {
+    switch (outcome.kind) {
+        case "suspended":
+            return [
+                outcome.kind,
+                encodeBase64(RunCheckpoint.codec.encode(outcome.checkpoint)),
+                outcome.commit.value
+            ];
+        case "cancelled":
+            return [outcome.kind, outcome.result?.value ?? null, outcome.commit?.value ?? null];
+        default:
+            return [outcome.kind, outcome.result.value, outcome.commit.value];
+    }
 }
 
 function required<Value>(value: Value | undefined, message: string): Value {
@@ -917,9 +806,8 @@ function required<Value>(value: Value | undefined, message: string): Value {
     return value;
 }
 
-function requiredOutcome(value: TurnOutcome | undefined, message: string): TurnOutcome {
-    if (value === undefined) throw invalidTurn(message);
-    return value;
+function canonicalOutcome<Transaction>(scope: LeaseScopedTurn<Transaction>): TurnOutcome {
+    return required(scope.recover(), "Turn transition was not durably recorded");
 }
 
 function invalidTurn(message: string): AgentCoreError {
