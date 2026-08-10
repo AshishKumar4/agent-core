@@ -59,6 +59,7 @@ const nodeReports = {
     agents: "agents-compliance.json",
     architecture: "architecture.json",
     coherence: "coherence.json",
+    discrimination: "discrimination.json",
     governance: "governance.json",
     integration: "integration.json",
     invariants: "invariants.json",

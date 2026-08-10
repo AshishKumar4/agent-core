@@ -249,6 +249,7 @@ async function execute(node, context) {
         migrations: () => runNode("migrations", context),
         architecture: () => runNode("architecture", context),
         coherence: () => runNode("coherence", context),
+        discrimination: () => runNode("discrimination", context),
         ledger: () =>
             runNode("ledger", context, false, [
                 ...(options.stage === "hermetic" ? ["--hermetic"] : []),
