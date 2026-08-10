@@ -1,0 +1,91 @@
+{
+  "edition": "1.0.0",
+  "id": "TRANSITION-BINDING-AUTHORITY-PLANE",
+  "state": "completed",
+  "canonicalOwner": "W2",
+  "symbols": [
+    "Binding",
+    "AuthorityMutationStore",
+    "AuthorityMutationService",
+    "MemoryTenantControlStore",
+    "SqliteTenantControlStore"
+  ],
+  "inputs": [
+    {
+      "owner": "W2",
+      "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a",
+      "state": "accepted-input"
+    },
+    {
+      "owner": "W9",
+      "commit": "03b1cba72da14c9fc4f93874ba35c7183ba53911",
+      "state": "completed"
+    }
+  ],
+  "remove": [
+    "packages/agent-core/src/authority/binding-store.ts",
+    "packages/agent-core/src/substrates/sqlite/binding.ts",
+    "packages/agent-core/test/substrates/sqlite/binding.test.ts",
+    "standalone Workspace-owned canonical Binding persistence"
+  ],
+  "replace": [
+    "AuthorityMutationStore owns canonical Binding and Grant records",
+    "MemoryTenantControlStore restores one Tenant authority snapshot",
+    "SqliteTenantControlStore persists Binding and Grant records in the Tenant control schema",
+    "TenantAuthorityRuntime reloads the canonical Binding before every authority decision"
+  ],
+  "invariants": [
+    "The Tenant Actor is the sole durable owner of Binding, Grant, and ScopeEpoch records",
+    "Binding creation, replacement, deactivation, and ScopeEpoch advancement share one Tenant transaction",
+    "Workspace and Run Actors retain only Binding IDs and rebuildable indexes",
+    "Authority checks reject request Binding bytes that differ from the canonical Tenant record",
+    "Memory and SQLite implement the same AuthorityMutationStore contract",
+    "No compatibility store, duplicate canonical record, or mirrored Binding generation remains"
+  ],
+  "acceptance": [
+    "Packed consumer proves removed standalone Binding stores remain unavailable",
+    "Memory Tenant control restores canonical Binding and Grant records from one snapshot",
+    "SQLite Tenant control reopens canonical Binding, Grant, and ScopeEpoch records from one database",
+    "Tenant authority runtime rejects substituted request Binding bytes",
+    "Ownership, records, coverage, and import-boundary gates admit the single authority plane"
+  ],
+  "blockers": [],
+  "completion": {
+    "commit": "e5e96b788aea4a6dce97acbc82747cf9afa5eefe",
+    "tree": "f7f041d00a1174e3ed2519e6cfa3eeb4b32e4b3d",
+    "artifacts": [
+      {
+        "path": "packages/agent-core/src/authority/memory.ts",
+        "blob": "00cfbfbf5e6e6a62221848ac7256bf2f309cda18",
+        "sha256": "9a0a7eb8700aee5c09ef2e4bbb2936426ac9da6a85b217ab95852f7ddb449437"
+      },
+      {
+        "path": "packages/agent-core/src/authority/service.ts",
+        "blob": "35aa4bf224168927577352637db24da27eb91472",
+        "sha256": "bf78654907493d3bf0c0ec7b0cb692427a46499d0261600d389360998d61e7c5"
+      },
+      {
+        "path": "packages/agent-core/src/substrates/sqlite/authority.ts",
+        "blob": "395155fd5b9d94412b553f1ce61d22d577139f87",
+        "sha256": "d854162f6139bc4379b374e9c9ae5f1ec22b5f1f876eb8328ff6645e25077e33"
+      },
+      {
+        "path": "packages/agent-core/test/authority/memory.test.ts",
+        "blob": "14bb86bdc0115592a5ae655ab5f22c7515e70bfe",
+        "sha256": "8c2eafae491cd4d8fb9daabbcedd4e5c02ecd4ba5a26c8f368db4cec25fb981e"
+      },
+      {
+        "path": "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts",
+        "blob": "d615c35d1816d853e2010ccf5f009cbe6327e069",
+        "sha256": "81285813037574f82dd90a7e23178a1c645df377a033c7c28700c0fb2f8e0f82"
+      }
+    ],
+    "tests": [
+      "test/authority/memory.test.ts#MemoryTenantControlStore [authority.binding] keeps the canonical Binding in the Tenant transaction with its path epoch",
+      "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates rejects request Binding bytes that differ from the canonical Tenant record",
+      "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage creates only the retained strict Tenant control schema",
+      "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact"
+    ],
+    "checks": ["exports"]
+  }
+}

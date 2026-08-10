@@ -1,6 +1,7 @@
 {
   "edition": "1.0.0",
   "manifests": [
+    "binding-authority-plane.json",
     "environment-pin-identity.json",
     "facet-capability-identity.json",
     "foundation-public-contract.json",
