@@ -194,24 +194,53 @@ function validatePattern(pattern: string): void {
     }
 }
 
+/**
+ * Greedy left-to-right scan rather than a compiled `^a.*b.*c$`: a pattern is attacker
+ * supplied through `CapabilitySpec.fromData`, and each `*` becomes a backtracking point,
+ * so a pattern of n wildcards costs O(value^n) against a non-matching value. Taking the
+ * earliest occurrence of every interior literal is optimal for `*`-only globs -- a later
+ * occurrence only shortens the remaining suffix -- so the scan is exact and linear.
+ */
 function matchesPattern(pattern: string, value: string): boolean {
-    const expression = pattern
-        .split("*")
-        .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
-        .join(".*");
-    return new RegExp(`^${expression}$`, "u").test(value);
+    const segments = pattern.split("*");
+    const first = segments[0]!;
+    const last = segments[segments.length - 1]!;
+    if (segments.length === 1) return value === pattern;
+    if (
+        first.length + last.length > value.length ||
+        !value.startsWith(first) ||
+        !value.endsWith(last)
+    ) {
+        return false;
+    }
+    const end = value.length - last.length;
+    let cursor = first.length;
+    for (const segment of segments.slice(1, -1)) {
+        const found = value.indexOf(segment, cursor);
+        if (found < 0 || found + segment.length > end) return false;
+        cursor = found + segment.length;
+    }
+    return true;
 }
 
 function patternCovers(parent: string, child: string): boolean {
     if (parent === "*" || parent === child) return true;
     const wildcard = parent.indexOf("*");
     if (wildcard < 0 || parent.indexOf("*", wildcard + 1) >= 0) return false;
+    const childWildcard = child.indexOf("*");
+    // A wildcard-free child denotes the single value `child`, so coverage is exactly
+    // membership. Testing prefix and suffix independently would ignore that the parent's
+    // own prefix and suffix must not overlap: `a*a` does not admit the value `a`.
+    if (childWildcard < 0) return matchesPattern(parent, child);
     const prefix = parent.slice(0, wildcard);
     const suffix = parent.slice(wildcard + 1);
-    const childWildcard = child.indexOf("*");
-    const childPrefix = childWildcard < 0 ? child : child.slice(0, childWildcard);
-    const childSuffix = childWildcard < 0 ? child : child.slice(child.lastIndexOf("*") + 1);
-    return childPrefix.startsWith(prefix) && childSuffix.endsWith(suffix);
+    // The child's own wildcards leave every interior position free, so only its fixed
+    // head and tail can satisfy the parent, and they are distinct segments -- together
+    // at least `prefix.length + suffix.length` characters, so no overlap is possible.
+    return (
+        child.slice(0, childWildcard).startsWith(prefix) &&
+        child.slice(child.lastIndexOf("*") + 1).endsWith(suffix)
+    );
 }
 
 function valueAtPath(
