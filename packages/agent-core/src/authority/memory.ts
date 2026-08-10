@@ -40,7 +40,9 @@ import {
 
 export type { TenantControlBootstrapAnchor } from "./service";
 
-const SNAPSHOT_VERSION = 1 as const;
+/** Version 2 added Tenant-owned canonical Binding records; version 1 snapshots predate them. */
+const SNAPSHOT_VERSION = 2 as const;
+const IDENTITY_SNAPSHOT_VERSION = 1 as const;
 
 export interface StoredTenantControlRecord {
     readonly id: string;
@@ -62,7 +64,7 @@ export interface MemoryTenantControlMarkerSnapshot {
 }
 
 export interface MemoryTenantControlSnapshot {
-    readonly version: 1;
+    readonly version: 2;
     readonly anchor: MemoryTenantControlAnchorSnapshot;
     readonly marker: MemoryTenantControlMarkerSnapshot | null;
     readonly identity: MemoryIdentitySnapshot;
@@ -131,7 +133,10 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 version: SNAPSHOT_VERSION,
                 anchor: anchorSnapshot(anchor),
                 marker: null,
-                identity: Object.freeze({ version: SNAPSHOT_VERSION, records: Object.freeze([]) }),
+                identity: Object.freeze({
+                    version: IDENTITY_SNAPSHOT_VERSION,
+                    records: Object.freeze([])
+                }),
                 grants: Object.freeze([]),
                 bindings: Object.freeze([]),
                 epochs: Object.freeze([])
@@ -216,7 +221,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
 
     public identitySnapshot(): MemoryIdentitySnapshot {
         return Object.freeze({
-            version: SNAPSHOT_VERSION,
+            version: IDENTITY_SNAPSHOT_VERSION,
             records: Object.freeze(
                 [...this.#identity.values()]
                     .sort((left, right) =>
@@ -635,7 +640,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
     private putIdentity(kind: IdentityRecordKind, id: string, bytes: Uint8Array): void {
         this.requireWrite();
         const record = copyIdentityRecord({ kind, id, bytes });
-        new MemoryIdentityRepository({ version: SNAPSHOT_VERSION, records: [record] });
+        new MemoryIdentityRepository({ version: IDENTITY_SNAPSHOT_VERSION, records: [record] });
         this.#identity.set(identityKey(kind, id), record);
     }
 
@@ -849,9 +854,15 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
 }
 
 function requireSnapshot(snapshot: MemoryTenantControlSnapshot): void {
+    if (snapshot === null || typeof snapshot !== "object") {
+        throw corruptMemoryTenantControl("Memory Tenant control snapshot is malformed");
+    }
+    if (snapshot.version !== SNAPSHOT_VERSION) {
+        throw corruptMemoryTenantControl(
+            `Memory Tenant control snapshots require version ${SNAPSHOT_VERSION}`
+        );
+    }
     if (
-        snapshot === null ||
-        typeof snapshot !== "object" ||
         !hasExactKeys(snapshot, [
             "anchor",
             "bindings",
@@ -861,7 +872,6 @@ function requireSnapshot(snapshot: MemoryTenantControlSnapshot): void {
             "marker",
             "version"
         ]) ||
-        snapshot.version !== SNAPSHOT_VERSION ||
         !Array.isArray(snapshot.grants) ||
         !Array.isArray(snapshot.bindings) ||
         !Array.isArray(snapshot.epochs) ||

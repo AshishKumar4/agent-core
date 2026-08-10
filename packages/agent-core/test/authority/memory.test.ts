@@ -133,9 +133,9 @@ describe("MemoryTenantControlStore", () => {
             expect(() =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    version: 2
+                    version: 3
                 } as unknown as typeof snapshot)
-            ).toThrow(/snapshot is malformed/);
+            ).toThrow(/require version 2/);
             expect(() =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
@@ -159,6 +159,28 @@ describe("MemoryTenantControlStore", () => {
                     }
                 })
             ).toThrow(/identity closure is incomplete/);
+        }
+    );
+
+    test(
+        "stamps version 2 and explicitly rejects the pre-Binding version 1 shape",
+        { tags: "p0" },
+        () => {
+            const snapshot = bootstrappedStore().snapshot();
+            expect(snapshot.version).toBe(2);
+            const { bindings: _bindings, ...legacyShape } = snapshot;
+            expect(() =>
+                MemoryTenantControlStore.restore({
+                    ...legacyShape,
+                    version: 1
+                } as unknown as typeof snapshot)
+            ).toThrow(/require version 2/);
+            expect(() =>
+                MemoryTenantControlStore.restore({
+                    ...snapshot,
+                    version: 1
+                } as unknown as typeof snapshot)
+            ).toThrow(/require version 2/);
         }
     );
 
