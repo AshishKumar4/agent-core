@@ -465,17 +465,6 @@ export class AuthorityMutationService {
         });
     }
 
-    public deactivateBinding(key: string): Binding {
-        return this.store.transaction((store) => {
-            const current = requireRecord(store.binding(key), "Binding");
-            const inactive = current.deactivate();
-            if (inactive === current) return current;
-            store.putBinding(inactive);
-            this.bump(store, [{ kind: "bindingTransition", affectedScopes: [inactive.scope] }]);
-            return inactive;
-        });
-    }
-
     private reconcile(
         store: AuthorityMutationStore,
         membership: Membership,

@@ -19,6 +19,7 @@ import {
     BindingValidationRequest
 } from "../../src/authority/binding-evidence";
 import { PathEpochEvidence, ScopeEpoch } from "../../src/authority/epoch";
+import { AuthorityMutationService } from "../../src/authority/service";
 import { AuthorityCheckRequest } from "../../src/authority/evidence";
 import { GrantId } from "../../src/authority/id";
 import { authorityKey } from "../../src/authority/key";
@@ -186,6 +187,21 @@ describe("Binding replacement identity", () => {
                 "binding.invalid",
                 "Binding generation is exhausted"
             );
+        }
+    );
+});
+
+describe("Tenant Binding mutation surface", () => {
+    test(
+        "[C13-AUTH-BINDING-RESOLUTION] exposes exactly the creation and replacement transitions",
+        { tags: "p0" },
+        () => {
+            const bindingMutators = Object.getOwnPropertyNames(
+                AuthorityMutationService.prototype
+            )
+                .filter((name) => name.toLowerCase().includes("binding"))
+                .sort();
+            expect(bindingMutators).toEqual(["createBinding", "replaceBinding"]);
         }
     );
 });
