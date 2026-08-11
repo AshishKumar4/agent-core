@@ -381,7 +381,11 @@ abstract class AuthorityService {
 Authority rules:
 
 1. Missing authority denies.
-2. Child authority is always attenuated — delegation can only narrow.
+2. Delegation never widens: a delegated capability is equal to or narrower than its
+   source, at every depth of the lineage, matching the Grant rule above. Where this
+   document requires strict narrowing it says so at the site — guest-materialized
+   Grants drop `delegate` and `administer` (§3.3), and `spawn` runs its child under
+   attenuated Grants (§11.8).
 3. Raw credentials remain in Tenant custody under §3.5; delegation moves capability stubs,
    not secrets.
 4. Discovery is policy-controlled: a Turn receives a redacted view of installed Facets
