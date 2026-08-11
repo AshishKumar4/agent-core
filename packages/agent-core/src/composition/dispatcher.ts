@@ -1,14 +1,14 @@
-import type { CommandDispatcherInit, ProtocolCommand } from "../protocol";
+import type { CommandDispatcherInit, RegisteredProtocolCommand } from "../protocol";
 import { CommandDispatcher } from "../protocol";
 
 export interface ClosedCommandFamilies<Transaction, Read> {
-    readonly bootstrap?: readonly ProtocolCommand<Transaction, Read>[];
-    readonly authority?: readonly ProtocolCommand<Transaction, Read>[];
-    readonly facets?: readonly ProtocolCommand<Transaction, Read>[];
-    readonly runs?: readonly ProtocolCommand<Transaction, Read>[];
-    readonly invocations?: readonly ProtocolCommand<Transaction, Read>[];
-    readonly sourceRouting?: readonly ProtocolCommand<Transaction, Read>[];
-    readonly targetRouting?: readonly ProtocolCommand<Transaction, Read>[];
+    readonly bootstrap?: readonly RegisteredProtocolCommand<Transaction, Read>[];
+    readonly authority?: readonly RegisteredProtocolCommand<Transaction, Read>[];
+    readonly facets?: readonly RegisteredProtocolCommand<Transaction, Read>[];
+    readonly runs?: readonly RegisteredProtocolCommand<Transaction, Read>[];
+    readonly invocations?: readonly RegisteredProtocolCommand<Transaction, Read>[];
+    readonly sourceRouting?: readonly RegisteredProtocolCommand<Transaction, Read>[];
+    readonly targetRouting?: readonly RegisteredProtocolCommand<Transaction, Read>[];
 }
 
 export type ClosedDispatcherInit<Transaction, Read, ReadTransaction = Transaction> = Omit<

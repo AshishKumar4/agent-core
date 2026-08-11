@@ -598,7 +598,10 @@ function readonlyArrayBuffer(value: ArrayBuffer, context: ReadonlyContext): Arra
     return proxy as ArrayBuffer;
 }
 
-function readonlyArrayBufferView<T extends ArrayBufferView>(value: T, context: ReadonlyContext): T {
+function readonlyArrayBufferView(
+    value: ArrayBufferView,
+    context: ReadonlyContext
+): ArrayBufferView {
     const sourceBuffer = value.buffer as ArrayBuffer;
     const copy = cloneView(value, clonedBuffer(sourceBuffer, context));
     const mutators = new Set([
@@ -632,7 +635,7 @@ function readonlyArrayBufferView<T extends ArrayBufferView>(value: T, context: R
         set: immutableRead
     });
     context.seen.set(value, proxy);
-    return proxy as T;
+    return proxy;
 }
 
 function clonedBuffer(value: ArrayBuffer, context: ReadonlyContext): ArrayBuffer {
@@ -643,18 +646,21 @@ function clonedBuffer(value: ArrayBuffer, context: ReadonlyContext): ArrayBuffer
     return copy;
 }
 
-function cloneView<T extends ArrayBufferView>(value: T, buffer: ArrayBuffer): T {
+function cloneView(value: ArrayBufferView, buffer: ArrayBuffer): ArrayBufferView {
     if (value instanceof DataView) {
-        return new DataView(buffer, value.byteOffset, value.byteLength) as unknown as T;
+        return new DataView(buffer, value.byteOffset, value.byteLength);
     }
+    // ArrayBuffer.isView admits only DataView and the built-in typed arrays, and every
+    // typed array carries BYTES_PER_ELEMENT and an (buffer, offset, length) constructor.
+    // ArrayBufferView describes neither, so the element width is read through the shape
+    // the isView guard already established.
     const constructor = value.constructor as new (
         buffer: ArrayBuffer,
         byteOffset: number,
         length: number
-    ) => T;
-    const bytesPerElement = (value as unknown as { readonly BYTES_PER_ELEMENT: number })
-        .BYTES_PER_ELEMENT;
-    return new constructor(buffer, value.byteOffset, value.byteLength / bytesPerElement);
+    ) => ArrayBufferView;
+    const { BYTES_PER_ELEMENT } = value as ArrayBufferView & { readonly BYTES_PER_ELEMENT: number };
+    return new constructor(buffer, value.byteOffset, value.byteLength / BYTES_PER_ELEMENT);
 }
 
 function corruptSnapshot(message: string): AgentCoreError {

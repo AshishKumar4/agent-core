@@ -3,6 +3,8 @@ import {
     JsonSchema,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonValue,
+    isObjectRecord,
     type JsonSchemaDocument,
     type JsonValue
 } from "../../core";
@@ -37,29 +39,29 @@ export interface McpSchemaBoundary {
     assertSchema(schema: JsonSchemaDocument): void;
 }
 
-export interface McpToolDiscovery {
+export type McpToolDiscovery = {
     readonly name: string;
     readonly inputSchema: JsonSchemaDocument;
     readonly outputSchema: JsonSchemaDocument;
     readonly _meta?: Readonly<Record<string, JsonValue>>;
-}
+};
 
-export interface McpResourceDiscovery {
+export type McpResourceDiscovery = {
     readonly name: string;
     readonly outputSchema: JsonSchemaDocument;
-}
+};
 
-export interface McpPromptDiscovery {
+export type McpPromptDiscovery = {
     readonly title: string;
     readonly body: string;
-}
+};
 
-export interface McpDiscoveryDocument {
+export type McpDiscoveryDocument = {
     readonly revision: string;
     readonly tools: readonly McpToolDiscovery[];
     readonly resources: readonly McpResourceDiscovery[];
     readonly prompts: readonly McpPromptDiscovery[];
-}
+};
 
 export interface McpDiscoveryResult {
     readonly operations: readonly OperationDescriptor[];
@@ -97,9 +99,9 @@ export class McpDiscoveryRegistration {
         if (expectedDigest !== undefined && !digest.equals(expectedDigest)) {
             throw new TypeError("MCP discovery registration digest does not match its document");
         }
-        this.document = freezeDiscoveryDocument(
-            decodeCanonicalJson(bytes) as unknown as McpDiscoveryDocument
-        );
+        const decoded = decodeCanonicalJson(bytes);
+        requireDiscoveryDocument(decoded);
+        this.document = freezeDiscoveryDocument(decoded);
         this.digest = digest;
         Object.freeze(this);
     }
@@ -115,7 +117,7 @@ export class McpDiscoveryRegistration {
     public toData(): FacetData {
         return {
             digest: this.digest.value,
-            document: this.document as unknown as FacetData
+            document: this.document
         };
     }
 }
@@ -126,8 +128,10 @@ const mcpDiscoveryRegistrationCodec = new DataRecordCodec(
     (payload) => {
         const object = requireDataObject(payload, "MCP discovery registration");
         requireExactFields(object, ["digest", "document"]);
+        const document = object["document"];
+        requireDiscoveryDocument(document);
         return new McpDiscoveryRegistration(
-            object["document"] as unknown as McpDiscoveryDocument,
+            document,
             new Digest(requireString(object["digest"], "MCP discovery digest"))
         );
     }
@@ -561,19 +565,18 @@ function requireImpact(value: Impact): Impact {
 }
 
 function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
-    const candidate = tool as unknown as Record<string, unknown>;
-    if (Object.hasOwn(candidate, "impact")) {
+    if (Object.hasOwn(tool, "impact")) {
         throw new McpDiscoveryError(
             "impact.invalid",
             `MCP impact must use _meta["${MCP_IMPACT_ANNOTATION}"]`
         );
     }
-    const metadata = candidate["_meta"];
+    const metadata = tool._meta;
     if (metadata === undefined) return remote ? "externalSend" : "execute";
     if (metadata === null || Array.isArray(metadata) || typeof metadata !== "object") {
         throw new McpDiscoveryError("impact.invalid", "MCP tool metadata must be an object");
     }
-    const value = (metadata as Record<string, unknown>)[MCP_IMPACT_ANNOTATION];
+    const value = metadata[MCP_IMPACT_ANNOTATION];
     const derived = remote ? "externalSend" : "execute";
     if (value === undefined) return derived;
     if (typeof value !== "string") {
@@ -589,17 +592,14 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
     return lowersEnforcementFloor(annotated, derived) ? derived : annotated;
 }
 
-function requireDiscoveryDocument(document: McpDiscoveryDocument): void {
+function requireDiscoveryDocument(document: unknown): asserts document is McpDiscoveryDocument {
     try {
-        const candidate = document as unknown as Record<string, unknown>;
         if (
-            document === null ||
-            Array.isArray(document) ||
-            typeof document !== "object" ||
-            typeof candidate["revision"] !== "string" ||
-            !Array.isArray(candidate["tools"]) ||
-            !Array.isArray(candidate["resources"]) ||
-            !Array.isArray(candidate["prompts"])
+            !isObjectRecord(document) ||
+            typeof document["revision"] !== "string" ||
+            !Array.isArray(document["tools"]) ||
+            !Array.isArray(document["resources"]) ||
+            !Array.isArray(document["prompts"])
         ) {
             throw new TypeError("MCP discovery document is malformed");
         }
@@ -637,6 +637,9 @@ function requireDiscoveryDocument(document: McpDiscoveryDocument): void {
                 throw new TypeError("MCP prompt discovery is malformed");
             }
         }
+        if (!isJsonValue(document)) {
+            throw new TypeError("MCP discovery document is malformed");
+        }
         canonicalDiscoveryBytes(document);
     } catch (error) {
         if (error instanceof McpDiscoveryError) throw error;
@@ -644,15 +647,15 @@ function requireDiscoveryDocument(document: McpDiscoveryDocument): void {
     }
 }
 
-function canonicalDiscoveryBytes(document: McpDiscoveryDocument): Uint8Array {
-    return encodeCanonicalJson(document as unknown as JsonValue);
+function canonicalDiscoveryBytes(document: JsonValue): Uint8Array {
+    return encodeCanonicalJson(document);
 }
 
 function freezeDiscoveryDocument(document: McpDiscoveryDocument): McpDiscoveryDocument {
-    return freezeJson(document as unknown as JsonValue) as unknown as McpDiscoveryDocument;
+    return freezeJson(document);
 }
 
-function freezeJson(value: JsonValue): JsonValue {
+function freezeJson<Value extends JsonValue>(value: Value): Value {
     if (Array.isArray(value)) {
         for (const item of value) freezeJson(item);
         return Object.freeze(value);

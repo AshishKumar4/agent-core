@@ -248,7 +248,7 @@
     {
       "id": "w1.actors.store.copydetached.ac2be32b42",
       "file": "src/actors/store.ts",
-      "line": 675,
+      "line": 678,
       "source": "src/actors/store.ts",
       "sourceAnchor": {
         "container": "copyDetached",
@@ -262,7 +262,7 @@
     {
       "id": "w1.actors.store.requiredetachedobjects.6956acc7cf",
       "file": "src/actors/store.ts",
-      "line": 701,
+      "line": 704,
       "source": "src/actors/store.ts",
       "sourceAnchor": {
         "container": "requireDetachedObjects",
@@ -276,7 +276,7 @@
     {
       "id": "w1.actors.store.requireownedgraph.f5ecb88cc5",
       "file": "src/actors/store.ts",
-      "line": 738,
+      "line": 741,
       "source": "src/actors/store.ts",
       "sourceAnchor": {
         "container": "requireOwnedGraph",
@@ -290,7 +290,7 @@
     {
       "id": "w1.actors.store.requireownedgraph.ae1a8dc653",
       "file": "src/actors/store.ts",
-      "line": 745,
+      "line": 748,
       "source": "src/actors/store.ts",
       "sourceAnchor": {
         "container": "requireOwnedGraph",
@@ -304,7 +304,7 @@
     {
       "id": "w1.actors.store.requireownedgraph.b5520c755e",
       "file": "src/actors/store.ts",
-      "line": 752,
+      "line": 755,
       "source": "src/actors/store.ts",
       "sourceAnchor": {
         "container": "requireOwnedGraph",
@@ -318,7 +318,7 @@
     {
       "id": "w1.actors.store.requireownedgraph.a0b91e0216",
       "file": "src/actors/store.ts",
-      "line": 770,
+      "line": 773,
       "source": "src/actors/store.ts",
       "sourceAnchor": {
         "container": "requireOwnedGraph",
@@ -1004,7 +1004,7 @@
     {
       "id": "w1.protocol.dispatcher.requiretypedcommandexecution.fe9769ac05",
       "file": "src/protocol/dispatcher.ts",
-      "line": 772,
+      "line": 778,
       "source": "src/protocol/dispatcher.ts",
       "sourceAnchor": {
         "container": "requireTypedCommandExecution",
@@ -1018,7 +1018,7 @@
     {
       "id": "w1.protocol.dispatcher.requireobservationcodec.9847dd1ef8",
       "file": "src/protocol/dispatcher.ts",
-      "line": 781,
+      "line": 787,
       "source": "src/protocol/dispatcher.ts",
       "sourceAnchor": {
         "container": "requireObservationCodec",
@@ -1032,7 +1032,7 @@
     {
       "id": "w1.protocol.dispatcher.validatecommandactorcontext.ec8effee4d",
       "file": "src/protocol/dispatcher.ts",
-      "line": 791,
+      "line": 797,
       "source": "src/protocol/dispatcher.ts",
       "sourceAnchor": {
         "container": "validateCommandActorContext",
@@ -1046,7 +1046,7 @@
     {
       "id": "w1.protocol.dispatcher.validatelimit.96f93ee5cc",
       "file": "src/protocol/dispatcher.ts",
-      "line": 830,
+      "line": 836,
       "source": "src/protocol/dispatcher.ts",
       "sourceAnchor": {
         "container": "validateLimit",

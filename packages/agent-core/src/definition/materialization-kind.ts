@@ -123,7 +123,7 @@ function requireModes(value: JsonValue | undefined, subject: string): readonly I
     if (!Array.isArray(value)) {
         throw new TypeError(`${subject} must be an array`);
     }
-    return value as unknown as readonly IsolationMode[];
+    return value as readonly IsolationMode[];
 }
 
 function requireCanonicalModes(

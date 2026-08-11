@@ -174,19 +174,24 @@ export function decodeViewStreamFrame(value: string): ViewStreamFrame {
         Object.defineProperty(error, "cause", { value: cause });
         throw error;
     }
-    if (
-        !isRecord(decoded) ||
-        decoded.version !== ATTACHMENT_VERSION ||
-        (decoded.kind !== "snapshot" && decoded.kind !== "delta") ||
-        typeof decoded.channel !== "string" ||
-        decoded.channel.length === 0 ||
-        !Number.isSafeInteger(decoded.revision) ||
-        (decoded.revision as number) < 0 ||
-        typeof decoded.payload !== "string"
-    ) {
+    if (!isViewStreamFrame(decoded)) {
         throw new AgentCoreError("codec.invalid", "View stream frame has an invalid shape");
     }
-    return Object.freeze(decoded as unknown as ViewStreamFrame);
+    return Object.freeze(decoded);
+}
+
+function isViewStreamFrame(value: unknown): value is ViewStreamFrame {
+    return (
+        isRecord(value) &&
+        value.version === ATTACHMENT_VERSION &&
+        (value.kind === "snapshot" || value.kind === "delta") &&
+        typeof value.channel === "string" &&
+        value.channel.length > 0 &&
+        typeof value.revision === "number" &&
+        Number.isSafeInteger(value.revision) &&
+        value.revision >= 0 &&
+        typeof value.payload === "string"
+    );
 }
 
 function createAttachment(
@@ -209,19 +214,24 @@ function decodePersistedAttachment(
     value: unknown,
     errors: CloudflareErrorPort
 ): ViewSocketAttachment {
-    if (
-        !isRecord(value) ||
-        value.version !== ATTACHMENT_VERSION ||
-        typeof value.channel !== "string" ||
-        value.channel.length === 0 ||
-        !Number.isSafeInteger(value.ackedRevision) ||
-        (value.ackedRevision as number) < 0
-    ) {
+    if (!isViewSocketAttachment(value)) {
         operationalFailure(errors, "codec.invalid", "WebSocket attachment has an invalid shape");
     }
-    const attachment = Object.freeze(value as unknown as ViewSocketAttachment);
+    const attachment = Object.freeze(value);
     requireAttachmentSize(attachment, "codec.invalid", errors);
     return attachment;
+}
+
+function isViewSocketAttachment(value: unknown): value is ViewSocketAttachment {
+    return (
+        isRecord(value) &&
+        value.version === ATTACHMENT_VERSION &&
+        typeof value.channel === "string" &&
+        value.channel.length > 0 &&
+        typeof value.ackedRevision === "number" &&
+        Number.isSafeInteger(value.ackedRevision) &&
+        value.ackedRevision >= 0
+    );
 }
 
 function requireInputRevision(revision: number, errors: CloudflareErrorPort): void {
