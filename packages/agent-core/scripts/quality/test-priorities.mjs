@@ -3,7 +3,16 @@ import { readFile } from "node:fs/promises";
 import { posix, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
-import { collectFiles, packageRoot, portable, reportRoot, writeCanonicalJson } from "./project.mjs";
+import {
+    collectFiles,
+    packageRoot,
+    parseCanonicalJson,
+    portable,
+    portablePath,
+    readJson,
+    reportRoot,
+    writeCanonicalJson
+} from "./project.mjs";
 import { TEST_PRIORITIES as priorities } from "./test-priority-evidence.mjs";
 
 export async function discoverPriorityTestFiles() {
@@ -259,13 +268,15 @@ async function main() {
             ])
         )
     );
+    const stagePath = resolve(packageRoot, "artifacts/conformance/stage.json");
+    const conformanceStage = parseCanonicalJson(
+        readFileSync(stagePath, "utf8"),
+        portablePath(stagePath)
+    ).stage;
     const counts = validatePriorityEvidence(full, lanes, stage, {
         // Complete tagging is a campaign: demanded only once the SPEC conformance
         // stage is declared final; until then the count is reported as a note.
-        requireCompleteClassification:
-            JSON.parse(
-                readFileSync(resolve(packageRoot, "artifacts/conformance/stage.json"), "utf8")
-            ).stage === "final"
+        requireCompleteClassification: conformanceStage === "final"
     });
     await writeCanonicalJson(resolve(reportRoot, "test-priorities.json"), {
         edition: "1.0.0",
@@ -283,10 +294,6 @@ async function main() {
     console.log(
         `Behavioral priority evidence: P0 ${counts.p0}, P1 ${counts.p1}, P2 ${counts.p2}, unclassified ${counts.unclassified}`
     );
-}
-
-async function readJson(path) {
-    return JSON.parse(await readFile(path, "utf8"));
 }
 
 function parseStage(args) {

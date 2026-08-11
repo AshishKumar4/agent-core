@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCanonicalJson } from "./quality/project.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const formalRoot = join(packageRoot, "formal");
@@ -234,7 +235,7 @@ function checkLeanDefinitions(definitions) {
 const traceabilitySource = readFileSync(traceabilityPath, "utf8");
 let traceability;
 try {
-    traceability = JSON.parse(traceabilitySource);
+    traceability = parseCanonicalJson(traceabilitySource, "artifacts/traceability.yaml");
 } catch (error) {
     console.error(
         `check-traceability: traceability.yaml must be JSON-compatible YAML: ${error.message}`

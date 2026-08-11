@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseCanonicalJson } from "./project.mjs";
 
 export function extractRequestObligations(source, sourceSha256, bytes) {
     if (source.endsWith(".md")) {
@@ -8,7 +9,7 @@ export function extractRequestObligations(source, sourceSha256, bytes) {
     }
     if (!source.endsWith(".json")) return [singleton(source, sourceSha256, bytes)];
 
-    const document = JSON.parse(bytes);
+    const document = parseCanonicalJson(bytes, source);
     if (document.schemaVersion === "agent-core.integration-request/v1") {
         return collection(
             source,

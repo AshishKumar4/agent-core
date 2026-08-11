@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { artifactRoot, packageRoot } from "./project.mjs";
+import { artifactRoot, packageRoot, parseCanonicalJson, portablePath } from "./project.mjs";
 
 const repositoryRoot = resolve(packageRoot, "../..");
 
@@ -85,7 +85,7 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
         if (sha256(bytes) !== manifest.reports[name]) {
             throw new TypeError(`Live evidence report digest differs: ${name}`);
         }
-        const report = JSON.parse(new TextDecoder().decode(bytes));
+        const report = parseCanonicalJson(new TextDecoder().decode(bytes), portablePath(resolve(root, name)));
         if (report.numTotalTests === 0 || report.numFailedTests !== 0) {
             throw new TypeError(`Live evidence phase did not pass cleanly: ${name}`);
         }
@@ -123,11 +123,13 @@ export function liveEvidenceSelectors(conformanceRoot) {
 }
 
 function readJson(path, name) {
+    let source;
     try {
-        return JSON.parse(readFileSync(path, "utf8"));
+        source = readFileSync(path, "utf8");
     } catch (error) {
         throw new TypeError(`${name} is missing or unreadable: ${error.message}`);
     }
+    return parseCanonicalJson(source, portablePath(path));
 }
 
 function sha256(bytes) {
