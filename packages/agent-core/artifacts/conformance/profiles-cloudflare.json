@@ -321,14 +321,21 @@
       "owner": "W8",
       "specAnchor": "C13-ENVIRONMENT-TURN-OWNED",
       "specTextSha256": "sha256:60a2b6770b13f8e84a29795c09869b863b2408d3aa7b7d3e5f51d8850366f4ba",
-      "status": "planned",
-      "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "status": "verified",
+      "prerequisites": [
+        "P11-ENVIRONMENT-USE"
+      ],
+      "sourceSymbols": [
+        "src/environments/runtime.ts#EnvironmentController"
+      ],
+      "testSelectors": [
+        "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-TURN-OWNED] rejects use under another Turn's lease and fails closed once the owning lease is fenced"
+      ],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
     },
     {
       "id": "C13-PROFILE-SOURCE-EVENT-CAUSALITY",
