@@ -256,14 +256,20 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-GUEST-VERIFICATION",
       "specTextSha256": "sha256:52a60e060b1592a09943e54e31d8ec5cd477642d19988fbfc1755ce91a3ea117",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/authority/materializer.ts#RoleGrantMaterializer",
+        "src/authority/service.ts#AuthorityMutationService",
+        "src/identity/guest-verification.ts#GuestVerification"
+      ],
+      "testSelectors": [
+        "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] denies a direct Grant to a foreign subject",
+        "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] never materializes a subject still stamped handshake",
+        "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] verifies provenance before materializing any guest Grant and a failure denies"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-AUTH-ISOLATE-DELEGATION",
