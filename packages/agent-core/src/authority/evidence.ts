@@ -1,5 +1,5 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../core";
+import { Digest, RecordCodec, encodeCanonicalJson, isMember, type JsonValue } from "../core";
 import { FacetRef, type Impact } from "../facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { Binding } from "./binding";
@@ -424,8 +424,8 @@ function requireReason(value: JsonValue | undefined): AuthorityDecisionReason {
         "matchingDeny",
         "stalePath"
     ];
-    if (typeof value === "string" && reasons.includes(value as AuthorityDecisionReason)) {
-        return value as AuthorityDecisionReason;
+    if (isMember(reasons, value)) {
+        return value;
     }
     throw new TypeError("Authority decision reason is invalid");
 }

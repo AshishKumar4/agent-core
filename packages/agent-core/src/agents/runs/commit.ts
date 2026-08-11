@@ -1,4 +1,11 @@
-import { ContentRef, Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../../core";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    encodeCanonicalJson,
+    isMember,
+    type JsonValue
+} from "../../core";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
 import { PrincipalRef } from "../../identity";
@@ -772,7 +779,7 @@ function requireCommitKind(value: JsonValue | undefined): RunCommitKind {
         "undo",
         "migration"
     ];
-    if (kinds.includes(value as RunCommitKind)) return value as RunCommitKind;
+    if (isMember(kinds, value)) return value;
     throw new TypeError("Run commit kind is invalid");
 }
 

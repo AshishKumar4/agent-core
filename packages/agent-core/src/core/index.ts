@@ -10,6 +10,8 @@ export { RecordCodec } from "./codec";
 export type { RecordEnvelope, RecordVersion } from "./codec";
 export { hasExactJsonKeys, isJsonObject, isJsonValue, isObjectRecord } from "./json";
 export type { JsonFields, JsonObject, JsonPrimitive, JsonValue, ObjectRecord } from "./json";
+export { isMember, isNonempty, requireNonempty } from "./narrow";
+export type { Nonempty } from "./narrow";
 export { CompatRange } from "./compat-range";
 export { SemVer } from "./semver";
 export { JsonSchema, StrictJsonSchemaValidator, strictJsonSchemaValidator } from "./schema";

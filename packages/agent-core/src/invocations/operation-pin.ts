@@ -1,4 +1,4 @@
-import { Digest, SemVer, type JsonValue } from "../core";
+import { Digest, SemVer, isMember, type JsonValue } from "../core";
 import { OperationRef, type Impact, type IsolationMode } from "../facets";
 import { POLICY_IMPACTS, PackageId, PLACEMENT_PREFERENCE } from "../definition";
 import {
@@ -218,13 +218,13 @@ function decodeModes(values: readonly JsonValue[]): readonly IsolationMode[] {
 }
 
 function requireMode(value: string): IsolationMode {
-    if (!MODES.includes(value as IsolationMode)) throw new TypeError("Isolation mode is invalid");
-    return value as IsolationMode;
+    if (!isMember(MODES, value)) throw new TypeError("Isolation mode is invalid");
+    return value;
 }
 
 function requireImpact(value: string): Impact {
-    if (!IMPACTS.includes(value as Impact)) throw new TypeError("Operation impact is invalid");
-    return value as Impact;
+    if (!isMember(IMPACTS, value)) throw new TypeError("Operation impact is invalid");
+    return value;
 }
 
 function requireBoolean(value: JsonValue | undefined): boolean {

@@ -1,4 +1,5 @@
 import {
+    isNonempty,
     type JsonObject,
     type JsonFields,
     ContentRef,
@@ -140,7 +141,7 @@ export class PackageCodeManifest {
         const entrypoints = init.entrypoints
             .map((entrypoint) => PackageCodeEntrypoint.fromData(entrypoint.toData()))
             .sort(compareEntrypoints);
-        if (modules.length === 0 || entrypoints.length === 0) {
+        if (!(isNonempty(modules) && isNonempty(entrypoints))) {
             throw new TypeError("Package code manifest requires modules and entrypoints");
         }
         requireUnique(
@@ -180,14 +181,8 @@ export class PackageCodeManifest {
         if (init.digest !== undefined && !init.digest.equals(digest)) {
             throw new TypeError("Package code digest does not match its canonical module closure");
         }
-        this.modules = Object.freeze(modules) as unknown as readonly [
-            PackageCodeModule,
-            ...PackageCodeModule[]
-        ];
-        this.entrypoints = Object.freeze(entrypoints) as unknown as readonly [
-            PackageCodeEntrypoint,
-            ...PackageCodeEntrypoint[]
-        ];
+        this.modules = Object.freeze(modules);
+        this.entrypoints = Object.freeze(entrypoints);
         this.compatibilityDate = compatibilityDate;
         this.digest = digest;
         Object.freeze(this);
@@ -214,12 +209,12 @@ export class PackageCodeManifest {
         const entrypoints = requireArray(object["entrypoints"], "Package code entrypoints").map(
             PackageCodeEntrypoint.fromData
         );
-        if (modules.length === 0 || entrypoints.length === 0) {
+        if (!isNonempty(modules) || !isNonempty(entrypoints)) {
             throw new TypeError("Package code manifest requires modules and entrypoints");
         }
         return new PackageCodeManifest({
-            modules: modules as [PackageCodeModule, ...PackageCodeModule[]],
-            entrypoints: entrypoints as [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]],
+            modules,
+            entrypoints,
             compatibilityDate: requireString(
                 object["compatibilityDate"],
                 "Package code compatibility date"

@@ -89,8 +89,11 @@ describe("W1 verification manifest", () => {
         expect(manifest.testFiles).toEqual(liveTests);
         expect(manifest.sourceFiles).toEqual(coverageInventory);
         expect(manifest.sourceFiles).toEqual(taxonomy.sources);
-        expect(integration.sourceExtensions).toEqual(["src/actors/id.ts"]);
-        expect(integration.testExtensions).toEqual(["test/core/errors.test.ts"]);
+        expect(integration.sourceExtensions).toEqual(["src/actors/id.ts", "src/core/narrow.ts"]);
+        expect(integration.testExtensions).toEqual([
+            "test/core/errors.test.ts",
+            "test/core/narrow.test.ts"
+        ]);
         expect(discoveredSources).toEqual(
             [...manifest.sourceFiles, ...integration.sourceExtensions].sort()
         );
