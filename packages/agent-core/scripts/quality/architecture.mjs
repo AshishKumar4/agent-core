@@ -26,7 +26,15 @@ const files = (await Promise.all(roots.map((root) => collectFiles(root, isTypeSc
     .flat()
     .sort();
 const issues = [];
-const reasonedRules = new Set(["ACQ-KEY", "ACQ-RENDER"]);
+const reasonedRules = new Set(["ACQ-KEY", "ACQ-RENDER", "ACQ-LOCALE"]);
+const localeSensitiveMembers = new Set([
+    "localeCompare",
+    "toLocaleDateString",
+    "toLocaleLowerCase",
+    "toLocaleString",
+    "toLocaleTimeString",
+    "toLocaleUpperCase"
+]);
 const identifiers = new Map();
 const vocabularies = new Map();
 
@@ -220,6 +228,19 @@ function inspectNode(node, source, file, aliases) {
             file,
             symbolAt(node, source),
             "Equality by JSON.stringify depends on key insertion order"
+        );
+    }
+    if (
+        ts.isPropertyAccessExpression(node) &&
+        localeSensitiveMembers.has(node.name.text) &&
+        ts.isCallExpression(node.parent) &&
+        node.parent.expression === node
+    ) {
+        issue(
+            "ACQ-LOCALE",
+            file,
+            symbolAt(node, source),
+            `${node.name.text} derives behaviour from the host locale and ICU build`
         );
     }
     if (ts.isTypeAliasDeclaration(node)) {

@@ -463,7 +463,7 @@ export class MemoryError extends DetailedProfileError<MemoryErrorCode> {
 }
 
 function tokenize(value: string): string[] {
-    return [...new Set(value.toLocaleLowerCase().match(/[\p{L}\p{N}_-]+/gu) ?? [])];
+    return [...new Set(value.toLowerCase().match(/[\p{L}\p{N}_-]+/gu) ?? [])];
 }
 
 function recallInputCodec() {
