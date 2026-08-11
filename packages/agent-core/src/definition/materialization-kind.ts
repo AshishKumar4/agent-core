@@ -1,10 +1,26 @@
 import { hasExactJsonKeys, type JsonValue } from "../core";
 import { Automation, type IsolationMode } from "../facets";
+import { AgentCoreError } from "../errors";
 import { invalidDefinition } from "./error";
 import { PlacementInput, selectPlacement } from "./placement";
 import { PolicySet } from "./policy";
 
 type MaterializationKindValidator = (desired: JsonValue) => JsonValue;
+
+/**
+ * Named so the stored-record decode path can tell "this build does not know this
+ * materialization kind" (forward compatible; the store may be reset and rebuilt) from
+ * "these bytes are corrupt". Both surface as codec.invalid, so a substring test on the
+ * message was the only thing carrying the distinction -- and RecordCodec.decode wraps a
+ * TypeError into a new message, so that test survived only by textual coincidence. An
+ * AgentCoreError subclass is rethrown by that wrapper unchanged.
+ */
+export class UnsupportedMaterializationKindError extends AgentCoreError {
+    public constructor(recordKind: string) {
+        super("codec.invalid", `Unsupported materialization record kind ${recordKind}`);
+        this.name = "UnsupportedMaterializationKindError";
+    }
+}
 
 const materializationKinds: Readonly<Record<string, MaterializationKindValidator>> = Object.freeze({
     "agent-profile": declarationMapValidator("Agent profile"),
@@ -39,7 +55,7 @@ export function canonicalMaterializationDesired(recordKind: string, desired: Jso
 
 function requireMaterializationKindValidator(recordKind: string): MaterializationKindValidator {
     if (typeof recordKind !== "string" || !Object.hasOwn(materializationKinds, recordKind)) {
-        throw new TypeError(`Unsupported materialization record kind ${recordKind}`);
+        throw new UnsupportedMaterializationKindError(recordKind);
     }
     return materializationKinds[recordKind]!;
 }

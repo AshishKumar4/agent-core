@@ -110,6 +110,15 @@ function classify(statement, file, path) {
             recordOperational("operation.invalid-input", location);
             return;
         }
+        if (name === "UnsupportedMaterializationKindError") {
+            requireSymbolSource(
+                expression.expression,
+                "src/definition/materialization-kind.ts",
+                location
+            );
+            recordOperational("codec.invalid", location);
+            return;
+        }
         if (name === "CommandPayloadMalformedError") {
             requireSymbolSource(expression.expression, "src/protocol/payload.ts", location);
             recordOperational("protocol.invalid-envelope", location);

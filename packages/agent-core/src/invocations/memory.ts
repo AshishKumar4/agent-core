@@ -7,7 +7,7 @@ import { InvocationId } from "../interaction-references";
 import type { InvocationPersistence } from "./persistence";
 import type { PreparedInvocation } from "./prepared";
 import { AttemptReceipt, PreEffectReceipt, type Receipt } from "./receipt";
-import type { RecordCodec } from "../core";
+import { encodeCanonicalJson, type RecordCodec } from "../core";
 import { AgentCoreError } from "../errors";
 import { invocationError } from "./error";
 
@@ -313,18 +313,30 @@ export class MemoryInvocationPersistence<
     }
 }
 
+const approvalKeyDecoder = new TextDecoder("utf-8", { fatal: true });
+
 function approvalKey(id: string, revision: number): string {
-    return `${id}\u0000${revision}`;
+    return approvalKeyDecoder.decode(encodeCanonicalJson([id, revision]));
+}
+
+/**
+ * `["<id>",` -- canonical JSON escapes the id and closes it with a quote the id itself
+ * cannot contain, so this prefix selects exactly one approval. A NUL delimiter could
+ * not: an ApprovalId is a bare TextId and so may contain U+0000, and the key for the
+ * id `a\u00007` at revision 0 begins with the prefix that id `a` scans for.
+ */
+function approvalKeyPrefix(id: string): string {
+    return `[${approvalKeyDecoder.decode(encodeCanonicalJson(id))},`;
 }
 
 function approvalEntries(
     approvals: ReadonlyMap<string, Uint8Array>,
     id: string
 ): readonly (readonly [number, Uint8Array])[] {
-    const prefix = `${id}\u0000`;
+    const prefix = approvalKeyPrefix(id);
     return [...approvals.entries()]
         .filter(([key]) => key.startsWith(prefix))
-        .map(([key, bytes]) => [Number(key.slice(prefix.length)), bytes] as const)
+        .map(([key, bytes]) => [Number(key.slice(prefix.length, -1)), bytes] as const)
         .sort(([left], [right]) => left - right);
 }
 

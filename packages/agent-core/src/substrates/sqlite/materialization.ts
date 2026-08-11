@@ -21,6 +21,7 @@ import {
     isLegalDeploymentTransition,
     isLegalOutboxTransition,
     requirePlanAttestation,
+    UnsupportedMaterializationKindError,
     requireExactOutboxClosure
 } from "../../definition";
 import { AgentCoreError } from "../../errors";
@@ -1656,7 +1657,7 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
     try {
         return decode();
     } catch (error) {
-        if (isUnsupportedMaterializationKindError(error)) {
+        if (error instanceof UnsupportedMaterializationKindError) {
             throw resetRequired(
                 "stored codec bytes contain an unsupported materialization closure"
             );
@@ -1665,12 +1666,6 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
             error instanceof Error ? error.message : "Stored materialization codec decode failed"
         );
     }
-}
-
-function isUnsupportedMaterializationKindError(error: unknown): boolean {
-    return (
-        error instanceof Error && error.message.includes("Unsupported materialization record kind")
-    );
 }
 
 function projectBlueprint(blueprint: Blueprint, recordBytes: Uint8Array): StoredBlueprint {
