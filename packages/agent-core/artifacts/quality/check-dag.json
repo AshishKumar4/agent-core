@@ -77,7 +77,8 @@
             "coverage",
             "mutation",
             "agents",
-            "live-evidence"
+            "live-evidence",
+            "integration"
         ],
         "ledger": [
             "invariants"

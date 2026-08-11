@@ -4356,8 +4356,8 @@
           },
           {
             "path": "packages/agent-core/src/agents/runs/executor.ts",
-            "blob": "a3ac1e363f0d63b83a59586da67943b0b133baf2",
-            "sha256": "beb9b5ea129b4dc2af5d5b0780a94110daaac123bc35a68d226b4d9001b75a4e"
+            "blob": "0aea8eccd1d8b46ec824df7955d4850e7e6a6650",
+            "sha256": "4c21baf70b40b9c1bff306f9f297668c8f7a9e9af3994f2bffdfc279611a8228"
           },
           {
             "path": "packages/agent-core/src/agents/runs/index.ts",

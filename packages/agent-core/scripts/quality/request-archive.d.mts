@@ -1,13 +1,5 @@
-export interface CompletionArtifact {
-    readonly path: string;
-    readonly blob: string;
-    readonly sha256: string;
-}
-export interface Completion {
-    readonly commit: string;
-    readonly tree: string;
-    readonly artifacts: readonly CompletionArtifact[];
-}
+import type { Completion, CompletionArtifact } from "./completion.mjs";
+export type { Completion, CompletionArtifact };
 export interface FinalResolution {
     readonly source: string;
     readonly sourceSha256: string;

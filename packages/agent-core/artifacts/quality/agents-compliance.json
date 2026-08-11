@@ -149,6 +149,19 @@
             "tests": [
                 "test/quality/ledger.test.ts#atomic SPEC ledger limits external conformance to explicitly declared W8 remote gates"
             ]
+        },
+        {
+            "id": "ACQ-OUTCOME",
+            "instructions": [
+                "AGENTS.md:330"
+            ],
+            "instructionContains": "Ratified Outcome Evidence",
+            "checker": "scripts/quality/integration.mjs",
+            "tests": [
+                "test/quality/outcome-baseline.test.ts#ratification-bound artifact pins rejects a pin re-pointed at later content while its ratification commit resolves",
+                "test/quality/outcome-baseline.test.ts#outcome ledger tamper evidence rejects an unverifiable outcome whose record was rewritten",
+                "test/quality/outcome-baseline.test.ts#reasoned baseline updates refuses to rewrite a recorded outcome without a reason"
+            ]
         }
     ]
 }
