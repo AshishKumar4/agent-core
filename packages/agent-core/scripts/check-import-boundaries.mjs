@@ -3,6 +3,7 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { parseCanonicalJson } from "./quality/project.mjs";
 
 const CROSS_CONTEXT_RULE = "cross-context-import";
 const RUNTIME_CYCLE_RULE = "runtime-import-cycle";
@@ -538,7 +539,7 @@ async function directoryEntries(directory) {
 }
 
 function parseBaseline(source, baselinePath) {
-    const parsed = JSON.parse(source);
+    const parsed = parseCanonicalJson(source, baselinePath);
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
         throw new TypeError(`Invalid import boundary baseline object: ${baselinePath}`);
     }

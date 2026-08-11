@@ -6,6 +6,8 @@ import addFormats from "ajv-formats";
 import {
     artifactRoot,
     collectFiles,
+    parseCanonicalJson,
+    portablePath,
     readCanonicalJson,
     reportRoot,
     repositoryRoot,
@@ -799,7 +801,7 @@ async function verifyDecisionAnchor(decision, archiveBySource) {
     const sourcePath = archiveBySource.get(decision.source)?.path ?? decision.source;
     const source = await readFile(resolve(repositoryRoot, sourcePath), "utf8");
     if (decision.anchor.startsWith("#/")) {
-        let value = JSON.parse(source);
+        let value = parseCanonicalJson(source, portablePath(resolve(repositoryRoot, sourcePath)));
         for (const raw of decision.anchor.slice(2).split("/")) {
             const key = raw.replaceAll("~1", "/").replaceAll("~0", "~");
             if (value === null || typeof value !== "object" || !(key in value)) {

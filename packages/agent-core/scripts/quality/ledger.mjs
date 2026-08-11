@@ -4,6 +4,7 @@ import {
     assertExactKeys,
     assertFlatFragmentNames,
     assertString,
+    assertUniqueIds,
     assertUniqueStrings,
     collectFiles,
     packageRoot,
@@ -181,6 +182,7 @@ const externallyGated = requirements.filter(
 const evidenced = [...verified, ...externallyGated];
 if (evidenced.length > 0) {
     const rules = await readCanonicalJson(resolve(ledgerArtifactRoot, "quality/rules.json"));
+    assertUniqueIds(rules.rules, (rule) => rule.id, "quality/rules.json rules");
     const knownInvariants = new Set(rules.rules.map((rule) => rule.id));
     const executedInvariants = new Set((await readCanonicalJson(options.invariantsReport)).passed);
     const priorityEvidence =
