@@ -435,6 +435,10 @@ import AgentCore
 #print axioms AgentCore.resolution_ignores_arrival_order
 #print axioms AgentCore.resolution_is_unique_declared_order
 #print axioms AgentCore.resolved_entry_is_stored_and_validates
+#print axioms AgentCore.authorized_slot_step_is_slot_step
+#print axioms AgentCore.unauthorized_contributor_never_lands
+#print axioms AgentCore.authorized_contribution_carries_admission
+#print axioms AgentCore.non_contribute_step_needs_no_authority
 
 -- Commands (SPEC §4.3): per-surface collision rejection, exact derived routes,
 -- install-checked mappings, validated invocation input, and submission idempotency.
@@ -483,6 +487,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_conflicting_origin_rejected
 #print axioms AgentCore.Examples.nonvacuous_entry_id_reuse_rejected
 #print axioms AgentCore.Examples.nonvacuous_slot_noop_reinstallation
+#print axioms AgentCore.Examples.nonvacuous_prompt_slot_authority_gate
 #print axioms AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation
 #print axioms AgentCore.Examples.nonvacuous_derived_subscription_exactness
 #print axioms AgentCore.Examples.nonvacuous_command_surface_collision_rejected
