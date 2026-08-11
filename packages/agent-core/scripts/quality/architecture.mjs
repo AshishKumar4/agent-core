@@ -26,6 +26,27 @@ const files = (await Promise.all(roots.map((root) => collectFiles(root, isTypeSc
     .flat()
     .sort();
 const issues = [];
+/**
+ * The rules here fall into two categories, and they need different success conditions.
+ *
+ * Every other rule is a defect rule: ACQ-ERR, ACQ-ID, ACQ-CODEC, ACQ-IMMUTABLE and
+ * ACQ-VOCAB each flag something wrong that has a fix, so their correct target is zero,
+ * and the tree has driven all of them there.
+ *
+ * The rules below are shape rules. They flag a construction that requires review rather
+ * than a defect: a composite key, a rendered comparison, a locale-dependent operation.
+ * A shape can be sound -- a delimiter is safe when no component can contain it, and some
+ * flagged sites are not identities at all but a SemVer rendering, a URL, a SQL fragment
+ * -- so a shape rule can never reach zero by fixing code. Demanding zero from one would
+ * force either pointless rewrites of persisted key formats or, far worse, someone
+ * weakening the rule to make the gate green.
+ *
+ * So a shape-rule site is resolved by a written proof, and the final stage counts
+ * outstanding issues rather than detected ones. Both conditions on `reviewed` below are
+ * load-bearing: the rule must be in this set, and its baseline entry must carry a
+ * non-empty reason. That is what keeps the exemption path closed to the defect rules --
+ * no defect-rule entry carries a reason, so none can return through it.
+ */
 const reasonedRules = new Set(["ACQ-KEY", "ACQ-RENDER", "ACQ-LOCALE"]);
 const localeSensitiveMembers = new Set([
     "localeCompare",
