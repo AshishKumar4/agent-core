@@ -8,7 +8,7 @@ import {
     type AuthorityMutationStore
 } from "../../authority";
 import type { SynchronousResultGuard } from "../../actors";
-import { RecordCodec, Revision, type JsonValue } from "../../core";
+import { RecordCodec, Revision, isJsonObject, type JsonValue } from "../../core";
 import { AgentCoreError } from "../../errors";
 import {
     Membership,
@@ -65,26 +65,20 @@ class BootstrapMarkerCodec extends RecordCodec<TenantBootstrapMarker> {
     }
 
     protected decodePayload(payload: JsonValue): TenantBootstrapMarker {
-        if (
-            payload === null ||
-            Array.isArray(payload) ||
-            typeof payload !== "object" ||
-            Object.keys(payload).length !== 3
-        ) {
+        if (!isJsonObject(payload) || Object.keys(payload).length !== 3) {
             throw new TypeError("Tenant bootstrap marker payload is malformed");
         }
-        const object = payload as { readonly [key: string]: JsonValue };
         if (
-            typeof object["tenantId"] !== "string" ||
-            typeof object["ownerPrincipalId"] !== "string" ||
-            typeof object["revision"] !== "number"
+            typeof payload["tenantId"] !== "string" ||
+            typeof payload["ownerPrincipalId"] !== "string" ||
+            typeof payload["revision"] !== "number"
         ) {
             throw new TypeError("Tenant bootstrap marker payload is malformed");
         }
         return new TenantBootstrapMarker(
-            new TenantId(object["tenantId"]),
-            new PrincipalId(object["ownerPrincipalId"]),
-            new Revision(object["revision"])
+            new TenantId(payload["tenantId"]),
+            new PrincipalId(payload["ownerPrincipalId"]),
+            new Revision(payload["revision"])
         );
     }
 }
@@ -336,7 +330,7 @@ export class SqliteTenantControlStore
         return this.loadGuestTrust(id);
     }
 
-    public guestTrusts(): readonly GuestTrust[] {
+    public override guestTrusts(): readonly GuestTrust[] {
         return super.guestTrusts();
     }
 

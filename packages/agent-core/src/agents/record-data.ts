@@ -1,4 +1,11 @@
-import { Digest, Revision, type JsonValue, type RecordCodec } from "../core";
+import {
+    type JsonFields,
+    isJsonObject,
+    Digest,
+    Revision,
+    type JsonValue,
+    type RecordCodec
+} from "../core";
 
 export type JsonObject = { readonly [key: string]: JsonValue };
 
@@ -19,18 +26,16 @@ export abstract class CodecRecord {
 }
 
 export function requireObject(value: JsonValue, subject: string): JsonObject {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as JsonObject;
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
-export function requireExactFields(
+export function requireExactFields<Field extends string>(
     value: JsonObject,
-    required: readonly string[],
+    required: readonly Field[],
     optional: readonly string[],
     subject: string
-): void {
+): asserts value is JsonFields<Field> {
     const expected = new Set([...required, ...optional]);
     const keys = Object.keys(value);
     if (required.some((key) => !(key in value)) || keys.some((key) => !expected.has(key))) {

@@ -330,11 +330,11 @@ class MediatedReplayRecordCodecV1 extends RecordCodec<MediatedReplayRecord> {
             requireString(object, "facet"),
             requireString(object, "operation"),
             requireDigest(object, "descriptorDigest"),
-            decodePrincipal(object["principal"]!),
+            decodePrincipal(object["principal"]),
             requireDigest(object, "authorityIdentity"),
             requireDigest(object, "packageOperationPin"),
-            decodeExecution(object["execution"]!),
-            decodeShape(object["shape"]!),
+            decodeExecution(object["execution"]),
+            decodeShape(object["shape"]),
             requireArray(object, "items").map(decodeItem),
             invocation === null ? undefined : new InvocationId(invocation),
             new Revision(requireNonnegativeInteger(object, "revision"))
@@ -511,12 +511,12 @@ function decodeItem(value: JsonValue): MediatedReplayItem {
         ...(phase === "reserved"
             ? {}
             : {
-                  preparedArguments: object["preparedArguments"]!,
+                  preparedArguments: object["preparedArguments"],
                   before: requireArray(object, "before").map(decodeTrace)
               }),
         ...(phase === "effect" || phase === "presented"
             ? {
-                  effectOutput: object["effectOutput"]!,
+                  effectOutput: object["effectOutput"],
                   receipt: new ReceiptId(receipt as string)
               }
             : {}),
@@ -524,7 +524,7 @@ function decodeItem(value: JsonValue): MediatedReplayItem {
         ...(phase === "presented"
             ? {
                   after: requireArray(object, "after").map(decodeTrace),
-                  presentation: object["presentation"]!
+                  presentation: object["presentation"]
               }
             : {})
     };

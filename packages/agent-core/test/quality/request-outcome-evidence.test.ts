@@ -85,10 +85,10 @@ describe("request outcome reconciliation", () => {
         // The archived request is byte-frozen evidence of what W8 asked for; the live
         // package may gain dependencies afterwards, but every requested pin must hold.
         expect(packageJson.dependencies).toEqual(
-            expect.objectContaining(dependencyRequest?.exactDependencies?.dependencies ?? {})
+            expect.objectContaining(dependencyRequest?.exactDependencies?.["dependencies"] ?? {})
         );
         expect(packageJson.devDependencies).toEqual(
-            expect.objectContaining(dependencyRequest?.exactDependencies?.devDependencies ?? {})
+            expect.objectContaining(dependencyRequest?.exactDependencies?.["devDependencies"] ?? {})
         );
         expect(packageJson.scripts).toEqual(
             expect.objectContaining({

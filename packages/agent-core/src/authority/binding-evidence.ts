@@ -133,7 +133,7 @@ export class BindingValidationRequest {
                 new ActorId(requireString(workspaceActor, "id"))
             ),
             workspaceFence: requireSafeInteger(object, "workspaceFence"),
-            scope: decodeAuthorityScope(object["scope"]!),
+            scope: decodeAuthorityScope(object["scope"]),
             domain: decodeDomain(object["domain"]),
             name: new BindingName(requireString(object, "name")),
             grantId: new GrantId(requireString(object, "grantId")),
@@ -249,8 +249,8 @@ export class BindingValidationEvidence {
                 new ActorId(requireString(issuer, "id"))
             ),
             new Digest(requireString(object, "requestDigest")),
-            decodeAuthorityScope(object["scope"]!),
-            decodeAuthoritySubject(object["subject"]!),
+            decodeAuthorityScope(object["scope"]),
+            decodeAuthoritySubject(object["subject"]),
             new GrantId(requireString(object, "grantId")),
             PathEpochEvidence.fromData(object["pathEpochs"]),
             new Date(requireSafeInteger(object, "checkedAt"))

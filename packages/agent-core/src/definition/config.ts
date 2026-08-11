@@ -5,9 +5,10 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
-import { SlotName, type FacetDataMap } from "../facets";
+import { SlotName } from "../facets";
 import type { PackageRelease } from "./package";
 import { compareText } from "./order";
 
@@ -48,7 +49,7 @@ class ConfigCodec extends RecordCodec<Config> {
         if (!hasExactJsonKeys(object, ["value"])) {
             throw new TypeError("Config payload contains missing or unknown fields");
         }
-        return Config.fromData(requireObject(object["value"]!, "Config value"));
+        return Config.fromData(requireObject(object["value"], "Config value"));
     }
 }
 
@@ -109,7 +110,7 @@ export function encodeSecretRef(reference: SecretRef): SecretRefData {
             provider: reference.provider,
             source: reference.source
         }
-    }) as unknown as SecretRefData;
+    });
 }
 
 export function decodeSecretRef(value: JsonValue): SecretRef {
@@ -117,7 +118,7 @@ export function decodeSecretRef(value: JsonValue): SecretRef {
     if (!hasExactJsonKeys(object, [SECRET_TAG])) {
         throw new TypeError("Secret reference must use the tagged representation");
     }
-    const reference = requireObject(object[SECRET_TAG]!, "Secret reference value");
+    const reference = requireObject(object[SECRET_TAG], "Secret reference value");
     if (!hasExactJsonKeys(reference, ["id", "provider", "source"])) {
         throw new TypeError("Secret reference contains missing or unknown fields");
     }
@@ -190,7 +191,7 @@ function packageConfigFragments(release: PackageRelease): JsonValue[] {
 
 function canonicalConfigValue(value: ConfigInput): JsonValue {
     if (value instanceof SecretRef) {
-        return encodeSecretRef(value) as unknown as JsonValue;
+        return encodeSecretRef(value);
     }
     if (value === null || typeof value === "boolean" || typeof value === "string") {
         return value;
@@ -209,9 +210,12 @@ function canonicalConfigValue(value: ConfigInput): JsonValue {
     }
     if (SECRET_TAG in value) {
         const normalized = Object.fromEntries(
-            Object.entries(value).map(([key, entry]) => [key, canonicalConfigValue(entry)])
-        ) as FacetDataMap;
-        return encodeSecretRef(decodeSecretRef(normalized)) as unknown as JsonValue;
+            Object.entries(value).map(([key, entry]): readonly [string, JsonValue] => [
+                key,
+                canonicalConfigValue(entry)
+            ])
+        );
+        return encodeSecretRef(decodeSecretRef(normalized));
     }
     return Object.fromEntries(
         Object.entries(value).map(([key, entry]) => [key, canonicalConfigValue(entry)])
@@ -234,11 +238,11 @@ function requireSchemaDocument(value: JsonValue, subject: string): JsonValue {
     return new JsonSchema(value as { readonly [name: string]: JsonValue }).document;
 }
 
-function canonicalJson(value: JsonValue): JsonValue {
-    return freezeJson(decodeCanonicalJson(encodeCanonicalJson(value)));
+function canonicalJson<Value extends JsonValue>(value: Value): Value {
+    return freezeJson(decodeCanonicalJson(encodeCanonicalJson(value)) as Value);
 }
 
-function freezeJson(value: JsonValue): JsonValue {
+function freezeJson<Value extends JsonValue>(value: Value): Value {
     if (Array.isArray(value)) {
         for (const entry of value) freezeJson(entry);
         return Object.freeze(value);
@@ -251,10 +255,8 @@ function freezeJson(value: JsonValue): JsonValue {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {

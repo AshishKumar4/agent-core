@@ -188,7 +188,7 @@ export class Run extends CodecRecord {
             ...(parent === undefined ? {} : { parent: new RunId(parent) }),
             ...(object["terminal"] === null
                 ? {}
-                : { terminal: TerminalSnapshot.fromData(object["terminal"]!) }),
+                : { terminal: TerminalSnapshot.fromData(object["terminal"]) }),
             revision: revisionFromData(object["revision"], "Run revision")
         });
     }

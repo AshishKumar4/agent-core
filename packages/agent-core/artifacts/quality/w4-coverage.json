@@ -25,16 +25,16 @@
       "total": 3389
     },
     "branches": {
-      "covered": 2031,
-      "total": 2061
+      "covered": 1984,
+      "total": 2014
     },
     "functions": {
       "covered": 1069,
       "total": 1070
     },
     "lines": {
-      "covered": 3215,
-      "total": 3226
+      "covered": 3202,
+      "total": 3213
     }
   }
 }

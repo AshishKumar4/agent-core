@@ -42,20 +42,28 @@ export abstract class SelfRunDependency {
     public abstract proposeMigration(input: SelfMigrationInput): Promise<JsonValue>;
 }
 
-function operation<Name extends string, Input extends PublicProfileInput>(
+// The wire property is the single field the Operation's input carries, so binding it to
+// keyof Input is what stops a contract from describing one field and decoding another.
+// A computed key still widens to an index signature, which is why the decoded literal
+// needs an assertion the encode side does not.
+function operation<
+    Name extends string,
+    Input extends PublicProfileInput,
+    Property extends Extract<keyof Input, string> = Extract<keyof Input, string>
+>(
     name: Name,
     impact: "mutate" | "delegate" | "administer",
-    property: string
+    property: Property
 ): ProfileOperationContract<Name, Input, JsonValue> {
     const input = strictObjectSchema({ [property]: {} }, [property]);
     return new ProfileOperationContract(
         name,
         new OperationDescriptor(new OperationName(name), impact, input, schema({})),
         profileWireCodec(
-            (value) => ({ [property]: value[property as keyof Input] as JsonValue }),
+            (value) => ({ [property]: value[property] as JsonValue }),
             (data) =>
                 ({
-                    [property]: requireDataObject(data, `Self ${name} input`)[property]!
+                    [property]: requireDataObject(data, `Self ${name} input`)[property]
                 }) as unknown as Input
         ),
         facetDataWireCodec<JsonValue>(),

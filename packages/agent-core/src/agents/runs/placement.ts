@@ -124,7 +124,7 @@ export class TurnPlacementSnapshot extends CodecRecord {
         requireExactFields(object, ["pins", "placements", "turn"], [], "Turn placement snapshot");
         return new TurnPlacementSnapshot(
             new TurnId(requireString(object["turn"], "Placement Turn")),
-            RunPins.fromData(object["pins"]!),
+            RunPins.fromData(object["pins"]),
             requireArray(object["placements"], "Placement entries").map(PlacementPin.fromData)
         );
     }

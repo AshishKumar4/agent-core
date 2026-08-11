@@ -1,10 +1,14 @@
 import {
+    isNonempty,
+    type JsonObject,
+    type JsonFields,
     ContentRef,
     Digest,
     RecordCodec,
     SemVer,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import type { MediaHint } from "../content";
@@ -137,7 +141,7 @@ export class PackageCodeManifest {
         const entrypoints = init.entrypoints
             .map((entrypoint) => PackageCodeEntrypoint.fromData(entrypoint.toData()))
             .sort(compareEntrypoints);
-        if (modules.length === 0 || entrypoints.length === 0) {
+        if (!(isNonempty(modules) && isNonempty(entrypoints))) {
             throw new TypeError("Package code manifest requires modules and entrypoints");
         }
         requireUnique(
@@ -177,14 +181,8 @@ export class PackageCodeManifest {
         if (init.digest !== undefined && !init.digest.equals(digest)) {
             throw new TypeError("Package code digest does not match its canonical module closure");
         }
-        this.modules = Object.freeze(modules) as unknown as readonly [
-            PackageCodeModule,
-            ...PackageCodeModule[]
-        ];
-        this.entrypoints = Object.freeze(entrypoints) as unknown as readonly [
-            PackageCodeEntrypoint,
-            ...PackageCodeEntrypoint[]
-        ];
+        this.modules = Object.freeze(modules);
+        this.entrypoints = Object.freeze(entrypoints);
         this.compatibilityDate = compatibilityDate;
         this.digest = digest;
         Object.freeze(this);
@@ -211,12 +209,12 @@ export class PackageCodeManifest {
         const entrypoints = requireArray(object["entrypoints"], "Package code entrypoints").map(
             PackageCodeEntrypoint.fromData
         );
-        if (modules.length === 0 || entrypoints.length === 0) {
+        if (!isNonempty(modules) || !isNonempty(entrypoints)) {
             throw new TypeError("Package code manifest requires modules and entrypoints");
         }
         return new PackageCodeManifest({
-            modules: modules as [PackageCodeModule, ...PackageCodeModule[]],
-            entrypoints: entrypoints as [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]],
+            modules,
+            entrypoints,
             compatibilityDate: requireString(
                 object["compatibilityDate"],
                 "Package code compatibility date"
@@ -328,17 +326,15 @@ function canonicalExportName(value: string): string {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
-function requireFields(
-    value: { readonly [key: string]: JsonValue },
-    fields: readonly string[],
+function requireFields<Field extends string>(
+    value: JsonObject,
+    fields: readonly Field[],
     subject: string
-): void {
+): asserts value is JsonFields<Field> {
     if (!hasExactJsonKeys(value, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);
     }

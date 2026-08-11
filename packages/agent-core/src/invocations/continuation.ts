@@ -119,7 +119,7 @@ export class InvocationContinuationCodec<Lease> extends RecordCodec<InvocationCo
             requireNonnegativeInteger(object, "firstItemIndex"),
             requireNonnegativeInteger(object, "firstOrdinal"),
             new ItemClaimId(requireString(object, "firstClaim")),
-            decodeOwner(object["firstClaimOwner"]!, this.lease),
+            decodeOwner(object["firstClaimOwner"], this.lease),
             requireString(object, "firstItemKey"),
             requireDate(object, "admittedAt")
         );
@@ -155,12 +155,12 @@ function decodeOwner<Lease>(
     if (kind === "executor") {
         return Object.freeze({
             kind,
-            token: lease.decode(object["token"]!),
+            token: lease.decode(object["token"]),
             worker: new ClaimWorkerId(requireString(object, "worker"))
         });
     }
     if (kind !== "system") throw new TypeError("Continuation claim owner kind is invalid");
-    const actor = requireExactObject(object["actor"]!, ["id", "kind"], "Continuation Actor");
+    const actor = requireExactObject(object["actor"], ["id", "kind"], "Continuation Actor");
     return Object.freeze({
         kind,
         actor: new ActorRef(

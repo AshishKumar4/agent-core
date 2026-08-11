@@ -1,4 +1,4 @@
-import { hasExactJsonKeys, type JsonValue } from "../core";
+import { hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 import { Automation, type IsolationMode } from "../facets";
 import { invalidDefinition } from "./error";
 import { PlacementInput, selectPlacement } from "./placement";
@@ -103,10 +103,8 @@ function declarationMapValidator(subject: string): MaterializationKindValidator 
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 function requireCanonicalName(value: JsonValue | undefined, subject: string): void {
@@ -125,7 +123,7 @@ function requireModes(value: JsonValue | undefined, subject: string): readonly I
     if (!Array.isArray(value)) {
         throw new TypeError(`${subject} must be an array`);
     }
-    return value as unknown as readonly IsolationMode[];
+    return value as readonly IsolationMode[];
 }
 
 function requireCanonicalModes(

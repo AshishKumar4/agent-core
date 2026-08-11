@@ -1,4 +1,4 @@
-import { CompatRange, JsonSchema, SemVer } from "../core";
+import { isNonempty, CompatRange, JsonSchema, SemVer } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -110,7 +110,7 @@ export class FacetManifest {
         const isolation = requireArray(object["isolation"], "Manifest isolation modes").map(
             requireIsolationMode
         );
-        if (isolation.length === 0) {
+        if (!isNonempty(isolation)) {
             throw new TypeError("Manifest isolation modes must not be empty");
         }
         const configSchema = object["configSchema"];
@@ -125,7 +125,7 @@ export class FacetManifest {
                 requireString(compat["spec"], "Manifest spec compatibility"),
                 requireString(compat["host"], "Manifest host compatibility")
             ),
-            isolation: isolation as [IsolationMode, ...IsolationMode[]],
+            isolation,
             bindings: requireArray(object["bindings"], "Manifest bindings").map(
                 BindingRequirement.fromData
             ),

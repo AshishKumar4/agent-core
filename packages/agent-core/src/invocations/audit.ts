@@ -4,6 +4,7 @@ import {
     RecordCodec,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue,
     type RecordVersion
 } from "../core";
@@ -624,15 +625,8 @@ function requireObject(
     value: JsonValue | undefined,
     name: string
 ): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${name} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
+    return value;
 }
 
 function requireString(object: { readonly [key: string]: JsonValue }, key: string): string {

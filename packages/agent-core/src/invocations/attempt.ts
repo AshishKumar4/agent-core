@@ -129,8 +129,8 @@ export class EffectAttemptCodec<Lease, Admission> extends RecordCodec<
             requireNonnegativeInteger(object, "itemIndex"),
             requireNonnegativeInteger(object, "ordinal"),
             new ItemClaimId(requireString(object, "claim")),
-            token === null ? undefined : this.lease.decode(token!),
-            decodeAdmission(object["admission"]!, this.admission),
+            token === null ? undefined : this.lease.decode(token),
+            decodeAdmission(object["admission"], this.admission),
             requireDate(object, "startedAt"),
             requireString(object, "idempotencyKey"),
             new AuditRecordId(requireString(object, "auditCause"))
@@ -148,7 +148,7 @@ function decodeAdmission<Admission>(
         "Authority admission reference"
     );
     return new AuthorityAdmissionReference(
-        codec.decode(object["reference"]!),
+        codec.decode(object["reference"]),
         new Digest(requireString(object, "digest"))
     );
 }

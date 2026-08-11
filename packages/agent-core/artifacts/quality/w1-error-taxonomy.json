@@ -268,7 +268,7 @@
         {
             "id": "w1.actors.store.copydetached.ac2be32b42",
             "file": "src/actors/store.ts",
-            "line": 675,
+            "line": 681,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "copyDetached",
@@ -284,7 +284,7 @@
         {
             "id": "w1.actors.store.requiredetachedobjects.6956acc7cf",
             "file": "src/actors/store.ts",
-            "line": 701,
+            "line": 707,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireDetachedObjects",
@@ -300,7 +300,7 @@
         {
             "id": "w1.actors.store.requireownedgraph.f5ecb88cc5",
             "file": "src/actors/store.ts",
-            "line": 738,
+            "line": 744,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireOwnedGraph",
@@ -316,7 +316,7 @@
         {
             "id": "w1.actors.store.requireownedgraph.ae1a8dc653",
             "file": "src/actors/store.ts",
-            "line": 745,
+            "line": 751,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireOwnedGraph",
@@ -332,7 +332,7 @@
         {
             "id": "w1.actors.store.requireownedgraph.b5520c755e",
             "file": "src/actors/store.ts",
-            "line": 752,
+            "line": 758,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireOwnedGraph",
@@ -348,7 +348,7 @@
         {
             "id": "w1.actors.store.requireownedgraph.a0b91e0216",
             "file": "src/actors/store.ts",
-            "line": 770,
+            "line": 776,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireOwnedGraph",
@@ -652,7 +652,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.f228b285d2",
             "file": "src/core/codec.ts",
-            "line": 138,
+            "line": 137,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
@@ -668,7 +668,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.18c9106de0",
             "file": "src/core/codec.ts",
-            "line": 150,
+            "line": 149,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
@@ -684,7 +684,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.b25bb6acb8",
             "file": "src/core/codec.ts",
-            "line": 162,
+            "line": 161,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
@@ -1133,7 +1133,7 @@
         {
             "id": "w1.protocol.dispatcher.requiretypedcommandexecution.fe9769ac05",
             "file": "src/protocol/dispatcher.ts",
-            "line": 772,
+            "line": 778,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "requireTypedCommandExecution",
@@ -1150,7 +1150,7 @@
         {
             "id": "w1.protocol.dispatcher.requireobservationcodec.9847dd1ef8",
             "file": "src/protocol/dispatcher.ts",
-            "line": 781,
+            "line": 787,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "requireObservationCodec",
@@ -1167,7 +1167,7 @@
         {
             "id": "w1.protocol.dispatcher.validatecommandactorcontext.ec8effee4d",
             "file": "src/protocol/dispatcher.ts",
-            "line": 791,
+            "line": 797,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "validateCommandActorContext",
@@ -1184,7 +1184,7 @@
         {
             "id": "w1.protocol.dispatcher.validatelimit.96f93ee5cc",
             "file": "src/protocol/dispatcher.ts",
-            "line": 830,
+            "line": 836,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "validateLimit",
@@ -1201,7 +1201,7 @@
         {
             "id": "w1.protocol.envelope.commandenvelope-constructor.a945a07e4c",
             "file": "src/protocol/envelope.ts",
-            "line": 114,
+            "line": 115,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "CommandEnvelope.constructor",
@@ -1217,7 +1217,7 @@
         {
             "id": "w1.protocol.envelope.commandenvelopeconstructor.129eae476b",
             "file": "src/protocol/envelope.ts",
-            "line": 121,
+            "line": 122,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "CommandEnvelope.constructor",
@@ -1233,7 +1233,7 @@
         {
             "id": "w1.protocol.envelope.copycommandcaller.307b4cf626",
             "file": "src/protocol/envelope.ts",
-            "line": 173,
+            "line": 174,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "copyCommandCaller",
@@ -1249,7 +1249,7 @@
         {
             "id": "w1.protocol.envelope.decodecommandcaller.dd743a0fde",
             "file": "src/protocol/envelope.ts",
-            "line": 215,
+            "line": 216,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "decodeCommandCaller",
@@ -1265,7 +1265,7 @@
         {
             "id": "w1.protocol.envelope.copyleasetoken.b3774e96b6",
             "file": "src/protocol/envelope.ts",
-            "line": 241,
+            "line": 242,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "copyLeaseToken",
@@ -1281,7 +1281,7 @@
         {
             "id": "w1.protocol.envelope.requireexactplaindata.51536f3b33",
             "file": "src/protocol/envelope.ts",
-            "line": 271,
+            "line": 272,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireExactPlainData",
@@ -1297,7 +1297,7 @@
         {
             "id": "w1.protocol.envelope.requireexactplaindata.127017207d",
             "file": "src/protocol/envelope.ts",
-            "line": 275,
+            "line": 276,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireExactPlainData",
@@ -1313,7 +1313,7 @@
         {
             "id": "w1.protocol.envelope.requireexactplaindata.82ab76367c",
             "file": "src/protocol/envelope.ts",
-            "line": 280,
+            "line": 281,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireExactPlainData",
@@ -1329,7 +1329,7 @@
         {
             "id": "w1.protocol.envelope.requireplaindatavalue.285cc9c4e4",
             "file": "src/protocol/envelope.ts",
-            "line": 292,
+            "line": 293,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requirePlainDataValue",
@@ -1345,7 +1345,7 @@
         {
             "id": "w1.protocol.envelope.requireplaindatavalue.013f5bbdaa",
             "file": "src/protocol/envelope.ts",
-            "line": 296,
+            "line": 297,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requirePlainDataValue",
@@ -1361,11 +1361,11 @@
         {
             "id": "w1.protocol.envelope.requireobject.f8a46974d3",
             "file": "src/protocol/envelope.ts",
-            "line": 311,
+            "line": 306,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireObject",
-                "guard": "value === undefined || value === null || Array.isArray(value) || typeof value !== \"object\"",
+                "guard": "!isJsonObject(value)",
                 "expression": "new TypeError(`${name} must be an object`)"
             },
             "classification": "codec-input-shape",
@@ -1377,7 +1377,7 @@
         {
             "id": "w1.protocol.envelope.requirekeys.9c6939e8cc",
             "file": "src/protocol/envelope.ts",
-            "line": 326,
+            "line": 320,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireKeys",
@@ -1393,7 +1393,7 @@
         {
             "id": "w1.protocol.envelope.requirestringvalue.ca8b49b164",
             "file": "src/protocol/envelope.ts",
-            "line": 336,
+            "line": 330,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireStringValue",
@@ -1409,7 +1409,7 @@
         {
             "id": "w1.protocol.envelope.requiresafeinteger.85e2522c00",
             "file": "src/protocol/envelope.ts",
-            "line": 343,
+            "line": 337,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireSafeInteger",
@@ -1425,7 +1425,7 @@
         {
             "id": "w1.protocol.envelope.requireactorkind.b76ca1df18",
             "file": "src/protocol/envelope.ts",
-            "line": 358,
+            "line": 352,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireActorKind",
@@ -1489,7 +1489,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.409d1be786",
             "file": "src/protocol/write.ts",
-            "line": 136,
+            "line": 137,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1505,7 +1505,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.d51256dc2a",
             "file": "src/protocol/write.ts",
-            "line": 139,
+            "line": 140,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1521,7 +1521,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.924d503faa",
             "file": "src/protocol/write.ts",
-            "line": 142,
+            "line": 143,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1537,7 +1537,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.69cef26884",
             "file": "src/protocol/write.ts",
-            "line": 148,
+            "line": 149,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1553,7 +1553,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.107d19af17",
             "file": "src/protocol/write.ts",
-            "line": 154,
+            "line": 155,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1569,7 +1569,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.24d20a9ae4",
             "file": "src/protocol/write.ts",
-            "line": 162,
+            "line": 163,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1585,7 +1585,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.d7812a451c",
             "file": "src/protocol/write.ts",
-            "line": 168,
+            "line": 169,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1601,7 +1601,7 @@
         {
             "id": "w1.protocol.write.writerecord-constructor.a91a2ea38b",
             "file": "src/protocol/write.ts",
-            "line": 171,
+            "line": 172,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecord.constructor",
@@ -1617,11 +1617,11 @@
         {
             "id": "w1.protocol.write.requireobject.f8a46974d3",
             "file": "src/protocol/write.ts",
-            "line": 229,
+            "line": 224,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "requireObject",
-                "guard": "value === undefined || value === null || Array.isArray(value) || typeof value !== \"object\"",
+                "guard": "!isJsonObject(value)",
                 "expression": "new TypeError(`${name} must be an object`)"
             },
             "classification": "codec-input-shape",
@@ -1633,7 +1633,7 @@
         {
             "id": "w1.protocol.write.requirestring.23e098c87f",
             "file": "src/protocol/write.ts",
-            "line": 237,
+            "line": 231,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "requireString",
@@ -1649,7 +1649,7 @@
         {
             "id": "w1.protocol.write.requirenullablestring.f544b0533a",
             "file": "src/protocol/write.ts",
-            "line": 247,
+            "line": 241,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "requireNullableString",
@@ -1665,7 +1665,7 @@
         {
             "id": "w1.protocol.write.requireactorkind.54ae1512a3",
             "file": "src/protocol/write.ts",
-            "line": 261,
+            "line": 255,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "requireActorKind",
@@ -1681,7 +1681,7 @@
         {
             "id": "w1.protocol.write.requireoutcome.ff5c77a6b0",
             "file": "src/protocol/write.ts",
-            "line": 277,
+            "line": 271,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "requireOutcome",
@@ -1697,7 +1697,7 @@
         {
             "id": "w1.protocol.write.writerecordcodecv2-decodepayload.369690d841",
             "file": "src/protocol/write.ts",
-            "line": 71,
+            "line": 72,
             "source": "src/protocol/write.ts",
             "sourceAnchor": {
                 "container": "WriteRecordCodecV2.decodePayload",

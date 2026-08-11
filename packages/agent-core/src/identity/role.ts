@@ -1,4 +1,4 @@
-import { RecordCodec, type JsonValue } from "../core";
+import { requireNonempty, RecordCodec, type JsonValue } from "../core";
 import { CapabilitySpec, isCapabilityEffect, type CapabilityEffect, type Impact } from "../facets";
 import {
     invalid,
@@ -115,7 +115,7 @@ function builtInRole(name: string, impacts: readonly RoleImpact[]): Role {
             new CapabilitySpec({
                 argumentConstraints: {},
                 facetPattern: "*",
-                impacts: Object.freeze([...impacts]) as [Impact, ...Impact[]],
+                impacts: requireNonempty(Object.freeze([...impacts]), "Built-in Role impacts"),
                 operations: []
             })
         )

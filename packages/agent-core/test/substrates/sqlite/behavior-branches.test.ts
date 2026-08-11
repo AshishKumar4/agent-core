@@ -444,7 +444,7 @@ function bootstrappedTenant(database: TestSqlite) {
 class PointerCardinalitySqlite extends TestSqlite {
     public fault: "none" | "zero" | "multiple" | "malformed" = "none";
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (!statement.includes("INSERT INTO definition_materialization_pointers")) {
             return super.all(statement, bindings);
         }

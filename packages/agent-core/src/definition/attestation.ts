@@ -3,6 +3,7 @@ import {
     RecordCodec,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import { PlatformCompatibility } from "./compatibility";
@@ -151,10 +152,8 @@ function digest(value: JsonValue | undefined, subject: string): Digest {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {

@@ -1,4 +1,4 @@
-import { RecordCodec, hasExactJsonKeys, type JsonValue } from "../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
 import type { Impact, IsolationMode } from "../facets";
 import { PLACEMENT_PREFERENCE, PlacementPolicy } from "./placement";
 
@@ -80,7 +80,7 @@ export class PolicySet {
             tiers: requireTiers(object["tiers"]),
             approvals: requireImpactArray(object["approvals"], "Policy approvals"),
             ...decodeOptionalDirectRevocationWindow(object["maxDirectRevocationWindowMs"]),
-            placement: PlacementPolicy.fromData(object["placement"]!)
+            placement: PlacementPolicy.fromData(object["placement"])
         });
     }
 
@@ -194,7 +194,7 @@ function decodeOptionalDirectRevocationWindow(
 
 function canonicalTiers(tiers: EnforcementTierOverrides): EnforcementTierOverrides {
     const keys = Object.keys(tiers);
-    if (keys.some((key) => !POLICY_IMPACTS.includes(key as Impact))) {
+    if (keys.some((key) => !isMember(POLICY_IMPACTS, key))) {
         throw new TypeError("Policy tiers contain an unknown impact");
     }
     const canonical: Partial<Record<Impact, EnforcementTier>> = {};
@@ -235,8 +235,8 @@ function requireImpactArray(value: JsonValue | undefined, subject: string): read
 }
 
 function requireImpact(value: unknown, subject: string): Impact {
-    if (typeof value === "string" && POLICY_IMPACTS.includes(value as Impact)) {
-        return value as Impact;
+    if (isMember(POLICY_IMPACTS, value)) {
+        return value;
     }
     throw new TypeError(`${subject} is invalid`);
 }
@@ -249,8 +249,8 @@ function requireTier(value: unknown): EnforcementTier {
 }
 
 function requireMode(value: unknown): IsolationMode {
-    if (typeof value === "string" && PLACEMENT_PREFERENCE.includes(value as IsolationMode)) {
-        return value as IsolationMode;
+    if (isMember(PLACEMENT_PREFERENCE, value)) {
+        return value;
     }
     throw new TypeError("Policy placement is invalid");
 }
@@ -259,15 +259,8 @@ function requireObject(
     value: JsonValue | undefined,
     subject: string
 ): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 const emptyPolicySet = new PolicySet();

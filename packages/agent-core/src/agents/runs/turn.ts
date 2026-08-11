@@ -321,7 +321,7 @@ export class Turn extends CodecRecord {
         const cacheLineage =
             object["cacheLineage"] === null
                 ? undefined
-                : cacheLineageFromData(object["cacheLineage"]!);
+                : cacheLineageFromData(object["cacheLineage"]);
         return new Turn({
             id: new TurnId(requireString(object["id"], "Turn ID")),
             run: new RunId(requireString(object["run"], "Turn Run")),
@@ -330,11 +330,11 @@ export class Turn extends CodecRecord {
             effectiveInput: new RunCommitId(
                 requireString(object["effectiveInput"], "Turn effective input")
             ),
-            pins: RunPins.fromData(object["pins"]!),
+            pins: RunPins.fromData(object["pins"]),
             placement: digestFromData(object["placement"], "Turn placement"),
             input: new ContentRef(requireString(object["input"], "Turn input")),
             status: requireTurnStatus(object["status"]),
-            lease: TurnLease.fromData(object["lease"]!),
+            lease: TurnLease.fromData(object["lease"]),
             ...(checkpoint === undefined ? {} : { checkpoint: new RunCheckpointId(checkpoint) }),
             ...(result === undefined ? {} : { result: new ContentRef(result) }),
             ...(cacheLineage === undefined ? {} : { cacheLineage }),
@@ -548,7 +548,7 @@ export class TurnInboxEntry extends CodecRecord {
             requireString(object["idempotencyKey"], "Inbox idempotency key"),
             object["cancellationToken"] === null
                 ? undefined
-                : tokenFromData(object["cancellationToken"]!),
+                : tokenFromData(object["cancellationToken"]),
             requireTimestamp(object["recordedAt"], "Inbox timestamp")
         );
     }

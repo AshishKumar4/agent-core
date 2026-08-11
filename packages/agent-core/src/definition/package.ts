@@ -1,5 +1,8 @@
 import { Range } from "semver";
 import {
+    isNonempty,
+    type JsonObject,
+    type JsonFields,
     CompatRange,
     Digest,
     JsonSchema,
@@ -8,6 +11,7 @@ import {
     SemVer,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import { FacetManifest, canonicalFacetDataMap, isFacetDataMap, type FacetDataMap } from "../facets";
@@ -98,7 +102,7 @@ export class PackageRelease {
             "Package dependency IDs must be unique"
         );
         const manifests = [...init.manifests].sort(compareManifests);
-        if (manifests.length === 0) {
+        if (!isNonempty(manifests)) {
             throw new TypeError("Package release must contain at least one manifest");
         }
         requireUnique(
@@ -142,10 +146,7 @@ export class PackageRelease {
             canonicalCompatibilityRange(init.compatibility.host, "Package host compatibility")
         );
         this.dependencies = Object.freeze(dependencies);
-        this.manifests = Object.freeze(manifests) as unknown as readonly [
-            FacetManifest,
-            ...FacetManifest[]
-        ];
+        this.manifests = Object.freeze(manifests);
         this.manifestDigest = manifestDigest;
         this.codeDigest = codeManifest.digest;
         this.codeManifest = codeManifest;
@@ -189,11 +190,11 @@ export class PackageRelease {
         const configSchema =
             object["configSchema"] === undefined
                 ? undefined
-                : new JsonSchema(requireSchema(object["configSchema"]!));
+                : new JsonSchema(requireSchema(object["configSchema"]));
         const manifests = requireArray(object["manifests"], "Package manifests").map(
             FacetManifest.fromData
         );
-        if (manifests.length === 0) {
+        if (!isNonempty(manifests)) {
             throw new TypeError("Package release must contain at least one manifest");
         }
         return new PackageRelease({
@@ -206,7 +207,7 @@ export class PackageRelease {
             dependencies: requireArray(object["dependencies"], "Package dependencies").map(
                 PackageDependency.fromData
             ),
-            manifests: manifests as [FacetManifest, ...FacetManifest[]],
+            manifests,
             codeManifest: PackageCodeManifest.fromData(object["codeManifest"]!),
             manifestDigest: new Digest(requireString(object["manifestDigest"], "Manifest digest")),
             codeDigest: new Digest(requireString(object["codeDigest"], "Code digest")),
@@ -371,17 +372,15 @@ function requireUnique(values: readonly string[], message: string): void {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
-function requireFields(
-    value: { readonly [key: string]: JsonValue },
-    fields: readonly string[],
+function requireFields<Field extends string>(
+    value: JsonObject,
+    fields: readonly Field[],
     subject: string
-): void {
+): asserts value is JsonFields<Field> {
     if (!hasExactJsonKeys(value, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);
     }

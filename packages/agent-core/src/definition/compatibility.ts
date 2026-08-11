@@ -1,5 +1,5 @@
 import { Range, satisfies } from "semver";
-import { RecordCodec, SemVer, hasExactJsonKeys, type JsonValue } from "../core";
+import { RecordCodec, SemVer, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 
 export interface PlatformCompatibilityInit {
     readonly spec: SemVer;
@@ -66,10 +66,8 @@ export class PlatformCompatibility {
 }
 
 function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Platform compatibility must be an object");
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError("Platform compatibility must be an object");
+    return value;
 }
 
 export function canonicalCompatibilityRange(value: string, subject: string): string {

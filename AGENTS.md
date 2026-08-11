@@ -202,6 +202,23 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
   outcomes, and linked WriteRecord/AuditRecord evidence. Missing caller causes on
   rejection get host-created attributable roots.
 
+## Types
+
+- **A type is never weakened to make code compile.** `any` is banned outright, in
+  product code and in tests. So are `@ts-ignore` and `@ts-nocheck`; `@ts-expect-error`
+  is allowed in tests only, where it asserts that something must *not* typecheck.
+- **A check must leave its result in the type.** A validator that proves a shape returns
+  a type predicate or an assertion signature, so callers inherit the proof instead of
+  restating it as a cast or a `!`. A guard that checks a value and then asserts what it
+  just checked is the bug this rule exists to catch.
+- **`unknown` is correct at a trust boundary and nowhere else** — decoded bytes, a caught
+  throw, a host-supplied generic. It is admitted without a permit only where the
+  declaration proves it is about to be narrowed: the subject of a type predicate or
+  assertion signature.
+- Every surviving `any`, cast, `!`, `unknown`, or suppression is counted per file in
+  `artifacts/quality/weak-type-permits.json` with the reason it stands. The count is
+  exact: a new escape fails `ACQ-TYPE`, and a permit left behind by a fix fails it too.
+
 ## Errors and observability
 
 - Runtime/domain failures: `AgentCoreError` with a stable code from the closed

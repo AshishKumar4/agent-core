@@ -98,12 +98,12 @@ class MembershipRecordCodec extends RecordCodec<Membership> {
         const guestVerification = object["guestVerification"];
         return new Membership(
             new MembershipId(requireIdentityString(object["id"], "Membership ID")),
-            decodeScopeRef(object["scope"]!),
-            decodeSubjectRef(object["subject"]!),
+            decodeScopeRef(object["scope"]),
+            decodeSubjectRef(object["subject"]),
             new RoleName(requireIdentityString(object["role"], "Membership role")),
             requireMembershipState(object["state"]),
             requireIdentityRevision(object["revision"], "Membership revision"),
-            guestVerification === null ? undefined : restoreGuestVerification(guestVerification!),
+            guestVerification === null ? undefined : restoreGuestVerification(guestVerification),
             restoredMembershipToken
         );
     }

@@ -1,4 +1,4 @@
-import { ContentRef, RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { ContentRef, RecordCodec, isMember, type JsonValue, type RecordVersion } from "../core";
 import { requireDate, requireExactObject, requireString, validDate } from "./codec";
 import { EffectAttemptId, ReceiptId } from "./id";
 import { InvocationId } from "../interaction-references";
@@ -219,8 +219,8 @@ function requirePreEffectOutcome(value: string): PreEffectReceiptOutcome {
 }
 
 function requireAttemptOutcome(value: string): AttemptReceiptOutcome {
-    if (ATTEMPT_RECEIPT_OUTCOMES.includes(value as AttemptReceiptOutcome)) {
-        return value as AttemptReceiptOutcome;
+    if (isMember(ATTEMPT_RECEIPT_OUTCOMES, value)) {
+        return value;
     }
     throw new TypeError("Attempt Receipt outcome is invalid");
 }

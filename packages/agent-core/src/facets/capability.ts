@@ -2,6 +2,7 @@ import {
     RecordCodec,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isMember,
     type JsonValue,
     type RecordVersion
 } from "../core";
@@ -250,6 +251,6 @@ function requireArrayString(value: JsonValue, name: string): string {
 }
 
 function requireImpact(value: JsonValue): Impact {
-    if (typeof value === "string" && impacts.includes(value as Impact)) return value as Impact;
+    if (isMember(impacts, value)) return value;
     throw new TypeError("Capability impact is invalid");
 }

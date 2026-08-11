@@ -1,5 +1,5 @@
 import { AgentCoreError } from "../errors";
-import { Revision, hasExactJsonKeys, type JsonValue } from "../core";
+import { type JsonFields, Revision, hasExactJsonKeys, type JsonValue } from "../core";
 
 export type IdentityData = JsonValue;
 export type IdentityDataMap = { readonly [key: string]: IdentityData };
@@ -11,11 +11,11 @@ export function requireIdentityObject(value: IdentityData, subject: string): Ide
     return value as IdentityDataMap;
 }
 
-export function requireIdentityFields(
+export function requireIdentityFields<Field extends string>(
     value: IdentityDataMap,
-    fields: readonly string[],
+    fields: readonly Field[],
     subject: string
-): void {
+): asserts value is IdentityDataMap & JsonFields<Field> {
     if (!hasExactJsonKeys(value, fields)) {
         throw invalid(`${subject} contains missing or unknown fields`);
     }

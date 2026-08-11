@@ -171,14 +171,16 @@ export function freezeSlateMutationRequest<Request extends SlateMutationRequest>
     request: Request
 ): Readonly<Request> {
     canonicalSlateMutationRequest(request);
-    return Object.freeze({ ...request }) as unknown as Readonly<Request>;
+    const copy: Request = { ...request };
+    return Object.freeze(copy);
 }
 
 export function freezeSlateInvocationRequest<Request extends SlateInvocationRequest>(
     request: Request
 ): Readonly<Request> {
     canonicalSlateInvocationRequest(request);
-    return Object.freeze({ ...request }) as unknown as Readonly<Request>;
+    const copy: Request = { ...request };
+    return Object.freeze(copy);
 }
 
 export function canonicalSlateMutationRequest(request: SlateMutationRequest): Uint8Array {

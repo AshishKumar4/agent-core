@@ -1,6 +1,13 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import { RunId, TurnId, type LeaseToken } from "../agents";
-import { Digest, RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    Revision,
+    isMember,
+    type JsonValue,
+    type RecordVersion
+} from "../core";
 import { POLICY_IMPACTS, PackagePin } from "../definition";
 import { AgentCoreError } from "../errors";
 import { BindingName, FacetRef, OperationRef, type Impact, type ProtectionDomain } from "../facets";
@@ -428,7 +435,7 @@ export class AuthorityPermit {
             "Authority permit"
         );
         const expectationData = Object.fromEntries(
-            EXPECTATION_FIELDS.map((field) => [field, object[field]!])
+            EXPECTATION_FIELDS.map((field) => [field, object[field]])
         ) as JsonObject;
         const expectation = AuthorityPermitExpectation.fromData(expectationData);
         return new AuthorityPermit({
@@ -626,8 +633,8 @@ function requireActorKind(value: JsonValue | undefined): ActorKind {
 }
 
 function requireImpact(value: JsonValue | undefined): Impact {
-    if (typeof value === "string" && POLICY_IMPACTS.includes(value as Impact)) {
-        return value as Impact;
+    if (isMember(POLICY_IMPACTS, value)) {
+        return value;
     }
     throw new TypeError("Authority permit impact is invalid");
 }

@@ -23,7 +23,7 @@ describe("coverage policy", () => {
 
         expect(failedMetrics(exact, metrics, 95)).toEqual([]);
         expect(failedMetrics(roundedOnly, metrics, 95)).toEqual(metrics);
-        expect(metricRatios(roundedOnly, metrics).statements).toBeLessThan(95);
+        expect(metricRatios(roundedOnly, metrics)["statements"]).toBeLessThan(95);
     });
 
     test("rejects zero denominators", () => {

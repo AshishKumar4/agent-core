@@ -1,5 +1,5 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import { isNonempty, RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
 import { AgentCoreError } from "../errors";
 import { PrincipalId, PrincipalRef, TenantId, type ScopeRef } from "../identity";
 import {
@@ -105,7 +105,7 @@ export class PathEpochEvidence {
 
     public constructor(path: readonly [ScopeEpoch, ...ScopeEpoch[]]) {
         validatePath(path);
-        this.path = Object.freeze([...path]) as unknown as readonly [ScopeEpoch, ...ScopeEpoch[]];
+        this.path = Object.freeze([...path]);
         Object.freeze(this);
     }
 
@@ -153,8 +153,8 @@ export class PathEpochEvidence {
         const object = requireObject(value, "Path epoch evidence");
         requireExact(object, ["path"], "Path epoch evidence");
         const path = requireArray(object["path"], "Path epoch evidence").map(ScopeEpoch.fromData);
-        if (path.length === 0) throw new TypeError("Path epoch evidence must not be empty");
-        return new PathEpochEvidence(path as [ScopeEpoch, ...ScopeEpoch[]]);
+        if (!isNonempty(path)) throw new TypeError("Path epoch evidence must not be empty");
+        return new PathEpochEvidence(path);
     }
 }
 

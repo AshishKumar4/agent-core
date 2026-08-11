@@ -1,4 +1,4 @@
-import { JsonSchema, SecretRef } from "../core";
+import { isNonempty, JsonSchema, SecretRef } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -42,12 +42,12 @@ export class EventPattern {
         const trust = requireArray(object["acceptedTrust"], "Accepted trust tiers").map(
             requireTrustTier
         );
-        if (trust.length === 0) {
+        if (!isNonempty(trust)) {
             throw new TypeError("Accepted trust tiers must not be empty");
         }
         return new EventPattern(
             requireString(object["kind"], "Event pattern kind"),
-            trust as [TrustTier, ...TrustTier[]],
+            trust,
             requireOptionalString(object["source"], "Event pattern source")
         );
     }

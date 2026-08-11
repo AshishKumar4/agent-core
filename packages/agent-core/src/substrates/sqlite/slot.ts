@@ -198,19 +198,19 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         }
     }
 
-    public revision(): Revision {
+    public override revision(): Revision {
         return this.transaction((transaction) => this.loadRevision(transaction));
     }
 
-    public slot(name: SlotName): SlotDeclaration | undefined {
+    public override slot(name: SlotName): SlotDeclaration | undefined {
         return this.transaction((transaction) => this.loadSlot(transaction, name));
     }
 
-    public entries(name: SlotName): readonly SlotEntry[] {
+    public override entries(name: SlotName): readonly SlotEntry[] {
         return this.transaction((transaction) => this.listEntries(transaction, name));
     }
 
-    public install(declaration: SlotDeclaration): Revision {
+    public override install(declaration: SlotDeclaration): Revision {
         return this.transaction((transaction) => {
             const existing = this.loadSlot(transaction, declaration.name);
             if (
@@ -225,7 +225,7 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         });
     }
 
-    public contribute(entry: SlotEntry): Revision {
+    public override contribute(entry: SlotEntry): Revision {
         return this.transaction((transaction) => {
             const existing = this.loadEntry(transaction, entry.id);
             if (

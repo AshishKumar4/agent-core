@@ -56,12 +56,12 @@ class SubscriptionCodecV1 extends RecordCodec<Subscription> {
             ["authority", "dedupe", "id", "mapping", "revision", "source", "target"],
             "Subscription payload"
         );
-        const authority = requireObject(object["authority"]!, "Subscription authority");
+        const authority = requireObject(object["authority"], "Subscription authority");
         requireFields(authority, ["binding", "kind"], "Subscription authority");
         return new Subscription({
             id: new SubscriptionId(requireString(object["id"], "Subscription ID")),
             revision: decodeRevision(object["revision"], "Subscription revision"),
-            source: EventPattern.fromData(object["source"]!),
+            source: EventPattern.fromData(object["source"]),
             target: new OperationRef(requireString(object["target"], "Subscription target")),
             mapping: new PayloadMapping(
                 requireArray(object["mapping"], "Subscription mapping").map(FieldMove.fromData)

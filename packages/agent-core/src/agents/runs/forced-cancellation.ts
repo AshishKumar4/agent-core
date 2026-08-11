@@ -39,13 +39,13 @@ class ForcedCancellationCodec extends RecordCodec<ForcedTurnCancellation> {
 export class ForcedTurnCancellation extends CodecRecord {
     public static readonly codec: RecordCodec<ForcedTurnCancellation> =
         new ForcedCancellationCodec();
-    public static encode<Value>(
+    public static override encode<Value>(
         this: { readonly codec: RecordCodec<Value> },
         value: Value
     ): Uint8Array {
         return this.codec.encode(value);
     }
-    public static decode<Value>(
+    public static override decode<Value>(
         this: { readonly codec: RecordCodec<Value> },
         bytes: Uint8Array
     ): Value {
