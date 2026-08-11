@@ -1025,6 +1025,20 @@
       ]
     },
     {
+      "id": "C13-AUTH-ISOLATE-DELEGATION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-ISOLATE-DELEGATION",
+      "specTextSha256": "sha256:494305452be6488c1df5f410dbe32e877232187478ff9e118ff38210efdb8f5e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-AUTH-MEDIATED-ADMISSION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",

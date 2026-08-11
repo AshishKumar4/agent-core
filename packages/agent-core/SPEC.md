@@ -820,6 +820,13 @@ value and asynchronous Events. From the model's side a programmatic tool call is
 Operation invocation — code in, value out — while every Operation the code called in
 between carries its own admission and evidence.
 
+Handing the capability set to the isolate is not transport; it is delegation. §1.5
+already says nothing else crosses a domain boundary, and the §3.4 rules bound the
+passed set exactly as they bound any other delegate: equal at most, never wider, deny
+not delegable. The isolate's Invocations present its own delegated authority — never
+the authority of the code that loaded it — so revoking a passed Grant severs the
+isolate without touching its loader. This maps to **C13-AUTH-ISOLATE-DELEGATION**.
+
 One `dynamic` semantics does not mean one hosting mechanism. A substrate profile MAY
 offer more than one backing for loaded code — §10.2 names two — and a platform
 declares which backing serves each consumer: the isolate that runs a programmatic
@@ -2251,7 +2258,8 @@ tax with no security benefit:
    code of §4.7 — programmatic tool calls, Slate backends, agent-authored facets. Hosts
    pass `globalOutbound: null` (or equivalent); this is
    how the substrate satisfies §1.5's no-ambient-egress requirement, and capabilities
-   arrive only as explicitly passed Bindings. Worker Loader is in open beta at the time of
+   arrive only as explicitly passed Bindings — a delegation under §3.4 (§4.7), not a
+   copy of the loader's authority. Worker Loader is in open beta at the time of
    writing; Workers-for-Platforms dispatch namespaces serve as the GA fallback for
    pre-deployed code — Slate backends, agent-authored facets — with identical authority
    semantics, including that one. Which backing serves which §4.7 consumer is the
@@ -2681,6 +2689,7 @@ A conforming implementation provides:
 - **C13-AUTH-MEDIATED-STALE** A mediated stale comparison atomically advances the watermark before recording pre-effect denial.
 - **C13-AUTH-MEDIATED-ADMISSION** Cross-DO permit issuance after exact claim identity is the final authority-admission linearization point.
 - **C13-AUTH-RESOLUTION-LIFETIME** A `bundled` resolution expires with its Turn and deadline; a `provider` or `dynamic` resolution lasts one Turn step and re-resolves against current path epochs.
+- **C13-AUTH-ISOLATE-DELEGATION** A capability passed into a `dynamic` isolate is a delegation bounded by the §3.4 rules, and the isolate's Invocations present its own delegated authority, never its loader's.
 - **C13-PLACEMENT-INTERSECTION** Deterministic placement by admissible-set intersection over manifest, policy, substrate, and trust sets.
 - **C13-PLACEMENT-ORDER** Placement uses the one fixed preference order.
 - **C13-PLACEMENT-EMPTY** An empty placement intersection is rejected.
