@@ -118,14 +118,32 @@ export class PlacementSelection {
     }
 }
 
+// The single implementation of the four-set admissible intersection (SPEC §9.2):
+// the first mode, in preference order, admitted by every one of the four sources.
+// selectPlacement uses it to compute a fresh selection; a Pin re-derives it to
+// check a previously recorded selection still matches the canonical algorithm.
+export function preferredPlacement(
+    manifest: readonly IsolationMode[],
+    policy: readonly IsolationMode[],
+    substrate: readonly IsolationMode[],
+    trust: readonly IsolationMode[]
+): IsolationMode | undefined {
+    return PLACEMENT_PREFERENCE.find(
+        (mode) =>
+            manifest.includes(mode) &&
+            policy.includes(mode) &&
+            substrate.includes(mode) &&
+            trust.includes(mode)
+    );
+}
+
 export function selectPlacement(input: PlacementInput | PlacementInputInit): PlacementSelection {
     const recorded = input instanceof PlacementInput ? input : new PlacementInput(input);
-    const selected = PLACEMENT_PREFERENCE.find(
-        (mode) =>
-            recorded.manifest.includes(mode) &&
-            recorded.policy.includes(mode) &&
-            recorded.substrate.includes(mode) &&
-            recorded.trust.includes(mode)
+    const selected = preferredPlacement(
+        recorded.manifest,
+        recorded.policy,
+        recorded.substrate,
+        recorded.trust
     );
     if (selected === undefined) {
         throw new PlacementUnavailableError(
