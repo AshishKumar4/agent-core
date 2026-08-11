@@ -5,7 +5,7 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../actors";
-import { Digest, Revision, SemVer, compareText } from "../core";
+import { Digest, Revision, SemVer } from "../core";
 import { MaterializationGenerationId, PackageId, type DeploymentId } from "./id";
 import {
     DeploymentRecord,
@@ -35,6 +35,7 @@ import {
     type StoredPackageLock,
     type StoredPackageRelease
 } from "./package-store";
+import { compareText } from "./order";
 
 export interface MemoryPackageSnapshot {
     readonly releases: readonly StoredPackageRelease[];

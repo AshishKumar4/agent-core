@@ -1,4 +1,4 @@
-import { Digest, compareText, type ContentRef } from "../core";
+import { Digest, type ContentRef } from "../core";
 import type { ContentStore } from "../content";
 import type { PackageCodeModule } from "./code-manifest";
 import type { PackageRelease } from "./package";
@@ -11,6 +11,7 @@ import {
 } from "./validator";
 import type { Blueprint } from "./blueprint";
 import { invalidDefinition } from "./error";
+import { compareText } from "./order";
 
 export interface VerifiedPackageModule {
     readonly pin: PackagePin;

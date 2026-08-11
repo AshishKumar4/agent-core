@@ -2,7 +2,6 @@ import {
     JsonSchema,
     RecordCodec,
     SecretRef,
-    compareText,
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
@@ -10,6 +9,7 @@ import {
 } from "../core";
 import { SlotName, type FacetDataMap } from "../facets";
 import type { PackageRelease } from "./package";
+import { compareText } from "./order";
 
 const SECRET_TAG = "$secret";
 const SETTINGS_SLOT = new SlotName("settings");

@@ -4,7 +4,7 @@ import { PackageId } from "./id";
 import { PackageLock } from "./package-lock";
 import { MetadataSnapshot, PackageRelease } from "./package";
 import { invalidDefinitionState } from "./error";
-import { compareText } from "../core";
+import { compareText } from "./order";
 
 export interface StoredPackageRelease {
     readonly packageId: PackageId;

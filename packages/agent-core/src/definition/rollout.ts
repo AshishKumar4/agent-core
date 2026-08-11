@@ -8,7 +8,6 @@ import {
     Digest,
     RecordCodec,
     Revision,
-    compareText,
     encodeCanonicalJson,
     hasExactJsonKeys,
     type JsonValue
@@ -19,6 +18,7 @@ import { ManagedOrigin } from "./origin";
 import { ActorPlan, MaterializationPlan } from "./plan";
 import type { ValidationAttestation } from "./attestation";
 import { definitionRevisionConflict, invalidDefinition, invalidDefinitionState } from "./error";
+import { compareText } from "./order";
 
 export interface DeploymentRecordInit {
     readonly id: DeploymentId;

@@ -1,5 +1,5 @@
 import { ActorId, type ActorRef } from "../actors";
-import { Digest, Revision, SemVer, compareText } from "../core";
+import { Digest, Revision, SemVer } from "../core";
 import { AgentCoreError } from "../errors";
 import { Blueprint } from "./blueprint";
 import {
@@ -11,6 +11,7 @@ import { LocalMaterializationStore } from "./materializer";
 import { MaterializationPlan } from "./plan";
 import { DeploymentId, MaterializationGenerationId } from "./id";
 import { definitionRevisionConflict, invalidDefinitionState } from "./error";
+import { compareText } from "./order";
 
 export interface StoredBlueprint {
     readonly name: string;

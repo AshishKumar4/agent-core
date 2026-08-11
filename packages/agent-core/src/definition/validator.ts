@@ -1,7 +1,6 @@
 import {
     Digest,
     JsonSchema,
-    compareText,
     encodeCanonicalJson,
     strictJsonSchemaValidator,
     type JsonSchemaValidator,
@@ -34,6 +33,7 @@ import { resolvePackageLock } from "./resolver";
 import { ValidationAttestation } from "./attestation";
 import { PlacementInput, type PlacementSelection, selectPlacement } from "./placement";
 import { invalidDefinition } from "./error";
+import { compareText } from "./order";
 
 export const CORE_SLOT_NAMES = new Set([
     "automations",

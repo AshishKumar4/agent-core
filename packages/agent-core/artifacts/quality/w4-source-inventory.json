@@ -20,6 +20,7 @@
     "src/definition/materialization-store.ts",
     "src/definition/materializer.ts",
     "src/definition/memory.ts",
+    "src/definition/order.ts",
     "src/definition/origin.ts",
     "src/definition/package-lock.ts",
     "src/definition/package-store.ts",
@@ -37,5 +38,5 @@
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "8fa11d393511467e008d5bcc25b60bdfa568b39ba13ef25598b31ac614ce1da4"
+  "sourceSha256": "0a1e054147a42701a74511f90dc54460bfd38492d6b5d5f57316db92782e1666"
 }
