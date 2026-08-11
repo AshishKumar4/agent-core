@@ -26,6 +26,7 @@ const files = (await Promise.all(roots.map((root) => collectFiles(root, isTypeSc
     .flat()
     .sort();
 const issues = [];
+const reasonedRules = new Set(["ACQ-KEY", "ACQ-RENDER"]);
 const identifiers = new Map();
 const vocabularies = new Map();
 
@@ -87,10 +88,31 @@ if (options.writeBaseline) {
             "Writing the architecture baseline requires QUALITY_WRITE_BASELINE=1 outside CI"
         );
     }
-    await writeCanonicalJson(options.baseline, { edition: "1.0.0", issues });
+    const reasons = new Map(
+        baseline.issues
+            .filter((item) => item.reason !== undefined)
+            .map((i) => [i.fingerprint, i.reason])
+    );
+    await writeCanonicalJson(options.baseline, {
+        edition: "1.0.0",
+        issues: issues.map((item) => {
+            const reason = reasons.get(item.fingerprint);
+            return reason === undefined ? item : { ...item, reason };
+        })
+    });
 } else {
     await writeCanonicalJson(resolve(reportRoot, "architecture.json"), report);
     if (additions.length > 0) fail("New architecture violations", additions);
+    // A composite identity or a rendered comparison is permitted only with the argument
+    // for why it is sound written down beside it, so the next reader inherits the proof
+    // rather than the assumption.
+    const unexplained = baseline.issues.filter(
+        (item) =>
+            reasonedRules.has(item.rule) &&
+            currentFingerprints.has(item.fingerprint) &&
+            (item.reason ?? "").trim().length === 0
+    );
+    if (unexplained.length > 0) fail("Baselined sites missing a written reason", unexplained);
     if (options.stage === "final" && issues.length > 0)
         fail("Final architecture violations", issues);
     console.log(
@@ -169,6 +191,35 @@ function inspectNode(node, source, file, aliases) {
             file,
             node.name.getText(source),
             "Public identifier fields must not use string"
+        );
+    }
+    if (
+        ts.isReturnStatement(node) &&
+        node.expression !== undefined &&
+        ts.isTemplateExpression(node.expression) &&
+        node.expression.templateSpans.length >= 2
+    ) {
+        issue(
+            "ACQ-KEY",
+            file,
+            symbolAt(node, source),
+            "Composite identity built by string concatenation must be injective"
+        );
+    }
+    if (
+        ts.isBinaryExpression(node) &&
+        (node.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken ||
+            node.operatorToken.kind === ts.SyntaxKind.ExclamationEqualsEqualsToken) &&
+        [node.left, node.right].some(
+            (side) =>
+                ts.isCallExpression(side) && side.expression.getText(source) === "JSON.stringify"
+        )
+    ) {
+        issue(
+            "ACQ-RENDER",
+            file,
+            symbolAt(node, source),
+            "Equality by JSON.stringify depends on key insertion order"
         );
     }
     if (ts.isTypeAliasDeclaration(node)) {

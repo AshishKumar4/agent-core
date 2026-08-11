@@ -48,6 +48,7 @@ import {
     type TestPersistence
 } from "../../../invocations/fixture";
 import { createSqliteInvocationPersistence } from "./fixture";
+import { compareText } from "../../../../src/core";
 
 type TestLedger<Transaction> = InvocationLedger<
     Transaction,
@@ -878,7 +879,7 @@ function expectedObservation(model: Readonly<InvocationModel>): Observation {
         audits: expectedAudits(model),
         publications: model.receipts
             .map((receipt) => projectPublication(publicationFor(receipt)))
-            .sort((left, right) => left.id.localeCompare(right.id))
+            .sort((left, right) => compareText(left.id, right.id))
     };
 }
 
@@ -912,11 +913,11 @@ function observe<Transaction>(
                 return record === undefined ? undefined : projectAudit(record);
             })
             .filter((record): record is ReturnType<typeof projectAudit> => record !== undefined)
-            .sort((left, right) => left.id.localeCompare(right.id)),
+            .sort((left, right) => compareText(left.id, right.id)),
         publications: evidence
             .pendingPublications(transaction)
             .map(projectPublication)
-            .sort((left, right) => left.id.localeCompare(right.id))
+            .sort((left, right) => compareText(left.id, right.id))
     };
 }
 
@@ -1067,7 +1068,7 @@ function expectedAudits(
             receiptAudit(receiptRecord(receipt), new AuditRecordId(attempt.audit), receipt.audit)
         );
     }
-    return records.map(projectAudit).sort((left, right) => left.id.localeCompare(right.id));
+    return records.map(projectAudit).sort((left, right) => compareText(left.id, right.id));
 }
 
 function publicationFor(receipt: ReceiptState): InvocationPublicationOutbox {

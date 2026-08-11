@@ -31,6 +31,7 @@ import {
     pins,
     seedRunningTurn
 } from "./fixture";
+import { compareText } from "../../../src/core";
 
 const operation = new OperationRef("verifier-package:verify");
 const firstId = new AcceptanceId("acceptance-first");
@@ -142,7 +143,7 @@ describe("Run acceptance criteria", () => {
             expect(frontierKeys(value)).toEqual(
                 [...obligations]
                     .map(runObligationKey)
-                    .sort((left, right) => left.localeCompare(right))
+                    .sort((left, right) => compareText(left, right))
             );
             expect(
                 value.repository.transaction((tx) =>
@@ -165,7 +166,7 @@ describe("Run acceptance criteria", () => {
             expect(frontierKeys(value)).toEqual(
                 [...obligations]
                     .map(runObligationKey)
-                    .sort((left, right) => left.localeCompare(right))
+                    .sort((left, right) => compareText(left, right))
             );
 
             attempted(value, "verifier-pass", "succeeded");
@@ -408,7 +409,7 @@ describe("Run acceptance criteria", () => {
                     { kind: "approval", approval } as const
                 ]
                     .map(runObligationKey)
-                    .sort((left, right) => left.localeCompare(right))
+                    .sort((left, right) => compareText(left, right))
             );
             expect(snapshot.obligation.requiredAudits).toEqual([]);
             value.runtime.completeRunObligation(approved);

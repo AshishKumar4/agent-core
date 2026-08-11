@@ -45,6 +45,7 @@ import {
     workspaceId,
     workspaceScope
 } from "./fixture";
+import { compareText } from "../../src/core";
 
 const foreignTenantId = new TenantId("memory-gate-foreign");
 const anchor = Object.freeze({
@@ -97,18 +98,18 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const grantIds = store.grants().map((grant) => grant.id.value);
         expect(grantIds).toContain("aa-order-grant");
         expect(grantIds).toContain("zz-order-grant");
-        expect(grantIds).toEqual([...grantIds].sort((left, right) => left.localeCompare(right)));
+        expect(grantIds).toEqual([...grantIds].sort((left, right) => compareText(left, right)));
         expect(store.snapshot().grants.map((entry) => entry.id)).toEqual(grantIds);
 
         const roleNames = store.roles().map((role) => role.name.value);
         expect(roleNames).toContain("aa-order-role");
-        expect(roleNames).toEqual([...roleNames].sort((left, right) => left.localeCompare(right)));
+        expect(roleNames).toEqual([...roleNames].sort((left, right) => compareText(left, right)));
 
         const identityKeys = store
             .identitySnapshot()
             .records.map((record) => `${record.kind}\u0000${record.id}`);
         expect(identityKeys).toEqual(
-            [...identityKeys].sort((left, right) => left.localeCompare(right))
+            [...identityKeys].sort((left, right) => compareText(left, right))
         );
     });
 
@@ -121,7 +122,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
         });
         expect(observed).toContain("aa-transaction-order");
         expect(observed).toContain("zz-transaction-order");
-        expect(observed).toEqual([...observed].sort((left, right) => left.localeCompare(right)));
+        expect(observed).toEqual([...observed].sort((left, right) => compareText(left, right)));
     });
 
     test("returns synchronous null transaction results unchanged", { tags: "p2" }, () => {

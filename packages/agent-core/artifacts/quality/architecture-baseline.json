@@ -1122,6 +1122,270 @@
       "fingerprint": "ACQ-IMMUTABLE:packages/agent-core/src/protocol/write.ts:WriteRecord:3b3fcdef787a"
     },
     {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core-cloudflare/src/content-object.ts",
+      "symbol": "contentObjectKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core-cloudflare/src/content-object.ts:contentObjectKey:574bb9cb741f",
+      "reason": "Both interpolations are SHA-256 hex, which cannot contain the '/' separator, and every other segment is a fixed literal."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core-cloudflare/src/environment-provider.ts",
+      "symbol": "previewUrl",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core-cloudflare/src/environment-provider.ts:previewUrl:574bb9cb741f",
+      "reason": "Not an identity but a URL. The two token halves are a positional split of one 64-character SHA-256 hex value at offset 32, not a delimiter parse, and the host is configuration."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/agents/runs/memory.ts",
+      "symbol": "parentKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/agents/runs/memory.ts:parentKey:574bb9cb741f",
+      "reason": "The trailing component is a number, whose rendering contains no U+0000, so the last U+0000 delimits it. The ordinal is a commit parent index."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/agents/runs/memory.ts",
+      "symbol": "recordKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/agents/runs/memory.ts:recordKey:574bb9cb741f",
+      "reason": "The leading component is a closed string union whose members contain no U+0000, so the first U+0000 delimits it and the free component takes the whole remainder. The union is RunRecordKind."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/agents/runs/store.ts",
+      "symbol": "acceptanceVerdictKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/agents/runs/store.ts:acceptanceVerdictKey:574bb9cb741f",
+      "reason": "The trailing component is a Digest, constrained by its constructor to exactly 64 lowercase hex characters, so the final 65 characters are unambiguous however the AcceptanceId is spelled."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "symbol": "identityKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/authority/memory.ts:identityKey:574bb9cb741f",
+      "reason": "The leading component is a closed string union whose members contain no U+0000, so the first U+0000 delimits it and the free component takes the whole remainder. The union is IdentityRecordKind."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/core/semver.ts",
+      "symbol": "toString",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/core/semver.ts:toString:574bb9cb741f",
+      "reason": "Not an identity. This is the canonical SemVer rendering, and validateAndFormatSemVer parses the same grammar back, so the pair is a codec rather than a key."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/core/semver.ts",
+      "symbol": "validateAndFormatSemVer",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/core/semver.ts:validateAndFormatSemVer:574bb9cb741f",
+      "reason": "Not an identity. This formats an already-validated SemVer whose components were each checked against the grammar that parses them back."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/code-manifest.ts",
+      "symbol": "facetKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/code-manifest.ts:facetKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no U+0000, so the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "blueprintKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/materialization-store.ts:blueprintKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no U+0000, so the last U+0000 delimits it. StoredBlueprint.version is typed string, so the SemVer shape is an invariant of projectBlueprint rather than of the type; that projection is the only writer."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "symbol": "pointerKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/materialization-store.ts:pointerKey:574bb9cb741f",
+      "reason": "Three components, but both ends are delimiter-free: ActorKind is a closed union and DeploymentId is constrained to a 64-hex SHA-256. The free ActorId sits between two unambiguous boundaries."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "symbol": "blueprintStoreKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/memory.ts:blueprintStoreKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no U+0000, so the last U+0000 delimits it. Callers pass BlueprintMeta.version.toString(); the parameter is typed string, so that remains a caller invariant."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "symbol": "pointerStoreKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/memory.ts:pointerStoreKey:574bb9cb741f",
+      "reason": "Both ends are delimiter-free: ActorKind is a closed union and the deployment id is a 64-hex SHA-256. The parameter is typed DeploymentId['value'], which erases to string, so the digest shape is a caller invariant rather than a checked one."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "symbol": "releaseKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/memory.ts:releaseKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no U+0000, so the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "symbol": "releaseKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/package-store.ts:releaseKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no U+0000, so the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/package.ts",
+      "symbol": "releaseKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/package.ts:releaseKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no U+0000, so the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/rollout.ts",
+      "symbol": "actorKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/rollout.ts:actorKey:574bb9cb741f",
+      "reason": "The leading component is a closed string union whose members contain no U+0000, so the first U+0000 delimits it and the free component takes the whole remainder. The union is ActorKind."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/environments/store.ts",
+      "symbol": "revisionKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/environments/store.ts:revisionKey:574bb9cb741f",
+      "reason": "The trailing component is Revision.value, constrained by its constructor to a non-negative safe integer, so its rendering contains no U+0000 and the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/environments/store.ts",
+      "symbol": "rowKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/environments/store.ts:rowKey:574bb9cb741f",
+      "reason": "The leading component is a closed string union whose members contain no U+0000, so the first U+0000 delimits it and the free component takes the whole remainder. The union is EnvironmentStoredRecordKind."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/identity/repository.ts",
+      "symbol": "recordKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/identity/repository.ts:recordKey:574bb9cb741f",
+      "reason": "The leading component is a closed string union whose members contain no U+0000, so the first U+0000 delimits it and the free component takes the whole remainder. The union is IdentityRecordKind."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/invocations/mediation-memory.ts",
+      "symbol": "revisionKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/invocations/mediation-memory.ts:revisionKey:574bb9cb741f",
+      "reason": "The trailing component is a number, whose rendering contains no U+0000, so the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/operations/correspondence.ts",
+      "symbol": "manifestKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/operations/correspondence.ts:manifestKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no '@', so the last '@' delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/protocol/bootstrap-memory.ts",
+      "symbol": "nextId",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/protocol/bootstrap-memory.ts:nextId:574bb9cb741f",
+      "reason": "The trailing component is a monotonic integer counter and the leading one is a fixed literal prefix, so no free text meets the '-'."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/slates/store.ts",
+      "symbol": "slateRevisionKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/slates/store.ts:slateRevisionKey:574bb9cb741f",
+      "reason": "The trailing component is a number, whose rendering contains no U+0000, so the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/substrates/sqlite/bootstrap.ts",
+      "symbol": "nextId",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/substrates/sqlite/bootstrap.ts:nextId:574bb9cb741f",
+      "reason": "The trailing component is a monotonic integer counter and the leading one is a fixed literal prefix, so no free text meets the '-'."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "symbol": "requireMaterializationKindCheck",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/substrates/sqlite/materialization.ts:requireMaterializationKindCheck:574bb9cb741f",
+      "reason": "Not an identity but a SQL CHECK fragment. The column name is a literal and every kind comes from the closed materialization-kind registry through sqlString quoting."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "symbol": "releaseKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/substrates/sqlite/package.ts:releaseKey:574bb9cb741f",
+      "reason": "The trailing component is a SemVer rendering, whose grammar admits no U+0000, so the last U+0000 delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/workspaces/persistence.ts",
+      "symbol": "deltaRecordId",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/persistence.ts:deltaRecordId:574bb9cb741f",
+      "reason": "The trailing component is Revision.value, a non-negative safe integer, so the last '@' delimits it however the SurfaceId is spelled."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/workspaces/persistence.ts",
+      "symbol": "subscriptionRecordId",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/persistence.ts:subscriptionRecordId:574bb9cb741f",
+      "reason": "The trailing component is Revision.value, a non-negative safe integer, so the last '@' delimits it however the SubscriptionId is spelled."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/workspaces/persistence.ts",
+      "symbol": "viewRecordId",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/persistence.ts:viewRecordId:574bb9cb741f",
+      "reason": "The trailing component is Revision.value, a non-negative safe integer, so the last '@' delimits it however the SurfaceId is spelled."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/workspaces/policy.ts",
+      "symbol": "routeDedupeKey",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/policy.ts:routeDedupeKey:574bb9cb741f",
+      "reason": "Every arm is a closed literal tag followed by either a single free id taking the whole remainder, or a DigestAlgorithm union member and a 64-hex digest. No arm places free text before a separator it could contain."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/workspaces/source-protocol.ts",
+      "symbol": "routeIdentity",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/source-protocol.ts:routeIdentity:574bb9cb741f",
+      "reason": "Length-prefixed rather than delimited: the decimal code-unit count before the first ':' fixes exactly how much of the remainder is the SubscriptionId, so the dedupe key that follows cannot be confused with it."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/workspaces/view-replay.ts",
+      "symbol": "viewId",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/view-replay.ts:viewId:574bb9cb741f",
+      "reason": "The trailing component is Revision.value, a non-negative safe integer, so the last '@' delimits it however the SurfaceId is spelled."
+    },
+    {
       "rule": "ACQ-VOCAB",
       "file": "packages/agent-core/src/authority/grant.ts",
       "symbol": "GrantEffect",
