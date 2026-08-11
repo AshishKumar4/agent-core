@@ -92,16 +92,16 @@
       "id": "C13-PLACEMENT-AUTHORED-BACKING",
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-AUTHORED-BACKING",
-      "specTextSha256": "sha256:85ca064ca6037ec48a4ca984a6895c4b1ebafa2ecf0d145340a5184d5f1f186b",
+      "specTextSha256": "sha256:ed466b5774deae1cc7f2dbccf15a9f3fbd578e87e8a83dff397b79819a28aefd",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "No backing concept exists in the definition plane: no consumer vocabulary for the three \u00a74.7 consumers, no backing identifiers, and no declaration record mapping consumer to backing",
-        "SPEC \u00a74.7/\u00a710.2 never say where the platform's declaration lives (Blueprint, PolicySet, or profile config), what identifies a backing, or how identical authority semantics are demonstrated \u2014 spec-owner decisions before W4 can model it",
-        "No agent-authored marker distinguishes \u00a74.7 code, so 'the trust set never hands agent-authored code bundled' cannot key on anything"
+        "\u00a74.7/\u00a710.2 now name the declaration site (policies.placement, \u00a79.2 \u2014 one more consumer \u2192 backing id mapping alongside the isolation-mode admissibility PlacementPolicy already declares, not a new artifact), the closed consumer set (the three \u00a74.7-named consumers, which is also now the agent-authored-code marker: membership in that closed set, not a runtime flag), canonical backing ids for the Cloudflare profile (workerLoader, dispatchNamespace), and the equivalence procedure (each backing independently satisfies the \u00a71.5 dynamic-mode invariants under C13-PLACEMENT-DYNAMIC-NO-EGRESS; never a comparison between backings)",
+        "PlacementPolicy (src/definition/placement.ts) still has no backings field: adding consumer \u2192 backing id is a scoped, closed-key codec-major-2 change to one existing W4 record, now that the spec fixes its shape",
+        "Verifying this atom needs that field plus a selector reading it (a TurnPlacementSnapshot/composition consumer choosing a backing id per \u00a74.7 consumer) and adversarial evidence that an unmapped consumer falls back to the profile default rather than an arbitrary backing"
       ]
     },
     {

@@ -858,13 +858,20 @@ the authority of the code that loaded it — so revoking a passed Grant severs t
 isolate without touching its loader. This maps to **C13-AUTH-ISOLATE-DELEGATION**.
 
 One `dynamic` semantics does not mean one hosting mechanism. A substrate profile MAY
-offer more than one backing for loaded code — §10.2 names two — and a platform
-declares which backing serves each consumer: the isolate that runs a programmatic
-tool call need not be the mechanism that hosts Slate backends. Every offered backing
-MUST preserve identical authority semantics — zero ambient authority, zero ambient
-egress, capabilities only as explicitly passed Bindings — so the choice between
-backings is operational, never an authority decision. This maps to
-**C13-PLACEMENT-AUTHORED-BACKING**.
+offer more than one backing for loaded code — §10.2 names two, `workerLoader` and
+`dispatchNamespace` — identified by a substrate-defined, opaque, nonempty id; this
+document fixes no enum of them. A platform declares which backing serves each of the
+three consumers this section names — programmatic tool calling, Slate backends,
+agent-authored facets, a closed set, since nothing else is agent-authored code under
+this section — as part of `policies.placement` (§9.2): one more mapping,
+consumer → backing id, alongside the isolation-mode admissibility that record already
+declares, not a new artifact. A consumer the Blueprint does not map uses the profile's
+declared default backing. Every offered backing MUST preserve identical authority
+semantics — zero ambient authority, zero ambient egress, capabilities only as explicitly
+passed Bindings — so the choice between backings is operational, never an authority
+decision; each backing demonstrates this independently, the same way any `dynamic`-mode
+implementation does (§1.5's no-ambient-egress requirement), never by comparison
+against another backing. This maps to **C13-PLACEMENT-AUTHORED-BACKING**.
 
 ---
 
@@ -2334,16 +2341,17 @@ tax with no security benefit:
    resolutions are scoped to a single Turn step and re-resolved with current path
    epochs each step (§3.4 rules 7–8). Revocation drops the stub; so do platform
    lifecycle events; re-resolution is the uniform recovery for both.
-3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: the agent-authored
-   code of §4.7 — programmatic tool calls, Slate backends, agent-authored facets. Hosts
-   pass `globalOutbound: null` (or equivalent); this is
-   how the substrate satisfies §1.5's no-ambient-egress requirement, and capabilities
-   arrive only as explicitly passed Bindings — a delegation under §3.4 (§4.7), not a
-   copy of the loader's authority. Worker Loader is in open beta at the time of
-   writing; Workers-for-Platforms dispatch namespaces serve as the GA fallback for
-   pre-deployed code — Slate backends, agent-authored facets — with identical authority
-   semantics, including that one. Which backing serves which §4.7 consumer is the
-   platform's declaration to make.
+3. **Dynamic** — two named backings (§4.7), both loading code into a fresh isolate:
+   `workerLoader`, code loaded via Worker Loader, and `dispatchNamespace`, pre-deployed
+   code loaded via a Workers-for-Platforms dispatch namespace — the agent-authored code
+   of §4.7 (programmatic tool calls, Slate backends, agent-authored facets) runs under
+   either. Hosts pass `globalOutbound: null` (or equivalent); this is how the substrate
+   satisfies §1.5's no-ambient-egress requirement, and capabilities arrive only as
+   explicitly passed Bindings — a delegation under §3.4 (§4.7), not a copy of the
+   loader's authority. Worker Loader is in open beta at the time of writing;
+   `dispatchNamespace` serves as the GA fallback for pre-deployed code — Slate backends,
+   agent-authored facets — with identical authority semantics, including that one.
+   Which backing serves which §4.7 consumer is the platform's declaration to make.
 
 ### 10.3 Implementation constraints
 
