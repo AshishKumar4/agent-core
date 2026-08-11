@@ -17,10 +17,7 @@ export function isJsonValue(value: unknown): value is JsonValue {
     }
 }
 
-export function hasExactJsonKeys(
-    value: { readonly [key: string]: JsonValue },
-    expected: readonly string[]
-): boolean {
+export function hasExactJsonKeys(value: object, expected: readonly string[]): boolean {
     const keys = Object.keys(value);
     return keys.length === expected.length && expected.every((key) => Object.hasOwn(value, key));
 }

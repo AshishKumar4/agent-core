@@ -1,5 +1,10 @@
 export { TextId } from "./id";
-export { compareText, decodeCanonicalJson, encodeCanonicalJson } from "./canonical";
+export {
+    canonicalJsonEqual,
+    compareText,
+    decodeCanonicalJson,
+    encodeCanonicalJson
+} from "./canonical";
 export { decodeBase64, encodeBase64 } from "./base64";
 export { Digest } from "./digest";
 export type { DigestAlgorithm } from "./digest";

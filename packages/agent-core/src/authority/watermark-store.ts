@@ -1,4 +1,4 @@
-import { compareText } from "../core";
+import { compareText, hasExactJsonKeys } from "../core";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { TenantId } from "../identity";
@@ -126,7 +126,7 @@ function requireSnapshot(snapshot: MemoryInvalidationWatermarkSnapshot): void {
     if (
         snapshot === null ||
         typeof snapshot !== "object" ||
-        JSON.stringify(Object.keys(snapshot).sort()) !== JSON.stringify(["records", "version"]) ||
+        !hasExactJsonKeys(snapshot, ["records", "version"]) ||
         snapshot.version !== 1 ||
         !Array.isArray(snapshot.records)
     ) {
@@ -136,7 +136,7 @@ function requireSnapshot(snapshot: MemoryInvalidationWatermarkSnapshot): void {
         if (
             record === null ||
             typeof record !== "object" ||
-            JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(["bytes", "key"]) ||
+            !hasExactJsonKeys(record, ["bytes", "key"]) ||
             typeof record.key !== "string" ||
             record.key.length === 0 ||
             !(record.bytes instanceof Uint8Array)

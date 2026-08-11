@@ -56,6 +56,11 @@ export function compareText(left: string, right: string): number {
     return 0;
 }
 
+/** Equality by canonical bytes: the only sound way to compare two JSON values. */
+export function canonicalJsonEqual(left: JsonValue, right: JsonValue): boolean {
+    return bytesEqual(encodeCanonicalJson(left), encodeCanonicalJson(right));
+}
+
 function canonicalString(value: JsonValue): string {
     if (value === null || typeof value === "boolean" || typeof value === "string") {
         return JSON.stringify(value);

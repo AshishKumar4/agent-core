@@ -1,6 +1,13 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import { RunId, TurnId, type LeaseToken } from "../agents";
-import { Digest, RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    Revision,
+    canonicalJsonEqual,
+    type JsonValue,
+    type RecordVersion
+} from "../core";
 import { POLICY_IMPACTS, PackagePin } from "../definition";
 import { AgentCoreError } from "../errors";
 import { BindingName, FacetRef, OperationRef, type Impact, type ProtectionDomain } from "../facets";
@@ -8,7 +15,6 @@ import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
 import { InvocationId } from "../interaction-references";
 import {
-    canonicalJsonEqual,
     requireExact,
     requireObject,
     requireSafeInteger,

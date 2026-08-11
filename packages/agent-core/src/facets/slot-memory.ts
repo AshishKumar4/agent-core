@@ -1,4 +1,4 @@
-import { Revision, compareText } from "../core";
+import { Revision, compareText, hasExactJsonKeys } from "../core";
 import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
@@ -245,8 +245,7 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 
 function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
     if (
-        JSON.stringify(Object.keys(snapshot).sort()) !==
-            JSON.stringify(["entries", "owner", "revision", "slots", "version"]) ||
+        !hasExactJsonKeys(snapshot, ["entries", "owner", "revision", "slots", "version"]) ||
         snapshot.version !== 1 ||
         typeof snapshot.owner !== "string" ||
         !Number.isSafeInteger(snapshot.revision) ||

@@ -60,10 +60,6 @@ export function canonicalJson<Value extends JsonValue>(value: Value): Value {
     return deepFreeze(decodeCanonicalJson(encodeCanonicalJson(value)) as Value);
 }
 
-export function canonicalJsonEqual(left: JsonValue, right: JsonValue): boolean {
-    return bytesEqual(encodeCanonicalJson(left), encodeCanonicalJson(right));
-}
-
 export function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
