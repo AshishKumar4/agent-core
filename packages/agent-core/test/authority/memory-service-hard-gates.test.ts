@@ -546,7 +546,7 @@ describe("AuthorityMutationService hard gates", () => {
                             { kind: "direct" }
                         )
                     ),
-                "protocol.invalid-state"
+                "authority.denied"
             );
             const parent = grant(
                 "parent",

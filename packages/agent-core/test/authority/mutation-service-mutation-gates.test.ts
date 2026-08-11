@@ -733,6 +733,69 @@ describe("AuthorityMutationService guest admission membrane", () => {
             "Membership already exists"
         );
     });
+
+    test(
+        "[C13-AUTH-GUEST-VERIFICATION] verifies provenance before materializing any guest Grant and a failure denies",
+        { tags: "p0" },
+        () => {
+            const { store, service, trust, reader } = guestFixture();
+            const membership = guestMembership("verified-before-grant-member", reader.name);
+            expectAgentError(
+                () => service.assignGuestMembership(membership, mintProof(trust), new Date(250)),
+                "authority.denied",
+                "Guest verification is not currently valid"
+            );
+            expect(store.membership(membership.id)).toBeUndefined();
+            expect(store.grant(GrantId.forRole(membership.id, 0))).toBeUndefined();
+            service.assignGuestMembership(membership, mintProof(trust), new Date(150));
+            const materialized = store.grant(GrantId.forRole(membership.id, 0));
+            expect(materialized?.isLive).toBe(true);
+            expect(materialized?.subject.kind).toBe("foreign");
+            expect(materialized?.origin).toMatchObject({ kind: "role", guest: true });
+        }
+    );
+
+    test(
+        "[C13-AUTH-GUEST-VERIFICATION] never materializes a subject still stamped handshake",
+        { tags: "p0" },
+        () => {
+            const { store, service, trust, reader } = guestFixture();
+            const membership = new Membership(
+                new MembershipId("handshake-guest-member"),
+                workspaceScope,
+                SubjectRef.foreign(guestHome, guestId, GuestVerificationScheme.handshake),
+                reader.name,
+                "active",
+                Revision.initial()
+            );
+            expectAgentError(
+                () => service.assignGuestMembership(membership, mintProof(trust), new Date(150)),
+                "authority.denied",
+                "Guest verification is not currently valid"
+            );
+            expect(store.membership(membership.id)).toBeUndefined();
+            expect(store.grant(GrantId.forRole(membership.id, 0))).toBeUndefined();
+        }
+    );
+
+    test(
+        "[C13-AUTH-GUEST-VERIFICATION] denies a direct Grant to a foreign subject",
+        { tags: "p0" },
+        () => {
+            const { store, service } = guestFixture();
+            const record = grant(
+                "direct-guest-grant",
+                SubjectRef.foreign(guestHome, guestId, GuestVerificationScheme.callback),
+                { kind: "direct" }
+            );
+            expectAgentError(
+                () => service.createGrant(record),
+                "authority.denied",
+                "Guest Grants materialize only through verified guest Memberships"
+            );
+            expect(store.grant(record.id)).toBeUndefined();
+        }
+    );
 });
 
 describe("AuthorityMutationService closure and epoch effects", () => {
