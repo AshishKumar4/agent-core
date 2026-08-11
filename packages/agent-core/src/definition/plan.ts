@@ -493,13 +493,25 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
     return Object.freeze(projections.sort(compareProjections));
 }
 
+const commandSurfaceKeyDecoder = new TextDecoder("utf-8", { fatal: true });
+
+/**
+ * A SurfaceId and a Command name are both merely nonblank, so either may contain U+0000
+ * and a NUL join is not injective: surface `a\u0000b` with command `c` produced the key
+ * that surface `a` with command `b\u0000c` produced, and one pair was rejected as a
+ * duplicate of the other. Canonical JSON escapes the boundary.
+ */
+function commandSurfaceKey(surface: string, command: string): string {
+    return commandSurfaceKeyDecoder.decode(encodeCanonicalJson([surface, command]));
+}
+
 function commandSubscriptionProjection(
     declaration: ValidatedContribution,
     surfaceNames: Set<string>
 ): DesiredProjection {
     const command = Command.fromData(declaration.value);
     for (const surface of command.surfaces) {
-        const key = `${surface.value} ${command.name}`;
+        const key = commandSurfaceKey(surface.value, command.name);
         if (surfaceNames.has(key)) {
             throw invalidDefinition(
                 `Command ${command.name} is not unique in surface slot ${surface.value}`

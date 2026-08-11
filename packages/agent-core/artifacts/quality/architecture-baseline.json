@@ -1251,6 +1251,14 @@
     },
     {
       "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/plan.ts",
+      "symbol": "planMaterialization",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/plan.ts:planMaterialization:574bb9cb741f",
+      "reason": "The composite here is the actor key `kind\\u0000id`: ActorKind is a closed union containing no U+0000, so the first U+0000 delimits it and the ActorId takes the whole remainder."
+    },
+    {
+      "rule": "ACQ-KEY",
       "file": "packages/agent-core/src/definition/rollout.ts",
       "symbol": "actorKey",
       "message": "Composite identity built by string concatenation must be injective",
@@ -1275,6 +1283,14 @@
     },
     {
       "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/facets/slot-memory.ts",
+      "symbol": "validateState",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/facets/slot-memory.ts:validateState:574bb9cb741f",
+      "reason": "Three components, but the tail two are delimiter-free: the ordinal is a number and the contributor is a FacetRef, whose regex admits only [a-z0-9.-] and a single colon. Scanning from the right fixes both boundaries, leaving the free SlotName unambiguous."
+    },
+    {
+      "rule": "ACQ-KEY",
       "file": "packages/agent-core/src/identity/repository.ts",
       "symbol": "recordKey",
       "message": "Composite identity built by string concatenation must be injective",
@@ -1291,6 +1307,14 @@
     },
     {
       "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/operations/command-runtime.ts",
+      "symbol": "install",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/operations/command-runtime.ts:install:574bb9cb741f",
+      "reason": "The leading component is OperationRef.facet, which OperationRef derives by splitting at the single colon its constructor requires, so it contains no colon and the first colon delimits it."
+    },
+    {
+      "rule": "ACQ-KEY",
       "file": "packages/agent-core/src/operations/correspondence.ts",
       "symbol": "manifestKey",
       "message": "Composite identity built by string concatenation must be injective",
@@ -1304,6 +1328,14 @@
       "message": "Composite identity built by string concatenation must be injective",
       "fingerprint": "ACQ-KEY:packages/agent-core/src/protocol/bootstrap-memory.ts:nextId:574bb9cb741f",
       "reason": "The trailing component is a monotonic integer counter and the leading one is a fixed literal prefix, so no free text meets the '-'."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/slates/runtime.ts",
+      "symbol": "value",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/slates/runtime.ts:value:574bb9cb741f",
+      "reason": "The middle component is one of the two internal literals 'resource' and 'preview', the trailing one is a monotonic integer, and the prefix is configuration; no caller-supplied text reaches any position."
     },
     {
       "rule": "ACQ-KEY",

@@ -201,11 +201,20 @@ function inspectNode(node, source, file, aliases) {
             "Public identifier fields must not use string"
         );
     }
+    const composite =
+        ts.isReturnStatement(node) && node.expression !== undefined
+            ? node.expression
+            : ts.isVariableDeclaration(node) && node.initializer !== undefined
+              ? node.initializer
+              : undefined;
     if (
-        ts.isReturnStatement(node) &&
-        node.expression !== undefined &&
-        ts.isTemplateExpression(node.expression) &&
-        node.expression.templateSpans.length >= 2
+        composite !== undefined &&
+        ts.isTemplateExpression(composite) &&
+        composite.templateSpans.length >= 2 &&
+        // A module-level constant is built from other module-level constants; no
+        // caller-supplied text can reach it, and its position-based fingerprint would
+        // move on any edit above it.
+        symbolAt(node, source).startsWith("offset:") === false
     ) {
         issue(
             "ACQ-KEY",
