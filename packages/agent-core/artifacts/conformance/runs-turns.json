@@ -539,7 +539,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "ResourceCeiling exists only in the SPEC: no value type, no field on SpawnReservation (a codec-major change), and no consumption ledger \u2014 TurnModelUsage is ephemeral and wall-clock/depth have no accounting, so 'the parent's remainder' is uncomputable",
+        "SPEC gaps the spec owner must close: no durable home for the ceiling, no accounting point for token/wall-clock consumption, no field anywhere for 'the exhausted dimension recorded', and the exhaustion path cites the \u00a75.3 Turn rows for a Run-level cancellation",
+        "The formal boundary explicitly excludes resource-ceiling attenuation and exhaustion (AC-RUN-001 remaining evidence)"
       ]
     },
     {
@@ -598,7 +600,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "The resolution record shape and merge validation exist (TreeMergeResolution, validateMerge, verifyTree seam), but conflict detection does not: no per-path tree model exists over the single opaque tree checkpoint digest, so 'paths changed on both sides' cannot be computed, and no unresolved-conflict state blocks a merge commit",
+        "policies.treeMerge has no declaration site \u2014 PolicySet is a closed-key codec-major-2 record owned by W4 \u2014 and nothing binds each PathResolution.side to operator or administer-impact provenance",
+        "SPEC gaps: 'the operator' is not a defined primitive, treeMerge is absent from the Blueprint policy enumeration, and the implementation's base/environment fields on TreeMergeResolution exceed the \u00a75.2 record shape"
       ]
     },
     {

@@ -126,7 +126,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "Disposal is per-invocation today: the Turn invocation port disposes each resolved Facet in a finally, but no Turn-scoped resolved-Facet registry exists, so a Facet held across Turn work has no disposal sweep on suspension or authority loss",
+        "'Authority loss' has no operational signal: no revocation or epoch-invalidation callback reaches a held ResolvedFacet, and requireActive checks host liveness, not Grant/Binding/lease validity",
+        "W3-citable implementation must live in src/operations (a ResolvedFacet scope the W5 executor consumes), since the Turn-side call sites are W5-owned; SPEC \u00a75.3 also names a resolved FacetSet no type declares"
       ]
     },
     {

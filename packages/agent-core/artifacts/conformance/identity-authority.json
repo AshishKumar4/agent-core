@@ -282,7 +282,10 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "No dynamic isolate exists: src/ contains no loader, no capability-passing boundary, and no isolate-scoped Invocation identity, so the delegation the atom bounds has no subject yet",
+        "The delegation primitives (Grant.attenuationOf, validateLineage, revokeGrantClosure) are built; the loader that must consume them is unwritten and its home (src/definition or src/operations) is outside W2's citable evidence",
+        "SPEC \u00a74.7/\u00a73.4 leave the passed capability set's record shape, the isolate's subject identity, and its Grant Scope unspecified; those choices are load-bearing for lineage validation and need spec-owner resolution",
+        "Undeclared prerequisites: C13-PLACEMENT-AUTHORED-BACKING and C13-PLACEMENT-DYNAMIC-NO-EGRESS cover the sibling \u00a74.7 clauses and are still planned"
       ]
     },
     {
@@ -406,7 +409,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "\u00a73.4 rule 8's provider/dynamic clause is stated in units of a Turn step, which the SPEC never defines: \u00a75.3 has no step identity or boundary, so 'lasts one Turn step' is unverifiable as written and needs a spec-owner definition or restatement",
+        "The bundled clause is implementable now: ActorAuthorityState caches resolutions keyed by principal and binding only, so a bundled resolution outlives its Turn and is only caught later by authorizeDirect/authorizeMediated lease rechecks; the cache key or matches() must bind the exact Turn lease",
+        "Adversarial evidence needed: reuse of a bundled resolution after its Turn ends, and proof that each provider/dynamic mediation re-reads current path epochs rather than replaying cached ones"
       ]
     },
     {

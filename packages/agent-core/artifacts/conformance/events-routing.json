@@ -304,7 +304,8 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "View carries no provenance: no TrustTier reaches src/workspaces/view.ts, no mark representation exists in ViewBody, and no field names the intentDigest a decision authorizes; implementing the atom is a View codec major-version change with delta-replay mark preservation",
+        "SPEC \u00a76.3 gives no discriminator for 'a decision View', no mark carrier ('value' granularity is undefined), and 'platform voice' appears once and is never defined, so the Surface rendering clause is untestable as written \u2014 spec-owner definitions needed first"
       ]
     },
     {
