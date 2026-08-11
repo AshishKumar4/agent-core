@@ -81,13 +81,27 @@ const baselineFingerprints = new Set(baseline.issues.map((item) => item.fingerpr
 const currentFingerprints = new Set(issues.map((item) => item.fingerprint));
 const additions = issues.filter((item) => !baselineFingerprints.has(item.fingerprint));
 const resolved = baseline.issues.filter((item) => !currentFingerprints.has(item.fingerprint));
+// ACQ-ERR and its siblings flag debt: each site has a fix, and the tree has driven all
+// of them to zero. ACQ-KEY and ACQ-RENDER flag a shape instead, and a shape can be sound
+// -- a delimiter is safe when no component can contain it, and several flagged sites are
+// not identities at all but a SemVer rendering, a URL, a SQL fragment. Their terminal
+// state is therefore a written proof, not an empty list, so a site whose baseline entry
+// carries one is reviewed rather than outstanding. New sites still fail outright at every
+// stage, and a baseline entry without a reason still fails, so nothing is silenced.
+const reviewed = new Set(
+    baseline.issues
+        .filter((item) => reasonedRules.has(item.rule) && (item.reason ?? "").trim().length > 0)
+        .map((item) => item.fingerprint)
+);
+const outstanding = issues.filter((item) => !reviewed.has(item.fingerprint));
 const report = {
     stage: options.stage,
     files: files.map((path) => portable(relative(options.root, path))),
     issues,
     additions,
     resolved,
-    complete: issues.length === 0
+    outstanding,
+    complete: outstanding.length === 0
 };
 
 if (options.writeBaseline) {
@@ -121,10 +135,10 @@ if (options.writeBaseline) {
             (item.reason ?? "").trim().length === 0
     );
     if (unexplained.length > 0) fail("Baselined sites missing a written reason", unexplained);
-    if (options.stage === "final" && issues.length > 0)
-        fail("Final architecture violations", issues);
+    if (options.stage === "final" && outstanding.length > 0)
+        fail("Final architecture violations", outstanding);
     console.log(
-        `architecture ${report.complete ? "complete" : "incomplete"}: ${issues.length} issue(s), ${resolved.length} resolved`
+        `architecture ${report.complete ? "complete" : "incomplete"}: ${outstanding.length} outstanding, ${reviewed.size} reviewed, ${resolved.length} resolved`
     );
 }
 

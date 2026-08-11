@@ -1127,7 +1127,7 @@
       "symbol": "contentObjectKey",
       "message": "Composite identity built by string concatenation must be injective",
       "fingerprint": "ACQ-KEY:packages/agent-core-cloudflare/src/content-object.ts:contentObjectKey:574bb9cb741f",
-      "reason": "Both interpolations are SHA-256 hex, which cannot contain the '/' separator, and every other segment is a fixed literal."
+      "reason": "Content-addressed storage, so a collision would serve one object for another; it cannot happen here. Both components come from hex(), which emits exactly 64 lowercase hex characters and so can hold no '/', and the sole call site in contentObjectAddress supplies sha256(tenantId.value) and sha256(bytes). Every other segment is a fixed literal, so the key is injective in the pair and cross-tenant reuse would require a SHA-256 collision."
     },
     {
       "rule": "ACQ-KEY",
@@ -1135,7 +1135,7 @@
       "symbol": "previewUrl",
       "message": "Composite identity built by string concatenation must be injective",
       "fingerprint": "ACQ-KEY:packages/agent-core-cloudflare/src/environment-provider.ts:previewUrl:574bb9cb741f",
-      "reason": "Not an identity but a URL. The two token halves are a positional split of one 64-character SHA-256 hex value at offset 32, not a delimiter parse, and the host is configuration."
+      "reason": "Grants access to a live Environment Session, so a collision would resolve one session's preview to another; it cannot happen here. The label pair is a positional split at offset 32 of Digest.sha256(...).value, which the Digest constructor pins to 64 lowercase hex, so there is no delimiter to straddle. The digested input is canonical JSON over the full identity -- environmentId, environmentRevision, exposureId, generation, port, sessionEpoch and sessionId -- which is itself injective, and previewHost is construction-time configuration validated against ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$, identical for every request. Distinct sessions therefore differ unless SHA-256 collides."
     },
     {
       "rule": "ACQ-KEY",
