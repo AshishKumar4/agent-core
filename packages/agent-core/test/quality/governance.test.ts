@@ -39,7 +39,9 @@ describe("R1 integration governance", subprocessTestOptions, () => {
                         ...bom.entries[0]!,
                         artifacts: [
                             {
-                                ...(bom.entries[0]!.artifacts as Array<Record<string, unknown>>)[0],
+                                ...(
+                                    bom.entries[0]!["artifacts"] as Array<Record<string, unknown>>
+                                )[0],
                                 normalization: "canonical-json-v1"
                             }
                         ]

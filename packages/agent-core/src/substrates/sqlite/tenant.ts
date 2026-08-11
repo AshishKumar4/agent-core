@@ -330,7 +330,7 @@ export class SqliteTenantControlStore
         return this.loadGuestTrust(id);
     }
 
-    public guestTrusts(): readonly GuestTrust[] {
+    public override guestTrusts(): readonly GuestTrust[] {
         return super.guestTrusts();
     }
 

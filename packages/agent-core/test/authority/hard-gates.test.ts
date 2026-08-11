@@ -699,7 +699,7 @@ describe("typed authority evidence hard gates", () => {
         expectRecordMutationFailure(AuthorityCheckRequest.codec, checkRequest(), (payload) => ({
             ...payload,
             intent: {
-                ...(payload.intent as Record<string, JsonValue>),
+                ...(payload["intent"] as Record<string, JsonValue>),
                 impact: "unknown"
             }
         }));
@@ -715,7 +715,7 @@ describe("typed authority evidence hard gates", () => {
             expectRecordMutationSuccess(AuthorityCheckRequest.codec, request, (payload) => ({
                 ...payload,
                 intent: {
-                    ...(payload.intent as Record<string, JsonValue>),
+                    ...(payload["intent"] as Record<string, JsonValue>),
                     impact
                 }
             }));

@@ -603,7 +603,7 @@ function requireDiscoveryDocument(document: unknown): asserts document is McpDis
         ) {
             throw new TypeError("MCP discovery document is malformed");
         }
-        for (const tool of document.tools) {
+        for (const tool of document["tools"]) {
             if (
                 tool === null ||
                 Array.isArray(tool) ||
@@ -615,7 +615,7 @@ function requireDiscoveryDocument(document: unknown): asserts document is McpDis
                 throw new TypeError("MCP tool discovery is malformed");
             }
         }
-        for (const resource of document.resources) {
+        for (const resource of document["resources"]) {
             if (
                 resource === null ||
                 Array.isArray(resource) ||
@@ -626,7 +626,7 @@ function requireDiscoveryDocument(document: unknown): asserts document is McpDis
                 throw new TypeError("MCP resource discovery is malformed");
             }
         }
-        for (const prompt of document.prompts) {
+        for (const prompt of document["prompts"]) {
             if (
                 prompt === null ||
                 Array.isArray(prompt) ||

@@ -2,13 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../../src/actors";
 import { InvalidationWatermark, ScopeEpoch, watermarkKey } from "../../../src/authority";
 import { Revision } from "../../../src/core";
-import {
-    PrincipalId,
-    PrincipalRef,
-    ScopeRef,
-    TenantId,
-    WorkspaceId
-} from "../../../src/identity";
+import { PrincipalId, PrincipalRef, ScopeRef, TenantId, WorkspaceId } from "../../../src/identity";
 import { SqliteInvalidationWatermarkStore } from "../../../src/substrates/sqlite/watermark";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates/sqlite";
 import { TestSqlite } from "../../helpers/sqlite";
@@ -143,20 +137,24 @@ describe("SQLite watermark store exact failure and persistence behavior", () => 
         expect(row?.["revision"]).toBe(1);
     });
 
-    test("persists a same-length join transition instead of treating it as a no-op", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
-        store.save(watermark);
-        store.join(key, [new ScopeEpoch(scope, 3)]);
+    test(
+        "persists a same-length join transition instead of treating it as a no-op",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
+            store.save(watermark);
+            store.join(key, [new ScopeEpoch(scope, 3)]);
 
-        const advanced = store.join(key, [new ScopeEpoch(scope, 4)]);
-        expect(advanced.revision.value).toBe(2);
-        expect(advanced.epoch(scope)).toBe(4);
+            const advanced = store.join(key, [new ScopeEpoch(scope, 4)]);
+            expect(advanced.revision.value).toBe(2);
+            expect(advanced.epoch(scope)).toBe(4);
 
-        const loaded = store.load(key);
-        expect(loaded?.revision.value).toBe(2);
-        expect(loaded?.epoch(scope)).toBe(4);
-    });
+            const loaded = store.load(key);
+            expect(loaded?.revision.value).toBe(2);
+            expect(loaded?.epoch(scope)).toBe(4);
+        }
+    );
 
     test("requires initialization before join with the exact error", { tags: "p0" }, () => {
         const store = new SqliteInvalidationWatermarkStore(new TestSqlite(), tenant, owner);
@@ -189,29 +187,33 @@ describe("SQLite watermark store exact failure and persistence behavior", () => 
         expect(store.load(key)?.epoch(scope)).toBe(0);
     });
 
-    test("rejects every forged projection column as the exact malformed watermark", { tags: "p1" }, () => {
-        const forgeries: readonly (readonly [string, SqliteValue])[] = [
-            ["owner_tenant_id", "forged"],
-            ["owner_kind", "run"],
-            ["owner_id", "forged"],
-            ["holder_tenant_id", "forged"],
-            ["holder_principal_id", "forged"],
-            ["revision", 7]
-        ];
+    test(
+        "rejects every forged projection column as the exact malformed watermark",
+        { tags: "p1" },
+        () => {
+            const forgeries: readonly (readonly [string, SqliteValue])[] = [
+                ["owner_tenant_id", "forged"],
+                ["owner_kind", "run"],
+                ["owner_id", "forged"],
+                ["holder_tenant_id", "forged"],
+                ["holder_principal_id", "forged"],
+                ["revision", 7]
+            ];
 
-        for (const [column, value] of forgeries) {
-            const database = new TestSqlite();
-            const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
-            store.save(watermark);
-            database.run(`UPDATE actor_invalidation_watermarks SET ${column} = ?`, [value]);
-            expect(() => store.load(key), column).toThrow(
-                expect.objectContaining({
-                    code: "codec.invalid",
-                    message: "Stored invalidation watermark is malformed"
-                })
-            );
+            for (const [column, value] of forgeries) {
+                const database = new TestSqlite();
+                const store = new SqliteInvalidationWatermarkStore(database, tenant, owner);
+                store.save(watermark);
+                database.run(`UPDATE actor_invalidation_watermarks SET ${column} = ?`, [value]);
+                expect(() => store.load(key), column).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: "Stored invalidation watermark is malformed"
+                    })
+                );
+            }
         }
-    });
+    );
 
     test("reports non-blob record bytes as the exact malformed watermark", { tags: "p1" }, () => {
         const database = new TamperedRecordSqlite();
@@ -290,7 +292,7 @@ describe("SQLite watermark store exact failure and persistence behavior", () => 
 });
 
 class FailingSchemaSqlite extends TestSqlite {
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
         if (statement.includes("CREATE TABLE IF NOT EXISTS actor_invalidation_watermarks")) {
             throw new TypeError("injected schema fault");
         }
@@ -302,7 +304,7 @@ class ProjectionTamperSqlite extends TestSqlite {
     public redirectTo: string | undefined;
     public replacement: readonly [string, SqliteValue] | undefined;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const redirectTo = this.redirectTo;
         const rows = super.all(
             statement,
@@ -319,7 +321,7 @@ class ProjectionTamperSqlite extends TestSqlite {
 class TamperedRecordSqlite extends TestSqlite {
     public tampered = false;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = super.all(statement, bindings);
         if (!this.tampered || !statement.includes("FROM actor_invalidation_watermarks")) {
             return rows;

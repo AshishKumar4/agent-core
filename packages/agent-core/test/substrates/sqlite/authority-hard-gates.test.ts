@@ -1498,7 +1498,7 @@ describe("SQLite authority adapter mutation gates", () => {
 class SwappedRecordSqlite extends TestSqlite {
     public swapped: Uint8Array | undefined;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = super.all(statement, bindings);
         const swapped = this.swapped;
         if (swapped === undefined || !statement.includes("FROM tenant_grants")) return rows;
