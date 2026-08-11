@@ -2677,8 +2677,17 @@ sibling RunBranches as parallel heads; an orchestration Facet owning search stat
 Search statistics — visit counts, value estimates, preference ledgers — are the
 orchestration Facet's own records referenced from RunCommits: the commit graph records
 lineage and results, not algorithm state. Self-modifying scaffolds are a versioned
-Slate-like resource; shadow evaluation runs as child Runs; promotion is a mediated
-`administer` Invocation.
+Slate-like resource; shadow evaluation runs as child Runs spawned under attenuated
+Grants and ResourceCeilings (§5.2); promotion is a mediated `administer` Invocation.
+The primary calling convention is programmatic tool calling (§4.7): one code
+submission per tool call, capabilities passed as Bindings, in-Session writes on
+§7.2's Turn-owned floor, results returnable as handles (§5.6). One thing the real
+system does that these primitives deliberately do not capture: it amortizes admission
+across a whole code execution, performing hundreds of boundary-crossing effects with
+no per-effect admission, where here every `externalSend` and every non-Session
+`mutate` pays its own mediated pipeline and §7.3 batching amortizes only homogeneous
+items of one Operation. A rebuild on these primitives keeps per-effect evidence and
+pays that cost knowingly.
 
 **An app generator** (vibesdk-shaped). One Workspace per generated app; the generator
 Agent runs in the Workspace DO; the app is a Slate whose source history is git-shaped
