@@ -229,8 +229,11 @@ direct and team Memberships under the precedence rule of §3.3.
 - a **Project** groups Workspaces for organization, policy, and sharing. It is a
   record owned by the Tenant's Actor, not a coordination unit of its own (§8.1,
   §10.1) — grouping your workspaces costs nothing at runtime.
-- a **Workspace** is the composition boundary. It hosts Facet installs, Bindings,
-  Events, Subscriptions, Agents, Runs, and Slates, and enforces workspace policy.
+- a **Workspace** is the composition boundary. It hosts Facet installs and the
+  subject-local names selected by Bindings, plus Events, Subscriptions, Agents, Runs,
+  and Slates, and enforces workspace policy. The Tenant Actor owns each canonical
+  Binding alongside its backing Grants and path epochs; a Workspace retains only
+  Binding ids or disposable lookup indexes.
 
 *Why a fixed chain rather than arbitrary nesting:* two container levels are what most
 mature resource hierarchies converged on (cloud providers, code forges), they cover
@@ -1991,6 +1994,12 @@ record, and durable records never own live substrate resources.
 6. Conformance includes an **ownership map** artifact — record type → owning Actor —
    verified against the implementation.
 
+In particular, the Tenant Actor is the sole durable owner of Binding, Grant, and
+ScopeEpoch records. Creating, replacing, or deactivating a Binding and advancing its
+affected path epoch occur in one Tenant-local control transaction. Workspace and Run
+Actors may retain Binding ids and rebuildable indexes, never canonical or mirrored
+Binding records.
+
 These rules exist because mirrored state is the most expensive class of bug a durable
 platform can have: two copies of the truth always eventually disagree, and by the time
 they do, both copies have already been read by something.
@@ -2169,8 +2178,8 @@ against those facts.
 
 | Construct | Hosting |
 | --- | --- |
-| Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
-| Workspace Actor | one DO per Workspace (SQLite): facet installs, bindings, its event log, subscriptions, runs (default) or run index (dedicated), tasks |
+| Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, canonical Bindings, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
+| Workspace Actor | one DO per Workspace (SQLite): facet installs, Binding ids and rebuildable lookup indexes only, its event log, subscriptions, runs (default) or run index (dedicated), tasks |
 | Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2. |
 | Turn execution | in the Run-owning DO; each Turn retains a placement snapshot, and offloaded callbacks carry exact Turn, holder, and epoch — delivery is at-least-once and mismatches reject |
 | Environment | Sandbox SDK container or session DO; tree checkpoints and filesystem durability via R2 snapshots; preview via authenticated exposed ports |
@@ -2870,14 +2879,14 @@ This section names coverage categories and trace IDs, never inferred theorem nam
 | Approval, batch effects, and Receipt lineage | `AC-APPROVAL-001`, `AC-EFFECT-001` | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved |
 | Event routing and typed audit | `AC-EVENT-ROUTING-001`, `AC-ROUTING-001`, `AC-AUDIT-001` | lease-backed self-Event checks, authenticated target projection without a source-audit edge, designated Actor-local audit consequences, and the Subscription routing LTS — at-most-once consumption per (Subscription, event key), declared-target firing, tenant containment, channel-derived trust admission, and fail-closed disable; no reservation uniqueness, transport, storage, or complete-instrumentation claim |
 | Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness on a graph reached from the empty graph by `GraphStep`, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, exact-Turn controlled synthesis, and undo as fenced append-only ancestor selection — no transition writes an undo onto a branch a running Turn still holds, whatever the lease expiry, and no transition removes or rewrites a stored commit; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, pending-revert durability, migration execution, or general settlement-preservation claim |
-| Integrated admission and settlement | `AC-COMPOSED-001` | designated direct/mediated admission consequences and a constructive exact-obligation settlement witness on a reached graph; no concrete transaction or general preservation refinement |
+| Integrated admission and settlement | `AC-COMPOSED-001` | designated direct admission, non-attempt mediated preparation, and an abstract distributed mediated-permit LTS. The target first durably records an immutable request; the Tenant issues from only its authority state and the authenticated request payload; typed messages cross a lossy/duplicating/reordering transport; and the target authenticates and consumes against the exact request, volatile authentication, fence, time, claim, reservation, lease, route, and audit state without reading issuer storage. Attempt-producing generic mediated transitions are excluded, so a reachability invariant gives every modeled EffectAttempt exact request, historical Tenant issuance, target consumption, and matching-attempt evidence. No Actor-local boolean or claimed authority admission path is modeled; a future Actor-local attempt path requires ownership that permits the canonical comparison and attempt write in one transaction. Designated consequences cover reset-authentication invalidation, expiry, changed fences, and before/after commit-unknown issuance and consumption. Live authority administration is deliberately absent until a capability-mediated administration path is modeled; raw `AuthorityStep` is not admitted as a runtime transition. The abstract permit binds the modeled PreparedInvocation, claim, reservation, binding generation, fence, actor, nonce, and time fields, not every concrete §10.3 wire field. Settlement retains its constructive exact-obligation witness; no concrete transaction or refinement claim |
 | Platform mechanism representations | `AC-REP-BROKER-001`, `AC-REP-CONSENT-001`, `AC-REP-REACTION-001`, `AC-REP-MOA-001` | proved component reductions to core modules: broker credential custody with the digest-bound approval gate, per-pair consent epochs, reaction dedup and lease-fenced injection, and aggregation-chain lineage completeness; no profile, product, UX, or implementation-refinement claim |
 | Facet manifest/runtime | `NC-FACET-MANIFEST-RUNTIME` | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled |
 | Contributions and slots | `AC-SLOT-001`, `NC-CONTRIBUTIONS-SLOTS` | immutable slot declarations, exclusive contribution origins, schema-conformant stored entries, and declared-order arrival-independent resolution; slot authority policy, concrete JSON-Schema validation, the viewer-filtered SlotCatalog query, and surface-backed rendering are not modeled |
 | Commands | `AC-COMMAND-001`, `NC-COMMANDS` | per-surface per-Scope collision rejection, exact derived-Subscription defaults, install-checked mappings with validated `command.invoked` input, and duplicate-submission idempotency; concrete schema-compatibility checking, argument grammar, completion providers, alias and visibility configuration, dispatcher gate ordering, and `command.completed` rendering are not modeled |
 | Interceptors | `NC-INTERCEPTORS` | §4.4 runtime candidate discovery, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, and the `prompt.assemble`, `input.submitted`, and `turn.step` cut points are not modeled; the operation cut points are claimed under `AC-INTERCEPTOR-001` |
 | Surface, profile, and patch semantics | `NC-SURFACE-RUNTIME-ACTIONS`, `NC-PROFILE-RUNTIME`, `NC-RFC6902-PATCH` | explicit non-claims beyond the structural View result |
-| Substrate and definition-plane behavior | `NC-CONTENTSTORE`, `NC-CODECS`, `NC-PROTOCOL-DISPATCHER`, `NC-BLUEPRINT-MATERIALIZATION`, `NC-CLOUDFLARE-BEHAVIOR` | specified but not modeled, including concrete command-envelope rejection ordering, audit linkage, and Cloudflare authority-permit issue/authentication/consumption |
+| Substrate and definition-plane behavior | `AC-COMPOSED-001`, `NC-CONTENTSTORE`, `NC-CODECS`, `NC-PROTOCOL-DISPATCHER`, `NC-BLUEPRINT-MATERIALIZATION`, `NC-CLOUDFLARE-BEHAVIOR` | the abstract distributed permit safety relation is modeled; concrete command-envelope rejection ordering, complete §10.3 permit representation, signatures/codecs, Durable Object transactions, storage/RPC failure semantics, network topology, bundles, configuration, and deployments are not |
 | Liveness, cryptography, and concrete refinement | `NC-TEMPORAL-LIVENESS`, `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE`, `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT` | explicit non-claims; assumptions are listed separately in the ledger |
 
 No structural View result implies RFC 6902 correctness, the no-live-handle runtime
@@ -2896,12 +2905,16 @@ Operational use relies on these external assumptions, not hidden formal conclusi
   Binding;
 - trusted monotonic time enforces lease expiry and immutable resolution deadlines;
 - codecs are canonical and chosen digests meet their stated collision assumptions;
-- persistence linearizes guarded writes and preserves append-only records;
+- each owning Actor's persistence linearizes its own guarded transaction and preserves
+  append-only records; there is no cross-Actor atomicity assumption. Commit-unknown is
+  observed as either the before-state or the fully committed local after-state, never a
+  partial write;
 - loaded Facet code matches its manifest, schemas, declared impact, and placement;
 - provider idempotency keys identify the intended effect;
 - invalidation transport, cross-Actor delivery, reconciliation, and provider queries
-  are eventually scheduled only when an eventual-liveness result is required. Safety
-  rules fail closed and do not assume that eventual progress.
+  are eventually scheduled only under an explicit fairness/eventual-delivery premise
+  when an eventual-liveness result is required. No designated liveness theorem is
+  claimed; safety rules fail closed and do not assume eventual progress.
 
 Proving that TypeScript, an adapter, or a deployment refines Lean is explicitly not a
 goal of this formal package. Implementation conformance comes only from §13 evidence

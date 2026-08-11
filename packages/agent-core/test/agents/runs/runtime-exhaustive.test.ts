@@ -180,7 +180,7 @@ describe("RunRuntime rejection matrix", () => {
             migration: { from: pins(), to: pins() }
         });
         expectCode(
-            () => value.runtime.appendCommit(migration, new Revision(0), new Date(1000)),
+            () => value.runtime.appendTurnCommit(migration, new Revision(0), new Date(1000)),
             "run.invalid-state"
         );
     });
@@ -237,14 +237,14 @@ describe("RunRuntime rejection matrix", () => {
     it("[C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const first = message("first", ids.root);
-        value.runtime.appendCommit(first, new Revision(0), new Date(1500));
+        value.runtime.appendTurnCommit(first, new Revision(0), new Date(1500));
         expectCode(
-            () => value.runtime.appendCommit(first, new Revision(1), new Date(1500)),
+            () => value.runtime.appendTurnCommit(first, new Revision(1), new Date(1500)),
             "run.invalid-state"
         );
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     message("stale-parent", ids.root),
                     new Revision(1),
                     new Date(1500)
@@ -261,7 +261,7 @@ describe("RunRuntime rejection matrix", () => {
         });
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     message("different-pins", first.id, value.token, differentPins),
                     new Revision(1),
                     new Date(1500)
@@ -271,7 +271,7 @@ describe("RunRuntime rejection matrix", () => {
         const otherTurn = new TurnId("missing-turn");
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     message("missing-writer", first.id, {
                         turn: otherTurn,
                         holder: ids.holder,
@@ -303,7 +303,7 @@ describe("RunRuntime rejection matrix", () => {
             receipt: refs.receipt
         });
         expectCode(
-            () => value.runtime.appendCommit(missingSource, new Revision(0), new Date(1000)),
+            () => value.runtime.mergeRun(missingSource, new Revision(0), new Date(1000)),
             "run.invalid-state"
         );
 
@@ -336,7 +336,7 @@ describe("RunRuntime rejection matrix", () => {
             receipt: refs.receipt,
             invocation: refs.invocation
         });
-        value.runtime.appendCommit(sourceHead, new Revision(0), new Date(1000));
+        value.runtime.appendSystemEvidenceCommit(sourceHead, new Revision(0), new Date(1000));
         const pick = new RunCommit({
             id: new RunCommitId("bad-pick-content"),
             run: ids.run,
@@ -353,7 +353,7 @@ describe("RunRuntime rejection matrix", () => {
             receipt: refs.receipt
         });
         expectCode(
-            () => value.runtime.appendCommit(pick, new Revision(0), new Date(1000)),
+            () => value.runtime.mergeRun(pick, new Revision(0), new Date(1000)),
             "run.invalid-state"
         );
 
@@ -381,11 +381,11 @@ describe("RunRuntime rejection matrix", () => {
         });
         value.merge.acceptsConcat = false;
         expectCode(
-            () => value.runtime.appendCommit(concat, new Revision(0), new Date(1000)),
+            () => value.runtime.mergeRun(concat, new Revision(0), new Date(1000)),
             "run.invalid-state"
         );
         value.merge.acceptsConcat = true;
-        value.runtime.appendCommit(concat, new Revision(0), new Date(1000));
+        value.runtime.mergeRun(concat, new Revision(0), new Date(1000));
     });
 });
 

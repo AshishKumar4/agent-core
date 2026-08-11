@@ -461,7 +461,7 @@ describe("tenant.bootstrap concrete compositions", () => {
                     ...(snapshot.opaque as object),
                     state: {
                         ...opaque.state,
-                        control: { ...opaque.state.control, version: 2 }
+                        control: { ...opaque.state.control, version: 1 }
                     }
                 }
             })
@@ -976,14 +976,16 @@ test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" 
                     ...(snapshot.opaque as object),
                     state: {
                         ...opaque.state,
-                        control: { ...opaque.state.control, version: 2 }
+                        control: { ...opaque.state.control, version: 1 }
                     }
                 }
             }
         });
         throw new TypeError("Expected control snapshot rejection");
     } catch (error) {
-        expect(error).toMatchObject({ message: "Memory Tenant control snapshot is malformed" });
+        expect(error).toMatchObject({
+            message: "Memory Tenant control snapshots require version 2"
+        });
     }
 });
 

@@ -441,9 +441,9 @@ describe("RunRepository over MemoryRunStorage mutation kills", () => {
     test("a restored snapshot preserves every table and its commit ancestry", { tags: "p0" }, () => {
         const seeded = seedRunningTurn();
         const first = messageCommit("commit-mutation-first", ids.root, seeded.token);
-        seeded.runtime.appendCommit(first, new Revision(0), new Date(1500));
+        seeded.runtime.appendTurnCommit(first, new Revision(0), new Date(1500));
         const second = messageCommit("commit-mutation-second", first.id, seeded.token);
-        seeded.runtime.appendCommit(second, new Revision(1), new Date(1600));
+        seeded.runtime.appendTurnCommit(second, new Revision(1), new Date(1600));
 
         const snapshot = seeded.storage.snapshot();
         const restoredStorage = new MemoryRunStorage(snapshot);

@@ -18,8 +18,8 @@ import {
     BindingValidationEvidence,
     BindingValidationRequest
 } from "../../src/authority/binding-evidence";
-import { MemoryBindingStore } from "../../src/authority/binding-store";
 import { PathEpochEvidence, ScopeEpoch } from "../../src/authority/epoch";
+import { AuthorityMutationService } from "../../src/authority/service";
 import { AuthorityCheckRequest } from "../../src/authority/evidence";
 import { GrantId } from "../../src/authority/id";
 import { authorityKey } from "../../src/authority/key";
@@ -187,6 +187,19 @@ describe("Binding replacement identity", () => {
                 "binding.invalid",
                 "Binding generation is exhausted"
             );
+        }
+    );
+});
+
+describe("Tenant Binding mutation surface", () => {
+    test(
+        "[C13-AUTH-BINDING-RESOLUTION] exposes exactly the creation and replacement transitions",
+        { tags: "p0" },
+        () => {
+            const bindingMutators = Object.getOwnPropertyNames(AuthorityMutationService.prototype)
+                .filter((name) => name.toLowerCase().includes("binding"))
+                .sort();
+            expect(bindingMutators).toEqual(["createBinding", "replaceBinding"]);
         }
     );
 });
@@ -376,149 +389,6 @@ describe("Binding validation request and evidence gates", () => {
                         issuer: { id: "binding-mutation-imposter", kind: "unknown" }
                     }),
                 "Binding validation Actor kind is invalid"
-            );
-        }
-    );
-});
-
-describe("memory Binding store gates", () => {
-    test(
-        "[C13-AUTH-BINDING-RESOLUTION] lists and snapshots Bindings in key order with detached bytes",
-        { tags: "p0" },
-        () => {
-            const store = new MemoryBindingStore(workspaceScope);
-            const late = makeBinding("zz-binding");
-            const early = makeBinding("aa-binding");
-            store.save(late);
-            store.save(early);
-            expect(store.list().map((binding) => binding.name.value)).toEqual([
-                "aa-binding",
-                "zz-binding"
-            ]);
-            const snapshot = store.snapshot();
-            expect(snapshot.records.map((record) => record.key)).toEqual([early.key, late.key]);
-            const restored = new MemoryBindingStore(workspaceScope, snapshot);
-            expect(restored.list().map((binding) => binding.name.value)).toEqual([
-                "aa-binding",
-                "zz-binding"
-            ]);
-            snapshot.records.at(0)?.bytes.fill(0);
-            snapshot.records.at(1)?.bytes.fill(0);
-            expect(restored.load(early.key)?.grantId.value).toBe("mutation-grant");
-            expect(restored.load(late.key)?.grantId.value).toBe("mutation-grant");
-        }
-    );
-
-    test(
-        "[C13-AUTH-BINDING-RESOLUTION] persists replacements and rejects conflicting saves exactly",
-        { tags: "p0" },
-        () => {
-            const store = new MemoryBindingStore(workspaceScope);
-            const base = makeBinding();
-            store.save(base);
-            store.save(base);
-            store.save(base.replace(grantId(), facet()));
-            expect(store.load(base.key)?.generation).toBe(1);
-            expect(store.load(base.key)?.revision.value).toBe(1);
-            expectAgentError(
-                () =>
-                    store.save(
-                        Binding.active(
-                            otherWorkspaceScope,
-                            subject,
-                            domain,
-                            new BindingName("foreign-binding"),
-                            grantId(),
-                            facet()
-                        )
-                    ),
-                "binding.invalid",
-                "Binding belongs to another Workspace store"
-            );
-            expectAgentError(
-                () => store.save(bindingAt("fresh-generation", 1, 0)),
-                "protocol.revision-conflict",
-                "New Bindings require generation and revision zero"
-            );
-            expectAgentError(
-                () => store.save(bindingAt("fresh-revision", 0, 1)),
-                "protocol.revision-conflict",
-                "New Bindings require generation and revision zero"
-            );
-        }
-    );
-
-    test(
-        "[C13-AUTH-BINDING-RESOLUTION] rejects malformed snapshots and records with exact codec errors",
-        { tags: "p0" },
-        () => {
-            const seeded = new MemoryBindingStore(workspaceScope);
-            seeded.save(makeBinding());
-            const record = seeded.snapshot().records.at(0);
-            if (record === undefined) throw new Error("Expected one snapshot record");
-            const snapshotMessage = "Memory Binding snapshot is malformed";
-            const recordMessage = "Memory Binding snapshot record is malformed";
-            expectAgentError(
-                () => new MemoryBindingStore(workspaceScope, null as never),
-                "codec.invalid",
-                snapshotMessage
-            );
-            const callableSnapshot = Object.assign(() => undefined, {
-                records: [record],
-                version: 1
-            });
-            expectAgentError(
-                () => new MemoryBindingStore(workspaceScope, callableSnapshot as never),
-                "codec.invalid",
-                snapshotMessage
-            );
-            expectAgentError(
-                () =>
-                    new MemoryBindingStore(workspaceScope, {
-                        version: 1,
-                        records: [record],
-                        audit: []
-                    } as never),
-                "codec.invalid",
-                snapshotMessage
-            );
-            expectAgentError(
-                () =>
-                    new MemoryBindingStore(workspaceScope, {
-                        version: 1,
-                        records: [undefined as never]
-                    }),
-                "codec.invalid",
-                recordMessage
-            );
-            expectAgentError(
-                () =>
-                    new MemoryBindingStore(workspaceScope, {
-                        version: 1,
-                        records: [
-                            { key: record.key, bytes: record.bytes.slice(), audit: true } as never
-                        ]
-                    }),
-                "codec.invalid",
-                recordMessage
-            );
-            expectAgentError(
-                () =>
-                    new MemoryBindingStore(workspaceScope, {
-                        version: 1,
-                        records: [{ key: 3 as never, bytes: record.bytes.slice() }]
-                    }),
-                "codec.invalid",
-                recordMessage
-            );
-            expectAgentError(
-                () =>
-                    new MemoryBindingStore(workspaceScope, {
-                        version: 1,
-                        records: [{ key: "", bytes: record.bytes.slice() }]
-                    }),
-                "codec.invalid",
-                recordMessage
             );
         }
     );

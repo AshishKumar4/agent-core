@@ -396,20 +396,84 @@ export class RunRuntime<Transaction> {
         this.repository.replaceRun(tx, run.revision, run.revise());
     }
 
-    public appendCommit(commit: RunCommit, expectedBranchRevision: Revision, now: Date): void {
+    public appendTurnCommit(commit: RunCommit, expectedBranchRevision: Revision, now: Date): void {
         this.repository.transaction((tx) =>
-            this.appendCommitInTransaction(tx, commit, expectedBranchRevision, now)
+            this.appendTurnCommitInTransaction(tx, commit, expectedBranchRevision, now)
         );
     }
 
-    public appendCommitInTransaction(
+    public appendTurnCommitInTransaction(
         tx: Transaction,
         commit: RunCommit,
         expectedBranchRevision: Revision,
         now: Date
     ): void {
-        if (commit.kind === "migration") {
-            throw invalidRun("Migration requires an exact verified target configuration snapshot");
+        if (
+            (commit.kind !== "message" && commit.kind !== "verdict") ||
+            commit.writer.kind !== "turn"
+        ) {
+            throw invalidRun("Non-transition Turn append requires a message or verdict commit");
+        }
+        this.appendInTransaction(tx, commit, expectedBranchRevision, now);
+    }
+
+    public appendSystemEvidenceCommit(
+        commit: RunCommit,
+        expectedBranchRevision: Revision,
+        now: Date
+    ): void {
+        this.repository.transaction((tx) =>
+            this.appendSystemEvidenceCommitInTransaction(tx, commit, expectedBranchRevision, now)
+        );
+    }
+
+    public appendSystemEvidenceCommitInTransaction(
+        tx: Transaction,
+        commit: RunCommit,
+        expectedBranchRevision: Revision,
+        now: Date
+    ): void {
+        if (
+            (commit.kind !== "invocation" && commit.kind !== "eventDelivery") ||
+            commit.writer.kind !== "system"
+        ) {
+            throw invalidRun("System evidence append requires an invocation or delivery commit");
+        }
+        this.appendInTransaction(tx, commit, expectedBranchRevision, now);
+    }
+
+    public mergeRun(commit: RunCommit, expectedBranchRevision: Revision, now: Date): void {
+        this.repository.transaction((tx) =>
+            this.mergeRunInTransaction(tx, commit, expectedBranchRevision, now)
+        );
+    }
+
+    public mergeRunInTransaction(
+        tx: Transaction,
+        commit: RunCommit,
+        expectedBranchRevision: Revision,
+        now: Date
+    ): void {
+        if (commit.kind !== "merge" || commit.writer.kind !== "system") {
+            throw invalidRun("Run merge requires a system-authored merge commit");
+        }
+        this.appendInTransaction(tx, commit, expectedBranchRevision, now);
+    }
+
+    public undoRun(commit: RunCommit, expectedBranchRevision: Revision, now: Date): void {
+        this.repository.transaction((tx) =>
+            this.undoRunInTransaction(tx, commit, expectedBranchRevision, now)
+        );
+    }
+
+    public undoRunInTransaction(
+        tx: Transaction,
+        commit: RunCommit,
+        expectedBranchRevision: Revision,
+        now: Date
+    ): void {
+        if (commit.kind !== "undo" || commit.writer.kind !== "system") {
+            throw invalidRun("Run undo requires a system-authored undo commit");
         }
         this.appendInTransaction(tx, commit, expectedBranchRevision, now);
     }
@@ -1096,6 +1160,7 @@ export class RunRuntime<Transaction> {
     ): void {
         const inbox = this.repository.listInbox(tx, turn.id);
         if (
+            entry.event !== "turn.cancel" ||
             !entry.turn.equals(turn.id) ||
             entry.sequence !== inbox.length ||
             entry.cancellationToken === undefined ||

@@ -2077,24 +2077,24 @@
       "outcome": {
         "kind": "applied",
         "treatment": "accepted",
-        "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
-        "tree": "fd32865cc559459b7ff45c358d5a7a8e6a8a5b54",
-        "rationale": "The seam registry binds memory and SQLite authority implementations with parity evidence.",
+        "commit": "8e09abda1b45b615e18c31b606774b1d5140982d",
+        "tree": "79b4119408433e5c4636f919f7d20ff3fe5c439c",
+        "rationale": "The seam registry binds the canonical Tenant authority contract to memory and SQLite implementations without a separate Binding store.",
         "tests": [
-          "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+          "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
           "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
         ],
         "checks": [],
         "artifacts": [
           {
             "path": "packages/agent-core/artifacts/seams/identity-authority.json",
-            "blob": "82efbd4e3da3a0564a86bf1d6f7957544a29439a",
-            "sha256": "76b3303db0df7175a81e17a21e555cee9e410ddc1711f93a41d93248406224a2"
+            "blob": "2ee987e31ece1f02a02255e51e7b645e7f32681b",
+            "sha256": "e8ff381b113e436cf05cf5ddda94ea08ebc652082ba88dcc27a80cf31a1c8f8e"
           },
           {
             "path": "packages/agent-core/src/authority/service.ts",
-            "blob": "eac2677a24142836f42e4f302b8de38025670c44",
-            "sha256": "50f110c7e584820c81098c8de81383544c36d4c0ec2e6a73fcee844b6b77ba3e"
+            "blob": "296632461fabd9ff9f21f58f3deb60efdace14a0",
+            "sha256": "891772e125e776665b3ded8b2d987d7adc0ca8af26fc707a3d7957dc2ea04a07"
           },
           {
             "path": "packages/agent-core/src/identity/guest-verification.ts",
@@ -2103,13 +2103,13 @@
           },
           {
             "path": "packages/agent-core/test/identity/hard-gates.test.ts",
-            "blob": "b1a27814463746242a4430299747625ac832e569",
-            "sha256": "ce0496d91000226c7fb9c636995322bcbeadcb4a4c10a573c15143724124fc27"
+            "blob": "8485de2858533efe6a03264865c82665886d4468",
+            "sha256": "6417992184e184e4a7e87d34b22c27c0f7d722deb67e34b4fe740985755d30c8"
           },
           {
-            "path": "packages/agent-core/test/substrates/sqlite/store-parity.test.ts",
-            "blob": "ebd64e8042b84ccfe4e4c933527ddfdcbb35d2e3",
-            "sha256": "52bc5a53e7a1d19480a9dc3c1c57efb36363091210c035bcd0dc246279e983ae"
+            "path": "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts",
+            "blob": "fd0803af6ecb3abd1adc9dfae9dd14868cd94111",
+            "sha256": "627d5c6af65a3867c64474fa42029dd57209b1d770f75760c2bcd66ce14aad16"
           }
         ],
         "items": [
@@ -2125,10 +2125,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2145,10 +2145,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2165,10 +2165,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2185,10 +2185,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2205,10 +2205,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2225,10 +2225,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2245,10 +2245,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2265,10 +2265,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2285,10 +2285,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []
@@ -2305,10 +2305,10 @@
               "packages/agent-core/src/authority/service.ts",
               "packages/agent-core/src/identity/guest-verification.ts",
               "packages/agent-core/test/identity/hard-gates.test.ts",
-              "packages/agent-core/test/substrates/sqlite/store-parity.test.ts"
+              "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts"
             ],
             "tests": [
-              "test/substrates/sqlite/store-parity.test.ts#memory authority snapshot isolation detaches Binding and watermark bytes and rejects projection disagreement",
+              "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
               "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse"
             ],
             "checks": []

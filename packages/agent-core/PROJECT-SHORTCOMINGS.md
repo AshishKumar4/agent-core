@@ -19,15 +19,25 @@ evidence agree where applicable.
       adapters, Memory/SQLite storage, provider calls, codecs, bundles, configuration, or
       deployments refine that model. This is an assurance shortcoming to close, not an
       acceptable final boundary.
-- [ ] **Model the real distributed authority protocol.** Lean's atomic mediated step
-      does not represent the actual split between asynchronous permit authentication and
-      target-local nonce-consumption/effect-attempt transaction. Model loss, duplication,
-      reordering, replay, expiry, revoke races, restart, reset, and commit-unknown states
-      without assuming a cross-Actor transaction.
-- [ ] **Integrate runtime authority administration into reachability.** The canonical
-      reachable system excludes revoke, bind, rematerialize, membership, and foreign
-      verification transitions after bootstrap. Prove mediation safety across these live
-      interleavings.
+- [x] **Model the abstract distributed authority protocol.** Lean now separates
+      a target-owned immutable request, Tenant-local issuance from current authority and
+      the authenticated request payload, typed lossy/duplicating/reordering transport,
+      volatile target authentication, and target-local nonce-consumption plus
+      EffectAttempt/audit atomicity. Reachability proves that transported, authenticated,
+      and consumed permits have historical Tenant issuance without making consumption
+      read issuer storage. It covers replay, expiry, restart/reset, and before/after
+      commit-unknown observations without a cross-Actor transaction. Every attempt in the
+      current reachable system requires exact request, issuance, consumption, and attempt
+      evidence; no Actor-local boolean or claimed admission path exists. A generic
+      Actor-local path remains open only if future canonical authority ownership makes it
+      realizable in one owner transaction. This closes the abstract-model P0 only; the
+      unchecked TypeScript/storage/Cloudflare refinement P0 above remains open.
+- [ ] **Model live authority administration through mediated capabilities.** Canonical
+      reachability currently initializes authority only in trusted bootstrap. It does not
+      admit raw `AuthorityStep` or Role rematerialization as an ungated runtime path.
+      Revocation, binding, membership, foreign-verification, and role-materialization
+      interleavings remain incomplete until an actual object-capability/mediated admin
+      transition exists; post-issuance revocation timing is therefore not claimed.
 - [ ] **Finish the release gate honestly.** The source stage is `building`, conformance
       is 395/412, and 1,599 mutation survivors remain actionable. `check:final` must not
       pass until conformance is complete, mutation is closed, all aggregate coverage is at
@@ -35,11 +45,15 @@ evidence agree where applicable.
 
 ## P1 — missing normative implementation
 
-- [x] **Implement the concrete Turn host and agent harness.** `TurnExecutorHost` now calls
-      the model, binds tools, streams ephemeral output, checkpoints, recovers, and settles
-      the exact leased Turn through canonical Run records. The integration-ledger entry
-      now cites this host and its adversarial tests instead of unrelated Run-frontier
-      evidence.
+- [~] **Implement the concrete Turn host and agent harness.** HOST DONE, HARNESS OPEN.
+      `TurnExecutorHost` binds tools, streams ephemeral output, checkpoints, recovers, and
+      settles the exact leased Turn through canonical Run records. The integration-ledger
+      entry now cites this host and its adversarial tests instead of unrelated Run-frontier
+      evidence. It does NOT call a model: `TurnModelPort` is an abstract class and no
+      implementation of it exists in `src/`, so nothing in this repo reaches a provider.
+      That is correct for the kernel — §5.6 specifies no loop — but it means the harness
+      half of this item is untouched. Binding pi's `runAgentLoop` behind the port is the
+      remaining work, and the item stays open until it exists.
 - [x] **Make the executor boundary typed and public.** `TurnBoundTool` uses the existing
       `OperationDescriptor` source of truth, and the supported Run export exposes
       lease-scoped prompt/content, inbox, invocation, commit, checkpoint, cancellation,
@@ -170,9 +184,12 @@ evidence agree where applicable.
 - [ ] Prove Actor-local persistence refinement over transaction, uniqueness,
       rollback, restart, and commit-unknown states. Keep SQLite itself in the documented
       trusted base unless it is independently verified.
-- [ ] Model Tenant Actor, target Actor, transport, time, crash/restart, permit, and
-      route machines separately. Prove safety under loss/duplication/reorder/replay/reset;
-      state liveness only under explicit fairness/eventual-delivery assumptions.
+- [x] Model the target-owned request, Tenant Actor permit issuance, typed transport,
+      target Actor authentication/consumption, monotonic time, restart/reset, replay, and
+      commit-unknown observations separately. The abstract safety theorems cover
+      loss/duplication/reorder/replay/reset and historical issuance; no liveness theorem
+      is claimed without explicit fairness/eventual-delivery assumptions. Route transport
+      remains owned by the separate routing LTS.
 - [ ] Build the release assurance chain:
 
     ```text
