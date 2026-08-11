@@ -490,7 +490,7 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
-        },
+    },
     {
       "id": "C13-BATCH-OUTCOME-COMPLETE",
       "owner": "W6",
