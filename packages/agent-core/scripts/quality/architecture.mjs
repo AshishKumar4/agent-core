@@ -12,6 +12,18 @@ import {
     writeCanonicalJson
 } from "./project.mjs";
 
+// Weakening a type is how a wrong program stops being rejected, so every escape is
+// counted per file and reconciled against a reasoned permit. Product code may keep an
+// escape only where the permit names it. Test code carries the narrower ban: building a
+// deliberately invalid value needs an assertion, so assertions stay, but `any` describes
+// nothing and a suppression proves nothing. `@ts-expect-error` is not a suppression —
+// the compiler fails when the line it marks stops erroring, which makes it an assertion
+// that something does not typecheck.
+const WEAK_KINDS = ["any", "assertion", "non-null", "unknown", "suppression"];
+const TEST_KINDS = ["any", "suppression"];
+const SUPPRESSION = /@ts-(?:ignore|nocheck)\b/gu;
+const SOURCE_SUPPRESSION = /@ts-(?:ignore|nocheck|expect-error)\b/gu;
+
 const options = parseArguments(process.argv.slice(2));
 const roots =
     options.root === repositoryRoot
@@ -28,6 +40,8 @@ const files = (await Promise.all(roots.map((root) => collectFiles(root, isTypeSc
 const issues = [];
 const identifiers = new Map();
 const vocabularies = new Map();
+const permits = await loadPermits(options.permits);
+const observed = new Map();
 
 for (const path of files) {
     const source = await readFile(path, "utf8");
@@ -40,6 +54,7 @@ for (const path of files) {
         scriptKind(path)
     );
     const testFile = file.includes("/test/") || file.startsWith("test/");
+    checkWeakTypes(parsed, source, file, testFile);
     if (testFile) checkTests(parsed, file);
     else {
         checkSuppressions(source, file);
@@ -47,6 +62,8 @@ for (const path of files) {
         visit(parsed, (node) => inspectNode(node, parsed, file, aliases));
     }
 }
+
+reconcilePermits();
 
 for (const [name, locations] of identifiers) {
     if (locations.length > 1) {
@@ -178,6 +195,73 @@ function inspectNode(node, source, file, aliases) {
             const locations = vocabularies.get(key) ?? [];
             locations.push({ file, symbol: node.name.text });
             vocabularies.set(key, locations);
+        }
+    }
+}
+
+function checkWeakTypes(parsed, source, file, testFile) {
+    const kinds = testFile ? TEST_KINDS : WEAK_KINDS;
+    const count = (kind) => {
+        if (!kinds.includes(kind)) return;
+        const counts = observed.get(file) ?? new Map();
+        counts.set(kind, (counts.get(kind) ?? 0) + 1);
+        observed.set(file, counts);
+    };
+    visit(parsed, (node) => {
+        if (node.kind === ts.SyntaxKind.AnyKeyword) count("any");
+        if (node.kind === ts.SyntaxKind.UnknownKeyword && !narrowsExplicitly(node))
+            count("unknown");
+        if (ts.isNonNullExpression(node)) count("non-null");
+        if (ts.isTypeAssertionExpression(node)) count("assertion");
+        if (ts.isAsExpression(node) && !isConstAssertion(node)) count("assertion");
+    });
+    const suppression = testFile ? SUPPRESSION : SOURCE_SUPPRESSION;
+    suppression.lastIndex = 0;
+    for (const _match of source.matchAll(suppression)) count("suppression");
+}
+
+function isConstAssertion(node) {
+    return (
+        ts.isTypeReferenceNode(node.type) &&
+        ts.isIdentifier(node.type.typeName) &&
+        node.type.typeName.text === "const"
+    );
+}
+
+// `unknown` is the correct type for a value whose shape is not yet proven, but only
+// where the declaration proves it is about to be proven: the subject of a type
+// predicate or assertion signature is narrowed by the validator that declares it.
+function narrowsExplicitly(node) {
+    const parameter = node.parent;
+    if (parameter === undefined || !ts.isParameter(parameter)) return false;
+    if (!ts.isIdentifier(parameter.name)) return false;
+    const owner = parameter.parent;
+    const predicate = owner?.type;
+    return (
+        predicate !== undefined &&
+        ts.isTypePredicateNode(predicate) &&
+        ts.isIdentifier(predicate.parameterName) &&
+        predicate.parameterName.text === parameter.name.text
+    );
+}
+
+function reconcilePermits() {
+    for (const permit of permits.permits) {
+        const actual = observed.get(permit.file)?.get(permit.kind) ?? 0;
+        observed.get(permit.file)?.delete(permit.kind);
+        if (actual === permit.count) continue;
+        issue(
+            "ACQ-TYPE",
+            permit.file,
+            permit.kind,
+            actual > permit.count
+                ? `${permit.file} uses ${actual} ${permit.kind} escapes where ${permit.count} are permitted`
+                : `${permit.file} uses ${actual} ${permit.kind} escapes; the permit for ${permit.count} is stale`
+        );
+    }
+    for (const [file, counts] of observed) {
+        for (const [kind, actual] of counts) {
+            issue("ACQ-TYPE", file, kind, `${file} uses ${actual} unpermitted ${kind} escape(s)`);
         }
     }
 }
@@ -366,6 +450,32 @@ async function loadBaseline(path) {
     }
 }
 
+async function loadPermits(path) {
+    let document;
+    try {
+        document = await readCanonicalJson(path);
+    } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        return { edition: "1.0.0", permits: [] };
+    }
+    const seen = new Set();
+    for (const permit of document.permits) {
+        const key = `${permit.file}:${permit.kind}`;
+        if (seen.has(key)) throw new TypeError(`Duplicate weak-type permit ${key}`);
+        seen.add(key);
+        if (!WEAK_KINDS.includes(permit.kind)) {
+            throw new TypeError(`Weak-type permit ${key} names an unknown escape kind`);
+        }
+        if (!Number.isSafeInteger(permit.count) || permit.count < 1) {
+            throw new TypeError(`Weak-type permit ${key} must record a positive count`);
+        }
+        if (typeof permit.reason !== "string" || permit.reason.trim().length < 24) {
+            throw new TypeError(`Weak-type permit ${key} must record why the escape stands`);
+        }
+    }
+    return document;
+}
+
 function fail(title, values) {
     throw new TypeError(
         `${title}:\n${values.map((item) => `  ${item.fingerprint} ${item.message}`).join("\n")}`
@@ -376,17 +486,19 @@ function parseArguments(args) {
     let stage = "building";
     let root = repositoryRoot;
     let baseline = resolve(artifactRoot, "quality/architecture-baseline.json");
+    let permits = resolve(artifactRoot, "quality/weak-type-permits.json");
     let writeBaseline = false;
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
         if (argument === "--stage") stage = required(args, ++index, argument);
         else if (argument === "--root") root = resolve(required(args, ++index, argument));
         else if (argument === "--baseline") baseline = resolve(required(args, ++index, argument));
+        else if (argument === "--permits") permits = resolve(required(args, ++index, argument));
         else if (argument === "--write-baseline") writeBaseline = true;
         else throw new TypeError(`Unknown architecture argument ${argument}`);
     }
     if (stage !== "building" && stage !== "final") throw new TypeError(`Unknown stage ${stage}`);
-    return { stage, root, baseline, writeBaseline };
+    return { stage, root, baseline, permits, writeBaseline };
 }
 
 function required(args, index, option) {

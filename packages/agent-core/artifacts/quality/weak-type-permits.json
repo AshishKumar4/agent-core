@@ -1,0 +1,1229 @@
+{
+  "edition": "1.0.0",
+  "permits": [
+    {
+      "file": "packages/agent-core-cloudflare/src/alarm-claims.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/deployment.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/durable-object.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/environment-provider.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/error.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/loader.ts",
+      "kind": "unknown",
+      "count": 17,
+      "reason": "The module loader receives an entrypoint and an environment from the platform's dynamic import, and disposes resources whose types it never learns."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/queue.ts",
+      "kind": "unknown",
+      "count": 15,
+      "reason": "The queue adapter is generic over the delivery identity and payload its target defines, and reads platform message bodies that arrive untyped."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/reconciliation.ts",
+      "kind": "assertion",
+      "count": 5,
+      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/reconciliation.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Values arriving from the Workers runtime are untyped until this package narrows them."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/revision-log.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/sqlite.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/sqlite.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Values arriving from the Workers runtime are untyped until this package narrows them."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/websocket.ts",
+      "kind": "assertion",
+      "count": 6,
+      "reason": "The stream frame and hibernation attachment decoders check every declared field before asserting the shape, but they check it inline, so the narrowing lands on the property reads and not on the value. Lifting both into type predicates removes all six assertions and is written and verified; it cannot land until the live lane is re-run, because this file is fingerprinted by the deployed live-substrate evidence."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/websocket.ts",
+      "kind": "unknown",
+      "count": 8,
+      "reason": "Values arriving from the Workers runtime are untyped until this package narrows them."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/worker.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
+    },
+    {
+      "file": "packages/agent-core/src/actors/actor.ts",
+      "kind": "unknown",
+      "count": 4,
+      "reason": "The Actor primitive is generic over the state and transaction its host supplies, and a caught commit failure has no static type; both are unknown by construction rather than by omission."
+    },
+    {
+      "file": "packages/agent-core/src/actors/store.ts",
+      "kind": "assertion",
+      "count": 14,
+      "reason": "Structured cloning reproduces a value's own runtime shape: prototypes come back from Object.getPrototypeOf, proxies stand in for the target they wrap, and ArrayBuffer.isView admits only built-in views whose element width ArrayBufferView does not declare. None of those identities are expressible as a type."
+    },
+    {
+      "file": "packages/agent-core/src/actors/store.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A property descriptor read back from an own-property name the walk just enumerated cannot be absent."
+    },
+    {
+      "file": "packages/agent-core/src/actors/store.ts",
+      "kind": "unknown",
+      "count": 28,
+      "reason": "The readonly snapshot walks an arbitrary Actor state graph, so every value it reaches is genuinely unknown until the walk narrows it; the map, set, and buffer copies are keyed on identity rather than on any declared element type."
+    },
+    {
+      "file": "packages/agent-core/src/actors/types.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "The Actor primitive is generic over the state and transaction its host supplies, and a caught commit failure has no static type; both are unknown by construction rather than by omission."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/admission.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/commit.ts",
+      "kind": "assertion",
+      "count": 5,
+      "reason": "Run and Turn records decode into closed commit-kind and outcome vocabularies, and the base record spread reaches a JSON object the codec already produced."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/commit.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/commit.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Run execution is generic over the host transaction and the values a Turn returns."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/memory.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Run execution is generic over the host transaction and the values a Turn returns."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/run.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/runtime.ts",
+      "kind": "non-null",
+      "count": 7,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/store.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/agents/source.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Run and Turn records decode into closed commit-kind and outcome vocabularies, and the base record spread reaches a JSON object the codec already produced."
+    },
+    {
+      "file": "packages/agent-core/src/authority/data.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
+    },
+    {
+      "file": "packages/agent-core/src/authority/epoch.ts",
+      "kind": "non-null",
+      "count": 6,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "kind": "non-null",
+      "count": 4,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/authority/memory.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Authority storage is generic over the substrate transaction it runs inside."
+    },
+    {
+      "file": "packages/agent-core/src/authority/permit.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
+    },
+    {
+      "file": "packages/agent-core/src/authority/permit.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/authority/runtime.ts",
+      "kind": "assertion",
+      "count": 5,
+      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
+    },
+    {
+      "file": "packages/agent-core/src/authority/runtime.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/authority/service.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
+    },
+    {
+      "file": "packages/agent-core/src/authority/service.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/authority/service.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Authority storage is generic over the substrate transaction it runs inside."
+    },
+    {
+      "file": "packages/agent-core/src/composition/authority-commands.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
+    },
+    {
+      "file": "packages/agent-core/src/composition/authority.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A binding or route read back through the store that just produced it is present by that write."
+    },
+    {
+      "file": "packages/agent-core/src/composition/device-consent.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Composition asserts the shape a validated request already established when the check and the use sit either side of a seam."
+    },
+    {
+      "file": "packages/agent-core/src/composition/device-consent.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A binding or route read back through the store that just produced it is present by that write."
+    },
+    {
+      "file": "packages/agent-core/src/composition/device-consent.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
+    },
+    {
+      "file": "packages/agent-core/src/composition/json-patch.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "fast-json-patch declares its Operation union as interfaces and demands the post-validation type as the input to its own validator, so the boundary cannot be crossed without an assertion; validate() runs on the result before any patch is applied."
+    },
+    {
+      "file": "packages/agent-core/src/composition/json-patch.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
+    },
+    {
+      "file": "packages/agent-core/src/composition/package-runtime.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
+    },
+    {
+      "file": "packages/agent-core/src/composition/single-tenant.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A binding or route read back through the store that just produced it is present by that write."
+    },
+    {
+      "file": "packages/agent-core/src/content/memory.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/core/base64.ts",
+      "kind": "non-null",
+      "count": 5,
+      "reason": "A capture group of a regular expression that matched, and an index within a length the loop just bounded, are present by the match and the bound."
+    },
+    {
+      "file": "packages/agent-core/src/core/canonical.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Core value types decode from untrusted bytes and report failures whose thrown value JavaScript does not type."
+    },
+    {
+      "file": "packages/agent-core/src/core/codec.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "A canonical round trip returns the value it was given, and a frozen copy is the same data; TypeScript keeps neither identity across encode and decode."
+    },
+    {
+      "file": "packages/agent-core/src/core/codec.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Core value types decode from untrusted bytes and report failures whose thrown value JavaScript does not type."
+    },
+    {
+      "file": "packages/agent-core/src/core/content-ref.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A capture group of a regular expression that matched, and an index within a length the loop just bounded, are present by the match and the bound."
+    },
+    {
+      "file": "packages/agent-core/src/core/json.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Deciding whether an arbitrary value is JSON is the trust boundary itself; the recursive walk takes unknown because that is what it is asked about."
+    },
+    {
+      "file": "packages/agent-core/src/core/schema.ts",
+      "kind": "assertion",
+      "count": 4,
+      "reason": "A canonical round trip returns the value it was given, and a frozen copy is the same data; TypeScript keeps neither identity across encode and decode."
+    },
+    {
+      "file": "packages/agent-core/src/core/schema.ts",
+      "kind": "unknown",
+      "count": 5,
+      "reason": "Core value types decode from untrusted bytes and report failures whose thrown value JavaScript does not type."
+    },
+    {
+      "file": "packages/agent-core/src/core/semver.ts",
+      "kind": "non-null",
+      "count": 3,
+      "reason": "A capture group of a regular expression that matched, and an index within a length the loop just bounded, are present by the match and the bound."
+    },
+    {
+      "file": "packages/agent-core/src/definition/attestation.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/blueprint.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/definition/code-manifest.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/config.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/definition/config.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/loader.ts",
+      "kind": "non-null",
+      "count": 3,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/loader.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Materialization reports failures whose thrown value has no static type and carries substrate rows it does not interpret."
+    },
+    {
+      "file": "packages/agent-core/src/definition/materialization-kind.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/definition/materialization-kind.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/materialization-store.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/materializer.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/definition/memory.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/package-store.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/package.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/placement.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/definition/plan.ts",
+      "kind": "assertion",
+      "count": 8,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/definition/policy.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/definition/policy.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/policy.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Materialization reports failures whose thrown value has no static type and carries substrate rows it does not interpret."
+    },
+    {
+      "file": "packages/agent-core/src/definition/resolver.ts",
+      "kind": "non-null",
+      "count": 8,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/rollout.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/definition/validator.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
+    },
+    {
+      "file": "packages/agent-core/src/environments/provider.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Provider outcomes are duck-typed at the Environment seam: the shape is checked by inspecting own properties, which narrows the reads and not the value."
+    },
+    {
+      "file": "packages/agent-core/src/environments/provider.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "The Environment seam accepts provider-supplied resources and outcomes whose types belong to the provider, not to this package."
+    },
+    {
+      "file": "packages/agent-core/src/environments/runtime.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Provider outcomes are duck-typed at the Environment seam: the shape is checked by inspecting own properties, which narrows the reads and not the value."
+    },
+    {
+      "file": "packages/agent-core/src/environments/runtime.ts",
+      "kind": "unknown",
+      "count": 5,
+      "reason": "The Environment seam accepts provider-supplied resources and outcomes whose types belong to the provider, not to this package."
+    },
+    {
+      "file": "packages/agent-core/src/facets/automation.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/capability.ts",
+      "kind": "assertion",
+      "count": 5,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/capability.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/command.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/contribution.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/data.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/device/facet.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/device/facet.ts",
+      "kind": "non-null",
+      "count": 3,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/device/facet.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/environment/facet.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/event.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/event.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/event.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/filesystem/facet.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/filesystem/facet.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/filesystem/memory.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/manifest.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/manifest.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/manifest.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/mapping.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/mcp/facet.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "A discovery document that requireDiscoveryDocument has asserted is still an ObjectRecord to the compiler, because the assertion narrows the reference and not the property reads inside it."
+    },
+    {
+      "file": "packages/agent-core/src/facets/memory/facet.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/profile-runtime/contract.ts",
+      "kind": "unknown",
+      "count": 6,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/profile-runtime/facet.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "The profile runtime is generic over each Operation's input, output, and receipt, and a conditional return type cannot be proven from inside the branch that produces it."
+    },
+    {
+      "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/profile-runtime/wire.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "The profile runtime is generic over each Operation's input, output, and receipt, and a conditional return type cannot be proven from inside the branch that produces it."
+    },
+    {
+      "file": "packages/agent-core/src/facets/runtime.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/self/facet.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "A computed key widens to an index signature, so the decoded single-field input cannot be spelled as the Input the contract carries; the property name itself is now bound to keyof Input, which is what the assertion used to be hiding."
+    },
+    {
+      "file": "packages/agent-core/src/facets/self/facet.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/shell/facet.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/slot-entry.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/slot-memory.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/slot-memory.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
+    },
+    {
+      "file": "packages/agent-core/src/facets/slot.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/slot.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/task/facet.ts",
+      "kind": "non-null",
+      "count": 5,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/facets/web/facet.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
+    },
+    {
+      "file": "packages/agent-core/src/facets/web/facet.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/identity/codec.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Identity records decode canonical JSON into the membership and trust shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/identity/member.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/identity/team.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Identity records decode canonical JSON into the membership and trust shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/approval.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/audit.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/canonical-batch.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/canonical-batch.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/claim.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/codec.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/codec.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/command.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/command.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/memory.ts",
+      "kind": "non-null",
+      "count": 5,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/operation-mediation.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/operation-mediation.ts",
+      "kind": "non-null",
+      "count": 12,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/operation-mediation.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/outcome.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/prepared.ts",
+      "kind": "assertion",
+      "count": 8,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/prepared.ts",
+      "kind": "non-null",
+      "count": 11,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/prepared.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/publication.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/receipt.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/replay.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/invocations/replay.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/operations/command-runtime.ts",
+      "kind": "non-null",
+      "count": 3,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/operations/correspondence.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Operation interception and lifecycle report failures whose thrown value has no static type."
+    },
+    {
+      "file": "packages/agent-core/src/operations/gateway.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/operations/gateway.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Operation interception and lifecycle report failures whose thrown value has no static type."
+    },
+    {
+      "file": "packages/agent-core/src/operations/interception.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/operations/interception.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Operation interception and lifecycle report failures whose thrown value has no static type."
+    },
+    {
+      "file": "packages/agent-core/src/operations/lifecycle.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/operations/lifecycle.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Operation interception and lifecycle report failures whose thrown value has no static type."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/authentication.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/authority-evidence.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/authority-evidence.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A payload field read after the envelope's exact-field check is present by that check, which the index signature cannot carry."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/bootstrap-memory.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/bootstrap-memory.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/bootstrap.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/dispatcher.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/dispatcher.ts",
+      "kind": "unknown",
+      "count": 21,
+      "reason": "The dispatcher routes a heterogeneous command registry through each command's own codecs without ever naming their request, reply, or observation types; unknown is what a registry of differently typed commands is."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/envelope.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/envelope.ts",
+      "kind": "unknown",
+      "count": 6,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/facet-commands.ts",
+      "kind": "assertion",
+      "count": 4,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/facet-commands.ts",
+      "kind": "unknown",
+      "count": 5,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/ingress.ts",
+      "kind": "unknown",
+      "count": 4,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "A payload field read after the envelope's exact-field check is present by that check, which the index signature cannot carry."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "kind": "unknown",
+      "count": 7,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/payload.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/payload.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/registration.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/run-commands.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+    },
+    {
+      "file": "packages/agent-core/src/protocol/run-commands.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+    },
+    {
+      "file": "packages/agent-core/src/slates/store.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "Slate intents are a union of request shapes, and spreading a value whose type parameter is constrained to a union degrades to an index signature."
+    },
+    {
+      "file": "packages/agent-core/src/slates/store.ts",
+      "kind": "non-null",
+      "count": 6,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/slates/store.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "Slate deployment carries provider state this package does not interpret."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/actor.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "SQLite returns column values as a bare scalar union, and a control-table name is checked against the closed list before it is used."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/content-retention.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/events/records.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/events/records.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "The SQLite adapter carries opaque snapshot state and inspects thenables to keep the storage seam synchronous."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/identity.ts",
+      "kind": "non-null",
+      "count": 3,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/invocations/persistence.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "SQLite returns column values as a bare scalar union, and a control-table name is checked against the closed list before it is used."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/invocations/persistence.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "The SQLite adapter carries opaque snapshot state and inspects thenables to keep the storage seam synchronous."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "SQLite returns column values as a bare scalar union, and a control-table name is checked against the closed list before it is used."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "kind": "non-null",
+      "count": 6,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "The SQLite adapter carries opaque snapshot state and inspects thenables to keep the storage seam synchronous."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/package.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/protocol.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "The SQLite adapter carries opaque snapshot state and inspects thenables to keep the storage seam synchronous."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/run.ts",
+      "kind": "non-null",
+      "count": 3,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/slot.ts",
+      "kind": "non-null",
+      "count": 3,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "SQLite returns column values as a bare scalar union, and a control-table name is checked against the closed list before it is used."
+    },
+    {
+      "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
+    },
+    {
+      "file": "packages/agent-core/src/workspaces/codec.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/workspaces/persistence.ts",
+      "kind": "unknown",
+      "count": 3,
+      "reason": "Workspace routing carries payloads it never interprets."
+    },
+    {
+      "file": "packages/agent-core/src/workspaces/policy.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "Event and view records decode canonical JSON into the mutable document shape the patch layer requires."
+    },
+    {
+      "file": "packages/agent-core/src/workspaces/policy.ts",
+      "kind": "non-null",
+      "count": 9,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/workspaces/route.ts",
+      "kind": "non-null",
+      "count": 2,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/workspaces/value.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+    },
+    {
+      "file": "packages/agent-core/src/workspaces/view.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Event and view records decode canonical JSON into the mutable document shape the patch layer requires."
+    }
+  ]
+}
