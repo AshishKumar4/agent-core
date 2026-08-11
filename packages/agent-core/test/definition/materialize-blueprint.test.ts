@@ -286,6 +286,27 @@ describe("complete Blueprint materialization", () => {
         }
     );
 
+    test("slot contribute selectors resist wildcard backtracking blowup", { tags: "p0" }, () => {
+        // A slot's contribute selector is Blueprint declaration data, so its author is
+        // not necessarily the operator. Compiled to `^.*.*.*...b$`, consecutive wildcards
+        // force the engine to try every way of splitting the contributor between them,
+        // so a selector of fourteen stars took five seconds against this seventeen-
+        // character contributor and eighteen did not finish -- no control over the
+        // contributor required.
+        const selector = `${"*".repeat(16)}b`;
+        const started = process.hrtime.bigint();
+        expect(() =>
+            planMaterialization({
+                validatedBlueprint: fullBlueprint({ slotContributor: selector }),
+                tenantId,
+                deploymentKey,
+                generation: 1,
+                topology
+            })
+        ).toThrow(/may not contribute to slot/);
+        expect(Number(process.hrtime.bigint() - started) / 1e6).toBeLessThan(1000);
+    });
+
     test("keeps command surface keys injective across NUL", { tags: "p1" }, () => {
         // A SlotName and a Command name are both merely nonblank, so both admit U+0000.
         // Joining them with U+0000 made these two distinct pairs share a key, and the

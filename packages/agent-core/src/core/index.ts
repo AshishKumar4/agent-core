@@ -7,6 +7,7 @@ export {
 } from "./canonical";
 export { decodeBase64, encodeBase64 } from "./base64";
 export { Digest } from "./digest";
+export { matchesGlob } from "./glob";
 export type { DigestAlgorithm } from "./digest";
 export { ContentRef } from "./content-ref";
 export { Revision } from "./revision";

@@ -5,6 +5,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    matchesGlob,
     type JsonValue
 } from "../core";
 import { Command, SlotDeclaration, type FacetManifest, type IsolationMode } from "../facets";
@@ -559,19 +560,11 @@ function requireSlotContributeAuthority(
     if (CORE_SLOT_NAMES.has(declaration.slot)) return;
     const contribute = authority.get(declaration.slot);
     if (contribute === undefined) return;
-    if (!contribute.some((selector) => selectorMatches(selector, declaration.contributor))) {
+    if (!contribute.some((selector) => matchesGlob(selector, declaration.contributor))) {
         throw invalidDefinition(
             `Contributor ${declaration.contributor} may not contribute to slot ${declaration.slot}`
         );
     }
-}
-
-function selectorMatches(selector: string, value: string): boolean {
-    const expression = selector
-        .split("*")
-        .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
-        .join(".*");
-    return new RegExp(`^${expression}$`, "u").test(value);
 }
 
 function compareProjections(left: DesiredProjection, right: DesiredProjection): number {
