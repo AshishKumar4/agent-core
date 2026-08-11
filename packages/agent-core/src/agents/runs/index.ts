@@ -36,7 +36,7 @@ export { Run, RunBranch } from "./run";
 export { MemoryRunStorage } from "./memory";
 export type { MemoryRunStorageSnapshot } from "./memory";
 export { RunRepository } from "./store";
-export type { RunStoragePort } from "./store";
+export type { RunExecutionScope, RunStoragePort } from "./store";
 export { RunEvidencePort, RunMergePort } from "./evidence";
 export type {
     AcceptanceReceiptEvidence,

@@ -25,17 +25,6 @@
       "contractTest": "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract"
     },
     {
-      "id": "binding-store",
-      "disposition": "verified",
-      "contract": "src/authority/binding-store.ts#BindingStore",
-      "implementations": [
-        "src/authority/binding-store.ts#MemoryBindingStore",
-        "src/substrates/sqlite/binding.ts#SqliteBindingStore"
-      ],
-      "memoryReference": "src/authority/binding-store.ts#MemoryBindingStore",
-      "contractTest": "test/substrates/sqlite/store-parity.test.ts#authority store parity: 'memory' [binding-store] [invalidation-watermark-store] persists only monotonic Binding generations"
-    },
-    {
       "id": "identity-repository",
       "disposition": "verified",
       "contract": "src/identity/repository.ts#IdentityRepository",
@@ -56,7 +45,7 @@
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
       "memoryReference": "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
-      "contractTest": "test/substrates/sqlite/store-parity.test.ts#authority store parity: 'memory' [binding-store] [invalidation-watermark-store] joins watermarks pointwise without decreasing or duplicating Scopes"
+      "contractTest": "test/substrates/sqlite/store-parity.test.ts#authority store parity: 'memory' [invalidation-watermark-store] joins watermarks pointwise without decreasing or duplicating Scopes"
     }
   ]
 }

@@ -1,5 +1,5 @@
 import type { SynchronousResultGuard } from "../../actors";
-import { Revision, type Digest, type RecordCodec } from "../../core";
+import { Revision, type ContentRef, type Digest, type RecordCodec } from "../../core";
 import { AgentCoreError } from "../../errors";
 import {
     AcceptanceCriterion,
@@ -31,6 +31,17 @@ import type {
 import type { RunCommitId, TurnId } from "../../execution-references";
 import { RunAdmissionRegistry, RunAdmissionRegistryCodec } from "./admission";
 import { ForcedTurnCancellation, ForcedTurnCancellationCodec } from "./forced-cancellation";
+import type { LeaseToken } from "./lease";
+
+export interface RunExecutionScope {
+    readonly run: Run;
+    readonly turn: Turn;
+    readonly branch: RunBranch;
+    readonly head: RunCommit;
+    readonly effectiveCommit: RunCommit;
+    readonly placement: TurnPlacementSnapshot;
+    readonly checkpoint: RunCheckpoint | undefined;
+}
 
 export const RUN_RECORD_KINDS = Object.freeze([
     "configuration",
@@ -84,6 +95,97 @@ export class RunRepository<Transaction> {
         ...guard: SynchronousResultGuard<Result>
     ): Result {
         return this.storage.transaction(operation, ...guard);
+    }
+
+    public loadExecutionScope(tx: Transaction, token: LeaseToken, now: Date): RunExecutionScope {
+        const turn = requireStored(this.loadTurn(tx, token.turn), "Turn executor target does not exist");
+        turn.requireToken(token, now);
+        const run = requireStored(this.loadRun(tx, turn.run), "Turn executor Run does not exist");
+        const branch = requireStored(
+            this.loadBranch(tx, turn.branch),
+            "Turn executor branch does not exist"
+        );
+        const head = requireStored(
+            this.loadCommit(tx, branch.head),
+            "Turn executor branch head does not exist"
+        );
+        const startHead = requireStored(
+            this.loadCommit(tx, turn.startHead),
+            "Turn executor start head does not exist"
+        );
+        const effectiveCommit = requireStored(
+            this.loadCommit(tx, turn.effectiveInput),
+            "Turn executor effective input does not exist"
+        );
+        const placement = requireStored(
+            this.loadPlacement(tx, turn.id),
+            "Turn executor placement does not exist"
+        );
+        const checkpoint =
+            turn.checkpoint === undefined
+                ? undefined
+                : requireStored(
+                      this.loadCheckpoint(tx, turn.checkpoint),
+                      "Turn executor checkpoint does not exist"
+                  );
+        const checkpointCommit =
+            checkpoint === undefined
+                ? undefined
+                : requireStored(
+                      this.loadCommit(tx, checkpoint.commit),
+                      "Turn executor checkpoint commit does not exist"
+                  );
+        const unpairedTransition = this.listCommits(tx).some(
+            (commit) =>
+                (commit.kind === "checkpoint" || commit.kind === "result") &&
+                commit.writer.kind === "turn" &&
+                commit.writer.token.turn.equals(token.turn) &&
+                commit.writer.token.holder.equals(token.holder) &&
+                commit.writer.token.epoch === token.epoch &&
+                this.isAncestor(tx, commit.id, branch.head)
+        );
+        if (
+            run.lifecycle.kind !== "active" ||
+            turn.status.kind !== "running" ||
+            !branch.run.equals(run.id) ||
+            !head.run.equals(run.id) ||
+            !head.branch.equals(branch.id) ||
+            !head.pins.equals(turn.pins) ||
+            !startHead.run.equals(run.id) ||
+            !startHead.branch.equals(branch.id) ||
+            !startHead.pins.equals(turn.pins) ||
+            !effectiveCommit.run.equals(run.id) ||
+            !effectiveCommit.branch.equals(branch.id) ||
+            !effectiveCommit.pins.equals(turn.pins) ||
+            !placement.turn.equals(turn.id) ||
+            !placement.digest.equals(turn.placement) ||
+            !placement.pins.equals(turn.pins) ||
+            !this.isAncestor(tx, turn.startHead, branch.head) ||
+            !this.isAncestor(tx, turn.effectiveInput, turn.startHead) ||
+            unpairedTransition ||
+            (checkpoint !== undefined &&
+                (checkpointCommit === undefined ||
+                    !checkpoint.turn.equals(turn.id) ||
+                    checkpointCommit.kind !== "checkpoint" ||
+                    !checkpointCommit.run.equals(run.id) ||
+                    !checkpointCommit.branch.equals(branch.id) ||
+                    !checkpointCommit.subjectTurn?.equals(turn.id) ||
+                    !checkpointCommit.pins.equals(turn.pins) ||
+                    !checkpointCommit.content?.equals(checkpoint.state) ||
+                    !optionalContentRefsEqual(checkpointCommit.treeCheckpoint, checkpoint.tree) ||
+                    !this.isAncestor(tx, checkpoint.commit, branch.head)))
+        ) {
+            throw invalidExecutionScope();
+        }
+        return Object.freeze({
+            run,
+            turn,
+            branch,
+            head,
+            effectiveCommit,
+            placement,
+            checkpoint
+        });
     }
 
     public insertConfiguration(tx: Transaction, value: RunConfigurationSnapshot): void {
@@ -481,4 +583,23 @@ function admissionRevision(value: RunAdmissionRegistry): number {
 
 function acceptanceVerdictKey(value: AcceptanceVerdict): string {
     return `${value.acceptance.value}:${value.subject.value}`;
+}
+
+function requireStored<Value>(value: Value | undefined, message: string): Value {
+    if (value === undefined) throw new AgentCoreError("turn.invalid-state", message);
+    return value;
+}
+
+function optionalContentRefsEqual(
+    left: ContentRef | undefined,
+    right: ContentRef | undefined
+): boolean {
+    return left === undefined ? right === undefined : right !== undefined && left.equals(right);
+}
+
+function invalidExecutionScope(): AgentCoreError {
+    return new AgentCoreError(
+        "turn.invalid-state",
+        "Turn executor scope does not match canonical Run state"
+    );
 }

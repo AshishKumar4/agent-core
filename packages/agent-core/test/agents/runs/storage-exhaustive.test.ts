@@ -236,9 +236,9 @@ describe("MemoryRunStorage exhaustive behavior", () => {
     it("fails closed after restart when ancestry loses an intermediate commit", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const first = message("ancestry-first", ids.root, value.token);
-        value.runtime.appendCommit(first, new Revision(0), new Date(1500));
+        value.runtime.appendTurnCommit(first, new Revision(0), new Date(1500));
         const second = message("ancestry-second", first.id, value.token);
-        value.runtime.appendCommit(second, new Revision(1), new Date(1600));
+        value.runtime.appendTurnCommit(second, new Revision(1), new Date(1600));
         const snapshot = value.storage.snapshot();
         const restarted = new RunRepository(
             new MemoryRunStorage({

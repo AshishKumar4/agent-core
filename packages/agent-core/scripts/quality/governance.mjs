@@ -111,6 +111,14 @@ if (JSON.stringify(integrationIndex) !== JSON.stringify(expectedIntegrationIndex
 }
 const expectedTransitions = new Map([
     [
+        "binding-authority-plane.json",
+        {
+            id: "TRANSITION-BINDING-AUTHORITY-PLANE",
+            canonicalOwner: "W2",
+            inputs: ["W2", "W9"]
+        }
+    ],
+    [
         "environment-pin-identity.json",
         { id: "TRANSITION-ENVIRONMENT-PIN-IDENTITY", canonicalOwner: "W8", inputs: ["W5", "W8"] }
     ],

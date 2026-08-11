@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { ActorId } from "../../src/actors";
-import { AuthorityMutationService, Grant, GrantId, PathEpochEvidence } from "../../src/authority";
-import { CapabilitySpec } from "../../src/facets";
+import {
+    AuthorityMutationService,
+    Binding,
+    Grant,
+    GrantId,
+    PathEpochEvidence
+} from "../../src/authority";
+import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import { MemoryTenantControlStore } from "../../src/authority/memory";
 import { createTenantControlBootstrapPlan } from "../../src/authority/service";
 import { Digest, Revision, decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
@@ -55,6 +61,15 @@ describe("MemoryTenantControlStore", () => {
             );
             service.createRole(role);
             service.assignMembership(member);
+            const binding = Binding.active(
+                workspaceScope,
+                member.subject,
+                new ProtectionDomain("backend", "memory-binding", "no-secrets"),
+                new BindingName("memory-binding"),
+                store.grants().find((grant) => grant.origin.kind === "role")!.id,
+                new FacetRef("memory:binding")
+            );
+            service.createBinding(binding);
 
             const snapshot = store.snapshot();
             const restarted = MemoryTenantControlStore.restore(snapshot);
@@ -65,6 +80,7 @@ describe("MemoryTenantControlStore", () => {
 
             expect(Object.keys(snapshot).sort()).toEqual([
                 "anchor",
+                "bindings",
                 "epochs",
                 "grants",
                 "identity",
@@ -74,8 +90,38 @@ describe("MemoryTenantControlStore", () => {
             expect(restarted.bootstrapMarker()?.ownerPrincipalId.equals(principalId)).toBe(true);
             expect(identities.loadMembership(member.id)?.role.equals(role.name)).toBe(true);
             expect(restarted.grants()).toHaveLength(2);
-            expect(restarted.epoch(workspaceScope).epoch).toBe(2);
+            expect(restarted.binding(binding.key)).toEqual(binding);
+            expect(restarted.epoch(workspaceScope).epoch).toBe(3);
             expect(store.bootstrapAnchor().trustAnchor).toEqual(Uint8Array.of(1, 2, 3));
+        }
+    );
+
+    test(
+        "[authority.binding] keeps the canonical Binding in the Tenant transaction with its path epoch",
+        { tags: "p0" },
+        () => {
+            const store = bootstrappedStore();
+            const service = new AuthorityMutationService(store);
+            const grant = allowGrant("tenant-binding-grant");
+            service.createGrant(grant);
+            const before = store.epoch(workspaceScope).epoch;
+            const binding = Binding.active(
+                workspaceScope,
+                grant.subject,
+                new ProtectionDomain("backend", "tenant-owned", "no-secrets"),
+                new BindingName("tenant-owned"),
+                grant.id,
+                new FacetRef("tenant:owned")
+            );
+
+            service.createBinding(binding);
+
+            expect(store.binding(binding.key)).toEqual(binding);
+            expect(store.bindings()).toEqual([binding]);
+            expect(store.epoch(workspaceScope).epoch).toBe(before + 1);
+            const restarted = MemoryTenantControlStore.restore(store.snapshot());
+            expect(restarted.binding(binding.key)).toEqual(binding);
+            expect(restarted.epoch(workspaceScope).epoch).toBe(before + 1);
         }
     );
 
@@ -87,9 +133,9 @@ describe("MemoryTenantControlStore", () => {
             expect(() =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    version: 2
+                    version: 3
                 } as unknown as typeof snapshot)
-            ).toThrow(/snapshot is malformed/);
+            ).toThrow(/require version 2/);
             expect(() =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
@@ -113,6 +159,28 @@ describe("MemoryTenantControlStore", () => {
                     }
                 })
             ).toThrow(/identity closure is incomplete/);
+        }
+    );
+
+    test(
+        "stamps version 2 and explicitly rejects the pre-Binding version 1 shape",
+        { tags: "p0" },
+        () => {
+            const snapshot = bootstrappedStore().snapshot();
+            expect(snapshot.version).toBe(2);
+            const { bindings: _bindings, ...legacyShape } = snapshot;
+            expect(() =>
+                MemoryTenantControlStore.restore({
+                    ...legacyShape,
+                    version: 1
+                } as unknown as typeof snapshot)
+            ).toThrow(/require version 2/);
+            expect(() =>
+                MemoryTenantControlStore.restore({
+                    ...snapshot,
+                    version: 1
+                } as unknown as typeof snapshot)
+            ).toThrow(/require version 2/);
         }
     );
 

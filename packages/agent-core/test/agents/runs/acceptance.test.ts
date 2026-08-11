@@ -302,7 +302,7 @@ describe("Run acceptance criteria", () => {
                 verdict(firstId, digest("e"), "current-pass")
             );
 
-            value.runtime.appendCommit(
+            value.runtime.appendTurnCommit(
                 treeMessage("advance-tree", ids.root, value.token, "2"),
                 new Revision(0),
                 new Date(1500)

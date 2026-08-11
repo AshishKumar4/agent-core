@@ -247,15 +247,16 @@ describe("tenant-qualified Principal subjects", () => {
                 { kind: "direct" }
             );
             service.createGrant(allow);
-            const validation = runtime.validateBinding(validationRequest(), new Date(1_000));
             const binding = Binding.active(
                 workspaceScope,
-                validation.subject,
+                allow.subject,
                 domain,
                 new BindingName("mail"),
                 allow.id,
                 facet
             );
+            service.createBinding(binding);
+            const validation = runtime.validateBinding(validationRequest(), new Date(1_000));
 
             expect(
                 runtime.check(checkRequest(binding, host, validation), new Date(1_001)).allowed

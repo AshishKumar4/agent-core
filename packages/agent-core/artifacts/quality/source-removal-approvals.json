@@ -2,6 +2,35 @@
   "edition": "2.0.0",
   "approvals": [
     {
+      "path": "packages/agent-core/src/authority/binding-store.ts",
+      "owner": "W2",
+      "replacements": [
+        "packages/agent-core/src/authority/memory.ts",
+        "packages/agent-core/src/authority/service.ts"
+      ],
+      "rationale": "Binding is canonical Tenant authority state. The reviewed transition moves Binding records and generation mutations beside Grants and ScopeEpochs in AuthorityMutationStore, so retaining a separate BindingStore would recreate a second authority plane.",
+      "original": {
+        "baseCommit": "1e5c2a5e534efdc0c338efc5a1eff94596eaf234",
+        "sha256": "ee20efa19e1ff6e3121e3bb693dff9b4514787df314bdefd259e191956890101"
+      },
+      "review": {
+        "disposition": {
+          "owner": "W2",
+          "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a"
+        },
+        "resolution": {
+          "source": "packages/agent-core/artifacts/requests/W2/shared-seams.json",
+          "sha256": "6f606c4a8af536c10982616ff093f2678dfedaf72c9b443f344aabb478287027"
+        },
+        "transition": "TRANSITION-BINDING-AUTHORITY-PLANE"
+      },
+      "tests": [
+        "test/authority/memory.test.ts#MemoryTenantControlStore [authority.binding] keeps the canonical Binding in the Tenant transaction with its path epoch",
+        "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates rejects request Binding bytes that differ from the canonical Tenant record"
+      ],
+      "digest": "0934fd7ee9f9cbc489bc89e3414c1c6be0219e3998664461b079f9de034b6ee4"
+    },
+    {
       "path": "packages/agent-core/src/authority/capability.ts",
       "owner": "W2",
       "replacements": ["packages/agent-core/src/facets/capability.ts"],
@@ -117,6 +146,36 @@
         "test/core/semver.test.ts#SemVer [core.semver] round-trips deterministically through its strict codec"
       ],
       "digest": "5d10618b4341b083e18e62dad5d56ee9033c31db57dda57a76656aa8e010c974"
+    },
+    {
+      "path": "packages/agent-core/src/substrates/sqlite/binding.ts",
+      "owner": "W2",
+      "replacements": [
+        "packages/agent-core/src/substrates/sqlite/authority.ts",
+        "packages/agent-core/src/substrates/sqlite/tenant.ts"
+      ],
+      "rationale": "SQLite now persists canonical Binding rows in the Tenant control schema and mutates them through the same transaction as Grants and ScopeEpochs. Removing the standalone adapter prevents Workspace-owned canonical Binding state and duplicate generation tables from surviving.",
+      "original": {
+        "baseCommit": "1e5c2a5e534efdc0c338efc5a1eff94596eaf234",
+        "sha256": "1adc227b4222cb70ae5c4a631a424036c24d91ef564264fe98437c6fc11b69e1"
+      },
+      "review": {
+        "disposition": {
+          "owner": "W2",
+          "commit": "b4e1056368e6b4064c39669d469e44f3c5d7517a"
+        },
+        "resolution": {
+          "source": "packages/agent-core/artifacts/requests/W2/shared-seams.json",
+          "sha256": "6f606c4a8af536c10982616ff093f2678dfedaf72c9b443f344aabb478287027"
+        },
+        "transition": "TRANSITION-BINDING-AUTHORITY-PLANE"
+      },
+      "tests": [
+        "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage creates only the retained strict Tenant control schema",
+        "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
+        "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage stores the same Binding identity independently in two Workspaces"
+      ],
+      "digest": "530f7b7d8a15193a76164c4dfa05c429b5e22ea567b55f662fd7137b79f19a6f"
     }
   ]
 }
