@@ -130,14 +130,14 @@
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
       "kind": "assertion",
-      "count": 5,
-      "reason": "Run and Turn records decode into closed commit-kind and outcome vocabularies, and the base record spread reaches a JSON object the codec already produced."
+      "count": 7,
+      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash, so editing it would claim a reviewer approved content they never saw. The vocabulary and field narrowing that removes these assertions is written and verified elsewhere in this change; it lands when the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
@@ -150,6 +150,12 @@
       "kind": "unknown",
       "count": 1,
       "reason": "Run execution is generic over the host transaction and the values a Turn returns."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/outcome.ts",
+      "kind": "assertion",
+      "count": 2,
+      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash, so editing it would claim a reviewer approved content they never saw. The vocabulary and field narrowing that removes these assertions is written and verified elsewhere in this change; it lands when the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/run.ts",
@@ -756,6 +762,12 @@
       "kind": "assertion",
       "count": 1,
       "reason": "Identity records decode canonical JSON into the membership and trust shapes their exact-field checks established."
+    },
+    {
+      "file": "packages/agent-core/src/identity/guest-verification.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/identity/member.ts",

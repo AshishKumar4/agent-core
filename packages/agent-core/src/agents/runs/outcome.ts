@@ -1,4 +1,4 @@
-import { isMember, type JsonValue } from "../../core";
+import type { JsonValue } from "../../core";
 
 const TERMINAL_OUTCOMES = Object.freeze(["succeeded", "failed", "cancelled"] as const);
 
@@ -8,8 +8,8 @@ export function requireTerminalOutcome(
     value: JsonValue | undefined,
     subject: string
 ): TerminalOutcome {
-    if (isMember(TERMINAL_OUTCOMES, value)) {
-        return value;
+    if (TERMINAL_OUTCOMES.includes(value as TerminalOutcome)) {
+        return value as TerminalOutcome;
     }
     throw new TypeError(`${subject} is invalid`);
 }
