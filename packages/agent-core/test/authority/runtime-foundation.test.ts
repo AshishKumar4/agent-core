@@ -87,17 +87,18 @@ describe("Tenant authority runtime", () => {
                 "allow"
             );
             service.createGrant(allow);
-            const validation = runtime.validateBinding(
-                validationRequest(allow.id),
-                new Date(1_000)
-            );
             const binding = Binding.active(
                 workspaceScope,
-                validation.subject,
+                allow.subject,
                 domain,
                 new BindingName("mail"),
                 allow.id,
                 facet
+            );
+            service.createBinding(binding);
+            const validation = runtime.validateBinding(
+                validationRequest(allow.id),
+                new Date(1_000)
             );
             const allowed = runtime.check(
                 checkRequest(
@@ -160,6 +161,7 @@ describe("Tenant authority runtime", () => {
                 allow.id,
                 facet
             );
+            service.createBinding(binding);
 
             const currentPath = runtime.validateBinding(
                 validationRequest(allow.id),
@@ -196,6 +198,7 @@ describe("Tenant authority runtime", () => {
             allow.id,
             facet
         );
+        service.createBinding(binding);
         const resolvedPath = runtime.validateBinding(
             validationRequest(allow.id),
             new Date(3_000)
@@ -215,7 +218,7 @@ describe("Tenant authority runtime", () => {
     });
 
     test(
-        "fails closed for inactive Bindings, missing Grants, and inactive Principals",
+        "fails closed for noncanonical Binding bytes and inactive Principals",
         { tags: "p0" },
         () => {
             const { service, runtime } = fixture();
@@ -225,10 +228,6 @@ describe("Tenant authority runtime", () => {
                 "allow"
             );
             service.createGrant(allow);
-            const currentPath = runtime.validateBinding(
-                validationRequest(allow.id),
-                new Date(3_100)
-            ).pathEpochs;
             const active = Binding.active(
                 workspaceScope,
                 allow.subject,
@@ -237,6 +236,11 @@ describe("Tenant authority runtime", () => {
                 allow.id,
                 facet
             );
+            service.createBinding(active);
+            const currentPath = runtime.validateBinding(
+                validationRequest(allow.id),
+                new Date(3_100)
+            ).pathEpochs;
 
             expect(
                 runtime.check(
@@ -264,7 +268,7 @@ describe("Tenant authority runtime", () => {
                     ),
                     new Date(3_101)
                 ).reason
-            ).toBe("missingGrant");
+            ).toBe("invalidBinding");
 
             service.disablePrincipal(principalId);
             const disabledPath = runtime.validateBinding(
@@ -302,6 +306,7 @@ describe("Tenant authority runtime", () => {
             backing.id,
             facet
         );
+        service.createBinding(binding);
         service.revokeGrant(backing.id);
         const currentPath = runtime.validateBinding(
             validationRequest(pathSource.id),
@@ -327,7 +332,7 @@ describe("Tenant authority runtime", () => {
                 checkRequest(substituted, new PrincipalRef(tenantId, principalId), currentPath),
                 new Date(3_201)
             ).reason
-        ).toBe("noMatchingAllow");
+        ).toBe("invalidBinding");
     });
 });
 
@@ -450,6 +455,7 @@ describe("verified guest lifecycle", () => {
                 backing.id,
                 facet
             );
+            service.createBinding(guestBinding);
             const guestPath = runtime.validateBinding(
                 validationRequest(backing.id),
                 new Date(4_999)

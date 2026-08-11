@@ -3,8 +3,6 @@ export {
     BindingValidationEvidence,
     BindingValidationRequest
 } from "../../src/authority/binding-evidence";
-export { MemoryBindingStore } from "../../src/authority/binding-store";
-export type { BindingStore } from "../../src/authority/binding-store";
 export { AuthorityCheckEvidence, AuthorityCheckRequest } from "../../src/authority/evidence";
 export { InvalidationWatermark, PathEpochEvidence } from "../../src/authority/epoch";
 export { authorityKey } from "../../src/authority/key";

@@ -349,7 +349,7 @@ describe("W5 adversarial invariants", () => {
                 audit: refs.audit,
                 proposalDigest: undo.proposalDigest.value
             });
-            expect(() => value.runtime.appendCommit(undo, new Revision(0), new Date(1500))).toThrow(
+            expect(() => value.runtime.undoRun(undo, new Revision(0), new Date(1500))).toThrow(
                 /fenced/
             );
 
@@ -376,7 +376,7 @@ describe("W5 adversarial invariants", () => {
                 proposalDigest: expiredUndo.proposalDigest.value
             });
             expect(() =>
-                expired.runtime.appendCommit(expiredUndo, new Revision(0), new Date(5000))
+                expired.runtime.undoRun(expiredUndo, new Revision(0), new Date(5000))
             ).toThrow(/fenced/);
         }
     );
@@ -696,7 +696,7 @@ describe("W5 adversarial invariants", () => {
                 receipt: refs.receipt
             });
             expect(() =>
-                value.runtime.appendCommit(unequal, new Revision(1), new Date(1100))
+                value.runtime.mergeRun(unequal, new Revision(1), new Date(1100))
             ).toThrow(/equal-pinned/);
 
             const rollback = new RunCommit({
@@ -720,7 +720,7 @@ describe("W5 adversarial invariants", () => {
                 audit: refs.audit,
                 proposalDigest: rollback.proposalDigest.value
             });
-            value.runtime.appendCommit(rollback, new Revision(1), new Date(1200));
+            value.runtime.undoRun(rollback, new Revision(1), new Date(1200));
             expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
 
             const restarted = harness(value.storage.snapshot());
@@ -944,7 +944,7 @@ describe("W5 adversarial invariants", () => {
             subjectTurn: ids.turn,
             content: content("6")
         });
-        value.runtime.appendCommit(commit, new Revision(0), new Date(1500));
+        value.runtime.appendTurnCommit(commit, new Revision(0), new Date(1500));
         const snapshot = value.storage.snapshot();
         const corrupted = {
             version: 1 as const,

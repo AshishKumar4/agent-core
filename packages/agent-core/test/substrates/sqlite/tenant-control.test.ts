@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, test } from "vitest";
-import { Grant, GrantId } from "../../../src/authority";
-import { CapabilitySpec } from "../../../src/facets";
+import { AuthorityMutationService, Binding, Grant, GrantId } from "../../../src/authority";
+import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../../src/facets";
 import {
     ActorId,
     requireSynchronousResult,
@@ -21,7 +21,9 @@ import {
     ProjectId,
     ScopeRef,
     SubjectRef,
-    TenantId
+    TenantId,
+    Workspace,
+    WorkspaceId
 } from "../../../src/identity";
 import {
     SqliteIdentityReader,
@@ -54,6 +56,7 @@ describe("SQLite Tenant control storage", () => {
         );
 
         expect(rows.map((row) => row["name"])).toEqual([
+            "tenant_bindings",
             "tenant_bootstrap_anchor",
             "tenant_bootstrap_marker",
             "tenant_grants",
@@ -76,7 +79,7 @@ describe("SQLite Tenant control storage", () => {
     });
 
     test(
-        "reopens a file with identity, Grant, epoch, anchor, and marker intact",
+        "reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact",
         { tags: "p0" },
         () => {
             const directory = mkdtempSync(join(tmpdir(), "agent-core-tenant-control-"));
@@ -84,13 +87,35 @@ describe("SQLite Tenant control storage", () => {
             try {
                 const firstDatabase = new FileSqlite(path);
                 const first = createSqliteTenantControlStore(firstDatabase, anchor);
-                const grant = allowGrant("file-grant");
                 firstDatabase.transaction(() =>
                     first.bootstrapTenant(firstDatabase, anchor, Revision.initial())
                 );
-                first.transaction(() => {
-                    first.putGrant(grant);
-                });
+                const service = new AuthorityMutationService(first);
+                const workspace = new Workspace(
+                    new WorkspaceId("file-workspace"),
+                    tenantId,
+                    undefined,
+                    Revision.initial()
+                );
+                service.createWorkspace(workspace);
+                const grant = new Grant(
+                    new GrantId("file-grant"),
+                    workspace.scope,
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                    "allow",
+                    new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                    { kind: "direct" }
+                );
+                service.createGrant(grant);
+                const binding = Binding.active(
+                    workspace.scope,
+                    grant.subject,
+                    new ProtectionDomain("backend", "file", "no-secrets"),
+                    new BindingName("file-binding"),
+                    grant.id,
+                    new FacetRef("core:file")
+                );
+                service.createBinding(binding);
                 firstDatabase.close();
 
                 const restartedDatabase = new FileSqlite(path);
@@ -100,6 +125,7 @@ describe("SQLite Tenant control storage", () => {
                 expect(reader.loadPrincipal(principalId)?.kind).toBe("user");
                 expect("savePrincipal" in reader).toBe(false);
                 expect(restarted.grant(grant.id)?.isLive).toBe(true);
+                expect(restarted.binding(binding.key)?.grantId.equals(grant.id)).toBe(true);
                 expect(restarted.epoch(tenantScope).epoch).toBe(1);
                 expect(restarted.bootstrapAnchor()?.actorId.equals(anchor.actorId)).toBe(true);
                 expect(restarted.bootstrapMarker()?.ownerPrincipalId.equals(principalId)).toBe(
@@ -110,6 +136,46 @@ describe("SQLite Tenant control storage", () => {
             } finally {
                 rmSync(directory, { recursive: true, force: true });
             }
+        }
+    );
+
+    test(
+        "stores the same Binding identity independently in two Workspaces",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+            const service = new AuthorityMutationService(store);
+            const subject = SubjectRef.principal(new PrincipalRef(tenantId, principalId));
+            const domain = new ProtectionDomain("backend", "shared", "no-secrets");
+            const name = new BindingName("shared-binding");
+            const facet = new FacetRef("core:shared");
+
+            for (const ordinal of [1, 2]) {
+                const workspace = new Workspace(
+                    new WorkspaceId(`binding-workspace-${ordinal}`),
+                    tenantId,
+                    undefined,
+                    Revision.initial()
+                );
+                service.createWorkspace(workspace);
+                const grant = new Grant(
+                    new GrantId(`binding-grant-${ordinal}`),
+                    workspace.scope,
+                    subject,
+                    "allow",
+                    new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                    { kind: "direct" }
+                );
+                service.createGrant(grant);
+                service.createBinding(
+                    Binding.active(workspace.scope, subject, domain, name, grant.id, facet)
+                );
+            }
+
+            expect(store.bindings()).toHaveLength(2);
+            expect(new Set(store.bindings().map((binding) => binding.key)).size).toBe(2);
         }
     );
 
@@ -191,6 +257,44 @@ describe("SQLite Tenant control storage", () => {
             expect.objectContaining({
                 code: "codec.invalid"
             })
+        );
+
+        const bindingDatabase = new TestSqlite();
+        const bindingStore = createSqliteTenantControlStore(bindingDatabase, anchor);
+        bindingDatabase.transaction(() =>
+            bindingStore.bootstrapTenant(bindingDatabase, anchor, Revision.initial())
+        );
+        const service = new AuthorityMutationService(bindingStore);
+        const workspace = new Workspace(
+            new WorkspaceId("corrupt-binding-workspace"),
+            tenantId,
+            undefined,
+            Revision.initial()
+        );
+        service.createWorkspace(workspace);
+        const bindingGrant = new Grant(
+            new GrantId("corrupt-binding-grant"),
+            workspace.scope,
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+            "allow",
+            new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+            { kind: "direct" }
+        );
+        service.createGrant(bindingGrant);
+        const binding = Binding.active(
+            workspace.scope,
+            bindingGrant.subject,
+            new ProtectionDomain("backend", "corrupt", "no-secrets"),
+            new BindingName("corrupt-binding"),
+            bindingGrant.id,
+            new FacetRef("core:corrupt")
+        );
+        service.createBinding(binding);
+        bindingDatabase.run("UPDATE tenant_bindings SET generation = 7 WHERE binding_key = ?", [
+            binding.key
+        ]);
+        expect(() => bindingStore.binding(binding.key)).toThrow(
+            expect.objectContaining({ code: "codec.invalid" })
         );
 
         const anchorDatabase = new TestSqlite();

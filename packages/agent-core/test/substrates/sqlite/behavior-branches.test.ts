@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../../src/actors";
-import { MemoryTenantControlStore } from "../../../src/authority";
+import {
+    AuthorityMutationService,
+    Binding,
+    Grant,
+    GrantId,
+    MemoryTenantControlStore
+} from "../../../src/authority";
 import { MemoryContentStore } from "../../../src/content";
 import { Digest, Revision } from "../../../src/core";
 import {
@@ -45,7 +51,13 @@ import {
 } from "../../definition/materialization-store-contract";
 import { packageRelease } from "../../definition/package-store-contract";
 import { slot } from "../../w3/slot-store-contract";
-import { SlotName } from "../../../src/facets";
+import {
+    BindingName,
+    CapabilitySpec,
+    FacetRef,
+    ProtectionDomain,
+    SlotName
+} from "../../../src/facets";
 
 const tenantId = new TenantId("behavior-tenant");
 const ownerId = new PrincipalId("behavior-owner");
@@ -67,13 +79,52 @@ describe("SQLite Tenant control behavior branches", () => {
             const stores = [memory, bootstrappedTenant(new TestSqlite())];
 
             for (const [index, store] of stores.entries()) {
+                const service = new AuthorityMutationService(store);
                 const principal = new Principal(
                     new PrincipalId(`seam-principal-${index}`),
                     "user",
                     "active"
                 );
-                store.transaction((control) => control.putPrincipal(principal));
+                service.createPrincipal(principal);
                 expect(store.principal(principal.id)?.kind).toBe("user");
+
+                const workspace = new Workspace(
+                    new WorkspaceId(`seam-workspace-${index}`),
+                    tenantId,
+                    undefined,
+                    Revision.initial()
+                );
+                service.createWorkspace(workspace);
+                const subject = SubjectRef.principal(new PrincipalRef(tenantId, principal.id));
+                const grant = new Grant(
+                    new GrantId(`seam-binding-grant-${index}`),
+                    workspace.scope,
+                    subject,
+                    "allow",
+                    new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                    { kind: "direct" }
+                );
+                service.createGrant(grant);
+                const binding = Binding.active(
+                    workspace.scope,
+                    subject,
+                    new ProtectionDomain("backend", `seam-${index}`, "no-secrets"),
+                    new BindingName("canonical"),
+                    grant.id,
+                    new FacetRef("core:canonical")
+                );
+                const before = store.epoch(workspace.scope).epoch;
+
+                service.createBinding(binding);
+                const replacement = service.replaceBinding(
+                    binding.key,
+                    grant.id,
+                    new FacetRef("core:replacement")
+                );
+
+                expect(store.binding(binding.key)).toEqual(replacement);
+                expect(store.bindings()).toEqual([replacement]);
+                expect(store.epoch(workspace.scope).epoch).toBe(before + 2);
             }
         }
     );

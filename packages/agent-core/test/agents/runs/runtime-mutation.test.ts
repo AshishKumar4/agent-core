@@ -555,18 +555,18 @@ describe("branch creation guards", () => {
 });
 
 describe("migration guards", () => {
-    test("appendCommit refuses migrations without a verified target", { tags: "p1" }, () => {
+    test("the non-transition Turn append refuses migrations", { tags: "p1" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     migrationCommit("generic-migration"),
                     new Revision(0),
                     new Date(1000)
                 ),
             "run.invalid-state",
-            "Migration requires an exact verified target configuration snapshot"
+            "Non-transition Turn append requires a message or verdict commit"
         );
     });
 
@@ -1345,7 +1345,7 @@ describe("append guards", () => {
         const value = harness();
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     messageCommit("append-no-run"),
                     new Revision(0),
                     new Date(1000)
@@ -1360,7 +1360,7 @@ describe("append guards", () => {
         value.repository.transaction((tx) => value.repository.insertRun(tx, terminalRun()));
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     messageCommit("append-terminal"),
                     new Revision(0),
                     new Date(1000)
@@ -1373,9 +1373,9 @@ describe("append guards", () => {
     test("rejects duplicate commit identifiers and foreign branches", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         const first = messageCommit("append-first");
-        value.runtime.appendCommit(first, new Revision(0), new Date(1500));
+        value.runtime.appendTurnCommit(first, new Revision(0), new Date(1500));
         expectCode(
-            () => value.runtime.appendCommit(first, new Revision(1), new Date(1500)),
+            () => value.runtime.appendTurnCommit(first, new Revision(1), new Date(1500)),
             "run.invalid-state",
             "Run commit target is invalid"
         );
@@ -1394,7 +1394,7 @@ describe("append guards", () => {
         );
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     messageCommit("append-foreign", { branch: new RunBranchId("branch-foreign") }),
                     new Revision(0),
                     new Date(1500)
@@ -1406,10 +1406,10 @@ describe("append guards", () => {
 
     test("rejects stale and absent parents with a revision conflict", { tags: "p0" }, () => {
         const value = seedRunningTurn();
-        value.runtime.appendCommit(messageCommit("append-head"), new Revision(0), new Date(1500));
+        value.runtime.appendTurnCommit(messageCommit("append-head"), new Revision(0), new Date(1500));
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     messageCommit("append-stale"),
                     new Revision(1),
                     new Date(1500)
@@ -1427,9 +1427,9 @@ describe("append guards", () => {
             writer: { kind: "root" }
         });
         expectCode(
-            () => value.runtime.appendCommit(parentless, new Revision(1), new Date(1500)),
-            "protocol.revision-conflict",
-            "Run commit parent is not the current branch head"
+            () => value.runtime.appendTurnCommit(parentless, new Revision(1), new Date(1500)),
+            "run.invalid-state",
+            "Non-transition Turn append requires a message or verdict commit"
         );
     });
 
@@ -1459,7 +1459,7 @@ describe("append guards", () => {
         });
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     messageCommit("append-foreign-parent", {
                         branch: new RunBranchId("branch-foreign-head"),
                         parents: [foreignRoot.id]
@@ -1476,7 +1476,7 @@ describe("append guards", () => {
         const value = seedRunningTurn();
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.appendTurnCommit(
                     messageCommit("append-repinned", { pins: differentPins() }),
                     new Revision(0),
                     new Date(1500)
@@ -1511,7 +1511,7 @@ describe("append guards", () => {
         );
         expectCode(
             () =>
-                foreign.runtime.appendCommit(
+                foreign.runtime.appendTurnCommit(
                     messageCommit("append-foreign-writer", {
                         writer: { kind: "turn", token: leaseToken({ turn: foreignTurnId }) },
                         subjectTurn: foreignTurnId
@@ -1537,7 +1537,7 @@ describe("append guards", () => {
         );
         expectCode(
             () =>
-                branched.runtime.appendCommit(
+                branched.runtime.appendTurnCommit(
                     messageCommit("append-crossed-writer", {
                         branch: new RunBranchId("branch-second")
                     }),
@@ -1572,7 +1572,7 @@ describe("append guards", () => {
         const undo = undoCommit("undo-unrelated", new RunCommitId("commit-unrelated"));
         withControl(value, undo);
         expectCode(
-            () => value.runtime.appendCommit(undo, new Revision(0), new Date(1000)),
+            () => value.runtime.undoRun(undo, new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Undo selection must be an ancestor of the current head"
         );
@@ -1583,7 +1583,7 @@ describe("append guards", () => {
         const undo = undoCommit("undo-inflight", ids.root);
         withControl(value, undo);
         expectCode(
-            () => value.runtime.appendCommit(undo, new Revision(0), new Date(1500)),
+            () => value.runtime.undoRun(undo, new Revision(0), new Date(1500)),
             "run.invalid-state",
             "Undo requires the in-flight Turn to be fenced first"
         );
@@ -1614,7 +1614,7 @@ describe("append guards", () => {
         );
         const undo = undoCommit("undo-allowed", ids.root);
         withControl(value, undo);
-        value.runtime.appendCommit(undo, new Revision(0), new Date(1000));
+        value.runtime.undoRun(undo, new Revision(0), new Date(1000));
         expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
     });
 });
@@ -1650,7 +1650,7 @@ describe("merge validation", () => {
             ...sourceOver
         });
         withReceipt(value);
-        value.runtime.appendCommit(sourceHead, new Revision(0), new Date(1000));
+        value.runtime.appendSystemEvidenceCommit(sourceHead, new Revision(0), new Date(1000));
         return { value, sourceHead };
     }
 
@@ -1681,7 +1681,7 @@ describe("merge validation", () => {
         const { value, sourceHead } = mergeFixture();
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.mergeRun(
                     mergeCommit("merge-stale-first", ids.root, {
                         parents: [sourceHead.id, ids.root]
                     }),
@@ -1693,7 +1693,7 @@ describe("merge validation", () => {
         );
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.mergeRun(
                     {
                         ...mergeCommit("merge-single", sourceHead.id),
                         parents: [ids.root]
@@ -1706,7 +1706,7 @@ describe("merge validation", () => {
         );
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.mergeRun(
                     {
                         ...mergeCommit("merge-empty", sourceHead.id),
                         parents: []
@@ -1719,7 +1719,7 @@ describe("merge validation", () => {
         );
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.mergeRun(
                     {
                         ...mergeCommit("merge-equal", sourceHead.id),
                         parents: [ids.root, ids.root]
@@ -1764,7 +1764,7 @@ describe("merge validation", () => {
         const orphanMerge = mergeCommit("merge-orphan", orphanCommit.id);
         withControl(orphan.value, orphanMerge);
         expectCode(
-            () => orphan.value.runtime.appendCommit(orphanMerge, new Revision(0), new Date(1000)),
+            () => orphan.value.runtime.mergeRun(orphanMerge, new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Merge requires equal-pinned current heads from distinct branches"
         );
@@ -1784,7 +1784,7 @@ describe("merge validation", () => {
         );
         expectCode(
             () =>
-                ghost.value.runtime.appendCommit(
+                ghost.value.runtime.mergeRun(
                     mergeCommit("merge-ghost-target", ghost.sourceHead.id, {
                         branch: new RunBranchId("branch-ghost"),
                         parents: [new RunCommitId("commit-ghost"), ghost.sourceHead.id]
@@ -1811,7 +1811,7 @@ describe("merge validation", () => {
         );
         expectCode(
             () =>
-                phantom.value.runtime.appendCommit(
+                phantom.value.runtime.mergeRun(
                     mergeCommit("merge-phantom-source", new RunCommitId("commit-phantom")),
                     new Revision(0),
                     new Date(1000)
@@ -1825,7 +1825,7 @@ describe("merge validation", () => {
         const noContent = mergeFixture();
         expectCode(
             () =>
-                noContent.value.runtime.appendCommit(
+                noContent.value.runtime.mergeRun(
                     mergeCommit("merge-pick-empty", noContent.sourceHead.id, {
                         resolution: { kind: "pick", parent: noContent.sourceHead.id }
                     }),
@@ -1843,7 +1843,7 @@ describe("merge validation", () => {
         });
         expectCode(
             () =>
-                neither.value.runtime.appendCommit(
+                neither.value.runtime.mergeRun(
                     {
                         ...base,
                         resolution: { kind: "pick", parent: new RunCommitId("commit-neither") }
@@ -1858,7 +1858,7 @@ describe("merge validation", () => {
         const empty = mergeFixture();
         expectCode(
             () =>
-                empty.value.runtime.appendCommit(
+                empty.value.runtime.mergeRun(
                     {
                         ...mergeCommit("merge-pick-no-content", empty.sourceHead.id, {
                             resolution: { kind: "pick", parent: ids.root },
@@ -1880,7 +1880,7 @@ describe("merge validation", () => {
             content: content("4")
         });
         withControl(copied.value, pick);
-        copied.value.runtime.appendCommit(pick, new Revision(0), new Date(1000));
+        copied.value.runtime.mergeRun(pick, new Revision(0), new Date(1000));
         expect(copied.value.runtime.effectiveCommit(ids.run, ids.branch).equals(pick.id)).toBe(
             true
         );
@@ -1891,7 +1891,7 @@ describe("merge validation", () => {
         value.merge.acceptsConcat = false;
         expectCode(
             () =>
-                value.runtime.appendCommit(
+                value.runtime.mergeRun(
                     mergeCommit("merge-concat-unverified", sourceHead.id),
                     new Revision(0),
                     new Date(1000)
@@ -1914,7 +1914,7 @@ describe("merge validation", () => {
         });
         expectCode(
             () =>
-                ours.value.runtime.appendCommit(
+                ours.value.runtime.mergeRun(
                     {
                         ...oursBase,
                         treeResolution: {
@@ -1943,7 +1943,7 @@ describe("merge validation", () => {
         });
         expectCode(
             () =>
-                theirs.value.runtime.appendCommit(
+                theirs.value.runtime.mergeRun(
                     {
                         ...theirsBase,
                         treeResolution: {
@@ -1975,7 +1975,7 @@ describe("merge validation", () => {
         });
         expectCode(
             () =>
-                perPath.value.runtime.appendCommit(
+                perPath.value.runtime.mergeRun(
                     {
                         ...perPathBase,
                         treeResolution: {
@@ -2009,7 +2009,7 @@ describe("merge validation", () => {
         });
         withControl(ours.value, oursMismatch);
         expectCode(
-            () => ours.value.runtime.appendCommit(oursMismatch, new Revision(0), new Date(1000)),
+            () => ours.value.runtime.mergeRun(oursMismatch, new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Tree side resolution must copy the selected parent tree"
         );
@@ -2027,7 +2027,7 @@ describe("merge validation", () => {
         withControl(theirs.value, theirsMismatch);
         expectCode(
             () =>
-                theirs.value.runtime.appendCommit(theirsMismatch, new Revision(0), new Date(1000)),
+                theirs.value.runtime.mergeRun(theirsMismatch, new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Tree side resolution must copy the selected parent tree"
         );
@@ -2044,7 +2044,7 @@ describe("merge validation", () => {
         });
         withControl(bare.value, bareSource);
         expectCode(
-            () => bare.value.runtime.appendCommit(bareSource, new Revision(0), new Date(1000)),
+            () => bare.value.runtime.mergeRun(bareSource, new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Tree side resolution must copy the selected parent tree"
         );
@@ -2062,7 +2062,7 @@ describe("merge validation", () => {
         withControl(missing.value, missingCheckpoint);
         expectCode(
             () =>
-                missing.value.runtime.appendCommit(
+                missing.value.runtime.mergeRun(
                     { ...missingCheckpoint, treeCheckpoint: undefined } as RunCommit,
                     new Revision(0),
                     new Date(1000)
@@ -2084,7 +2084,7 @@ describe("merge validation", () => {
             }
         });
         withControl(ours.value, oursMerge);
-        ours.value.runtime.appendCommit(oursMerge, new Revision(0), new Date(1000));
+        ours.value.runtime.mergeRun(oursMerge, new Revision(0), new Date(1000));
         expect(ours.value.runtime.effectiveCommit(ids.run, ids.branch).equals(oursMerge.id)).toBe(
             true
         );
@@ -2100,7 +2100,7 @@ describe("merge validation", () => {
             }
         });
         withControl(theirs.value, theirsMerge);
-        theirs.value.runtime.appendCommit(theirsMerge, new Revision(0), new Date(1000));
+        theirs.value.runtime.mergeRun(theirsMerge, new Revision(0), new Date(1000));
         expect(
             theirs.value.runtime.effectiveCommit(ids.run, ids.branch).equals(theirsMerge.id)
         ).toBe(true);
@@ -2119,7 +2119,7 @@ describe("merge validation", () => {
             }
         });
         withControl(perPath.value, perPathMerge);
-        perPath.value.runtime.appendCommit(perPathMerge, new Revision(0), new Date(1000));
+        perPath.value.runtime.mergeRun(perPathMerge, new Revision(0), new Date(1000));
         expect(
             perPath.value.runtime.effectiveCommit(ids.run, ids.branch).equals(perPathMerge.id)
         ).toBe(true);

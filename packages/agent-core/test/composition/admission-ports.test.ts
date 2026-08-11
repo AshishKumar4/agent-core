@@ -7,7 +7,6 @@ import {
     AuthorityPermitAuthenticator,
     AuthorityPermitExpectation,
     AuthorityPermitIssuedRecordSource,
-    MemoryBindingStore,
     MemoryTenantControlStore,
     PathEpochEvidence,
     ScopeEpoch,
@@ -673,8 +672,7 @@ describe("single-tenant policy assembly", () => {
 
     test("a second assembly is refused with the exact typed error", { tags: "p0" }, () => {
         const control = MemoryTenantControlStore.create(anchor);
-        const bindings = new MemoryBindingStore(ScopeRef.workspace(anchor.tenantId, workspaceId));
-        const assembly = assembleSingleTenantPolicy(control, bindings, init);
+        const assembly = assembleSingleTenantPolicy(control, init);
 
         expect(
             assembly.binding.grantId.equals(assembly.grants[0]?.id ?? assembly.binding.grantId)
@@ -682,7 +680,7 @@ describe("single-tenant policy assembly", () => {
 
         let failure: unknown;
         try {
-            assembleSingleTenantPolicy(control, bindings, init);
+            assembleSingleTenantPolicy(control, init);
         } catch (error) {
             failure = error;
         }

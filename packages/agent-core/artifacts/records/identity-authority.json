@@ -30,10 +30,10 @@
             "symbol": "Binding",
             "kind": "authority.binding",
             "durability": "durable",
-            "ownerActor": "workspace",
+            "ownerActor": "tenant",
             "source": "src/authority/binding.ts#Binding",
             "codec": "src/authority/binding.ts#Binding.codec",
-            "store": "src/authority/binding-store.ts#BindingStore",
+            "store": "src/authority/service.ts#AuthorityMutationStore",
             "tests": [
                 "test/authority/model.test.ts#authority value records [authority.binding] keeps Binding identity immutable while advancing local generations",
                 "test/authority/memory.test.ts#MemoryTenantControlStore [authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot"

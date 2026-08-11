@@ -15,6 +15,7 @@ import AgentCore.RunGraph
 import AgentCore.Environments
 import AgentCore.Slates
 import AgentCore.Composed
+import AgentCore.DistributedPermit
 import AgentCore.Representation.Broker
 import AgentCore.Representation.Consent
 import AgentCore.Representation.Reaction

@@ -12,10 +12,12 @@ import {
 const packageRoot = resolve(import.meta.dirname, "../..");
 const artifactRoot = resolve(packageRoot, "artifacts");
 const expectedPaths = [
+    "packages/agent-core/src/authority/binding-store.ts",
     "packages/agent-core/src/authority/capability.ts",
     "packages/agent-core/src/content/record.ts",
     "packages/agent-core/src/core/value.ts",
-    "packages/agent-core/src/core/version.ts"
+    "packages/agent-core/src/core/version.ts",
+    "packages/agent-core/src/substrates/sqlite/binding.ts"
 ];
 
 let fixture: Awaited<ReturnType<typeof loadFixture>>;
@@ -76,14 +78,14 @@ describe("source-removal coverage governance", () => {
 
     test("requires exact ownership and coordinated foreign replacement authorization", () => {
         const wrongOwner = clone(fixture);
-        wrongOwner.document.approvals[1]!.owner = "W2";
-        wrongOwner.document.approvals[1]!.review.disposition.owner = "W2";
-        resign(wrongOwner.document.approvals[1]!);
-        expect(() => validate(wrongOwner)).toThrow(/owned by W1, not W2/);
+        wrongOwner.document.approvals[0]!.owner = "W1";
+        wrongOwner.document.approvals[0]!.review.disposition.owner = "W1";
+        resign(wrongOwner.document.approvals[0]!);
+        expect(() => validate(wrongOwner)).toThrow(/owned by W2, not W1/);
 
         const unauthorized = clone(fixture);
-        const approval = unauthorized.document.approvals[1]!;
-        approval.replacements = ["packages/agent-core/src/authority/grant.ts"];
+        const approval = unauthorized.document.approvals[0]!;
+        approval.replacements = ["packages/agent-core/src/facets/capability.ts"];
         unauthorized.context.currentCoverage.add(approval.replacements[0]!);
         resign(approval);
         expect(() => validate(unauthorized)).toThrow(/lacks transition authorization/);
@@ -91,16 +93,16 @@ describe("source-removal coverage governance", () => {
 
     test("requires every replacement to exist in coverage", () => {
         const missing = clone(fixture);
-        missing.context.currentCoverage.delete(missing.document.approvals[1]!.replacements[0]!);
+        missing.context.currentCoverage.delete(missing.document.approvals[0]!.replacements[0]!);
         expect(() => validate(missing)).toThrow(/replacement is missing coverage/);
     });
 
     test("requires unique selectors that passed and immutable review links", () => {
         const duplicateSelector = clone(fixture);
-        duplicateSelector.document.approvals[1]!.tests = [
+        duplicateSelector.document.approvals.at(-1)!.tests = [
             duplicateSelector.document.approvals[0]!.tests[0]!
         ];
-        resign(duplicateSelector.document.approvals[1]!);
+        resign(duplicateSelector.document.approvals.at(-1)!);
         expect(() => validate(duplicateSelector)).toThrow(/Duplicate source-removal test selector/);
 
         const failedSelector = clone(fixture);
@@ -122,7 +124,7 @@ describe("source-removal coverage governance", () => {
         const pendingResolution = pending.context.resolutions.entries.find(
             (entry) =>
                 !Array.isArray(entry) &&
-                entry.source === "packages/agent-core/artifacts/requests/W1/shared-integration.json"
+                entry.source === "packages/agent-core/artifacts/requests/W2/shared-seams.json"
         );
         if (pendingResolution === undefined || Array.isArray(pendingResolution)) {
             throw new TypeError("Missing finalized source-removal resolution fixture");

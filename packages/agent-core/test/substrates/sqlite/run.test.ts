@@ -19,6 +19,8 @@ import {
     RunRepository,
     RunRuntime,
     RepositoryTurnLeaseVerifier,
+    SettlementObligation,
+    TerminalSnapshot,
     type RunStoragePort,
     type LeaseToken,
     Turn,
@@ -550,6 +552,25 @@ describe("SQLite Run storage", () => {
             assertAcrossRunStorages(assertTerminalResultWriterBehavior);
         }
     );
+
+    it(
+        "fails closed across memory and SQLite when any joined execution-scope record is corrupt",
+        { tags: "p0" },
+        () => {
+            for (const corruption of [
+                "branch",
+                "headPins",
+                "effectiveAncestry",
+                "placement",
+                "checkpoint",
+                "lifecycle"
+            ] as const) {
+                assertAcrossRunStorages((value) =>
+                    assertCorruptExecutionScope(value, corruption)
+                );
+            }
+        }
+    );
 });
 
 interface RuntimeHarness<Transaction> {
@@ -640,6 +661,155 @@ function seedRunning<Transaction>(value: RuntimeHarness<Transaction>): RunningHa
         running,
         token: Object.freeze({ turn: ids.turn, holder: ids.holder, epoch: running.lease.epoch })
     };
+}
+
+function assertCorruptExecutionScope<Transaction>(
+    value: RuntimeHarness<Transaction>,
+    corruption:
+        | "branch"
+        | "headPins"
+        | "effectiveAncestry"
+        | "placement"
+        | "checkpoint"
+        | "lifecycle"
+): void {
+    const running = seedRunning(value);
+    value.repository.transaction((transaction) => {
+        switch (corruption) {
+            case "branch":
+                value.repository.replaceBranch(
+                    transaction,
+                    new Revision(0),
+                    new RunBranch(
+                        ids.branch,
+                        new RunId("corrupt-branch-run"),
+                        "main",
+                        ids.root,
+                        new Revision(1)
+                    )
+                );
+                break;
+            case "headPins": {
+                const head = new RunCommit({
+                    id: new RunCommitId("corrupt-head-pins"),
+                    run: ids.run,
+                    branch: ids.branch,
+                    kind: "message",
+                    parents: [ids.root],
+                    pins: new RunPins({
+                        ...pins(),
+                        environment: {
+                            ...pins().environment,
+                            revision: new Revision(4)
+                        }
+                    }),
+                    writer: { kind: "turn", token: running.token },
+                    subjectTurn: ids.turn,
+                    content: content("f")
+                });
+                value.repository.insertCommit(transaction, head);
+                value.repository.replaceBranch(
+                    transaction,
+                    new Revision(0),
+                    new RunBranch(ids.branch, ids.run, "main", head.id, new Revision(1))
+                );
+                break;
+            }
+            case "effectiveAncestry": {
+                const descendant = new RunCommit({
+                    id: new RunCommitId("corrupt-effective-descendant"),
+                    run: ids.run,
+                    branch: ids.branch,
+                    kind: "message",
+                    parents: [ids.root],
+                    pins: pins(),
+                    writer: { kind: "turn", token: running.token },
+                    subjectTurn: ids.turn,
+                    content: content("f")
+                });
+                value.repository.insertCommit(transaction, descendant);
+                replaceRunningTurn(value.repository, transaction, running.running, {
+                    effectiveInput: descendant.id
+                });
+                break;
+            }
+            case "placement":
+                replaceRunningTurn(value.repository, transaction, running.running, {
+                    placement: digest("f")
+                });
+                break;
+            case "checkpoint": {
+                const checkpoint = new RunCheckpoint(
+                    new RunCheckpointId("corrupt-scope-checkpoint"),
+                    new TurnId("other-checkpoint-turn"),
+                    ids.root,
+                    content("c"),
+                    0,
+                    undefined
+                );
+                value.repository.insertCheckpoint(transaction, checkpoint);
+                replaceRunningTurn(value.repository, transaction, running.running, {
+                    checkpoint: checkpoint.id
+                });
+                break;
+            }
+            case "lifecycle": {
+                const run = value.repository.loadRun(transaction, ids.run)!;
+                const terminal = new TerminalSnapshot(
+                    ids.run,
+                    ids.turn,
+                    ids.root,
+                    ids.root,
+                    "failed",
+                    new SettlementObligation({ registryEpoch: 0, obligations: [] }),
+                    new Date(1500)
+                );
+                value.repository.replaceRun(transaction, run.revision, run.terminalize(terminal));
+                break;
+            }
+        }
+    });
+    expect(() =>
+        value.repository.transaction((transaction) =>
+            value.repository.loadExecutionScope(transaction, running.token, new Date(1500))
+        )
+    ).toThrow(expect.objectContaining({ code: "turn.invalid-state" }));
+}
+
+function replaceRunningTurn<Transaction>(
+    repository: RunRepository<Transaction>,
+    transaction: Transaction,
+    turn: Turn,
+    replacement: Partial<{
+        readonly effectiveInput: RunCommitId;
+        readonly placement: ReturnType<typeof digest>;
+        readonly checkpoint: RunCheckpointId;
+    }>
+): void {
+    repository.replaceTurn(
+        transaction,
+        turn.revision,
+        new Turn({
+            id: turn.id,
+            run: turn.run,
+            branch: turn.branch,
+            startHead: turn.startHead,
+            effectiveInput: replacement.effectiveInput ?? turn.effectiveInput,
+            pins: turn.pins,
+            placement: replacement.placement ?? turn.placement,
+            input: turn.input,
+            status: turn.status,
+            lease: turn.lease,
+            ...(replacement.checkpoint === undefined
+                ? turn.checkpoint === undefined
+                    ? {}
+                    : { checkpoint: turn.checkpoint }
+                : { checkpoint: replacement.checkpoint }),
+            ...(turn.result === undefined ? {} : { result: turn.result }),
+            ...(turn.cacheLineage === undefined ? {} : { cacheLineage: turn.cacheLineage }),
+            revision: turn.revision.next()
+        })
+    );
 }
 
 function resultCommit(id: string, token: LeaseToken, parent: RunCommitId = ids.root): RunCommit {
