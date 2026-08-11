@@ -977,14 +977,19 @@
       "owner": "W6",
       "specAnchor": "C13-RECEIPT-IMMUTABLE",
       "specTextSha256": "sha256:283bfbcea5510586275fb5174f58a69808b7e4635e812a96937eec2f876179ad",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger",
+        "src/invocations/persistence.ts#InvocationPersistence",
+        "src/invocations/receipt.ts#Receipt"
+      ],
+      "testSelectors": [
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-IMMUTABLE] preserves the first Receipt append behind an update-free persistence surface",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-IMMUTABLE] preserves the first Receipt append behind an update-free persistence surface"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RECEIPT-INDETERMINATE-SUPERSESSION",

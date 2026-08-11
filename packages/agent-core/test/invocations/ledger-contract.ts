@@ -1882,6 +1882,86 @@ export function invocationLedgerContract<Transaction>(
         );
 
         test(
+            "[C13-RECEIPT-IMMUTABLE] preserves the first Receipt append behind an update-free persistence surface",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("immutable-receipt", {}, { lease: "lease:1" });
+                const claim = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:immutable-receipt",
+                    "worker:immutable-receipt",
+                    time(10)
+                );
+                const attempt = effectAttempt(invocation, claim, "attempt:imm-receipt", time(2));
+                const receipt = new AttemptReceipt(
+                    new ReceiptId("receipt:immutable"),
+                    attempt.id,
+                    "succeeded",
+                    undefined,
+                    time(3),
+                    undefined
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                    harness.ledger.admitAttempt(transaction, attempt, time(2));
+                    harness.ledger.recordAttemptReceipt(transaction, receipt);
+                });
+                const replacement = new AttemptReceipt(
+                    receipt.id,
+                    attempt.id,
+                    "failed",
+                    undefined,
+                    time(4),
+                    undefined
+                );
+
+                expect(() =>
+                    harness.transaction((transaction) =>
+                        harness.persistence.appendReceipt(transaction, replacement)
+                    )
+                ).toThrow();
+                const second = prepared("immutable-receipt-2", {}, { lease: "lease:1" });
+                harness.transaction((transaction) => harness.ledger.prepare(transaction, second));
+                expect(() =>
+                    harness.transaction((transaction) =>
+                        harness.persistence.appendReceipt(
+                            transaction,
+                            new PreEffectReceipt(
+                                receipt.id,
+                                second.header.id,
+                                0,
+                                "deniedPreEffect",
+                                time(5),
+                                "identity reuse"
+                            )
+                        )
+                    )
+                ).toThrow();
+                for (const member of [
+                    "deleteAttempt",
+                    "deleteReceipt",
+                    "removeAttempt",
+                    "removeReceipt",
+                    "updateAttempt",
+                    "updateReceipt"
+                ]) {
+                    expect(member in harness.persistence).toBe(false);
+                }
+                harness.restart();
+                expect(
+                    harness.transaction(
+                        (transaction) =>
+                            harness.persistence.receipt(transaction, receipt.id)?.outcome
+                    )
+                ).toBe("succeeded");
+            }
+        );
+
+        test(
             "[C13-PREPARED-APPROVAL-SINGLE-USE] consumes one Approval only on the first admitted attempt",
             { tags: "p0" },
             () => {
