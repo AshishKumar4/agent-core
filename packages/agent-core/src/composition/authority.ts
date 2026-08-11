@@ -48,6 +48,12 @@ export interface OperationResolutionEvidence {
      */
     readonly turnOwnedSession: boolean;
     /**
+     * True only when the resolver attests that the operation's target is the
+     * Turn-owned Session's own filesystem. Only such a mutate is eligible for
+     * the direct tier under the §7.2 floor; every other mutate stays mediated.
+     */
+    readonly sessionFilesystemTarget: boolean;
+    /**
      * True only when the bundled Facet and a versioned Binding projection are local to
      * the Actor that owns the exact Turn lease. Dedicated Run Actors without that
      * projection must mediate even an otherwise direct-eligible operation.
@@ -124,6 +130,7 @@ export class OperationResolutionState implements OperationResolutionEvidence {
         this.owner = evidence.owner;
         this.policies = Object.freeze([...evidence.policies]);
         this.turnOwnedSession = evidence.turnOwnedSession;
+        this.sessionFilesystemTarget = evidence.sessionFilesystemTarget;
         this.turnActorAuthorityLocal = evidence.turnActorAuthorityLocal;
         this.directAuthority = evidence.directAuthority;
         this.#resolvedAt = resolvedAt.getTime();
@@ -144,6 +151,7 @@ export class OperationResolutionState implements OperationResolutionEvidence {
     public readonly owner: ActorRef;
     public readonly policies: readonly PolicySet[];
     public readonly turnOwnedSession: boolean;
+    public readonly sessionFilesystemTarget: boolean;
     public readonly turnActorAuthorityLocal: boolean;
     public readonly directAuthority: ResolvedOperationAuthority | undefined;
 
@@ -310,6 +318,7 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
         return evaluatePolicy({
             impact: descriptor.impact,
             turnOwnedSession: resolution.turnOwnedSession,
+            sessionFilesystemTarget: resolution.sessionFilesystemTarget,
             placement: resolution.placement.selected,
             policies: resolution.policies
         }).tier;

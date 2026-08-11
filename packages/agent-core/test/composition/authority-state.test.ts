@@ -141,6 +141,7 @@ class StateHarness implements ActorAuthorityHost {
             owner,
             policies: [new PolicySet({ maxDirectRevocationWindowMs: WINDOW_MS })],
             turnOwnedSession: true,
+            sessionFilesystemTarget: false,
             turnActorAuthorityLocal: true,
             directAuthority: new ResolvedOperationAuthority(facetRef, [
                 new CapabilitySpec({
@@ -310,6 +311,7 @@ class IdentityCacheHarness implements ActorAuthorityHost {
             owner: this.actor,
             policies: [],
             turnOwnedSession: false,
+            sessionFilesystemTarget: false,
             turnActorAuthorityLocal: false,
             directAuthority: undefined
         };

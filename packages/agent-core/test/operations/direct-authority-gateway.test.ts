@@ -289,6 +289,7 @@ class DirectAuthorityState implements OperationAuthorityStatePort<PrincipalRef> 
             owner,
             policies: this.policies,
             turnOwnedSession: true,
+            sessionFilesystemTarget: false,
             turnActorAuthorityLocal: this.turnActorAuthorityLocal,
             directAuthority: new ResolvedOperationAuthority(facetRef, [
                 new CapabilitySpec({
