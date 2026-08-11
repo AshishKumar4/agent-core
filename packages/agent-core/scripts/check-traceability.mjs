@@ -34,6 +34,7 @@ const requiredRequirementIds = [
     "AC-PLACEMENT-001",
     "AC-SLOT-001",
     "AC-COMMAND-001",
+    "AC-DISPATCHER-001",
     "AC-ENVIRONMENT-001",
     "AC-SLATE-001",
     "AC-TRUST-001",

@@ -431,6 +431,17 @@ import AgentCore
 #print axioms AgentCore.submission_step_preserves_reservation_consistency
 #print axioms AgentCore.at_most_one_reserving_write_per_identity
 
+-- The command protocol dispatcher (SPEC §8.5): fixed gate order, duplicate-never-
+-- mutates, exactly-one linked WriteRecord and AuditRecord, and the executable mirror.
+#print axioms AgentCore.leaseGateBool_eq_true_iff
+#print axioms AgentCore.dispatch_appends_exactly_one_linked_write_and_audit
+#print axioms AgentCore.dispatch_duplicate_never_mutates
+#print axioms AgentCore.dispatch_nonmutating_outcome_preserves_domain
+#print axioms AgentCore.dispatch_reserved_identity_only_duplicates
+#print axioms AgentCore.dispatch_commit_passed_every_gate
+#print axioms AgentCore.dispatchExec_sound
+#print axioms AgentCore.dispatchExec_complete
+
 -- Contribution, slot, command, and submission witnesses.
 #print axioms AgentCore.Examples.nonvacuous_slot_contribution_lifecycle
 #print axioms AgentCore.Examples.nonvacuous_resolution_reorders_arrivals
@@ -453,6 +464,10 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence
 #print axioms AgentCore.Examples.nonvacuous_reserved_identity_recommit_rejected
 #print axioms AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent
+
+-- Dispatcher witnesses (SPEC §8.5).
+#print axioms AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates
+#print axioms AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate
 
 -- Event → Subscription routing (SPEC §6.2): at-most-once, derived targeting, trust.
 #print axioms AgentCore.fire_consumes_key

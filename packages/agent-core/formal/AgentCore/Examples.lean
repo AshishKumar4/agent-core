@@ -2,6 +2,7 @@ import AgentCore.Proofs.CanonicalMediatedTrace
 import AgentCore.Slates
 import AgentCore.Subscriptions
 import AgentCore.Commands
+import AgentCore.Dispatcher
 
 /-! Constructive witnesses for the final designated claim families. -/
 
@@ -5034,5 +5035,99 @@ theorem nonvacuous_intercepted_observe_escalates_to_mediated :
     MediatedStep interceptedState (.persistIntent invocationId) interceptedIntentState := by
   refine ⟨rfl, rfl, rfl, .admit directReady, rfl, rfl, ?_, interceptedPersistIntent⟩
   exact applicable_interceptor_forbids_direct_admission (List.mem_cons_self ..)
+
+/-! ## Dispatcher witnesses (SPEC §8.5) -/
+
+private def dispatchGoodRaw : RawEnvelope := ⟨⟨"good", []⟩⟩
+private def dispatchBadRaw : RawEnvelope := ⟨⟨"bad", []⟩⟩
+private def dispatchCaller : CommandCaller := .principal principalRef
+private def dispatchEnvelope : CommandEnvelope :=
+  ⟨"deploy.run", dispatchCaller, "key-1", none, none, none⟩
+
+private def dispatchPolicy : DispatchPolicy Nat :=
+  { decode := fun raw => if raw = dispatchGoodRaw then some dispatchEnvelope else none
+    authenticates := fun _ _ => true
+    authorizes := fun _ _ => true
+    lifecycleAdmits := fun _ _ => true
+    revisionMatches := fun _ _ => true
+    leaseRequirement := fun _ => .forbidden
+    leases := fun _ _ => none
+    mutate := fun domain _ => domain + 1 }
+
+private def dispatchLedgerBoot : DispatcherLedger Nat := DispatcherLedger.boot (.tenant ⟨1⟩) 0
+
+private def dispatchCommittedRecord : WriteRecord :=
+  ⟨⟨1⟩, .tenant ⟨1⟩, dispatchGoodRaw.digest, some dispatchCaller, some "deploy.run", ⟨0⟩,
+    .committed, ⟨1⟩⟩
+
+private def dispatchLedgerCommitted : DispatcherLedger Nat :=
+  dispatchLedgerBoot.appendWrite dispatchCommittedRecord (some dispatchEnvelope.identity) 1
+
+private def dispatchCommitStep :
+    DispatchStep dispatchPolicy dispatchLedgerBoot (.process ⟨1⟩ ⟨1⟩ dispatchGoodRaw ⟨0⟩)
+      dispatchLedgerCommitted :=
+  DispatchStep.commit (envelope := dispatchEnvelope) rfl rfl (by decide) rfl rfl rfl rfl rfl rfl
+
+private def dispatchDuplicateRecord : WriteRecord :=
+  ⟨⟨2⟩, .tenant ⟨1⟩, dispatchGoodRaw.digest, some dispatchCaller, some "deploy.run", ⟨1⟩,
+    .duplicate ⟨1⟩, ⟨2⟩⟩
+
+private def dispatchLedgerDuplicated : DispatcherLedger Nat :=
+  dispatchLedgerCommitted.appendWrite dispatchDuplicateRecord none dispatchLedgerCommitted.domain
+
+private def dispatchDuplicateStep :
+    DispatchStep dispatchPolicy dispatchLedgerCommitted (.process ⟨2⟩ ⟨2⟩ dispatchGoodRaw ⟨1⟩)
+      dispatchLedgerDuplicated :=
+  DispatchStep.duplicate (envelope := dispatchEnvelope) (originalId := ⟨1⟩)
+    (by decide) (by decide) (by decide) rfl (by decide)
+
+private def dispatchMalformedRecord : WriteRecord :=
+  ⟨⟨3⟩, .tenant ⟨1⟩, dispatchBadRaw.digest, none, none, ⟨2⟩, .rejectedMalformed, ⟨3⟩⟩
+
+private def dispatchLedgerMalformed : DispatcherLedger Nat :=
+  dispatchLedgerDuplicated.appendWrite dispatchMalformedRecord none dispatchLedgerDuplicated.domain
+
+private def dispatchMalformedStep :
+    DispatchStep dispatchPolicy dispatchLedgerDuplicated (.process ⟨3⟩ ⟨3⟩ dispatchBadRaw ⟨2⟩)
+      dispatchLedgerMalformed :=
+  DispatchStep.rejectMalformed (by decide) (by decide) (by decide)
+
+/-- A commit mutates the domain from 0 to 1 and reserves the caller's identity; an
+    authenticated resubmission of the same envelope then produces a `duplicate` write
+    citing the original and leaves the domain at 1 — not 2 — so duplicate-never-mutates
+    is exercised concretely, not just asserted abstractly. A malformed follow-up still
+    appends its own linked write and audit id without touching the domain either. -/
+theorem nonvacuous_dispatch_commit_then_duplicate_never_mutates :
+    DispatchStep dispatchPolicy dispatchLedgerBoot (.process ⟨1⟩ ⟨1⟩ dispatchGoodRaw ⟨0⟩)
+      dispatchLedgerCommitted ∧
+    dispatchLedgerCommitted.domain = 1 ∧
+    DispatchStep dispatchPolicy dispatchLedgerCommitted (.process ⟨2⟩ ⟨2⟩ dispatchGoodRaw ⟨1⟩)
+      dispatchLedgerDuplicated ∧
+    dispatchLedgerDuplicated.domain = 1 ∧
+    dispatchLedgerDuplicated.writes ⟨2⟩ = some dispatchDuplicateRecord ∧
+    dispatchDuplicateRecord.outcome = .duplicate ⟨1⟩ ∧
+    DispatchStep dispatchPolicy dispatchLedgerDuplicated
+      (.process ⟨3⟩ ⟨3⟩ dispatchBadRaw ⟨2⟩) dispatchLedgerMalformed ∧
+    dispatchLedgerMalformed.domain = 1 ∧
+    dispatchLedgerMalformed.writes ⟨3⟩ = some dispatchMalformedRecord :=
+  ⟨dispatchCommitStep, rfl, dispatchDuplicateStep, rfl, rfl, rfl, dispatchMalformedStep, rfl, rfl⟩
+
+/-- `dispatchExec` agrees with `DispatchStep` on the same concrete commit-then-duplicate
+    trace in both directions: `dispatchExec_complete` computes the same ledger the
+    relation admits, and feeding that computed equality back through `dispatchExec_sound`
+    reconstructs an admissible `DispatchStep` for it — the round trip a differential
+    oracle relies on. -/
+theorem nonvacuous_dispatchExec_matches_commit_then_duplicate :
+    dispatchExec dispatchPolicy dispatchLedgerBoot ⟨1⟩ ⟨1⟩ dispatchGoodRaw ⟨0⟩ =
+      some dispatchLedgerCommitted ∧
+    dispatchExec dispatchPolicy dispatchLedgerCommitted ⟨2⟩ ⟨2⟩ dispatchGoodRaw ⟨1⟩ =
+      some dispatchLedgerDuplicated ∧
+    DispatchStep dispatchPolicy dispatchLedgerBoot (.process ⟨1⟩ ⟨1⟩ dispatchGoodRaw ⟨0⟩)
+      dispatchLedgerCommitted ∧
+    DispatchStep dispatchPolicy dispatchLedgerCommitted (.process ⟨2⟩ ⟨2⟩ dispatchGoodRaw ⟨1⟩)
+      dispatchLedgerDuplicated :=
+  ⟨dispatchExec_complete dispatchCommitStep, dispatchExec_complete dispatchDuplicateStep,
+    dispatchExec_sound (dispatchExec_complete dispatchCommitStep),
+    dispatchExec_sound (dispatchExec_complete dispatchDuplicateStep)⟩
 
 end AgentCore.Examples

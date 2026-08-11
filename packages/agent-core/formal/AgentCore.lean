@@ -6,6 +6,7 @@ import AgentCore.Slots
 import AgentCore.Commands
 import AgentCore.Subscriptions
 import AgentCore.Lease
+import AgentCore.Dispatcher
 import AgentCore.Approvals
 import AgentCore.View
 import AgentCore.Materialization

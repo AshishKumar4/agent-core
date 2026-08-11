@@ -565,6 +565,78 @@
       ]
     },
     {
+      "id": "AC-DISPATCHER-001",
+      "summary": "The §8.5 command protocol dispatcher's fixed gate order, duplicate-never-mutates, and exactly-one linked WriteRecord/AuditRecord per request, with an executable mirror proven sound and complete",
+      "status": "proved-safety",
+      "boundary": "Generic over the family-specific domain state and its authenticate/authority/lifecycle/expected-revision decisions (concrete per protocol command family and out of scope here): every request decodes, authenticates, checks (caller, idempotencyKey) duplication, authorizes, admits lifecycle, matches expected revision, and gates an optional LeaseToken in that fixed order before the committed branch alone mutates the domain. A resubmitted identity never re-runs a later gate or the mutation and reserves nothing new. Every request -- malformed, rejected at any gate, duplicate, or committed -- appends exactly one fresh WriteRecord bijectively linked to one fresh audit id in the same transition as the decision. dispatchExec is the computable mirror, proven sound and complete against DispatchStep. The dispatcher-created audit id is uninterpreted: it is not threaded through AC-AUDIT-001's typed AuditKind/MayCause causal-chain machinery, so the permitted-typed-cause content of a dispatcher AuditRecord is not proved here, only its fresh bijective linkage and atomic commit. Concrete authenticate/authority/lifecycle/revision semantics, the raw envelope decoder, and command.completed rendering are not modeled.",
+      "definitions": [
+        "AgentCore.WriteRecordId",
+        "AgentCore.CommandCaller",
+        "AgentCore.CommandIdentity",
+        "AgentCore.LeaseRequirement",
+        "AgentCore.RawEnvelope",
+        "AgentCore.CommandEnvelope",
+        "AgentCore.CommandEnvelope.identity",
+        "AgentCore.CommandOutcome",
+        "AgentCore.CommandOutcome.Reserves",
+        "AgentCore.WriteRecord",
+        "AgentCore.LeaseGate",
+        "AgentCore.leaseGateBool",
+        "AgentCore.DispatchPolicy",
+        "AgentCore.DispatcherLedger",
+        "AgentCore.DispatcherLedger.boot",
+        "AgentCore.DispatcherLedger.appendWrite",
+        "AgentCore.DispatchLabel",
+        "AgentCore.DispatchStep",
+        "AgentCore.dispatchExec"
+      ],
+      "theorems": [
+        "AgentCore.leaseGateBool_eq_true_iff",
+        "AgentCore.dispatch_appends_exactly_one_linked_write_and_audit",
+        "AgentCore.dispatch_duplicate_never_mutates",
+        "AgentCore.dispatch_nonmutating_outcome_preserves_domain",
+        "AgentCore.dispatch_reserved_identity_only_duplicates",
+        "AgentCore.dispatch_commit_passed_every_gate",
+        "AgentCore.dispatchExec_sound",
+        "AgentCore.dispatchExec_complete"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates",
+        "AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate"
+      ],
+      "witnessCoverage": {
+        "AgentCore.leaseGateBool_eq_true_iff": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_appends_exactly_one_linked_write_and_audit": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_duplicate_never_mutates": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_nonmutating_outcome_preserves_domain": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_reserved_identity_only_duplicates": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_commit_passed_every_gate": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatchExec_sound": [
+          "AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate"
+        ],
+        "AgentCore.dispatchExec_complete": [
+          "AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete family-specific authenticate/authority/lifecycle/revision semantics for each protocol command family (Grant, Binding, RouteReservation, RunPins migration, PreparedInvocation, Approval consumption, EffectAttempt, Receipt, AuditRecord append)",
+        "threading the dispatcher-created audit id through AC-AUDIT-001's typed AuditKind/MayCause causal chain so the permitted-typed-cause rule for callerCause is proved, not just the fresh bijective link",
+        "the raw envelope decoder's concrete shape/schema validation and command.completed rendering"
+      ]
+    },
+    {
       "id": "AC-TRUST-001",
       "summary": "Source-independent channel trust rejects a caller-asserted tier that differs from host derivation",
       "status": "proved-safety",
@@ -2373,7 +2445,7 @@
     },
     {
       "id": "NC-PROTOCOL-DISPATCHER",
-      "summary": "The exact command protocol dispatcher, envelopes, rejection ordering, concurrency checks, and dispatch behavior are not modeled.",
+      "summary": "Concrete per-family authenticate/authority/lifecycle/expected-revision semantics, the raw envelope decoder's schema validation, and command.completed rendering are not modeled; the §8.5 fixed gate order, duplicate-never-mutates, exactly-one linked WriteRecord/AuditRecord per request, and the sound-and-complete executable mirror are claimed under AC-DISPATCHER-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -2573,7 +2645,8 @@
         "requirementIds": [
           "AC-AUDIT-001",
           "AC-COMPOSED-001",
-          "AC-GRAPH-WRITER-001"
+          "AC-GRAPH-WRITER-001",
+          "AC-DISPATCHER-001"
         ],
         "nonClaimIds": [
           "NC-CODECS",
