@@ -963,6 +963,12 @@ interface SettlementAuditObligation {
     | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
     | { readonly kind: "commit"; readonly id: RunCommitId };
 }
+
+interface ResourceCeiling {
+  readonly tokens?: number;
+  readonly wallClockMs?: number;
+  readonly depth?: number;
+}
 ```
 
 `PackagePin.id` identifies the distributable Package release, not a contained
@@ -1106,6 +1112,20 @@ possible is changed input rather than elapsed time or a counted attempt. A Run t
 cannot spin against inputs it has not moved, and one that keeps failing is visible as a
 criterion undischarged across distinct subjects. This maps to
 **C13-RUN-ACCEPTANCE-SUBJECT**.
+
+A `delegate`-impact spawn MAY attenuate resources alongside capability, by carrying an
+optional `ResourceCeiling` on the spawn's attenuation. The same rule governs it as governs
+capability (§3.4 rule 2): a child ceiling MUST NOT exceed the parent's remaining allowance
+in any declared dimension, and a dimension the child does not declare inherits the parent's
+remainder. A Run that declares no ceiling is unbounded — the platform imposes none — so
+fan-out narrows downward without anything capping work nobody chose to bound.
+
+Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
+closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded, and the
+Run's acceptance criteria still say whether the work was finished, so an exhausted Run with
+an undischarged criterion reads as exactly that. A ceiling is scheduling state, like claim
+expiry (§7.4); it never appears in authority admission and changes no admission decision.
+This maps to **C13-RUN-RESOURCE-CEILING**.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
@@ -2556,7 +2576,7 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 - **P11-SELF-AUTHORITY** Self lifecycle actions receive normal authority checks.
 - **P11-SELF-RECEIPTS** Self lifecycle actions receive canonical Receipts.
 - **P11-SELF-AUDIT** Self lifecycle actions receive audit evidence.
-- **P11-SELF-ATTENUATION** `spawn` creates a child Run under attenuated Grants.
+- **P11-SELF-ATTENUATION** `spawn` creates a child Run under attenuated Grants and, when one is declared, an attenuated `ResourceCeiling` (§5.2).
 - **P11-SELF-LEASE** Every Self Operation is lease-fenced.
 - **P11-SELF-NO-WIDENING** A spawned child's authority does not exceed its parent's authority.
 - **P11-SELF-MEDIATION** No Self Operation bypasses mediation.
@@ -2827,6 +2847,7 @@ A conforming implementation provides:
 - **C13-RUN-RESERVATION-EPOCH** Remote admission validates the exact reserved identity and open Run registry epoch.
 - **C13-RUN-ACCEPTANCE-OBLIGATION** A declared acceptance criterion is a reserved Run obligation that only a succeeded verifier Receipt discharges, and declaring none changes nothing.
 - **C13-RUN-ACCEPTANCE-SUBJECT** An acceptance verdict is evidence for its exact subject digest, and a further attempt requires a subject no recorded verdict names.
+- **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds its parent's remainder, exhaustion cancels through the ordinary terminal rows, and declaring none bounds nothing.
 - **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
 - **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
 - **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
@@ -2940,7 +2961,7 @@ This section names coverage categories and trace IDs, never inferred theorem nam
 | Slate | `AC-SLATE-001`, `NC-SLATE-RUNTIME` | abstract record and isolate transitions only: version and publication immutability, rollback as an owned-pointer retarget without provider contact, preview as a live Environment Session, dynamic-only placement, and Binding-backed capability provenance for dynamic isolates; generated application code and concrete provider effects are not modeled |
 | Approval, batch effects, and Receipt lineage | `AC-APPROVAL-001`, `AC-EFFECT-001` | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved |
 | Event routing and typed audit | `AC-EVENT-ROUTING-001`, `AC-ROUTING-001`, `AC-AUDIT-001` | lease-backed self-Event checks, authenticated target projection without a source-audit edge, designated Actor-local audit consequences, and the Subscription routing LTS — at-most-once consumption per (Subscription, event key), declared-target firing, tenant containment, channel-derived trust admission, and fail-closed disable; no reservation uniqueness, transport, storage, or complete-instrumentation claim |
-| Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness on a graph reached from the empty graph by `GraphStep`, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, exact-Turn controlled synthesis, and undo as fenced append-only ancestor selection — no transition writes an undo onto a branch a running Turn still holds, whatever the lease expiry, and no transition removes or rewrites a stored commit; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, pending-revert durability, migration execution, or general settlement-preservation claim |
+| Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness on a graph reached from the empty graph by `GraphStep`, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, exact-Turn controlled synthesis, and undo as fenced append-only ancestor selection — no transition writes an undo onto a branch a running Turn still holds, whatever the lease expiry, and no transition removes or rewrites a stored commit; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, pending-revert durability, migration execution, resource-ceiling attenuation or exhaustion, or general settlement-preservation claim |
 | Integrated admission and settlement | `AC-COMPOSED-001` | designated direct admission, non-attempt mediated preparation, and an abstract distributed mediated-permit LTS. The target first durably records an immutable request; the Tenant issues from only its authority state and the authenticated request payload; typed messages cross a lossy/duplicating/reordering transport; and the target authenticates and consumes against the exact request, volatile authentication, fence, time, claim, reservation, lease, route, and audit state without reading issuer storage. Attempt-producing generic mediated transitions are excluded, so a reachability invariant gives every modeled EffectAttempt exact request, historical Tenant issuance, target consumption, and matching-attempt evidence. No Actor-local boolean or claimed authority admission path is modeled; a future Actor-local attempt path requires ownership that permits the canonical comparison and attempt write in one transaction. Designated consequences cover reset-authentication invalidation, expiry, changed fences, and before/after commit-unknown issuance and consumption. Live authority administration is deliberately absent until a capability-mediated administration path is modeled; raw `AuthorityStep` is not admitted as a runtime transition. The abstract permit binds the modeled PreparedInvocation, claim, reservation, binding generation, fence, actor, nonce, and time fields, not every concrete §10.3 wire field. Settlement retains its constructive exact-obligation witness; no concrete transaction or refinement claim |
 | Platform mechanism representations | `AC-REP-BROKER-001`, `AC-REP-CONSENT-001`, `AC-REP-REACTION-001`, `AC-REP-MOA-001` | proved component reductions to core modules: broker credential custody with the digest-bound approval gate, per-pair consent epochs, reaction dedup and lease-fenced injection, and aggregation-chain lineage completeness; no profile, product, UX, or implementation-refinement claim |
 | Facet manifest/runtime | `NC-FACET-MANIFEST-RUNTIME` | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled |

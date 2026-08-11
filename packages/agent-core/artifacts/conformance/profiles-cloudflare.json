@@ -2566,7 +2566,7 @@
       "id": "P11-SELF-ATTENUATION",
       "owner": "W8",
       "specAnchor": "P11-SELF-ATTENUATION",
-      "specTextSha256": "sha256:ba382341e176d4c743e86f17bd9507071ed101643823b6f4d4f989f8078bb205",
+      "specTextSha256": "sha256:a9c37f03830a3c9444921402d74f08834d66b46cfd5e37e38e39d0ccbfc49093",
       "status": "verified",
       "prerequisites": [
         "P11-BASE-CONTRACT",
