@@ -221,6 +221,29 @@ function inspectNode(node, source, file, aliases) {
             : ts.isVariableDeclaration(node) && node.initializer !== undefined
               ? node.initializer
               : undefined;
+    // The motivating defect was a NUL join, so a delimiter-joined array is the same
+    // candidate identity as a template literal. The receiver must be syntactically an
+    // array -- a literal or a map/filter/sort/slice chain -- so that domain methods that
+    // happen to be named `join`, such as WatermarkSet.join, are not mistaken for it.
+    if (
+        composite !== undefined &&
+        ts.isCallExpression(composite) &&
+        ts.isPropertyAccessExpression(composite.expression) &&
+        composite.expression.name.text === "join" &&
+        isArrayExpression(composite.expression.expression) &&
+        composite.arguments.length === 1 &&
+        ts.isStringLiteral(composite.arguments[0]) &&
+        composite.arguments[0].text !== "" &&
+        !composite.arguments[0].text.includes("\n") &&
+        symbolAt(node, source).startsWith("offset:") === false
+    ) {
+        issue(
+            "ACQ-KEY",
+            file,
+            symbolAt(node, source),
+            "Composite identity built by string concatenation must be injective"
+        );
+    }
     if (
         composite !== undefined &&
         ts.isTemplateExpression(composite) &&
@@ -387,6 +410,12 @@ function freezesThis(constructor) {
             found = true;
     });
     return found;
+}
+
+function isArrayExpression(node) {
+    if (ts.isArrayLiteralExpression(node)) return true;
+    if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return false;
+    return ["filter", "map", "slice", "sort"].includes(node.expression.name.text);
 }
 
 function isRawIdDeclaration(node, source) {

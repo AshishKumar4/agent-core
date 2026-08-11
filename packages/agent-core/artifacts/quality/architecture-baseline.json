@@ -1123,6 +1123,14 @@
     },
     {
       "rule": "ACQ-KEY",
+      "file": "packages/agent-core-cloudflare/src/actor-name.ts",
+      "symbol": "actorObjectName",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core-cloudflare/src/actor-name.ts:actorObjectName:574bb9cb741f",
+      "reason": "The Durable Object name, so a collision would merge two Actors onto one store. encodeURIComponent percent-escapes the ':' separator, so neither the ActorKind nor the ActorId can introduce one, and the fixed three-segment prefix makes the part count exactly five. parseActorObjectName re-encodes what it decoded and rejects the name unless it is byte-identical, so any non-canonical spelling is refused rather than accepted as an alias."
+    },
+    {
+      "rule": "ACQ-KEY",
       "file": "packages/agent-core-cloudflare/src/content-object.ts",
       "symbol": "contentObjectKey",
       "message": "Composite identity built by string concatenation must be injective",
@@ -1160,6 +1168,14 @@
       "message": "Composite identity built by string concatenation must be injective",
       "fingerprint": "ACQ-KEY:packages/agent-core/src/agents/runs/store.ts:acceptanceVerdictKey:574bb9cb741f",
       "reason": "The trailing component is a Digest, constrained by its constructor to exactly 64 lowercase hex characters, so the final 65 characters are unambiguous however the AcceptanceId is spelled."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/authority/epoch.ts:validatePath:574bb9cb741f",
+      "reason": "Not a stored identity: the joined string is compared against four literal chains and discarded. Every component is a ScopeRef kind from a closed union of 'tenant', 'project' and 'workspace', none of which contains a comma, so no element can straddle the separator."
     },
     {
       "rule": "ACQ-KEY",
@@ -1256,6 +1272,14 @@
       "message": "Composite identity built by string concatenation must be injective",
       "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/plan.ts:planMaterialization:574bb9cb741f",
       "reason": "The composite here is the actor key `kind\\u0000id`: ActorKind is a closed union containing no U+0000, so the first U+0000 delimits it and the ActorId takes the whole remainder."
+    },
+    {
+      "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/definition/resolver.ts",
+      "symbol": "failedConflict",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/definition/resolver.ts:failedConflict:574bb9cb741f",
+      "reason": "Not an identity but the human-readable constraint list inside a resolution failure message; it is never parsed or used as a key. The ranges are deduplicated and ordered only so the message is stable."
     },
     {
       "rule": "ACQ-KEY",
