@@ -357,6 +357,7 @@
       "isSecretRefData",
       "managedResourceId",
       "managedStateRecordId",
+      "matchesGlob",
       "materializationGenerationId",
       "mergePolicySets",
       "placementProjection",
@@ -655,7 +656,8 @@
       "canonicalIsolationModes",
       "canonicalTrustTiers",
       "isFacetData",
-      "isFacetDataMap"
+      "isFacetDataMap",
+      "matchesGlob"
     ],
     "@agent-core/core/identity": [
       "BUILT_IN_ROLES",
@@ -1407,6 +1409,7 @@
       "isSecretRefData",
       "managedResourceId",
       "managedStateRecordId",
+      "matchesGlob",
       "materializationGenerationId",
       "mergePolicySets",
       "placementProjection",
@@ -1856,7 +1859,8 @@
       "canonicalIsolationModes",
       "canonicalTrustTiers",
       "isFacetData",
-      "isFacetDataMap"
+      "isFacetDataMap",
+      "matchesGlob"
     ],
     "@agent-core/core/identity": [
       "BUILT_IN_ROLES",

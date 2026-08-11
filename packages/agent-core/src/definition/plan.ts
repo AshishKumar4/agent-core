@@ -5,10 +5,15 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
-    matchesGlob,
     type JsonValue
 } from "../core";
-import { Command, SlotDeclaration, type FacetManifest, type IsolationMode } from "../facets";
+import {
+    Command,
+    SlotDeclaration,
+    matchesGlob,
+    type FacetManifest,
+    type IsolationMode
+} from "../facets";
 import { Blueprint } from "./blueprint";
 import {
     canonicalMaterializationDesired,
