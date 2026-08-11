@@ -792,12 +792,42 @@ duplicating them:
 
 - live preview *is* an Environment Session — a running process with ports — not a
   rendered View;
-- the Slate backend executes in the `dynamic` isolation mode with zero ambient
-  authority; capabilities arrive only through explicitly passed Bindings;
+- the Slate backend is agent-authored code (§4.7): it executes in the `dynamic`
+  isolation mode with zero ambient authority, and capabilities arrive only through
+  explicitly passed Bindings;
 - publishing or embedding a Slate contributes Surfaces; app-private data is owned by
   the Slate's Actor.
 
 Operations: `update`, `commit`, `fork`, `publish`, `deploy`, `rollback`.
+
+### 4.7 Agent-authored code
+
+Three consumers execute code the agent wrote. **Programmatic tool calling**: a Turn
+submits code that strings Operation calls together, the host runs it once, and the
+returned value is the tool call's result — one isolate per submission, gone when the
+submission ends. **Slate backends** (§4.6): durable, versioned application code.
+**Agent-authored facets**: ordinary Facets whose Package the agent produced, installed
+and alive as long as any install references them. The three differ in lifetime and in
+nothing else, and this section states the shared shape once so they cannot drift apart.
+
+The shape is a composition of primitives this document already has, not a seventeenth:
+placement (§9.2) puts the code in a `dynamic` domain — the trust set never hands
+agent-authored code `bundled`, and holding nothing is the point of it — which §1.5
+strips of ambient authority and ambient egress; the capability set arrives only as
+explicitly passed Bindings; every call the code makes against one is an ordinary
+Invocation, tiered by §7.2; and nothing crosses back out except the code's returned
+value and asynchronous Events. From the model's side a programmatic tool call is one
+Operation invocation — code in, value out — while every Operation the code called in
+between carries its own admission and evidence.
+
+One `dynamic` semantics does not mean one hosting mechanism. A substrate profile MAY
+offer more than one backing for loaded code — §10.2 names two — and a platform
+declares which backing serves each consumer: the isolate that runs a programmatic
+tool call need not be the mechanism that hosts Slate backends. Every offered backing
+MUST preserve identical authority semantics — zero ambient authority, zero ambient
+egress, capabilities only as explicitly passed Bindings — so the choice between
+backings is operational, never an authority decision. This maps to
+**C13-PLACEMENT-AUTHORED-BACKING**.
 
 ---
 
@@ -2217,12 +2247,15 @@ tax with no security benefit:
    resolutions are scoped to a single Turn step and re-resolved with current path
    epochs each step (§3.4 rules 7–8). Revocation drops the stub; so do platform
    lifecycle events; re-resolution is the uniform recovery for both.
-3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: agent-generated
-   facets and Slate backends. Hosts pass `globalOutbound: null` (or equivalent); this is
+3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: the agent-authored
+   code of §4.7 — programmatic tool calls, Slate backends, agent-authored facets. Hosts
+   pass `globalOutbound: null` (or equivalent); this is
    how the substrate satisfies §1.5's no-ambient-egress requirement, and capabilities
    arrive only as explicitly passed Bindings. Worker Loader is in open beta at the time of
    writing; Workers-for-Platforms dispatch namespaces serve as the GA fallback for
-   pre-deployed Slate backends, with identical authority semantics, including that one.
+   pre-deployed code — Slate backends, agent-authored facets — with identical authority
+   semantics, including that one. Which backing serves which §4.7 consumer is the
+   platform's declaration to make.
 
 ### 10.3 Implementation constraints
 
@@ -2653,6 +2686,7 @@ A conforming implementation provides:
 - **C13-PLACEMENT-EMPTY** An empty placement intersection is rejected.
 - **C13-PLACEMENT-UNTRUSTED-BUNDLED** Untrusted placement excludes `bundled`.
 - **C13-PLACEMENT-DYNAMIC-NO-EGRESS** A `dynamic` domain starts with no ambient network reach; every destination arrives as an explicitly passed Binding.
+- **C13-PLACEMENT-AUTHORED-BACKING** A platform declares which backing hosts each agent-authored code consumer, and every offered backing preserves identical `dynamic` authority semantics.
 - **C13-POLICY-DIRECT-COLOCATION** The `direct`-tier co-location requirement is enforced.
 - **C13-POLICY-DIRECT-ESCALATION** A direct call that cannot be co-located escalates to `mediated` (§7.2).
 - **C13-POLICY-MEDIATION-FLOOR** No policy can make non-session `execute`, `mutate`, `externalSend`, `delegate`, or `administer` direct.

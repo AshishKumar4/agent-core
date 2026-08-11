@@ -1963,6 +1963,20 @@
       ]
     },
     {
+      "id": "C13-PLACEMENT-AUTHORED-BACKING",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-AUTHORED-BACKING",
+      "specTextSha256": "sha256:85ca064ca6037ec48a4ca984a6895c4b1ebafa2ecf0d145340a5184d5f1f186b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
