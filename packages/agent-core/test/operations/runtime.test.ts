@@ -218,7 +218,7 @@ describe("Facet runtime", () => {
     });
 
     test(
-        "names the kind of contribution that has no runtime implementation",
+        "[C13-FACET-INSTALL-VERIFICATION] names the kind of contribution that has no runtime implementation",
         { tags: "p1" },
         () => {
             const surfaceDescriptor = new SurfaceDescriptor(
@@ -253,7 +253,7 @@ describe("Facet runtime", () => {
     );
 
     test(
-        "rejects a runtime declaration that differs from its pinned bytes at a single position",
+        "[C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position",
         { tags: "p0" },
         () => {
             const declared = new OperationDescriptor(
@@ -853,7 +853,7 @@ describe("Facet runtime", () => {
 
 describe("Protected Operation gateway", () => {
     test(
-        "executes direct only after synchronous authorization and rejects hidden handlers",
+        "[C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects undeclared hidden handlers",
         { tags: "p0" },
         async () => {
             const events: string[] = [];

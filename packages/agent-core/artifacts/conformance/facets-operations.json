@@ -134,14 +134,20 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-INSTALL-VERIFICATION",
       "specTextSha256": "sha256:88f437d400f88e53bf2aecee9b654f0a4781d91335672af4b6290058116b380c",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/operations/correspondence.ts#FacetCorrespondenceValidator",
+        "src/operations/correspondence.ts#ValidatedFacet",
+        "src/operations/gateway.ts#ProtectedResolvedFacet"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] names the kind of contribution that has no runtime implementation",
+        "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position",
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects undeclared hidden handlers"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-FACET-MANIFEST",
