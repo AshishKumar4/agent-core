@@ -1,9 +1,7 @@
 export { GuestTrust } from "../../src/identity/guest-trust";
 import type { Digest, RecordCodec, Revision } from "../../src/core";
-import {
-    GuestVerification as GuestVerificationValue,
-    type GuestVerificationMethod
-} from "../../src/identity/guest-verification";
+import { GuestVerification as GuestVerificationValue } from "../../src/identity/guest-verification";
+import { GuestVerificationScheme } from "../../src/identity/subject";
 import { guestVerificationCodec, mintGuestVerification } from "../../src/identity/internal";
 import type { GuestTrustId } from "../../src/identity/id";
 import type { PrincipalRef } from "../../src/identity/principal-ref";
@@ -16,7 +14,7 @@ interface GuestVerificationTestConstructor {
         principal: PrincipalRef,
         trustId: GuestTrustId,
         trustRevision: Revision,
-        method: GuestVerificationMethod,
+        verifiedVia: GuestVerificationScheme,
         evidenceDigest: Digest,
         verifiedAt: Date,
         expiresAt: Date
@@ -30,7 +28,7 @@ const createGuestVerification = function (
     principal: PrincipalRef,
     trustId: GuestTrustId,
     trustRevision: Revision,
-    method: GuestVerificationMethod,
+    verifiedVia: GuestVerificationScheme,
     evidenceDigest: Digest,
     verifiedAt: Date,
     expiresAt: Date
@@ -39,7 +37,7 @@ const createGuestVerification = function (
         principal,
         trustId,
         trustRevision,
-        method,
+        verifiedVia,
         evidenceDigest,
         verifiedAt,
         expiresAt

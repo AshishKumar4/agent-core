@@ -364,7 +364,7 @@ export class AuthorityMutationService {
                 !trust.hostTenant.equals(store.tenantId) ||
                 !trust.homeTenant.equals(membership.subject.homeTenant) ||
                 trust.revision.value !== verification.trustRevision.value ||
-                trust.verifier.kind !== verification.method ||
+                trust.verifier.kind !== verification.verifiedVia.value ||
                 !verification.admits(membership.subject, now)
             ) {
                 throw new AgentCoreError(

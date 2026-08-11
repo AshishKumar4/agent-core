@@ -43,7 +43,7 @@ const verification = new GuestVerification(
     new PrincipalRef(homeTenant, guestId),
     new GuestTrustId("hard-trust"),
     Revision.initial(),
-    "callback",
+    GuestVerificationScheme.callback,
     Digest.sha256(Uint8Array.of(1)),
     new Date(100),
     new Date(200)
@@ -317,7 +317,7 @@ describe("guest trust and verification hard gates", () => {
                     verification.principal,
                     verification.trustId,
                     verification.trustRevision,
-                    verification.method,
+                    verification.verifiedVia,
                     verification.evidenceDigest,
                     new Date(200),
                     new Date(100)
@@ -329,7 +329,7 @@ describe("guest trust and verification hard gates", () => {
                     verification.principal,
                     verification.trustId,
                     verification.trustRevision,
-                    verification.method,
+                    verification.verifiedVia,
                     verification.evidenceDigest,
                     new Date(Number.NaN),
                     new Date(200)
@@ -362,7 +362,7 @@ describe("guest trust and verification hard gates", () => {
         }));
         expectCodecFailure(GuestVerification.codec, verification, (payload) => ({
             ...payload,
-            method: "handshake"
+            verifiedVia: "handshake"
         }));
         expectCodecFailure(GuestTrust.codec, trust, (payload) => ({
             ...payload,

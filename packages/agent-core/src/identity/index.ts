@@ -43,7 +43,7 @@ export { Membership } from "./member";
 export type { MembershipState } from "./member";
 export { GuestTrust } from "./guest-trust";
 export type { GuestTrustVerifier } from "./guest-trust";
-export type { GuestVerification, GuestVerificationMethod } from "./guest-verification";
+export type { GuestVerification } from "./guest-verification";
 export { PrincipalRef } from "./principal-ref";
 export { Workspace } from "./workspace";
 export { IdentityRepository, MemoryIdentityRepository } from "./repository";
