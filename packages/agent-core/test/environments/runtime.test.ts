@@ -191,6 +191,66 @@ describe("EnvironmentController", () => {
         }
     );
 
+    test(
+        "[C13-ENVIRONMENT-TURN-OWNED] rejects use under another Turn's lease and fails closed once the owning lease is fenced",
+        { tags: "p1" },
+        async () => {
+            const provider = new TestProvider(descriptor("provider-turn-owned", "e"));
+            const store = new MemoryEnvironmentStore();
+            let live: LeaseToken | undefined = lease;
+            const controller = new EnvironmentController(
+                store,
+                new MemoryEnvironmentProviderRegistry([provider]),
+                { permits: (candidate) => candidate === live }
+            );
+            controller.provision(initialRevision(provider.descriptor), lease);
+            const reserved = controller.reserveSession(
+                environmentId,
+                new EnvironmentSessionId("session-turn-owned"),
+                lease
+            );
+            await controller.openSession(reserved.capability, lease);
+
+            const otherTurn: LeaseToken = Object.freeze({
+                turn: new TurnId("turn-environment-runtime-other"),
+                holder: lease.holder,
+                epoch: 1
+            });
+            const rejection = new AgentCoreError(
+                "lease.invalid",
+                "Environment operation requires a live exact-Turn lease"
+            );
+            await expect(
+                controller.expose(
+                    reserved.capability,
+                    new PortExposureId("exposure-turn-owned"),
+                    8080,
+                    otherTurn
+                )
+            ).rejects.toEqual(rejection);
+
+            live = undefined; // the owning Turn went terminal and its lease was fenced
+            await expect(
+                controller.expose(
+                    reserved.capability,
+                    new PortExposureId("exposure-turn-owned-fenced"),
+                    8080,
+                    lease
+                )
+            ).rejects.toEqual(rejection);
+
+            live = lease; // terminal disposal drives the close under system control
+            const closed = await controller.closeSession(reserved.capability, lease);
+            expect(closed.state.name).toBe("closed");
+            expect(() => controller.session(reserved.capability)).toThrow(
+                new AgentCoreError(
+                    "environment.stale-session",
+                    "Environment session capability is stale or belongs to another session"
+                )
+            );
+        }
+    );
+
     test("keeps the exact Turn lease as an injected verifier seam", { tags: "p0" }, () => {
         const provider = new TestProvider(descriptor("provider-lease", "d"));
         const seen: LeaseToken[] = [];

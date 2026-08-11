@@ -229,6 +229,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-ENVIRONMENT-TURN-OWNED",
+      "owner": "W8",
+      "specAnchor": "C13-ENVIRONMENT-TURN-OWNED",
+      "specTextSha256": "sha256:60a2b6770b13f8e84a29795c09869b863b2408d3aa7b7d3e5f51d8850366f4ba",
+      "status": "verified",
+      "prerequisites": ["P11-ENVIRONMENT-USE"],
+      "sourceSymbols": ["src/environments/runtime.ts#EnvironmentController"],
+      "testSelectors": [
+        "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-TURN-OWNED] rejects use under another Turn's lease and fails closed once the owning lease is fenced"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
       "id": "C13-PROFILE-SOURCE-EVENT-CAUSALITY",
       "owner": "W8",
       "specAnchor": "C13-PROFILE-SOURCE-EVENT-CAUSALITY",
@@ -1200,7 +1214,7 @@
       "id": "P11-FILESYSTEM-RECEIPT",
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-RECEIPT",
-      "specTextSha256": "sha256:83a6c035b550242fbb76281d88993c19fec41ffa7e66f0e1fc26a5a508d8a87d",
+      "specTextSha256": "sha256:d7a12ad20f4e93c755898128345280574ef342122db2dd43703dc18ffaab38ea",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
@@ -1223,6 +1237,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "P11-FILESYSTEM-SESSION-DIRECT",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-SESSION-DIRECT",
+      "specTextSha256": "sha256:a15ccf14dd3babcbb13667d4473f26d7d274fd1952838168cba34cc3d49914bf",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "P11-FILESYSTEM-STAT",
@@ -1662,7 +1690,7 @@
       "id": "P11-SELF-ATTENUATION",
       "owner": "W8",
       "specAnchor": "P11-SELF-ATTENUATION",
-      "specTextSha256": "sha256:ba382341e176d4c743e86f17bd9507071ed101643823b6f4d4f989f8078bb205",
+      "specTextSha256": "sha256:a9c37f03830a3c9444921402d74f08834d66b46cfd5e37e38e39d0ccbfc49093",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/self/facet.ts#SelfFacet"],
@@ -1984,7 +2012,7 @@
       "id": "P11-SHELL-RUN",
       "owner": "W8",
       "specAnchor": "P11-SHELL-RUN",
-      "specTextSha256": "sha256:d0b18672be9a64b6601048d1fc91a975be8bb9c335002946bbd6a83d4d8a30f7",
+      "specTextSha256": "sha256:e6205b7f39ef1227b42c8ac827c7b3e548dbd6d51e9e0c24829c8c1722e658d4",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/shell/facet.ts#ShellFacet"],

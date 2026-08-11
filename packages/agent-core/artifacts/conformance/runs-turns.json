@@ -523,6 +523,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-RESOURCE-CEILING",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-RESOURCE-CEILING",
+      "specTextSha256": "sha256:377b8a6e56b1f3f7e24eca6c9ef7695c172814c23a31b172ecad112172b65c8e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-RUN-SETTLED-DERIVED",
       "owner": "W5",
       "specAnchor": "C13-RUN-SETTLED-DERIVED",

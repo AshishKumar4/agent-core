@@ -87,6 +87,20 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-PLACEMENT-AUTHORED-BACKING",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-AUTHORED-BACKING",
+      "specTextSha256": "sha256:85ca064ca6037ec48a4ca984a6895c4b1ebafa2ecf0d145340a5184d5f1f186b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
@@ -230,7 +244,7 @@
       "id": "C13-POLICY-MEDIATION-FLOOR",
       "owner": "W4",
       "specAnchor": "C13-POLICY-MEDIATION-FLOOR",
-      "specTextSha256": "sha256:4764175261848895fe9dcbc11b9656f1aa7fb7ae9357420ebfd4f982f5dd6184",
+      "specTextSha256": "sha256:0f22eaff6a8edfffe7b917dffe0ec2ebe202b880ad9e0c777e15cf8a50478175",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
