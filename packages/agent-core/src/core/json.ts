@@ -2,12 +2,21 @@ import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 export type JsonPrimitive = boolean | number | string | null;
 
-export type JsonValue =
-    | JsonPrimitive
-    | readonly JsonValue[]
-    | {
-          readonly [key: string]: JsonValue;
-      };
+export type JsonObject = {
+    readonly [key: string]: JsonValue;
+};
+
+export type JsonValue = JsonPrimitive | readonly JsonValue[] | JsonObject;
+
+/** A JsonObject whose named fields are known to be present. */
+export type JsonFields<Field extends string> = JsonObject & {
+    readonly [Key in Field]: JsonValue;
+};
+
+/** An object arriving as `unknown`, before any of its properties are narrowed. */
+export type ObjectRecord = {
+    readonly [key: string]: unknown;
+};
 
 export function isJsonValue(value: unknown): value is JsonValue {
     try {
@@ -17,10 +26,25 @@ export function isJsonValue(value: unknown): value is JsonValue {
     }
 }
 
-export function hasExactJsonKeys(
-    value: { readonly [key: string]: JsonValue },
-    expected: readonly string[]
-): boolean {
+export function isJsonObject(value: JsonValue | undefined): value is JsonObject {
+    return (
+        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
+    );
+}
+
+/**
+ * The `unknown` counterpart of isJsonObject: narrows an untrusted value to a
+ * property bag whose members are still `unknown`, so each one must be narrowed
+ * on its own before use.
+ */
+export function isObjectRecord(value: unknown): value is ObjectRecord {
+    return value !== null && !Array.isArray(value) && typeof value === "object";
+}
+
+export function hasExactJsonKeys<Field extends string>(
+    value: JsonObject,
+    expected: readonly Field[]
+): value is JsonFields<Field> {
     const keys = Object.keys(value);
     return keys.length === expected.length && expected.every((key) => Object.hasOwn(value, key));
 }
@@ -44,13 +68,13 @@ function isJsonValueAt(value: unknown, ancestors: WeakSet<object>): value is Jso
 
     ancestors.add(value);
     const valid = Array.isArray(value)
-        ? isJsonArray(value, ancestors)
-        : isJsonObject(value, ancestors);
+        ? isJsonArrayAt(value, ancestors)
+        : isJsonObjectAt(value, ancestors);
     ancestors.delete(value);
     return valid;
 }
 
-function isJsonArray(value: unknown[], ancestors: WeakSet<object>): value is JsonValue[] {
+function isJsonArrayAt(value: unknown[], ancestors: WeakSet<object>): value is JsonValue[] {
     if (
         Object.getPrototypeOf(value) !== Array.prototype ||
         Reflect.ownKeys(value).length !== value.length + 1
@@ -71,7 +95,7 @@ function isJsonArray(value: unknown[], ancestors: WeakSet<object>): value is Jso
     return true;
 }
 
-function isJsonObject(
+function isJsonObjectAt(
     value: object,
     ancestors: WeakSet<object>
 ): value is { readonly [key: string]: JsonValue } {
