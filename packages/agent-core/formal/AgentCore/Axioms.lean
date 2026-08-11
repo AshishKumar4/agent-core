@@ -65,6 +65,21 @@ import AgentCore
 #print axioms AgentCore.unowned_execute_floor_is_mediated
 #print axioms AgentCore.direct_execute_requires_bundled_colocation
 
+-- SecretRef custody (SPEC §3.5): exact tenant/Binding/endpoint resolution, repointing
+-- invalidation, and carriers that hold refs, never raw values.
+#print axioms AgentCore.secret_resolution_requires_exact_tenant
+#print axioms AgentCore.foreign_tenant_secret_resolution_rejected
+#print axioms AgentCore.secret_resolution_requires_current_custody
+#print axioms AgentCore.mismatched_custody_secret_resolution_rejected
+#print axioms AgentCore.fresh_resolution_is_current
+#print axioms AgentCore.repoint_invalidates_prior_resolution
+#print axioms AgentCore.boot_carriers_ref_only
+#print axioms AgentCore.secret_step_preserves_carrier_ref_only
+#print axioms AgentCore.reachable_carriers_ref_only
+#print axioms AgentCore.secret_value_carrier_is_unreachable
+#print axioms AgentCore.guest_grant_value_carrier_is_unreachable
+#print axioms AgentCore.cross_tenant_reservation_value_carrier_is_unreachable
+
 -- Environment Sessions: Turn-owned use, fail-closed lifecycle, credential isolation.
 #print axioms AgentCore.session_use_is_turn_owned_and_live
 #print axioms AgentCore.stale_session_admits_nothing
@@ -382,6 +397,8 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo
 #print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
+#print axioms AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates
+#print axioms AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable
 #print axioms AgentCore.Examples.nonvacuous_credential_isolated_session_trace
 #print axioms AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable
 #print axioms AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection

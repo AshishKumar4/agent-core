@@ -3,6 +3,7 @@ import AgentCore.Slates
 import AgentCore.Subscriptions
 import AgentCore.Commands
 import AgentCore.Dispatcher
+import AgentCore.Secrets
 
 /-! Constructive witnesses for the final designated claim families. -/
 
@@ -5143,5 +5144,100 @@ theorem nonvacuous_dispatchExec_matches_commit_then_duplicate :
   ⟨dispatchExec_complete dispatchCommitStep, dispatchExec_complete dispatchDuplicateStep,
     dispatchExec_sound (dispatchExec_complete dispatchCommitStep),
     dispatchExec_sound (dispatchExec_complete dispatchDuplicateStep)⟩
+
+/-! ## SecretRef custody witnesses (SPEC §3.5) -/
+
+private def secretsTenantA : TenantId := ⟨1⟩
+private def secretsTenantB : TenantId := ⟨2⟩
+private def secretRef1 : SecretRef := ⟨secretsTenantA, "acme", 7⟩
+private def secretBinding1 : BindingId := ⟨51⟩
+private def secretEndpoint1 : SecretEndpoint := ⟨1⟩
+private def secretBinding2 : BindingId := ⟨52⟩
+private def secretEndpoint2 : SecretEndpoint := ⟨2⟩
+private def secretResolutionId : ResolutionId := ⟨81⟩
+private def secretCustody1 : SecretCustody := ⟨secretBinding1, secretEndpoint1, 0⟩
+
+private def secretsAccepted : SecretLedger :=
+  { SecretLedger.boot with custody := tableSet SecretLedger.boot.custody secretRef1 secretCustody1 }
+
+private def secretsAcceptStep :
+    SecretStep SecretLedger.boot (.accept secretRef1 secretBinding1 secretEndpoint1)
+      secretsAccepted :=
+  SecretStep.accept rfl
+
+private def secretResolutionRecord : SecretResolution :=
+  ⟨secretResolutionId, secretRef1, secretBinding1, secretEndpoint1, 0⟩
+
+private def secretsResolved : SecretLedger :=
+  { secretsAccepted with
+    resolutions := tableSet secretsAccepted.resolutions secretResolutionId secretResolutionRecord }
+
+private def secretsResolveStep :
+    SecretStep secretsAccepted
+      (.resolve secretResolutionId secretRef1 secretsTenantA secretBinding1 secretEndpoint1)
+      secretsResolved :=
+  SecretStep.resolve (current := secretCustody1) rfl rfl rfl rfl rfl
+
+private def secretsRepointed : SecretLedger :=
+  { secretsResolved with
+    custody := tableSet secretsResolved.custody secretRef1 ⟨secretBinding2, secretEndpoint2, 1⟩ }
+
+private def secretsRepointStep :
+    SecretStep secretsResolved (.repoint secretRef1 secretBinding2 secretEndpoint2)
+      secretsRepointed :=
+  SecretStep.repoint (current := secretCustody1) rfl
+
+/-- A secret accepted for one Binding/endpoint yields a current resolution for the
+    home Tenant; a foreign Tenant's resolve step is inadmissible for the same
+    request; and repointing to a new Binding/endpoint bumps the custody generation so
+    the same resolution — otherwise untouched — is no longer current. The old
+    resolution genuinely stops working rather than merely going unreferenced. -/
+theorem nonvacuous_secret_custody_exact_and_repoint_invalidates :
+    SecretStep SecretLedger.boot (.accept secretRef1 secretBinding1 secretEndpoint1)
+      secretsAccepted ∧
+    SecretStep secretsAccepted
+      (.resolve secretResolutionId secretRef1 secretsTenantA secretBinding1 secretEndpoint1)
+      secretsResolved ∧
+    SecretResolution.Current secretsResolved secretResolutionRecord ∧
+    (¬ SecretStep secretsAccepted
+      (.resolve secretResolutionId secretRef1 secretsTenantB secretBinding1 secretEndpoint1)
+      secretsResolved) ∧
+    SecretStep secretsResolved (.repoint secretRef1 secretBinding2 secretEndpoint2)
+      secretsRepointed ∧
+    ¬ SecretResolution.Current secretsRepointed secretResolutionRecord :=
+  ⟨secretsAcceptStep, secretsResolveStep,
+    fresh_resolution_is_current (current := secretCustody1) rfl secretsResolveStep,
+    foreign_tenant_secret_resolution_rejected (by decide),
+    secretsRepointStep,
+    repoint_invalidates_prior_resolution (current := secretCustody1) rfl secretsRepointStep
+      (fresh_resolution_is_current (current := secretCustody1) rfl secretsResolveStep) rfl⟩
+
+private def secretDelegationId : DelegationId := ⟨91⟩
+private def secretsDelegated : SecretLedger :=
+  { secretsAccepted with
+    delegations := tableSet secretsAccepted.delegations secretDelegationId (.ref secretRef1) }
+
+private def secretsDelegateStep :
+    SecretStep secretsAccepted (.delegate secretDelegationId secretRef1) secretsDelegated :=
+  SecretStep.delegate rfl
+
+private def secretsReachable : SecretReachable secretsDelegated :=
+  .step (.step .boot secretsAcceptStep) secretsDelegateStep
+
+/-- A reachable delegation carrier for the accepted secret is a ref; a ledger built
+    the same way but with a raw `SecretValue` in that slot is provably unreachable —
+    the leak is representable (the carrier type can hold it) and excluded, not merely
+    absent from this one trace. -/
+theorem nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable :
+    SecretReachable secretsDelegated ∧
+    secretsDelegated.delegations secretDelegationId = some (.ref secretRef1) ∧
+    ¬ SecretReachable
+        { secretsDelegated with
+          delegations := tableSet secretsDelegated.delegations secretDelegationId
+            (.value secretRef1 ⟨0⟩) } := by
+  refine ⟨secretsReachable, rfl,
+    secret_value_carrier_is_unreachable
+      (id := secretDelegationId) (secret := secretRef1) (raw := (⟨0⟩ : SecretValue)) ?_⟩
+  simp only [tableSet_self]
 
 end AgentCore.Examples

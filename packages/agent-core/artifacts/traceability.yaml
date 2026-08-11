@@ -247,6 +247,91 @@
       ]
     },
     {
+      "id": "AC-SECRET-001",
+      "summary": "SecretRef custody (§3.5): resolution bound to the exact home Tenant, Binding, and endpoint the Tenant recorded, repointing invalidation, and delegation/guest-Membership/cross-tenant-reservation carriers that hold refs, never raw values",
+      "status": "proved-safety",
+      "boundary": "A resolve step admits only the Tenant a SecretRef's own source names, and only the exact Binding and endpoint the current custody record holds -- not any Binding or endpoint the secret was ever accepted for. Repointing bumps the custody generation, so a resolution current before a repoint is never current after it, without needing to be revoked. Every delegation, guest-grant, and cross-tenant-reservation carrier constructed by a step is a SecretCarrier.ref; SecretCarrier.value is representable but excluded from every reachable ledger, so a carrier holding the raw SecretValue refutes reachability outright. This is custody, not process isolation: nothing here claims a resolved credential cannot be read back once it leaves custody -- that is NC-SECRET-PROCESS-ISOLATION, and the narrower agent-visible-filesystem instance of it is AC-ENVIRONMENT-001's CredentialIsolated. Concrete provider verification of accepted credentials, secret rotation, and the wire representation of SecretRef are not modeled.",
+      "definitions": [
+        "AgentCore.SecretRef",
+        "AgentCore.SecretEndpoint",
+        "AgentCore.SecretValue",
+        "AgentCore.SecretCarrier",
+        "AgentCore.SecretCarrier.secret",
+        "AgentCore.SecretCustody",
+        "AgentCore.SecretResolution",
+        "AgentCore.DelegationId",
+        "AgentCore.GuestGrantId",
+        "AgentCore.SecretLedger",
+        "AgentCore.SecretLedger.boot",
+        "AgentCore.SecretResolution.Current",
+        "AgentCore.SecretLabel",
+        "AgentCore.SecretStep",
+        "AgentCore.CarrierRefOnly",
+        "AgentCore.SecretReachable"
+      ],
+      "theorems": [
+        "AgentCore.secret_resolution_requires_exact_tenant",
+        "AgentCore.foreign_tenant_secret_resolution_rejected",
+        "AgentCore.secret_resolution_requires_current_custody",
+        "AgentCore.mismatched_custody_secret_resolution_rejected",
+        "AgentCore.fresh_resolution_is_current",
+        "AgentCore.repoint_invalidates_prior_resolution",
+        "AgentCore.boot_carriers_ref_only",
+        "AgentCore.secret_step_preserves_carrier_ref_only",
+        "AgentCore.reachable_carriers_ref_only",
+        "AgentCore.secret_value_carrier_is_unreachable",
+        "AgentCore.guest_grant_value_carrier_is_unreachable",
+        "AgentCore.cross_tenant_reservation_value_carrier_is_unreachable"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates",
+        "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+      ],
+      "witnessCoverage": {
+        "AgentCore.secret_resolution_requires_exact_tenant": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.foreign_tenant_secret_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.secret_resolution_requires_current_custody": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.mismatched_custody_secret_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.fresh_resolution_is_current": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.repoint_invalidates_prior_resolution": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.boot_carriers_ref_only": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.secret_step_preserves_carrier_ref_only": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.reachable_carriers_ref_only": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.secret_value_carrier_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.guest_grant_value_carrier_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.cross_tenant_reservation_value_carrier_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete provider verification of an accepted credential and secret rotation semantics",
+        "the wire representation and codec of SecretRef and its provider field",
+        "linking this custody model to the narrower Environment/Session AgentValue.ref usage so the two SecretRef-adjacent models are proved consistent rather than independently sound"
+      ]
+    },
+    {
       "id": "AC-MATERIALIZE-001",
       "summary": "Foreign-subject guest allow attenuation, deny preservation, and epoch-advancing Role rematerialization",
       "status": "proved-component",
@@ -2434,6 +2519,11 @@
       "status": "specified-not-modeled"
     },
     {
+      "id": "NC-SECRET-PROCESS-ISOLATION",
+      "summary": "SecretRef custody is not process isolation: §3.5 states that if plaintext is readable in an agent-visible filesystem, the ref does not protect it, so nothing beyond custody -- who may present a credential -- is claimed once a resolved value leaves the custody boundary. AC-SECRET-001 proves custody; process isolation of a resolved value is not modeled.",
+      "status": "specified-not-modeled"
+    },
+    {
       "id": "NC-INTERCEPTORS",
       "summary": "Runtime interceptor candidate discovery from installed contributions, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, and the prompt.assemble, input.submitted, and turn.step cut points are not modeled; operation cut-point ordering, execution, attribution, blocks, replay reuse, and the mediated-tier raise are claimed under AC-INTERCEPTOR-001.",
       "status": "specified-not-modeled"
@@ -2515,9 +2605,12 @@
           "AC-AUTH-001",
           "AC-AUTH-RESOLUTION-001",
           "AC-MATERIALIZE-001",
-          "AC-COMPOSED-001"
+          "AC-COMPOSED-001",
+          "AC-SECRET-001"
         ],
-        "nonClaimIds": [],
+        "nonClaimIds": [
+          "NC-SECRET-PROCESS-ISOLATION"
+        ],
         "assumptionIds": [
           "ASM-LIVENESS-TIME-INVALIDATION",
           "ASM-TRUTHFUL-VERIFICATION-INPUTS"
