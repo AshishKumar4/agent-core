@@ -203,6 +203,30 @@ function expectCodecError(bytes: Uint8Array, code: AgentCoreErrorCode): void {
 }
 
 describe("AuditRecord codec", () => {
+    test(
+        "[C13-AUDIT-TELEMETRY-EXCLUDED] refuses diagnostic evidence kinds outside the closed durable taxonomy",
+        { tags: "p0" },
+        () => {
+            for (const kind of ["telemetry", "span", "log", "metric", "trace", "diagnostic"]) {
+                expectCodecError(wireRecord({ kind, id: `${kind}-evidence` }), "codec.invalid");
+            }
+            const vocabulary = [...new Set(codecKinds.map(([, kind]) => kind.kind))].sort();
+            expect(vocabulary).toEqual([
+                "approval",
+                "attempt",
+                "commit",
+                "delivery",
+                "event",
+                "invocation",
+                "receipt",
+                "receiptSuperseded",
+                "routeProjected",
+                "routeReserved",
+                "write"
+            ]);
+        }
+    );
+
     test.each(codecKinds)("round-trips the complete %s vocabulary", { tags: "p1" }, (_name, kind) => {
         const encoded = AuditRecordCodec.encode(audit(kind));
         const decoded = AuditRecordCodec.decode(encoded);

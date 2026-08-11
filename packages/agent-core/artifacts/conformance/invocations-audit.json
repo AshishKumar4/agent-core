@@ -477,15 +477,20 @@
       "owner": "W6",
       "specAnchor": "C13-AUDIT-TELEMETRY-EXCLUDED",
       "specTextSha256": "sha256:dbd9d1a19d55f52eb161fe517e2a7b8c58cd9a39dd43f3837ecfe18740b2c728",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
-    },
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditEvidenceResolver",
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#validateAuditAppend"
+      ],
+      "testSelectors": [
+        "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge",
+        "test/invocations/audit.test.ts#AuditRecord codec [C13-AUDIT-TELEMETRY-EXCLUDED] refuses diagnostic evidence kinds outside the closed durable taxonomy"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+        },
     {
       "id": "C13-BATCH-OUTCOME-COMPLETE",
       "owner": "W6",
