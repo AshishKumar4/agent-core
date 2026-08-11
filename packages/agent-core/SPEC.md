@@ -431,8 +431,17 @@ Authority rules:
    the exact permit under `C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION`. This rule maps
    to **C13-AUTH-MEDIATED-ADMISSION** and **C13-AUTH-MEDIATED-STALE**.
 8. Resolved-facet lifetime follows the isolation mode: `bundled` resolutions last no
-   longer than their exact Turn and deadline; `provider`/`dynamic` resolutions last one
-   Turn step and are mediated with current path epochs (§10.2). This maps to
+   longer than their exact Turn and deadline — a held or cached resolution admits only
+   while it still names the exact current LeaseToken for that Turn, so fencing,
+   reclaiming, or completing the Turn ends it at once rather than at the next unrelated
+   check. A **Turn step** is one iteration of the Turn's execution loop, the interval
+   between two successive firings of the `turn.step` interceptor cut point (§4.4); the
+   executor seam (§5.6) fixes what one iteration comprises and this document places no
+   further structure on it. `provider`/`dynamic` resolutions last one Turn step: the
+   capability stub they wrap MUST NOT be held or reused past the step in which it was
+   obtained, and every mediated use of it — inside that step or any later one —
+   independently re-authorizes against current path epochs regardless of how recently the
+   resolution was obtained (§10.2, rule 7 above). This maps to
    **C13-AUTH-RESOLUTION-LIFETIME**.
 
 *Why bounded-window rather than instantaneous:* no distributed substrate can update

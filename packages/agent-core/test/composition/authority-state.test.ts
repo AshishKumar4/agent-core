@@ -110,7 +110,7 @@ class StateHarness implements ActorAuthorityHost {
             new Date(LEASE_EXPIRY)
         );
         this.token = { turn: this.lease.turn, holder: principal, epoch: 1 };
-        this.state = new ActorAuthorityState(tenant, owner, watermarks, this);
+        this.state = new ActorAuthorityState(tenant, owner, watermarks, this, () => this.now);
         this.authority = new TenantOperationAuthority(this.state, () => this.now);
     }
 
@@ -255,7 +255,8 @@ class IdentityCacheHarness implements ActorAuthorityHost {
             tenant,
             actor,
             new MemoryInvalidationWatermarkStore(tenant, actor),
-            this
+            this,
+            () => new Date(RESOLVED_AT)
         );
         this.authority = new TenantOperationAuthority(this.state, () => new Date(RESOLVED_AT));
     }
@@ -639,6 +640,37 @@ describe("production authority state seams (memory)", () => {
 
             // Release invalidates the cached candidate, so the next resolve rebuilds.
             harness.authority.release(resolution);
+            await harness.resolved();
+            expect(harness.resolves).toBe(2);
+        }
+    );
+
+    test(
+        "[C13-AUTH-RESOLUTION-LIFETIME] a bundled resolution cannot outlive its Turn without an explicit release",
+        { tags: "p0" },
+        async () => {
+            const harness = new StateHarness(createStore());
+            await harness.resolved();
+            expect(harness.resolves).toBe(1);
+
+            // Turn 1 ends (succeed/fail/cancel fences its lease) and Turn 2 claims the
+            // same Binding under a fresh LeaseToken for a different Turn — no release()
+            // call happens in between, the way §3.4 rule 6's watermark-driven
+            // invalidation would.
+            const nextTurn = new TurnId("authority-state-next-turn");
+            harness.lease = TurnLease.restore(nextTurn, principal, 1, new Date(LEASE_EXPIRY));
+            harness.token = { turn: nextTurn, holder: principal, epoch: 1 };
+
+            // A cache that only compared caller/binding identity would still return
+            // Turn 1's cached candidate here and succeed. Instead the stale entry fails
+            // closed exactly like any other cache/candidate mismatch (§3.4 rule 1) and is
+            // evicted; the next lookup finds no entry and rebuilds against Turn 2's
+            // current lease. Two denials-then-rebuild in a row would prove nothing about
+            // Turn scoping, so asserting the fail-closed step first is what makes this
+            // discriminate from a cache that never checked the lease at all.
+            await expect(harness.resolved()).rejects.toMatchObject({ code: "authority.denied" });
+            expect(harness.resolves).toBe(1);
+
             await harness.resolved();
             expect(harness.resolves).toBe(2);
         }

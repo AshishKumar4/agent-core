@@ -66,12 +66,16 @@ export interface ActorAuthorityHost {
 }
 
 /**
- * Production Actor-local authority state (§3.4 rules 6–7). One durable
+ * Production Actor-local authority state (§3.4 rules 6–8). One durable
  * per-holder watermark store backs BOTH invalidation delivery and mediated
  * stale observation; a stale observation atomically joins the current path
  * epochs into the holder watermark, invalidates the cached resolution, and
  * persists the deniedPreEffect evidence with no EffectAttempt — all in one
- * Actor transaction, so a rollback leaves no partial denial.
+ * Actor transaction, so a rollback leaves no partial denial. The resolution
+ * cache itself is scoped to the exact current Turn lease (rule 8): a cache
+ * hit revalidates its candidate's LeaseToken against the host's live lease
+ * state, so a `bundled` resolution cannot outlive its Turn merely because
+ * nothing happened to look it up again in the meantime.
  */
 export class ActorAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
     readonly #cache = new Map<string, OperationResolutionCandidate>();
@@ -80,7 +84,8 @@ export class ActorAuthorityState implements OperationAuthorityStatePort<Principa
         private readonly tenant: TenantId,
         private readonly owner: ActorRef,
         private readonly watermarks: InvalidationWatermarkStore,
-        private readonly host: ActorAuthorityHost
+        private readonly host: ActorAuthorityHost,
+        private readonly now: () => Date
     ) {}
 
     public resolve(
@@ -213,8 +218,25 @@ export class ActorAuthorityState implements OperationAuthorityStatePort<Principa
             candidate.binding.name.equals(name) &&
             candidate.binding.scope.tenantId.equals(this.tenant) &&
             candidate.binding.scope.equals(candidate.pathEpochs.target.scope) &&
-            candidate.watermark.ownerTenant.equals(this.tenant)
+            candidate.watermark.ownerTenant.equals(this.tenant) &&
+            this.leaseCurrent(candidate)
         );
+    }
+
+    /**
+     * SPEC §3.4 rule 8: a `bundled` resolution lasts no longer than its exact Turn and
+     * deadline. A cached candidate stores the LeaseToken observed when it was built, so
+     * without this check a cache hit could keep serving that Turn's authority after the
+     * Turn fenced, was reclaimed by another holder, or expired — every later lookup would
+     * have to be caught by unrelated downstream checks instead of by the cache's own
+     * lifetime. This asks the host for the *current* lease behind the exact token the
+     * candidate carries, so fencing, reclaiming, or completing that Turn invalidates the
+     * cache entry immediately rather than only at the next `authorizeDirect` call. A
+     * candidate with no lease (route-based, no-Turn mediation) has nothing to expire here.
+     */
+    private leaseCurrent(candidate: OperationResolutionCandidate): boolean {
+        if (candidate.lease === undefined) return true;
+        return this.host.currentLease(candidate.lease)?.admits(candidate.lease, this.now()) === true;
     }
 }
 
