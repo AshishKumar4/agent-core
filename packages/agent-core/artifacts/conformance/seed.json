@@ -1602,7 +1602,7 @@
       "id": "C13-CONTENT-CUSTODY",
       "owner": "W1",
       "specAnchor": "C13-CONTENT-CUSTODY",
-      "specTextSha256": "sha256:5a28b06b98da8174b5c06871745a467ec1ef556b825bc40f915f78b7465f9711",
+      "specTextSha256": "sha256:0ab7b1459bc0c1f3d25c9e96083572952084e14d187e107307d4ccadb07ef9bf",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

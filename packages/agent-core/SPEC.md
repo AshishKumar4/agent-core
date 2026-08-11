@@ -2093,10 +2093,19 @@ checkpoints, instructions, results, slate sources. A ContentStore belongs to exa
 Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller whose authority
 reaches that Tenant; there is no cross-Tenant content read without a Grant that says so.
 
-A reference alone keeps nothing alive. Every durable record that names a `ContentRef` is a
-retained owner of that content; collection offers only content no record owns, and removing
-a record releases its ownership. Retention and GC follow Tenant policy over unowned content
-alone, so a record cannot outlive the bytes it names. This maps to
+A reference alone keeps nothing alive. Every durable record type that names a `ContentRef`
+is a retained owner of that content for as long as the record exists, and the §8.4 rule 6
+ownership map — record type → owning Actor, already required — is where that fact is
+declared: which field names the reference and which retention owner holds it, one more
+column on a map that already exists, not a new artifact. Collection offers only content no
+declared retainer owns. For a record kind whose lifecycle defines removal — a compacted
+View or ViewDelta revision, for instance — removing the record releases its ownership. For
+a record kind this document declares append-only and undeletable — a Receipt, an
+AuditRecord, a RunCommit (§5.2, §7.4, §8.3) — removal never occurs, so release never fires
+for it either: such a record retains its named content for its own full durable lifetime,
+bounded only by Tenant-level retention policy (export, legal deletion, Tenant closure), not
+by a per-record release step. Either way, retention and GC follow Tenant policy over content
+no declared retainer owns, so a record cannot outlive the bytes it names. This maps to
 **C13-CONTENT-CUSTODY**.
 
 ### 8.3 Records and codecs
