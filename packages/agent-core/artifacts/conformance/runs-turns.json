@@ -265,13 +265,15 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/agents/runs/executor.ts#ScopedModelHandle",
-        "src/agents/runs/executor.ts#TurnExecutorHost"
+        "src/agents/runs/commit.ts#RunCommit",
+        "src/agents/runs/turn.ts#RunCheckpoint"
       ],
       "testSelectors": [
-        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
-        "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code",
-        "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle"
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants permits unary commits to carry an independent tree checkpoint",
+        "test/agents/runs/runtime-mutation.test.ts#suspension guards rejects each checkpoint and commit mismatch individually",
+        "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching absent tree checkpoints",
+        "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching present tree checkpoints",
+        "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips tree and no-tree checkpoints and rejects cursor shape"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -401,14 +403,19 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-PIN-IDENTITY-TYPES",
       "specTextSha256": "sha256:d73015f2fb379d5c2e9d8ef145ec04277f89e6ba0b68b5127c685c1f742fb2a7",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#TurnBoundOperation",
+        "src/agents/runs/pins.ts#RunPins"
+      ],
+      "testSelectors": [
+        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] binds Turn operations through the derived FacetPackageId identity",
+        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] keeps PackageId and FacetPackageId distinct opaque identities",
+        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] round-trips Run pin Package identities as PackageId, never a facet-package substitute"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-PINS-BLUEPRINT",
@@ -533,7 +540,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "ResourceCeiling exists only in the SPEC: no value type, no field on SpawnReservation (a codec-major change), and no consumption ledger \u2014 TurnModelUsage is ephemeral and wall-clock/depth have no accounting, so 'the parent's remainder' is uncomputable",
+        "SPEC gaps the spec owner must close: no durable home for the ceiling, no accounting point for token/wall-clock consumption, no field anywhere for 'the exhausted dimension recorded', and the exhaustion path cites the \u00a75.3 Turn rows for a Run-level cancellation",
+        "The formal boundary explicitly excludes resource-ceiling attenuation and exhaustion (AC-RUN-001 remaining evidence)"
       ]
     },
     {
@@ -592,7 +601,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "The resolution record shape and merge validation exist (TreeMergeResolution, validateMerge, verifyTree seam), but conflict detection does not: no per-path tree model exists over the single opaque tree checkpoint digest, so 'paths changed on both sides' cannot be computed, and no unresolved-conflict state blocks a merge commit",
+        "policies.treeMerge has no declaration site \u2014 PolicySet is a closed-key codec-major-2 record owned by W4 \u2014 and nothing binds each PathResolution.side to operator or administer-impact provenance",
+        "SPEC gaps: 'the operator' is not a defined primitive, treeMerge is absent from the Blueprint policy enumeration, and the implementation's base/environment fields on TreeMergeResolution exceed the \u00a75.2 record shape"
       ]
     },
     {
@@ -682,14 +693,21 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-CALL",
       "specTextSha256": "sha256:94e942a35574c3fcd437bbd0b86a42236a1642de47ff3fbfa0b194e89d3edef9",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#ScopedModelHandle",
+        "src/agents/runs/executor.ts#TurnExecutorHost",
+        "src/agents/runs/executor.ts#TurnModelHandle",
+        "src/agents/runs/executor.ts#TurnModelPort"
+      ],
+      "testSelectors": [
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-NO-RETRY",

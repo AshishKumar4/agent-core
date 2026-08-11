@@ -41,7 +41,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "The custody mechanism is built and tested (ContentOwnerEdge, ContentRetention.retain/release/collect, tenant-bound stores) but the atom quantifies over every record naming a ContentRef, and only W7's five workspace record kinds retain: Turn results, checkpoints, receipts, slate sources, and environment snapshots name refs and never retain them",
+        "Closing the quantifier needs either retention wiring in each owning record family (W5/W6/W8 surfaces W1 cannot cite) or a registry field plus checker making every ContentRef-bearing record declare its retention owner \u2014 a W0 artifact change",
+        "SPEC \u00a78.2's release trigger ('removing a record releases its ownership') never fires for append-only evidence records, which the spec does not reconcile with 'a record cannot outlive the bytes it names'"
       ]
     },
     {

@@ -711,6 +711,8 @@ function decodeDiscoveryResult(data: import("../data").FacetData): McpDiscoveryR
  * The §7.2 floor, restated here because the definition plane sits above facets and
  * importing it would close a definition -> facets -> identity cycle. `observe` is direct
  * always; `execute` is direct on a Turn-owned Session; everything else is mediated.
+ * The own-filesystem `mutate` branch is omitted on purpose: an MCP tool's target is a
+ * discovered server, never a Turn-owned Session's own filesystem.
  */
 function directFloor(impact: Impact, turnOwnedSession: boolean): boolean {
     return impact === "observe" || (impact === "execute" && turnOwnedSession);

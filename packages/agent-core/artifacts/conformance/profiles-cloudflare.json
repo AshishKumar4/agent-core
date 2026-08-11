@@ -862,7 +862,8 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "No Session egress plane exists in the runtime: environments model files, snapshots, and exposures but no EgressGrant or destination Binding, so the positive half (a send reaches exactly its named Binding's destination and an unbound destination refuses) has no source symbol; it is currently claimed only formally (AC-ENVIRONMENT-001, session_egress_is_explicitly_bound / unbound_send_is_refused) with NC-ENVIRONMENT-LIFECYCLE deferring the runtime",
+        "The adversarial half \u2014 code inside the Session cannot open a connection the platform did not pass \u2014 is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute"
       ]
     },
     {
@@ -1243,14 +1244,14 @@
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-SESSION-DIRECT",
       "specTextSha256": "sha256:a15ccf14dd3babcbb13667d4473f26d7d274fd1952838168cba34cc3d49914bf",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "testSelectors": [
+        "test/profiles/facets/filesystem.test.ts#Filesystem protected facade [P11-FILESYSTEM-SESSION-DIRECT] selects direct for a mutating Operation only on the Turn-owned Session's own filesystem"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "P11-FILESYSTEM-STAT",

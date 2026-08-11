@@ -105,6 +105,12 @@ export class PolicySet {
 export interface PolicyEvaluationInput {
     readonly impact: Impact;
     readonly turnOwnedSession: boolean;
+    /**
+     * True only when the operation's target is the Turn-owned Session's own
+     * filesystem (SPEC §7.2). Required so a caller that cannot attest the fact
+     * states false explicitly; a mutate outside that filesystem stays mediated.
+     */
+    readonly sessionFilesystemTarget: boolean;
     readonly placement: IsolationMode;
     readonly policies?: readonly PolicySet[];
 }
@@ -114,9 +120,17 @@ export interface PolicyDecision {
     readonly approvalRequired: boolean;
 }
 
-export function enforcementFloor(impact: Impact, turnOwnedSession: boolean): EnforcementTier {
+export function enforcementFloor(
+    impact: Impact,
+    turnOwnedSession: boolean,
+    sessionFilesystemTarget: boolean
+): EnforcementTier {
     requireImpact(impact, "Policy impact");
-    if (impact === "observe" || (impact === "execute" && turnOwnedSession)) {
+    if (
+        impact === "observe" ||
+        (impact === "execute" && turnOwnedSession) ||
+        (impact === "mutate" && turnOwnedSession && sessionFilesystemTarget)
+    ) {
         return "direct";
     }
     return "mediated";
@@ -126,7 +140,11 @@ export function evaluatePolicy(input: PolicyEvaluationInput): PolicyDecision {
     requireMode(input.placement);
     const policy = mergePolicySets(input.policies ?? []);
     const approvalRequired = policy.requiresApproval(input.impact);
-    const floor = enforcementFloor(input.impact, input.turnOwnedSession);
+    const floor = enforcementFloor(
+        input.impact,
+        input.turnOwnedSession,
+        input.sessionFilesystemTarget
+    );
     const requested = policy.tierFor(input.impact) ?? "direct";
     const tier =
         floor === "mediated" ||

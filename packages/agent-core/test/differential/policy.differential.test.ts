@@ -9,10 +9,13 @@ import { LeanOracle } from "./oracle";
  * Differential testing of enforcement-tier derivation (SPEC §7.2) and placement
  * selection (SPEC §4.1) against the verified Lean model.
  *
- * The model carries the full §7.2 floor, including the Turn-owned Environment
- * Session direct-execute exception, so the tier property asserts agreement over the
- * entire (impact, session, placement) domain — any divergence on either side fails
- * the suite.
+ * The model carries the §7.2 floor with the Turn-owned Environment Session
+ * direct-execute exception, so the tier property asserts agreement over the entire
+ * (impact, session, placement) domain — any divergence on either side fails the
+ * suite. The own-filesystem mutate exception is intentionally outside the model
+ * (AC-PLACEMENT-001 boundary), so the sweep pins sessionFilesystemTarget false;
+ * the runtime branch is covered by the exhaustive floor tests in
+ * test/definition/policy.test.ts and the P11-FILESYSTEM-SESSION-DIRECT profile test.
  */
 
 const IMPACTS: readonly Impact[] = [
@@ -34,32 +37,37 @@ afterAll(() => {
 });
 
 describe("enforcement tier agrees with the verified model", () => {
-    test("tier agreement over the full (impact, session, placement) domain", { tags: "p0" }, async () => {
-        for (const impact of IMPACTS) {
-            for (const sessionScoped of [true, false]) {
-                for (const placement of MODES) {
-                    const implementation = evaluatePolicy({
-                        impact,
-                        turnOwnedSession: sessionScoped,
-                        placement,
-                        policies: []
-                    }).tier;
-                    const model = (
-                        await oracle.ask({
-                            op: "policy.tier",
+    test(
+        "tier agreement over the full (impact, session, placement) domain",
+        { tags: "p0" },
+        async () => {
+            for (const impact of IMPACTS) {
+                for (const sessionScoped of [true, false]) {
+                    for (const placement of MODES) {
+                        const implementation = evaluatePolicy({
                             impact,
-                            sessionScoped,
+                            turnOwnedSession: sessionScoped,
+                            sessionFilesystemTarget: false,
                             placement,
-                            intercepted: false
-                        })
-                    )["tier"];
-                    expect(implementation, `${impact}/${sessionScoped}/${placement}`).toBe(
-                        model
-                    );
+                            policies: []
+                        }).tier;
+                        const model = (
+                            await oracle.ask({
+                                op: "policy.tier",
+                                impact,
+                                sessionScoped,
+                                placement,
+                                intercepted: false
+                            })
+                        )["tier"];
+                        expect(implementation, `${impact}/${sessionScoped}/${placement}`).toBe(
+                            model
+                        );
+                    }
                 }
             }
         }
-    });
+    );
 
     test(
         "an applicable interceptor forces mediated for every impact, session, and placement",

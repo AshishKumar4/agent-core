@@ -69,7 +69,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "No secret resolution runtime exists: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) are abstract with no implementation; nothing ever turns a ref into a value",
+        "No custody record ties a SecretRef to the recorded Binding and target endpoint, SecretRef.source is an unconstrained string rather than a Tenant identity, and no repoint-invalidation exists",
+        "SPEC \u00a73.5 states the invariant without a mechanism: no custody record shape, no acceptance operation, no denial vocabulary; the only concrete carrier (credential-injecting seams) is a SHOULD \u2014 needs spec-owner elaboration before honest evidence exists"
       ]
     },
     {
@@ -97,7 +99,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "No backing concept exists in the definition plane: no consumer vocabulary for the three \u00a74.7 consumers, no backing identifiers, and no declaration record mapping consumer to backing",
+        "SPEC \u00a74.7/\u00a710.2 never say where the platform's declaration lives (Blueprint, PolicySet, or profile config), what identifies a backing, or how identical authority semantics are demonstrated \u2014 spec-owner decisions before W4 can model it",
+        "No agent-authored marker distinguishes \u00a74.7 code, so 'the trust set never hands agent-authored code bundled' cannot key on anything"
       ]
     },
     {
@@ -111,7 +115,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "The rule is enforced at the substrate (SPEC \u00a71.5: an outbound policy code can reach around is advice), but W4's definition plane holds only the dynamic mode token; the sole enforcement point is globalOutbound: null in the W8 Cloudflare loader, which W4 cannot cite",
+        "Needs a substrate-neutral domain-construction seam in the definition plane whose contract is no-ambient-egress with destinations only as passed Bindings, implemented by the Cloudflare loader and a local reference, before W4-citable evidence exists",
+        "Adversarial evidence: loaded code attempting an outbound connection with no Binding must be denied by the substrate, not by a policy check inside the domain"
       ]
     },
     {
@@ -237,7 +243,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "The general enforcement path trusts callee-declared impact end to end: composition feeds descriptor.impact straight into evaluatePolicy, and only the MCP facet derives impact from its seam (remote locality) with a floor guard",
+        "SPEC \u00a77.1 requires deriving impact from 'the seam the call leaves through' but never defines a seam record, and \u00a74.2 places impact on the manifest-declared OperationDescriptor while annotating it host-derived \u2014 a structural contradiction only the spec owner can resolve",
+        "Needed: a trust-boundary predicate over destinations, a derivation the host applies at mediation time generalizing the MCP floor-guard rule, and adversarial evidence that a descriptor declaring observe for an external seam is still mediated"
       ]
     },
     {

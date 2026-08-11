@@ -256,6 +256,7 @@ function resolutionWith(
         policies:
             policies.length === 0 ? [new PolicySet({ maxDirectRevocationWindowMs: 50 })] : policies,
         turnOwnedSession: true,
+        sessionFilesystemTarget: false,
         turnActorAuthorityLocal: true,
         directAuthority: new ResolvedOperationAuthority(facet, [
             new CapabilitySpec({ facetPattern: facet.value, impacts: ["observe"] })
