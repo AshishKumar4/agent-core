@@ -3296,7 +3296,7 @@
       "id": "C13-VIEW-APPROVAL-PROVENANCE",
       "owner": "W7",
       "specAnchor": "C13-VIEW-APPROVAL-PROVENANCE",
-      "specTextSha256": "sha256:cfd40e8040e695712bd1905312980594bf1d6a69af44bd8c38abf724a8bf5cd5",
+      "specTextSha256": "sha256:7462eb1d0da314e855b7622f594b1505a12f26ae1f296241804b59185fe869cb",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

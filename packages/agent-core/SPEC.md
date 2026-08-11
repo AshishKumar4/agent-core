@@ -1590,6 +1590,16 @@ interface View {
   readonly body: ViewBody;                   // JSON data only — no live handles
   readonly actions: readonly ActionDescriptor[];
   readonly cursor: EventCursor;              // opaque resume position in the Event log
+  readonly intentDigest?: Digest;            // present exactly on a decision View (§7.3)
+  readonly marks?: readonly ViewMark[];      // provenance of values the host did not originate
+}
+
+// A ViewMark attributes one sub-value of `body` to the TrustTier of the Event or
+// Operation input it came from (§6.1). `path` uses the same JSON Pointer vocabulary
+// FieldMapping and PayloadMapping already use (§6.2) — no new pointer syntax.
+interface ViewMark {
+  readonly path: string;                     // JSON Pointer into `body`
+  readonly tier: TrustTier;
 }
 
 // ViewBody is arbitrary JSON: the rendered, data-only snapshot a client displays.
@@ -1620,12 +1630,18 @@ per §4.2. Token-level model-output streaming is an executor and transport conce
 (§5.6), not Events.
 
 A View that presents an intent for a human decision carries the provenance of what it
-shows. Every body value the host did not originate MUST be marked with the TrustTier of the
-Event or Operation input it came from (§6.1), and the View MUST name the exact
-`intentDigest` (§7.3) the decision authorizes. A Surface MUST render a marked value as
-data and never as platform voice. Without this the last step of the chain — a person
-reading rendered text — is the one step decided on unattributed input. This maps to
-**C13-VIEW-APPROVAL-PROVENANCE**.
+shows. A **decision View** is exactly a View whose `intentDigest` field is present — the
+field's presence is the discriminator, naming the exact intent (§7.3) the decision
+authorizes; an ordinary View omits it. Every body value the host did not originate MUST be
+marked with the TrustTier of the Event or Operation input it came from (§6.1) in that
+View's `marks` list. A Surface MUST render a marked value as data and never as **platform
+voice** — platform voice is any rendered position a viewer would attribute to the platform
+itself rather than to the marked value's own source: unquoted body copy, a headline, a
+button label synthesized from the value. Rendering as data means a position and treatment —
+a quoted or clearly labeled field, never host-authored prose — that a reasonable viewer
+reads as showing someone else's input, not the platform speaking. Without this the last
+step of the chain — a person reading rendered text — is the one step decided on
+unattributed input. This maps to **C13-VIEW-APPROVAL-PROVENANCE**.
 
 ---
 
