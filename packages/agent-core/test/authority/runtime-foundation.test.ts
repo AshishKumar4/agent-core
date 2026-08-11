@@ -391,7 +391,7 @@ describe("verified guest lifecycle", () => {
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
-                    "callback",
+                    GuestVerificationScheme.callback,
                     Digest.sha256(Uint8Array.of(7)),
                     new Date(4_000),
                     new Date(5_000)
@@ -543,7 +543,7 @@ describe("verified guest lifecycle", () => {
                         new PrincipalRef(home, guest),
                         rotatedTrust.id,
                         rotatedTrust.revision,
-                        "callback",
+                        GuestVerificationScheme.callback,
                         Digest.sha256(Uint8Array.of(5)),
                         new Date(10_000),
                         new Date(20_000)

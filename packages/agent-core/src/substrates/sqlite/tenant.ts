@@ -840,7 +840,7 @@ export class SqliteTenantControlStore
                     !trust.homeTenant.equals(membership.subject.homeTenant) ||
                     (membership.state === "active" &&
                         (trust.revision.value !== verification.trustRevision.value ||
-                            trust.verifier.kind !== verification.method ||
+                            trust.verifier.kind !== verification.verifiedVia.value ||
                             !trust.isActive))
                 ) {
                     throw corruptTenantControl();

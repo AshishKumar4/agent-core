@@ -17,8 +17,8 @@ import {
     RunId,
     RunRuntime,
     PlacementPin,
-    OperationGatewayTurnInvocationPort,
-    TurnBoundTool,
+    GatewayTurnInvocationPort,
+    TurnBoundOperation,
     TurnExecutor,
     TurnExecutorHost,
     TurnId,
@@ -43,9 +43,9 @@ import { content, harness, ids, refs, seedRunningTurn } from "./fixture";
 
 class HostedExecutor extends TurnExecutor {
     public async execute(turn: TurnContext): Promise<TurnOutcome> {
-        if (turn.tools[0] !== undefined) {
+        if (turn.operations[0] !== undefined) {
             await turn.invocation.invoke(
-                turn.tools[0],
+                turn.operations[0],
                 new OperationRequestKey("executor-tool-call"),
                 { key: "value" }
             );
@@ -93,7 +93,7 @@ describe("TurnExecutor seam", () => {
             new JsonSchema({ type: "object" }),
             "Read the canonical value."
         );
-        const tool = new TurnBoundTool(
+        const tool = new TurnBoundOperation(
             new BindingName("memory"),
             new FacetRef("memory:primary"),
             new OperationRef("memory:read"),
@@ -109,7 +109,7 @@ describe("TurnExecutor seam", () => {
         expect(tool.descriptor.input.document).toEqual({ type: "object" });
         expect(
             () =>
-                new TurnBoundTool(
+                new TurnBoundOperation(
                     tool.binding,
                     tool.facet,
                     new OperationRef("memory:write"),
@@ -194,17 +194,17 @@ describe("TurnExecutor seam", () => {
         const read = boundTool("read", "memory.read", "observe", "Read memory.");
         const write = boundTool("write", "memory.write", "mutate", "Write memory.");
         const modelCalls: ReturnType<typeof content>[] = [];
-        const invocationCalls: TurnBoundTool[] = [];
+        const invocationCalls: TurnBoundOperation[] = [];
         const stream: Uint8Array[] = [];
         const host = new TurnExecutorHost({
             runtime: seeded.runtime,
             executor: new HostedExecutor(),
             content: contentStore,
-            tools: { resolve: async () => [write, read] },
+            operations: { resolve: async () => [write, read] },
             prompt: { assemble: async () => prompt },
             invocations: {
                 invoke: async (request) => {
-                    invocationCalls.push(request.tool);
+                    invocationCalls.push(request.operation);
                     expect(request.token).toEqual(seeded.token);
                     expect(request.input).toEqual({ key: "value" });
                     return { output: { stored: true }, evidence: { receipt: "receipt-1" } };
@@ -213,7 +213,7 @@ describe("TurnExecutor seam", () => {
             model: {
                 call: async (request) => {
                     modelCalls.push(request.prompt);
-                    expect(request.tools).toEqual([write, read]);
+                    expect(request.operations).toEqual([write, read]);
                     return {
                         output,
                         usage: { inputTokens: 2, outputTokens: 3 }
@@ -256,7 +256,7 @@ describe("TurnExecutor seam", () => {
             evidence: { receipt: "receipt-1" }
         });
         const gateway = new TestOperationGateway(resolved);
-        const adapter = new OperationGatewayTurnInvocationPort({
+        const adapter = new GatewayTurnInvocationPort({
             open: async (scope) => {
                 expect(scope.token).toEqual(seeded.token);
                 return gateway;
@@ -267,7 +267,7 @@ describe("TurnExecutor seam", () => {
             adapter.invoke({
                 turn: seeded.running,
                 token: seeded.token,
-                tool,
+                operation: tool,
                 requestKey: new OperationRequestKey("gateway-call"),
                 input: { key: "value" },
                 signal: new AbortController().signal
@@ -409,7 +409,7 @@ describe("TurnExecutor seam", () => {
                         expect(request.effectiveCommit.id).toEqual(ids.root);
                         expect(request.placement.placements).toEqual([placement]);
                         expect(request.resumeCheckpoint).toBeUndefined();
-                        expect(request.tools).toEqual([tool]);
+                        expect(request.operations).toEqual([tool]);
                         return boundaries.prompt;
                     }
                 }
@@ -421,7 +421,7 @@ describe("TurnExecutor seam", () => {
     it("rejects a structural tool substitute from the tool source", async () => {
         const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
         const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-        const structuralTool: TurnBoundTool = Object.freeze({
+        const structuralTool: TurnBoundOperation = Object.freeze({
             binding: tool.binding,
             facet: tool.facet,
             operation: tool.operation,
@@ -434,7 +434,7 @@ describe("TurnExecutor seam", () => {
 
         await expect(
             boundaries
-                .host(seeded, executor, { tools: { resolve: async () => [structuralTool] } })
+                .host(seeded, executor, { operations: { resolve: async () => [structuralTool] } })
                 .execute(seeded.token)
         ).rejects.toBeInstanceOf(TypeError);
         expect(executor.calls).toBe(0);
@@ -1515,7 +1515,7 @@ describe("TurnExecutor seam", () => {
 
 class TestBoundaries {
     public readonly modelCalls: TurnModelCall[] = [];
-    public readonly invocationCalls: TurnBoundTool[] = [];
+    public readonly invocationCalls: TurnBoundOperation[] = [];
     public readonly streamEvents: Uint8Array[] = [];
     public lastModelSignal: AbortSignal | undefined;
 
@@ -1525,10 +1525,10 @@ class TestBoundaries {
         public readonly output: ContentRef,
         public readonly checkpointState: ContentRef,
         public readonly cancellationPayload: ContentRef,
-        public readonly tools: readonly TurnBoundTool[]
+        public readonly tools: readonly TurnBoundOperation[]
     ) {}
 
-    public static async create(tools: readonly TurnBoundTool[] = []): Promise<TestBoundaries> {
+    public static async create(tools: readonly TurnBoundOperation[] = []): Promise<TestBoundaries> {
         const contentStore = new MemoryContentStore();
         const put = async (value: string) =>
             (await contentStore.put(new TextEncoder().encode(value))).ref;
@@ -1551,11 +1551,11 @@ class TestBoundaries {
             runtime: seeded.runtime,
             executor,
             content: this.content,
-            tools: { resolve: async () => this.tools },
+            operations: { resolve: async () => this.tools },
             prompt: { assemble: async () => this.prompt },
             invocations: {
                 invoke: async (request) => {
-                    this.invocationCalls.push(request.tool);
+                    this.invocationCalls.push(request.operation);
                     return { output: {}, evidence: { receipt: "test" } };
                 }
             },
@@ -1599,7 +1599,7 @@ class TestResolvedFacet extends ResolvedFacet {
     public disposed = false;
 
     public constructor(
-        private readonly tool: TurnBoundTool,
+        private readonly tool: TurnBoundOperation,
         private readonly result: OperationDispatchResult,
         private readonly options: {
             readonly facet?: FacetRef;
@@ -1816,21 +1816,21 @@ function errorCode(error: unknown): string {
     return error instanceof AgentCoreError ? error.code : String(error);
 }
 
-function invocationAdapter(resolved: ResolvedFacet): OperationGatewayTurnInvocationPort {
-    return new OperationGatewayTurnInvocationPort({
+function invocationAdapter(resolved: ResolvedFacet): GatewayTurnInvocationPort {
+    return new GatewayTurnInvocationPort({
         open: async () => new TestOperationGateway(resolved)
     });
 }
 
 function invocationRequest(
     seeded: ReturnType<typeof seedRunningTurn>,
-    tool: TurnBoundTool,
+    tool: TurnBoundOperation,
     signal: AbortSignal = new AbortController().signal
 ) {
     return {
         turn: seeded.running,
         token: seeded.token,
-        tool,
+        operation: tool,
         requestKey: new OperationRequestKey("gateway-adversarial-call"),
         input: { key: "value" },
         signal
@@ -1842,7 +1842,7 @@ function boundTool(
     binding: string,
     impact: "observe" | "mutate",
     help: string
-): TurnBoundTool {
+): TurnBoundOperation {
     const descriptor = new OperationDescriptor(
         new OperationName(name),
         impact,
@@ -1850,7 +1850,7 @@ function boundTool(
         new JsonSchema({ type: "object" }),
         help
     );
-    return new TurnBoundTool(
+    return new TurnBoundOperation(
         new BindingName(binding),
         new FacetRef("memory:primary"),
         new OperationRef(`memory:${name}`),

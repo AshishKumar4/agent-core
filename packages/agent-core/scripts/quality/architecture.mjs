@@ -4,6 +4,7 @@ import ts from "typescript";
 import {
     artifactRoot,
     collectFiles,
+    packageRoot,
     portable,
     readCanonicalJson,
     repositoryRoot,
@@ -64,6 +65,7 @@ for (const path of files) {
 }
 
 reconcilePermits();
+if (options.root === repositoryRoot) await checkSpecVocabulary();
 
 for (const [name, locations] of identifiers) {
     if (locations.length > 1) {
@@ -264,6 +266,140 @@ function reconcilePermits() {
             issue("ACQ-TYPE", file, kind, `${file} uses ${actual} unpermitted ${kind} escape(s)`);
         }
     }
+}
+
+// A public export is how the implementation speaks to a SPEC reader, so every word in an
+// exported type's name must be a word the SPEC uses. Two failure classes are deliberately
+// different kinds of rule. A foreign term is a defect: Appendix A translates the
+// industry's word into this spec's own ("tool" is an Operation), so a name carrying one
+// always has a correct name available, the finding is never reviewable, and the count
+// must stay zero. A word the SPEC simply does not contain is a shape needing review:
+// implementation machinery legitimately earns nouns beneath the SPEC's altitude (Init,
+// Options, preflight), so such a word stands only while spec-vocabulary.json records a
+// written reason for it, and a reviewed word that falls out of use or gets adopted by
+// the SPEC is flagged as stale rather than silently retained. Lowercase-initial exports
+// (functions) name behavior, not seam nouns, and are out of scope.
+async function checkSpecVocabulary() {
+    const registryPath = "packages/agent-core/artifacts/quality/exports.json";
+    const vocabularyPath = "packages/agent-core/artifacts/quality/spec-vocabulary.json";
+    const spec = await readFile(resolve(packageRoot, "SPEC.md"), "utf8");
+    const registry = await readCanonicalJson(resolve(artifactRoot, "quality/exports.json"));
+    const vocabulary = await readCanonicalJson(
+        resolve(artifactRoot, "quality/spec-vocabulary.json")
+    );
+    const { foreign, reviewed } = validateSpecVocabulary(vocabulary);
+    const specWords = new Set();
+    for (const word of spec.match(/[A-Za-z][A-Za-z0-9]*/gu) ?? []) {
+        specWords.add(word.toLowerCase());
+        for (const token of nameTokens(word)) specWords.add(token.toLowerCase());
+    }
+    const containsWord = (token) => {
+        const candidates = [token, `${token}s`, `${token}es`];
+        if (token.endsWith("s")) candidates.push(token.slice(0, -1));
+        if (token.endsWith("es")) candidates.push(token.slice(0, -2));
+        if (token.endsWith("ies")) candidates.push(`${token.slice(0, -3)}y`);
+        if (token.endsWith("y")) candidates.push(`${token.slice(0, -1)}ies`);
+        return candidates.some((candidate) => specWords.has(candidate));
+    };
+    const symbols = new Set();
+    for (const section of [registry.runtime, registry.declarations]) {
+        for (const names of Object.values(section)) {
+            for (const name of names) symbols.add(name);
+        }
+    }
+    const usedReviews = new Set();
+    for (const symbol of [...symbols].sort()) {
+        if (!/^[A-Z]/u.test(symbol)) continue;
+        const flagged = new Set();
+        for (const token of nameTokens(symbol)) {
+            const word = token.toLowerCase();
+            if (flagged.has(word)) continue;
+            flagged.add(word);
+            const translation = foreign.get(word);
+            if (translation !== undefined) {
+                issue(
+                    "ACQ-SPEC-VOCAB",
+                    registryPath,
+                    symbol,
+                    `${symbol} uses the foreign term "${word}"; the SPEC's word is ${translation} (SPEC.md Appendix A)`
+                );
+                continue;
+            }
+            if (containsWord(word)) continue;
+            if (reviewed.has(word)) {
+                usedReviews.add(word);
+                continue;
+            }
+            issue(
+                "ACQ-SPEC-VOCAB",
+                registryPath,
+                symbol,
+                `${symbol} introduces vocabulary the SPEC does not contain: "${word}"`
+            );
+        }
+    }
+    for (const word of reviewed.keys()) {
+        if (containsWord(word)) {
+            issue(
+                "ACQ-SPEC-VOCAB",
+                vocabularyPath,
+                word,
+                `Reviewed vocabulary "${word}" now appears in the SPEC; the entry is redundant`
+            );
+        } else if (!usedReviews.has(word)) {
+            issue(
+                "ACQ-SPEC-VOCAB",
+                vocabularyPath,
+                word,
+                `Reviewed vocabulary "${word}" is no longer used by any public export`
+            );
+        }
+    }
+}
+
+function validateSpecVocabulary(document) {
+    if (
+        document.edition !== "1.0.0" ||
+        !Array.isArray(document.foreign) ||
+        !Array.isArray(document.reviewed)
+    ) {
+        throw new TypeError("Spec vocabulary artifact is malformed");
+    }
+    const foreign = new Map();
+    for (const entry of document.foreign) {
+        if (typeof entry.word !== "string" || !/^[a-z][a-z0-9]*$/u.test(entry.word)) {
+            throw new TypeError("Foreign vocabulary entries must record a lowercase word");
+        }
+        if (typeof entry.specTerm !== "string" || entry.specTerm.trim().length === 0) {
+            throw new TypeError(`Foreign vocabulary "${entry.word}" must name the SPEC's term`);
+        }
+        if (foreign.has(entry.word)) {
+            throw new TypeError(`Foreign vocabulary records "${entry.word}" twice`);
+        }
+        foreign.set(entry.word, entry.specTerm);
+    }
+    const reviewed = new Map();
+    for (const entry of document.reviewed) {
+        if (typeof entry.word !== "string" || !/^[a-z][a-z0-9]*$/u.test(entry.word)) {
+            throw new TypeError("Reviewed vocabulary entries must record a lowercase word");
+        }
+        if (typeof entry.reason !== "string" || entry.reason.trim().length < 24) {
+            throw new TypeError(
+                `Reviewed vocabulary "${entry.word}" must record why the word stands`
+            );
+        }
+        if (reviewed.has(entry.word) || foreign.has(entry.word)) {
+            throw new TypeError(
+                `Reviewed vocabulary "${entry.word}" is duplicated or shadows a foreign term`
+            );
+        }
+        reviewed.set(entry.word, entry.reason);
+    }
+    return { foreign, reviewed };
+}
+
+function nameTokens(name) {
+    return name.match(/[A-Z]{2,}(?![a-z])|[A-Z][a-z0-9]*|[a-z0-9]+/gu) ?? [];
 }
 
 function checkSuppressions(source, file) {

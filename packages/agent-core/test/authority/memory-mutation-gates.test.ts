@@ -668,7 +668,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,
-                "callback",
+                GuestVerificationScheme.callback,
                 Digest.sha256(Uint8Array.of(7)),
                 new Date(1),
                 new Date(100)
@@ -1365,7 +1365,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,
-                "callback",
+                GuestVerificationScheme.callback,
                 Digest.sha256(Uint8Array.of(11)),
                 new Date(1),
                 new Date(100)

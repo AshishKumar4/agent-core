@@ -157,7 +157,7 @@ function guestMembership(shape: GuestMembershipShape): Membership {
                     ? {
                           evidenceDigest: guestEvidenceDigest,
                           expiresAt: guestExpiresAt,
-                          method: shape.scheme.value,
+                          verifiedVia: shape.scheme.value,
                           principal: {
                               principal: guestPrincipalId.value,
                               tenant: shape.homeTenant.value
@@ -1430,7 +1430,7 @@ describe("SQLite Tenant control closure integrity", () => {
                 shape: { ...verified, trustRevision: 1 }
             },
             {
-                reason: "verification method drift",
+                reason: "verification scheme drift",
                 trust: activeTrust,
                 shape: { ...verified, scheme: GuestVerificationScheme.token }
             },
