@@ -451,7 +451,9 @@ describe("placement pins", () => {
             "core:zeta"
         ]);
         expect(Object.isFrozen(snapshot.placements)).toBe(true);
-        const decoded = TurnPlacementSnapshot.fromData(structuredClone(snapshot.toData()) as never);
+        const decoded = TurnPlacementSnapshot.fromData(
+            structuredClone(snapshot.toData()) as never
+        );
         expect(decoded.placements.map((value) => value.facet.value)).toEqual([
             "core:alpha",
             "core:zeta"

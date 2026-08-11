@@ -41,20 +41,16 @@ describe("TextId", () => {
         expect(id.equals(null as unknown as TextId)).toBe(false);
     });
 
-    test(
-        "captures nominal type independently of mutable constructor properties",
-        { tags: "p0" },
-        () => {
-            const id = new FirstId("id");
-            const same = new FirstId("id");
-            Object.defineProperty(id, "constructor", { value: SecondId });
-            Object.defineProperty(same, "constructor", { value: SecondId });
+    test("captures nominal type independently of mutable constructor properties", { tags: "p0" }, () => {
+        const id = new FirstId("id");
+        const same = new FirstId("id");
+        Object.defineProperty(id, "constructor", { value: SecondId });
+        Object.defineProperty(same, "constructor", { value: SecondId });
 
-            expect(id.equals(same)).toBe(true);
-            expect(id.equals(new SecondId("id"))).toBe(false);
-            expect(id.equals(new FirstChildId("id"))).toBe(false);
-        }
-    );
+        expect(id.equals(same)).toBe(true);
+        expect(id.equals(new SecondId("id"))).toBe(false);
+        expect(id.equals(new FirstChildId("id"))).toBe(false);
+    });
 
     test("admits the exact maximum length and names the identifier", { tags: "p1" }, () => {
         const longest = "x".repeat(256);

@@ -54,31 +54,27 @@ describe("file-backed SQLite restart and recovery journey", () => {
         }
     );
 
-    test(
-        "refuses to activate over a stored graph that lost a write audit",
-        { tags: "p0" },
-        async () => {
-            await withRestartDirectory(async (path) => {
-                const database = new FileSqlite(path);
-                const harness = new SqliteCounterHarness({}, database);
-                const committed = await harness.dispatch(
-                    harness.envelope({ key: "restart-corruption", amount: 1 })
-                );
-                harness.corruptRemoveAudit(new AuditRecordId(committed.write.audit.value));
-                database.close();
+    test("refuses to activate over a stored graph that lost a write audit", { tags: "p0" }, async () => {
+        await withRestartDirectory(async (path) => {
+            const database = new FileSqlite(path);
+            const harness = new SqliteCounterHarness({}, database);
+            const committed = await harness.dispatch(
+                harness.envelope({ key: "restart-corruption", amount: 1 })
+            );
+            harness.corruptRemoveAudit(new AuditRecordId(committed.write.audit.value));
+            database.close();
 
-                const reopened = new FileSqlite(path);
-                try {
-                    expectAgentCoreError(
-                        () => new SqliteCounterHarness({}, reopened),
-                        "protocol.invalid-state"
-                    );
-                } finally {
-                    reopened.close();
-                }
-            });
-        }
-    );
+            const reopened = new FileSqlite(path);
+            try {
+                expectAgentCoreError(
+                    () => new SqliteCounterHarness({}, reopened),
+                    "protocol.invalid-state"
+                );
+            } finally {
+                reopened.close();
+            }
+        });
+    });
 });
 
 async function withRestartDirectory(run: (path: string) => Promise<void>): Promise<void> {

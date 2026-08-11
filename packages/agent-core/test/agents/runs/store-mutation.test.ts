@@ -283,32 +283,28 @@ describe("RunRepository corruption detection", () => {
         );
     });
 
-    test(
-        "detects a tampered parent edge ordinal with the exact parent value",
-        { tags: "p0" },
-        () => {
-            const value = repository();
-            const child = message("store-shifted-child", [ids.root]);
-            value.repository.transaction((tx) => {
-                value.repository.insertCommit(tx, rootCommit());
-                value.repository.insertCommit(tx, child);
-            });
-            const snapshot = value.storage.snapshot();
-            const shifted = new RunRepository(
-                new MemoryRunStorage({
-                    ...snapshot,
-                    parents: snapshot.parents.map((edge) =>
-                        edge.commit === child.id.value ? { ...edge, ordinal: 1 } : edge
-                    )
-                })
-            );
+    test("detects a tampered parent edge ordinal with the exact parent value", { tags: "p0" }, () => {
+        const value = repository();
+        const child = message("store-shifted-child", [ids.root]);
+        value.repository.transaction((tx) => {
+            value.repository.insertCommit(tx, rootCommit());
+            value.repository.insertCommit(tx, child);
+        });
+        const snapshot = value.storage.snapshot();
+        const shifted = new RunRepository(
+            new MemoryRunStorage({
+                ...snapshot,
+                parents: snapshot.parents.map((edge) =>
+                    edge.commit === child.id.value ? { ...edge, ordinal: 1 } : edge
+                )
+            })
+        );
 
-            expectCode(
-                "load with shifted edge ordinal",
-                () => shifted.transaction((tx) => shifted.loadCommit(tx, child.id)),
-                "codec.invalid",
-                "Stored Run parents do not match commit bytes"
-            );
-        }
-    );
+        expectCode(
+            "load with shifted edge ordinal",
+            () => shifted.transaction((tx) => shifted.loadCommit(tx, child.id)),
+            "codec.invalid",
+            "Stored Run parents do not match commit bytes"
+        );
+    });
 });

@@ -11,87 +11,79 @@ import { FacetPackageId } from "../../src/facets";
 const encoder = new TextEncoder();
 
 describe("PackageCodeManifest", () => {
-    test(
-        "[definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure",
-        { tags: "p0" },
-        () => {
-            const main = module("./main.js", "main", ["./dependency.js"]);
-            const dependency = module("./dependency.js", "dependency");
-            const entrypoint = entry("facet", "./main.js");
-            const first = new PackageCodeManifest({
-                compatibilityDate: "2026-07-10",
-                modules: [main, dependency],
-                entrypoints: [entrypoint]
-            });
-            const second = new PackageCodeManifest({
-                compatibilityDate: "2026-07-10",
-                modules: [dependency, main],
-                entrypoints: [entrypoint],
-                digest: first.digest
-            });
+    test("[definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure", { tags: "p0" }, () => {
+        const main = module("./main.js", "main", ["./dependency.js"]);
+        const dependency = module("./dependency.js", "dependency");
+        const entrypoint = entry("facet", "./main.js");
+        const first = new PackageCodeManifest({
+            compatibilityDate: "2026-07-10",
+            modules: [main, dependency],
+            entrypoints: [entrypoint]
+        });
+        const second = new PackageCodeManifest({
+            compatibilityDate: "2026-07-10",
+            modules: [dependency, main],
+            entrypoints: [entrypoint],
+            digest: first.digest
+        });
 
-            expect(PackageCodeManifest.encode(first)).toEqual(PackageCodeManifest.encode(second));
-            expect(first.digest.equals(second.digest)).toBe(true);
-            expect(first.modules.map((value) => value.specifier)).toEqual([
-                "./dependency.js",
-                "./main.js"
-            ]);
-            expect(
-                PackageCodeManifest.encode(
-                    PackageCodeManifest.decode(PackageCodeManifest.encode(first))
-                )
-            ).toEqual(PackageCodeManifest.encode(first));
-        }
-    );
+        expect(PackageCodeManifest.encode(first)).toEqual(PackageCodeManifest.encode(second));
+        expect(first.digest.equals(second.digest)).toBe(true);
+        expect(first.modules.map((value) => value.specifier)).toEqual([
+            "./dependency.js",
+            "./main.js"
+        ]);
+        expect(
+            PackageCodeManifest.encode(
+                PackageCodeManifest.decode(PackageCodeManifest.encode(first))
+            )
+        ).toEqual(PackageCodeManifest.encode(first));
+    });
 
-    test(
-        "rejects missing imports entrypoints orphan modules and forged digests",
-        { tags: "p0" },
-        () => {
-            const entrypoint = entry("facet", "./main.js");
-            expect(
-                () =>
-                    new PackageCodeManifest({
-                        compatibilityDate: "2026-07-10",
-                        modules: [module("./main.js", "main", ["./missing.js"])],
-                        entrypoints: [entrypoint]
-                    })
-            ).toThrow(/imports missing module/);
-            expect(
-                () =>
-                    new PackageCodeManifest({
-                        compatibilityDate: "2026-07-10",
-                        modules: [module("./main.js", "main"), module("./orphan.js", "orphan")],
-                        entrypoints: [entrypoint]
-                    })
-            ).toThrow(/outside its entrypoint closure/);
-            expect(
-                () =>
-                    new PackageCodeManifest({
-                        compatibilityDate: "2026-07-10",
-                        modules: [module("./main.js", "main")],
-                        entrypoints: [entry("facet", "./missing.js")]
-                    })
-            ).toThrow(/entrypoint references missing/);
-            expect(
-                () =>
-                    new PackageCodeManifest({
-                        compatibilityDate: "2026-07-10",
-                        modules: [module("./main.js", "main")],
-                        entrypoints: [entrypoint],
-                        digest: digest("forged")
-                    })
-            ).toThrow(/code digest/);
-            expect(
-                () =>
-                    new PackageCodeManifest({
-                        compatibilityDate: "2026-07-10",
-                        modules: [module("./main.js", "main")],
-                        entrypoints: [] as never
-                    })
-            ).toThrow(/requires modules and entrypoints/);
-        }
-    );
+    test("rejects missing imports entrypoints orphan modules and forged digests", { tags: "p0" }, () => {
+        const entrypoint = entry("facet", "./main.js");
+        expect(
+            () =>
+                new PackageCodeManifest({
+                    compatibilityDate: "2026-07-10",
+                    modules: [module("./main.js", "main", ["./missing.js"])],
+                    entrypoints: [entrypoint]
+                })
+        ).toThrow(/imports missing module/);
+        expect(
+            () =>
+                new PackageCodeManifest({
+                    compatibilityDate: "2026-07-10",
+                    modules: [module("./main.js", "main"), module("./orphan.js", "orphan")],
+                    entrypoints: [entrypoint]
+                })
+        ).toThrow(/outside its entrypoint closure/);
+        expect(
+            () =>
+                new PackageCodeManifest({
+                    compatibilityDate: "2026-07-10",
+                    modules: [module("./main.js", "main")],
+                    entrypoints: [entry("facet", "./missing.js")]
+                })
+        ).toThrow(/entrypoint references missing/);
+        expect(
+            () =>
+                new PackageCodeManifest({
+                    compatibilityDate: "2026-07-10",
+                    modules: [module("./main.js", "main")],
+                    entrypoints: [entrypoint],
+                    digest: digest("forged")
+                })
+        ).toThrow(/code digest/);
+        expect(
+            () =>
+                new PackageCodeManifest({
+                    compatibilityDate: "2026-07-10",
+                    modules: [module("./main.js", "main")],
+                    entrypoints: [] as never
+                })
+        ).toThrow(/requires modules and entrypoints/);
+    });
 
     test("rejects duplicate identities and noncanonical module syntax", { tags: "p1" }, () => {
         const main = module("./main.js", "main");
@@ -178,96 +170,88 @@ describe("PackageCodeManifest", () => {
         expect(changedDate.digest.equals(baseline.digest)).toBe(false);
     });
 
-    test(
-        "strictly decodes constituent data and supports exact module lookup",
-        { tags: "p1" },
-        () => {
-            const manifest = new PackageCodeManifest({
-                compatibilityDate: "2026-07-10",
-                modules: [module("./main.js", "main")],
-                entrypoints: [entry("facet", "./main.js")]
-            });
-            expect(manifest.module("./main.js")?.content.value).toBe(
-                module("./main.js", "main").content.value
-            );
-            expect(manifest.module("./missing.js")).toBeUndefined();
-            expect(() => PackageCodeManifest.fromData(null)).toThrow(/object/);
-            expect(() =>
-                PackageCodeManifest.fromData({
-                    ...(manifest.toData() as object),
-                    unknown: true
-                })
-            ).toThrow(/missing or unknown/);
-            expect(() =>
-                PackageCodeManifest.fromData({ ...(manifest.toData() as object), modules: [] })
-            ).toThrow(/requires modules/);
-            expect(() => PackageCodeModule.fromData(null)).toThrow(/object/);
-            expect(() =>
-                PackageCodeModule.fromData({
-                    specifier: "./main.js",
-                    content: 7,
-                    media: "application/javascript",
-                    imports: []
-                })
-            ).toThrow(/must be a string/);
-            expect(() =>
-                PackageCodeModule.fromData({
-                    specifier: "./main.js",
-                    content: ContentRef.fromDigest(digest("main")).value,
-                    media: "application/javascript",
-                    imports: "bad"
-                })
-            ).toThrow(/array/);
-            expect(() =>
-                PackageCodeEntrypoint.fromData({
-                    facet: "facet",
-                    version: "1.0.0",
-                    module: "./main.js"
-                } as never)
-            ).toThrow(/missing or unknown/);
-            expect(() =>
-                PackageCodeEntrypoint.fromData({
-                    facet: "facet",
-                    version: "1.0.0",
-                    module: "./main.js",
-                    exportName: 7
-                })
-            ).toThrow(/must be a string/);
-            const cyclic = new PackageCodeManifest({
-                compatibilityDate: "2026-07-10",
-                modules: [module("./a.js", "a", ["./b.js"]), module("./b.js", "b", ["./a.js"])],
-                entrypoints: [entry("cycle", "./a.js")]
-            });
-            expect(cyclic.modules).toHaveLength(2);
-        }
-    );
+    test("strictly decodes constituent data and supports exact module lookup", { tags: "p1" }, () => {
+        const manifest = new PackageCodeManifest({
+            compatibilityDate: "2026-07-10",
+            modules: [module("./main.js", "main")],
+            entrypoints: [entry("facet", "./main.js")]
+        });
+        expect(manifest.module("./main.js")?.content.value).toBe(
+            module("./main.js", "main").content.value
+        );
+        expect(manifest.module("./missing.js")).toBeUndefined();
+        expect(() => PackageCodeManifest.fromData(null)).toThrow(/object/);
+        expect(() =>
+            PackageCodeManifest.fromData({
+                ...(manifest.toData() as object),
+                unknown: true
+            })
+        ).toThrow(/missing or unknown/);
+        expect(() =>
+            PackageCodeManifest.fromData({ ...(manifest.toData() as object), modules: [] })
+        ).toThrow(/requires modules/);
+        expect(() => PackageCodeModule.fromData(null)).toThrow(/object/);
+        expect(() =>
+            PackageCodeModule.fromData({
+                specifier: "./main.js",
+                content: 7,
+                media: "application/javascript",
+                imports: []
+            })
+        ).toThrow(/must be a string/);
+        expect(() =>
+            PackageCodeModule.fromData({
+                specifier: "./main.js",
+                content: ContentRef.fromDigest(digest("main")).value,
+                media: "application/javascript",
+                imports: "bad"
+            })
+        ).toThrow(/array/);
+        expect(() =>
+            PackageCodeEntrypoint.fromData({
+                facet: "facet",
+                version: "1.0.0",
+                module: "./main.js"
+            } as never)
+        ).toThrow(/missing or unknown/);
+        expect(() =>
+            PackageCodeEntrypoint.fromData({
+                facet: "facet",
+                version: "1.0.0",
+                module: "./main.js",
+                exportName: 7
+            })
+        ).toThrow(/must be a string/);
+        const cyclic = new PackageCodeManifest({
+            compatibilityDate: "2026-07-10",
+            modules: [module("./a.js", "a", ["./b.js"]), module("./b.js", "b", ["./a.js"])],
+            entrypoints: [entry("cycle", "./a.js")]
+        });
+        expect(cyclic.modules).toHaveLength(2);
+    });
 
-    test(
-        "derives one pinned content digest for the canonical golden closure",
-        { tags: "p1" },
-        () => {
-            const manifest = new PackageCodeManifest({
-                compatibilityDate: "2026-07-10",
-                modules: [
-                    new PackageCodeModule({
-                        specifier: "./main.js",
-                        content: ContentRef.fromDigest(digest("golden-module")),
-                        media: new MediaHint("application/javascript")
-                    })
-                ],
-                entrypoints: [
-                    new PackageCodeEntrypoint({
-                        facet: new FacetPackageId("golden.facet"),
-                        version: new SemVer("1.0.0"),
-                        module: "./main.js"
-                    })
-                ]
-            });
-            expect(manifest.digest.value).toBe(
-                "9344545257f4bdc258674206733f9b953ec79f524027f182938b128ba98d9882"
-            );
-        }
-    );
+    test("derives one pinned content digest for the canonical golden closure", { tags: "p1" }, () => {
+        const manifest = new PackageCodeManifest({
+            compatibilityDate: "2026-07-10",
+            modules: [
+                new PackageCodeModule({
+                    specifier: "./main.js",
+                    content: ContentRef.fromDigest(digest("golden-module")),
+                    media: new MediaHint("application/javascript")
+                })
+            ],
+            entrypoints: [
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("golden.facet"),
+                    version: new SemVer("1.0.0"),
+                    module: "./main.js"
+                })
+            ]
+        });
+        expect(manifest.digest.value).toBe(
+            "9344545257f4bdc258674206733f9b953ec79f524027f182938b128ba98d9882"
+        );
+    });
 
     test("sorts module imports and names nonblank specifier subjects", { tags: "p1" }, () => {
         const sorted = new PackageCodeModule({
@@ -410,9 +394,9 @@ describe("PackageCodeManifest", () => {
         expect(() => PackageCodeEntrypoint.fromData({ ...validEntrypoint, module: 7 })).toThrow(
             /Code entrypoint module must be a string/
         );
-        expect(() => PackageCodeEntrypoint.fromData({ ...validEntrypoint, exportName: 7 })).toThrow(
-            /Code entrypoint export must be a string/
-        );
+        expect(() =>
+            PackageCodeEntrypoint.fromData({ ...validEntrypoint, exportName: 7 })
+        ).toThrow(/Code entrypoint export must be a string/);
 
         const manifest = new PackageCodeManifest({
             compatibilityDate: "2026-07-10",

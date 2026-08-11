@@ -29,18 +29,14 @@ describe("materialization kind validation", () => {
         ).toThrow(/Unsupported materialization record kind definitely-unsupported/);
     });
 
-    test(
-        "rejects slot entries with unknown fields through exact key closure",
-        { tags: "p1" },
-        () => {
-            expect(() => slotEntryProjection({ ...slotEntry, extra: true })).toThrow(
-                /Slot entry contains missing or unknown fields/
-            );
-            expect(() => slotEntryProjection({ contributor: "acme.deploy" })).toThrow(
-                /Slot entry contains missing or unknown fields/
-            );
-        }
-    );
+    test("rejects slot entries with unknown fields through exact key closure", { tags: "p1" }, () => {
+        expect(() => slotEntryProjection({ ...slotEntry, extra: true })).toThrow(
+            /Slot entry contains missing or unknown fields/
+        );
+        expect(() => slotEntryProjection({ contributor: "acme.deploy" })).toThrow(
+            /Slot entry contains missing or unknown fields/
+        );
+    });
 
     test("rejects non-object slot entries with the object subject", { tags: "p1" }, () => {
         expect(() => slotEntryProjection(null)).toThrow(/Slot entry must be an object/);

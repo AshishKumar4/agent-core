@@ -13,97 +13,77 @@ import type { CounterFixture, CounterFixtureFactory, FaultBoundary } from "./cou
 
 export function counterDispatcherContract(name: string, create: CounterFixtureFactory): void {
     describe(`CommandIngress and CommandDispatcher (${name})`, () => {
-        test(
-            "accepts an absent caller cause with a host-created Invocation root",
-            { tags: "p1" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ amount: 4 });
+        test("accepts an absent caller cause with a host-created Invocation root", { tags: "p1" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ amount: 4 });
 
-                const result = await harness.dispatch(raw);
-                const snapshot = harness.snapshot();
+            const result = await harness.dispatch(raw);
+            const snapshot = harness.snapshot();
 
-                expect(result.outcome).toBe("committed");
-                expect(snapshot.value).toBe(4);
-                expect(snapshot.revision.value).toBe(1);
-                expect(decodeCanonicalJson(result.reply)).toEqual({ value: 4, revision: 1 });
-                expect(snapshot.writes).toHaveLength(1);
-                expect([...snapshot.audits.values()]).toHaveLength(2);
+            expect(result.outcome).toBe("committed");
+            expect(snapshot.value).toBe(4);
+            expect(snapshot.revision.value).toBe(1);
+            expect(decodeCanonicalJson(result.reply)).toEqual({ value: 4, revision: 1 });
+            expect(snapshot.writes).toHaveLength(1);
+            expect([...snapshot.audits.values()]).toHaveLength(2);
 
-                const root = [...snapshot.audits.values()].find(
-                    (record) => record.kind.kind === "invocation"
-                );
-                const audit = snapshot.audits.get(result.write.audit.value);
-                expect(root?.cause).toBeUndefined();
-                expect(audit?.cause?.equals(root!.id)).toBe(true);
-                expect(audit?.kind).toMatchObject({
-                    kind: "write",
-                    outcome: "committed",
-                    id: result.write.id
-                });
-                expect(result.write.reply).toEqual(result.reply);
-                expect(result.write.envelopeDigest.equals(Digest.sha256(raw))).toBe(true);
+            const root = [...snapshot.audits.values()].find(
+                (record) => record.kind.kind === "invocation"
+            );
+            const audit = snapshot.audits.get(result.write.audit.value);
+            expect(root?.cause).toBeUndefined();
+            expect(audit?.cause?.equals(root!.id)).toBe(true);
+            expect(audit?.kind).toMatchObject({
+                kind: "write",
+                outcome: "committed",
+                id: result.write.id
+            });
+            expect(result.write.reply).toEqual(result.reply);
+            expect(result.write.envelopeDigest.equals(Digest.sha256(raw))).toBe(true);
 
-                const decodedWrite = WriteRecordCodec.decode(WriteRecordCodec.encode(result.write));
-                expect(decodedWrite.id.equals(result.write.id)).toBe(true);
-                expect(decodedWrite.reply).toEqual(result.reply);
-            }
-        );
+            const decodedWrite = WriteRecordCodec.decode(WriteRecordCodec.encode(result.write));
+            expect(decodedWrite.id.equals(result.write.id)).toBe(true);
+            expect(decodedWrite.reply).toEqual(result.reply);
+        });
 
-        test(
-            "rebinds an existing content ref without requiring resubmission",
-            { tags: "p1" },
-            async () => {
-                const harness = create();
+        test("rebinds an existing content ref without requiring resubmission", { tags: "p1" }, async () => {
+            const harness = create();
 
-                const result = await harness.dispatch(harness.envelope({ amount: 3 }));
+            const result = await harness.dispatch(harness.envelope({ amount: 3 }));
 
-                expect(result.outcome).toBe("committed");
-                expect(harness.snapshot()).toMatchObject({ contentGets: 1, contentPuts: 0 });
-            }
-        );
+            expect(result.outcome).toBe("committed");
+            expect(harness.snapshot()).toMatchObject({ contentGets: 1, contentPuts: 0 });
+        });
 
-        test(
-            "holds copied submitted bytes outside the actor transaction",
-            { tags: "p1" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ key: "submitted", amount: 3 });
-                const ref = CommandEnvelopeCodec.decode(raw).payload.value;
-                harness.removePayload(ref);
-                const submitted = harness.payloadBytes(3);
-                const pending = harness.dispatch(raw, harness.caller, submitted);
-                submitted.fill(0);
+        test("holds copied submitted bytes outside the actor transaction", { tags: "p1" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ key: "submitted", amount: 3 });
+            const ref = CommandEnvelopeCodec.decode(raw).payload.value;
+            harness.removePayload(ref);
+            const submitted = harness.payloadBytes(3);
+            const pending = harness.dispatch(raw, harness.caller, submitted);
+            submitted.fill(0);
 
-                const result = await pending;
+            const result = await pending;
 
-                expect(result.outcome).toBe("committed");
-                expect(harness.snapshot()).toMatchObject({ value: 3, contentPuts: 1 });
-            }
-        );
+            expect(result.outcome).toBe("committed");
+            expect(harness.snapshot()).toMatchObject({ value: 3, contentPuts: 1 });
+        });
 
-        test(
-            "uses a valid actor-local caller cause without creating another root",
-            { tags: "p1" },
-            async () => {
-                const harness = create();
-                const cause = harness.seedInvocationCause();
+        test("uses a valid actor-local caller cause without creating another root", { tags: "p1" }, async () => {
+            const harness = create();
+            const cause = harness.seedInvocationCause();
 
-                const result = await harness.dispatch(harness.envelope({ callerCause: cause.id }));
-                const snapshot = harness.snapshot();
+            const result = await harness.dispatch(harness.envelope({ callerCause: cause.id }));
+            const snapshot = harness.snapshot();
 
-                expect(result.outcome).toBe("committed");
-                expect(snapshot.audits.size).toBe(2);
-                const audit = snapshot.audits.get(result.write.audit.value);
-                expect(audit?.cause?.equals(cause.id)).toBe(true);
-                expect(audit?.correlation.equals(cause.correlation)).toBe(true);
-                expect(snapshot).toMatchObject({
-                    contentGets: 1,
-                    contentPuts: 0,
-                    identityCount: 1
-                });
-            }
-        );
+            expect(result.outcome).toBe("committed");
+            expect(snapshot.audits.size).toBe(2);
+            const audit = snapshot.audits.get(result.write.audit.value);
+            expect(audit?.cause?.equals(cause.id)).toBe(true);
+            expect(audit?.correlation.equals(cause.correlation)).toBe(true);
+            expect(snapshot).toMatchObject({ contentGets: 1, contentPuts: 0, identityCount: 1 });
+        });
 
         test.each<readonly [string, InvalidCallerCauseFactory]>([
             ["missing", (harness) => new AuditRecordId(`missing-${harness.actor.id.value}`)],
@@ -172,189 +152,161 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test(
-            "persists duplicate evidence and replays before mutable gates",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ amount: 2 });
-                const first = await harness.dispatch(raw);
-                harness.setAuthorized(false);
-                harness.setLifecycle(false);
+        test("persists duplicate evidence and replays before mutable gates", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ amount: 2 });
+            const first = await harness.dispatch(raw);
+            harness.setAuthorized(false);
+            harness.setLifecycle(false);
 
-                const unauthenticated = await harness.dispatch(raw, {
-                    kind: "principal",
-                    principal: new PrincipalRef(harness.tenant, new PrincipalId("not-the-caller"))
-                });
-                const duplicate = await harness.dispatch(raw);
-                const snapshot = harness.snapshot();
+            const unauthenticated = await harness.dispatch(raw, {
+                kind: "principal",
+                principal: new PrincipalRef(harness.tenant, new PrincipalId("not-the-caller"))
+            });
+            const duplicate = await harness.dispatch(raw);
+            const snapshot = harness.snapshot();
 
-                expect(unauthenticated.outcome).toBe("rejectedAuthentication");
-                expect(duplicate.outcome).toBe("duplicate");
-                expect(duplicate.reply).toEqual(first.reply);
-                expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
-                expect(snapshot.value).toBe(2);
-                expect(snapshot.writes.map((write) => write.outcome)).toEqual([
-                    "committed",
-                    "rejectedAuthentication",
-                    "duplicate"
-                ]);
-            }
-        );
+            expect(unauthenticated.outcome).toBe("rejectedAuthentication");
+            expect(duplicate.outcome).toBe("duplicate");
+            expect(duplicate.reply).toEqual(first.reply);
+            expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
+            expect(snapshot.value).toBe(2);
+            expect(snapshot.writes.map((write) => write.outcome)).toEqual([
+                "committed",
+                "rejectedAuthentication",
+                "duplicate"
+            ]);
+        });
 
-        test(
-            "replays duplicates without entering any payload preparation state",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ key: "all-preparation-states" });
-                const first = await harness.dispatch(raw);
-                const ref = CommandEnvelopeCodec.decode(raw).payload.value;
-                const gets = harness.snapshot().contentGets;
-                harness.removePayload(ref);
-                harness.setFault("contentGet");
+        test("replays duplicates without entering any payload preparation state", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ key: "all-preparation-states" });
+            const first = await harness.dispatch(raw);
+            const ref = CommandEnvelopeCodec.decode(raw).payload.value;
+            const gets = harness.snapshot().contentGets;
+            harness.removePayload(ref);
+            harness.setFault("contentGet");
 
-                const infrastructure = await harness.dispatch(raw);
-                const mismatch = await harness.dispatch(raw, harness.caller, Uint8Array.of(1));
+            const infrastructure = await harness.dispatch(raw);
+            const mismatch = await harness.dispatch(raw, harness.caller, Uint8Array.of(1));
 
-                expect(infrastructure.outcome).toBe("duplicate");
-                expect(mismatch.outcome).toBe("duplicate");
-                expect(infrastructure.reply).toEqual(first.reply);
-                expect(mismatch.reply).toEqual(first.reply);
-                expect(harness.snapshot().contentGets).toBe(gets);
-                expect(harness.snapshot().contentPuts).toBe(0);
-            }
-        );
+            expect(infrastructure.outcome).toBe("duplicate");
+            expect(mismatch.outcome).toBe("duplicate");
+            expect(infrastructure.reply).toEqual(first.reply);
+            expect(mismatch.reply).toEqual(first.reply);
+            expect(harness.snapshot().contentGets).toBe(gets);
+            expect(harness.snapshot().contentPuts).toBe(0);
+        });
 
-        test(
-            "lets a duplicate with an altered invalid cause win before cause validation",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const originalCause = harness.seedInvocationCause("duplicate-original-cause");
-                const first = await harness.dispatch(
-                    harness.envelope({
-                        key: "duplicate-altered-cause",
-                        callerCause: originalCause.id
-                    })
-                );
-                const altered = harness.envelope({
+        test("lets a duplicate with an altered invalid cause win before cause validation", { tags: "p0" }, async () => {
+            const harness = create();
+            const originalCause = harness.seedInvocationCause("duplicate-original-cause");
+            const first = await harness.dispatch(
+                harness.envelope({
                     key: "duplicate-altered-cause",
-                    callerCause: new AuditRecordId("duplicate-missing-cause")
-                });
-                const before = harness.snapshot();
-                harness.setFault("contentGet");
+                    callerCause: originalCause.id
+                })
+            );
+            const altered = harness.envelope({
+                key: "duplicate-altered-cause",
+                callerCause: new AuditRecordId("duplicate-missing-cause")
+            });
+            const before = harness.snapshot();
+            harness.setFault("contentGet");
 
-                const duplicate = await harness.dispatch(altered);
-                const after = harness.snapshot();
-                const audit = after.audits.get(duplicate.write.audit.value);
-                const root =
-                    audit?.cause === undefined ? undefined : after.audits.get(audit.cause.value);
+            const duplicate = await harness.dispatch(altered);
+            const after = harness.snapshot();
+            const audit = after.audits.get(duplicate.write.audit.value);
+            const root =
+                audit?.cause === undefined ? undefined : after.audits.get(audit.cause.value);
 
-                expect(duplicate.outcome).toBe("duplicate");
-                expect(duplicate.reply).toEqual(first.reply);
-                expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
-                expect(after).toMatchObject({
-                    value: before.value,
-                    revision: before.revision,
-                    identityCount: before.identityCount,
-                    contentGets: before.contentGets,
-                    contentPuts: before.contentPuts
-                });
-                expect(root?.kind.kind).toBe("invocation");
-                expect(root?.id.equals(originalCause.id)).toBe(false);
-            }
-        );
+            expect(duplicate.outcome).toBe("duplicate");
+            expect(duplicate.reply).toEqual(first.reply);
+            expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
+            expect(after).toMatchObject({
+                value: before.value,
+                revision: before.revision,
+                identityCount: before.identityCount,
+                contentGets: before.contentGets,
+                contentPuts: before.contentPuts
+            });
+            expect(root?.kind.kind).toBe("invocation");
+            expect(root?.id.equals(originalCause.id)).toBe(false);
+        });
 
-        test(
-            "defensively rechecks an admitted caller cause after injected corruption",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const cause = harness.seedInvocationCause("removed-before-mutation");
-                const raw = harness.envelope({
-                    key: "cause-mutation-recheck",
-                    callerCause: cause.id
-                });
-                const barrier = harness.pauseNextPayloadGet();
-                const pending = harness.dispatch(raw);
-                await barrier.started;
+        test("defensively rechecks an admitted caller cause after injected corruption", { tags: "p0" }, async () => {
+            const harness = create();
+            const cause = harness.seedInvocationCause("removed-before-mutation");
+            const raw = harness.envelope({
+                key: "cause-mutation-recheck",
+                callerCause: cause.id
+            });
+            const barrier = harness.pauseNextPayloadGet();
+            const pending = harness.dispatch(raw);
+            await barrier.started;
 
-                harness.corruptRemoveAudit(cause.id);
-                barrier.release();
-                const result = await pending;
+            harness.corruptRemoveAudit(cause.id);
+            barrier.release();
+            const result = await pending;
 
-                expect(result.outcome).toBe("rejectedMalformed");
-                expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
-            }
-        );
+            expect(result.outcome).toBe("rejectedMalformed");
+            expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
+        });
 
-        test(
-            "resolves the second duplicate lookup before defensive cause recheck",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const cause = harness.seedInvocationCause("removed-before-racing-duplicate");
-                const key = "cause-recheck-racing-duplicate";
-                const raw = harness.envelope({ key, amount: 2, callerCause: cause.id });
-                const barrier = harness.pauseNextPayloadGet();
-                const pending = harness.dispatch(raw);
-                await barrier.started;
+        test("resolves the second duplicate lookup before defensive cause recheck", { tags: "p0" }, async () => {
+            const harness = create();
+            const cause = harness.seedInvocationCause("removed-before-racing-duplicate");
+            const key = "cause-recheck-racing-duplicate";
+            const raw = harness.envelope({ key, amount: 2, callerCause: cause.id });
+            const barrier = harness.pauseNextPayloadGet();
+            const pending = harness.dispatch(raw);
+            await barrier.started;
 
-                harness.corruptRemoveAudit(cause.id);
-                const committed = await harness.dispatch(harness.envelope({ key, amount: 2 }));
-                barrier.release();
-                const duplicate = await pending;
+            harness.corruptRemoveAudit(cause.id);
+            const committed = await harness.dispatch(harness.envelope({ key, amount: 2 }));
+            barrier.release();
+            const duplicate = await pending;
 
-                expect(committed.outcome).toBe("committed");
-                expect(duplicate.outcome).toBe("duplicate");
-                expect(duplicate.reply).toEqual(committed.reply);
-                expect(duplicate.write.duplicateOf?.equals(committed.write.id)).toBe(true);
-                expect(harness.snapshot().value).toBe(2);
-            }
-        );
+            expect(committed.outcome).toBe("committed");
+            expect(duplicate.outcome).toBe("duplicate");
+            expect(duplicate.reply).toEqual(committed.reply);
+            expect(duplicate.write.duplicateOf?.equals(committed.write.id)).toBe(true);
+            expect(harness.snapshot().value).toBe(2);
+        });
 
-        test(
-            "closes the admission/preparation race with a second duplicate lookup",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ key: "racing", amount: 2 });
-                const barrier = harness.pauseNextPayloadGet();
-                const slow = harness.dispatch(raw);
-                await barrier.started;
+        test("closes the admission/preparation race with a second duplicate lookup", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ key: "racing", amount: 2 });
+            const barrier = harness.pauseNextPayloadGet();
+            const slow = harness.dispatch(raw);
+            await barrier.started;
 
-                const first = await harness.dispatch(raw);
-                barrier.release();
-                const raced = await slow;
+            const first = await harness.dispatch(raw);
+            barrier.release();
+            const raced = await slow;
 
-                expect(first.outcome).toBe("committed");
-                expect(raced.outcome).toBe("duplicate");
-                expect(raced.reply).toEqual(first.reply);
-                expect(harness.snapshot().value).toBe(2);
-            }
-        );
+            expect(first.outcome).toBe("committed");
+            expect(raced.outcome).toBe("duplicate");
+            expect(raced.reply).toEqual(first.reply);
+            expect(harness.snapshot().value).toBe(2);
+        });
 
-        test(
-            "serializes concurrent originals into one commit and one duplicate",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ key: "concurrent-original", amount: 2 });
+        test("serializes concurrent originals into one commit and one duplicate", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ key: "concurrent-original", amount: 2 });
 
-                const results = await Promise.all([harness.dispatch(raw), harness.dispatch(raw)]);
+            const results = await Promise.all([harness.dispatch(raw), harness.dispatch(raw)]);
 
-                expect(results.map((result) => result.outcome).sort()).toEqual([
-                    "committed",
-                    "duplicate"
-                ]);
-                const committed = results.find((result) => result.outcome === "committed")!;
-                const duplicate = results.find((result) => result.outcome === "duplicate")!;
-                expect(duplicate.reply).toEqual(committed.reply);
-                expect(duplicate.write.duplicateOf?.equals(committed.write.id)).toBe(true);
-                expect(harness.snapshot()).toMatchObject({ value: 2, identityCount: 1 });
-            }
-        );
+            expect(results.map((result) => result.outcome).sort()).toEqual([
+                "committed",
+                "duplicate"
+            ]);
+            const committed = results.find((result) => result.outcome === "committed")!;
+            const duplicate = results.find((result) => result.outcome === "duplicate")!;
+            expect(duplicate.reply).toEqual(committed.reply);
+            expect(duplicate.write.duplicateOf?.equals(committed.write.id)).toBe(true);
+            expect(harness.snapshot()).toMatchObject({ value: 2, identityCount: 1 });
+        });
 
         test("encodes and replays typed replies and observations", { tags: "p1" }, async () => {
             const harness = create({ typedExecution: true });
@@ -372,46 +324,32 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(decoded.observation).toEqual(committed.observation);
         });
 
-        test(
-            "encodes a typed reply without manufacturing an observation",
-            { tags: "p1" },
-            async () => {
-                const harness = create({ typedExecution: true, typedObservation: false });
+        test("encodes a typed reply without manufacturing an observation", { tags: "p1" }, async () => {
+            const harness = create({ typedExecution: true, typedObservation: false });
 
-                const committed = await harness.dispatch(
-                    harness.envelope({ key: "typed-reply-only" })
-                );
+            const committed = await harness.dispatch(harness.envelope({ key: "typed-reply-only" }));
 
-                expect(decodeCanonicalJson(committed.reply)).toEqual({ value: 1, revision: 1 });
-                expect(committed.observation).toBeUndefined();
-                expect(committed.write.observation).toBeUndefined();
-            }
-        );
+            expect(decodeCanonicalJson(committed.reply)).toEqual({ value: 1, revision: 1 });
+            expect(committed.observation).toBeUndefined();
+            expect(committed.write.observation).toBeUndefined();
+        });
 
         test.each([
             ["reply", { includeReplyCodec: false }],
             ["observation", { includeObservationCodec: false }]
-        ] as const)(
-            "rolls back a typed execution missing its %s codec",
-            { tags: "p1" },
-            async (_case, options) => {
-                const harness = create({ typedExecution: true, ...options });
+        ] as const)("rolls back a typed execution missing its %s codec", { tags: "p1" }, async (_case, options) => {
+            const harness = create({ typedExecution: true, ...options });
 
-                const result = await harness.accept(
-                    harness.envelope({ key: `missing-${_case}-codec` })
-                );
+            const result = await harness.accept(
+                harness.envelope({ key: `missing-${_case}-codec` })
+            );
 
-                expect(requirePreDispatchFailure(result)).toMatchObject({
-                    phase: "dispatch",
-                    commit: "rolledBack"
-                });
-                expect(harness.snapshot()).toMatchObject({
-                    value: 0,
-                    identityCount: 0,
-                    writes: []
-                });
-            }
-        );
+            expect(requirePreDispatchFailure(result)).toMatchObject({
+                phase: "dispatch",
+                commit: "rolledBack"
+            });
+            expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 0, writes: [] });
+        });
 
         test.each(["replyEncoding", "observationEncoding"] as const)(
             "rolls back typed %s codec faults",
@@ -434,39 +372,31 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test(
-            "applies exact command-family caller policy before duplicate lookup",
-            { tags: "p0" },
-            async () => {
-                const harness = create({ caller: CommandCallerPolicy.actor("run") });
+        test("applies exact command-family caller policy before duplicate lookup", { tags: "p0" }, async () => {
+            const harness = create({ caller: CommandCallerPolicy.actor("run") });
 
-                const result = await harness.dispatch(harness.envelope());
+            const result = await harness.dispatch(harness.envelope());
 
-                expect(result.outcome).toBe("rejectedAuthentication");
-                expect(harness.snapshot()).toMatchObject({ value: 0, contentGets: 0 });
-            }
-        );
+            expect(result.outcome).toBe("rejectedAuthentication");
+            expect(harness.snapshot()).toMatchObject({ value: 0, contentGets: 0 });
+        });
 
-        test(
-            "returns preparation infrastructure failure without evidence or mutation",
-            { tags: "p1" },
-            async () => {
-                const harness = create();
-                harness.setFault("contentGet");
+        test("returns preparation infrastructure failure without evidence or mutation", { tags: "p1" }, async () => {
+            const harness = create();
+            harness.setFault("contentGet");
 
-                const result = await harness.accept(harness.envelope());
+            const result = await harness.accept(harness.envelope());
 
-                const failure = requirePreDispatchFailure(result);
-                expect(failure).toMatchObject({
-                    phase: "admissionPreflight",
-                    commit: "notAttempted",
-                    retry: "mayRetry"
-                });
-                expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 0 });
-                expect(harness.snapshot().writes).toHaveLength(0);
-                expect(harness.snapshot().audits.size).toBe(0);
-            }
-        );
+            const failure = requirePreDispatchFailure(result);
+            expect(failure).toMatchObject({
+                phase: "admissionPreflight",
+                commit: "notAttempted",
+                retry: "mayRetry"
+            });
+            expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 0 });
+            expect(harness.snapshot().writes).toHaveLength(0);
+            expect(harness.snapshot().audits.size).toBe(0);
+        });
 
         test.each<
             readonly [
@@ -488,105 +418,76 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
                     return harness.dispatch(raw, harness.caller, Uint8Array.of(1, 2, 3));
                 }
             ]
-        ])(
-            "records and reserves deterministic %s payload rejection",
-            { tags: "p0" },
-            async (_case, run) => {
-                const harness = create();
-                const raw = harness.envelope({ key: `malformed-${_case}` });
+        ])("records and reserves deterministic %s payload rejection", { tags: "p0" }, async (_case, run) => {
+            const harness = create();
+            const raw = harness.envelope({ key: `malformed-${_case}` });
 
-                const result = (await run(harness, raw)) as Awaited<
-                    ReturnType<typeof harness.dispatch>
-                >;
+            const result = (await run(harness, raw)) as Awaited<
+                ReturnType<typeof harness.dispatch>
+            >;
 
-                expect(result.outcome).toBe("rejectedMalformed");
-                expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
-                expect(harness.snapshot().writes).toHaveLength(1);
-                expect(harness.snapshot().audits.size).toBe(1);
-            }
-        );
+            expect(result.outcome).toBe("rejectedMalformed");
+            expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
+            expect(harness.snapshot().writes).toHaveLength(1);
+            expect(harness.snapshot().audits.size).toBe(1);
+        });
 
-        test(
-            "replays a post-auth malformed result after payload correction",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ key: "corrected", amount: 5 });
-                const ref = CommandEnvelopeCodec.decode(raw).payload.value;
-                harness.removePayload(ref);
+        test("replays a post-auth malformed result after payload correction", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ key: "corrected", amount: 5 });
+            const ref = CommandEnvelopeCodec.decode(raw).payload.value;
+            harness.removePayload(ref);
 
-                const rejected = await harness.dispatch(raw);
-                harness.installPayload(ref, harness.payloadBytes(5));
-                const corrected = await harness.dispatch(raw);
+            const rejected = await harness.dispatch(raw);
+            harness.installPayload(ref, harness.payloadBytes(5));
+            const corrected = await harness.dispatch(raw);
 
-                expect(rejected.outcome).toBe("rejectedMalformed");
-                expect(corrected.outcome).toBe("duplicate");
-                expect(corrected.reply).toEqual(rejected.reply);
-                expect(corrected.write.duplicateOf?.equals(rejected.write.id)).toBe(true);
-                expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
-            }
-        );
+            expect(rejected.outcome).toBe("rejectedMalformed");
+            expect(corrected.outcome).toBe("duplicate");
+            expect(corrected.reply).toEqual(rejected.reply);
+            expect(corrected.write.duplicateOf?.equals(rejected.write.id)).toBe(true);
+            expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
+        });
 
-        test(
-            "rolls back an asynchronous gate instead of treating its Promise as approval",
-            { tags: "p0" },
-            async () => {
-                const harness = create({ asynchronousGate: true });
+        test("rolls back an asynchronous gate instead of treating its Promise as approval", { tags: "p0" }, async () => {
+            const harness = create({ asynchronousGate: true });
 
-                const result = await harness.accept(harness.envelope());
+            const result = await harness.accept(harness.envelope());
 
-                expect(requirePreDispatchFailure(result)).toMatchObject({
-                    phase: "dispatch",
-                    commit: "rolledBack"
-                });
-                expect(harness.snapshot().value).toBe(0);
-                expect(harness.snapshot().writes).toHaveLength(0);
-            }
-        );
+            expect(requirePreDispatchFailure(result)).toMatchObject({
+                phase: "dispatch",
+                commit: "rolledBack"
+            });
+            expect(harness.snapshot().value).toBe(0);
+            expect(harness.snapshot().writes).toHaveLength(0);
+        });
 
-        test(
-            "rolls back an asynchronous payload decoder as a programmer fault",
-            { tags: "p1" },
-            async () => {
-                const harness = create({ asynchronousPayload: true });
+        test("rolls back an asynchronous payload decoder as a programmer fault", { tags: "p1" }, async () => {
+            const harness = create({ asynchronousPayload: true });
 
-                const result = await harness.accept(
-                    harness.envelope({ key: "asynchronous-payload" })
-                );
+            const result = await harness.accept(harness.envelope({ key: "asynchronous-payload" }));
 
-                expect(requirePreDispatchFailure(result)).toMatchObject({
-                    phase: "dispatch",
-                    commit: "rolledBack"
-                });
-                expect(harness.snapshot()).toMatchObject({
-                    value: 0,
-                    identityCount: 0,
-                    writes: []
-                });
-            }
-        );
+            expect(requirePreDispatchFailure(result)).toMatchObject({
+                phase: "dispatch",
+                commit: "rolledBack"
+            });
+            expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 0, writes: [] });
+        });
 
-        test(
-            "records only the explicit malformed payload decoder result",
-            { tags: "p1" },
-            async () => {
-                const harness = create();
+        test("records only the explicit malformed payload decoder result", { tags: "p1" }, async () => {
+            const harness = create();
 
-                const result = await harness.accept(
-                    harness.envelope({
-                        key: "decoder-malformed",
-                        amount: "bad" as unknown as number
-                    })
-                );
+            const result = await harness.accept(
+                harness.envelope({
+                    key: "decoder-malformed",
+                    amount: "bad" as unknown as number
+                })
+            );
 
-                expect(result).toMatchObject({
-                    kind: "commandOutcome",
-                    outcome: "rejectedMalformed"
-                });
-                expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
-                expect(harness.snapshot().writes).toHaveLength(1);
-            }
-        );
+            expect(result).toMatchObject({ kind: "commandOutcome", outcome: "rejectedMalformed" });
+            expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
+            expect(harness.snapshot().writes).toHaveLength(1);
+        });
 
         test.each(["type", "agentCore", "programmer"] as const)(
             "rolls back arbitrary %s payload decoder faults without evidence",
@@ -613,26 +514,22 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test(
-            "registration callbacks cannot mutate authenticated envelope state",
-            { tags: "p0" },
-            async () => {
-                const harness = create({ mutateEnvelope: true, lease: "required" });
-                const lease = harness.setLease();
+        test("registration callbacks cannot mutate authenticated envelope state", { tags: "p0" }, async () => {
+            const harness = create({ mutateEnvelope: true, lease: "required" });
+            const lease = harness.setLease();
 
-                const result = await harness.dispatch(
-                    harness.envelope({
-                        key: "immutable-envelope",
-                        lease
-                    })
-                );
+            const result = await harness.dispatch(
+                harness.envelope({
+                    key: "immutable-envelope",
+                    lease
+                })
+            );
 
-                expect(result.outcome).toBe("committed");
-                expect(result.write.command).toBe("counter.increment");
-                expect(result.write.caller).toEqual(harness.caller);
-                expect(harness.snapshot().value).toBe(1);
-            }
-        );
+            expect(result.outcome).toBe("committed");
+            expect(result.write.command).toBe("counter.increment");
+            expect(result.write.caller).toEqual(harness.caller);
+            expect(harness.snapshot().value).toBe(1);
+        });
 
         test.each<FaultBoundary>(["mutation", "invocationAudit", "writeAudit", "writeRecord"])(
             "reports guaranteed rollback when %s fails",
@@ -668,103 +565,91 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test(
-            "requires a same-key retry after an unknown commit acknowledgement",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ key: "unknown-ack", amount: 2 });
-                harness.setFault("unknownAck");
+        test("requires a same-key retry after an unknown commit acknowledgement", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ key: "unknown-ack", amount: 2 });
+            harness.setFault("unknownAck");
 
-                const unknown = await harness.accept(raw);
-                expect(requirePreDispatchFailure(unknown)).toMatchObject({
-                    phase: "dispatch",
-                    commit: "unknown",
-                    retry: "retrySameKey"
-                });
-                expect(harness.snapshot().value).toBe(2);
-                expect(harness.snapshot().writes).toHaveLength(1);
+            const unknown = await harness.accept(raw);
+            expect(requirePreDispatchFailure(unknown)).toMatchObject({
+                phase: "dispatch",
+                commit: "unknown",
+                retry: "retrySameKey"
+            });
+            expect(harness.snapshot().value).toBe(2);
+            expect(harness.snapshot().writes).toHaveLength(1);
 
-                harness.setFault(undefined);
-                const poisoned = await harness.accept(raw);
-                expect(requirePreDispatchFailure(poisoned)).toMatchObject({
-                    phase: "admissionPreflight",
-                    commit: "rolledBack"
-                });
-                if (poisoned.kind !== "preDispatchFailure") {
-                    throw new TypeError("Expected poisoned Actor failure");
-                }
-                expect(poisoned.cause).toMatchObject({ code: "actor.closed" });
-
-                const restarted = harness.restart();
-                restarted.setFault(undefined);
-                const retry = await restarted.dispatch(raw);
-                expect(retry.outcome).toBe("duplicate");
-                expect(restarted.snapshot().value).toBe(2);
+            harness.setFault(undefined);
+            const poisoned = await harness.accept(raw);
+            expect(requirePreDispatchFailure(poisoned)).toMatchObject({
+                phase: "admissionPreflight",
+                commit: "rolledBack"
+            });
+            if (poisoned.kind !== "preDispatchFailure") {
+                throw new TypeError("Expected poisoned Actor failure");
             }
-        );
+            expect(poisoned.cause).toMatchObject({ code: "actor.closed" });
 
-        test(
-            "does not promise same-key reconciliation for an unindexed unknown commit",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                harness.setFault("unknownUnindexed");
+            const restarted = harness.restart();
+            restarted.setFault(undefined);
+            const retry = await restarted.dispatch(raw);
+            expect(retry.outcome).toBe("duplicate");
+            expect(restarted.snapshot().value).toBe(2);
+        });
 
-                const unknown = await harness.accept(Uint8Array.of(0xff));
+        test("does not promise same-key reconciliation for an unindexed unknown commit", { tags: "p0" }, async () => {
+            const harness = create();
+            harness.setFault("unknownUnindexed");
 
-                expect(requirePreDispatchFailure(unknown)).toMatchObject({
-                    phase: "admissionPreflight",
-                    commit: "unknown",
-                    retry: "mayRetry"
-                });
-                expect(harness.snapshot()).toMatchObject({ identityCount: 0 });
-                expect(harness.snapshot().writes).toHaveLength(1);
-            }
-        );
+            const unknown = await harness.accept(Uint8Array.of(0xff));
 
-        test(
-            "rolls back invalid-cause rejection persistence faults and rejects after restart",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({
-                    key: "invalid-cause-restart",
-                    callerCause: new AuditRecordId("missing-cause-before-restart")
-                });
-                harness.setFault("writeRecord");
+            expect(requirePreDispatchFailure(unknown)).toMatchObject({
+                phase: "admissionPreflight",
+                commit: "unknown",
+                retry: "mayRetry"
+            });
+            expect(harness.snapshot()).toMatchObject({ identityCount: 0 });
+            expect(harness.snapshot().writes).toHaveLength(1);
+        });
 
-                const failed = await harness.accept(raw);
+        test("rolls back invalid-cause rejection persistence faults and rejects after restart", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({
+                key: "invalid-cause-restart",
+                callerCause: new AuditRecordId("missing-cause-before-restart")
+            });
+            harness.setFault("writeRecord");
 
-                expect(requirePreDispatchFailure(failed)).toMatchObject({
-                    phase: "admissionPreflight",
-                    commit: "rolledBack",
-                    retry: "mayRetry"
-                });
-                expect(harness.snapshot()).toMatchObject({
-                    value: 0,
-                    identityCount: 0,
-                    contentGets: 0,
-                    contentPuts: 0,
-                    writes: []
-                });
+            const failed = await harness.accept(raw);
 
-                const restarted = harness.restart();
-                restarted.setFault(undefined);
-                const rejected = await restarted.dispatch(raw);
+            expect(requirePreDispatchFailure(failed)).toMatchObject({
+                phase: "admissionPreflight",
+                commit: "rolledBack",
+                retry: "mayRetry"
+            });
+            expect(harness.snapshot()).toMatchObject({
+                value: 0,
+                identityCount: 0,
+                contentGets: 0,
+                contentPuts: 0,
+                writes: []
+            });
 
-                expect(rejected.outcome).toBe("rejectedMalformed");
-                expect(restarted.snapshot()).toMatchObject({
-                    value: 0,
-                    identityCount: 1,
-                    contentGets: 0,
-                    contentPuts: 0
-                });
-                expect(restarted.snapshot().writes.map((write) => write.outcome)).toEqual([
-                    "rejectedMalformed"
-                ]);
-            }
-        );
+            const restarted = harness.restart();
+            restarted.setFault(undefined);
+            const rejected = await restarted.dispatch(raw);
+
+            expect(rejected.outcome).toBe("rejectedMalformed");
+            expect(restarted.snapshot()).toMatchObject({
+                value: 0,
+                identityCount: 1,
+                contentGets: 0,
+                contentPuts: 0
+            });
+            expect(restarted.snapshot().writes.map((write) => write.outcome)).toEqual([
+                "rejectedMalformed"
+            ]);
+        });
 
         test.each(["forgedUnknown", "forgedActorUnknown"] as const)(
             "does not trust %s errors thrown inside the transaction or poison the Actor",
@@ -788,33 +673,29 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test(
-            "restarts with its fence and replays committed work without payload access",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const raw = harness.envelope({ key: "restart-replay", amount: 3 });
-                const committed = await harness.dispatch(raw);
-                const before = harness.recovery();
-                const restarted = harness.restart();
+        test("restarts with its fence and replays committed work without payload access", { tags: "p0" }, async () => {
+            const harness = create();
+            const raw = harness.envelope({ key: "restart-replay", amount: 3 });
+            const committed = await harness.dispatch(raw);
+            const before = harness.recovery();
+            const restarted = harness.restart();
 
-                const duplicate = await restarted.dispatch(raw);
+            const duplicate = await restarted.dispatch(raw);
 
-                expect(before?.epoch).toBe(0);
-                expect(restarted.recovery()?.epoch).toBe(1);
-                expect(duplicate.outcome).toBe("duplicate");
-                expect(duplicate.reply).toEqual(committed.reply);
-                expect(restarted.snapshot()).toMatchObject({
-                    value: 3,
-                    identityCount: 1,
-                    contentGets: 0
-                });
-                expect(restarted.snapshot().writes.map((write) => write.outcome)).toEqual([
-                    "committed",
-                    "duplicate"
-                ]);
-            }
-        );
+            expect(before?.epoch).toBe(0);
+            expect(restarted.recovery()?.epoch).toBe(1);
+            expect(duplicate.outcome).toBe("duplicate");
+            expect(duplicate.reply).toEqual(committed.reply);
+            expect(restarted.snapshot()).toMatchObject({
+                value: 3,
+                identityCount: 1,
+                contentGets: 0
+            });
+            expect(restarted.snapshot().writes.map((write) => write.outcome)).toEqual([
+                "committed",
+                "duplicate"
+            ]);
+        });
 
         test("rolls back transient lease verification faults", { tags: "p0" }, async () => {
             const harness = create();
@@ -833,23 +714,19 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             });
         });
 
-        test(
-            "rolls back read failures instead of recording false denial",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                harness.setFault("readSnapshot");
+        test("rolls back read failures instead of recording false denial", { tags: "p0" }, async () => {
+            const harness = create();
+            harness.setFault("readSnapshot");
 
-                const result = await harness.accept(harness.envelope());
+            const result = await harness.accept(harness.envelope());
 
-                expect(requirePreDispatchFailure(result)).toMatchObject({
-                    phase: "dispatch",
-                    commit: "rolledBack"
-                });
-                expect(harness.snapshot().value).toBe(0);
-                expect(harness.snapshot().writes).toHaveLength(0);
-            }
-        );
+            expect(requirePreDispatchFailure(result)).toMatchObject({
+                phase: "dispatch",
+                commit: "rolledBack"
+            });
+            expect(harness.snapshot().value).toBe(0);
+            expect(harness.snapshot().writes).toHaveLength(0);
+        });
 
         test("rolls back attempted gate read mutation", { tags: "p0" }, async () => {
             const harness = create();
@@ -866,92 +743,77 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().writes).toHaveLength(0);
         });
 
-        test(
-            "records malformed and oversized raw envelopes with exact digest",
-            { tags: "p1" },
-            async () => {
-                const harness = create();
-                const malformed = Uint8Array.from([0xff, 0x00, 0x7b]);
-                const oversized = new Uint8Array(4097);
+        test("records malformed and oversized raw envelopes with exact digest", { tags: "p1" }, async () => {
+            const harness = create();
+            const malformed = Uint8Array.from([0xff, 0x00, 0x7b]);
+            const oversized = new Uint8Array(4097);
 
-                for (const raw of [malformed, oversized]) {
-                    const result = await harness.dispatch(raw);
-                    expect(result.outcome).toBe("rejectedMalformed");
-                    expect(result.write.caller).toBeUndefined();
-                    expect(result.write.command).toBeUndefined();
-                    expect(result.write.envelopeDigest.equals(Digest.sha256(raw))).toBe(true);
-                }
-                expect(harness.snapshot().value).toBe(0);
-                expect(harness.snapshot().identityCount).toBe(0);
-            }
-        );
-
-        test(
-            "does not trust a caller cause before exact caller authentication",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const cause = harness.seedInvocationCause();
-
-                const result = await harness.dispatch(
-                    harness.envelope({
-                        key: "unauthenticated-cause",
-                        callerCause: cause.id
-                    }),
-                    {
-                        kind: "principal",
-                        principal: new PrincipalRef(
-                            harness.tenant,
-                            new PrincipalId("forged-principal")
-                        )
-                    }
-                );
-                const audit = harness.snapshot().audits.get(result.write.audit.value);
-
-                expect(result.outcome).toBe("rejectedAuthentication");
-                expect(audit?.cause).toBeUndefined();
-                expect(audit?.correlation.equals(cause.correlation)).toBe(false);
-                expect(harness.snapshot().identityCount).toBe(0);
-            }
-        );
-
-        test(
-            "retains and replays authenticated decoded shape rejection",
-            { tags: "p0" },
-            async () => {
-                const harness = create();
-                const payload = encodeCanonicalJson({ amount: 1 });
-                const ref = testContentRef("counter:missing-revision:1");
-                const malformed = encodeCanonicalJson({
-                    kind: "command-envelope",
-                    version: { major: 1, minor: 0 },
-                    payload: {
-                        command: "counter.increment",
-                        caller: {
-                            kind: "principal",
-                            principal: {
-                                id: harness.principal.value,
-                                tenant: harness.tenant.value
-                            }
-                        },
-                        idempotencyKey: "missing-revision",
-                        payload: ref.value,
-                        payloadDigest: Digest.sha256(payload).value
-                    }
-                });
-
-                const result = await harness.dispatch(malformed);
-                const duplicate = await harness.dispatch(malformed);
-
+            for (const raw of [malformed, oversized]) {
+                const result = await harness.dispatch(raw);
                 expect(result.outcome).toBe("rejectedMalformed");
-                expect(result.write.caller).toEqual(harness.caller);
-                expect(result.write.command).toBe("counter.increment");
-                expect(result.write.idempotencyKey).toBe("missing-revision");
-                expect(duplicate.outcome).toBe("duplicate");
-                expect(duplicate.reply).toEqual(result.reply);
-                expect(harness.snapshot().contentGets).toBe(0);
+                expect(result.write.caller).toBeUndefined();
+                expect(result.write.command).toBeUndefined();
+                expect(result.write.envelopeDigest.equals(Digest.sha256(raw))).toBe(true);
             }
-        );
+            expect(harness.snapshot().value).toBe(0);
+            expect(harness.snapshot().identityCount).toBe(0);
+        });
+
+        test("does not trust a caller cause before exact caller authentication", { tags: "p0" }, async () => {
+            const harness = create();
+            const cause = harness.seedInvocationCause();
+
+            const result = await harness.dispatch(
+                harness.envelope({
+                    key: "unauthenticated-cause",
+                    callerCause: cause.id
+                }),
+                {
+                    kind: "principal",
+                    principal: new PrincipalRef(harness.tenant, new PrincipalId("forged-principal"))
+                }
+            );
+            const audit = harness.snapshot().audits.get(result.write.audit.value);
+
+            expect(result.outcome).toBe("rejectedAuthentication");
+            expect(audit?.cause).toBeUndefined();
+            expect(audit?.correlation.equals(cause.correlation)).toBe(false);
+            expect(harness.snapshot().identityCount).toBe(0);
+        });
+
+        test("retains and replays authenticated decoded shape rejection", { tags: "p0" }, async () => {
+            const harness = create();
+            const payload = encodeCanonicalJson({ amount: 1 });
+            const ref = testContentRef("counter:missing-revision:1");
+            const malformed = encodeCanonicalJson({
+                kind: "command-envelope",
+                version: { major: 1, minor: 0 },
+                payload: {
+                    command: "counter.increment",
+                    caller: {
+                        kind: "principal",
+                        principal: {
+                            id: harness.principal.value,
+                            tenant: harness.tenant.value
+                        }
+                    },
+                    idempotencyKey: "missing-revision",
+                    payload: ref.value,
+                    payloadDigest: Digest.sha256(payload).value
+                }
+            });
+
+            const result = await harness.dispatch(malformed);
+            const duplicate = await harness.dispatch(malformed);
+
+            expect(result.outcome).toBe("rejectedMalformed");
+            expect(result.write.caller).toEqual(harness.caller);
+            expect(result.write.command).toBe("counter.increment");
+            expect(result.write.idempotencyKey).toBe("missing-revision");
+            expect(duplicate.outcome).toBe("duplicate");
+            expect(duplicate.reply).toEqual(result.reply);
+            expect(harness.snapshot().contentGets).toBe(0);
+        });
 
         test("evaluates post-payload gates in deterministic order", { tags: "p1" }, async () => {
             const harness = create({ lease: "required" });
@@ -1024,44 +886,40 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             ).toBe("rejectedLease");
         });
 
-        test(
-            "admits absent optional revisions and enforces forbidden revisions",
-            { tags: "p0" },
-            async () => {
-                const optional = create({ expectedRevision: "optional" });
-                expect(
-                    (
-                        await optional.dispatch(
-                            optional.envelope({
-                                key: "optional-revision",
-                                omitRevision: true
-                            })
-                        )
-                    ).outcome
-                ).toBe("committed");
+        test("admits absent optional revisions and enforces forbidden revisions", { tags: "p0" }, async () => {
+            const optional = create({ expectedRevision: "optional" });
+            expect(
+                (
+                    await optional.dispatch(
+                        optional.envelope({
+                            key: "optional-revision",
+                            omitRevision: true
+                        })
+                    )
+                ).outcome
+            ).toBe("committed");
 
-                const forbidden = create({ expectedRevision: "forbidden" });
-                expect(
-                    (
-                        await forbidden.dispatch(
-                            forbidden.envelope({
-                                key: "forbidden-revision-absent",
-                                omitRevision: true
-                            })
-                        )
-                    ).outcome
-                ).toBe("committed");
-                expect(
-                    (
-                        await forbidden.dispatch(
-                            forbidden.envelope({
-                                key: "forbidden-revision-present"
-                            })
-                        )
-                    ).outcome
-                ).toBe("rejectedMalformed");
-            }
-        );
+            const forbidden = create({ expectedRevision: "forbidden" });
+            expect(
+                (
+                    await forbidden.dispatch(
+                        forbidden.envelope({
+                            key: "forbidden-revision-absent",
+                            omitRevision: true
+                        })
+                    )
+                ).outcome
+            ).toBe("committed");
+            expect(
+                (
+                    await forbidden.dispatch(
+                        forbidden.envelope({
+                            key: "forbidden-revision-present"
+                        })
+                    )
+                ).outcome
+            ).toBe("rejectedMalformed");
+        });
 
         test.each<readonly [string, (token: LeaseToken) => LeaseToken | undefined]>([
             ["missing", () => undefined],

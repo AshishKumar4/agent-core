@@ -195,457 +195,402 @@ class TestEventIntentAuthenticator extends EventIntentAuthenticator {
 }
 
 describe("SourceEventProtocol", () => {
-    test(
-        "registers opaque prepared routing as typed W1 command evidence",
-        { tags: "p1" },
-        async () => {
-            const harness = createProtocolHarness();
+    test("registers opaque prepared routing as typed W1 command evidence", { tags: "p1" }, async () => {
+        const harness = createProtocolHarness();
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(
+                state,
+                subscriptionFixture("source-command"),
+                undefined
+            )
+        );
+        const protocol = sourceProtocol(
+            harness,
+            new SourceRoutes(),
+            new AuditPort(),
+            new SequenceIds()
+        );
+        const prepared = await protocol.prepare(
+            harness.transaction((state) => protocol.snapshot(state, eventIntent("source-command")))
+        );
+        const port = new SourceCommandPort(prepared);
+        const command = createSourceEventProtocolCommand(protocol, port);
+        const payload = command.payload.decode(port.payloadBytes);
+        const envelope = {} as CommandEnvelope;
+        const at = new Date("2026-07-12T12:00:00.000Z");
+
+        expect(command.command).toBe(SOURCE_EVENT_COMMAND);
+        expect(command.currentLease({}, envelope, payload, at)).toBeUndefined();
+        expect(port.decisionAt).toBe(at);
+        const execution = harness.transaction((state) =>
+            command.execute(state, envelope, payload, at)
+        );
+        if (execution instanceof Uint8Array) throw new TypeError("Expected typed execution");
+        expect(execution.reply.duplicate).toBe(false);
+        expect(execution.observation).toBe(execution.reply);
+    });
+
+    test("prepares outside the transaction, commits source-owned reservations, and replays unknown ack", { tags: "p0" }, async () => {
+        const harness = createProtocolHarness();
+        const subscription = subscriptionFixture("source", {
+            mapping: new PayloadMapping([new FieldMove("/argument", { from: "/value" })])
+        });
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(state, subscription, undefined)
+        );
+        const ids = new SequenceIds();
+        const audit = new AuditPort();
+        const routes = new SourceRoutes();
+        const retention = new RetentionPort();
+        const protocol = sourceProtocol(harness, routes, audit, ids, retention);
+        const intent = eventIntent("source");
+
+        const snapshot = harness.transaction((state) => protocol.snapshot(state, intent));
+        expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
+        const prepared = await protocol.prepare(snapshot);
+        expect(routes.prepared).toHaveLength(1);
+        expect(routes.prepared[0]?.mappedInput).toEqual({ argument: 7 });
+        expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(0);
+
+        let firstResult: ReturnType<typeof protocol.commit> | undefined;
+        expect(() => {
+            firstResult = harness.transaction((state) => protocol.commit(state, prepared));
+            throw new TypeError("ack lost after commit");
+        }).toThrow(/ack lost/);
+        expect(firstResult?.duplicate).toBe(false);
+        expect(firstResult?.reservations).toHaveLength(1);
+        expect(firstResult?.reservations[0]?.sourceActor.equals(sourceActor)).toBe(true);
+        expect(firstResult?.reservations[0]?.targetActor.equals(targetActor)).toBe(true);
+
+        const replay = harness.transaction((state) => protocol.commit(state, prepared));
+        expect(replay.duplicate).toBe(true);
+        expect(replay.reservations).toHaveLength(1);
+        expect(replay.reservations[0]?.id).toEqual(firstResult?.reservations[0]?.id);
+        expect(replay.reservations[0]?.invocation).toEqual(
+            firstResult?.reservations[0]?.invocation
+        );
+        expect(harness.snapshot().records.listRecords("event")).toHaveLength(1);
+        expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(1);
+        expect(harness.snapshot().audit).toEqual(["event", "reservation"]);
+        expect(retention.discarded).toEqual([`retention-${routes.prepared[0]?.reservation.value}`]);
+    });
+
+    test("rejects wrong source ownership and a stale subscription snapshot", { tags: "p0" }, async () => {
+        const harness = createProtocolHarness();
+        const subscription = subscriptionFixture("snapshot");
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(state, subscription, undefined)
+        );
+        const protocol = sourceProtocol(
+            harness,
+            new SourceRoutes(),
+            new AuditPort(),
+            new SequenceIds()
+        );
+        const wrongSource = new ActorRef("workspace", new ActorId("wrong-source"));
+        const wrongSourceIntent = authenticateEventDraft({
+            ...eventDraft("wrong-source"),
+            sourceActor: wrongSource
+        });
+        expect(() =>
+            harness.transaction((state) => protocol.snapshot(state, wrongSourceIntent))
+        ).toThrow(/accepting Actor/);
+
+        const snapshot = harness.transaction((state) =>
+            protocol.snapshot(state, eventIntent("snapshot"))
+        );
+        const prepared = await protocol.prepare(snapshot);
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(
+                state,
+                subscriptionFixture("snapshot-added"),
+                undefined
+            )
+        );
+
+        expect(() => harness.transaction((state) => protocol.commit(state, prepared))).toThrow(
+            /snapshot changed/
+        );
+        expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
+    });
+
+    test("rolls back faults before and inside commit without phantom reservations", { tags: "p0" }, async () => {
+        const harness = createProtocolHarness();
+        const subscription = subscriptionFixture("fault");
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(state, subscription, undefined)
+        );
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(
+                state,
+                subscriptionFixture("fault-second"),
+                undefined
+            )
+        );
+        const routes = new SourceRoutes();
+        const audit = new AuditPort();
+        const retention = new RetentionPort();
+        const protocol = sourceProtocol(harness, routes, audit, new SequenceIds(), retention);
+        const snapshot = harness.transaction((state) =>
+            protocol.snapshot(state, eventIntent("fault"))
+        );
+
+        routes.failPrepareAfter = 1;
+        await expect(protocol.prepare(snapshot)).rejects.toThrow(/before transaction/);
+        expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
+        expect(retention.discarded).toEqual([`retention-${routes.prepared[0]?.reservation.value}`]);
+
+        routes.failPrepareAfter = undefined;
+        retention.discarded.length = 0;
+        const prepared = await protocol.prepare(snapshot);
+        audit.failReservation = true;
+        expect(() => harness.transaction((state) => protocol.commit(state, prepared))).toThrow(
+            /inside transaction/
+        );
+        expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
+        expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(0);
+        expect(harness.snapshot().records.listRecords("contentRetention")).toHaveLength(0);
+        expect(harness.snapshot().audit).toEqual([]);
+        expect(retention.discarded).toEqual([
+            snapshot.payloadRetention.id.value,
+            ...routes.prepared.slice(1).map((route) => `retention-${route.reservation.value}`)
+        ]);
+    });
+
+    test("rejects caller-assembled preparation and trust changed during async preparation", { tags: "p0" }, async () => {
+        const harness = createProtocolHarness();
+        const subscription = subscriptionFixture("prepared-brand");
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(state, subscription, undefined)
+        );
+        let currentTrust: "authenticated" | "external" = "authenticated";
+        const trust: EventTrustPort<ProtocolState> = {
+            derive: () =>
+                currentTrust === "authenticated"
+                    ? { tier: "authenticated", initiator: principal }
+                    : { tier: "external" }
+        };
+        const protocol = new SourceEventProtocol(
+            sourceActor,
+            harness.persistence,
+            trust,
+            { load: async () => ({ value: 7 }) },
+            new SourceRoutes(),
+            new RetentionPort(),
+            new AuditPort(),
+            new SequenceIds()
+        );
+        const snapshot = harness.transaction((state) =>
+            protocol.snapshot(state, eventIntent("brand"))
+        );
+        await expect(protocol.prepare({ ...snapshot })).rejects.toMatchObject({
+            code: "protocol.invalid-state"
+        });
+        const ForgedPreparation = {
+            snapshot,
+            routes: []
+        } as unknown as Awaited<ReturnType<typeof protocol.prepare>>;
+        expect(() =>
+            harness.transaction((state) => protocol.commit(state, ForgedPreparation))
+        ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
+
+        const prepared = await protocol.prepare(snapshot);
+        currentTrust = "external";
+        expect(() => harness.transaction((state) => protocol.commit(state, prepared))).toThrow(
+            expect.objectContaining({ code: "authority.denied" })
+        );
+        expect(harness.snapshot().records.listRecords("event")).toEqual([]);
+    });
+
+    test("keeps payload-dedupe results stable across a second Event retry", { tags: "p0" }, async () => {
+        const harness = createProtocolHarness();
+        const subscription = subscriptionFixture("payload-reply", { dedupe: "payload" });
+        harness.transaction((state) =>
+            harness.persistence.saveSubscription(state, subscription, undefined)
+        );
+        const routes = new SourceRoutes();
+        const retention = new RetentionPort();
+        const protocol = sourceProtocol(
+            harness,
+            routes,
+            new AuditPort(),
+            new SequenceIds(),
+            retention
+        );
+        const firstDraft = eventDraft("payload-first");
+        const secondDraft = {
+            ...eventDraft("payload-second"),
+            payload: firstDraft.payload,
+            payloadDigest: firstDraft.payloadDigest,
+            payloadRetention: retentionFixture({
+                id: "retention-event-payload-second-shared",
+                recordKind: "event",
+                recordId: "event-payload-second",
+                content: { ref: firstDraft.payload, digest: firstDraft.payloadDigest }
+            })
+        };
+        const first = await protocol.prepare(
             harness.transaction((state) =>
-                harness.persistence.saveSubscription(
-                    state,
-                    subscriptionFixture("source-command"),
-                    undefined
-                )
-            );
-            const protocol = sourceProtocol(
-                harness,
-                new SourceRoutes(),
-                new AuditPort(),
-                new SequenceIds()
-            );
-            const prepared = await protocol.prepare(
-                harness.transaction((state) =>
-                    protocol.snapshot(state, eventIntent("source-command"))
-                )
-            );
-            const port = new SourceCommandPort(prepared);
-            const command = createSourceEventProtocolCommand(protocol, port);
-            const payload = command.payload.decode(port.payloadBytes);
-            const envelope = {} as CommandEnvelope;
-            const at = new Date("2026-07-12T12:00:00.000Z");
-
-            expect(command.command).toBe(SOURCE_EVENT_COMMAND);
-            expect(command.currentLease({}, envelope, payload, at)).toBeUndefined();
-            expect(port.decisionAt).toBe(at);
-            const execution = harness.transaction((state) =>
-                command.execute(state, envelope, payload, at)
-            );
-            if (execution instanceof Uint8Array) throw new TypeError("Expected typed execution");
-            expect(execution.reply.duplicate).toBe(false);
-            expect(execution.observation).toBe(execution.reply);
-        }
-    );
-
-    test(
-        "prepares outside the transaction, commits source-owned reservations, and replays unknown ack",
-        { tags: "p0" },
-        async () => {
-            const harness = createProtocolHarness();
-            const subscription = subscriptionFixture("source", {
-                mapping: new PayloadMapping([new FieldMove("/argument", { from: "/value" })])
-            });
+                protocol.snapshot(state, authenticateEventDraft(firstDraft))
+            )
+        );
+        harness.transaction((state) => protocol.commit(state, first));
+        const second = await protocol.prepare(
             harness.transaction((state) =>
-                harness.persistence.saveSubscription(state, subscription, undefined)
-            );
-            const ids = new SequenceIds();
-            const audit = new AuditPort();
-            const routes = new SourceRoutes();
-            const retention = new RetentionPort();
-            const protocol = sourceProtocol(harness, routes, audit, ids, retention);
-            const intent = eventIntent("source");
+                protocol.snapshot(state, authenticateEventDraft(secondDraft))
+            )
+        );
 
-            const snapshot = harness.transaction((state) => protocol.snapshot(state, intent));
-            expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
-            const prepared = await protocol.prepare(snapshot);
-            expect(routes.prepared).toHaveLength(1);
-            expect(routes.prepared[0]?.mappedInput).toEqual({ argument: 7 });
-            expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(0);
-
-            let firstResult: ReturnType<typeof protocol.commit> | undefined;
-            expect(() => {
-                firstResult = harness.transaction((state) => protocol.commit(state, prepared));
-                throw new TypeError("ack lost after commit");
-            }).toThrow(/ack lost/);
-            expect(firstResult?.duplicate).toBe(false);
-            expect(firstResult?.reservations).toHaveLength(1);
-            expect(firstResult?.reservations[0]?.sourceActor.equals(sourceActor)).toBe(true);
-            expect(firstResult?.reservations[0]?.targetActor.equals(targetActor)).toBe(true);
-
-            const replay = harness.transaction((state) => protocol.commit(state, prepared));
-            expect(replay.duplicate).toBe(true);
-            expect(replay.reservations).toHaveLength(1);
-            expect(replay.reservations[0]?.id).toEqual(firstResult?.reservations[0]?.id);
-            expect(replay.reservations[0]?.invocation).toEqual(
-                firstResult?.reservations[0]?.invocation
-            );
-            expect(harness.snapshot().records.listRecords("event")).toHaveLength(1);
-            expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(1);
-            expect(harness.snapshot().audit).toEqual(["event", "reservation"]);
-            expect(retention.discarded).toEqual([
-                `retention-${routes.prepared[0]?.reservation.value}`
-            ]);
-        }
-    );
-
-    test(
-        "rejects wrong source ownership and a stale subscription snapshot",
-        { tags: "p0" },
-        async () => {
-            const harness = createProtocolHarness();
-            const subscription = subscriptionFixture("snapshot");
-            harness.transaction((state) =>
-                harness.persistence.saveSubscription(state, subscription, undefined)
-            );
-            const protocol = sourceProtocol(
-                harness,
-                new SourceRoutes(),
-                new AuditPort(),
-                new SequenceIds()
-            );
-            const wrongSource = new ActorRef("workspace", new ActorId("wrong-source"));
-            const wrongSourceIntent = authenticateEventDraft({
-                ...eventDraft("wrong-source"),
-                sourceActor: wrongSource
-            });
-            expect(() =>
-                harness.transaction((state) => protocol.snapshot(state, wrongSourceIntent))
-            ).toThrow(/accepting Actor/);
-
-            const snapshot = harness.transaction((state) =>
-                protocol.snapshot(state, eventIntent("snapshot"))
-            );
-            const prepared = await protocol.prepare(snapshot);
-            harness.transaction((state) =>
-                harness.persistence.saveSubscription(
-                    state,
-                    subscriptionFixture("snapshot-added"),
-                    undefined
-                )
-            );
-
-            expect(() => harness.transaction((state) => protocol.commit(state, prepared))).toThrow(
-                /snapshot changed/
-            );
-            expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
-        }
-    );
-
-    test(
-        "rolls back faults before and inside commit without phantom reservations",
-        { tags: "p0" },
-        async () => {
-            const harness = createProtocolHarness();
-            const subscription = subscriptionFixture("fault");
-            harness.transaction((state) =>
-                harness.persistence.saveSubscription(state, subscription, undefined)
-            );
-            harness.transaction((state) =>
-                harness.persistence.saveSubscription(
-                    state,
-                    subscriptionFixture("fault-second"),
-                    undefined
-                )
-            );
-            const routes = new SourceRoutes();
-            const audit = new AuditPort();
-            const retention = new RetentionPort();
-            const protocol = sourceProtocol(harness, routes, audit, new SequenceIds(), retention);
-            const snapshot = harness.transaction((state) =>
-                protocol.snapshot(state, eventIntent("fault"))
-            );
-
-            routes.failPrepareAfter = 1;
-            await expect(protocol.prepare(snapshot)).rejects.toThrow(/before transaction/);
-            expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
-            expect(retention.discarded).toEqual([
-                `retention-${routes.prepared[0]?.reservation.value}`
-            ]);
-
-            routes.failPrepareAfter = undefined;
-            retention.discarded.length = 0;
-            const prepared = await protocol.prepare(snapshot);
-            audit.failReservation = true;
-            expect(() => harness.transaction((state) => protocol.commit(state, prepared))).toThrow(
-                /inside transaction/
-            );
-            expect(harness.snapshot().records.listRecords("event")).toHaveLength(0);
-            expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(0);
-            expect(harness.snapshot().records.listRecords("contentRetention")).toHaveLength(0);
-            expect(harness.snapshot().audit).toEqual([]);
-            expect(retention.discarded).toEqual([
-                snapshot.payloadRetention.id.value,
-                ...routes.prepared.slice(1).map((route) => `retention-${route.reservation.value}`)
-            ]);
-        }
-    );
-
-    test(
-        "rejects caller-assembled preparation and trust changed during async preparation",
-        { tags: "p0" },
-        async () => {
-            const harness = createProtocolHarness();
-            const subscription = subscriptionFixture("prepared-brand");
-            harness.transaction((state) =>
-                harness.persistence.saveSubscription(state, subscription, undefined)
-            );
-            let currentTrust: "authenticated" | "external" = "authenticated";
-            const trust: EventTrustPort<ProtocolState> = {
-                derive: () =>
-                    currentTrust === "authenticated"
-                        ? { tier: "authenticated", initiator: principal }
-                        : { tier: "external" }
-            };
-            const protocol = new SourceEventProtocol(
-                sourceActor,
-                harness.persistence,
-                trust,
-                { load: async () => ({ value: 7 }) },
-                new SourceRoutes(),
-                new RetentionPort(),
-                new AuditPort(),
-                new SequenceIds()
-            );
-            const snapshot = harness.transaction((state) =>
-                protocol.snapshot(state, eventIntent("brand"))
-            );
-            await expect(protocol.prepare({ ...snapshot })).rejects.toMatchObject({
-                code: "protocol.invalid-state"
-            });
-            const ForgedPreparation = {
-                snapshot,
-                routes: []
-            } as unknown as Awaited<ReturnType<typeof protocol.prepare>>;
-            expect(() =>
-                harness.transaction((state) => protocol.commit(state, ForgedPreparation))
-            ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
-
-            const prepared = await protocol.prepare(snapshot);
-            currentTrust = "external";
-            expect(() => harness.transaction((state) => protocol.commit(state, prepared))).toThrow(
-                expect.objectContaining({ code: "authority.denied" })
-            );
-            expect(harness.snapshot().records.listRecords("event")).toEqual([]);
-        }
-    );
-
-    test(
-        "keeps payload-dedupe results stable across a second Event retry",
-        { tags: "p0" },
-        async () => {
-            const harness = createProtocolHarness();
-            const subscription = subscriptionFixture("payload-reply", { dedupe: "payload" });
-            harness.transaction((state) =>
-                harness.persistence.saveSubscription(state, subscription, undefined)
-            );
-            const routes = new SourceRoutes();
-            const retention = new RetentionPort();
-            const protocol = sourceProtocol(
-                harness,
-                routes,
-                new AuditPort(),
-                new SequenceIds(),
-                retention
-            );
-            const firstDraft = eventDraft("payload-first");
-            const secondDraft = {
-                ...eventDraft("payload-second"),
-                payload: firstDraft.payload,
-                payloadDigest: firstDraft.payloadDigest,
-                payloadRetention: retentionFixture({
-                    id: "retention-event-payload-second-shared",
-                    recordKind: "event",
-                    recordId: "event-payload-second",
-                    content: { ref: firstDraft.payload, digest: firstDraft.payloadDigest }
-                })
-            };
-            const first = await protocol.prepare(
-                harness.transaction((state) =>
-                    protocol.snapshot(state, authenticateEventDraft(firstDraft))
-                )
-            );
-            harness.transaction((state) => protocol.commit(state, first));
-            const second = await protocol.prepare(
-                harness.transaction((state) =>
-                    protocol.snapshot(state, authenticateEventDraft(secondDraft))
-                )
-            );
-
-            const initial = harness.transaction((state) => protocol.commit(state, second));
-            expect(retention.discarded).toEqual([]);
-            const replay = harness.transaction((state) => protocol.commit(state, second));
-            expect(initial.reservations).toEqual([]);
-            expect(replay.reservations).toEqual([]);
-            expect(retention.discarded).toEqual([]);
-        }
-    );
+        const initial = harness.transaction((state) => protocol.commit(state, second));
+        expect(retention.discarded).toEqual([]);
+        const replay = harness.transaction((state) => protocol.commit(state, second));
+        expect(initial.reservations).toEqual([]);
+        expect(replay.reservations).toEqual([]);
+        expect(retention.discarded).toEqual([]);
+    });
 });
 
 describe("authenticated target projection protocol", () => {
-    test(
-        "registers authenticated target admission as typed W1 command evidence",
-        { tags: "p1" },
-        () => {
-            const harness = createProtocolHarness();
-            const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
-            const admission = authenticatedAdmission("target-command");
-            const port = new TargetCommandPort(admission);
-            const command = createTargetProjectionProtocolCommand(protocol, port);
-            const payload = command.payload.decode(port.payloadBytes);
-            const envelope = {} as CommandEnvelope;
-            const at = new Date("2026-07-12T12:00:00.000Z");
+    test("registers authenticated target admission as typed W1 command evidence", { tags: "p1" }, () => {
+        const harness = createProtocolHarness();
+        const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
+        const admission = authenticatedAdmission("target-command");
+        const port = new TargetCommandPort(admission);
+        const command = createTargetProjectionProtocolCommand(protocol, port);
+        const payload = command.payload.decode(port.payloadBytes);
+        const envelope = {} as CommandEnvelope;
+        const at = new Date("2026-07-12T12:00:00.000Z");
 
-            expect(command.command).toBe(TARGET_PROJECTION_COMMAND);
-            expect(command.currentLease({}, envelope, payload, at)).toBeUndefined();
-            expect(port.decisionAt).toBe(at);
-            const execution = harness.transaction((state) =>
-                command.execute(state, envelope, payload, at)
-            );
-            if (execution instanceof Uint8Array) throw new TypeError("Expected typed execution");
-            expect(execution.reply.state.kind).toBe("delivered");
-            expect(execution.observation).toBe(execution.reply);
-        }
-    );
+        expect(command.command).toBe(TARGET_PROJECTION_COMMAND);
+        expect(command.currentLease({}, envelope, payload, at)).toBeUndefined();
+        expect(port.decisionAt).toBe(at);
+        const execution = harness.transaction((state) =>
+            command.execute(state, envelope, payload, at)
+        );
+        if (execution instanceof Uint8Array) throw new TypeError("Expected typed execution");
+        expect(execution.reply.state.kind).toBe("delivered");
+        expect(execution.observation).toBe(execution.reply);
+    });
 
-    test(
-        "rejects tampering, wrong targets, and public attempts to forge the bridge",
-        { tags: "p0" },
-        () => {
-            const authenticator = new TestProjectionAuthenticator();
-            const reservation = reservationFixture("authentication");
-            const projection = projectionFixture(reservation);
-            const envelope = { reservation, projection };
-            const evidence = authenticator.evidence(envelope);
-            expect(authenticator.authenticate(envelope, evidence)).toBeInstanceOf(
-                AuthenticatedRouteProjection
-            );
+    test("rejects tampering, wrong targets, and public attempts to forge the bridge", { tags: "p0" }, () => {
+        const authenticator = new TestProjectionAuthenticator();
+        const reservation = reservationFixture("authentication");
+        const projection = projectionFixture(reservation);
+        const envelope = { reservation, projection };
+        const evidence = authenticator.evidence(envelope);
+        expect(authenticator.authenticate(envelope, evidence)).toBeInstanceOf(
+            AuthenticatedRouteProjection
+        );
 
-            const tamperedReservation = new RouteReservation({
-                ...reservation.init,
-                dedupeKey: "event:tampered"
-            });
-            expect(() =>
-                authenticator.authenticate(
-                    { reservation: tamperedReservation, projection },
-                    evidence
-                )
-            ).toThrow(/authentication failed/);
+        const tamperedReservation = new RouteReservation({
+            ...reservation.init,
+            dedupeKey: "event:tampered"
+        });
+        expect(() =>
+            authenticator.authenticate({ reservation: tamperedReservation, projection }, evidence)
+        ).toThrow(/authentication failed/);
 
-            const ForgedProjection = AuthenticatedRouteProjection as unknown as new (
-                token: symbol,
-                value: RouteProjectionEnvelope
-            ) => AuthenticatedRouteProjection;
-            expect(() => new ForgedProjection(Symbol("forged"), envelope)).toThrow(/host-only/);
+        const ForgedProjection = AuthenticatedRouteProjection as unknown as new (
+            token: symbol,
+            value: RouteProjectionEnvelope
+        ) => AuthenticatedRouteProjection;
+        expect(() => new ForgedProjection(Symbol("forged"), envelope)).toThrow(/host-only/);
 
-            const structuralForgery = { envelope } as unknown as AuthenticatedRouteProjection;
-            const structuralHarness = createProtocolHarness();
-            expect(() =>
-                structuralHarness.transaction((state) =>
-                    targetProtocol(structuralHarness, new AuditPort(), new SequenceIds()).admit(
-                        state,
-                        {
-                            projection: structuralForgery,
-                            retention: projectionRetention(projection)
-                        }
-                    )
-                )
-            ).toThrow(expect.objectContaining({ code: "authority.denied" }));
-            expect(structuralHarness.snapshot().audit).toEqual([]);
-
-            const harness = createProtocolHarness();
-            const wrongTargetReservation = reservationFixture("wrong-target", {
-                target: sourceActor
-            });
-            const wrongTargetProjection = projectionFixture(wrongTargetReservation);
-            const authenticated = authenticator.authenticate(
-                { reservation: wrongTargetReservation, projection: wrongTargetProjection },
-                authenticator.evidence({
-                    reservation: wrongTargetReservation,
-                    projection: wrongTargetProjection
+        const structuralForgery = { envelope } as unknown as AuthenticatedRouteProjection;
+        const structuralHarness = createProtocolHarness();
+        expect(() =>
+            structuralHarness.transaction((state) =>
+                targetProtocol(structuralHarness, new AuditPort(), new SequenceIds()).admit(state, {
+                    projection: structuralForgery,
+                    retention: projectionRetention(projection)
                 })
-            );
-            const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
-            expect(() =>
-                harness.transaction((state) =>
-                    protocol.admit(state, {
-                        projection: authenticated,
-                        retention: projectionRetention(wrongTargetProjection)
-                    })
-                )
-            ).toThrow(/another Actor/);
-            expect(harness.snapshot().records.listRecords("routeProjection")).toHaveLength(0);
-        }
-    );
+            )
+        ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+        expect(structuralHarness.snapshot().audit).toEqual([]);
 
-    test(
-        "admits projection and invocation once, then returns the terminal delivery on replay",
-        { tags: "p0" },
-        () => {
+        const harness = createProtocolHarness();
+        const wrongTargetReservation = reservationFixture("wrong-target", { target: sourceActor });
+        const wrongTargetProjection = projectionFixture(wrongTargetReservation);
+        const authenticated = authenticator.authenticate(
+            { reservation: wrongTargetReservation, projection: wrongTargetProjection },
+            authenticator.evidence({
+                reservation: wrongTargetReservation,
+                projection: wrongTargetProjection
+            })
+        );
+        const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
+        expect(() =>
+            harness.transaction((state) =>
+                protocol.admit(state, {
+                    projection: authenticated,
+                    retention: projectionRetention(wrongTargetProjection)
+                })
+            )
+        ).toThrow(/another Actor/);
+        expect(harness.snapshot().records.listRecords("routeProjection")).toHaveLength(0);
+    });
+
+    test("admits projection and invocation once, then returns the terminal delivery on replay", { tags: "p0" }, () => {
+        const harness = createProtocolHarness();
+        const audit = new AuditPort();
+        const protocol = targetProtocol(harness, audit, new SequenceIds());
+        const input = authenticatedAdmission("target-accepted");
+
+        let delivery: ReturnType<typeof protocol.admit> | undefined;
+        expect(() => {
+            delivery = harness.transaction((state) => protocol.admit(state, input));
+            throw new TypeError("target ack lost");
+        }).toThrow(/ack lost/);
+        expect(delivery?.state.kind).toBe("delivered");
+        expect(harness.snapshot()).toMatchObject({
+            audit: ["projection-root", "delivery"],
+            authorityCalls: 1,
+            invocationCalls: 1
+        });
+
+        const replay = harness.transaction((state) => protocol.admit(state, input));
+        expect(replay).toEqual(delivery);
+        expect(harness.snapshot()).toMatchObject({
+            audit: ["projection-root", "delivery"],
+            authorityCalls: 1,
+            invocationCalls: 1
+        });
+    });
+
+    test("records authority and invocation rejection as terminal without invoking past denial", { tags: "p0" }, () => {
+        for (const rejection of ["authority", "invocation"] as const) {
             const harness = createProtocolHarness();
-            const audit = new AuditPort();
-            const protocol = targetProtocol(harness, audit, new SequenceIds());
-            const input = authenticatedAdmission("target-accepted");
+            const authority = new TargetAuthority(
+                rejection === "authority"
+                    ? { kind: "rejected", reason: "target authority denied" }
+                    : { kind: "accepted" }
+            );
+            const invocations = new InvocationAdmission(
+                rejection === "invocation"
+                    ? { kind: "rejected", reason: "invocation denied" }
+                    : { kind: "accepted" }
+            );
+            const protocol = new TargetProjectionProtocol(
+                targetActor,
+                targetPersistence(),
+                new RetentionPort(),
+                authority,
+                invocations,
+                new AuditPort(),
+                new SequenceIds()
+            );
+            const input = authenticatedAdmission(`target-${rejection}`);
 
-            let delivery: ReturnType<typeof protocol.admit> | undefined;
-            expect(() => {
-                delivery = harness.transaction((state) => protocol.admit(state, input));
-                throw new TypeError("target ack lost");
-            }).toThrow(/ack lost/);
-            expect(delivery?.state.kind).toBe("delivered");
-            expect(harness.snapshot()).toMatchObject({
-                audit: ["projection-root", "delivery"],
-                authorityCalls: 1,
-                invocationCalls: 1
+            const delivery = harness.transaction((state) => protocol.admit(state, input));
+            expect(delivery.state).toMatchObject({
+                kind: "rejected",
+                reason: rejection === "authority" ? "target authority denied" : "invocation denied"
             });
-
+            expect(harness.snapshot().invocationCalls).toBe(rejection === "authority" ? 0 : 1);
             const replay = harness.transaction((state) => protocol.admit(state, input));
             expect(replay).toEqual(delivery);
-            expect(harness.snapshot()).toMatchObject({
-                audit: ["projection-root", "delivery"],
-                authorityCalls: 1,
-                invocationCalls: 1
-            });
         }
-    );
-
-    test(
-        "records authority and invocation rejection as terminal without invoking past denial",
-        { tags: "p0" },
-        () => {
-            for (const rejection of ["authority", "invocation"] as const) {
-                const harness = createProtocolHarness();
-                const authority = new TargetAuthority(
-                    rejection === "authority"
-                        ? { kind: "rejected", reason: "target authority denied" }
-                        : { kind: "accepted" }
-                );
-                const invocations = new InvocationAdmission(
-                    rejection === "invocation"
-                        ? { kind: "rejected", reason: "invocation denied" }
-                        : { kind: "accepted" }
-                );
-                const protocol = new TargetProjectionProtocol(
-                    targetActor,
-                    targetPersistence(),
-                    new RetentionPort(),
-                    authority,
-                    invocations,
-                    new AuditPort(),
-                    new SequenceIds()
-                );
-                const input = authenticatedAdmission(`target-${rejection}`);
-
-                const delivery = harness.transaction((state) => protocol.admit(state, input));
-                expect(delivery.state).toMatchObject({
-                    kind: "rejected",
-                    reason:
-                        rejection === "authority" ? "target authority denied" : "invocation denied"
-                });
-                expect(harness.snapshot().invocationCalls).toBe(rejection === "authority" ? 0 : 1);
-                const replay = harness.transaction((state) => protocol.admit(state, input));
-                expect(replay).toEqual(delivery);
-            }
-        }
-    );
+    });
 
     test("rolls back a fault after projection append and succeeds on retry", { tags: "p0" }, () => {
         const harness = createProtocolHarness();
@@ -675,138 +620,119 @@ describe("authenticated target projection protocol", () => {
         );
     });
 
-    test(
-        "rejects a differently authenticated intent reusing a terminal reservation ID",
-        { tags: "p0" },
-        () => {
-            const harness = createProtocolHarness();
-            const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
-            const original = authenticatedAdmission("target-conflict");
-            harness.transaction((state) => protocol.admit(state, original));
-            const source = original.projection.envelope.reservation;
-            const changed = new RouteReservation({
-                ...source.init,
-                operation: new OperationRef("facet.test:changed")
-            });
-            const projection = projectionFixture(changed);
-            const authenticator = new TestProjectionAuthenticator();
-            const envelope = { reservation: changed, projection };
+    test("rejects a differently authenticated intent reusing a terminal reservation ID", { tags: "p0" }, () => {
+        const harness = createProtocolHarness();
+        const protocol = targetProtocol(harness, new AuditPort(), new SequenceIds());
+        const original = authenticatedAdmission("target-conflict");
+        harness.transaction((state) => protocol.admit(state, original));
+        const source = original.projection.envelope.reservation;
+        const changed = new RouteReservation({
+            ...source.init,
+            operation: new OperationRef("facet.test:changed")
+        });
+        const projection = projectionFixture(changed);
+        const authenticator = new TestProjectionAuthenticator();
+        const envelope = { reservation: changed, projection };
 
-            expect(() =>
-                harness.transaction((state) =>
-                    protocol.admit(state, {
-                        projection: authenticator.authenticate(
-                            envelope,
-                            authenticator.evidence(envelope)
-                        ),
-                        retention: projectionRetention(projection)
-                    })
-                )
-            ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
-            expect(harness.snapshot().invocationCalls).toBe(1);
-        }
-    );
+        expect(() =>
+            harness.transaction((state) =>
+                protocol.admit(state, {
+                    projection: authenticator.authenticate(
+                        envelope,
+                        authenticator.evidence(envelope)
+                    ),
+                    retention: projectionRetention(projection)
+                })
+            )
+        ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
+        expect(harness.snapshot().invocationCalls).toBe(1);
+    });
 
-    test(
-        "rejects invocation admission that substitutes the stable Invocation ID",
-        { tags: "p0" },
-        () => {
-            const harness = createProtocolHarness();
-            const protocol = new TargetProjectionProtocol(
-                targetActor,
-                targetPersistence(),
-                new RetentionPort(),
-                new TargetAuthority({ kind: "accepted" }),
-                {
-                    admit: () => ({
-                        kind: "accepted",
-                        invocation: new InvocationId("substituted-invocation")
-                    })
-                },
-                new AuditPort(),
-                new SequenceIds()
-            );
+    test("rejects invocation admission that substitutes the stable Invocation ID", { tags: "p0" }, () => {
+        const harness = createProtocolHarness();
+        const protocol = new TargetProjectionProtocol(
+            targetActor,
+            targetPersistence(),
+            new RetentionPort(),
+            new TargetAuthority({ kind: "accepted" }),
+            {
+                admit: () => ({
+                    kind: "accepted",
+                    invocation: new InvocationId("substituted-invocation")
+                })
+            },
+            new AuditPort(),
+            new SequenceIds()
+        );
 
-            expect(() =>
-                harness.transaction((state) =>
-                    protocol.admit(state, authenticatedAdmission("target-substituted-invocation"))
-                )
-            ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
-            expect(harness.snapshot().records.listRecords("routeProjection")).toEqual([]);
-        }
-    );
+        expect(() =>
+            harness.transaction((state) =>
+                protocol.admit(state, authenticatedAdmission("target-substituted-invocation"))
+            )
+        ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
+        expect(harness.snapshot().records.listRecords("routeProjection")).toEqual([]);
+    });
 });
 
 describe("InboxProtocol", () => {
-    test(
-        "accepts only the exact live Turn lease and preserves sequence uniqueness",
-        { tags: "p0" },
-        () => {
-            const harness = createProtocolHarness();
-            const now = new Date("2026-07-10T12:00:00.000Z");
-            const holder = new PrincipalRef(tenant, new PrincipalId("lease-holder"));
-            const turn = new TurnId("turn-test");
-            const lease = TurnLease.restore(turn, holder, 4, new Date(now.getTime() + 60_000));
-            const runs = new LeaseInboxPort(lease, now);
-            const protocol = new InboxProtocol(runs);
-            const reference = inboxFixture("lease-valid", 0, 4, turn);
-            const token: LeaseToken = { turn, holder, epoch: 4 };
+    test("accepts only the exact live Turn lease and preserves sequence uniqueness", { tags: "p0" }, () => {
+        const harness = createProtocolHarness();
+        const now = new Date("2026-07-10T12:00:00.000Z");
+        const holder = new PrincipalRef(tenant, new PrincipalId("lease-holder"));
+        const turn = new TurnId("turn-test");
+        const lease = TurnLease.restore(turn, holder, 4, new Date(now.getTime() + 60_000));
+        const runs = new LeaseInboxPort(lease, now);
+        const protocol = new InboxProtocol(runs);
+        const reference = inboxFixture("lease-valid", 0, 4, turn);
+        const token: LeaseToken = { turn, holder, epoch: 4 };
 
-            expect(
-                harness.transaction((state) => protocol.append(state, reference, token))
-            ).toEqual({
-                kind: "appended"
-            });
-            expect(harness.snapshot().inbox).toEqual([reference.id.value]);
-            expect(() =>
-                harness.transaction((state) =>
-                    protocol.append(
-                        state,
-                        inboxFixture("wrong-turn", 1, 4, new TurnId("other-turn")),
-                        token
-                    )
+        expect(harness.transaction((state) => protocol.append(state, reference, token))).toEqual({
+            kind: "appended"
+        });
+        expect(harness.snapshot().inbox).toEqual([reference.id.value]);
+        expect(() =>
+            harness.transaction((state) =>
+                protocol.append(
+                    state,
+                    inboxFixture("wrong-turn", 1, 4, new TurnId("other-turn")),
+                    token
                 )
-            ).toThrow(/exact current Turn lease/);
-            expect(() =>
-                harness.transaction((state) =>
-                    protocol.append(state, inboxFixture("stale-epoch", 1, 3, turn), token)
-                )
-            ).toThrow(/exact current Turn lease/);
-            expect(() =>
-                harness.transaction((state) =>
-                    protocol.append(state, inboxFixture("wrong-holder", 1, 4, turn), {
-                        turn,
-                        holder: new PrincipalRef(tenant, new PrincipalId("other-holder")),
-                        epoch: 4
-                    })
-                )
-            ).toThrow(/exact current Turn lease/);
+            )
+        ).toThrow(/exact current Turn lease/);
+        expect(() =>
+            harness.transaction((state) =>
+                protocol.append(state, inboxFixture("stale-epoch", 1, 3, turn), token)
+            )
+        ).toThrow(/exact current Turn lease/);
+        expect(() =>
+            harness.transaction((state) =>
+                protocol.append(state, inboxFixture("wrong-holder", 1, 4, turn), {
+                    turn,
+                    holder: new PrincipalRef(tenant, new PrincipalId("other-holder")),
+                    epoch: 4
+                })
+            )
+        ).toThrow(/exact current Turn lease/);
 
-            expect(
-                harness.transaction((state) => protocol.append(state, reference, token))
-            ).toEqual({
-                kind: "duplicate"
-            });
-            expect(() =>
-                harness.transaction((state) =>
-                    protocol.append(state, inboxFixture("duplicate-sequence", 0, 4, turn), token)
-                )
-            ).toThrow(/conflict/);
-            expect(harness.snapshot().inbox).toEqual([reference.id.value]);
+        expect(harness.transaction((state) => protocol.append(state, reference, token))).toEqual({
+            kind: "duplicate"
+        });
+        expect(() =>
+            harness.transaction((state) =>
+                protocol.append(state, inboxFixture("duplicate-sequence", 0, 4, turn), token)
+            )
+        ).toThrow(/conflict/);
+        expect(harness.snapshot().inbox).toEqual([reference.id.value]);
 
-            const expired = new InboxProtocol(
-                new LeaseInboxPort(
-                    TurnLease.restore(turn, holder, 4, new Date(now.getTime() - 1)),
-                    now
-                )
-            );
-            expect(() =>
-                harness.transaction((state) =>
-                    expired.append(state, inboxFixture("expired", 1, 4, turn), token)
-                )
-            ).toThrow(/exact current Turn lease/);
-        }
-    );
+        const expired = new InboxProtocol(
+            new LeaseInboxPort(TurnLease.restore(turn, holder, 4, new Date(now.getTime() - 1)), now)
+        );
+        expect(() =>
+            harness.transaction((state) =>
+                expired.append(state, inboxFixture("expired", 1, 4, turn), token)
+            )
+        ).toThrow(/exact current Turn lease/);
+    });
 });
 
 class SourceCommandPort extends SourceEventCommandPort<object> {

@@ -38,24 +38,20 @@ function recordBytes(kind: string, payload: JsonValue): Uint8Array {
 }
 
 describe("workspace codec mutation coverage", () => {
-    test(
-        "requireInteger accepts zero and rejects non-natural encodings exactly",
-        {
-            tags: "p1"
-        },
-        () => {
-            expect(requireInteger(0, "Sequence")).toBe(0);
-            expect(requireInteger(42, "Sequence")).toBe(42);
-            const invalid: readonly JsonValue[] = ["7", -1, 0.5, 2 ** 53, null, true];
-            for (const value of invalid) {
-                expect(() => requireInteger(value, "Sequence")).toThrow(
-                    expect.objectContaining({
-                        message: "Sequence must be a non-negative safe integer"
-                    })
-                );
-            }
+    test("requireInteger accepts zero and rejects non-natural encodings exactly", {
+        tags: "p1"
+    }, () => {
+        expect(requireInteger(0, "Sequence")).toBe(0);
+        expect(requireInteger(42, "Sequence")).toBe(42);
+        const invalid: readonly JsonValue[] = ["7", -1, 0.5, 2 ** 53, null, true];
+        for (const value of invalid) {
+            expect(() => requireInteger(value, "Sequence")).toThrow(
+                expect.objectContaining({
+                    message: "Sequence must be a non-negative safe integer"
+                })
+            );
         }
-    );
+    });
 
     test("decodeContent reports its subject in reference and digest errors", { tags: "p2" }, () => {
         const sample = content("codec-content");
@@ -69,72 +65,49 @@ describe("workspace codec mutation coverage", () => {
         );
     });
 
-    test(
-        "decodeOptionalPrincipalRef reports its subject in tenant and ID errors",
-        {
-            tags: "p2"
-        },
-        () => {
-            expect(() =>
-                decodeOptionalPrincipalRef(
-                    { tenant: 7, principal: "principal-test" },
-                    "Sample principal"
-                )
-            ).toThrow(
-                expect.objectContaining({ message: "Sample principal Tenant must be a string" })
-            );
-            expect(() =>
-                decodeOptionalPrincipalRef(
-                    { tenant: "tenant-test", principal: 7 },
-                    "Sample principal"
-                )
-            ).toThrow(expect.objectContaining({ message: "Sample principal ID must be a string" }));
-        }
-    );
+    test("decodeOptionalPrincipalRef reports its subject in tenant and ID errors", {
+        tags: "p2"
+    }, () => {
+        expect(() =>
+            decodeOptionalPrincipalRef({ tenant: 7, principal: "principal-test" }, "Sample principal")
+        ).toThrow(
+            expect.objectContaining({ message: "Sample principal Tenant must be a string" })
+        );
+        expect(() =>
+            decodeOptionalPrincipalRef({ tenant: "tenant-test", principal: 7 }, "Sample principal")
+        ).toThrow(expect.objectContaining({ message: "Sample principal ID must be a string" }));
+    });
 });
 
 describe("workspace ID mutation coverage", () => {
-    test(
-        "workspace ID classes report their exact subjects in constructor errors",
-        {
-            tags: "p2"
-        },
-        () => {
-            expect(new ActionId("action").value).toBe("action");
-            expect(() => new ActionId(" padded ")).toThrow(
+    test("workspace ID classes report their exact subjects in constructor errors", {
+        tags: "p2"
+    }, () => {
+        expect(new ActionId("action").value).toBe("action");
+        expect(() => new ActionId(" padded ")).toThrow(
+            expect.objectContaining({
+                message: "Action ID must be a nonblank canonical string"
+            })
+        );
+        expect(() => new ActionId("a".repeat(257))).toThrow(
+            expect.objectContaining({
+                message: "Action ID must contain between 1 and 256 characters"
+            })
+        );
+        const cases = [
+            { make: (): ContentRetentionId => new ContentRetentionId(""), subject: "Content retention ID" },
+            { make: (): EventCursor => new EventCursor(""), subject: "Event cursor" },
+            { make: (): InboxReferenceId => new InboxReferenceId(""), subject: "Inbox reference ID" },
+            { make: (): RetainedRecordRef => new RetainedRecordRef(""), subject: "Retained record reference" }
+        ];
+        for (const entry of cases) {
+            expect(entry.make).toThrow(
                 expect.objectContaining({
-                    message: "Action ID must be a nonblank canonical string"
+                    message: `${entry.subject} must contain between 1 and 256 characters`
                 })
             );
-            expect(() => new ActionId("a".repeat(257))).toThrow(
-                expect.objectContaining({
-                    message: "Action ID must contain between 1 and 256 characters"
-                })
-            );
-            const cases = [
-                {
-                    make: (): ContentRetentionId => new ContentRetentionId(""),
-                    subject: "Content retention ID"
-                },
-                { make: (): EventCursor => new EventCursor(""), subject: "Event cursor" },
-                {
-                    make: (): InboxReferenceId => new InboxReferenceId(""),
-                    subject: "Inbox reference ID"
-                },
-                {
-                    make: (): RetainedRecordRef => new RetainedRecordRef(""),
-                    subject: "Retained record reference"
-                }
-            ];
-            for (const entry of cases) {
-                expect(entry.make).toThrow(
-                    expect.objectContaining({
-                        message: `${entry.subject} must contain between 1 and 256 characters`
-                    })
-                );
-            }
         }
-    );
+    });
 });
 
 describe("ContentRetentionReference mutation coverage", () => {

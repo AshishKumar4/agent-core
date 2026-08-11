@@ -29,14 +29,10 @@ describe("Package installation contribution provenance", () => {
         expect(reference?.packageFacet).toBe(authenticated.packageFacet);
     });
 
-    test(
-        "fails closed when authenticated installation provenance is absent",
-        { tags: "p0" },
-        () => {
-            expect(new TestInstallationPort(undefined).reference({}, {})).toBeUndefined();
-            expect(new TestInstallationPort(undefined).prepareContribution({}, {})).toBeUndefined();
-        }
-    );
+    test("fails closed when authenticated installation provenance is absent", { tags: "p0" }, () => {
+        expect(new TestInstallationPort(undefined).reference({}, {})).toBeUndefined();
+        expect(new TestInstallationPort(undefined).prepareContribution({}, {})).toBeUndefined();
+    });
 
     test("rejects noncanonical authenticated installation evidence", { tags: "p0" }, () => {
         const authenticated = installation("workspace:installed.facet");
@@ -65,82 +61,78 @@ describe("Package installation contribution provenance", () => {
         ).toBeUndefined();
     });
 
-    test(
-        "rejects any single-field provenance drift between authorization and apply",
-        { tags: "p0" },
-        () => {
-            const base = installation("workspace:installed.facet");
-            const otherDigest = new Digest("c".repeat(64));
-            const substitutions: readonly Partial<AuthenticatedPackageInstallation>[] = [
-                {
-                    package: new PackagePin(
-                        new PackageId("swapped-package"),
-                        base.package.version,
-                        base.package.manifestDigest,
-                        base.package.codeDigest
-                    )
-                },
-                {
-                    package: new PackagePin(
-                        base.package.id,
-                        new SemVer("1.0.1"),
-                        base.package.manifestDigest,
-                        base.package.codeDigest
-                    )
-                },
-                {
-                    package: new PackagePin(
-                        base.package.id,
-                        base.package.version,
-                        otherDigest,
-                        base.package.codeDigest
-                    )
-                },
-                {
-                    package: new PackagePin(
-                        base.package.id,
-                        base.package.version,
-                        base.package.manifestDigest,
-                        otherDigest
-                    )
-                },
-                { packageFacet: new FacetPackageId("substituted.facet") },
-                {
-                    materialization: new ManagedOrigin({
-                        tenantId: base.materialization.tenantId,
-                        deploymentId: base.materialization.deploymentId,
-                        attestationDigest: base.materialization.attestationDigest,
-                        blueprintDigest: base.materialization.blueprintDigest,
-                        packageLockDigest: base.materialization.packageLockDigest,
-                        configDigest: base.materialization.configDigest,
-                        generation: base.materialization.generation + 1
-                    })
-                }
-            ];
-
-            for (const substitution of substitutions) {
-                const port = new TestInstallationPort(base);
-                const prepared = port.prepareContribution({}, {});
-                expect(prepared).toBeDefined();
-                if (prepared === undefined) continue;
-                port.installation = Object.freeze({ ...base, ...substitution });
-                expect({
-                    substitution,
-                    resolved: port.resolveContributionForApply({}, {}, prepared.stamp)
-                }).toEqual({ substitution, resolved: undefined });
+    test("rejects any single-field provenance drift between authorization and apply", { tags: "p0" }, () => {
+        const base = installation("workspace:installed.facet");
+        const otherDigest = new Digest("c".repeat(64));
+        const substitutions: readonly Partial<AuthenticatedPackageInstallation>[] = [
+            {
+                package: new PackagePin(
+                    new PackageId("swapped-package"),
+                    base.package.version,
+                    base.package.manifestDigest,
+                    base.package.codeDigest
+                )
+            },
+            {
+                package: new PackagePin(
+                    base.package.id,
+                    new SemVer("1.0.1"),
+                    base.package.manifestDigest,
+                    base.package.codeDigest
+                )
+            },
+            {
+                package: new PackagePin(
+                    base.package.id,
+                    base.package.version,
+                    otherDigest,
+                    base.package.codeDigest
+                )
+            },
+            {
+                package: new PackagePin(
+                    base.package.id,
+                    base.package.version,
+                    base.package.manifestDigest,
+                    otherDigest
+                )
+            },
+            { packageFacet: new FacetPackageId("substituted.facet") },
+            {
+                materialization: new ManagedOrigin({
+                    tenantId: base.materialization.tenantId,
+                    deploymentId: base.materialization.deploymentId,
+                    attestationDigest: base.materialization.attestationDigest,
+                    blueprintDigest: base.materialization.blueprintDigest,
+                    packageLockDigest: base.materialization.packageLockDigest,
+                    configDigest: base.materialization.configDigest,
+                    generation: base.materialization.generation + 1
+                })
             }
+        ];
 
-            const unchanged = new TestInstallationPort(base);
-            const prepared = unchanged.prepareContribution({}, {});
+        for (const substitution of substitutions) {
+            const port = new TestInstallationPort(base);
+            const prepared = port.prepareContribution({}, {});
             expect(prepared).toBeDefined();
-            if (prepared !== undefined) {
-                unchanged.installation = installation("workspace:installed.facet");
-                expect(
-                    unchanged.resolveContributionForApply({}, {}, prepared.stamp)
-                ).toBeInstanceOf(PackageInstallationRef);
-            }
+            if (prepared === undefined) continue;
+            port.installation = Object.freeze({ ...base, ...substitution });
+            expect({
+                substitution,
+                resolved: port.resolveContributionForApply({}, {}, prepared.stamp)
+            }).toEqual({ substitution, resolved: undefined });
         }
-    );
+
+        const unchanged = new TestInstallationPort(base);
+        const prepared = unchanged.prepareContribution({}, {});
+        expect(prepared).toBeDefined();
+        if (prepared !== undefined) {
+            unchanged.installation = installation("workspace:installed.facet");
+            expect(
+                unchanged.resolveContributionForApply({}, {}, prepared.stamp)
+            ).toBeInstanceOf(PackageInstallationRef);
+        }
+    });
 
     test("rejects a provenance swap between authorization and apply", { tags: "p0" }, () => {
         const port = new TestInstallationPort(installation("workspace:installed.facet"));

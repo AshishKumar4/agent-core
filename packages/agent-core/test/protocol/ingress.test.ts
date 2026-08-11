@@ -20,149 +20,125 @@ import { CommandIngress } from "../../src/protocol/ingress";
 import { CounterHarness } from "./counter-fixture";
 import { expectAgentCoreErrorValue } from "./error-assertion";
 
-test(
-    "CommandIngress owns the raw envelope before asynchronous preparation",
-    { tags: "p0" },
-    async () => {
-        const harness = new CounterHarness();
-        const raw = harness.envelope({ key: "copied-envelope", amount: 2 });
-        const barrier = harness.pauseNextPayloadGet();
-        const pending = harness.dispatch(raw);
-        await barrier.started;
-        raw.fill(0);
-        barrier.release();
+test("CommandIngress owns the raw envelope before asynchronous preparation", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const raw = harness.envelope({ key: "copied-envelope", amount: 2 });
+    const barrier = harness.pauseNextPayloadGet();
+    const pending = harness.dispatch(raw);
+    await barrier.started;
+    raw.fill(0);
+    barrier.release();
 
-        const result = await pending;
+    const result = await pending;
 
-        expect(result.outcome).toBe("committed");
-        expect(harness.snapshot().value).toBe(2);
-    }
-);
+    expect(result.outcome).toBe("committed");
+    expect(harness.snapshot().value).toBe(2);
+});
 
-test(
-    "[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministic malformed evidence",
-    { tags: "p1" },
-    async () => {
-        const harness = new CounterHarness();
-        const payload = new Uint8Array(1025);
-        const digest = Digest.sha256(payload);
-        const raw = CommandEnvelopeCodec.encode(
-            new CommandEnvelope({
-                command: "counter.increment",
-                caller: harness.caller,
-                idempotencyKey: "oversized-payload",
-                expectedRevision: Revision.initial(),
-                payload: ContentRef.fromDigest(digest),
-                payloadDigest: digest
-            })
-        );
+test("[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministic malformed evidence", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    const payload = new Uint8Array(1025);
+    const digest = Digest.sha256(payload);
+    const raw = CommandEnvelopeCodec.encode(
+        new CommandEnvelope({
+            command: "counter.increment",
+            caller: harness.caller,
+            idempotencyKey: "oversized-payload",
+            expectedRevision: Revision.initial(),
+            payload: ContentRef.fromDigest(digest),
+            payloadDigest: digest
+        })
+    );
 
-        const result = await harness.dispatch(raw, harness.caller, payload);
+    const result = await harness.dispatch(raw, harness.caller, payload);
 
-        expect(result.outcome).toBe("rejectedMalformed");
-        expect(harness.snapshot()).toMatchObject({
-            value: 0,
-            identityCount: 1,
-            contentGets: 0,
-            contentPuts: 0
-        });
-    }
-);
+    expect(result.outcome).toBe("rejectedMalformed");
+    expect(harness.snapshot()).toMatchObject({
+        value: 0,
+        identityCount: 1,
+        contentGets: 0,
+        contentPuts: 0
+    });
+});
 
-test(
-    "injected transport authentication cannot forge the envelope caller",
-    { tags: "p0" },
-    async () => {
-        const harness = new CounterHarness();
-        const ingress = new CommandIngress({
-            dispatcher: harness.dispatcher,
-            content: harness.content,
-            authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
-            leaseForMilliseconds: 60_000,
-            now: () => CounterHarness.now
-        });
-        const raw = harness.envelope({ key: "transport-authentication" });
+test("injected transport authentication cannot forge the envelope caller", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const ingress = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content: harness.content,
+        authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
+        leaseForMilliseconds: 60_000,
+        now: () => CounterHarness.now
+    });
+    const raw = harness.envelope({ key: "transport-authentication" });
 
-        const forged = await ingress.accept(raw, "forged");
-        const accepted = await ingress.accept(raw, "valid");
+    const forged = await ingress.accept(raw, "forged");
+    const accepted = await ingress.accept(raw, "valid");
 
-        expect(forged).toMatchObject({ outcome: "rejectedAuthentication" });
-        expect(accepted).toMatchObject({ outcome: "committed" });
-        expect(harness.snapshot()).toMatchObject({ value: 1, contentGets: 1 });
-    }
-);
+    expect(forged).toMatchObject({ outcome: "rejectedAuthentication" });
+    expect(accepted).toMatchObject({ outcome: "committed" });
+    expect(harness.snapshot()).toMatchObject({ value: 1, contentGets: 1 });
+});
 
-test(
-    "transport authentication absence and faults remain typed pre-dispatch outcomes",
-    { tags: "p1" },
-    async () => {
-        const harness = new CounterHarness();
-        const raw = harness.envelope({ key: "transport-faults" });
-        const absent = new CommandIngress({
-            dispatcher: harness.dispatcher,
-            content: harness.content,
-            authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
-            leaseForMilliseconds: 60_000
-        });
-        const faulting = new CommandIngress({
-            dispatcher: harness.dispatcher,
-            content: harness.content,
-            authenticator: new FaultingAuthenticator(harness.tenant),
-            leaseForMilliseconds: 60_000
-        });
+test("transport authentication absence and faults remain typed pre-dispatch outcomes", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    const raw = harness.envelope({ key: "transport-faults" });
+    const absent = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content: harness.content,
+        authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
+        leaseForMilliseconds: 60_000
+    });
+    const faulting = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content: harness.content,
+        authenticator: new FaultingAuthenticator(harness.tenant),
+        leaseForMilliseconds: 60_000
+    });
 
-        expect(await absent.accept(raw, "absent")).toMatchObject({
-            kind: "commandOutcome",
-            outcome: "rejectedAuthentication"
-        });
-        expect(await faulting.accept(raw, "fault")).toMatchObject({
-            kind: "preDispatchFailure",
-            phase: "admissionPreflight",
-            commit: "notAttempted",
-            retry: "mayRetry",
-            cause: expect.objectContaining({ message: "transport unavailable" })
-        });
-    }
-);
+    expect(await absent.accept(raw, "absent")).toMatchObject({
+        kind: "commandOutcome",
+        outcome: "rejectedAuthentication"
+    });
+    expect(await faulting.accept(raw, "fault")).toMatchObject({
+        kind: "preDispatchFailure",
+        phase: "admissionPreflight",
+        commit: "notAttempted",
+        retry: "mayRetry",
+        cause: expect.objectContaining({ message: "transport unavailable" })
+    });
+});
 
-test(
-    "authentications retain the issued caller instead of a mutable transport object",
-    { tags: "p0" },
-    async () => {
-        const tenant = new TenantId("issued-tenant");
-        const caller: { kind: "principal"; principal: PrincipalRef } = {
-            kind: "principal",
-            principal: new PrincipalRef(tenant, new PrincipalId("issued-principal"))
-        };
-        const authenticator = new MutableCallerAuthenticator(caller);
-        const envelope = new CommandEnvelope({
-            command: "issued.command",
-            caller: { kind: caller.kind, principal: caller.principal },
-            idempotencyKey: "issued-key",
-            payload: ContentRef.fromDigest(Digest.sha256(Uint8Array.of(1))),
-            payloadDigest: Digest.sha256(Uint8Array.of(1))
-        });
-        const envelopeDigest = Digest.sha256(CommandEnvelopeCodec.encode(envelope));
-        const authentication = await authenticator.authenticate(
-            undefined,
+test("authentications retain the issued caller instead of a mutable transport object", { tags: "p0" }, async () => {
+    const tenant = new TenantId("issued-tenant");
+    const caller: { kind: "principal"; principal: PrincipalRef } = {
+        kind: "principal",
+        principal: new PrincipalRef(tenant, new PrincipalId("issued-principal"))
+    };
+    const authenticator = new MutableCallerAuthenticator(caller);
+    const envelope = new CommandEnvelope({
+        command: "issued.command",
+        caller: { kind: caller.kind, principal: caller.principal },
+        idempotencyKey: "issued-key",
+        payload: ContentRef.fromDigest(Digest.sha256(Uint8Array.of(1))),
+        payloadDigest: Digest.sha256(Uint8Array.of(1))
+    });
+    const envelopeDigest = Digest.sha256(CommandEnvelopeCodec.encode(envelope));
+    const authentication = await authenticator.authenticate(undefined, envelope, envelopeDigest);
+    caller.principal = new PrincipalRef(tenant, new PrincipalId("mutated-principal"));
+
+    expect(commandAuthenticationMatches(authentication, envelopeDigest, envelope, tenant)).toBe(
+        true
+    );
+    expect(
+        commandAuthenticationMatches(
+            authentication,
+            Digest.sha256(Uint8Array.of(2)),
             envelope,
-            envelopeDigest
-        );
-        caller.principal = new PrincipalRef(tenant, new PrincipalId("mutated-principal"));
-
-        expect(commandAuthenticationMatches(authentication, envelopeDigest, envelope, tenant)).toBe(
-            true
-        );
-        expect(
-            commandAuthenticationMatches(
-                authentication,
-                Digest.sha256(Uint8Array.of(2)),
-                envelope,
-                tenant
-            )
-        ).toBe(false);
-    }
-);
+            tenant
+        )
+    ).toBe(false);
+});
 
 test("forged heldContentVerifier cannot replace transport authentication", { tags: "p0" }, () => {
     const harness = new CounterHarness();
@@ -180,75 +156,66 @@ test("forged heldContentVerifier cannot replace transport authentication", { tag
     expect(() => new CommandIngress(forgedInit)).toThrow(/requires a transport authenticator/);
 });
 
-test(
-    "exact authentication precedes unknown-command malformed and replay",
-    { tags: "p0" },
-    async () => {
-        const harness = new CounterHarness();
-        const payload = harness.payloadBytes();
-        const digest = Digest.sha256(payload);
-        const raw = CommandEnvelopeCodec.encode(
-            new CommandEnvelope({
-                command: "unknown.command",
-                caller: harness.caller,
-                idempotencyKey: "unknown-before-auth",
-                expectedRevision: Revision.initial(),
-                payload: ContentRef.fromDigest(digest),
-                payloadDigest: digest
-            })
-        );
-        const ingress = new CommandIngress({
-            dispatcher: harness.dispatcher,
-            content: harness.content,
-            authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
-            leaseForMilliseconds: 60_000,
-            now: () => CounterHarness.now
-        });
+test("exact authentication precedes unknown-command malformed and replay", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const payload = harness.payloadBytes();
+    const digest = Digest.sha256(payload);
+    const raw = CommandEnvelopeCodec.encode(
+        new CommandEnvelope({
+            command: "unknown.command",
+            caller: harness.caller,
+            idempotencyKey: "unknown-before-auth",
+            expectedRevision: Revision.initial(),
+            payload: ContentRef.fromDigest(digest),
+            payloadDigest: digest
+        })
+    );
+    const ingress = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content: harness.content,
+        authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
+        leaseForMilliseconds: 60_000,
+        now: () => CounterHarness.now
+    });
 
-        const forged = await ingress.accept(raw, "forged");
-        const malformed = await ingress.accept(raw, "valid");
-        const duplicate = await ingress.accept(raw, "valid");
+    const forged = await ingress.accept(raw, "forged");
+    const malformed = await ingress.accept(raw, "valid");
+    const duplicate = await ingress.accept(raw, "valid");
 
-        expect(forged).toMatchObject({ outcome: "rejectedAuthentication" });
-        expect(malformed).toMatchObject({ outcome: "rejectedMalformed" });
-        expect(duplicate).toMatchObject({
-            outcome: "duplicate",
-            reply: malformed.kind === "commandOutcome" ? malformed.reply : undefined
-        });
-        expect(harness.snapshot()).toMatchObject({
-            value: 0,
-            identityCount: 1,
-            contentGets: 0
-        });
-    }
-);
+    expect(forged).toMatchObject({ outcome: "rejectedAuthentication" });
+    expect(malformed).toMatchObject({ outcome: "rejectedMalformed" });
+    expect(duplicate).toMatchObject({
+        outcome: "duplicate",
+        reply: malformed.kind === "commandOutcome" ? malformed.reply : undefined
+    });
+    expect(harness.snapshot()).toMatchObject({
+        value: 0,
+        identityCount: 1,
+        contentGets: 0
+    });
+});
 
-test(
-    "reference mismatch is rejected without touching transient content",
-    { tags: "p1" },
-    async () => {
-        const harness = new CounterHarness();
-        const payload = harness.payloadBytes();
-        const payloadDigest = Digest.sha256(payload);
-        const raw = CommandEnvelopeCodec.encode(
-            new CommandEnvelope({
-                command: "counter.increment",
-                caller: harness.caller,
-                idempotencyKey: "reference-mismatch",
-                expectedRevision: Revision.initial(),
-                payload: ContentRef.fromDigest(Digest.sha256(Uint8Array.of(9))),
-                payloadDigest
-            })
-        );
+test("reference mismatch is rejected without touching transient content", { tags: "p1" }, async () => {
+    const harness = new CounterHarness();
+    const payload = harness.payloadBytes();
+    const payloadDigest = Digest.sha256(payload);
+    const raw = CommandEnvelopeCodec.encode(
+        new CommandEnvelope({
+            command: "counter.increment",
+            caller: harness.caller,
+            idempotencyKey: "reference-mismatch",
+            expectedRevision: Revision.initial(),
+            payload: ContentRef.fromDigest(Digest.sha256(Uint8Array.of(9))),
+            payloadDigest
+        })
+    );
 
-        expect(await harness.dispatch(raw)).toMatchObject({ outcome: "rejectedMalformed" });
-        expect(harness.snapshot()).toMatchObject({ contentGets: 0, contentPuts: 0 });
-    }
-);
+    expect(await harness.dispatch(raw)).toMatchObject({ outcome: "rejectedMalformed" });
+    expect(harness.snapshot()).toMatchObject({ contentGets: 0, contentPuts: 0 });
+});
 
 test.each([undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
-    "rejects invalid payload lease duration %s",
-    { tags: "p1" },
+    "rejects invalid payload lease duration %s", { tags: "p1" },
     (leaseForMilliseconds) => {
         const harness = new CounterHarness();
         expect(
@@ -285,8 +252,7 @@ test("rejects unsafe lease expiry", { tags: "p1" }, async () => {
 });
 
 test.each(["authUnknown", "contentUnknown"] as const)(
-    "%s before command transaction remains notAttempted and does not poison Actor",
-    { tags: "p0" },
+    "%s before command transaction remains notAttempted and does not poison Actor", { tags: "p0" },
     async (fault) => {
         const harness = new CounterHarness();
         harness.setFault(fault);
@@ -306,26 +272,22 @@ test.each(["authUnknown", "contentUnknown"] as const)(
     }
 );
 
-test(
-    "detaches the submitted envelope before asynchronous authentication",
-    { tags: "p0" },
-    async () => {
-        const harness = new CounterHarness();
-        const raw = harness.envelope({ key: "detached-ingress", amount: 2 });
-        const ingress = new CommandIngress({
-            dispatcher: harness.dispatcher,
-            content: harness.content,
-            authenticator: new EnvelopeZeroingAuthenticator(harness.tenant, harness.caller),
-            leaseForMilliseconds: 60_000,
-            now: () => CounterHarness.now
-        });
+test("detaches the submitted envelope before asynchronous authentication", { tags: "p0" }, async () => {
+    const harness = new CounterHarness();
+    const raw = harness.envelope({ key: "detached-ingress", amount: 2 });
+    const ingress = new CommandIngress({
+        dispatcher: harness.dispatcher,
+        content: harness.content,
+        authenticator: new EnvelopeZeroingAuthenticator(harness.tenant, harness.caller),
+        leaseForMilliseconds: 60_000,
+        now: () => CounterHarness.now
+    });
 
-        const result = await ingress.accept(raw, raw);
+    const result = await ingress.accept(raw, raw);
 
-        expect(result).toMatchObject({ kind: "commandOutcome", outcome: "committed" });
-        expect(harness.snapshot().value).toBe(2);
-    }
-);
+    expect(result).toMatchObject({ kind: "commandOutcome", outcome: "committed" });
+    expect(harness.snapshot().value).toBe(2);
+});
 
 test("the authenticator is not consulted for undecodable envelopes", { tags: "p1" }, async () => {
     const harness = new CounterHarness();

@@ -8,44 +8,30 @@ import { GuestVerificationScheme, SubjectRef } from "../../src/identity/subject"
 import { Workspace } from "../../src/identity/workspace";
 
 describe("qualified identity and Tenant topology", () => {
-    test(
-        "[C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically",
-        { tags: "p0" },
-        () => {
-            const first = new PrincipalRef(
-                new TenantId("tenant:a"),
-                new PrincipalId("principal:b:c")
-            );
-            const second = new PrincipalRef(
-                new TenantId("tenant:a:b"),
-                new PrincipalId("principal:c")
-            );
+    test("[C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically", { tags: "p0" }, () => {
+        const first = new PrincipalRef(new TenantId("tenant:a"), new PrincipalId("principal:b:c"));
+        const second = new PrincipalRef(new TenantId("tenant:a:b"), new PrincipalId("principal:c"));
 
-            expect(first.equals(second)).toBe(false);
-            expect(PrincipalRef.decode(PrincipalRef.encode(first)).equals(first)).toBe(true);
-        }
-    );
+        expect(first.equals(second)).toBe(false);
+        expect(PrincipalRef.decode(PrincipalRef.encode(first)).equals(first)).toBe(true);
+    });
 
-    test(
-        "[identity.workspace] derives exact immutable Workspace ancestry from the Tenant record",
-        { tags: "p0" },
-        () => {
-            const workspace = new Workspace(
-                new WorkspaceId("workspace"),
-                new TenantId("tenant"),
-                new ProjectId("project"),
-                Revision.initial()
-            );
-            const decoded = Workspace.decode(Workspace.encode(workspace));
+    test("[identity.workspace] derives exact immutable Workspace ancestry from the Tenant record", { tags: "p0" }, () => {
+        const workspace = new Workspace(
+            new WorkspaceId("workspace"),
+            new TenantId("tenant"),
+            new ProjectId("project"),
+            Revision.initial()
+        );
+        const decoded = Workspace.decode(Workspace.encode(workspace));
 
-            expect(decoded.scope.path.map((scope) => scope.kind)).toEqual([
-                "tenant",
-                "project",
-                "workspace"
-            ]);
-            expect(decoded.scope.equals(workspace.scope)).toBe(true);
-        }
-    );
+        expect(decoded.scope.path.map((scope) => scope.kind)).toEqual([
+            "tenant",
+            "project",
+            "workspace"
+        ]);
+        expect(decoded.scope.equals(workspace.scope)).toBe(true);
+    });
 });
 
 describe("guest trust and verification", () => {
@@ -65,54 +51,46 @@ describe("guest trust and verification", () => {
         Digest.sha256(Uint8Array.of(1, 2, 3))
     );
 
-    test(
-        "[identity.guest-trust] persists only steady-state token or callback trust",
-        { tags: "p0" },
-        () => {
-            const decoded = GuestTrust.decode(GuestTrust.encode(trust));
+    test("[identity.guest-trust] persists only steady-state token or callback trust", { tags: "p0" }, () => {
+        const decoded = GuestTrust.decode(GuestTrust.encode(trust));
 
-            expect(decoded.verifier).toEqual(trust.verifier);
-            expect(decoded.handshakeDigest?.equals(trust.handshakeDigest!)).toBe(true);
-            expect(
-                () =>
-                    new GuestTrust(
-                        new GuestTrustId("invalid"),
-                        host,
-                        host,
-                        trust.verifier,
-                        "active",
-                        Revision.initial()
-                    )
-            ).toThrow(/distinct/);
-        }
-    );
-
-    test(
-        "[identity.guest-verification] binds verification to qualified identity, trust revision, scheme, and expiry",
-        { tags: "p0" },
-        () => {
-            const principal = new PrincipalId("guest");
-            const verification = new GuestVerification(
-                new PrincipalRef(home, principal),
-                trust.id,
-                trust.revision,
-                "token",
-                Digest.sha256(Uint8Array.of(9)),
-                new Date(1_000),
-                new Date(2_000)
-            );
-            const subject = SubjectRef.foreign(home, principal, GuestVerificationScheme.token);
-
-            expect(verification.admits(subject, new Date(1_999))).toBe(true);
-            expect(verification.admits(subject, new Date(2_000))).toBe(false);
-            expect(
-                GuestVerification.decode(GuestVerification.encode(verification)).admits(
-                    subject,
-                    new Date(1_500)
+        expect(decoded.verifier).toEqual(trust.verifier);
+        expect(decoded.handshakeDigest?.equals(trust.handshakeDigest!)).toBe(true);
+        expect(
+            () =>
+                new GuestTrust(
+                    new GuestTrustId("invalid"),
+                    host,
+                    host,
+                    trust.verifier,
+                    "active",
+                    Revision.initial()
                 )
-            ).toBe(true);
-        }
-    );
+        ).toThrow(/distinct/);
+    });
+
+    test("[identity.guest-verification] binds verification to qualified identity, trust revision, scheme, and expiry", { tags: "p0" }, () => {
+        const principal = new PrincipalId("guest");
+        const verification = new GuestVerification(
+            new PrincipalRef(home, principal),
+            trust.id,
+            trust.revision,
+            "token",
+            Digest.sha256(Uint8Array.of(9)),
+            new Date(1_000),
+            new Date(2_000)
+        );
+        const subject = SubjectRef.foreign(home, principal, GuestVerificationScheme.token);
+
+        expect(verification.admits(subject, new Date(1_999))).toBe(true);
+        expect(verification.admits(subject, new Date(2_000))).toBe(false);
+        expect(
+            GuestVerification.decode(GuestVerification.encode(verification)).admits(
+                subject,
+                new Date(1_500)
+            )
+        ).toBe(true);
+    });
 
     test("revocation is terminal and rotation advances revision", { tags: "p0" }, () => {
         const rotated = trust.rotate({ kind: "callback", endpoint: "https://home.example/verify" });

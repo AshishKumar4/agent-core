@@ -18,21 +18,17 @@ import {
 } from "../../src/definition/placement";
 
 describe("pure policy floors", () => {
-    test(
-        "[C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location",
-        { tags: "p0" },
-        () => {
-            for (const placement of PLACEMENT_PREFERENCE) {
-                expect(
-                    evaluatePolicy({
-                        impact: "observe",
-                        turnOwnedSession: true,
-                        placement
-                    }).tier
-                ).toBe(placement === "bundled" ? "direct" : "mediated");
-            }
+    test("[C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location", { tags: "p0" }, () => {
+        for (const placement of PLACEMENT_PREFERENCE) {
+            expect(
+                evaluatePolicy({
+                    impact: "observe",
+                    turnOwnedSession: true,
+                    placement
+                }).tier
+            ).toBe(placement === "bundled" ? "direct" : "mediated");
         }
-    );
+    });
 
     test("implements the exact impact and Turn-owned session floor", { tags: "p0" }, () => {
         for (const turnOwnedSession of [false, true]) {
@@ -46,80 +42,68 @@ describe("pure policy floors", () => {
         }
     });
 
-    test(
-        "never lowers a floor across every impact, placement, and policy tier",
-        { tags: "p0" },
-        () => {
-            for (const impact of POLICY_IMPACTS) {
-                for (const turnOwnedSession of [false, true]) {
-                    for (const placement of PLACEMENT_PREFERENCE) {
-                        for (const requested of [undefined, "direct", "mediated"] as const) {
-                            const policy = new PolicySet({
-                                tiers: requested === undefined ? {} : { [impact]: requested }
-                            });
-                            const decision = evaluatePolicy({
-                                impact,
-                                turnOwnedSession,
-                                placement,
-                                policies: [policy]
-                            });
-                            const expected = maximumTier(
-                                enforcementFloor(impact, turnOwnedSession),
-                                requested ?? "direct",
-                                placement === "bundled" ? "direct" : "mediated"
-                            );
-                            expect(decision).toEqual({ approvalRequired: false, tier: expected });
-                        }
+    test("never lowers a floor across every impact, placement, and policy tier", { tags: "p0" }, () => {
+        for (const impact of POLICY_IMPACTS) {
+            for (const turnOwnedSession of [false, true]) {
+                for (const placement of PLACEMENT_PREFERENCE) {
+                    for (const requested of [undefined, "direct", "mediated"] as const) {
+                        const policy = new PolicySet({
+                            tiers: requested === undefined ? {} : { [impact]: requested }
+                        });
+                        const decision = evaluatePolicy({
+                            impact,
+                            turnOwnedSession,
+                            placement,
+                            policies: [policy]
+                        });
+                        const expected = maximumTier(
+                            enforcementFloor(impact, turnOwnedSession),
+                            requested ?? "direct",
+                            placement === "bundled" ? "direct" : "mediated"
+                        );
+                        expect(decision).toEqual({ approvalRequired: false, tier: expected });
                     }
                 }
             }
         }
-    );
+    });
 
-    test(
-        "[C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement",
-        { tags: "p0" },
-        () => {
-            for (const placement of ["dynamic", "provider"] as const) {
-                const selection = selectPlacement({
-                    manifest: PLACEMENT_PREFERENCE,
-                    policy: [placement],
-                    substrate: PLACEMENT_PREFERENCE,
-                    trust: PLACEMENT_PREFERENCE
-                });
-                const decision = evaluatePolicy({
-                    impact: "observe",
-                    turnOwnedSession: true,
-                    placement: selection.selected
-                });
+    test("[C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement", { tags: "p0" }, () => {
+        for (const placement of ["dynamic", "provider"] as const) {
+            const selection = selectPlacement({
+                manifest: PLACEMENT_PREFERENCE,
+                policy: [placement],
+                substrate: PLACEMENT_PREFERENCE,
+                trust: PLACEMENT_PREFERENCE
+            });
+            const decision = evaluatePolicy({
+                impact: "observe",
+                turnOwnedSession: true,
+                placement: selection.selected
+            });
 
-                expect(selection.selected).toBe(placement);
-                expect(decision.tier).toBe("mediated");
-            }
+            expect(selection.selected).toBe(placement);
+            expect(decision.tier).toBe("mediated");
         }
-    );
+    });
 });
 
 describe("monotone policy composition", () => {
-    test(
-        "takes the minimum finite direct-revocation window across governing policies",
-        { tags: "p1" },
-        () => {
-            const merged = mergePolicySets([
-                new PolicySet({ maxDirectRevocationWindowMs: 500 }),
-                new PolicySet({ maxDirectRevocationWindowMs: 20 }),
-                new PolicySet()
-            ]);
+    test("takes the minimum finite direct-revocation window across governing policies", { tags: "p1" }, () => {
+        const merged = mergePolicySets([
+            new PolicySet({ maxDirectRevocationWindowMs: 500 }),
+            new PolicySet({ maxDirectRevocationWindowMs: 20 }),
+            new PolicySet()
+        ]);
 
-            expect(merged.maxDirectRevocationWindowMs).toBe(20);
-            expect(mergePolicySets([new PolicySet()]).maxDirectRevocationWindowMs).toBeUndefined();
-            for (const value of [-1, 0.5, Number.POSITIVE_INFINITY, Number.NaN]) {
-                expect(() => new PolicySet({ maxDirectRevocationWindowMs: value })).toThrow(
-                    /finite non-negative safe integer/
-                );
-            }
+        expect(merged.maxDirectRevocationWindowMs).toBe(20);
+        expect(mergePolicySets([new PolicySet()]).maxDirectRevocationWindowMs).toBeUndefined();
+        for (const value of [-1, 0.5, Number.POSITIVE_INFINITY, Number.NaN]) {
+            expect(() => new PolicySet({ maxDirectRevocationWindowMs: value })).toThrow(
+                /finite non-negative safe integer/
+            );
         }
-    );
+    });
 
     test("merges tiers monotonically regardless of policy order", { tags: "p0" }, () => {
         const direct = new PolicySet({ tiers: { execute: "direct" } });
@@ -132,147 +116,121 @@ describe("monotone policy composition", () => {
         expect(mergePolicySets([direct]).tierFor("observe")).toBeUndefined();
     });
 
-    test(
-        "takes the minimum revocation window regardless of order and accepts zero",
-        { tags: "p1" },
-        () => {
-            expect(
-                mergePolicySets([
-                    new PolicySet({ maxDirectRevocationWindowMs: 20 }),
-                    new PolicySet({ maxDirectRevocationWindowMs: 500 })
-                ]).maxDirectRevocationWindowMs
-            ).toBe(20);
-            expect(
-                new PolicySet({ maxDirectRevocationWindowMs: 0 }).maxDirectRevocationWindowMs
-            ).toBe(0);
-        }
-    );
+    test("takes the minimum revocation window regardless of order and accepts zero", { tags: "p1" }, () => {
+        expect(
+            mergePolicySets([
+                new PolicySet({ maxDirectRevocationWindowMs: 20 }),
+                new PolicySet({ maxDirectRevocationWindowMs: 500 })
+            ]).maxDirectRevocationWindowMs
+        ).toBe(20);
+        expect(new PolicySet({ maxDirectRevocationWindowMs: 0 }).maxDirectRevocationWindowMs).toBe(
+            0
+        );
+    });
 
     test("returns the canonical empty policy for an empty merge", { tags: "p1" }, () => {
         expect(mergePolicySets([])).toBe(PolicySet.empty());
     });
 
-    test(
-        "[C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements",
-        { tags: "p0" },
-        () => {
-            const packagePolicy = new PolicySet({
-                approvals: ["observe"],
-                tiers: { execute: "mediated" }
-            });
-            const profilePolicy = new PolicySet({ approvals: ["mutate"] });
-            const ancestorPolicy = new PolicySet({ approvals: ["externalSend"] });
-            const attemptedRelaxation = new PolicySet({
-                approvals: [],
-                tiers: { execute: "direct" }
-            });
-            const merged = mergePolicySets([
-                packagePolicy,
-                profilePolicy,
-                ancestorPolicy,
-                attemptedRelaxation
-            ]);
+    test("[C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements", { tags: "p0" }, () => {
+        const packagePolicy = new PolicySet({
+            approvals: ["observe"],
+            tiers: { execute: "mediated" }
+        });
+        const profilePolicy = new PolicySet({ approvals: ["mutate"] });
+        const ancestorPolicy = new PolicySet({ approvals: ["externalSend"] });
+        const attemptedRelaxation = new PolicySet({
+            approvals: [],
+            tiers: { execute: "direct" }
+        });
+        const merged = mergePolicySets([
+            packagePolicy,
+            profilePolicy,
+            ancestorPolicy,
+            attemptedRelaxation
+        ]);
 
-            expect(merged.approvals).toEqual(["observe", "mutate", "externalSend"]);
-            expect(merged.tierFor("execute")).toBe("mediated");
-            for (const impact of merged.approvals) {
-                expect(
-                    evaluatePolicy({
-                        impact,
-                        turnOwnedSession: true,
-                        placement: "bundled",
-                        policies: [
-                            packagePolicy,
-                            profilePolicy,
-                            ancestorPolicy,
-                            attemptedRelaxation
-                        ]
-                    })
-                ).toEqual({ approvalRequired: true, tier: "mediated" });
-            }
-        }
-    );
-
-    test(
-        "[C13-POLICY-DIRECT-ESCALATION] intersects placement policies and cannot broaden an ancestor constraint",
-        { tags: "p0" },
-        () => {
-            const packagePolicy = new PolicySet({
-                placement: new PlacementPolicy(["dynamic", "provider", "bundled"])
-            });
-            const ancestorPolicy = new PolicySet({
-                placement: new PlacementPolicy(["dynamic", "provider"])
-            });
-            const attemptedBroadening = new PolicySet({
-                placement: new PlacementPolicy(["provider", "bundled"])
-            });
-
+        expect(merged.approvals).toEqual(["observe", "mutate", "externalSend"]);
+        expect(merged.tierFor("execute")).toBe("mediated");
+        for (const impact of merged.approvals) {
             expect(
-                mergePolicySets([packagePolicy, ancestorPolicy, attemptedBroadening]).placement
-                    .allowed
-            ).toEqual(["provider"]);
-            expect(() =>
-                mergePolicySets([
-                    new PolicySet({ placement: new PlacementPolicy(["dynamic"]) }),
-                    new PolicySet({ placement: new PlacementPolicy(["bundled"]) })
-                ])
-            ).toThrow(PlacementUnavailableError);
+                evaluatePolicy({
+                    impact,
+                    turnOwnedSession: true,
+                    placement: "bundled",
+                    policies: [packagePolicy, profilePolicy, ancestorPolicy, attemptedRelaxation]
+                })
+            ).toEqual({ approvalRequired: true, tier: "mediated" });
         }
-    );
+    });
+
+    test("[C13-POLICY-DIRECT-ESCALATION] intersects placement policies and cannot broaden an ancestor constraint", { tags: "p0" }, () => {
+        const packagePolicy = new PolicySet({
+            placement: new PlacementPolicy(["dynamic", "provider", "bundled"])
+        });
+        const ancestorPolicy = new PolicySet({
+            placement: new PlacementPolicy(["dynamic", "provider"])
+        });
+        const attemptedBroadening = new PolicySet({
+            placement: new PlacementPolicy(["provider", "bundled"])
+        });
+
+        expect(
+            mergePolicySets([packagePolicy, ancestorPolicy, attemptedBroadening]).placement.allowed
+        ).toEqual(["provider"]);
+        expect(() =>
+            mergePolicySets([
+                new PolicySet({ placement: new PlacementPolicy(["dynamic"]) }),
+                new PolicySet({ placement: new PlacementPolicy(["bundled"]) })
+            ])
+        ).toThrow(PlacementUnavailableError);
+    });
 });
 
 describe("policy declaration codec", () => {
-    test(
-        "[definition.policy-set] decodes the direct-revocation window as a bounded number and rejects other shapes",
-        { tags: "p1" },
-        () => {
-            const bounded = PolicySet.decode(
-                PolicySet.encode(new PolicySet({ maxDirectRevocationWindowMs: 250 }))
-            );
-            expect(bounded.maxDirectRevocationWindowMs).toBe(250);
+    test("[definition.policy-set] decodes the direct-revocation window as a bounded number and rejects other shapes", { tags: "p1" }, () => {
+        const bounded = PolicySet.decode(
+            PolicySet.encode(new PolicySet({ maxDirectRevocationWindowMs: 250 }))
+        );
+        expect(bounded.maxDirectRevocationWindowMs).toBe(250);
 
-            const unbounded = PolicySet.decode(PolicySet.encode(new PolicySet()));
-            expect(unbounded.maxDirectRevocationWindowMs).toBeUndefined();
+        const unbounded = PolicySet.decode(PolicySet.encode(new PolicySet()));
+        expect(unbounded.maxDirectRevocationWindowMs).toBeUndefined();
 
-            expect(() =>
-                PolicySet.fromData({
-                    approvals: [],
-                    maxDirectRevocationWindowMs: "250",
-                    placement: { allowed: ["bundled"] },
-                    tiers: {}
-                })
-            ).toThrow(/revocation window is invalid/);
-        }
-    );
+        expect(() =>
+            PolicySet.fromData({
+                approvals: [],
+                maxDirectRevocationWindowMs: "250",
+                placement: { allowed: ["bundled"] },
+                tiers: {}
+            })
+        ).toThrow(/revocation window is invalid/);
+    });
 
-    test(
-        "[definition.policy-set] canonicalizes immutable declarative data and round-trips byte deterministically",
-        { tags: "p0" },
-        () => {
-            const approvals: Impact[] = ["administer", "observe"];
-            const tiers: Partial<Record<Impact, EnforcementTier>> = {
-                administer: "mediated",
-                observe: "direct"
-            };
-            const policy = new PolicySet({
-                approvals,
-                tiers,
-                placement: new PlacementPolicy(["bundled", "dynamic"])
-            });
-            approvals.pop();
-            tiers.observe = "mediated";
+    test("[definition.policy-set] canonicalizes immutable declarative data and round-trips byte deterministically", { tags: "p0" }, () => {
+        const approvals: Impact[] = ["administer", "observe"];
+        const tiers: Partial<Record<Impact, EnforcementTier>> = {
+            administer: "mediated",
+            observe: "direct"
+        };
+        const policy = new PolicySet({
+            approvals,
+            tiers,
+            placement: new PlacementPolicy(["bundled", "dynamic"])
+        });
+        approvals.pop();
+        tiers.observe = "mediated";
 
-            expect(policy.approvals).toEqual(["observe", "administer"]);
-            expect(policy.tiers).toEqual({ observe: "direct", administer: "mediated" });
-            expect(policy.placement.allowed).toEqual(["dynamic", "bundled"]);
-            expect(Object.isFrozen(policy)).toBe(true);
-            expect(Object.isFrozen(policy.tiers)).toBe(true);
-            expect(Object.isFrozen(policy.approvals)).toBe(true);
+        expect(policy.approvals).toEqual(["observe", "administer"]);
+        expect(policy.tiers).toEqual({ observe: "direct", administer: "mediated" });
+        expect(policy.placement.allowed).toEqual(["dynamic", "bundled"]);
+        expect(Object.isFrozen(policy)).toBe(true);
+        expect(Object.isFrozen(policy.tiers)).toBe(true);
+        expect(Object.isFrozen(policy.approvals)).toBe(true);
 
-            const encoded = PolicySet.encode(policy);
-            expect(PolicySet.encode(PolicySet.decode(encoded))).toEqual(encoded);
-        }
-    );
+        const encoded = PolicySet.encode(policy);
+        expect(PolicySet.encode(PolicySet.decode(encoded))).toEqual(encoded);
+    });
 
     test("rejects invalid impacts placements and non-object payloads", { tags: "p2" }, () => {
         const payload = {
@@ -306,50 +264,46 @@ describe("policy declaration codec", () => {
         ).toThrow("Policy placement is invalid");
     });
 
-    test(
-        "makes approval removal unrepresentable and rejects malformed codec data",
-        { tags: "p0" },
-        () => {
-            expect(() => new PolicySet({ approvals: ["observe", "observe"] })).toThrow(/unique/);
-            expect(() => new PolicySet({ tiers: { observe: "lower" as EnforcementTier } })).toThrow(
-                /tier/
-            );
+    test("makes approval removal unrepresentable and rejects malformed codec data", { tags: "p0" }, () => {
+        expect(() => new PolicySet({ approvals: ["observe", "observe"] })).toThrow(/unique/);
+        expect(() => new PolicySet({ tiers: { observe: "lower" as EnforcementTier } })).toThrow(
+            /tier/
+        );
 
-            const policy = new PolicySet({ approvals: ["observe"] });
-            const envelope = requireObject(decodeCanonicalJson(PolicySet.encode(policy)));
-            const payload = requireObject(envelope["payload"]!);
-            expectCodecError(
-                () =>
-                    PolicySet.decode(
-                        encodeCanonicalJson({
-                            ...envelope,
-                            payload: { ...payload, approvals: { observe: false } }
-                        })
-                    ),
-                "codec.invalid"
-            );
-            expectCodecError(
-                () =>
-                    PolicySet.decode(
-                        encodeCanonicalJson({
-                            ...envelope,
-                            payload: { ...payload, removeApprovals: ["observe"] }
-                        })
-                    ),
-                "codec.invalid"
-            );
-            expectCodecError(
-                () =>
-                    PolicySet.decode(
-                        encodeCanonicalJson({
-                            ...envelope,
-                            version: { major: 3, minor: 0 }
-                        })
-                    ),
-                "codec.unknown-major"
-            );
-        }
-    );
+        const policy = new PolicySet({ approvals: ["observe"] });
+        const envelope = requireObject(decodeCanonicalJson(PolicySet.encode(policy)));
+        const payload = requireObject(envelope["payload"]!);
+        expectCodecError(
+            () =>
+                PolicySet.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        payload: { ...payload, approvals: { observe: false } }
+                    })
+                ),
+            "codec.invalid"
+        );
+        expectCodecError(
+            () =>
+                PolicySet.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        payload: { ...payload, removeApprovals: ["observe"] }
+                    })
+                ),
+            "codec.invalid"
+        );
+        expectCodecError(
+            () =>
+                PolicySet.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        version: { major: 3, minor: 0 }
+                    })
+                ),
+            "codec.unknown-major"
+        );
+    });
 });
 
 function maximumTier(...tiers: readonly EnforcementTier[]): EnforcementTier {

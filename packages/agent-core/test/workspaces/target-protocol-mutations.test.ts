@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { Digest, Revision } from "../../src/core";
-import { CommandCallerPolicy, CommandEnvelope, type ProtocolValueCodec } from "../../src/protocol";
+import {
+    CommandCallerPolicy,
+    CommandEnvelope,
+    type ProtocolValueCodec
+} from "../../src/protocol";
 import {
     AuditRecordId,
     EventId,
@@ -227,262 +231,218 @@ function signature(message: Uint8Array): Uint8Array {
 }
 
 describe("TargetProjectionProtocol mutation coverage", () => {
-    test(
-        "replay without the stored projection index is an exact duplicate conflict",
-        {
-            tags: "p0"
-        },
-        () => {
-            const harness = createTargetHarness();
-            const input = authenticatedAdmission("missing-stored");
-            const first = harness.protocol.admit(harness.records, input);
-            expect(first.state.kind).toBe("delivered");
+    test("replay without the stored projection index is an exact duplicate conflict", {
+        tags: "p0"
+    }, () => {
+        const harness = createTargetHarness();
+        const input = authenticatedAdmission("missing-stored");
+        const first = harness.protocol.admit(harness.records, input);
+        expect(first.state.kind).toBe("delivered");
 
-            const snapshot = harness.records.snapshot();
-            const withoutProjectionIndex = new MemoryWorkspaceRecords({
-                ...snapshot,
-                uniques: snapshot.uniques.filter(
-                    (unique) => unique.namespace !== "route.projection"
-                )
-            });
+        const snapshot = harness.records.snapshot();
+        const withoutProjectionIndex = new MemoryWorkspaceRecords({
+            ...snapshot,
+            uniques: snapshot.uniques.filter((unique) => unique.namespace !== "route.projection")
+        });
 
-            expect(() => harness.protocol.admit(withoutProjectionIndex, input)).toThrow(
-                expect.objectContaining({
-                    code: "protocol.duplicate",
-                    message: "Route retry conflicts with the admitted authenticated projection"
-                })
-            );
-        }
-    );
+        expect(() => harness.protocol.admit(withoutProjectionIndex, input)).toThrow(
+            expect.objectContaining({
+                code: "protocol.duplicate",
+                message: "Route retry conflicts with the admitted authenticated projection"
+            })
+        );
+    });
 
-    test(
-        "replay keeps a retention that is already listed for the stored projection",
-        {
-            tags: "p0"
-        },
-        () => {
-            const harness = createTargetHarness();
-            const input = authenticatedAdmission("retention-idempotent");
-            const projection = projectionFixture(input.projection.envelope.reservation);
-            const first = harness.protocol.admit(harness.records, input);
+    test("replay keeps a retention that is already listed for the stored projection", {
+        tags: "p0"
+    }, () => {
+        const harness = createTargetHarness();
+        const input = authenticatedAdmission("retention-idempotent");
+        const projection = projectionFixture(input.projection.envelope.reservation);
+        const first = harness.protocol.admit(harness.records, input);
 
-            const extra = retentionFixture({
-                actor: targetActor,
-                id: "retention-extra-unmatched",
-                recordKind: "routeProjection",
-                recordId: projection.id.value,
-                content: content("retention-extra-unmatched")
-            });
-            harness.records.insertRecord({
-                kind: "contentRetention",
-                id: extra.id.value,
-                bytes: ContentRetentionReference.encode(extra)
-            });
+        const extra = retentionFixture({
+            actor: targetActor,
+            id: "retention-extra-unmatched",
+            recordKind: "routeProjection",
+            recordId: projection.id.value,
+            content: content("retention-extra-unmatched")
+        });
+        harness.records.insertRecord({
+            kind: "contentRetention",
+            id: extra.id.value,
+            bytes: ContentRetentionReference.encode(extra)
+        });
 
-            const replay = harness.protocol.admit(harness.records, input);
-            expect(replay).toEqual(first);
-            expect(harness.retention.discarded).toEqual([]);
-        }
-    );
+        const replay = harness.protocol.admit(harness.records, input);
+        expect(replay).toEqual(first);
+        expect(harness.retention.discarded).toEqual([]);
+    });
 
-    test(
-        "replay discards a redundant retention that the stored projection never listed",
-        {
-            tags: "p0"
-        },
-        () => {
-            const harness = createTargetHarness();
-            const input = authenticatedAdmission("retention-redundant");
-            const projection = projectionFixture(input.projection.envelope.reservation);
-            const first = harness.protocol.admit(harness.records, input);
+    test("replay discards a redundant retention that the stored projection never listed", {
+        tags: "p0"
+    }, () => {
+        const harness = createTargetHarness();
+        const input = authenticatedAdmission("retention-redundant");
+        const projection = projectionFixture(input.projection.envelope.reservation);
+        const first = harness.protocol.admit(harness.records, input);
 
-            const replacement = projectionRetention(
-                projection,
-                targetActor,
-                "retention-replacement"
-            );
-            const replay = harness.protocol.admit(harness.records, {
-                projection: input.projection,
-                retention: replacement
-            });
-            expect(replay).toEqual(first);
-            expect(harness.retention.discarded).toEqual(["retention-replacement"]);
-        }
-    );
+        const replacement = projectionRetention(projection, targetActor, "retention-replacement");
+        const replay = harness.protocol.admit(harness.records, {
+            projection: input.projection,
+            retention: replacement
+        });
+        expect(replay).toEqual(first);
+        expect(harness.retention.discarded).toEqual(["retention-replacement"]);
+    });
 
-    test(
-        "non-durable target retention is rejected with the exact invalid-state error",
-        {
-            tags: "p0"
-        },
-        () => {
-            const harness = createTargetHarness();
-            harness.retention.durable = false;
-            const input = authenticatedAdmission("retention-not-durable");
+    test("non-durable target retention is rejected with the exact invalid-state error", {
+        tags: "p0"
+    }, () => {
+        const harness = createTargetHarness();
+        harness.retention.durable = false;
+        const input = authenticatedAdmission("retention-not-durable");
 
-            expect(() => harness.protocol.admit(harness.records, input)).toThrow(
-                expect.objectContaining({
-                    code: "protocol.invalid-state",
-                    message: "Target projection retention is not durable"
-                })
-            );
-            expect(harness.retention.discarded).toEqual([input.retention.id.value]);
-        }
-    );
+        expect(() => harness.protocol.admit(harness.records, input)).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Target projection retention is not durable"
+            })
+        );
+        expect(harness.retention.discarded).toEqual([input.retention.id.value]);
+    });
 
-    test(
-        "invocation admission must return the reservation's own Invocation ID instance",
-        {
-            tags: "p0"
-        },
-        () => {
-            const substituted = createTargetHarness({
-                admit: (_records, input) => ({
-                    kind: "accepted",
-                    invocation: new EventId(input.reservation.invocation.value)
-                })
-            });
-            expect(() =>
-                substituted.protocol.admit(
-                    substituted.records,
-                    authenticatedAdmission("invocation-not-instance")
-                )
-            ).toThrow(
-                expect.objectContaining({
-                    code: "protocol.invalid-state",
-                    message: "Invocation admission substituted the stable route Invocation ID"
-                })
-            );
-            expect(substituted.records.listRecords("routeDelivery")).toEqual([]);
+    test("invocation admission must return the reservation's own Invocation ID instance", {
+        tags: "p0"
+    }, () => {
+        const substituted = createTargetHarness({
+            admit: (_records, input) => ({
+                kind: "accepted",
+                invocation: new EventId(input.reservation.invocation.value)
+            })
+        });
+        expect(() =>
+            substituted.protocol.admit(
+                substituted.records,
+                authenticatedAdmission("invocation-not-instance")
+            )
+        ).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Invocation admission substituted the stable route Invocation ID"
+            })
+        );
+        expect(substituted.records.listRecords("routeDelivery")).toEqual([]);
 
-            const forged = createTargetHarness({
-                admit: (_records, input) => ({
-                    kind: "accepted",
-                    invocation: new ForgedInvocation(input.reservation.invocation.value)
-                })
-            });
-            expect(() =>
-                forged.protocol.admit(forged.records, authenticatedAdmission("invocation-forged"))
-            ).toThrow(
-                expect.objectContaining({
-                    code: "protocol.invalid-state",
-                    message: "Invocation admission substituted the stable route Invocation ID"
-                })
-            );
-            expect(forged.records.listRecords("routeDelivery")).toEqual([]);
-        }
-    );
+        const forged = createTargetHarness({
+            admit: (_records, input) => ({
+                kind: "accepted",
+                invocation: new ForgedInvocation(input.reservation.invocation.value)
+            })
+        });
+        expect(() =>
+            forged.protocol.admit(forged.records, authenticatedAdmission("invocation-forged"))
+        ).toThrow(
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Invocation admission substituted the stable route Invocation ID"
+            })
+        );
+        expect(forged.records.listRecords("routeDelivery")).toEqual([]);
+    });
 
-    test(
-        "replay with conflicting projection content of equal encoded length is rejected",
-        {
-            tags: "p0"
-        },
-        () => {
-            const harness = createTargetHarness();
-            const input = authenticatedAdmission("conflicting-bytes");
-            harness.protocol.admit(harness.records, input);
+    test("replay with conflicting projection content of equal encoded length is rejected", {
+        tags: "p0"
+    }, () => {
+        const harness = createTargetHarness();
+        const input = authenticatedAdmission("conflicting-bytes");
+        harness.protocol.admit(harness.records, input);
 
-            const reservation = input.projection.envelope.reservation;
-            const changedContent = content("conflicting-bytes-changed");
-            const changedReservation = new RouteReservation({
-                ...reservation.init,
-                projectionRef: changedContent.ref,
-                projectionDigest: changedContent.digest
-            });
-            const changedProjection = projectionFixture(changedReservation);
-            const authenticator = new TestProjectionAuthenticator();
-            const envelope = { reservation: changedReservation, projection: changedProjection };
-            const conflicting = authenticator.authenticate(
-                envelope,
-                authenticator.evidence(envelope)
-            );
+        const reservation = input.projection.envelope.reservation;
+        const changedContent = content("conflicting-bytes-changed");
+        const changedReservation = new RouteReservation({
+            ...reservation.init,
+            projectionRef: changedContent.ref,
+            projectionDigest: changedContent.digest
+        });
+        const changedProjection = projectionFixture(changedReservation);
+        const authenticator = new TestProjectionAuthenticator();
+        const envelope = { reservation: changedReservation, projection: changedProjection };
+        const conflicting = authenticator.authenticate(envelope, authenticator.evidence(envelope));
 
-            const storedEncoding = RouteProjection.codec.encode(
-                projectionFixture(reservation).authenticate(input.projection.digest)
-            );
-            const conflictingEncoding = RouteProjection.codec.encode(
-                changedProjection.authenticate(conflicting.digest)
-            );
-            expect(conflictingEncoding.byteLength).toBe(storedEncoding.byteLength);
-            expect(conflictingEncoding).not.toEqual(storedEncoding);
+        const storedEncoding = RouteProjection.codec.encode(
+            projectionFixture(reservation).authenticate(input.projection.digest)
+        );
+        const conflictingEncoding = RouteProjection.codec.encode(
+            changedProjection.authenticate(conflicting.digest)
+        );
+        expect(conflictingEncoding.byteLength).toBe(storedEncoding.byteLength);
+        expect(conflictingEncoding).not.toEqual(storedEncoding);
 
-            expect(() =>
-                harness.protocol.admit(harness.records, {
-                    projection: conflicting,
-                    retention: projectionRetention(changedProjection)
-                })
-            ).toThrow(
-                expect.objectContaining({
-                    code: "protocol.duplicate",
-                    message: "Route retry conflicts with the admitted authenticated projection"
-                })
-            );
-        }
-    );
+        expect(() =>
+            harness.protocol.admit(harness.records, {
+                projection: conflicting,
+                retention: projectionRetention(changedProjection)
+            })
+        ).toThrow(
+            expect.objectContaining({
+                code: "protocol.duplicate",
+                message: "Route retry conflicts with the admitted authenticated projection"
+            })
+        );
+    });
 
-    test(
-        "projection targeting another Actor is denied with the exact authority error",
-        {
-            tags: "p0"
-        },
-        () => {
-            const harness = createTargetHarness();
-            const wrongTarget = reservationFixture("wrong-target-denied", { target: sourceActor });
-            const projection = projectionFixture(wrongTarget);
-            const authenticator = new TestProjectionAuthenticator();
-            const envelope = { reservation: wrongTarget, projection };
+    test("projection targeting another Actor is denied with the exact authority error", {
+        tags: "p0"
+    }, () => {
+        const harness = createTargetHarness();
+        const wrongTarget = reservationFixture("wrong-target-denied", { target: sourceActor });
+        const projection = projectionFixture(wrongTarget);
+        const authenticator = new TestProjectionAuthenticator();
+        const envelope = { reservation: wrongTarget, projection };
 
-            expect(() =>
-                harness.protocol.admit(harness.records, {
-                    projection: authenticator.authenticate(
-                        envelope,
-                        authenticator.evidence(envelope)
-                    ),
-                    retention: projectionRetention(projection)
-                })
-            ).toThrow(
-                expect.objectContaining({
-                    name: "AgentCoreError",
-                    code: "authority.denied",
-                    message: "Authenticated route projection targets another Actor"
-                })
-            );
-        }
-    );
+        expect(() =>
+            harness.protocol.admit(harness.records, {
+                projection: authenticator.authenticate(envelope, authenticator.evidence(envelope)),
+                retention: projectionRetention(projection)
+            })
+        ).toThrow(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "authority.denied",
+                message: "Authenticated route projection targets another Actor"
+            })
+        );
+    });
 
-    test(
-        "command evidence delegates authorization, lifecycle, and revision to its port",
-        {
-            tags: "p1"
-        },
-        () => {
-            const harness = createTargetHarness();
-            const admission = authenticatedAdmission("delegation");
-            const envelope = new CommandEnvelope({
-                command: TARGET_PROJECTION_COMMAND,
-                caller: { kind: "actor", actor: targetActor },
-                idempotencyKey: "delegation-idempotency",
-                payload: admission.retention.content,
-                payloadDigest: admission.retention.digest
-            });
-            const revision = new Revision(7);
+    test("command evidence delegates authorization, lifecycle, and revision to its port", {
+        tags: "p1"
+    }, () => {
+        const harness = createTargetHarness();
+        const admission = authenticatedAdmission("delegation");
+        const envelope = new CommandEnvelope({
+            command: TARGET_PROJECTION_COMMAND,
+            caller: { kind: "actor", actor: targetActor },
+            idempotencyKey: "delegation-idempotency",
+            payload: admission.retention.content,
+            payloadDigest: admission.retention.digest
+        });
+        const revision = new Revision(7);
 
-            const granting = createTargetProjectionProtocolCommand(
-                harness.protocol,
-                new DelegatingPort(true, revision)
-            );
-            expect(granting.authorize({}, envelope, admission)).toBe(true);
-            expect(granting.permitsLifecycle({}, envelope, admission)).toBe(false);
-            expect(granting.currentRevision({}, envelope, admission)).toBe(revision);
+        const granting = createTargetProjectionProtocolCommand(
+            harness.protocol,
+            new DelegatingPort(true, revision)
+        );
+        expect(granting.authorize({}, envelope, admission)).toBe(true);
+        expect(granting.permitsLifecycle({}, envelope, admission)).toBe(false);
+        expect(granting.currentRevision({}, envelope, admission)).toBe(revision);
 
-            const denying = createTargetProjectionProtocolCommand(
-                harness.protocol,
-                new DelegatingPort(false, undefined)
-            );
-            expect(denying.authorize({}, envelope, admission)).toBe(false);
-            expect(denying.permitsLifecycle({}, envelope, admission)).toBe(true);
-            expect(denying.currentRevision({}, envelope, admission)).toBeUndefined();
-        }
-    );
+        const denying = createTargetProjectionProtocolCommand(
+            harness.protocol,
+            new DelegatingPort(false, undefined)
+        );
+        expect(denying.authorize({}, envelope, admission)).toBe(false);
+        expect(denying.permitsLifecycle({}, envelope, admission)).toBe(true);
+        expect(denying.currentRevision({}, envelope, admission)).toBeUndefined();
+    });
 });

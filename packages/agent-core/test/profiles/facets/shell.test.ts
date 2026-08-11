@@ -650,10 +650,12 @@ describe("Shell backends", () => {
 
             expect(internal.manifest).toBe(manifest);
             await expect(
-                internal.operation(new OperationName("run"))?.execute(operationContext(), {
-                    executionId: "internal-run",
-                    commandLine: "ok"
-                })
+                internal
+                    .operation(new OperationName("run"))
+                    ?.execute(operationContext(), {
+                        executionId: "internal-run",
+                        commandLine: "ok"
+                    })
             ).resolves.toBe(7);
             await expect(
                 internal

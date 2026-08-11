@@ -35,94 +35,90 @@ class MutatingVerifierAuthenticator extends RouteProjectionAuthenticator {
 }
 
 describe("route record mutation kills", () => {
-    test(
-        "route reservation codec cites each tampered field with its exact label",
-        { tags: "p2" },
-        () => {
-            const encoded = RouteReservation.encode(reservationFixture("codec-label"));
-            const cases: readonly {
-                readonly patch: { readonly [key: string]: JsonValue };
-                readonly message: string;
-            }[] = [
-                { patch: { id: 5 }, message: "Route reservation ID must be a string" },
-                { patch: { invocation: 5 }, message: "Route invocation ID must be a string" },
-                { patch: { event: 5 }, message: "Route Event ID must be a string" },
-                {
-                    patch: { sourceAuditCause: 5 },
-                    message: "Route source audit cause must be a string"
-                },
-                { patch: { subscription: 5 }, message: "Route Subscription ID must be a string" },
-                { patch: { dedupeKey: 5 }, message: "Route dedupe key must be a string" },
-                { patch: { operation: 5 }, message: "Route operation must be a string" },
-                { patch: { projection: 5 }, message: "Route projection ID must be a string" },
-                {
-                    patch: { projectionContent: 5 },
-                    message: "Route projection content must be an object"
-                },
-                { patch: { initiator: 5 }, message: "Route initiator must be an object" },
-                { patch: { sourceActor: 5 }, message: "Route source Actor must be an object" },
-                { patch: { targetActor: 5 }, message: "Route target Actor must be an object" },
-                {
-                    patch: { authority: { kind: "initiator", binding: 5 } },
-                    message: "Route binding must be a string"
-                },
-                {
-                    patch: { tenants: { kind: "same", tenant: 5 } },
-                    message: "Route tenant must be a string"
-                }
-            ];
-            for (const { patch, message } of cases) {
-                expect(() => RouteReservation.decode(withPayload(encoded, patch))).toThrow(
-                    expect.objectContaining({ message: reservationDecodeError(message) })
-                );
+    test("route reservation codec cites each tampered field with its exact label", { tags: "p2" }, () => {
+        const encoded = RouteReservation.encode(reservationFixture("codec-label"));
+        const cases: readonly {
+            readonly patch: { readonly [key: string]: JsonValue };
+            readonly message: string;
+        }[] = [
+            { patch: { id: 5 }, message: "Route reservation ID must be a string" },
+            { patch: { invocation: 5 }, message: "Route invocation ID must be a string" },
+            { patch: { event: 5 }, message: "Route Event ID must be a string" },
+            {
+                patch: { sourceAuditCause: 5 },
+                message: "Route source audit cause must be a string"
+            },
+            { patch: { subscription: 5 }, message: "Route Subscription ID must be a string" },
+            { patch: { dedupeKey: 5 }, message: "Route dedupe key must be a string" },
+            { patch: { operation: 5 }, message: "Route operation must be a string" },
+            { patch: { projection: 5 }, message: "Route projection ID must be a string" },
+            {
+                patch: { projectionContent: 5 },
+                message: "Route projection content must be an object"
+            },
+            { patch: { initiator: 5 }, message: "Route initiator must be an object" },
+            { patch: { sourceActor: 5 }, message: "Route source Actor must be an object" },
+            { patch: { targetActor: 5 }, message: "Route target Actor must be an object" },
+            {
+                patch: { authority: { kind: "initiator", binding: 5 } },
+                message: "Route binding must be a string"
+            },
+            {
+                patch: { tenants: { kind: "same", tenant: 5 } },
+                message: "Route tenant must be a string"
             }
-
-            const cross = RouteReservation.encode(crossReservation("codec-label-cross"));
-            const crossCases: readonly {
-                readonly patch: { readonly [key: string]: JsonValue };
-                readonly message: string;
-            }[] = [
-                {
-                    patch: {
-                        tenants: {
-                            kind: "cross",
-                            source: 5,
-                            target: "tenant-cross-target",
-                            authority: "binding.cross"
-                        }
-                    },
-                    message: "Route source tenant must be a string"
-                },
-                {
-                    patch: {
-                        tenants: {
-                            kind: "cross",
-                            source: tenant.value,
-                            target: 5,
-                            authority: "binding.cross"
-                        }
-                    },
-                    message: "Route target tenant must be a string"
-                },
-                {
-                    patch: {
-                        tenants: {
-                            kind: "cross",
-                            source: tenant.value,
-                            target: "tenant-cross-target",
-                            authority: 5
-                        }
-                    },
-                    message: "Cross-tenant authority must be a string"
-                }
-            ];
-            for (const { patch, message } of crossCases) {
-                expect(() => RouteReservation.decode(withPayload(cross, patch))).toThrow(
-                    expect.objectContaining({ message: reservationDecodeError(message) })
-                );
-            }
+        ];
+        for (const { patch, message } of cases) {
+            expect(() => RouteReservation.decode(withPayload(encoded, patch))).toThrow(
+                expect.objectContaining({ message: reservationDecodeError(message) })
+            );
         }
-    );
+
+        const cross = RouteReservation.encode(crossReservation("codec-label-cross"));
+        const crossCases: readonly {
+            readonly patch: { readonly [key: string]: JsonValue };
+            readonly message: string;
+        }[] = [
+            {
+                patch: {
+                    tenants: {
+                        kind: "cross",
+                        source: 5,
+                        target: "tenant-cross-target",
+                        authority: "binding.cross"
+                    }
+                },
+                message: "Route source tenant must be a string"
+            },
+            {
+                patch: {
+                    tenants: {
+                        kind: "cross",
+                        source: tenant.value,
+                        target: 5,
+                        authority: "binding.cross"
+                    }
+                },
+                message: "Route target tenant must be a string"
+            },
+            {
+                patch: {
+                    tenants: {
+                        kind: "cross",
+                        source: tenant.value,
+                        target: "tenant-cross-target",
+                        authority: 5
+                    }
+                },
+                message: "Cross-tenant authority must be a string"
+            }
+        ];
+        for (const { patch, message } of crossCases) {
+            expect(() => RouteReservation.decode(withPayload(cross, patch))).toThrow(
+                expect.objectContaining({ message: reservationDecodeError(message) })
+            );
+        }
+    });
 
     test(
         "route projection and delivery codecs cite tampered identifiers exactly",
@@ -193,19 +189,15 @@ describe("route record mutation kills", () => {
         }
     );
 
-    test(
-        "route delivery states compare by terminal kind and rejection reason",
-        { tags: "p0" },
-        () => {
-            const delivered = RouteDeliveryState.delivered();
-            const rejected = RouteDeliveryState.rejected("authority denied");
-            expect(delivered.equals(RouteDeliveryState.delivered())).toBe(true);
-            expect(delivered.equals(rejected)).toBe(false);
-            expect(rejected.equals(delivered)).toBe(false);
-            expect(rejected.equals(RouteDeliveryState.rejected("authority denied"))).toBe(true);
-            expect(rejected.equals(RouteDeliveryState.rejected("lease expired"))).toBe(false);
-        }
-    );
+    test("route delivery states compare by terminal kind and rejection reason", { tags: "p0" }, () => {
+        const delivered = RouteDeliveryState.delivered();
+        const rejected = RouteDeliveryState.rejected("authority denied");
+        expect(delivered.equals(RouteDeliveryState.delivered())).toBe(true);
+        expect(delivered.equals(rejected)).toBe(false);
+        expect(rejected.equals(delivered)).toBe(false);
+        expect(rejected.equals(RouteDeliveryState.rejected("authority denied"))).toBe(true);
+        expect(rejected.equals(RouteDeliveryState.rejected("lease expired"))).toBe(false);
+    });
 
     test(
         "projection authentication denials carry the authority code and exact reasons",
@@ -292,7 +284,10 @@ function reservationDecodeError(message: string): string {
     return `Invalid workspace.route-reservation record: ${message}`;
 }
 
-function withPayload(bytes: Uint8Array, patch: { readonly [key: string]: JsonValue }): Uint8Array {
+function withPayload(
+    bytes: Uint8Array,
+    patch: { readonly [key: string]: JsonValue }
+): Uint8Array {
     const envelope = requireObject(decodeCanonicalJson(bytes), "Encoded record envelope");
     const payload = requireObject(envelope["payload"] ?? null, "Encoded record payload");
     return encodeCanonicalJson({ ...envelope, payload: { ...payload, ...patch } });

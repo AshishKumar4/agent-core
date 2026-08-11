@@ -37,13 +37,13 @@ describe("W4 error taxonomy", () => {
                 )
             );
             expect(taxonomy.expected).toEqual({
-                agentCoreOperationalThrows: 237,
-                allowedTypeErrors: 153,
+                agentCoreOperationalThrows: 238,
+                allowedTypeErrors: 152,
                 preservedRethrows: 1,
                 bareErrors: 0
             });
             expect(taxonomy.expectedOperationalByCode).toEqual({
-                "codec.invalid": 113,
+                "codec.invalid": 114,
                 "operation.invalid-input": 31,
                 "protocol.invalid-envelope": 5,
                 "protocol.invalid-state": 71,

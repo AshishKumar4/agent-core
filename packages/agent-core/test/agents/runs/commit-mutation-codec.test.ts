@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 import { SemVer } from "../../../src/core";
 import { RunCommitId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocations";
-import { RunCommit, type CommitWriter, type RunCommitInit } from "../../../src/agents/runs/commit";
+import {
+    RunCommit,
+    type CommitWriter,
+    type RunCommitInit
+} from "../../../src/agents/runs/commit";
 import { BlueprintPin, RunPins } from "../../../src/agents/runs/pins";
 import { content, digest, ids, pins, refs } from "./fixture";
 
@@ -486,9 +490,7 @@ describe("Run commit decode guards", () => {
         expect(decodedMessage.migration).toBeUndefined();
         expect(decodedMessage.parents.map((parent) => parent.value)).toEqual(["commit-root"]);
 
-        const decodedMigration = RunCommit.fromData(
-            migrationCommit("migration-round-trip").toData()
-        );
+        const decodedMigration = RunCommit.fromData(migrationCommit("migration-round-trip").toData());
         expect(decodedMigration.kind).toBe("migration");
         expect(decodedMigration.writer.kind).toBe("system");
         expect(

@@ -3,7 +3,11 @@ import { ActorRef, type ActorKind } from "../../src/actors";
 import { Digest, Revision } from "../../src/core";
 import { BindingName, EventKind, EventPattern, FacetPackageId } from "../../src/facets";
 import { TenantId } from "../../src/identity";
-import { CommandCallerPolicy, CommandEnvelope, type ProtocolValueCodec } from "../../src/protocol";
+import {
+    CommandCallerPolicy,
+    CommandEnvelope,
+    type ProtocolValueCodec
+} from "../../src/protocol";
 import {
     AuditRecordId,
     CorrelationId,
@@ -50,15 +54,7 @@ import {
     type DerivedEventTrust
 } from "../../src/workspaces/value";
 import { ContentRetentionId, RetainedRecordRef } from "../../src/workspaces/id";
-import {
-    content,
-    principal,
-    scope,
-    sourceActor,
-    subscriptionFixture,
-    targetActor,
-    tenant
-} from "./fixtures";
+import { content, principal, scope, sourceActor, subscriptionFixture, targetActor, tenant } from "./fixtures";
 
 interface State {
     readonly records: MemoryWorkspaceRecords;
@@ -356,28 +352,24 @@ describe("source protocol mutation kills", () => {
         }
     );
 
-    test(
-        "commit detects a subscription set that shrank after snapshot",
-        { tags: "p0" },
-        async () => {
-            const subA = subscriptionFixture("shrink-a");
-            const subB = subscriptionFixture("shrink-b");
-            const setup = sourceSetup("shrink-a", subA);
-            setup.persistence.saveSubscription(setup.state, subB, undefined);
-            const prepared = await setup.protocol.prepare(
-                setup.protocol.snapshot(setup.state, authenticateIntent(draft("shrink")))
-            );
+    test("commit detects a subscription set that shrank after snapshot", { tags: "p0" }, async () => {
+        const subA = subscriptionFixture("shrink-a");
+        const subB = subscriptionFixture("shrink-b");
+        const setup = sourceSetup("shrink-a", subA);
+        setup.persistence.saveSubscription(setup.state, subB, undefined);
+        const prepared = await setup.protocol.prepare(
+            setup.protocol.snapshot(setup.state, authenticateIntent(draft("shrink")))
+        );
 
-            const shrunken = emptyState();
-            setup.persistence.saveSubscription(shrunken, subA, undefined);
-            expect(() => setup.protocol.commit(shrunken, prepared)).toThrow(
-                expect.objectContaining({
-                    code: "protocol.revision-conflict",
-                    message: "Subscription snapshot changed during Event preparation"
-                })
-            );
-        }
-    );
+        const shrunken = emptyState();
+        setup.persistence.saveSubscription(shrunken, subA, undefined);
+        expect(() => setup.protocol.commit(shrunken, prepared)).toThrow(
+            expect.objectContaining({
+                code: "protocol.revision-conflict",
+                message: "Subscription snapshot changed during Event preparation"
+            })
+        );
+    });
 
     test(
         "commit detects a subscription replaced by an equal-revision stranger",
@@ -701,65 +693,54 @@ describe("source commit trust boundary kills", () => {
         );
     });
 
-    test(
-        "commit rejects same-tenant relation drift after preparation",
-        { tags: "p0" },
-        async () => {
-            const setup = sourceSetup("tenant-drift");
-            const prepared = await setup.protocol.prepare(
-                setup.protocol.snapshot(setup.state, authenticateIntent(draft("tenant-drift")))
-            );
-            setup.routes.decision = {
-                kind: "accepted",
-                targetActor,
-                tenants: { kind: "same", tenant: new TenantId("tenant-drifted") },
-                operation: setup.subscription.target
-            };
-            expect(() => setup.protocol.commit(setup.state, prepared)).toThrow(
-                expect.objectContaining({
-                    name: "AgentCoreError",
-                    code: "protocol.invalid-state",
-                    message: "Prepared route target changed before source commit"
-                })
-            );
-        }
-    );
+    test("commit rejects same-tenant relation drift after preparation", { tags: "p0" }, async () => {
+        const setup = sourceSetup("tenant-drift");
+        const prepared = await setup.protocol.prepare(
+            setup.protocol.snapshot(setup.state, authenticateIntent(draft("tenant-drift")))
+        );
+        setup.routes.decision = {
+            kind: "accepted",
+            targetActor,
+            tenants: { kind: "same", tenant: new TenantId("tenant-drifted") },
+            operation: setup.subscription.target
+        };
+        expect(() => setup.protocol.commit(setup.state, prepared)).toThrow(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.invalid-state",
+                message: "Prepared route target changed before source commit"
+            })
+        );
+    });
 
-    test(
-        "commit rejects cross-tenant relation drift after preparation",
-        { tags: "p0" },
-        async () => {
-            const setup = sourceSetup("tenant-cross-drift");
-            setup.routes.preparedTenants = {
+    test("commit rejects cross-tenant relation drift after preparation", { tags: "p0" }, async () => {
+        const setup = sourceSetup("tenant-cross-drift");
+        setup.routes.preparedTenants = {
+            kind: "cross",
+            source: tenant,
+            target: new TenantId("tenant-cross-target"),
+            authority: new BindingName("binding.route")
+        };
+        const prepared = await setup.protocol.prepare(
+            setup.protocol.snapshot(setup.state, authenticateIntent(draft("tenant-cross-drift")))
+        );
+        setup.routes.decision = {
+            kind: "accepted",
+            targetActor,
+            tenants: {
                 kind: "cross",
                 source: tenant,
                 target: new TenantId("tenant-cross-target"),
-                authority: new BindingName("binding.route")
-            };
-            const prepared = await setup.protocol.prepare(
-                setup.protocol.snapshot(
-                    setup.state,
-                    authenticateIntent(draft("tenant-cross-drift"))
-                )
-            );
-            setup.routes.decision = {
-                kind: "accepted",
-                targetActor,
-                tenants: {
-                    kind: "cross",
-                    source: tenant,
-                    target: new TenantId("tenant-cross-target"),
-                    authority: new BindingName("binding.other")
-                },
-                operation: setup.subscription.target
-            };
-            expect(() => setup.protocol.commit(setup.state, prepared)).toThrow(
-                expect.objectContaining({
-                    name: "AgentCoreError",
-                    code: "protocol.invalid-state",
-                    message: "Prepared route target changed before source commit"
-                })
-            );
-        }
-    );
+                authority: new BindingName("binding.other")
+            },
+            operation: setup.subscription.target
+        };
+        expect(() => setup.protocol.commit(setup.state, prepared)).toThrow(
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.invalid-state",
+                message: "Prepared route target changed before source commit"
+            })
+        );
+    });
 });

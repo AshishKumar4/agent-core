@@ -203,10 +203,9 @@ describe("sqlite saturation", () => {
                 expect(expectedUniques).toBe(events.length);
                 for (const event of events) {
                     expect(
-                        reopenedPersistence.findEventByIdentity(
-                            reopenedRecords,
-                            event.idempotencyKey
-                        )?.id.value
+                        reopenedPersistence
+                            .findEventByIdentity(reopenedRecords, event.idempotencyKey)
+                            ?.id.value
                     ).toBe(event.id.value);
                 }
                 const replayed = events[0];
@@ -276,7 +275,9 @@ describe("sqlite saturation", () => {
                 );
                 expect(replay.outcome).toBe("duplicate");
                 expect(restarted.snapshot().value).toBe(PROTOCOL_COMMANDS);
-                expect(rowCount(reopened, "protocol_command_identities")).toBe(before.identities);
+                expect(rowCount(reopened, "protocol_command_identities")).toBe(
+                    before.identities
+                );
             });
         }
     );

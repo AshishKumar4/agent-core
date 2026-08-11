@@ -118,31 +118,23 @@ describe("Slate records", () => {
         }
     ] as const;
 
-    test.each(records)(
-        "$name round-trips a strict codec 1.0 record",
-        { tags: "p1" },
-        ({ codec, record }) => {
-            const bytes = codec.encode(record as never);
-            const envelope = object(decodeCanonicalJson(bytes));
+    test.each(records)("$name round-trips a strict codec 1.0 record", { tags: "p1" }, ({ codec, record }) => {
+        const bytes = codec.encode(record as never);
+        const envelope = object(decodeCanonicalJson(bytes));
 
-            expect(envelope["version"]).toEqual({ major: 1, minor: 0 });
-            expect(codec.encode(codec.decode(bytes) as never)).toEqual(bytes);
-            expect(Object.isFrozen(codec.decode(bytes))).toBe(true);
-        }
-    );
+        expect(envelope["version"]).toEqual({ major: 1, minor: 0 });
+        expect(codec.encode(codec.decode(bytes) as never)).toEqual(bytes);
+        expect(Object.isFrozen(codec.decode(bytes))).toBe(true);
+    });
 
-    test.each(records)(
-        "$name rejects unknown codec majors",
-        { tags: "p1" },
-        ({ codec, record }) => {
-            const envelope = object(decodeCanonicalJson(codec.encode(record as never)));
-            const future = encodeCanonicalJson({ ...envelope, version: { major: 2, minor: 0 } });
+    test.each(records)("$name rejects unknown codec majors", { tags: "p1" }, ({ codec, record }) => {
+        const envelope = object(decodeCanonicalJson(codec.encode(record as never)));
+        const future = encodeCanonicalJson({ ...envelope, version: { major: 2, minor: 0 } });
 
-            expect(() => codec.decode(future)).toThrowError(
-                expect.objectContaining({ code: "codec.unknown-major" })
-            );
-        }
-    );
+        expect(() => codec.decode(future)).toThrowError(
+            expect.objectContaining({ code: "codec.unknown-major" })
+        );
+    });
 
     test("rejects unknown payload fields and invalid cross-field shapes", { tags: "p1" }, () => {
         const envelope = object(
@@ -186,25 +178,21 @@ describe("Slate records", () => {
         ).toThrow(TypeError);
     });
 
-    test(
-        "rejects primitive, mistyped, negative, and malformed Slate codec states",
-        { tags: "p1" },
-        () => {
-            const slate = Slate.initial(slateId, workspace, source);
-            const envelope = object(decodeCanonicalJson(Slate.encode(slate)));
-            const payload = object(envelope["payload"]);
-            for (const malformed of [
-                null,
-                { ...payload, source: 1 },
-                { ...payload, revision: -1 },
-                { ...payload, forkedFrom: { slateId: slateId.value } }
-            ] as const) {
-                expect(() =>
-                    Slate.decode(encodeCanonicalJson({ ...envelope, payload: malformed }))
-                ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-            }
+    test("rejects primitive, mistyped, negative, and malformed Slate codec states", { tags: "p1" }, () => {
+        const slate = Slate.initial(slateId, workspace, source);
+        const envelope = object(decodeCanonicalJson(Slate.encode(slate)));
+        const payload = object(envelope["payload"]);
+        for (const malformed of [
+            null,
+            { ...payload, source: 1 },
+            { ...payload, revision: -1 },
+            { ...payload, forkedFrom: { slateId: slateId.value } }
+        ] as const) {
+            expect(() =>
+                Slate.decode(encodeCanonicalJson({ ...envelope, payload: malformed }))
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
         }
-    );
+    });
 
     test("rejects malformed identities for every Slate durable record", { tags: "p1" }, () => {
         expect(
@@ -315,25 +303,21 @@ describe("Slate records", () => {
         ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
     });
 
-    test(
-        "round-trips optional version ancestry and clears an active deployment",
-        { tags: "p1" },
-        () => {
-            const child = new SlateVersion(
-                new SlateVersionId("version-child"),
-                workspace,
-                slateId,
-                source,
-                versionId
-            );
-            expect(
-                SlateVersion.decode(SlateVersion.encode(child)).parentVersionId?.equals(versionId)
-            ).toBe(true);
+    test("round-trips optional version ancestry and clears an active deployment", { tags: "p1" }, () => {
+        const child = new SlateVersion(
+            new SlateVersionId("version-child"),
+            workspace,
+            slateId,
+            source,
+            versionId
+        );
+        expect(
+            SlateVersion.decode(SlateVersion.encode(child)).parentVersionId?.equals(versionId)
+        ).toBe(true);
 
-            const active = Slate.initial(slateId, workspace, source).selectDeployment(deploymentId);
-            expect(active.selectDeployment(undefined).activeDeploymentId).toBeUndefined();
-        }
-    );
+        const active = Slate.initial(slateId, workspace, source).selectDeployment(deploymentId);
+        expect(active.selectDeployment(undefined).activeDeploymentId).toBeUndefined();
+    });
 
     test("uses ContentRef values for every source and materialization", { tags: "p1" }, () => {
         const version = records[1].record as SlateVersion;
@@ -353,164 +337,145 @@ describe("Slate records", () => {
         expect(preview.exposureId).toBeInstanceOf(PortExposureId);
     });
 
-    test(
-        "canonical intents reject unknown fields and unbranded identifiers",
-        { tags: "p1" },
-        () => {
-            const request = freezeSlateInvocationRequest({
-                operation: "deploy",
+    test("canonical intents reject unknown fields and unbranded identifiers", { tags: "p1" }, () => {
+        const request = freezeSlateInvocationRequest({
+            operation: "deploy",
+            impact: "externalSend",
+            workspaceId: workspace,
+            slateId,
+            deploymentId,
+            publicationId,
+            publicationMaterialization: materialization,
+            target: "production",
+            expectedActiveDeploymentId: undefined
+        });
+        expect(Object.isFrozen(request)).toBe(true);
+        expect(() =>
+            freezeSlateInvocationRequest({
+                ...request,
+                unknown: true
+            } as SlateInvocationRequest)
+        ).toThrow(
+            new AgentCoreError(
+                "operation.invalid-input",
+                "Slate intent contains missing or unknown fields"
+            )
+        );
+        expect(() =>
+            freezeSlateInvocationRequest({
+                ...request,
+                workspaceId: { value: workspace.value }
+            } as SlateInvocationRequest)
+        ).toThrow(new AgentCoreError("operation.invalid-input", "Slate Workspace ID is invalid"));
+        expect(() =>
+            freezeSlateInvocationRequest({
+                ...request,
+                impact: "mutate"
+            } as unknown as SlateInvocationRequest)
+        ).toThrow(
+            new AgentCoreError(
+                "operation.invalid-input",
+                "Slate deploy invocation impact must be externalSend"
+            )
+        );
+        expect(() =>
+            freezeSlateInvocationRequest({
+                operation: "resource.materialize",
+                impact: "mutate",
+                workspaceId: workspace,
+                slateId,
+                resourceId: new SlateResourceId("resource-invalid-impact"),
+                deploymentId,
+                deploymentMaterialization: materialization,
+                resourceName: "database",
+                resourceSource: source
+            } as unknown as SlateInvocationRequest)
+        ).toThrow(
+            new AgentCoreError(
+                "operation.invalid-input",
+                "Slate resource invocation impact must be externalSend"
+            )
+        );
+        expect(() =>
+            freezeSlateInvocationRequest({
+                ...request,
+                target: " "
+            })
+        ).toThrow(
+            new AgentCoreError(
+                "operation.invalid-input",
+                "Slate deployment target must not be blank or exceed 512 characters"
+            )
+        );
+
+        expect(() =>
+            freezeSlateMutationRequest({
+                operation: "create",
                 impact: "externalSend",
                 workspaceId: workspace,
                 slateId,
-                deploymentId,
-                publicationId,
-                publicationMaterialization: materialization,
-                target: "production",
-                expectedActiveDeploymentId: undefined
-            });
-            expect(Object.isFrozen(request)).toBe(true);
-            expect(() =>
-                freezeSlateInvocationRequest({
-                    ...request,
-                    unknown: true
-                } as SlateInvocationRequest)
-            ).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Slate intent contains missing or unknown fields"
-                )
-            );
-            expect(() =>
-                freezeSlateInvocationRequest({
-                    ...request,
-                    workspaceId: { value: workspace.value }
-                } as SlateInvocationRequest)
-            ).toThrow(
-                new AgentCoreError("operation.invalid-input", "Slate Workspace ID is invalid")
-            );
-            expect(() =>
-                freezeSlateInvocationRequest({
-                    ...request,
-                    impact: "mutate"
-                } as unknown as SlateInvocationRequest)
-            ).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Slate deploy invocation impact must be externalSend"
-                )
-            );
-            expect(() =>
-                freezeSlateInvocationRequest({
-                    operation: "resource.materialize",
-                    impact: "mutate",
-                    workspaceId: workspace,
-                    slateId,
-                    resourceId: new SlateResourceId("resource-invalid-impact"),
-                    deploymentId,
-                    deploymentMaterialization: materialization,
-                    resourceName: "database",
-                    resourceSource: source
-                } as unknown as SlateInvocationRequest)
-            ).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Slate resource invocation impact must be externalSend"
-                )
-            );
-            expect(() =>
-                freezeSlateInvocationRequest({
-                    ...request,
-                    target: " "
-                })
-            ).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Slate deployment target must not be blank or exceed 512 characters"
-                )
-            );
+                source
+            } as unknown as SlateMutationRequest)
+        ).toThrow(
+            new AgentCoreError("operation.invalid-input", "Slate mutation impact must be mutate")
+        );
+        expect(() =>
+            freezeSlateMutationRequest({
+                operation: "preview.link",
+                impact: "mutate",
+                workspaceId: workspace,
+                slateId,
+                previewId: new SlatePreviewId("preview-invalid-epoch"),
+                source,
+                versionId: undefined,
+                environmentId: new EnvironmentId("environment-invalid-epoch"),
+                sessionId: new EnvironmentSessionId("session-invalid-epoch"),
+                environmentRevision: Revision.initial(),
+                sessionEpoch: -1,
+                exposureId: new PortExposureId("exposure-invalid-epoch"),
+                expectedRevision: Revision.initial()
+            })
+        ).toThrow(
+            new AgentCoreError(
+                "operation.invalid-input",
+                "Slate preview session epoch must be a non-negative safe integer"
+            )
+        );
+    });
 
-            expect(() =>
-                freezeSlateMutationRequest({
-                    operation: "create",
-                    impact: "externalSend",
-                    workspaceId: workspace,
-                    slateId,
-                    source
-                } as unknown as SlateMutationRequest)
-            ).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Slate mutation impact must be mutate"
-                )
-            );
-            expect(() =>
-                freezeSlateMutationRequest({
-                    operation: "preview.link",
-                    impact: "mutate",
-                    workspaceId: workspace,
-                    slateId,
-                    previewId: new SlatePreviewId("preview-invalid-epoch"),
-                    source,
-                    versionId: undefined,
-                    environmentId: new EnvironmentId("environment-invalid-epoch"),
-                    sessionId: new EnvironmentSessionId("session-invalid-epoch"),
-                    environmentRevision: Revision.initial(),
-                    sessionEpoch: -1,
-                    exposureId: new PortExposureId("exposure-invalid-epoch"),
-                    expectedRevision: Revision.initial()
-                })
-            ).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Slate preview session epoch must be a non-negative safe integer"
-                )
-            );
-        }
-    );
+    test("codes Slate operation failures while constructors remain TypeError", { tags: "p1" }, () => {
+        const slate = Slate.initial(slateId, workspace, source);
+        expect(() => slate.update(source)).toThrow(
+            new AgentCoreError("operation.invalid-input", "Slate update must change its source")
+        );
+        const committed = slate.commit(versionId);
+        expect(() => committed.commit(versionId)).toThrow(
+            new AgentCoreError("protocol.duplicate", "Slate version is already the current head")
+        );
+        const published = slate.publish(publicationId);
+        expect(() => published.publish(publicationId)).toThrow(
+            new AgentCoreError("protocol.duplicate", "Slate publication is already current")
+        );
+        expect(() => slate.selectDeployment(undefined)).toThrow(
+            new AgentCoreError("operation.invalid-input", "Slate has no active deployment to clear")
+        );
+        const deployed = slate.selectDeployment(deploymentId);
+        expect(() => deployed.selectDeployment(deploymentId)).toThrow(
+            new AgentCoreError("protocol.duplicate", "Slate deployment is already active")
+        );
+        expect(() =>
+            new Slate({
+                id: slateId,
+                workspaceId: workspace,
+                source,
+                revision: new Revision(Number.MAX_SAFE_INTEGER)
+            }).update(ref("next"))
+        ).toThrow(new AgentCoreError("protocol.invalid-state", "Slate revision is exhausted"));
 
-    test(
-        "codes Slate operation failures while constructors remain TypeError",
-        { tags: "p1" },
-        () => {
-            const slate = Slate.initial(slateId, workspace, source);
-            expect(() => slate.update(source)).toThrow(
-                new AgentCoreError("operation.invalid-input", "Slate update must change its source")
-            );
-            const committed = slate.commit(versionId);
-            expect(() => committed.commit(versionId)).toThrow(
-                new AgentCoreError(
-                    "protocol.duplicate",
-                    "Slate version is already the current head"
-                )
-            );
-            const published = slate.publish(publicationId);
-            expect(() => published.publish(publicationId)).toThrow(
-                new AgentCoreError("protocol.duplicate", "Slate publication is already current")
-            );
-            expect(() => slate.selectDeployment(undefined)).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Slate has no active deployment to clear"
-                )
-            );
-            const deployed = slate.selectDeployment(deploymentId);
-            expect(() => deployed.selectDeployment(deploymentId)).toThrow(
-                new AgentCoreError("protocol.duplicate", "Slate deployment is already active")
-            );
-            expect(() =>
-                new Slate({
-                    id: slateId,
-                    workspaceId: workspace,
-                    source,
-                    revision: new Revision(Number.MAX_SAFE_INTEGER)
-                }).update(ref("next"))
-            ).toThrow(new AgentCoreError("protocol.invalid-state", "Slate revision is exhausted"));
-
-            expect(
-                () => new SlateVersion(versionId, workspace, slateId, source, versionId)
-            ).toThrow(TypeError);
-        }
-    );
+        expect(() => new SlateVersion(versionId, workspace, slateId, source, versionId)).toThrow(
+            TypeError
+        );
+    });
 
     test("validates and freezes Slate effect context identity", { tags: "p0" }, () => {
         const invocationId = new InvocationId("invocation-effect-context");

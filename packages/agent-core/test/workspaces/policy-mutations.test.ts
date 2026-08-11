@@ -75,25 +75,13 @@ describe("event trust derivation", () => {
             message: "Self trust requires a host emission under a valid Turn lease"
         });
         expect(() =>
-            deriveEventTrust({
-                hostEmission: false,
-                principalOwnsScope: false,
-                validTurnLease: true
-            })
+            deriveEventTrust({ hostEmission: false, principalOwnsScope: false, validTurnLease: true })
         ).toThrow(selfDenied);
         expect(() =>
-            deriveEventTrust({
-                hostEmission: true,
-                principalOwnsScope: false,
-                validTurnLease: false
-            })
+            deriveEventTrust({ hostEmission: true, principalOwnsScope: false, validTurnLease: false })
         ).toThrow(selfDenied);
         expect(() =>
-            deriveEventTrust({
-                hostEmission: false,
-                principalOwnsScope: true,
-                validTurnLease: false
-            })
+            deriveEventTrust({ hostEmission: false, principalOwnsScope: true, validTurnLease: false })
         ).toThrow(
             expect.objectContaining({
                 code: "authority.denied",
@@ -162,79 +150,59 @@ describe("route dedupe keys", () => {
         expect(routeDedupeKey("none", event, "stable-key")).toBe("none:stable-key");
     });
 
-    test(
-        "rejects unroutable dedupe requests with exact subscription errors",
-        { tags: "p0" },
-        () => {
-            const event = eventFixture("dedupe-invalid");
+    test("rejects unroutable dedupe requests with exact subscription errors", { tags: "p0" }, () => {
+        const event = eventFixture("dedupe-invalid");
+        expectSubscriptionInvalid(
+            () => routeDedupeKey("causation", event),
+            "Causation dedupe requires an Event cause"
+        );
+        for (const key of [undefined, "", " padded "]) {
             expectSubscriptionInvalid(
-                () => routeDedupeKey("causation", event),
-                "Causation dedupe requires an Event cause"
+                () => routeDedupeKey("none", event, key),
+                "No-dedupe routing requires a stable logical delivery key"
             );
-            for (const key of [undefined, "", " padded "]) {
-                expectSubscriptionInvalid(
-                    () => routeDedupeKey("none", event, key),
-                    "No-dedupe routing requires a stable logical delivery key"
-                );
-            }
         }
-    );
+    });
 });
 
 describe("payload mapping", () => {
-    test(
-        "accepts disjoint targets and rejects duplicates and overlap both ways",
-        { tags: "p1" },
-        () => {
-            const disjoint = mappingOf(
-                new FieldMove("/a", { from: "" }),
-                new FieldMove("/b", { from: "" })
-            );
-            expect(() => validatePayloadMapping(disjoint)).not.toThrow();
-            expect(applyPayloadMapping(disjoint, { v: 1 })).toStrictEqual({
-                a: { v: 1 },
-                b: { v: 1 }
-            });
-            const overlaps: readonly (readonly [string, string])[] = [
-                ["/a", "/a"],
-                ["/a", "/a/b"],
-                ["/a/b", "/a"]
-            ];
-            for (const [first, second] of overlaps) {
-                expect(() =>
-                    validatePayloadMapping(
-                        mappingOf(
-                            new FieldMove(first, { literal: 1 }),
-                            new FieldMove(second, { literal: 2 })
-                        )
-                    )
-                ).toThrow(new TypeError("Mapping targets must not duplicate or overlap"));
-            }
+    test("accepts disjoint targets and rejects duplicates and overlap both ways", { tags: "p1" }, () => {
+        const disjoint = mappingOf(new FieldMove("/a", { from: "" }), new FieldMove("/b", { from: "" }));
+        expect(() => validatePayloadMapping(disjoint)).not.toThrow();
+        expect(applyPayloadMapping(disjoint, { v: 1 })).toStrictEqual({ a: { v: 1 }, b: { v: 1 } });
+        const overlaps: readonly (readonly [string, string])[] = [
+            ["/a", "/a"],
+            ["/a", "/a/b"],
+            ["/a/b", "/a"]
+        ];
+        for (const [first, second] of overlaps) {
+            expect(() =>
+                validatePayloadMapping(
+                    mappingOf(new FieldMove(first, { literal: 1 }), new FieldMove(second, { literal: 2 }))
+                )
+            ).toThrow(new TypeError("Mapping targets must not duplicate or overlap"));
         }
-    );
+    });
 
     test("creates arrays only for canonical index tokens", { tags: "p1" }, () => {
         expect(
             applyPayloadMapping(mappingOf(new FieldMove("/list/0/name", { literal: "x" })), {})
         ).toStrictEqual({ list: [{ name: "x" }] });
-        expect(
-            applyPayloadMapping(mappingOf(new FieldMove("/m/0/0", { literal: 3 })), {})
-        ).toStrictEqual({ m: [[3]] });
-        expect(
-            applyPayloadMapping(mappingOf(new FieldMove("/list/-", { literal: 7 })), {})
-        ).toStrictEqual({ list: [7] });
-        expect(
-            applyPayloadMapping(mappingOf(new FieldMove("/a/01", { literal: 1 })), {})
-        ).toStrictEqual({ a: { "01": 1 } });
-        expect(
-            applyPayloadMapping(mappingOf(new FieldMove("/a/1x", { literal: 1 })), {})
-        ).toStrictEqual({ a: { "1x": 1 } });
+        expect(applyPayloadMapping(mappingOf(new FieldMove("/m/0/0", { literal: 3 })), {})).toStrictEqual(
+            { m: [[3]] }
+        );
+        expect(applyPayloadMapping(mappingOf(new FieldMove("/list/-", { literal: 7 })), {})).toStrictEqual(
+            { list: [7] }
+        );
+        expect(applyPayloadMapping(mappingOf(new FieldMove("/a/01", { literal: 1 })), {})).toStrictEqual(
+            { a: { "01": 1 } }
+        );
+        expect(applyPayloadMapping(mappingOf(new FieldMove("/a/1x", { literal: 1 })), {})).toStrictEqual(
+            { a: { "1x": 1 } }
+        );
         expect(
             applyPayloadMapping(
-                mappingOf(
-                    new FieldMove("/list/0", { literal: 5 }),
-                    new FieldMove("/list/1/x", { literal: 1 })
-                ),
+                mappingOf(new FieldMove("/list/0", { literal: 5 }), new FieldMove("/list/1/x", { literal: 1 })),
                 {}
             )
         ).toStrictEqual({ list: [5, { x: 1 }] });
@@ -251,37 +219,33 @@ describe("payload mapping", () => {
         );
     });
 
-    test(
-        "rejects traversal through scalar and null values in both container branches",
-        { tags: "p1" },
-        () => {
-            const scalars: readonly JsonValue[] = [5, null];
-            for (const scalar of scalars) {
-                expectSubscriptionInvalid(
-                    () =>
-                        applyPayloadMapping(
-                            mappingOf(
-                                new FieldMove("/list/-", { literal: scalar }),
-                                new FieldMove("/list/0/x", { literal: 1 })
-                            ),
-                            {}
+    test("rejects traversal through scalar and null values in both container branches", { tags: "p1" }, () => {
+        const scalars: readonly JsonValue[] = [5, null];
+        for (const scalar of scalars) {
+            expectSubscriptionInvalid(
+                () =>
+                    applyPayloadMapping(
+                        mappingOf(
+                            new FieldMove("/list/-", { literal: scalar }),
+                            new FieldMove("/list/0/x", { literal: 1 })
                         ),
-                    "Mapping target traverses a scalar value"
-                );
-                expectSubscriptionInvalid(
-                    () =>
-                        applyPayloadMapping(
-                            mappingOf(
-                                new FieldMove("/list/-/k", { literal: scalar }),
-                                new FieldMove("/list/0/k/z", { literal: 1 })
-                            ),
-                            {}
+                        {}
+                    ),
+                "Mapping target traverses a scalar value"
+            );
+            expectSubscriptionInvalid(
+                () =>
+                    applyPayloadMapping(
+                        mappingOf(
+                            new FieldMove("/list/-/k", { literal: scalar }),
+                            new FieldMove("/list/0/k/z", { literal: 1 })
                         ),
-                    "Mapping target traverses a scalar value"
-                );
-            }
+                        {}
+                    ),
+                "Mapping target traverses a scalar value"
+            );
         }
-    );
+    });
 
     test("reads pointers with strict bounds and container typing", { tags: "p1" }, () => {
         const source: JsonValue = { "a/b": 1, "~": 2, arr: [10], nul: null, s: "hello" };

@@ -122,29 +122,25 @@ class UncheckedStorage extends ProtocolRecordStorage {
 const adapterTenant = new TenantId("adapter-tenant");
 const adapterActor = new ActorRef("run", new ActorId("adapter-actor"));
 
-test(
-    "identity lookup fails closed when the indexed write record is missing",
-    { tags: "p0" },
-    () => {
-        const records = new MemoryProtocolRecords();
-        const persistence = new StoragePersistence();
-        const expected = protocolTestRecords("adapter-missing-write");
-        appendProtocolTestRecords(persistence, records, expected);
-        const facade = new (class extends FacadeStorage {
-            public override findWrite(id: string): StoredProtocolWrite | undefined {
-                return id === expected.write.id.value ? undefined : super.findWrite(id);
-            }
-        })(records);
+test("identity lookup fails closed when the indexed write record is missing", { tags: "p0" }, () => {
+    const records = new MemoryProtocolRecords();
+    const persistence = new StoragePersistence();
+    const expected = protocolTestRecords("adapter-missing-write");
+    appendProtocolTestRecords(persistence, records, expected);
+    const facade = new (class extends FacadeStorage {
+        public override findWrite(id: string): StoredProtocolWrite | undefined {
+            return id === expected.write.id.value ? undefined : super.findWrite(id);
+        }
+    })(records);
 
-        expectAgentCoreError(
-            () => persistence.findWrite(facade, expected.identity),
-            "protocol.invalid-state"
-        );
-        expect(() => persistence.findWrite(facade, expected.identity)).toThrow(
-            "Command identity points to a missing write record"
-        );
-    }
-);
+    expectAgentCoreError(
+        () => persistence.findWrite(facade, expected.identity),
+        "protocol.invalid-state"
+    );
+    expect(() => persistence.findWrite(facade, expected.identity)).toThrow(
+        "Command identity points to a missing write record"
+    );
+});
 
 test("audit evidence lookup fails closed on a mismatched stored projection", { tags: "p1" }, () => {
     const records = new MemoryProtocolRecords();
@@ -221,10 +217,7 @@ test("duplicate appends must name the reserved original write exactly", { tags: 
     const originalReply = original.write.reply;
     const sameLengthReply = originalReply.slice();
     sameLengthReply[0] = (sameLengthReply[0] ?? 0) ^ 0xff;
-    const differingReplies = [
-        sameLengthReply,
-        originalReply.slice(0, originalReply.byteLength - 1)
-    ];
+    const differingReplies = [sameLengthReply, originalReply.slice(0, originalReply.byteLength - 1)];
     for (const [index, reply] of differingReplies.entries()) {
         const mismatch = protocolTestRecords(`adapter-duplicate-reply-${index}`, undefined, {
             outcome: "duplicate",
@@ -240,32 +233,28 @@ test("duplicate appends must name the reserved original write exactly", { tags: 
     }
 });
 
-test(
-    "stored duplicate reads fail closed when the original write is missing",
-    { tags: "p1" },
-    () => {
-        const persistence = new StoragePersistence();
-        const records = new MemoryProtocolRecords();
-        const original = protocolTestRecords("adapter-lineage-original");
-        const duplicate = protocolTestRecords("adapter-lineage-duplicate", undefined, {
-            outcome: "duplicate",
-            duplicateOf: original.write.id,
-            key: original.identity.idempotencyKey,
-            reply: original.write.reply
-        });
-        appendProtocolTestRecords(persistence, records, original);
-        appendProtocolTestRecords(persistence, records, duplicate);
-        const snapshot = records.snapshot();
-        const restored = new MemoryProtocolRecords({
-            ...snapshot,
-            writes: snapshot.writes.filter((write) => write.id !== original.write.id.value)
-        });
+test("stored duplicate reads fail closed when the original write is missing", { tags: "p1" }, () => {
+    const persistence = new StoragePersistence();
+    const records = new MemoryProtocolRecords();
+    const original = protocolTestRecords("adapter-lineage-original");
+    const duplicate = protocolTestRecords("adapter-lineage-duplicate", undefined, {
+        outcome: "duplicate",
+        duplicateOf: original.write.id,
+        key: original.identity.idempotencyKey,
+        reply: original.write.reply
+    });
+    appendProtocolTestRecords(persistence, records, original);
+    appendProtocolTestRecords(persistence, records, duplicate);
+    const snapshot = records.snapshot();
+    const restored = new MemoryProtocolRecords({
+        ...snapshot,
+        writes: snapshot.writes.filter((write) => write.id !== original.write.id.value)
+    });
 
-        const read = (): unknown => persistence.findWriteById(restored, duplicate.write.id);
-        expectAgentCoreError(read, "protocol.invalid-state");
-        expect(read).toThrow("Duplicate write does not name a valid original write");
-    }
-);
+    const read = (): unknown => persistence.findWriteById(restored, duplicate.write.id);
+    expectAgentCoreError(read, "protocol.invalid-state");
+    expect(read).toThrow("Duplicate write does not name a valid original write");
+});
 
 test("repair accepts duplicates and cause-free rejected writes", { tags: "p1" }, () => {
     const persistence = new StoragePersistence();

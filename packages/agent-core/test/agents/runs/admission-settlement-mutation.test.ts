@@ -274,10 +274,7 @@ describe("settlement obligation integrity", () => {
     test("canonicalizes obligations by identity key", { tags: "p0" }, () => {
         const obligation = new SettlementObligation({
             registryEpoch: 1,
-            obligations: [
-                { kind: "route", reservation: route },
-                { kind: "approval", approval }
-            ]
+            obligations: [{ kind: "route", reservation: route }, { kind: "approval", approval }]
         });
 
         expect(obligation.obligations.map((value) => value.kind)).toEqual(["approval", "route"]);

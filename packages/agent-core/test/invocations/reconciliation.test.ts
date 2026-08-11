@@ -549,25 +549,21 @@ describe("InvocationReconciler", () => {
         });
     });
 
-    test(
-        "requires the prepared invocation behind a reconciled attempt",
-        { tags: "p1" },
-        async () => {
-            const { harness, invocation, attempt } = await indeterminateInvocation(
-                "reconcile-missing-prepared"
-            );
-            harness.transactions.transact((transaction) => {
-                transaction.prepared.delete(invocation.value);
-            });
+    test("requires the prepared invocation behind a reconciled attempt", { tags: "p1" }, async () => {
+        const { harness, invocation, attempt } = await indeterminateInvocation(
+            "reconcile-missing-prepared"
+        );
+        harness.transactions.transact((transaction) => {
+            transaction.prepared.delete(invocation.value);
+        });
 
-            await expect(
-                createReconciler(harness, unqueriedProvider()).reconcile(attempt.id)
-            ).rejects.toMatchObject({
-                code: "invocation.invalid",
-                message: "Reconciliation EffectAttempt has no PreparedInvocation"
-            });
-        }
-    );
+        await expect(
+            createReconciler(harness, unqueriedProvider()).reconcile(attempt.id)
+        ).rejects.toMatchObject({
+            code: "invocation.invalid",
+            message: "Reconciliation EffectAttempt has no PreparedInvocation"
+        });
+    });
 
     test(
         "requires the persisted audit cause behind a reconciled attempt",
@@ -893,7 +889,9 @@ describe("InvocationReconciler", () => {
                     const index = query;
                     query += 1;
                     await released;
-                    return index === 0 ? { kind: "failed" } : { kind: "failed", result: added.ref };
+                    return index === 0
+                        ? { kind: "failed" }
+                        : { kind: "failed", result: added.ref };
                 }
             });
             const left = reconciler.reconcile(attempt.id);
@@ -1018,7 +1016,9 @@ describe("InvocationReconciler", () => {
                 );
             });
             await expect(
-                createReconciler(foreign.harness, unqueriedProvider()).reconcile(foreign.attempt.id)
+                createReconciler(foreign.harness, unqueriedProvider()).reconcile(
+                    foreign.attempt.id
+                )
             ).rejects.toMatchObject({
                 code: "invocation.invalid",
                 message: "Reconciliation EffectAttempt has no exact audit evidence"

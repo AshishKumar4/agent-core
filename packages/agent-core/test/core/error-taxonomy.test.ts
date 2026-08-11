@@ -104,17 +104,13 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
         ).toBe(true);
     });
 
-    test(
-        "contains no bare or unresolved Error construction in W1 runtime sources",
-        { tags: "p2" },
-        () => {
-            const scans = taxonomy.sources.map((source) =>
-                scanSource(source, readFileSync(new URL(source, packageUrl), "utf8"))
-            );
-            expect(scans.flatMap((scan) => scan.bareErrors)).toEqual([]);
-            expect(scans.flatMap((scan) => scan.unresolved)).toEqual([]);
-        }
-    );
+    test("contains no bare or unresolved Error construction in W1 runtime sources", { tags: "p2" }, () => {
+        const scans = taxonomy.sources.map((source) =>
+            scanSource(source, readFileSync(new URL(source, packageUrl), "utf8"))
+        );
+        expect(scans.flatMap((scan) => scan.bareErrors)).toEqual([]);
+        expect(scans.flatMap((scan) => scan.unresolved)).toEqual([]);
+    });
 
     test.each<readonly [string, string, number, number]>([
         ["direct new", "return new TypeError('direct')", 1, 0],

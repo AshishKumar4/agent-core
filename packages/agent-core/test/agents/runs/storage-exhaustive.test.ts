@@ -123,90 +123,79 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it(
-        "detects key and revision projection corruption through the repository",
-        { tags: "p0" },
-        () => {
-            const value = harness();
-            value.runtime.createRun(genesis());
-            const snapshot = value.storage.snapshot();
-            const runRow = snapshot.records.find((row) => row.kind === "run")!;
-            const wrongKey = new MemoryRunStorage({
-                version: 1,
-                records: snapshot.records.map((row) =>
-                    row === runRow ? { ...row, key: "wrong-run" } : row
+    it("detects key and revision projection corruption through the repository", { tags: "p0" }, () => {
+        const value = harness();
+        value.runtime.createRun(genesis());
+        const snapshot = value.storage.snapshot();
+        const runRow = snapshot.records.find((row) => row.kind === "run")!;
+        const wrongKey = new MemoryRunStorage({
+            version: 1,
+            records: snapshot.records.map((row) =>
+                row === runRow ? { ...row, key: "wrong-run" } : row
+            ),
+            parents: snapshot.parents
+        });
+        const wrongKeyRepository = new RunRepository(wrongKey);
+        expectCode(
+            () =>
+                wrongKeyRepository.transaction((tx) =>
+                    wrongKeyRepository.loadRun(tx, new RunId("wrong-run"))
                 ),
-                parents: snapshot.parents
-            });
-            const wrongKeyRepository = new RunRepository(wrongKey);
-            expectCode(
-                () =>
-                    wrongKeyRepository.transaction((tx) =>
-                        wrongKeyRepository.loadRun(tx, new RunId("wrong-run"))
-                    ),
-                "codec.invalid"
-            );
+            "codec.invalid"
+        );
 
-            const wrongRevision = new MemoryRunStorage({
-                version: 1,
-                records: snapshot.records.map((row) =>
-                    row === runRow ? { ...row, revision: 99 } : row
+        const wrongRevision = new MemoryRunStorage({
+            version: 1,
+            records: snapshot.records.map((row) =>
+                row === runRow ? { ...row, revision: 99 } : row
+            ),
+            parents: snapshot.parents
+        });
+        const wrongRevisionRepository = new RunRepository(wrongRevision);
+        expectCode(
+            () => wrongRevisionRepository.transaction((tx) => wrongRevisionRepository.listRuns(tx)),
+            "codec.invalid"
+        );
+    });
+
+    it("[C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry", { tags: "p0" }, () => {
+        const value = seedRunningTurn();
+        expect(
+            value.repository.transaction((tx) =>
+                value.repository.isAncestor(tx, ids.root, ids.root)
+            )
+        ).toBe(true);
+        expect(
+            value.repository.transaction((tx) =>
+                value.repository.isAncestor(tx, new RunCommitId("missing"), ids.root)
+            )
+        ).toBe(false);
+
+        const snapshot = value.storage.snapshot();
+        const root = snapshot.records.find((row) => row.kind === "commit")!;
+        const foreignBytes = root.bytes.slice();
+        const foreign = new MemoryRunStorage({
+            version: 1,
+            records: [
+                ...snapshot.records,
+                {
+                    ...root,
+                    key: "foreign-key",
+                    revision: null,
+                    bytes: foreignBytes
+                }
+            ],
+            parents: snapshot.parents
+        });
+        const repository = new RunRepository(foreign);
+        expectCode(
+            () =>
+                repository.transaction((tx) =>
+                    repository.loadCommit(tx, new RunCommitId("foreign-key"))
                 ),
-                parents: snapshot.parents
-            });
-            const wrongRevisionRepository = new RunRepository(wrongRevision);
-            expectCode(
-                () =>
-                    wrongRevisionRepository.transaction((tx) =>
-                        wrongRevisionRepository.listRuns(tx)
-                    ),
-                "codec.invalid"
-            );
-        }
-    );
-
-    it(
-        "[C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry",
-        { tags: "p0" },
-        () => {
-            const value = seedRunningTurn();
-            expect(
-                value.repository.transaction((tx) =>
-                    value.repository.isAncestor(tx, ids.root, ids.root)
-                )
-            ).toBe(true);
-            expect(
-                value.repository.transaction((tx) =>
-                    value.repository.isAncestor(tx, new RunCommitId("missing"), ids.root)
-                )
-            ).toBe(false);
-
-            const snapshot = value.storage.snapshot();
-            const root = snapshot.records.find((row) => row.kind === "commit")!;
-            const foreignBytes = root.bytes.slice();
-            const foreign = new MemoryRunStorage({
-                version: 1,
-                records: [
-                    ...snapshot.records,
-                    {
-                        ...root,
-                        key: "foreign-key",
-                        revision: null,
-                        bytes: foreignBytes
-                    }
-                ],
-                parents: snapshot.parents
-            });
-            const repository = new RunRepository(foreign);
-            expectCode(
-                () =>
-                    repository.transaction((tx) =>
-                        repository.loadCommit(tx, new RunCommitId("foreign-key"))
-                    ),
-                "codec.invalid"
-            );
-        }
-    );
+            "codec.invalid"
+        );
+    });
 
     it("enforces exact revision increments", { tags: "p0" }, () => {
         const value = harness();
@@ -244,50 +233,42 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         ).toEqual(current);
     });
 
-    it(
-        "fails closed after restart when ancestry loses an intermediate commit",
-        { tags: "p0" },
-        () => {
-            const value = seedRunningTurn();
-            const first = message("ancestry-first", ids.root, value.token);
-            value.runtime.appendCommit(first, new Revision(0), new Date(1500));
-            const second = message("ancestry-second", first.id, value.token);
-            value.runtime.appendCommit(second, new Revision(1), new Date(1600));
-            const snapshot = value.storage.snapshot();
-            const restarted = new RunRepository(
-                new MemoryRunStorage({
-                    ...snapshot,
-                    records: snapshot.records.filter(
-                        (record) => !(record.kind === "commit" && record.key === first.id.value)
-                    )
-                })
-            );
-
-            expectCode(
-                () => restarted.transaction((tx) => restarted.isAncestor(tx, ids.root, second.id)),
-                "codec.invalid"
-            );
-        }
-    );
-
-    it(
-        "[C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted",
-        { tags: "p0" },
-        () => {
-            const value = harness();
-            value.runtime.createRun(genesis());
-            const snapshot = value.storage.snapshot();
-            const restarted = harness({
+    it("fails closed after restart when ancestry loses an intermediate commit", { tags: "p0" }, () => {
+        const value = seedRunningTurn();
+        const first = message("ancestry-first", ids.root, value.token);
+        value.runtime.appendCommit(first, new Revision(0), new Date(1500));
+        const second = message("ancestry-second", first.id, value.token);
+        value.runtime.appendCommit(second, new Revision(1), new Date(1600));
+        const snapshot = value.storage.snapshot();
+        const restarted = new RunRepository(
+            new MemoryRunStorage({
                 ...snapshot,
-                records: snapshot.records.filter((record) => record.kind !== "configuration")
-            });
+                records: snapshot.records.filter(
+                    (record) => !(record.kind === "commit" && record.key === first.id.value)
+                )
+            })
+        );
 
-            expectCode(() => seedRunningTurn(restarted), "run.invalid-state");
-            expect(
-                restarted.repository.transaction((tx) => restarted.repository.listTurns(tx))
-            ).toEqual([]);
-        }
-    );
+        expectCode(
+            () => restarted.transaction((tx) => restarted.isAncestor(tx, ids.root, second.id)),
+            "codec.invalid"
+        );
+    });
+
+    it("[C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted", { tags: "p0" }, () => {
+        const value = harness();
+        value.runtime.createRun(genesis());
+        const snapshot = value.storage.snapshot();
+        const restarted = harness({
+            ...snapshot,
+            records: snapshot.records.filter((record) => record.kind !== "configuration")
+        });
+
+        expectCode(() => seedRunningTurn(restarted), "run.invalid-state");
+        expect(
+            restarted.repository.transaction((tx) => restarted.repository.listTurns(tx))
+        ).toEqual([]);
+    });
 });
 
 function message(

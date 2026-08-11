@@ -48,41 +48,37 @@ materializationStoreContract(
 );
 
 describe("SqliteMaterializationStore persistence", () => {
-    test(
-        "joins W1 Actor activation and W4 initialization in one SQLite transaction",
-        { tags: "p0" },
-        () => {
-            const database = new TestSqlite();
-            const actor = actorRef("activation");
-            const store = new SqliteMaterializationStore(database, actor);
-            const actorStore = new SqliteActorStore(database);
-            const fixture = materializationState(actor, 1, "activation");
-            const initialize = (transaction: TransactionalSqlite): void => {
-                for (const record of fixture.materialization.records) {
-                    store.insertManagedState(transaction, record);
-                }
-                store.insertGeneration(transaction, fixture.materialization.generation);
-            };
+    test("joins W1 Actor activation and W4 initialization in one SQLite transaction", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const actor = actorRef("activation");
+        const store = new SqliteMaterializationStore(database, actor);
+        const actorStore = new SqliteActorStore(database);
+        const fixture = materializationState(actor, 1, "activation");
+        const initialize = (transaction: TransactionalSqlite): void => {
+            for (const record of fixture.materialization.records) {
+                store.insertManagedState(transaction, record);
+            }
+            store.insertGeneration(transaction, fixture.materialization.generation);
+        };
 
-            expect(() =>
-                actorStore.activateActor(actor, (transaction) => {
-                    initialize(transaction);
-                    throw new TypeError("injected activation failure");
-                })
-            ).toThrow("injected activation failure");
-            expect(
-                database.all("SELECT id FROM definition_materialization_generations", [])
-            ).toEqual([]);
-            expect(database.all("SELECT actor_id FROM actor_recovery_state", [])).toEqual([]);
+        expect(() =>
+            actorStore.activateActor(actor, (transaction) => {
+                initialize(transaction);
+                throw new TypeError("injected activation failure");
+            })
+        ).toThrow("injected activation failure");
+        expect(database.all("SELECT id FROM definition_materialization_generations", [])).toEqual(
+            []
+        );
+        expect(database.all("SELECT actor_id FROM actor_recovery_state", [])).toEqual([]);
 
-            const recovery = actorStore.activateActor(actor, initialize);
-            expect(recovery.recoveries).toBe(1);
-            expect(store.getGeneration(fixture.materialization.generation.id)).toBeDefined();
-            expect(database.all("SELECT actor_id FROM actor_recovery_state", [])).toEqual([
-                { actor_id: actor.id.value }
-            ]);
-        }
-    );
+        const recovery = actorStore.activateActor(actor, initialize);
+        expect(recovery.recoveries).toBe(1);
+        expect(store.getGeneration(fixture.materialization.generation.id)).toBeDefined();
+        expect(database.all("SELECT actor_id FROM actor_recovery_state", [])).toEqual([
+            { actor_id: actor.id.value }
+        ]);
+    });
 
     test("survives adapter recreation over one database", { tags: "p1" }, () => {
         const database = new TestSqlite();
@@ -310,24 +306,20 @@ describe("SqliteMaterializationStore persistence", () => {
             "listGenerationPointers"
         ],
         ["pointer", "definition_materialization_pointers", "revision", 9, "listGenerationPointers"]
-    ] as const)(
-        "rejects a corrupt %s projection",
-        { tags: "p0" },
-        (_subject, table, column, value, reader) => {
-            const database = new TestSqlite();
-            const store = new SqliteMaterializationStore(database, actorRef("workspace"));
-            installComplete(store);
-            database.run(
-                `UPDATE ${table} SET ${column} = ?
+    ] as const)("rejects a corrupt %s projection", { tags: "p0" }, (_subject, table, column, value, reader) => {
+        const database = new TestSqlite();
+        const store = new SqliteMaterializationStore(database, actorRef("workspace"));
+        installComplete(store);
+        database.run(
+            `UPDATE ${table} SET ${column} = ?
                  WHERE rowid = (SELECT rowid FROM ${table} LIMIT 1)`,
-                [value]
-            );
+            [value]
+        );
 
-            expect(() => store[reader]()).toThrowError(
-                expect.objectContaining({ code: "codec.invalid" })
-            );
-        }
-    );
+        expect(() => store[reader]()).toThrowError(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
 
     test.each([
         ["Blueprint", "definition_blueprints", "listBlueprints"],
@@ -355,56 +347,45 @@ describe("SqliteMaterializationStore persistence", () => {
         ["definition_managed_state", "desired_digest", "", "listManagedState"],
         ["definition_materialization_pointers", "deployment_id", "", "listGenerationPointers"],
         ["definition_materialization_pointers", "revision", -1, "listGenerationPointers"]
-    ] as const)(
-        "rejects malformed SQLite scalar %s.%s",
-        { tags: "p0" },
-        (table, column, value, reader) => {
-            const database = new TestSqlite();
-            const store = new SqliteMaterializationStore(database, actorRef("workspace"));
-            installComplete(store);
-            database.run("PRAGMA ignore_check_constraints = ON", []);
-            database.run(
-                `UPDATE ${table} SET ${column} = ?
+    ] as const)("rejects malformed SQLite scalar %s.%s", { tags: "p0" }, (table, column, value, reader) => {
+        const database = new TestSqlite();
+        const store = new SqliteMaterializationStore(database, actorRef("workspace"));
+        installComplete(store);
+        database.run("PRAGMA ignore_check_constraints = ON", []);
+        database.run(
+            `UPDATE ${table} SET ${column} = ?
              WHERE rowid = (SELECT rowid FROM ${table} LIMIT 1)`,
-                [value]
-            );
-            database.run("PRAGMA ignore_check_constraints = OFF", []);
-            expect(() => store[reader]()).toThrowError(
-                expect.objectContaining({ code: "codec.invalid" })
-            );
-        }
-    );
+            [value]
+        );
+        database.run("PRAGMA ignore_check_constraints = OFF", []);
+        expect(() => store[reader]()).toThrowError(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
+    });
 
-    test(
-        "rejects missing generation state and a pointer retargeted outside its Actor",
-        { tags: "p0" },
-        () => {
-            const database = new TestSqlite();
-            const store = new SqliteMaterializationStore(database, actorRef("workspace"));
-            const fixture = installComplete(store);
-            database.run("DELETE FROM definition_managed_state", []);
+    test("rejects missing generation state and a pointer retargeted outside its Actor", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteMaterializationStore(database, actorRef("workspace"));
+        const fixture = installComplete(store);
+        database.run("DELETE FROM definition_managed_state", []);
 
-            expect(() => store.getGeneration(fixture.materialization.generation.id)).toThrowError(
-                expect.objectContaining({ code: "codec.invalid" })
-            );
+        expect(() => store.getGeneration(fixture.materialization.generation.id)).toThrowError(
+            expect.objectContaining({ code: "codec.invalid" })
+        );
 
-            const secondDatabase = new TestSqlite();
-            const secondStore = new SqliteMaterializationStore(
-                secondDatabase,
-                actorRef("workspace")
-            );
-            const second = installComplete(secondStore);
-            secondDatabase.run("UPDATE definition_materialization_pointers SET generation_id = ?", [
-                digestOf("missing-generation").value
-            ]);
-            expect(() =>
-                secondStore.getGenerationPointer(
-                    second.actor,
-                    second.materialization.generation.origin.deploymentId
-                )
-            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        }
-    );
+        const secondDatabase = new TestSqlite();
+        const secondStore = new SqliteMaterializationStore(secondDatabase, actorRef("workspace"));
+        const second = installComplete(secondStore);
+        secondDatabase.run("UPDATE definition_materialization_pointers SET generation_id = ?", [
+            digestOf("missing-generation").value
+        ]);
+        expect(() =>
+            secondStore.getGenerationPointer(
+                second.actor,
+                second.materialization.generation.origin.deploymentId
+            )
+        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+    });
 });
 
 function installComplete(store: SqliteMaterializationStore): MaterializationFixture {

@@ -60,11 +60,7 @@ describe("event codec", () => {
             { field: "initiator", message: "Event initiator must be an object", value: 5 },
             { field: "id", message: "Event ID must be a string", value: 5 },
             { field: "category", message: "Event category must be a string", value: 5 },
-            {
-                field: "idempotencyKey",
-                message: "Event idempotency key must be a string",
-                value: 5
-            },
+            { field: "idempotencyKey", message: "Event idempotency key must be a string", value: 5 },
             { field: "correlation", message: "Event correlation must be a string", value: 5 },
             {
                 field: "source",
@@ -121,43 +117,30 @@ describe("event codec", () => {
 });
 
 describe("event construction", () => {
-    test(
-        "keeps an initiator without a provenance principal on external events",
-        { tags: "p0" },
-        () => {
-            const event = new Event({
-                ...baseEventInit("external-initiator"),
-                provenance: new EventProvenance({ verification: EventVerification.verified() }),
-                trust: "external"
-            });
-            expect(event.trust).toBe("external");
-            expect(event.initiator).toBe(principal);
-            expect(event.provenance.principal).toBeUndefined();
-            const decoded = Event.decode(Event.encode(event));
-            expect(decoded.initiator?.equals(principal)).toBe(true);
-            expect(decoded.provenance.principal).toBeUndefined();
-        }
-    );
+    test("keeps an initiator without a provenance principal on external events", { tags: "p0" }, () => {
+        const event = new Event({
+            ...baseEventInit("external-initiator"),
+            provenance: new EventProvenance({ verification: EventVerification.verified() }),
+            trust: "external"
+        });
+        expect(event.trust).toBe("external");
+        expect(event.initiator).toBe(principal);
+        expect(event.provenance.principal).toBeUndefined();
+        const decoded = Event.decode(Event.encode(event));
+        expect(decoded.initiator?.equals(principal)).toBe(true);
+        expect(decoded.provenance.principal).toBeUndefined();
+    });
 
-    test(
-        "accepts an idempotency key of exactly 512 characters and rejects 513",
-        { tags: "p1" },
-        () => {
-            const event = new Event({
-                ...baseEventInit("key-512"),
-                idempotencyKey: "k".repeat(512)
-            });
-            expect(event.idempotencyKey).toHaveLength(512);
-            expect(Event.decode(Event.encode(event)).idempotencyKey).toHaveLength(512);
-            expect(
-                () => new Event({ ...baseEventInit("key-513"), idempotencyKey: "k".repeat(513) })
-            ).toThrow(
-                new TypeError(
-                    "Event idempotency key must be a canonical string of at most 512 characters"
-                )
-            );
-        }
-    );
+    test("accepts an idempotency key of exactly 512 characters and rejects 513", { tags: "p1" }, () => {
+        const event = new Event({ ...baseEventInit("key-512"), idempotencyKey: "k".repeat(512) });
+        expect(event.idempotencyKey).toHaveLength(512);
+        expect(Event.decode(Event.encode(event)).idempotencyKey).toHaveLength(512);
+        expect(
+            () => new Event({ ...baseEventInit("key-513"), idempotencyKey: "k".repeat(513) })
+        ).toThrow(
+            new TypeError("Event idempotency key must be a canonical string of at most 512 characters")
+        );
+    });
 });
 
 describe("event provenance", () => {
@@ -189,26 +172,22 @@ describe("event provenance", () => {
         expect(provenance.group).toBe("group-1");
     });
 
-    test(
-        "rejects malformed provenance payloads with the exact payload error",
-        { tags: "p2" },
-        () => {
-            const malformed: readonly JsonValue[] = [
-                null,
-                [],
-                5,
-                "verified",
-                {},
-                { channel: null, claims: {}, group: null, principal: null },
-                { ...validPayload, extra: true }
-            ];
-            for (const payload of malformed) {
-                expect(() => EventProvenance.fromData(payload)).toThrow(
-                    new TypeError("Event provenance payload is malformed")
-                );
-            }
+    test("rejects malformed provenance payloads with the exact payload error", { tags: "p2" }, () => {
+        const malformed: readonly JsonValue[] = [
+            null,
+            [],
+            5,
+            "verified",
+            {},
+            { channel: null, claims: {}, group: null, principal: null },
+            { ...validPayload, extra: true }
+        ];
+        for (const payload of malformed) {
+            expect(() => EventProvenance.fromData(payload)).toThrow(
+                new TypeError("Event provenance payload is malformed")
+            );
         }
-    );
+    });
 
     test("rejects malformed provenance field values with exact subjects", { tags: "p2" }, () => {
         const tampers: readonly JsonObject[] = [

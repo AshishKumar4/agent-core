@@ -110,27 +110,31 @@ describe("W5 adversarial invariants", () => {
         }
     );
 
-    it("[C13-TURN-EXECUTOR-WRITER] rejects nonfresh ordinary Turn genesis", { tags: "p0" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
-        const forged = new Turn({
-            id: ids.turn,
-            run: ids.run,
-            branch: ids.branch,
-            startHead: ids.root,
-            effectiveInput: ids.root,
-            pins: pins(),
-            placement: placement.digest,
-            input: content("c"),
-            status: TurnStatus.running,
-            lease: TurnLease.restore(ids.turn, ids.holder, 9, new Date(5000)),
-            revision: new Revision(4)
-        });
-        expect(() =>
-            value.runtime.createTurn({ turn: forged, placement }, new Revision(0))
-        ).toThrow(/genesis/);
-    });
+    it(
+        "[C13-TURN-EXECUTOR-WRITER] rejects nonfresh ordinary Turn genesis",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
+            const forged = new Turn({
+                id: ids.turn,
+                run: ids.run,
+                branch: ids.branch,
+                startHead: ids.root,
+                effectiveInput: ids.root,
+                pins: pins(),
+                placement: placement.digest,
+                input: content("c"),
+                status: TurnStatus.running,
+                lease: TurnLease.restore(ids.turn, ids.holder, 9, new Date(5000)),
+                revision: new Revision(4)
+            });
+            expect(() =>
+                value.runtime.createTurn({ turn: forged, placement }, new Revision(0))
+            ).toThrow(/genesis/);
+        }
+    );
 
     it(
         "[C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit",

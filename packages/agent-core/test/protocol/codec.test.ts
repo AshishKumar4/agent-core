@@ -46,35 +46,31 @@ const digest = Digest.sha256(new TextEncoder().encode("codec-payload"));
 const ref = ContentRef.fromDigest(digest);
 
 describe("CommandEnvelope codec", () => {
-    test(
-        "[C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind",
-        { tags: "p1" },
-        () => {
-            const minimal = new CommandEnvelope({
-                command: "codec.minimal",
-                caller: principalCaller,
-                idempotencyKey: "minimal",
-                payload: ref,
-                payloadDigest: digest
-            });
-            const encoded = CommandEnvelope.encode(minimal);
-            expect(encoded).toEqual(CommandEnvelopeCodec.encode(minimal));
-            expect(CommandEnvelope.decode(encoded)).toMatchObject({
-                expectedRevision: undefined,
-                lease: undefined,
-                callerCause: undefined
-            });
+    test("[C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind", { tags: "p1" }, () => {
+        const minimal = new CommandEnvelope({
+            command: "codec.minimal",
+            caller: principalCaller,
+            idempotencyKey: "minimal",
+            payload: ref,
+            payloadDigest: digest
+        });
+        const encoded = CommandEnvelope.encode(minimal);
+        expect(encoded).toEqual(CommandEnvelopeCodec.encode(minimal));
+        expect(CommandEnvelope.decode(encoded)).toMatchObject({
+            expectedRevision: undefined,
+            lease: undefined,
+            callerCause: undefined
+        });
 
-            for (const kind of ["tenant", "workspace", "run", "environment", "slate"] as const) {
-                const envelope = envelopeFixture({
-                    kind: "actor",
-                    actor: new ActorRef(kind, new ActorId(`codec-${kind}`))
-                });
-                const decoded = CommandEnvelopeCodec.decode(CommandEnvelopeCodec.encode(envelope));
-                expect(decoded.caller).toEqual(envelope.caller);
-            }
+        for (const kind of ["tenant", "workspace", "run", "environment", "slate"] as const) {
+            const envelope = envelopeFixture({
+                kind: "actor",
+                actor: new ActorRef(kind, new ActorId(`codec-${kind}`))
+            });
+            const decoded = CommandEnvelopeCodec.decode(CommandEnvelopeCodec.encode(envelope));
+            expect(decoded.caller).toEqual(envelope.caller);
         }
-    );
+    });
 
     test.each([
         [
@@ -281,48 +277,44 @@ describe("protocol callers and authentication", () => {
         );
     });
 
-    test(
-        "validates issued authentication before invoking token behavior",
-        { tags: "p0" },
-        async () => {
-            const envelope = envelopeFixture(principalCaller);
-            const envelopeDigest = Digest.sha256(CommandEnvelopeCodec.encode(envelope));
-            const authentication = await new CodecAuthenticator().authenticate(
-                undefined,
-                envelope,
-                envelopeDigest
-            );
-            const throwingLookalike = {
-                matches(): never {
-                    throw new TypeError("lookalike method must not run");
+    test("validates issued authentication before invoking token behavior", { tags: "p0" }, async () => {
+        const envelope = envelopeFixture(principalCaller);
+        const envelopeDigest = Digest.sha256(CommandEnvelopeCodec.encode(envelope));
+        const authentication = await new CodecAuthenticator().authenticate(
+            undefined,
+            envelope,
+            envelopeDigest
+        );
+        const throwingLookalike = {
+            matches(): never {
+                throw new TypeError("lookalike method must not run");
+            }
+        };
+        const proxy = new Proxy(
+            {},
+            {
+                get(): never {
+                    throw new TypeError("proxy trap must not run");
                 }
-            };
-            const proxy = new Proxy(
-                {},
-                {
-                    get(): never {
-                        throw new TypeError("proxy trap must not run");
-                    }
-                }
-            );
-            const subclassLookalike = Object.create(CommandAuthentication.prototype) as object;
+            }
+        );
+        const subclassLookalike = Object.create(CommandAuthentication.prototype) as object;
 
-            expect(
-                commandAuthenticationMatches(authentication, envelopeDigest, envelope, tenant)
-            ).toBe(true);
-            for (const forged of [{}, throwingLookalike, proxy, subclassLookalike]) {
-                expect(commandAuthenticationMatches(forged, envelopeDigest, envelope, tenant)).toBe(
-                    false
-                );
-            }
-            class ForgedAuthentication extends CommandAuthentication {
-                public constructor() {
-                    super(Symbol("forged-subclass"), envelopeDigest, principalCaller, tenant);
-                }
-            }
-            expectAgentCoreError(() => new ForgedAuthentication(), "protocol.invalid-envelope");
+        expect(commandAuthenticationMatches(authentication, envelopeDigest, envelope, tenant)).toBe(
+            true
+        );
+        for (const forged of [{}, throwingLookalike, proxy, subclassLookalike]) {
+            expect(commandAuthenticationMatches(forged, envelopeDigest, envelope, tenant)).toBe(
+                false
+            );
         }
-    );
+        class ForgedAuthentication extends CommandAuthentication {
+            public constructor() {
+                super(Symbol("forged-subclass"), envelopeDigest, principalCaller, tenant);
+            }
+        }
+        expectAgentCoreError(() => new ForgedAuthentication(), "protocol.invalid-envelope");
+    });
 
     test("admits only the configured caller family", { tags: "p0" }, () => {
         const actorCaller: CommandCaller = { kind: "actor", actor };
@@ -333,45 +325,41 @@ describe("protocol callers and authentication", () => {
         expect(CommandCallerPolicy.actor("workspace").admits(actorCaller)).toBe(false);
     });
 
-    test(
-        "envelopes deeply detach and freeze authenticated caller and lease state",
-        { tags: "p0" },
-        () => {
-            const mutable: { kind: "principal"; principal: PrincipalRef } = {
-                kind: "principal",
-                principal: principalRef
-            };
-            const mutableLease = {
-                turn: new TurnId("mutable-turn"),
-                holder: principalRef,
-                epoch: 4
-            };
-            const envelope = new CommandEnvelope({
-                ...envelopeInit(),
-                caller: mutable,
-                lease: mutableLease
-            });
-            const write = writeFixture({ caller: mutable });
-            mutable.principal = new PrincipalRef(tenant, new PrincipalId("mutated-caller"));
-            mutableLease.turn = new TurnId("mutated-turn");
-            mutableLease.holder = new PrincipalRef(tenant, new PrincipalId("mutated-holder"));
-            mutableLease.epoch = 99;
+    test("envelopes deeply detach and freeze authenticated caller and lease state", { tags: "p0" }, () => {
+        const mutable: { kind: "principal"; principal: PrincipalRef } = {
+            kind: "principal",
+            principal: principalRef
+        };
+        const mutableLease = {
+            turn: new TurnId("mutable-turn"),
+            holder: principalRef,
+            epoch: 4
+        };
+        const envelope = new CommandEnvelope({
+            ...envelopeInit(),
+            caller: mutable,
+            lease: mutableLease
+        });
+        const write = writeFixture({ caller: mutable });
+        mutable.principal = new PrincipalRef(tenant, new PrincipalId("mutated-caller"));
+        mutableLease.turn = new TurnId("mutated-turn");
+        mutableLease.holder = new PrincipalRef(tenant, new PrincipalId("mutated-holder"));
+        mutableLease.epoch = 99;
 
-            expect(envelope.caller).toEqual(principalCaller);
-            expect(envelope.caller).not.toBe(mutable);
-            expect(envelope.lease).toMatchObject({
-                turn: new TurnId("mutable-turn"),
-                holder: principalRef,
-                epoch: 4
-            });
-            expect(envelope.lease).not.toBe(mutableLease);
-            expect(write.caller).toEqual(principalCaller);
-            expect(Object.isFrozen(envelope)).toBe(true);
-            expect(Object.isFrozen(envelope.caller)).toBe(true);
-            expect(Object.isFrozen(envelope.lease)).toBe(true);
-            expect(Object.isFrozen(write.caller)).toBe(true);
-        }
-    );
+        expect(envelope.caller).toEqual(principalCaller);
+        expect(envelope.caller).not.toBe(mutable);
+        expect(envelope.lease).toMatchObject({
+            turn: new TurnId("mutable-turn"),
+            holder: principalRef,
+            epoch: 4
+        });
+        expect(envelope.lease).not.toBe(mutableLease);
+        expect(write.caller).toEqual(principalCaller);
+        expect(Object.isFrozen(envelope)).toBe(true);
+        expect(Object.isFrozen(envelope.caller)).toBe(true);
+        expect(Object.isFrozen(envelope.lease)).toBe(true);
+        expect(Object.isFrozen(write.caller)).toBe(true);
+    });
 
     test("requires exact plain runtime fields for callers and leases", { tags: "p1" }, () => {
         expect(
@@ -444,11 +432,7 @@ describe("protocol callers and authentication", () => {
                         ...envelopeInit(),
                         lease
                     })
-            ).toThrow(
-                new TypeError(
-                    "Lease token requires a TurnId turn, PrincipalRef holder, and non-negative epoch"
-                )
-            );
+            ).toThrow(new TypeError("Lease token requires a TurnId turn, PrincipalRef holder, and non-negative epoch"));
         }
     });
 
@@ -464,28 +448,24 @@ describe("protocol callers and authentication", () => {
         );
     });
 
-    test(
-        "rejects non-enumerable and accessor caller fields without invoking accessors",
-        { tags: "p1" },
-        () => {
-            const accessor = vi.fn(() => "principal");
-            const hiddenKind = Object.defineProperty({ principal: principalRef }, "kind", {
-                enumerable: false,
-                value: "principal"
-            }) as CommandCaller;
-            const accessorKind = Object.defineProperty({ principal: principalRef }, "kind", {
-                enumerable: true,
-                get: accessor
-            }) as CommandCaller;
+    test("rejects non-enumerable and accessor caller fields without invoking accessors", { tags: "p1" }, () => {
+        const accessor = vi.fn(() => "principal");
+        const hiddenKind = Object.defineProperty({ principal: principalRef }, "kind", {
+            enumerable: false,
+            value: "principal"
+        }) as CommandCaller;
+        const accessorKind = Object.defineProperty({ principal: principalRef }, "kind", {
+            enumerable: true,
+            get: accessor
+        }) as CommandCaller;
 
-            for (const caller of [hiddenKind, accessorKind]) {
-                expect(() => new CommandEnvelope({ ...envelopeInit(), caller })).toThrow(
-                    new TypeError("Command caller must contain enumerable data fields")
-                );
-            }
-            expect(accessor).not.toHaveBeenCalled();
+        for (const caller of [hiddenKind, accessorKind]) {
+            expect(() => new CommandEnvelope({ ...envelopeInit(), caller })).toThrow(
+                new TypeError("Command caller must contain enumerable data fields")
+            );
         }
-    );
+        expect(accessor).not.toHaveBeenCalled();
+    });
 });
 
 describe("payload preparation values", () => {
@@ -525,37 +505,28 @@ describe("payload preparation values", () => {
         ).toBeUndefined();
     });
 
-    test(
-        "rejects forged prepared payloads without invoking attacker properties",
-        { tags: "p0" },
-        () => {
-            const lookalike = new Proxy(
-                {},
-                {
-                    get(): never {
-                        throw new TypeError("prepared payload proxy trap must not run");
-                    }
+    test("rejects forged prepared payloads without invoking attacker properties", { tags: "p0" }, () => {
+        const lookalike = new Proxy(
+            {},
+            {
+                get(): never {
+                    throw new TypeError("prepared payload proxy trap must not run");
                 }
-            );
-            expect(inspectPreparedCommandPayload({})).toBeUndefined();
-            expect(inspectPreparedCommandPayload(lookalike)).toBeUndefined();
-            expect(
-                inspectPreparedCommandPayload(Object.create(PreparedCommandPayload.prototype))
-            ).toBeUndefined();
-            const forged = Object.create(
-                PreparedCommandPayload.prototype
-            ) as PreparedCommandPayload;
-            expectAgentCoreError(() => forged.lease, "protocol.invalid-state");
-            const constructor = PreparedCommandPayload as unknown as new (
-                issuer: symbol,
-                state: object
-            ) => PreparedCommandPayload;
-            expectAgentCoreError(
-                () => new constructor(Symbol("forged"), {}),
-                "protocol.invalid-state"
-            );
-        }
-    );
+            }
+        );
+        expect(inspectPreparedCommandPayload({})).toBeUndefined();
+        expect(inspectPreparedCommandPayload(lookalike)).toBeUndefined();
+        expect(
+            inspectPreparedCommandPayload(Object.create(PreparedCommandPayload.prototype))
+        ).toBeUndefined();
+        const forged = Object.create(PreparedCommandPayload.prototype) as PreparedCommandPayload;
+        expectAgentCoreError(() => forged.lease, "protocol.invalid-state");
+        const constructor = PreparedCommandPayload as unknown as new (
+            issuer: symbol,
+            state: object
+        ) => PreparedCommandPayload;
+        expectAgentCoreError(() => new constructor(Symbol("forged"), {}), "protocol.invalid-state");
+    });
 });
 
 describe("WriteRecord codec and invariants", () => {
@@ -777,10 +748,11 @@ describe("envelope and write record boundaries", () => {
         ).toThrow(new TypeError("Command caller must be a plain object with exact fields"));
 
         const accessor = vi.fn(() => principalRef);
-        const accessorCaller = Object.defineProperty({ kind: "principal" }, "principal", {
-            enumerable: true,
-            get: accessor
-        }) as unknown as CommandCaller;
+        const accessorCaller = Object.defineProperty(
+            { kind: "principal" },
+            "principal",
+            { enumerable: true, get: accessor }
+        ) as unknown as CommandCaller;
         expect(() => new CommandEnvelope({ ...envelopeInit(), caller: accessorCaller })).toThrow(
             new TypeError("Command caller must contain enumerable data fields")
         );
@@ -821,13 +793,14 @@ describe("envelope and write record boundaries", () => {
     });
 
     test("write records reject partial envelope omission exactly", { tags: "p1" }, () => {
-        expect(() =>
-            writeFixture({
-                outcome: "rejectedAuthentication",
-                caller: undefined,
-                command: undefined,
-                idempotencyKey: undefined
-            })
+        expect(
+            () =>
+                writeFixture({
+                    outcome: "rejectedAuthentication",
+                    caller: undefined,
+                    command: undefined,
+                    idempotencyKey: undefined
+                })
         ).toThrow(new TypeError("Only malformed writes may omit decoded envelope fields"));
         expect(() =>
             WriteRecordCodec.decode(
@@ -877,8 +850,7 @@ describe("envelope and write record boundaries", () => {
 
     test("envelope construction rejects null caller and lease containers", { tags: "p1" }, () => {
         expect(
-            () =>
-                new CommandEnvelope({ ...envelopeInit(), caller: null as unknown as CommandCaller })
+            () => new CommandEnvelope({ ...envelopeInit(), caller: null as unknown as CommandCaller })
         ).toThrow(new TypeError("Command caller must be a plain object with exact fields"));
         expect(
             () => new CommandEnvelope({ ...envelopeInit(), lease: null as unknown as LeaseToken })

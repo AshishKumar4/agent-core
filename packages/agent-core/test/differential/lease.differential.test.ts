@@ -144,47 +144,43 @@ describe("lease algebra agrees with the verified model", () => {
         );
     });
 
-    test(
-        "renew agrees: exact token, unexpired lease, strictly later expiry",
-        { tags: "p0" },
-        async () => {
-            await fc.assert(
-                fc.asyncProperty(
-                    leaseArbitrary,
-                    tokenArbitrary,
-                    timeArbitrary,
-                    fc.integer({ min: 0, max: 16 }),
-                    async (lease, token, now, expiresAt) => {
-                        await compareStep(
-                            lease,
-                            {
-                                kind: "renew",
-                                token: {
-                                    turn: token.turn,
-                                    tenant: TENANT,
-                                    principal: token.principal,
-                                    epoch: token.epoch
-                                },
-                                now,
-                                expiresAt
+    test("renew agrees: exact token, unexpired lease, strictly later expiry", { tags: "p0" }, async () => {
+        await fc.assert(
+            fc.asyncProperty(
+                leaseArbitrary,
+                tokenArbitrary,
+                timeArbitrary,
+                fc.integer({ min: 0, max: 16 }),
+                async (lease, token, now, expiresAt) => {
+                    await compareStep(
+                        lease,
+                        {
+                            kind: "renew",
+                            token: {
+                                turn: token.turn,
+                                tenant: TENANT,
+                                principal: token.principal,
+                                epoch: token.epoch
                             },
-                            () =>
-                                liveLease(lease).renew(
-                                    principal(token.principal),
-                                    token.epoch,
-                                    new Date(now),
-                                    new Date(expiresAt)
-                                ),
-                            // The implementation's renew derives the token turn from the
-                            // lease itself; restrict to matching turns for comparability.
-                            token.turn === lease.turn
-                        );
-                    }
-                ),
-                { numRuns: 300 }
-            );
-        }
-    );
+                            now,
+                            expiresAt
+                        },
+                        () =>
+                            liveLease(lease).renew(
+                                principal(token.principal),
+                                token.epoch,
+                                new Date(now),
+                                new Date(expiresAt)
+                            ),
+                        // The implementation's renew derives the token turn from the
+                        // lease itself; restrict to matching turns for comparability.
+                        token.turn === lease.turn
+                    );
+                }
+            ),
+            { numRuns: 300 }
+        );
+    });
 
     test("reclaim agrees: held, expired, future expiry, epoch bump", { tags: "p0" }, async () => {
         await fc.assert(

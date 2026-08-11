@@ -1,9 +1,6 @@
 {
   "edition": "1.0.0",
-  "owners": [
-    "W0",
-    "W9"
-  ],
+  "owners": ["W0", "W9"],
   "wave": "W4",
   "description": "Current integrated W4 production source, including authenticated package installation provenance.",
   "sources": [

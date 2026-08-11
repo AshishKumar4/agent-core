@@ -90,39 +90,35 @@ describe("SemVer", () => {
         expect(Object.isFrozen(version.build)).toBe(true);
     });
 
-    test(
-        "[core.semver] round-trips deterministically through its strict codec",
-        { tags: "p0" },
-        () => {
-            const version = new SemVer("2.7.1-rc.3+build.9");
-            const first = SemVer.encode(version);
+    test("[core.semver] round-trips deterministically through its strict codec", { tags: "p0" }, () => {
+        const version = new SemVer("2.7.1-rc.3+build.9");
+        const first = SemVer.encode(version);
 
-            expect(SemVer.encode(SemVer.decode(first))).toEqual(first);
-            expect(SemVer.decode(first).equals(version)).toBe(true);
-            expectCodecError(
-                () =>
-                    SemVer.decode(
-                        encodeCanonicalJson({
-                            kind: "core.semver",
-                            payload: { extra: true, value: "1.2.3" },
-                            version: { major: 1, minor: 0 }
-                        })
-                    ),
-                "codec.invalid"
-            );
-            expectCodecError(
-                () =>
-                    SemVer.decode(
-                        encodeCanonicalJson({
-                            kind: "core.semver",
-                            payload: { value: "1.2.3" },
-                            version: { major: 2, minor: 0 }
-                        })
-                    ),
-                "codec.unknown-major"
-            );
-        }
-    );
+        expect(SemVer.encode(SemVer.decode(first))).toEqual(first);
+        expect(SemVer.decode(first).equals(version)).toBe(true);
+        expectCodecError(
+            () =>
+                SemVer.decode(
+                    encodeCanonicalJson({
+                        kind: "core.semver",
+                        payload: { extra: true, value: "1.2.3" },
+                        version: { major: 1, minor: 0 }
+                    })
+                ),
+            "codec.invalid"
+        );
+        expectCodecError(
+            () =>
+                SemVer.decode(
+                    encodeCanonicalJson({
+                        kind: "core.semver",
+                        payload: { value: "1.2.3" },
+                        version: { major: 2, minor: 0 }
+                    })
+                ),
+            "codec.unknown-major"
+        );
+    });
 
     test("reports every version construction failure verbatim", { tags: "p1" }, () => {
         const components = "Semantic version requires major, minor, and patch components";

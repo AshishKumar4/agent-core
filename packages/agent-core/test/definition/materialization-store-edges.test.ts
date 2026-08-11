@@ -98,7 +98,9 @@ describe("MaterializationStore hostile adapter boundaries", () => {
 
         const planStore = hostileStore(false);
         planStore.rows.plans.push(rowForPlan(foreignState.plan));
-        expect(() => planStore.getPlan(foreignState.plan.id)).toThrow(/exactly the store owner/);
+        expect(() => planStore.getPlan(foreignState.plan.id)).toThrow(
+            /exactly the store owner/
+        );
 
         const generationStore = hostileStore(false);
         generationStore.rows.generations.push(
@@ -219,7 +221,9 @@ describe("MaterializationStore hostile adapter boundaries", () => {
             new DeploymentKey("other")
         );
         const crossDeployment = hostileStore(false);
-        crossDeployment.rows.generations.push(rowForGeneration(fixture.materialization.generation));
+        crossDeployment.rows.generations.push(
+            rowForGeneration(fixture.materialization.generation)
+        );
         for (const record of fixture.materialization.records) {
             crossDeployment.rows.managedState.push(rowForManagedState(record));
         }
@@ -239,7 +243,9 @@ describe("MaterializationStore hostile adapter boundaries", () => {
 
         const foreign = new ActorRef("workspace", new ActorId("foreign"));
         const foreignPointer = hostileStore(false);
-        foreignPointer.rows.generations.push(rowForGeneration(fixture.materialization.generation));
+        foreignPointer.rows.generations.push(
+            rowForGeneration(fixture.materialization.generation)
+        );
         for (const record of fixture.materialization.records) {
             foreignPointer.rows.managedState.push(rowForManagedState(record));
         }
@@ -259,7 +265,10 @@ describe("MaterializationStore hostile adapter boundaries", () => {
     });
 
     test("enforces exact managed-state closures per generation", { tags: "p0" }, () => {
-        const fixture = materializationStateWithKeys(actor, 1, "closure", ["slot:aa", "slot:zz"]);
+        const fixture = materializationStateWithKeys(actor, 1, "closure", [
+            "slot:aa",
+            "slot:zz"
+        ]);
         const generation = fixture.materialization.generation;
         const stray = new ManagedStateRecord({
             actor,
@@ -342,120 +351,108 @@ describe("MaterializationStore hostile adapter boundaries", () => {
         );
     });
 
-    test(
-        "keeps stored codec bytes independent of adapter-scribbled projection buffers",
-        { tags: "p0" },
-        () => {
-            // kills src/definition/materialization-store.ts:637,648,664,680,694 (projection defensive byte copies)
-            const store = new ScribblingMaterializationStore(actor, emptyRows());
-            const fixture = materializationState(actor, 1, "scribble");
-            const stamped = blueprint("scribble", "1.0.0", { value: "scribble" });
+    test("keeps stored codec bytes independent of adapter-scribbled projection buffers", { tags: "p0" }, () => {
+        // kills src/definition/materialization-store.ts:637,648,664,680,694 (projection defensive byte copies)
+        const store = new ScribblingMaterializationStore(actor, emptyRows());
+        const fixture = materializationState(actor, 1, "scribble");
+        const stamped = blueprint("scribble", "1.0.0", { value: "scribble" });
 
-            store.addBlueprint(stamped);
-            store.addPlan(fixture.plan);
-            installGeneration(store, fixture);
-            expect(
-                store.transaction((transaction) =>
-                    store.compareAndSetGenerationPointer(
-                        transaction,
-                        actor,
-                        deploymentId,
-                        undefined,
-                        MaterializationGenerationPointer.initial(
-                            actor,
-                            deploymentId,
-                            fixture.materialization.generation.id
-                        )
-                    )
-                )
-            ).toBe(true);
-
-            expect(Blueprint.encode(store.getBlueprint("scribble", new SemVer("1.0.0"))!)).toEqual(
-                Blueprint.encode(stamped)
-            );
-            expect(MaterializationPlan.encode(store.getPlan(fixture.plan.id)!)).toEqual(
-                MaterializationPlan.encode(fixture.plan)
-            );
-            expect(
-                MaterializationGeneration.encode(
-                    store.getGeneration(fixture.materialization.generation.id)!
-                )
-            ).toEqual(MaterializationGeneration.encode(fixture.materialization.generation));
-            expect(store.listManagedState(fixture.materialization.generation.id)).toHaveLength(1);
-            expect(store.getGenerationPointer(actor, deploymentId)?.revision.value).toBe(0);
-        }
-    );
-
-    test(
-        "rejects byte-divergent generation replays before decoding adapter rows",
-        { tags: "p0" },
-        () => {
-            // kills src/definition/materialization-store.ts:822 (equalBytes byte-length guard)
-            const store = hostileStore(false);
-            const fixture = materializationState(actor, 1, "prefix");
-            const generation = fixture.materialization.generation;
-            const bytes = MaterializationGeneration.encode(generation);
-            store.rows.generations.push({
-                ...rowForGeneration(generation),
-                bytes: bytes.slice(0, bytes.byteLength - 1)
-            });
-
-            expect(() =>
-                store.transaction((transaction) => store.insertGeneration(transaction, generation))
-            ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
-        }
-    );
-
-    test(
-        "reports a revision conflict when the active pointer generation disappears mid-CAS",
-        { tags: "p0" },
-        () => {
-            // kills src/definition/materialization-store.ts:376 (current-generation guard in pointer CAS)
-            const memory = new MemoryMaterializationStore(actor);
-            const first = materializationState(actor, 1, "flap-first");
-            const second = materializationState(actor, 2, "flap-second");
-            installGeneration(memory, first);
-            installGeneration(memory, second);
-            const initial = MaterializationGenerationPointer.initial(
-                actor,
-                deploymentId,
-                first.materialization.generation.id
-            );
-            memory.transaction((transaction) =>
-                memory.compareAndSetGenerationPointer(
+        store.addBlueprint(stamped);
+        store.addPlan(fixture.plan);
+        installGeneration(store, fixture);
+        expect(
+            store.transaction((transaction) =>
+                store.compareAndSetGenerationPointer(
                     transaction,
                     actor,
                     deploymentId,
                     undefined,
-                    initial
-                )
-            );
-            const snapshot = memory.snapshot();
-            const store = new FlappingGenerationStore(
-                actor,
-                {
-                    blueprints: [...snapshot.blueprints],
-                    plans: [...snapshot.plans],
-                    generations: [...snapshot.generations],
-                    managedState: [...snapshot.managedState],
-                    pointers: [...snapshot.pointers]
-                },
-                first.materialization.generation.id
-            );
-
-            expect(() =>
-                store.transaction((transaction) =>
-                    store.compareAndSetGenerationPointer(
-                        transaction,
+                    MaterializationGenerationPointer.initial(
                         actor,
                         deploymentId,
-                        initial.revision,
-                        initial.activate(second.materialization.generation.id)
+                        fixture.materialization.generation.id
                     )
                 )
-            ).toThrowError(expect.objectContaining({ code: "protocol.revision-conflict" }));
-        }
-    );
+            )
+        ).toBe(true);
+
+        expect(Blueprint.encode(store.getBlueprint("scribble", new SemVer("1.0.0"))!)).toEqual(
+            Blueprint.encode(stamped)
+        );
+        expect(MaterializationPlan.encode(store.getPlan(fixture.plan.id)!)).toEqual(
+            MaterializationPlan.encode(fixture.plan)
+        );
+        expect(
+            MaterializationGeneration.encode(
+                store.getGeneration(fixture.materialization.generation.id)!
+            )
+        ).toEqual(MaterializationGeneration.encode(fixture.materialization.generation));
+        expect(store.listManagedState(fixture.materialization.generation.id)).toHaveLength(1);
+        expect(store.getGenerationPointer(actor, deploymentId)?.revision.value).toBe(0);
+    });
+
+    test("rejects byte-divergent generation replays before decoding adapter rows", { tags: "p0" }, () => {
+        // kills src/definition/materialization-store.ts:822 (equalBytes byte-length guard)
+        const store = hostileStore(false);
+        const fixture = materializationState(actor, 1, "prefix");
+        const generation = fixture.materialization.generation;
+        const bytes = MaterializationGeneration.encode(generation);
+        store.rows.generations.push({
+            ...rowForGeneration(generation),
+            bytes: bytes.slice(0, bytes.byteLength - 1)
+        });
+
+        expect(() =>
+            store.transaction((transaction) => store.insertGeneration(transaction, generation))
+        ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
+    });
+
+    test("reports a revision conflict when the active pointer generation disappears mid-CAS", { tags: "p0" }, () => {
+        // kills src/definition/materialization-store.ts:376 (current-generation guard in pointer CAS)
+        const memory = new MemoryMaterializationStore(actor);
+        const first = materializationState(actor, 1, "flap-first");
+        const second = materializationState(actor, 2, "flap-second");
+        installGeneration(memory, first);
+        installGeneration(memory, second);
+        const initial = MaterializationGenerationPointer.initial(
+            actor,
+            deploymentId,
+            first.materialization.generation.id
+        );
+        memory.transaction((transaction) =>
+            memory.compareAndSetGenerationPointer(
+                transaction,
+                actor,
+                deploymentId,
+                undefined,
+                initial
+            )
+        );
+        const snapshot = memory.snapshot();
+        const store = new FlappingGenerationStore(
+            actor,
+            {
+                blueprints: [...snapshot.blueprints],
+                plans: [...snapshot.plans],
+                generations: [...snapshot.generations],
+                managedState: [...snapshot.managedState],
+                pointers: [...snapshot.pointers]
+            },
+            first.materialization.generation.id
+        );
+
+        expect(() =>
+            store.transaction((transaction) =>
+                store.compareAndSetGenerationPointer(
+                    transaction,
+                    actor,
+                    deploymentId,
+                    initial.revision,
+                    initial.activate(second.materialization.generation.id)
+                )
+            )
+        ).toThrowError(expect.objectContaining({ code: "protocol.revision-conflict" }));
+    });
 });
 
 interface HostileRows {

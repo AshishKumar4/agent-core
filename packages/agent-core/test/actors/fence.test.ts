@@ -37,21 +37,17 @@ test("ActorRef accepts only its closed kinds and exact ActorId instances", { tag
 });
 
 describe("ActorRecoveryState codec", () => {
-    test(
-        "[actor.recovery-state] round-trips recovery state through its versioned codec",
-        { tags: "p0" },
-        () => {
-            const state = new ActorRecoveryState(actor, 7, 3);
-            const encoded = ActorRecoveryState.encode(state);
+    test("[actor.recovery-state] round-trips recovery state through its versioned codec", { tags: "p0" }, () => {
+        const state = new ActorRecoveryState(actor, 7, 3);
+        const encoded = ActorRecoveryState.encode(state);
 
-            expect(encoded).toEqual(ActorRecoveryState.codec.encode(state));
-            const decoded = ActorRecoveryState.decode(encoded);
+        expect(encoded).toEqual(ActorRecoveryState.codec.encode(state));
+        const decoded = ActorRecoveryState.decode(encoded);
 
-            expect(decoded.actor.equals(actor)).toBe(true);
-            expect(decoded.epoch).toBe(7);
-            expect(decoded.recoveries).toBe(3);
-        }
-    );
+        expect(decoded.actor.equals(actor)).toBe(true);
+        expect(decoded.epoch).toBe(7);
+        expect(decoded.recoveries).toBe(3);
+    });
 
     test("rejects malformed payloads with a typed codec error", { tags: "p1" }, () => {
         const malformed = [
@@ -87,33 +83,29 @@ describe("ActorRecoveryState codec", () => {
         );
     });
 
-    test(
-        "enforces safe integer state invariants in constructors and decoding",
-        { tags: "p0" },
-        () => {
-            const invalid = [
-                { epoch: -1, recoveries: 1 },
-                { epoch: Number.MAX_SAFE_INTEGER + 1, recoveries: 1 },
-                { epoch: 0, recoveries: 0 },
-                { epoch: 0, recoveries: Number.MAX_SAFE_INTEGER + 1 }
-            ];
+    test("enforces safe integer state invariants in constructors and decoding", { tags: "p0" }, () => {
+        const invalid = [
+            { epoch: -1, recoveries: 1 },
+            { epoch: Number.MAX_SAFE_INTEGER + 1, recoveries: 1 },
+            { epoch: 0, recoveries: 0 },
+            { epoch: 0, recoveries: Number.MAX_SAFE_INTEGER + 1 }
+        ];
 
-            for (const values of invalid) {
-                expect(
-                    () => new ActorRecoveryState(actor, values.epoch, values.recoveries)
-                ).toThrow(TypeError);
-                expect(() =>
-                    ActorRecoveryState.codec.decode(
-                        envelope({
-                            actor: { kind: actor.kind, id: actor.id.value },
-                            epoch: values.epoch,
-                            recoveries: values.recoveries
-                        })
-                    )
-                ).toThrow(malformedError());
-            }
+        for (const values of invalid) {
+            expect(() => new ActorRecoveryState(actor, values.epoch, values.recoveries)).toThrow(
+                TypeError
+            );
+            expect(() =>
+                ActorRecoveryState.codec.decode(
+                    envelope({
+                        actor: { kind: actor.kind, id: actor.id.value },
+                        epoch: values.epoch,
+                        recoveries: values.recoveries
+                    })
+                )
+            ).toThrow(malformedError());
         }
-    );
+    });
 
     test("fails before recovery counters or fences exceed safe integers", { tags: "p0" }, () => {
         const exhaustedEpoch = new ActorRecoveryState(actor, Number.MAX_SAFE_INTEGER, 1);

@@ -110,8 +110,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["package_id", "version", "manifest_digest", "code_digest"] as const)(
-        "rejects a corrupt release %s projection",
-        { tags: "p0" },
+        "rejects a corrupt release %s projection", { tags: "p0" },
         (projection) => {
             const database = new TestSqlite();
             const store = new SqlitePackageStore(database);
@@ -144,8 +143,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["lock_digest", "snapshot_digest", "snapshot_revision"] as const)(
-        "rejects a corrupt lock %s projection",
-        { tags: "p0" },
+        "rejects a corrupt lock %s projection", { tags: "p0" },
         (projection) => {
             const database = new TestSqlite();
             const store = new SqlitePackageStore(database);
@@ -180,8 +178,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["digest", "revision", "record"] as const)(
-        "rejects a corrupt metadata snapshot %s projection",
-        { tags: "p0" },
+        "rejects a corrupt metadata snapshot %s projection", { tags: "p0" },
         (projection) => {
             const database = new TestSqlite();
             const store = new SqlitePackageStore(database);
@@ -222,8 +219,7 @@ describe("SqlitePackageStore persistence", () => {
     });
 
     test.each(["release", "snapshot", "lock"] as const)(
-        "fails closed when a %s insert produces no durable row",
-        { tags: "p0" },
+        "fails closed when a %s insert produces no durable row", { tags: "p0" },
         (kind) => {
             const database = new DropInsertSqlite();
             const store = new SqlitePackageStore(database);

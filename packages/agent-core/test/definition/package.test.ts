@@ -30,160 +30,150 @@ const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("20.0.0") });
 
 describe("package releases", () => {
-    test(
-        "[definition.package-release] canonicalizes immutable metadata and round-trips its strict codec",
-        { tags: "p0" },
-        () => {
-            const dependencies = [
-                new PackageDependency(new PackageId("zeta"), "^2.0.0"),
-                new PackageDependency(new PackageId("alpha"), ">=1 <2")
-            ];
-            const provenance = { source: { registry: "internal" }, signed: true };
-            const codeRefs = [contentRef("z-code"), contentRef("a-code")];
-            const release = packageRelease("root", "1.2.3-rc.1+linux", dependencies, {
-                codeRefs,
-                configSchema: new JsonSchema({ type: "object" }),
-                provenance
-            });
-            dependencies.reverse();
-            provenance.source.registry = "changed";
-            codeRefs.pop();
+    test("[definition.package-release] canonicalizes immutable metadata and round-trips its strict codec", { tags: "p0" }, () => {
+        const dependencies = [
+            new PackageDependency(new PackageId("zeta"), "^2.0.0"),
+            new PackageDependency(new PackageId("alpha"), ">=1 <2")
+        ];
+        const provenance = { source: { registry: "internal" }, signed: true };
+        const codeRefs = [contentRef("z-code"), contentRef("a-code")];
+        const release = packageRelease("root", "1.2.3-rc.1+linux", dependencies, {
+            codeRefs,
+            configSchema: new JsonSchema({ type: "object" }),
+            provenance
+        });
+        dependencies.reverse();
+        provenance.source.registry = "changed";
+        codeRefs.pop();
 
-            expect(
-                release.dependencies.map((dependency) => [dependency.id.value, dependency.range])
-            ).toEqual([
-                ["alpha", ">=1.0.0 <2.0.0-0"],
-                ["zeta", ">=2.0.0 <3.0.0-0"]
-            ]);
-            expect(release.codeManifest.modules.map((module) => module.content.value)).toEqual([
-                contentRef("a-code").value,
-                contentRef("z-code").value
-            ]);
-            expect(release.provenance).toEqual({ signed: true, source: { registry: "internal" } });
-            expect(Object.isFrozen(release)).toBe(true);
-            expect(Object.isFrozen(release.dependencies)).toBe(true);
-            expect(Object.isFrozen(release.provenance.source)).toBe(true);
+        expect(
+            release.dependencies.map((dependency) => [dependency.id.value, dependency.range])
+        ).toEqual([
+            ["alpha", ">=1.0.0 <2.0.0-0"],
+            ["zeta", ">=2.0.0 <3.0.0-0"]
+        ]);
+        expect(release.codeManifest.modules.map((module) => module.content.value)).toEqual([
+            contentRef("a-code").value,
+            contentRef("z-code").value
+        ]);
+        expect(release.provenance).toEqual({ signed: true, source: { registry: "internal" } });
+        expect(Object.isFrozen(release)).toBe(true);
+        expect(Object.isFrozen(release.dependencies)).toBe(true);
+        expect(Object.isFrozen(release.provenance.source)).toBe(true);
 
-            const encoded = PackageRelease.encode(release);
-            const decoded = PackageRelease.decode(encoded);
-            expect(PackageRelease.encode(decoded)).toEqual(encoded);
-            expect(decoded.version.toString()).toBe("1.2.3-rc.1+linux");
-            expect(decoded.configSchema?.document).toEqual({ type: "object" });
-        }
-    );
+        const encoded = PackageRelease.encode(release);
+        const decoded = PackageRelease.decode(encoded);
+        expect(PackageRelease.encode(decoded)).toEqual(encoded);
+        expect(decoded.version.toString()).toBe("1.2.3-rc.1+linux");
+        expect(decoded.configSchema?.document).toEqual({ type: "object" });
+    });
 
-    test(
-        "rejects malformed, duplicate, empty, and noncanonical release metadata",
-        { tags: "p1" },
-        () => {
-            expect(() => new PackageId(" padded ")).toThrow(/canonical/);
-            expect(() => new PackageDependency(new PackageId("dep"), " ")).toThrow(/nonblank/);
-            expect(() => new PackageDependency(new PackageId("dep"), "not a range")).toThrow(
-                /valid/
-            );
-            expect(() =>
-                packageRelease("root", "1.0.0", [
-                    new PackageDependency(new PackageId("dep"), "^1"),
-                    new PackageDependency(new PackageId("dep"), "^2")
-                ])
-            ).toThrow(/dependency IDs/);
+    test("rejects malformed, duplicate, empty, and noncanonical release metadata", { tags: "p1" }, () => {
+        expect(() => new PackageId(" padded ")).toThrow(/canonical/);
+        expect(() => new PackageDependency(new PackageId("dep"), " ")).toThrow(/nonblank/);
+        expect(() => new PackageDependency(new PackageId("dep"), "not a range")).toThrow(/valid/);
+        expect(() =>
+            packageRelease("root", "1.0.0", [
+                new PackageDependency(new PackageId("dep"), "^1"),
+                new PackageDependency(new PackageId("dep"), "^2")
+            ])
+        ).toThrow(/dependency IDs/);
 
-            const release = packageRelease("root", "1.0.0");
-            expect(
-                () =>
-                    new PackageRelease({
-                        id: release.id,
-                        version: release.version,
-                        compatibility: release.compatibility,
-                        dependencies: release.dependencies,
-                        manifests: release.manifests,
-                        codeManifest: release.codeManifest,
-                        manifestDigest: digestOf("forged-manifest-digest"),
-                        codeDigest: release.codeDigest,
-                        provenance: release.provenance
-                    })
-            ).toThrow(/canonical manifests/);
-            expect(
-                () =>
-                    new PackageRelease({
-                        id: release.id,
-                        version: release.version,
-                        compatibility: release.compatibility,
-                        dependencies: release.dependencies,
-                        manifests: [] as unknown as [FacetManifest, ...FacetManifest[]],
-                        codeManifest: release.codeManifest,
-                        manifestDigest: release.manifestDigest,
-                        codeDigest: release.codeDigest,
-                        provenance: release.provenance
-                    })
-            ).toThrow(/at least one manifest/);
-            const foreignEntrypoint = new PackageCodeManifest({
-                compatibilityDate: release.codeManifest.compatibilityDate,
-                modules: release.codeManifest.modules,
-                entrypoints: [
-                    new PackageCodeEntrypoint({
-                        facet: new FacetPackageId("foreign.facet"),
-                        version: release.manifests[0].version,
-                        module: release.codeManifest.entrypoints[0].module
-                    })
-                ]
-            });
-            expect(
-                () =>
-                    new PackageRelease({
-                        id: release.id,
-                        version: release.version,
-                        compatibility: release.compatibility,
-                        dependencies: release.dependencies,
-                        manifests: release.manifests,
-                        codeManifest: foreignEntrypoint,
-                        provenance: release.provenance
-                    })
-            ).toThrow(/exactly match/);
-            expect(() =>
-                PackageRelease.fromData({
-                    ...(release.toData() as object),
-                    id: 7
+        const release = packageRelease("root", "1.0.0");
+        expect(
+            () =>
+                new PackageRelease({
+                    id: release.id,
+                    version: release.version,
+                    compatibility: release.compatibility,
+                    dependencies: release.dependencies,
+                    manifests: release.manifests,
+                    codeManifest: release.codeManifest,
+                    manifestDigest: digestOf("forged-manifest-digest"),
+                    codeDigest: release.codeDigest,
+                    provenance: release.provenance
                 })
-            ).toThrow(/must be a string/);
+        ).toThrow(/canonical manifests/);
+        expect(
+            () =>
+                new PackageRelease({
+                    id: release.id,
+                    version: release.version,
+                    compatibility: release.compatibility,
+                    dependencies: release.dependencies,
+                    manifests: [] as unknown as [FacetManifest, ...FacetManifest[]],
+                    codeManifest: release.codeManifest,
+                    manifestDigest: release.manifestDigest,
+                    codeDigest: release.codeDigest,
+                    provenance: release.provenance
+                })
+        ).toThrow(/at least one manifest/);
+        const foreignEntrypoint = new PackageCodeManifest({
+            compatibilityDate: release.codeManifest.compatibilityDate,
+            modules: release.codeManifest.modules,
+            entrypoints: [
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("foreign.facet"),
+                    version: release.manifests[0].version,
+                    module: release.codeManifest.entrypoints[0].module
+                })
+            ]
+        });
+        expect(
+            () =>
+                new PackageRelease({
+                    id: release.id,
+                    version: release.version,
+                    compatibility: release.compatibility,
+                    dependencies: release.dependencies,
+                    manifests: release.manifests,
+                    codeManifest: foreignEntrypoint,
+                    provenance: release.provenance
+                })
+        ).toThrow(/exactly match/);
+        expect(() =>
+            PackageRelease.fromData({
+                ...(release.toData() as object),
+                id: 7
+            })
+        ).toThrow(/must be a string/);
 
-            const envelope = requireObject(decodeCanonicalJson(PackageRelease.encode(release)));
-            const payload = requireObject(envelope["payload"]!);
-            expectCodecError(
-                () =>
-                    PackageRelease.decode(
-                        encodeCanonicalJson({
-                            ...envelope,
-                            payload: { ...payload, unknown: true }
-                        })
-                    ),
-                "codec.invalid"
-            );
-            expectCodecError(
-                () =>
-                    PackageRelease.decode(
-                        encodeCanonicalJson({
-                            ...envelope,
-                            payload: {
-                                ...payload,
-                                dependencies: [{ id: "dep", range: "^1" }]
-                            }
-                        })
-                    ),
-                "codec.invalid"
-            );
-            expectCodecError(
-                () =>
-                    PackageRelease.decode(
-                        encodeCanonicalJson({
-                            ...envelope,
-                            version: { major: 3, minor: 0 }
-                        })
-                    ),
-                "codec.unknown-major"
-            );
-        }
-    );
+        const envelope = requireObject(decodeCanonicalJson(PackageRelease.encode(release)));
+        const payload = requireObject(envelope["payload"]!);
+        expectCodecError(
+            () =>
+                PackageRelease.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        payload: { ...payload, unknown: true }
+                    })
+                ),
+            "codec.invalid"
+        );
+        expectCodecError(
+            () =>
+                PackageRelease.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        payload: {
+                            ...payload,
+                            dependencies: [{ id: "dep", range: "^1" }]
+                        }
+                    })
+                ),
+            "codec.invalid"
+        );
+        expectCodecError(
+            () =>
+                PackageRelease.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        version: { major: 3, minor: 0 }
+                    })
+                ),
+            "codec.unknown-major"
+        );
+    });
 
     test("requires canonical nonblank dependency ranges and named subjects", { tags: "p1" }, () => {
         expect(() => new PackageDependency(new PackageId("dep"), "")).toThrow(
@@ -200,75 +190,71 @@ describe("package releases", () => {
         );
     });
 
-    test(
-        "requires a bijection between Facet manifests and code entrypoints",
-        { tags: "p0" },
-        () => {
-            const release = packageRelease("root", "1.0.0");
-            const mainModule = release.codeManifest.modules[0];
-            const withExtraEntrypoint = new PackageCodeManifest({
-                compatibilityDate: release.codeManifest.compatibilityDate,
-                modules: [mainModule],
-                entrypoints: [
-                    new PackageCodeEntrypoint({
-                        facet: release.manifests[0].id,
-                        version: release.manifests[0].version,
-                        module: mainModule.specifier
-                    }),
-                    new PackageCodeEntrypoint({
-                        facet: new FacetPackageId("z.extra.facet"),
-                        version: release.manifests[0].version,
-                        module: mainModule.specifier
-                    })
-                ]
-            });
-            expect(
-                () =>
-                    new PackageRelease({
-                        id: release.id,
-                        version: release.version,
-                        compatibility: release.compatibility,
-                        dependencies: [],
-                        manifests: release.manifests,
-                        codeManifest: withExtraEntrypoint,
-                        provenance: release.provenance
-                    })
-            ).toThrow(/exactly match/);
+    test("requires a bijection between Facet manifests and code entrypoints", { tags: "p0" }, () => {
+        const release = packageRelease("root", "1.0.0");
+        const mainModule = release.codeManifest.modules[0];
+        const withExtraEntrypoint = new PackageCodeManifest({
+            compatibilityDate: release.codeManifest.compatibilityDate,
+            modules: [mainModule],
+            entrypoints: [
+                new PackageCodeEntrypoint({
+                    facet: release.manifests[0].id,
+                    version: release.manifests[0].version,
+                    module: mainModule.specifier
+                }),
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("z.extra.facet"),
+                    version: release.manifests[0].version,
+                    module: mainModule.specifier
+                })
+            ]
+        });
+        expect(
+            () =>
+                new PackageRelease({
+                    id: release.id,
+                    version: release.version,
+                    compatibility: release.compatibility,
+                    dependencies: [],
+                    manifests: release.manifests,
+                    codeManifest: withExtraEntrypoint,
+                    provenance: release.provenance
+                })
+        ).toThrow(/exactly match/);
 
-            const twoManifests = [
-                manifest("root.facet", "1.0.0"),
-                manifest("root.other", "1.0.0")
-            ] as [FacetManifest, FacetManifest];
-            const partiallyMatching = new PackageCodeManifest({
-                compatibilityDate: release.codeManifest.compatibilityDate,
-                modules: [mainModule],
-                entrypoints: [
-                    new PackageCodeEntrypoint({
-                        facet: twoManifests[0].id,
-                        version: twoManifests[0].version,
-                        module: mainModule.specifier
-                    }),
-                    new PackageCodeEntrypoint({
-                        facet: new FacetPackageId("root.unrelated"),
-                        version: twoManifests[1].version,
-                        module: mainModule.specifier
-                    })
-                ]
-            });
-            expect(
-                () =>
-                    new PackageRelease({
-                        id: release.id,
-                        version: release.version,
-                        compatibility: release.compatibility,
-                        dependencies: [],
-                        manifests: twoManifests,
-                        codeManifest: partiallyMatching,
-                        provenance: release.provenance
-                    })
-            ).toThrow(/exactly match/);
-        }
-    );
+        const twoManifests = [
+            manifest("root.facet", "1.0.0"),
+            manifest("root.other", "1.0.0")
+        ] as [FacetManifest, FacetManifest];
+        const partiallyMatching = new PackageCodeManifest({
+            compatibilityDate: release.codeManifest.compatibilityDate,
+            modules: [mainModule],
+            entrypoints: [
+                new PackageCodeEntrypoint({
+                    facet: twoManifests[0].id,
+                    version: twoManifests[0].version,
+                    module: mainModule.specifier
+                }),
+                new PackageCodeEntrypoint({
+                    facet: new FacetPackageId("root.unrelated"),
+                    version: twoManifests[1].version,
+                    module: mainModule.specifier
+                })
+            ]
+        });
+        expect(
+            () =>
+                new PackageRelease({
+                    id: release.id,
+                    version: release.version,
+                    compatibility: release.compatibility,
+                    dependencies: [],
+                    manifests: twoManifests,
+                    codeManifest: partiallyMatching,
+                    provenance: release.provenance
+                })
+        ).toThrow(/exactly match/);
+    });
 
     test("names malformed compatibility, digest, and identity subjects", { tags: "p2" }, () => {
         const release = packageRelease("root", "1.0.0");
@@ -319,117 +305,101 @@ describe("package releases", () => {
 });
 
 describe("metadata snapshots", () => {
-    test(
-        "[definition.metadata-snapshot] copies, sorts, freezes, and round-trips one immutable metadata revision",
-        { tags: "p0" },
-        () => {
-            const releases = [
-                packageRelease("zeta", "1.0.0"),
-                packageRelease("alpha", "2.0.0"),
-                packageRelease("alpha", "1.0.0")
-            ];
-            const snapshot = new MetadataSnapshot({ revision: new Revision(7), releases });
-            const digest = snapshot.digest.value;
-            releases.reverse();
-            releases[0] = packageRelease("mutated", "9.0.0");
+    test("[definition.metadata-snapshot] copies, sorts, freezes, and round-trips one immutable metadata revision", { tags: "p0" }, () => {
+        const releases = [
+            packageRelease("zeta", "1.0.0"),
+            packageRelease("alpha", "2.0.0"),
+            packageRelease("alpha", "1.0.0")
+        ];
+        const snapshot = new MetadataSnapshot({ revision: new Revision(7), releases });
+        const digest = snapshot.digest.value;
+        releases.reverse();
+        releases[0] = packageRelease("mutated", "9.0.0");
 
-            expect(snapshot.releases.map((release) => `${release.id}@${release.version}`)).toEqual([
-                "alpha@1.0.0",
-                "alpha@2.0.0",
-                "zeta@1.0.0"
-            ]);
-            expect(snapshot.digest.value).toBe(digest);
-            expect(Object.isFrozen(snapshot)).toBe(true);
-            expect(Object.isFrozen(snapshot.releases)).toBe(true);
+        expect(snapshot.releases.map((release) => `${release.id}@${release.version}`)).toEqual([
+            "alpha@1.0.0",
+            "alpha@2.0.0",
+            "zeta@1.0.0"
+        ]);
+        expect(snapshot.digest.value).toBe(digest);
+        expect(Object.isFrozen(snapshot)).toBe(true);
+        expect(Object.isFrozen(snapshot.releases)).toBe(true);
 
-            const encoded = MetadataSnapshot.encode(snapshot);
-            expect(MetadataSnapshot.encode(MetadataSnapshot.decode(encoded))).toEqual(encoded);
-            expect(
-                () =>
-                    new MetadataSnapshot({
-                        revision: snapshot.revision,
-                        releases: snapshot.releases,
-                        digest: digestOf("wrong")
-                    })
-            ).toThrow(/digest/);
-        }
-    );
+        const encoded = MetadataSnapshot.encode(snapshot);
+        expect(MetadataSnapshot.encode(MetadataSnapshot.decode(encoded))).toEqual(encoded);
+        expect(
+            () =>
+                new MetadataSnapshot({
+                    revision: snapshot.revision,
+                    releases: snapshot.releases,
+                    digest: digestOf("wrong")
+                })
+        ).toThrow(/digest/);
+    });
 
-    test(
-        "deduplicates identical releases and rejects conflicting full-version metadata",
-        { tags: "p1" },
-        () => {
-            const release = packageRelease("same", "1.0.0+build");
-            const duplicate = PackageRelease.decode(PackageRelease.encode(release));
-            const snapshot = new MetadataSnapshot({
-                revision: Revision.initial(),
-                releases: [release, duplicate]
-            });
-            expect(snapshot.releases).toHaveLength(1);
+    test("deduplicates identical releases and rejects conflicting full-version metadata", { tags: "p1" }, () => {
+        const release = packageRelease("same", "1.0.0+build");
+        const duplicate = PackageRelease.decode(PackageRelease.encode(release));
+        const snapshot = new MetadataSnapshot({
+            revision: Revision.initial(),
+            releases: [release, duplicate]
+        });
+        expect(snapshot.releases).toHaveLength(1);
 
-            const conflict = packageRelease("same", "1.0.0+build", [], {
-                codeDigest: digestOf("different-code")
-            });
-            expect(
-                () =>
-                    new MetadataSnapshot({
-                        revision: Revision.initial(),
-                        releases: [release, conflict]
-                    })
-            ).toThrow(/Conflicting metadata.*same@1.0.0\+build/);
-
-            const otherBuild = packageRelease("same", "1.0.0+other");
-            expect(
+        const conflict = packageRelease("same", "1.0.0+build", [], {
+            codeDigest: digestOf("different-code")
+        });
+        expect(
+            () =>
                 new MetadataSnapshot({
                     revision: Revision.initial(),
-                    releases: [release, otherBuild]
-                }).releases
-            ).toHaveLength(2);
-        }
-    );
+                    releases: [release, conflict]
+                })
+        ).toThrow(/Conflicting metadata.*same@1.0.0\+build/);
 
-    test(
-        "rejects malformed snapshot revisions and digests with exact subjects",
-        { tags: "p1" },
-        () => {
-            const data = requireObject(
-                new MetadataSnapshot({ revision: new Revision(1), releases: [] }).toData()
+        const otherBuild = packageRelease("same", "1.0.0+other");
+        expect(
+            new MetadataSnapshot({
+                revision: Revision.initial(),
+                releases: [release, otherBuild]
+            }).releases
+        ).toHaveLength(2);
+    });
+
+    test("rejects malformed snapshot revisions and digests with exact subjects", { tags: "p1" }, () => {
+        const data = requireObject(
+            new MetadataSnapshot({ revision: new Revision(1), releases: [] }).toData()
+        );
+        expect(() => MetadataSnapshot.fromData({ ...data, digest: 7 })).toThrow(
+            /Snapshot digest must be a string/
+        );
+        for (const revision of ["7", 1.5, -1] as const) {
+            expect(() => MetadataSnapshot.fromData({ ...data, revision })).toThrow(
+                /Snapshot revision must be a non-negative safe integer/
             );
-            expect(() => MetadataSnapshot.fromData({ ...data, digest: 7 })).toThrow(
-                /Snapshot digest must be a string/
-            );
-            for (const revision of ["7", 1.5, -1] as const) {
-                expect(() => MetadataSnapshot.fromData({ ...data, revision })).toThrow(
-                    /Snapshot revision must be a non-negative safe integer/
-                );
-            }
         }
-    );
+    });
 });
 
 describe("package locks", () => {
-    test(
-        "[definition.package-lock] sorts complete pins and round-trips byte deterministically",
-        { tags: "p0" },
-        () => {
-            const snapshotDigest = digestOf("snapshot");
-            const pins = [pin("zeta", "2.0.0"), pin("alpha", "1.0.0+build")];
-            const lock = new PackageLock({
-                target,
-                roots: [],
-                snapshotRevision: new Revision(4),
-                snapshotDigest,
-                packages: pins
-            });
-            pins.reverse();
+    test("[definition.package-lock] sorts complete pins and round-trips byte deterministically", { tags: "p0" }, () => {
+        const snapshotDigest = digestOf("snapshot");
+        const pins = [pin("zeta", "2.0.0"), pin("alpha", "1.0.0+build")];
+        const lock = new PackageLock({
+            target,
+            roots: [],
+            snapshotRevision: new Revision(4),
+            snapshotDigest,
+            packages: pins
+        });
+        pins.reverse();
 
-            expect(lock.packages.map((entry) => entry.id.value)).toEqual(["alpha", "zeta"]);
-            expect(Object.isFrozen(lock.packages)).toBe(true);
-            const encoded = PackageLock.encode(lock);
-            expect(lock.digest.equals(Digest.sha256(encoded))).toBe(true);
-            expect(PackageLock.encode(PackageLock.decode(encoded))).toEqual(encoded);
-        }
-    );
+        expect(lock.packages.map((entry) => entry.id.value)).toEqual(["alpha", "zeta"]);
+        expect(Object.isFrozen(lock.packages)).toBe(true);
+        const encoded = PackageLock.encode(lock);
+        expect(lock.digest.equals(Digest.sha256(encoded))).toBe(true);
+        expect(PackageLock.encode(PackageLock.decode(encoded))).toEqual(encoded);
+    });
 
     test("rejects duplicate pins and unknown codec fields", { tags: "p1" }, () => {
         expect(

@@ -84,29 +84,25 @@ describe("Environment records", () => {
         expect(exposureId.equals(new EnvironmentSessionId(exposureId.value))).toBe(false);
     });
 
-    test(
-        "[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0",
-        { tags: "p1" },
-        () => {
-            const records = [
-                [Environment, environment],
-                [EnvironmentRevisionRecord, revisionRecord],
-                [EnvironmentSession, session],
-                [EnvironmentSnapshot, snapshot],
-                [PortExposure, exposure]
-            ] as const;
+    test("[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] round-trips every immutable record through RecordCodec 1.0", { tags: "p1" }, () => {
+        const records = [
+            [Environment, environment],
+            [EnvironmentRevisionRecord, revisionRecord],
+            [EnvironmentSession, session],
+            [EnvironmentSnapshot, snapshot],
+            [PortExposure, exposure]
+        ] as const;
 
-            for (const [recordClass, record] of records) {
-                const bytes = recordClass.encode(record as never);
-                const decoded = recordClass.decode(bytes);
-                const envelope = decodeCanonicalJson(bytes) as JsonValue & RecordEnvelope;
+        for (const [recordClass, record] of records) {
+            const bytes = recordClass.encode(record as never);
+            const decoded = recordClass.decode(bytes);
+            const envelope = decodeCanonicalJson(bytes) as JsonValue & RecordEnvelope;
 
-                expect(envelope.version).toEqual({ major: 1, minor: 0 });
-                expect(recordClass.encode(decoded as never)).toEqual(bytes);
-                expect(Object.isFrozen(decoded)).toBe(true);
-            }
+            expect(envelope.version).toEqual({ major: 1, minor: 0 });
+            expect(recordClass.encode(decoded as never)).toEqual(bytes);
+            expect(Object.isFrozen(decoded)).toBe(true);
         }
-    );
+    });
 
     test("rejects an unknown major for every Environment record", { tags: "p2" }, () => {
         const records = [
@@ -172,114 +168,106 @@ describe("Environment records", () => {
         expect(() => exposure.revoked()).toThrow(AgentCoreError);
     });
 
-    test(
-        "makes every terminal lifecycle transition idempotent and every illegal transition fail",
-        { tags: "p1" },
-        () => {
-            const reserved = sessionIn(EnvironmentSessionState.reserved);
-            const opening = reserved.beginOpen();
-            const opened = opening.opened();
-            const lost = opened.lost();
-            const failed = opening.failOpen();
-            const closing = opened.beginClose();
-            const closed = closing.closed();
+    test("makes every terminal lifecycle transition idempotent and every illegal transition fail", { tags: "p1" }, () => {
+        const reserved = sessionIn(EnvironmentSessionState.reserved);
+        const opening = reserved.beginOpen();
+        const opened = opening.opened();
+        const lost = opened.lost();
+        const failed = opening.failOpen();
+        const closing = opened.beginClose();
+        const closed = closing.closed();
 
-            expect(opening.beginOpen()).toBe(opening);
-            expect(opened.beginOpen()).toBe(opened);
-            expect(opened.opened()).toBe(opened);
-            expect(lost.lost()).toBe(lost);
-            expect(lost.beginClose().state.name).toBe("closing");
-            expect(failed.failOpen()).toBe(failed);
-            expect(closing.beginClose()).toBe(closing);
-            expect(closed.beginClose()).toBe(closed);
-            expect(closed.closed()).toBe(closed);
-            expect(() => reserved.opened()).toThrow(AgentCoreError);
-            expect(() => reserved.failOpen()).toThrow(AgentCoreError);
-            expect(() => failed.beginOpen()).toThrow(AgentCoreError);
-            expect(() => opened.failOpen()).toThrow(AgentCoreError);
-            expect(() => failed.closed()).toThrow(AgentCoreError);
-            expect(() => opening.assertUsable()).toThrow(AgentCoreError);
-            expect(() => failed.assertUsable()).toThrow(AgentCoreError);
+        expect(opening.beginOpen()).toBe(opening);
+        expect(opened.beginOpen()).toBe(opened);
+        expect(opened.opened()).toBe(opened);
+        expect(lost.lost()).toBe(lost);
+        expect(lost.beginClose().state.name).toBe("closing");
+        expect(failed.failOpen()).toBe(failed);
+        expect(closing.beginClose()).toBe(closing);
+        expect(closed.beginClose()).toBe(closed);
+        expect(closed.closed()).toBe(closed);
+        expect(() => reserved.opened()).toThrow(AgentCoreError);
+        expect(() => reserved.failOpen()).toThrow(AgentCoreError);
+        expect(() => failed.beginOpen()).toThrow(AgentCoreError);
+        expect(() => opened.failOpen()).toThrow(AgentCoreError);
+        expect(() => failed.closed()).toThrow(AgentCoreError);
+        expect(() => opening.assertUsable()).toThrow(AgentCoreError);
+        expect(() => failed.assertUsable()).toThrow(AgentCoreError);
 
-            const creatingSnapshot = snapshotIn(EnvironmentSnapshotState.creating);
-            const readySnapshot = creatingSnapshot.ready(content("d"));
-            const failedSnapshot = creatingSnapshot.fail();
-            expect(readySnapshot.ready(readySnapshot.content!)).toBe(readySnapshot);
-            expect(failedSnapshot.fail()).toBe(failedSnapshot);
-            expect(() => readySnapshot.fail()).toThrow(AgentCoreError);
-            expect(() => failedSnapshot.ready(content("e"))).toThrow(AgentCoreError);
+        const creatingSnapshot = snapshotIn(EnvironmentSnapshotState.creating);
+        const readySnapshot = creatingSnapshot.ready(content("d"));
+        const failedSnapshot = creatingSnapshot.fail();
+        expect(readySnapshot.ready(readySnapshot.content!)).toBe(readySnapshot);
+        expect(failedSnapshot.fail()).toBe(failedSnapshot);
+        expect(() => readySnapshot.fail()).toThrow(AgentCoreError);
+        expect(() => failedSnapshot.ready(content("e"))).toThrow(AgentCoreError);
 
-            const exposing = exposureIn(PortExposureState.exposing);
-            const exposed = exposing.exposed("https://preview.example.test/");
-            const failedExposure = exposing.fail();
-            const revoking = exposed.beginRevoke();
-            const revoked = revoking.revoked();
-            expect(exposed.exposed(exposed.url!)).toBe(exposed);
-            expect(failedExposure.fail()).toBe(failedExposure);
-            expect(revoking.beginRevoke()).toBe(revoking);
-            expect(revoked.beginRevoke()).toBe(revoked);
-            expect(revoked.revoked()).toBe(revoked);
-            expect(() => exposed.fail()).toThrow(AgentCoreError);
-            expect(() => failedExposure.exposed("https://preview.example.test/")).toThrow(
-                AgentCoreError
-            );
-            expect(() => failedExposure.revoked()).toThrow(AgentCoreError);
-            expect(() => revoked.exposed("https://preview.example.test/")).toThrow(AgentCoreError);
-        }
-    );
+        const exposing = exposureIn(PortExposureState.exposing);
+        const exposed = exposing.exposed("https://preview.example.test/");
+        const failedExposure = exposing.fail();
+        const revoking = exposed.beginRevoke();
+        const revoked = revoking.revoked();
+        expect(exposed.exposed(exposed.url!)).toBe(exposed);
+        expect(failedExposure.fail()).toBe(failedExposure);
+        expect(revoking.beginRevoke()).toBe(revoking);
+        expect(revoked.beginRevoke()).toBe(revoked);
+        expect(revoked.revoked()).toBe(revoked);
+        expect(() => exposed.fail()).toThrow(AgentCoreError);
+        expect(() => failedExposure.exposed("https://preview.example.test/")).toThrow(
+            AgentCoreError
+        );
+        expect(() => failedExposure.revoked()).toThrow(AgentCoreError);
+        expect(() => revoked.exposed("https://preview.example.test/")).toThrow(AgentCoreError);
+    });
 
-    test(
-        "rejects malformed codec payloads instead of constructing impossible durable states",
-        { tags: "p0" },
-        () => {
-            expectInvalidPayload(Environment, environment, null);
-            expectInvalidPayload(Environment, environment, { id: environmentId.value });
-            expectInvalidPayload(Environment, environment, {
-                id: environmentId.value,
-                activeRevision: -1,
-                generation: 0,
-                recordRevision: 0
-            });
-            expectInvalidPayload(EnvironmentRevisionRecord, revisionRecord, {
-                environmentId: environmentId.value,
-                revision: 0,
-                generation: 0,
-                provider: { id: provider.id.value, version: "", configuration: configuration.value }
-            });
-            expectInvalidPayload(EnvironmentSession, session, {
-                id: session.id.value,
-                environmentId: environmentId.value,
-                environmentRevision: 0,
-                generation: 0,
-                epoch: 0,
-                state: "unknown",
-                restoreFrom: null,
-                recordRevision: 0
-            });
-            expectInvalidPayload(EnvironmentSnapshot, snapshot, {
-                id: snapshot.id.value,
-                environmentId: environmentId.value,
-                sessionId: session.id.value,
-                environmentRevision: 0,
-                generation: 0,
-                state: "failed",
-                content: content("f").value,
-                recordRevision: 0
-            });
-            expectInvalidPayload(PortExposure, exposure, {
-                id: exposure.id.value,
-                environmentId: environmentId.value,
-                sessionId: session.id.value,
-                environmentRevision: 0,
-                generation: 0,
-                sessionEpoch: 0,
-                port: 0,
-                state: "exposed",
-                url: "not a URL",
-                recordRevision: 0
-            });
-        }
-    );
+    test("rejects malformed codec payloads instead of constructing impossible durable states", { tags: "p0" }, () => {
+        expectInvalidPayload(Environment, environment, null);
+        expectInvalidPayload(Environment, environment, { id: environmentId.value });
+        expectInvalidPayload(Environment, environment, {
+            id: environmentId.value,
+            activeRevision: -1,
+            generation: 0,
+            recordRevision: 0
+        });
+        expectInvalidPayload(EnvironmentRevisionRecord, revisionRecord, {
+            environmentId: environmentId.value,
+            revision: 0,
+            generation: 0,
+            provider: { id: provider.id.value, version: "", configuration: configuration.value }
+        });
+        expectInvalidPayload(EnvironmentSession, session, {
+            id: session.id.value,
+            environmentId: environmentId.value,
+            environmentRevision: 0,
+            generation: 0,
+            epoch: 0,
+            state: "unknown",
+            restoreFrom: null,
+            recordRevision: 0
+        });
+        expectInvalidPayload(EnvironmentSnapshot, snapshot, {
+            id: snapshot.id.value,
+            environmentId: environmentId.value,
+            sessionId: session.id.value,
+            environmentRevision: 0,
+            generation: 0,
+            state: "failed",
+            content: content("f").value,
+            recordRevision: 0
+        });
+        expectInvalidPayload(PortExposure, exposure, {
+            id: exposure.id.value,
+            environmentId: environmentId.value,
+            sessionId: session.id.value,
+            environmentRevision: 0,
+            generation: 0,
+            sessionEpoch: 0,
+            port: 0,
+            state: "exposed",
+            url: "not a URL",
+            recordRevision: 0
+        });
+    });
 
     test("rejects exhausted counters and invalid record invariants", { tags: "p0" }, () => {
         const exhausted = new Environment(
@@ -603,90 +591,80 @@ describe("Environment records", () => {
         for (const action of actions) expect(action).toThrow(TypeError);
     });
 
-    test(
-        "codes operational transition failures without changing constructor validation",
-        { tags: "p2" },
-        () => {
-            expect(() =>
-                environment.rotate(
-                    new EnvironmentRevisionRecord(environmentId, new Revision(1), 2, provider)
-                )
-            ).toThrow(
-                new AgentCoreError(
-                    "operation.invalid-input",
-                    "Environment rotation must advance the exact revision and generation"
-                )
-            );
-            expect(() =>
-                new Environment(
-                    environmentId,
-                    Revision.initial(),
-                    0,
-                    new Revision(Number.MAX_SAFE_INTEGER)
-                ).rotate(revision(1, 1))
-            ).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    "Environment record revision is exhausted"
-                )
-            );
-            expect(() =>
-                new EnvironmentSession(
-                    sessionId,
-                    environmentId,
-                    Revision.initial(),
-                    0,
-                    Number.MAX_SAFE_INTEGER,
-                    EnvironmentSessionState.reserved,
-                    undefined,
-                    Revision.initial()
-                ).beginClose()
-            ).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    "Environment session epoch is exhausted"
-                )
-            );
-            expect(() =>
-                new EnvironmentSnapshot(
-                    snapshotId,
-                    environmentId,
-                    sessionId,
-                    Revision.initial(),
-                    0,
-                    0,
-                    EnvironmentSnapshotState.creating,
-                    undefined,
-                    new Revision(Number.MAX_SAFE_INTEGER)
-                ).fail()
-            ).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    "Environment snapshot record revision is exhausted"
-                )
-            );
-            expect(() =>
-                new PortExposure(
-                    exposureId,
-                    environmentId,
-                    sessionId,
-                    Revision.initial(),
-                    0,
-                    0,
-                    4173,
-                    PortExposureState.exposing,
-                    undefined,
-                    Revision.initial()
-                ).exposed("relative")
-            ).toThrow(
-                new AgentCoreError("operation.invalid-output", "Port exposure URL must be absolute")
-            );
+    test("codes operational transition failures without changing constructor validation", { tags: "p2" }, () => {
+        expect(() =>
+            environment.rotate(
+                new EnvironmentRevisionRecord(environmentId, new Revision(1), 2, provider)
+            )
+        ).toThrow(
+            new AgentCoreError(
+                "operation.invalid-input",
+                "Environment rotation must advance the exact revision and generation"
+            )
+        );
+        expect(() =>
+            new Environment(
+                environmentId,
+                Revision.initial(),
+                0,
+                new Revision(Number.MAX_SAFE_INTEGER)
+            ).rotate(revision(1, 1))
+        ).toThrow(
+            new AgentCoreError("protocol.invalid-state", "Environment record revision is exhausted")
+        );
+        expect(() =>
+            new EnvironmentSession(
+                sessionId,
+                environmentId,
+                Revision.initial(),
+                0,
+                Number.MAX_SAFE_INTEGER,
+                EnvironmentSessionState.reserved,
+                undefined,
+                Revision.initial()
+            ).beginClose()
+        ).toThrow(
+            new AgentCoreError("protocol.invalid-state", "Environment session epoch is exhausted")
+        );
+        expect(() =>
+            new EnvironmentSnapshot(
+                snapshotId,
+                environmentId,
+                sessionId,
+                Revision.initial(),
+                0,
+                0,
+                EnvironmentSnapshotState.creating,
+                undefined,
+                new Revision(Number.MAX_SAFE_INTEGER)
+            ).fail()
+        ).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                "Environment snapshot record revision is exhausted"
+            )
+        );
+        expect(() =>
+            new PortExposure(
+                exposureId,
+                environmentId,
+                sessionId,
+                Revision.initial(),
+                0,
+                0,
+                4173,
+                PortExposureState.exposing,
+                undefined,
+                Revision.initial()
+            ).exposed("relative")
+        ).toThrow(
+            new AgentCoreError("operation.invalid-output", "Port exposure URL must be absolute")
+        );
 
-            expect(
-                () => new Environment(environmentId, Revision.initial(), -1, Revision.initial())
-            ).toThrow(TypeError);
-        }
-    );
+        expect(
+            () => new Environment(environmentId, Revision.initial(), -1, Revision.initial())
+        ).toThrow(TypeError);
+    });
 
     test("rejects credential-bearing exposure URLs", { tags: "p0" }, () => {
         expect(() => exposureWithUrl("https://user:password@example.test/")).toThrow(TypeError);
@@ -866,46 +844,36 @@ describe("Environment records", () => {
         });
     });
 
-    test(
-        "[P11-ENVIRONMENT-CREDENTIAL-SEAM] credential isolation passes only a bound capability and content references",
-        { tags: "p0" },
-        async () => {
-            const credential = new SecretRef("vault", "credential-provider", "environment-token");
-            const capability = new EnvironmentCredentialProxyCapability(
-                session.capability,
-                session.generation,
-                credential
-            );
-            const proxy = new TestCredentialProxy();
-            const request = content("c");
+    test("[P11-ENVIRONMENT-CREDENTIAL-SEAM] credential isolation passes only a bound capability and content references", { tags: "p0" }, async () => {
+        const credential = new SecretRef("vault", "credential-provider", "environment-token");
+        const capability = new EnvironmentCredentialProxyCapability(
+            session.capability,
+            session.generation,
+            credential
+        );
+        const proxy = new TestCredentialProxy();
+        const request = content("c");
 
-            const response = await proxy.forward(capability, request);
+        const response = await proxy.forward(capability, request);
 
-            expect(proxy.capability).toBe(capability);
-            expect(proxy.request).toBe(request);
-            expect(response).toBe(request);
-            expect(capability.credential).toBe(credential);
-            expect(Object.isFrozen(capability)).toBe(true);
-        }
-    );
+        expect(proxy.capability).toBe(capability);
+        expect(proxy.request).toBe(request);
+        expect(response).toBe(request);
+        expect(capability.credential).toBe(credential);
+        expect(Object.isFrozen(capability)).toBe(true);
+    });
 });
 
 describe("MemoryEnvironmentStore", () => {
-    test(
-        "[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS",
-        { tags: "p1" },
-        () => {
-            const store = seededStore();
+    test("[environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS", { tags: "p1" }, () => {
+        const store = seededStore();
 
-            expect(store.compareAndSetSession(undefined, session)).toBe(true);
-            expect(store.compareAndSetSession(undefined, session)).toBe(true);
-            expect(store.compareAndSetSession(new Revision(9), session.beginClose())).toBe(false);
-            expect(store.compareAndSetSession(session.recordRevision, session.beginClose())).toBe(
-                true
-            );
-            expect(store.getSession(sessionId)?.state.name).toBe("closing");
-        }
-    );
+        expect(store.compareAndSetSession(undefined, session)).toBe(true);
+        expect(store.compareAndSetSession(undefined, session)).toBe(true);
+        expect(store.compareAndSetSession(new Revision(9), session.beginClose())).toBe(false);
+        expect(store.compareAndSetSession(session.recordRevision, session.beginClose())).toBe(true);
+        expect(store.getSession(sessionId)?.state.name).toBe("closing");
+    });
 
     test("rejects records that do not pin the exact stored generation", { tags: "p0" }, () => {
         const store = seededStore();
@@ -1006,126 +974,114 @@ describe("MemoryEnvironmentStore", () => {
         );
     });
 
-    test(
-        "rejects future snapshot epochs while retaining fenced snapshot history",
-        { tags: "p0" },
-        () => {
-            const store = seededStore();
-            expect(store.compareAndSetSession(undefined, session)).toBe(true);
-            const future = new EnvironmentSnapshot(
-                new EnvironmentSnapshotId("snapshot-future-epoch"),
-                environmentId,
-                sessionId,
-                Revision.initial(),
-                0,
-                1,
-                EnvironmentSnapshotState.creating,
+    test("rejects future snapshot epochs while retaining fenced snapshot history", { tags: "p0" }, () => {
+        const store = seededStore();
+        expect(store.compareAndSetSession(undefined, session)).toBe(true);
+        const future = new EnvironmentSnapshot(
+            new EnvironmentSnapshotId("snapshot-future-epoch"),
+            environmentId,
+            sessionId,
+            Revision.initial(),
+            0,
+            1,
+            EnvironmentSnapshotState.creating,
+            undefined,
+            Revision.initial()
+        );
+        expect(() => store.compareAndSetSnapshot(undefined, future)).toThrow(
+            new AgentCoreError(
+                "environment.invalid-session",
+                "Environment snapshot must pin its source session generation and epoch"
+            )
+        );
+
+        const creating = new EnvironmentSnapshot(
+            new EnvironmentSnapshotId("snapshot-fenced-history"),
+            environmentId,
+            sessionId,
+            Revision.initial(),
+            0,
+            0,
+            EnvironmentSnapshotState.creating,
+            undefined,
+            Revision.initial()
+        );
+        expect(store.compareAndSetSnapshot(undefined, creating)).toBe(true);
+        expect(store.compareAndSetSession(session.recordRevision, session.beginClose())).toBe(true);
+        expect(store.compareAndSetSnapshot(creating.recordRevision, creating.fail())).toBe(true);
+    });
+
+    test("codes CAS progression and immutable revision violations as invalid state", { tags: "p0" }, () => {
+        const empty = new MemoryEnvironmentStore();
+        expect(() =>
+            empty.compareAndSetEnvironment(
                 undefined,
-                Revision.initial()
-            );
-            expect(() => store.compareAndSetSnapshot(undefined, future)).toThrow(
-                new AgentCoreError(
-                    "environment.invalid-session",
-                    "Environment snapshot must pin its source session generation and epoch"
-                )
-            );
+                revisionRecord,
+                new Environment(environmentId, Revision.initial(), 1, Revision.initial())
+            )
+        ).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                "Environment head must advance with its exact revision generation"
+            )
+        );
 
-            const creating = new EnvironmentSnapshot(
-                new EnvironmentSnapshotId("snapshot-fenced-history"),
-                environmentId,
-                sessionId,
-                Revision.initial(),
-                0,
-                0,
-                EnvironmentSnapshotState.creating,
-                undefined,
-                Revision.initial()
-            );
-            expect(store.compareAndSetSnapshot(undefined, creating)).toBe(true);
-            expect(store.compareAndSetSession(session.recordRevision, session.beginClose())).toBe(
-                true
-            );
-            expect(store.compareAndSetSnapshot(creating.recordRevision, creating.fail())).toBe(
-                true
-            );
-        }
-    );
+        const store = seededStore();
+        const nextRevision = revision(1, 1);
+        expect(() =>
+            store.compareAndSetEnvironment(
+                environment.recordRevision,
+                nextRevision,
+                new Environment(environmentId, nextRevision.revision, 1, new Revision(2))
+            )
+        ).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                "Environment head CAS must advance exactly one record revision"
+            )
+        );
+        const skippedSession = new EnvironmentSession(
+            sessionId,
+            environmentId,
+            Revision.initial(),
+            0,
+            0,
+            EnvironmentSessionState.open,
+            undefined,
+            new Revision(2)
+        );
+        expect(() => store.compareAndSetSession(undefined, skippedSession)).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                "Environment store CAS must advance exactly one record revision"
+            )
+        );
 
-    test(
-        "codes CAS progression and immutable revision violations as invalid state",
-        { tags: "p0" },
-        () => {
-            const empty = new MemoryEnvironmentStore();
-            expect(() =>
-                empty.compareAndSetEnvironment(
-                    undefined,
-                    revisionRecord,
-                    new Environment(environmentId, Revision.initial(), 1, Revision.initial())
-                )
-            ).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    "Environment head must advance with its exact revision generation"
-                )
-            );
-
-            const store = seededStore();
-            const nextRevision = revision(1, 1);
-            expect(() =>
-                store.compareAndSetEnvironment(
-                    environment.recordRevision,
-                    nextRevision,
-                    new Environment(environmentId, nextRevision.revision, 1, new Revision(2))
-                )
-            ).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    "Environment head CAS must advance exactly one record revision"
-                )
-            );
-            const skippedSession = new EnvironmentSession(
-                sessionId,
-                environmentId,
-                Revision.initial(),
-                0,
-                0,
-                EnvironmentSessionState.open,
-                undefined,
-                new Revision(2)
-            );
-            expect(() => store.compareAndSetSession(undefined, skippedSession)).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    "Environment store CAS must advance exactly one record revision"
-                )
-            );
-
-            const conflictingRevision = new EnvironmentRevisionRecord(
-                environmentId,
-                Revision.initial(),
-                0,
-                new ProviderDescriptor(new ProviderId("provider-conflict"), "1", content("c"))
-            );
-            const conflictingHead = new Environment(
-                environmentId,
-                Revision.initial(),
-                0,
-                environment.recordRevision.next()
-            );
-            expect(() =>
-                store.compareAndSetEnvironment(
-                    environment.recordRevision,
-                    conflictingRevision,
-                    conflictingHead
-                )
-            ).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    `Environment revision ${environmentId.value}\u00000 is immutable`
-                )
-            );
-        }
-    );
+        const conflictingRevision = new EnvironmentRevisionRecord(
+            environmentId,
+            Revision.initial(),
+            0,
+            new ProviderDescriptor(new ProviderId("provider-conflict"), "1", content("c"))
+        );
+        const conflictingHead = new Environment(
+            environmentId,
+            Revision.initial(),
+            0,
+            environment.recordRevision.next()
+        );
+        expect(() =>
+            store.compareAndSetEnvironment(
+                environment.recordRevision,
+                conflictingRevision,
+                conflictingHead
+            )
+        ).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                `Environment revision ${environmentId.value}\u00000 is immutable`
+            )
+        );
+    });
 
     test("leaves no orphan revision when the atomic head CAS conflicts", { tags: "p0" }, () => {
         const store = seededStore();
@@ -1153,188 +1109,168 @@ describe("MemoryEnvironmentStore", () => {
         expect(store.getRevision(environmentId, nextRevision.revision)).toBeUndefined();
     });
 
-    test(
-        "validates stored projections against their codec bytes on restore",
-        { tags: "p0" },
-        () => {
-            const store = seededStore();
-            expect(store.compareAndSetSession(undefined, session)).toBe(true);
-            const image = store.exportImage();
-            const rows = image.rows.map((row) =>
-                row.kind === "session" ? { ...row, projection: Object.freeze(["tampered"]) } : row
-            );
+    test("validates stored projections against their codec bytes on restore", { tags: "p0" }, () => {
+        const store = seededStore();
+        expect(store.compareAndSetSession(undefined, session)).toBe(true);
+        const image = store.exportImage();
+        const rows = image.rows.map((row) =>
+            row.kind === "session" ? { ...row, projection: Object.freeze(["tampered"]) } : row
+        );
 
-            expect(() => new MemoryEnvironmentStore({ rows })).toThrow(
-                new AgentCoreError(
-                    "protocol.invalid-state",
-                    "Environment store projection does not match codec bytes"
-                )
-            );
-        }
-    );
+        expect(() => new MemoryEnvironmentStore({ rows })).toThrow(
+            new AgentCoreError(
+                "protocol.invalid-state",
+                "Environment store projection does not match codec bytes"
+            )
+        );
+    });
 
-    test(
-        "rejects duplicate, malformed, mismatched, and orphaned store image rows",
-        { tags: "p0" },
-        () => {
-            const store = seededStore();
-            expect(store.compareAndSetSession(undefined, session)).toBe(true);
-            const image = store.exportImage();
-            const head = image.rows.find((row) => row.kind === "head")!;
-            const revisionRow = image.rows.find((row) => row.kind === "revision")!;
-            const sessionRow = image.rows.find((row) => row.kind === "session")!;
+    test("rejects duplicate, malformed, mismatched, and orphaned store image rows", { tags: "p0" }, () => {
+        const store = seededStore();
+        expect(store.compareAndSetSession(undefined, session)).toBe(true);
+        const image = store.exportImage();
+        const head = image.rows.find((row) => row.kind === "head")!;
+        const revisionRow = image.rows.find((row) => row.kind === "revision")!;
+        const sessionRow = image.rows.find((row) => row.kind === "session")!;
 
-            expect(() => new MemoryEnvironmentStore({ rows: [...image.rows, head] })).toThrowError(
-                expect.objectContaining({ code: "protocol.invalid-state" })
-            );
+        expect(() => new MemoryEnvironmentStore({ rows: [...image.rows, head] })).toThrowError(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+        expect(
+            () =>
+                new MemoryEnvironmentStore({
+                    rows: image.rows.map((row) =>
+                        row === sessionRow
+                            ? {
+                                  ...row,
+                                  recordRevision: -1,
+                                  projection: [...row.projection.slice(0, -1), "-1"]
+                              }
+                            : row
+                    )
+                })
+        ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
+        expect(
+            () =>
+                new MemoryEnvironmentStore({
+                    rows: image.rows.map((row) =>
+                        row === sessionRow ? { ...row, key: "wrong-session" } : row
+                    )
+                })
+        ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
+        expect(() => new MemoryEnvironmentStore({ rows: [revisionRow] })).toThrowError(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+    });
+
+    test("validates every durable row key and resource projection after restart", { tags: "p0" }, () => {
+        const store = seededStore();
+        store.compareAndSetSession(undefined, session);
+        store.compareAndSetSnapshot(undefined, snapshot);
+        store.compareAndSetExposure(undefined, exposure);
+        const image = store.exportImage();
+
+        for (const kind of ["head", "revision", "session", "snapshot", "exposure"] as const) {
             expect(
                 () =>
                     new MemoryEnvironmentStore({
                         rows: image.rows.map((row) =>
-                            row === sessionRow
-                                ? {
-                                      ...row,
-                                      recordRevision: -1,
-                                      projection: [...row.projection.slice(0, -1), "-1"]
-                                  }
-                                : row
+                            row.kind === kind ? { ...row, key: `wrong-${kind}` } : row
                         )
                     })
-            ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
-            expect(
-                () =>
-                    new MemoryEnvironmentStore({
-                        rows: image.rows.map((row) =>
-                            row === sessionRow ? { ...row, key: "wrong-session" } : row
-                        )
-                    })
-            ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
-            expect(() => new MemoryEnvironmentStore({ rows: [revisionRow] })).toThrowError(
-                expect.objectContaining({ code: "protocol.invalid-state" })
-            );
+            ).toThrow(AgentCoreError);
         }
-    );
+        const sessionRow = image.rows.find((row) => row.kind === "session")!;
+        expect(
+            () =>
+                new MemoryEnvironmentStore({
+                    rows: image.rows.map((row) =>
+                        row === sessionRow
+                            ? {
+                                  ...row,
+                                  recordRevision: Number.NaN,
+                                  projection: [...row.projection.slice(0, -1), "NaN"]
+                              }
+                            : row
+                    )
+                })
+        ).toThrow(/projection does not match/);
+    });
 
-    test(
-        "validates every durable row key and resource projection after restart",
-        { tags: "p0" },
-        () => {
-            const store = seededStore();
-            store.compareAndSetSession(undefined, session);
-            store.compareAndSetSnapshot(undefined, snapshot);
-            store.compareAndSetExposure(undefined, exposure);
-            const image = store.exportImage();
+    test("rejects nonzero initial generations and revisions beyond the durable head", { tags: "p0" }, () => {
+        const invalidRevision = new EnvironmentRevisionRecord(
+            environmentId,
+            Revision.initial(),
+            1,
+            provider
+        );
+        const invalidHead = new Environment(
+            environmentId,
+            Revision.initial(),
+            1,
+            Revision.initial()
+        );
+        expect(
+            () =>
+                new MemoryEnvironmentStore({
+                    rows: [
+                        {
+                            kind: "head",
+                            key: environmentId.value,
+                            recordRevision: 0,
+                            projection: [environmentId.value, "0", "1", "0"],
+                            bytes: Environment.encode(invalidHead)
+                        },
+                        {
+                            kind: "revision",
+                            key: `${environmentId.value}\u00000`,
+                            recordRevision: 0,
+                            projection: [
+                                environmentId.value,
+                                "0",
+                                "1",
+                                provider.id.value,
+                                provider.version,
+                                provider.configuration.value,
+                                "0"
+                            ],
+                            bytes: EnvironmentRevisionRecord.encode(invalidRevision)
+                        }
+                    ]
+                })
+        ).toThrow(/contiguous generation sequence/);
 
-            for (const kind of ["head", "revision", "session", "snapshot", "exposure"] as const) {
-                expect(
-                    () =>
-                        new MemoryEnvironmentStore({
-                            rows: image.rows.map((row) =>
-                                row.kind === kind ? { ...row, key: `wrong-${kind}` } : row
-                            )
-                        })
-                ).toThrow(AgentCoreError);
-            }
-            const sessionRow = image.rows.find((row) => row.kind === "session")!;
-            expect(
-                () =>
-                    new MemoryEnvironmentStore({
-                        rows: image.rows.map((row) =>
-                            row === sessionRow
-                                ? {
-                                      ...row,
-                                      recordRevision: Number.NaN,
-                                      projection: [...row.projection.slice(0, -1), "NaN"]
-                                  }
-                                : row
-                        )
-                    })
-            ).toThrow(/projection does not match/);
-        }
-    );
+        const initialImage = seededStore().exportImage();
+        const advanced = seededStore();
+        const nextRevision = revision(1, 1);
+        advanced.compareAndSetEnvironment(
+            environment.recordRevision,
+            nextRevision,
+            environment.rotate(nextRevision)
+        );
+        const rows = advanced
+            .exportImage()
+            .rows.filter((row) => row.kind !== "head")
+            .concat(initialImage.rows.filter((row) => row.kind === "head"));
+        expect(() => new MemoryEnvironmentStore({ rows })).toThrow(/orphan revision/);
+    });
 
-    test(
-        "rejects nonzero initial generations and revisions beyond the durable head",
-        { tags: "p0" },
-        () => {
-            const invalidRevision = new EnvironmentRevisionRecord(
-                environmentId,
-                Revision.initial(),
-                1,
-                provider
-            );
-            const invalidHead = new Environment(
-                environmentId,
-                Revision.initial(),
-                1,
-                Revision.initial()
-            );
-            expect(
-                () =>
-                    new MemoryEnvironmentStore({
-                        rows: [
-                            {
-                                kind: "head",
-                                key: environmentId.value,
-                                recordRevision: 0,
-                                projection: [environmentId.value, "0", "1", "0"],
-                                bytes: Environment.encode(invalidHead)
-                            },
-                            {
-                                kind: "revision",
-                                key: `${environmentId.value}\u00000`,
-                                recordRevision: 0,
-                                projection: [
-                                    environmentId.value,
-                                    "0",
-                                    "1",
-                                    provider.id.value,
-                                    provider.version,
-                                    provider.configuration.value,
-                                    "0"
-                                ],
-                                bytes: EnvironmentRevisionRecord.encode(invalidRevision)
-                            }
-                        ]
-                    })
-            ).toThrow(/contiguous generation sequence/);
+    test("restores the prior image when the head hook throws a typed store error", { tags: "p0" }, () => {
+        const store = new TypedFailingEnvironmentStore();
+        seedStore(store);
+        const nextRevision = revision(1, 1);
+        store.failNextHeadCommit = true;
 
-            const initialImage = seededStore().exportImage();
-            const advanced = seededStore();
-            const nextRevision = revision(1, 1);
-            advanced.compareAndSetEnvironment(
+        expect(() =>
+            store.compareAndSetEnvironment(
                 environment.recordRevision,
                 nextRevision,
                 environment.rotate(nextRevision)
-            );
-            const rows = advanced
-                .exportImage()
-                .rows.filter((row) => row.kind !== "head")
-                .concat(initialImage.rows.filter((row) => row.kind === "head"));
-            expect(() => new MemoryEnvironmentStore({ rows })).toThrow(/orphan revision/);
-        }
-    );
-
-    test(
-        "restores the prior image when the head hook throws a typed store error",
-        { tags: "p0" },
-        () => {
-            const store = new TypedFailingEnvironmentStore();
-            seedStore(store);
-            const nextRevision = revision(1, 1);
-            store.failNextHeadCommit = true;
-
-            expect(() =>
-                store.compareAndSetEnvironment(
-                    environment.recordRevision,
-                    nextRevision,
-                    environment.rotate(nextRevision)
-                )
-            ).toThrowError(expect.objectContaining({ code: "protocol.revision-conflict" }));
-            expect(store.getEnvironment(environmentId)?.activeRevision.value).toBe(0);
-            expect(store.getRevision(environmentId, nextRevision.revision)).toBeUndefined();
-        }
-    );
+            )
+        ).toThrowError(expect.objectContaining({ code: "protocol.revision-conflict" }));
+        expect(store.getEnvironment(environmentId)?.activeRevision.value).toBe(0);
+        expect(store.getRevision(environmentId, nextRevision.revision)).toBeUndefined();
+    });
 });
 
 function seededStore(): MemoryEnvironmentStore {
