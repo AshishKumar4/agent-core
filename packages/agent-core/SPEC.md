@@ -932,7 +932,8 @@ interface PlacementPin {
 type RunLifecycle =
   | { readonly kind: "active" }
   | { readonly kind: "terminal"; readonly outcome: "succeeded" | "failed" | "cancelled";
-      readonly terminalCommit: RunCommitId; readonly obligation: SettlementObligation };
+      readonly terminalCommit: RunCommitId; readonly obligation: SettlementObligation;
+      readonly exhausted?: "tokens" | "wallClockMs" | "depth" }; // cancelled by ceiling only
 
 type RunObligation =
   | { readonly kind: "approval"; readonly approval: ApprovalId }
@@ -1145,18 +1146,31 @@ criterion undischarged across distinct subjects. This maps to
 **C13-RUN-ACCEPTANCE-SUBJECT**.
 
 A `delegate`-impact spawn MAY attenuate resources alongside capability, by carrying an
-optional `ResourceCeiling` on the spawn's attenuation. The same rule governs it as governs
-capability (§3.4 rule 2): a child ceiling MUST NOT exceed the parent's remaining allowance
-in any declared dimension, and a dimension the child does not declare inherits the parent's
-remainder. A Run that declares no ceiling is unbounded — the platform imposes none — so
-fan-out narrows downward without anything capping work nobody chose to bound.
+optional `ResourceCeiling` on the spawn's attenuation — the same content-addressed
+attenuation `SpawnReservation.attenuation`'s digest already commits (§5.2), not a new
+record. The same rule governs it as governs capability (§3.4 rule 2): a child ceiling MUST
+NOT exceed the parent's remaining allowance in any declared dimension, and a dimension the
+child does not declare inherits the parent's remainder. A Run that declares no ceiling is
+unbounded — the platform imposes none — so fan-out narrows downward without anything
+capping work nobody chose to bound.
+
+The three dimensions differ in how their remainder is known. `depth` and `wallClockMs` are
+derived, never separately accounted: depth is the length of the spawn lineage from the Run
+back to the ancestor that declared the ceiling, and wall-clock consumption is the current
+time minus the Run's root RunCommit timestamp — both computable from records this document
+already requires, with no running total to maintain. `tokens` has no such derivation:
+consuming it needs a durable running total per Run, accumulated at the same point a model
+call commits (§5.1, C13-TURN-MODEL-CALL) — a counter this document requires without
+further shaping its storage, left to the executor seam (§5.6) like every other model-call
+detail.
 
 Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
-closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded, and the
-Run's acceptance criteria still say whether the work was finished, so an exhausted Run with
-an undischarged criterion reads as exactly that. A ceiling is scheduling state, like claim
-expiry (§7.4); it never appears in authority admission and changes no admission decision.
-This maps to **C13-RUN-RESOURCE-CEILING**.
+closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded in
+`RunLifecycle`'s terminal `exhausted` field, and the Run's acceptance criteria still say
+whether the work was finished, so an exhausted Run with an undischarged criterion reads as
+exactly that. A ceiling is scheduling state, like claim expiry (§7.4); it never appears in
+authority admission and changes no admission decision. This maps to
+**C13-RUN-RESOURCE-CEILING**.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
