@@ -156,6 +156,14 @@ import AgentCore
 #print axioms AgentCore.asserted_tier_publish_rejected
 #print axioms AgentCore.target_projection_is_exact_authenticated_reservation_projection
 
+-- Route reservation uniqueness and delivery dedupe (§14).
+#print axioms AgentCore.default_reservation_for_consistent
+#print axioms AgentCore.event_step_preserves_reservation_for_consistency
+#print axioms AgentCore.reachable_reservation_for_consistent
+#print axioms AgentCore.route_reservation_is_unique_per_invocation
+#print axioms AgentCore.event_step_preserves_deliveries
+#print axioms AgentCore.delivered_reservation_cannot_redeliver
+
 -- Actor-local, ordered, typed audit.
 #print axioms AgentCore.audit_sequence_is_unique
 #print axioms AgentCore.local_cause_same_actor_lower_sequence
@@ -364,6 +372,9 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_stale_denial_audit_atomic
 #print axioms AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline
 #print axioms AgentCore.Examples.nonvacuous_exact_route_projection
+#print axioms AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent
+#print axioms AgentCore.Examples.nonvacuous_double_route_reservation_is_inconsistent
+#print axioms AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected
 #print axioms AgentCore.Examples.nonvacuous_source_reservation_audit_binding
 #print axioms AgentCore.Examples.nonvacuous_graph_freshness_rejection
 #print axioms AgentCore.Examples.nonvacuous_typed_system_writer_audit

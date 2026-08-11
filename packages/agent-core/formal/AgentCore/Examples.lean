@@ -461,6 +461,43 @@ theorem nonvacuous_route_delivery :
   · rfl
   · rfl
 
+/-- A second `RouteReservation` naming the same Invocation as `reservation` but stored
+    under a different `ReservationId` makes the ledger inconsistent — the reservation
+    uniqueness invariant genuinely excludes double reservation, not just asserts it. -/
+private def reservation2 : RouteReservation := { reservation with sourceEvent := ⟨21⟩ }
+private def doubleReservedId : ReservationId := ⟨2⟩
+private def doubleReservedEvents : EventStore := {
+  (default : EventStore) with
+  reservations := tableSet (tableSet (default : EventStore).reservations reservationId reservation)
+    doubleReservedId reservation2
+  reservationFor := tableSet (default : EventStore).reservationFor invocationId reservationId
+}
+
+theorem nonvacuous_double_route_reservation_is_inconsistent :
+    ¬ doubleReservedEvents.ReservationForConsistent := by
+  intro consistent
+  have leftLookup : doubleReservedEvents.reservations reservationId = some reservation := by
+    show tableSet
+        (tableSet (default : EventStore).reservations reservationId reservation)
+        doubleReservedId reservation2 reservationId = some reservation
+    rw [tableSet_other _ _ _ (by decide)]
+    exact tableSet_self ..
+  have rightLookup : doubleReservedEvents.reservations doubleReservedId = some reservation2 := by
+    show tableSet
+        (tableSet (default : EventStore).reservations reservationId reservation)
+        doubleReservedId reservation2 doubleReservedId = some reservation2
+    exact tableSet_self ..
+  have same := route_reservation_is_unique_per_invocation consistent leftLookup rightLookup rfl
+  exact absurd same (by decide)
+
+/-- A delivered reservation cannot be delivered a second time — the concrete instance
+    of `delivered_reservation_cannot_redeliver` on the existing delivery witness. -/
+theorem nonvacuous_redelivery_of_route_reservation_rejected {after : EventStore} :
+    ¬ EventStep (fun _ => none) ⟨5⟩ deliveredEvents (.deliver reservationId) after := by
+  apply delivered_reservation_cannot_redeliver (existing := delivery)
+  show tableSet routedEvents.deliveries reservationId delivery reservationId = some delivery
+  exact tableSet_self ..
+
 theorem nonvacuous_delivery_local_audit :
     ∃ after, AuditStep (default : EffectLedger) deliveredEvents projectionAuditLog
       (.append ⟨22⟩) after := by
@@ -2351,6 +2388,29 @@ theorem nonvacuous_source_reservation_audit_binding :
       by simp [sourceReservedStore, reservationId],
       by simp [sourceReservedStore, sourceEventStore, reservation], rfl,
       by simp [sourceRouteState, sourceEventAuditLog, reservation], rfl, rfl⟩
+
+private def routePublishStep :
+    EventStep (fun _ => none) ⟨1⟩ (default : EventStore) (.publish reservation.sourceEvent)
+      sourceEventStore :=
+  EventStep.publish (event := sourceEventRecord) rfl rfl rfl ⟨rfl, rfl⟩
+
+private def routeReserveStep :
+    EventStep (fun _ => none) ⟨1⟩ sourceEventStore (.reserve reservationId) sourceReservedStore :=
+  EventStep.reserveSameTenant (reservation := reservation) (event := sourceEventRecord)
+    (source := .initiator principalRef bindingId) rfl rfl
+    (by simp [sourceEventStore, reservation]) rfl rfl rfl
+
+private def routeUniquenessReachable :
+    EventStoreReachable (fun _ => none) ⟨1⟩ sourceReservedStore :=
+  .step (.step .boot routePublishStep) routeReserveStep
+
+/-- A concrete publish-then-reserve trace from `default` is `EventStoreReachable`, and
+    the `(reservationFor, reservations)` consistency invariant holds at that reachable
+    state — the closure theorem exercised on a genuine trace, not just at `default`. -/
+theorem nonvacuous_reachable_route_reservation_consistent :
+    EventStoreReachable (fun _ => none) ⟨1⟩ sourceReservedStore ∧
+    sourceReservedStore.ReservationForConsistent :=
+  ⟨routeUniquenessReachable, reachable_reservation_for_consistent routeUniquenessReachable⟩
 
 theorem nonvacuous_graph_freshness_rejection :
     ¬ GraphStep (default : EffectLedger) (default : EventStore) auditOne rootGraph

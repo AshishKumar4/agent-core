@@ -857,4 +857,158 @@ def RoutesTerminal (store : EventStore) (invocation : InvocationId) : Prop :=
   ∀ reservationId, store.reservationFor invocation = some reservationId →
     ∃ delivery, store.deliveries reservationId = some delivery
 
+/-! ## Route reservation uniqueness and delivery dedupe (§14)
+
+`reserveSameTenant`/`reserveCrossTenant` both guard on `store.reservationFor
+reservation.invocation = none`, and no transition ever clears or overwrites an
+existing `reservationFor` entry, so at most one `ReservationId` is ever recorded for a
+given Invocation. That guard is structural; the theorems below promote it to the
+stated claim: a `(reservationFor, reservations)` index that stays consistent across
+every step, and the corollary that no Invocation is ever reserved twice. -/
+
+/-- The `reservationFor` index and the `reservations` table agree bijectively: every
+    stored reservation is indexed under its own invocation, and every index entry
+    points back at a reservation for exactly that invocation. -/
+def EventStore.ReservationForConsistent (store : EventStore) : Prop :=
+  (∀ id reservation, store.reservations id = some reservation →
+    store.reservationFor reservation.invocation = some id) ∧
+  (∀ invocation id, store.reservationFor invocation = some id →
+    ∃ reservation, store.reservations id = some reservation ∧ reservation.invocation = invocation)
+
+theorem default_reservation_for_consistent :
+    (default : EventStore).ReservationForConsistent :=
+  ⟨fun _ _ lookup => Option.noConfusion lookup, fun _ _ lookup => Option.noConfusion lookup⟩
+
+/-- **Reservation consistency is preserved.** Along every trace, the `reservationFor`
+    index and the `reservations` table stay in bijective agreement — no step can
+    manufacture a second reservation under an already-indexed invocation. -/
+theorem event_step_preserves_reservation_for_consistency {leases now before after label}
+    (consistent : before.ReservationForConsistent) (step : EventStep leases now before label after) :
+    after.ReservationForConsistent := by
+  obtain ⟨forward, backward⟩ := consistent
+  cases step with
+  | publish _ _ _ _ => exact ⟨forward, backward⟩
+  | @reserveSameTenant rsvId rsv event source fresh freshIndex eventLookup ownerEq
+      authorityEq tenantsEq =>
+      constructor
+      · intro candidateId candidateReservation lookup
+        have lookup' : tableSet before.reservations rsvId rsv candidateId =
+            some candidateReservation := lookup
+        by_cases same : candidateId = rsvId
+        · subst same
+          rw [tableSet_self] at lookup'
+          cases Option.some.inj lookup'
+          exact tableSet_self ..
+        · rw [tableSet_other _ _ _ same] at lookup'
+          have indexed := forward candidateId candidateReservation lookup'
+          by_cases sameInvocation : candidateReservation.invocation = rsv.invocation
+          · rw [sameInvocation, freshIndex] at indexed; contradiction
+          · show tableSet before.reservationFor rsv.invocation rsvId candidateReservation.invocation
+                = some candidateId
+            rw [tableSet_other _ _ _ sameInvocation]; exact indexed
+      · intro invocation candidateId lookup
+        have lookup' : tableSet before.reservationFor rsv.invocation rsvId invocation =
+            some candidateId := lookup
+        by_cases same : invocation = rsv.invocation
+        · subst same
+          rw [tableSet_self] at lookup'
+          cases Option.some.inj lookup'
+          exact ⟨rsv, tableSet_self .., rfl⟩
+        · rw [tableSet_other _ _ _ same] at lookup'
+          obtain ⟨found, foundLookup, foundInvocation⟩ := backward invocation candidateId lookup'
+          refine ⟨found, ?_, foundInvocation⟩
+          show tableSet before.reservations rsvId rsv candidateId = some found
+          by_cases sameId : candidateId = rsvId
+          · subst sameId; rw [fresh] at foundLookup; contradiction
+          · rw [tableSet_other _ _ _ sameId]; exact foundLookup
+  | @reserveCrossTenant rsvId rsv event source binding fresh freshIndex eventLookup ownerEq
+      authorityEq tenantsDiffer =>
+      constructor
+      · intro candidateId candidateReservation lookup
+        have lookup' : tableSet before.reservations rsvId rsv candidateId =
+            some candidateReservation := lookup
+        by_cases same : candidateId = rsvId
+        · subst same
+          rw [tableSet_self] at lookup'
+          cases Option.some.inj lookup'
+          exact tableSet_self ..
+        · rw [tableSet_other _ _ _ same] at lookup'
+          have indexed := forward candidateId candidateReservation lookup'
+          by_cases sameInvocation : candidateReservation.invocation = rsv.invocation
+          · rw [sameInvocation, freshIndex] at indexed; contradiction
+          · show tableSet before.reservationFor rsv.invocation rsvId candidateReservation.invocation
+                = some candidateId
+            rw [tableSet_other _ _ _ sameInvocation]; exact indexed
+      · intro invocation candidateId lookup
+        have lookup' : tableSet before.reservationFor rsv.invocation rsvId invocation =
+            some candidateId := lookup
+        by_cases same : invocation = rsv.invocation
+        · subst same
+          rw [tableSet_self] at lookup'
+          cases Option.some.inj lookup'
+          exact ⟨rsv, tableSet_self .., rfl⟩
+        · rw [tableSet_other _ _ _ same] at lookup'
+          obtain ⟨found, foundLookup, foundInvocation⟩ := backward invocation candidateId lookup'
+          refine ⟨found, ?_, foundInvocation⟩
+          show tableSet before.reservations rsvId rsv candidateId = some found
+          by_cases sameId : candidateId = rsvId
+          · subst sameId; rw [fresh] at foundLookup; contradiction
+          · rw [tableSet_other _ _ _ sameId]; exact foundLookup
+  | project _ _ _ _ _ _ _ => exact ⟨forward, backward⟩
+  | deliver _ _ _ _ => exact ⟨forward, backward⟩
+
+inductive EventStoreReachable (leases : TurnId → Option TurnLease) (now : Time) :
+    EventStore → Prop
+  | boot : EventStoreReachable leases now default
+  | step {before label after} : EventStoreReachable leases now before →
+      EventStep leases now before label after → EventStoreReachable leases now after
+
+theorem reachable_reservation_for_consistent {leases now store}
+    (reachable : EventStoreReachable leases now store) : store.ReservationForConsistent := by
+  induction reachable with
+  | boot => exact default_reservation_for_consistent
+  | step _ step ih => exact event_step_preserves_reservation_for_consistency ih step
+
+/-- **A route reservation is unique per Invocation.** Under reservation consistency, two
+    stored reservations naming the same Invocation are the same reservation — the §14
+    "no reservation uniqueness claim" gap this closes. -/
+theorem route_reservation_is_unique_per_invocation {store : EventStore} {leftId rightId}
+    {left right : RouteReservation} (consistent : store.ReservationForConsistent)
+    (leftLookup : store.reservations leftId = some left)
+    (rightLookup : store.reservations rightId = some right)
+    (sameInvocation : left.invocation = right.invocation) : leftId = rightId := by
+  have leftIndexed := consistent.1 leftId left leftLookup
+  have rightIndexed := consistent.1 rightId right rightLookup
+  rw [sameInvocation] at leftIndexed
+  rw [leftIndexed] at rightIndexed
+  exact Option.some.inj rightIndexed
+
+/-- **Deliveries are append-only.** No transition ever clears or overwrites a stored
+    delivery — `deliver` is the only constructor touching `.deliveries`, and it only
+    ever writes a fresh reservation id. -/
+theorem event_step_preserves_deliveries {leases now before after label reservationId delivery}
+    (step : EventStep leases now before label after)
+    (stored : before.deliveries reservationId = some delivery) :
+    after.deliveries reservationId = some delivery := by
+  cases step with
+  | publish _ _ _ _ => exact stored
+  | reserveSameTenant _ _ _ _ _ _ => exact stored
+  | reserveCrossTenant _ _ _ _ _ _ => exact stored
+  | project _ _ _ _ _ _ _ => exact stored
+  | @deliver deliveredId delivery' reservation' fresh reservationLookup deliveryEq targetEq =>
+      by_cases same : reservationId = deliveredId
+      · subst same; rw [stored] at fresh; contradiction
+      · exact Eq.trans (tableSet_other _ _ _ same _) stored
+
+/-- **A delivered reservation never delivers again.** Once a reservation has any
+    recorded delivery outcome, a second `deliver` step for it is impossible — the §14
+    "delivery dedupe" gap this closes, at the substrate `EventStore` layer beneath
+    `AC-ROUTING-001`'s Subscription-level at-most-once. -/
+theorem delivered_reservation_cannot_redeliver {leases now before after reservationId
+    existing} (already : before.deliveries reservationId = some existing) :
+    ¬ EventStep leases now before (.deliver reservationId) after := by
+  intro step
+  cases step with
+  | deliver fresh _ _ _ => rw [already] at fresh; contradiction
+
 end AgentCore

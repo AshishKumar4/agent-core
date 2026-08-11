@@ -1071,9 +1071,9 @@
     },
     {
       "id": "AC-EVENT-ROUTING-001",
-      "summary": "Lease-backed self Event acceptance, hostile asserted-tier publication rejection, exact authenticated route projection, and source Event-audit-bound reservation",
+      "summary": "Lease-backed self Event acceptance, hostile asserted-tier publication rejection, exact authenticated route projection, source Event-audit-bound reservation, route reservation uniqueness per Invocation, and append-only delivery dedupe",
       "status": "proved-safety",
-      "boundary": "Published Events cannot carry caller-asserted trust tiers, self acceptance checks the supplied exact lease, projection copies the reserved projection ID, digest, and target under authenticated evidence, and mediated reservation binds its source Event and source-owner audit. Delivery liveness, Subscription semantics, and concrete transport authenticity are not proved here.",
+      "boundary": "Published Events cannot carry caller-asserted trust tiers, self acceptance checks the supplied exact lease, projection copies the reserved projection ID, digest, and target under authenticated evidence, and mediated reservation binds its source Event and source-owner audit. The reservationFor index and the reservations table stay in bijective agreement across every EventStep and every EventStoreReachable trace, so two stored reservations naming the same Invocation are provably the same reservation -- the reservation-uniqueness claim -- and deliveries are append-only, so a reservation that already has a recorded delivery outcome can never admit a second deliver step -- the delivery-dedupe claim, at the substrate EventStore layer beneath AC-ROUTING-001's Subscription-level at-most-once. Delivery liveness, Subscription semantics, and concrete transport authenticity are not proved here.",
       "definitions": [
         "AgentCore.Event",
         "AgentCore.HostDerivedTrust",
@@ -1081,7 +1081,9 @@
         "AgentCore.RouteProjection",
         "AgentCore.EventStore",
         "AgentCore.EventStep",
-        "AgentCore.ReservationSourceAuditValid"
+        "AgentCore.ReservationSourceAuditValid",
+        "AgentCore.EventStore.ReservationForConsistent",
+        "AgentCore.EventStoreReachable"
       ],
       "theorems": [
         "AgentCore.accepted_self_has_live_exact_lease",
@@ -1089,14 +1091,23 @@
         "AgentCore.published_event_has_no_asserted_tier",
         "AgentCore.asserted_tier_publish_rejected",
         "AgentCore.target_projection_is_exact_authenticated_reservation_projection",
-        "AgentCore.routed_reservation_binds_source_event_audit"
+        "AgentCore.routed_reservation_binds_source_event_audit",
+        "AgentCore.default_reservation_for_consistent",
+        "AgentCore.event_step_preserves_reservation_for_consistency",
+        "AgentCore.reachable_reservation_for_consistent",
+        "AgentCore.route_reservation_is_unique_per_invocation",
+        "AgentCore.event_step_preserves_deliveries",
+        "AgentCore.delivered_reservation_cannot_redeliver"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_route_delivery",
         "AgentCore.Examples.nonvacuous_stale_self_rejection",
         "AgentCore.Examples.nonvacuous_exact_route_projection",
         "AgentCore.Examples.nonvacuous_source_reservation_audit_binding",
-        "AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected"
+        "AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected",
+        "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent",
+        "AgentCore.Examples.nonvacuous_double_route_reservation_is_inconsistent",
+        "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
       ],
       "witnessCoverage": {
         "AgentCore.accepted_self_has_live_exact_lease": [
@@ -1116,11 +1127,29 @@
         ],
         "AgentCore.routed_reservation_binds_source_event_audit": [
           "AgentCore.Examples.nonvacuous_source_reservation_audit_binding"
+        ],
+        "AgentCore.default_reservation_for_consistent": [
+          "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent"
+        ],
+        "AgentCore.event_step_preserves_reservation_for_consistency": [
+          "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent"
+        ],
+        "AgentCore.reachable_reservation_for_consistent": [
+          "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent"
+        ],
+        "AgentCore.route_reservation_is_unique_per_invocation": [
+          "AgentCore.Examples.nonvacuous_double_route_reservation_is_inconsistent"
+        ],
+        "AgentCore.event_step_preserves_deliveries": [
+          "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
+        ],
+        "AgentCore.delivered_reservation_cannot_redeliver": [
+          "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
         ]
       },
       "remainingEvidence": [
         "source-owned reservation and authenticated projection transport refinement",
-        "Subscription matching, delivery, dedupe, and reconciliation conformance"
+        "Subscription matching and reconciliation conformance"
       ]
     },
     {
