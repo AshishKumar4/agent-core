@@ -1160,7 +1160,7 @@ function mintProof(
         new PrincipalRef(guestHome, guestId),
         options.trustId ?? trust.id,
         options.trustRevision ?? trust.revision,
-        "callback",
+        GuestVerificationScheme.callback,
         Digest.sha256(Uint8Array.of(9)),
         new Date(100),
         new Date(200)

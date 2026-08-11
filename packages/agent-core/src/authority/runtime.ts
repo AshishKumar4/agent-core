@@ -242,7 +242,7 @@ export class TenantAuthorityRuntime {
             trust?.isActive === true &&
             trust.revision.value === verification.trustRevision.value &&
             trust.homeTenant.equals(membership.subject.homeTenant) &&
-            trust.verifier.kind === verification.method
+            trust.verifier.kind === verification.verifiedVia.value
         );
     }
 

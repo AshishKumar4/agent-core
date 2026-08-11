@@ -1,0 +1,167 @@
+{
+  "edition": "1.0.0",
+  "foreign": [
+    {
+      "word": "tool",
+      "specTerm": "Operation"
+    },
+    {
+      "word": "toolset",
+      "specTerm": "Facet"
+    },
+    {
+      "word": "plugin",
+      "specTerm": "Facet, or Interceptor for a hook"
+    },
+    {
+      "word": "extension",
+      "specTerm": "Facet"
+    },
+    {
+      "word": "middleware",
+      "specTerm": "Interceptor"
+    },
+    {
+      "word": "hook",
+      "specTerm": "Interceptor"
+    },
+    {
+      "word": "wrapper",
+      "specTerm": "Interceptor"
+    },
+    {
+      "word": "sandbox",
+      "specTerm": "Environment"
+    },
+    {
+      "word": "canvas",
+      "specTerm": "Slate"
+    },
+    {
+      "word": "thread",
+      "specTerm": "Run"
+    },
+    {
+      "word": "conversation",
+      "specTerm": "Run and RunBranch"
+    },
+    {
+      "word": "webhook",
+      "specTerm": "ingress Event"
+    }
+  ],
+  "reviewed": [
+    {
+      "word": "activation",
+      "reason": "ActorActivation is the live half of the §8.1 Actor lifecycle (recover state before serving); the SPEC names the lifecycle obligations but no noun for the in-memory instance."
+    },
+    {
+      "word": "anchor",
+      "reason": "TenantBootstrapAnchor is the first trust record a Tenant boots from; §3.3 describes the recorded trust configuration without naming the boot record."
+    },
+    {
+      "word": "assembler",
+      "reason": "TurnPromptAssembler is the agentive form of the SPEC's own prompt.assemble cut point (§4.4, §5.6); the SPEC names the act, not the actor."
+    },
+    {
+      "word": "attestation",
+      "reason": "ValidationAttestation records that a required validator actually ran; implementation evidence machinery beneath the SPEC's altitude."
+    },
+    {
+      "word": "authenticator",
+      "reason": "Agentive form of the authenticate step in the §8.5 dispatcher order; the SPEC names the act, not the actor."
+    },
+    {
+      "word": "certainty",
+      "reason": "CommitCertainty classifies how much is durably known about a failed §8.5 command's commit (notAttempted, rolledBack, unknown); the SPEC prescribes the retry behavior but names no axis."
+    },
+    {
+      "word": "clone",
+      "reason": "ActorCloneOwnedState carries owned records for the §8.5 Workspace-portability command family; the SPEC names the family, not the copied payload."
+    },
+    {
+      "word": "confirmed",
+      "reason": "ConfirmedOperationFailure is a failure carrying durable evidence, the opposite of §7.4's indeterminate; §7.4's word 'final' names Receipt lineage, not an error class."
+    },
+    {
+      "word": "dependency",
+      "reason": "PackageDependency names §9.1 'code references' between Packages with the ecosystem's word; the SPEC deliberately keeps the package shape's internals open."
+    },
+    {
+      "word": "desired",
+      "reason": "DesiredProjection is reconciliation vocabulary (desired versus observed) for §9.3 idempotent materialization; the SPEC describes reconciling without the adjective."
+    },
+    {
+      "word": "drainer",
+      "reason": "InvocationPublicationDrainer drains the post-commit publication outbox behind §7.4 delivery; agentive implementation noun."
+    },
+    {
+      "word": "entrypoint",
+      "reason": "PackageCodeEntrypoint names the module a §9.1 code reference loads first, following the ecosystem's word; the SPEC keeps package code shape open."
+    },
+    {
+      "word": "evaluator",
+      "reason": "PackageModuleEvaluator executes §9.1 package code; the SPEC says Packages are inspectable without execution but names no executing component."
+    },
+    {
+      "word": "expectation",
+      "reason": "AuthorityPermitExpectation is the consuming Actor's precomputed view of a §10.3 cross-Actor permit; an implementation record the SPEC does not name."
+    },
+    {
+      "word": "factory",
+      "reason": "ProtocolIdFactory is the id-construction seam substrates supply to the §8.5 dispatcher; a generic construction-role noun beneath the SPEC's altitude."
+    },
+    {
+      "word": "genesis",
+      "reason": "RunGenesis and TurnGenesis are the creation records the §5.2 runtime consumes; the SPEC describes creation without naming the record handed in."
+    },
+    {
+      "word": "init",
+      "reason": "The Init suffix names constructor-argument records throughout the codebase; a code-organization convention beneath the SPEC's altitude."
+    },
+    {
+      "word": "inspector",
+      "reason": "PackageModuleInspector reads §9.1 package code without executing it; the SPEC requires inspectability but names no inspecting component."
+    },
+    {
+      "word": "lock",
+      "reason": "PackageLock pins a resolved §9.1 dependency closure, following the ecosystem's lockfile idiom."
+    },
+    {
+      "word": "metadata",
+      "reason": "MetadataSnapshot is the versioned release listing a §9.1 package registry serves; registry vocabulary the SPEC leaves to registry governance."
+    },
+    {
+      "word": "options",
+      "reason": "The Options suffix names optional constructor configuration records; a code-organization convention beneath the SPEC's altitude."
+    },
+    {
+      "word": "plan",
+      "reason": "ActorPlan and MaterializationPlan stage §9.3 reconciliation into an inspectable step list before application; the SPEC prescribes idempotent materialization, not its intermediate."
+    },
+    {
+      "word": "preflight",
+      "reason": "MediatedInvocationPreflight is the §7.3 pre-interceptor replay-record lookup ('before any mutating interceptor runs, the host atomically looks up'); the SPEC mandates the step without naming it."
+    },
+    {
+      "word": "registration",
+      "reason": "ProtocolCommandRegistration records one command family with the §8.5 dispatcher; the SPEC names registries, not the act of joining one."
+    },
+    {
+      "word": "rollout",
+      "reason": "MaterializationRollout orders §9.3 reconciliation on a live platform so existing RunPins stay resolvable; deployment vocabulary the SPEC does not use."
+    },
+    {
+      "word": "transient",
+      "reason": "TransientContent* hold content no durable record owns yet, bridging put and first retained owner under §8.2 custody; the SPEC describes ownership, not the interim state."
+    },
+    {
+      "word": "unprepared",
+      "reason": "UnpreparedPayload is the payload before §7.3 preparation freezes it; the negation of the SPEC's own word."
+    },
+    {
+      "word": "usage",
+      "reason": "TurnModelUsage reports model token accounting through the §5.6 executor seam; provider-API vocabulary with no SPEC counterpart."
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import {
     OperationName,
     OperationRef
 } from "../../../src/facets";
-import { TurnBoundTool } from "../../../src/agents/runs";
+import { TurnBoundOperation } from "../../../src/agents/runs";
 import { RunPins } from "../../../src/agents/runs/pins";
 import { pins } from "./fixture";
 
@@ -42,7 +42,7 @@ describe("Run pin identity types", () => {
     );
 
     it(
-        "[C13-RUN-PIN-IDENTITY-TYPES] binds Turn tools through the derived FacetPackageId identity",
+        "[C13-RUN-PIN-IDENTITY-TYPES] binds Turn operations through the derived FacetPackageId identity",
         { tags: "p1" },
         () => {
             const descriptor = new OperationDescriptor(
@@ -51,7 +51,7 @@ describe("Run pin identity types", () => {
                 new JsonSchema({ type: "object" }),
                 new JsonSchema({ type: "object" })
             );
-            const tool = new TurnBoundTool(
+            const tool = new TurnBoundOperation(
                 new BindingName("memory"),
                 new FacetRef("memory:primary"),
                 new OperationRef("memory:read"),
@@ -60,7 +60,7 @@ describe("Run pin identity types", () => {
             expect(tool.operation.facet.equals(new FacetPackageId("memory"))).toBe(true);
             expect(
                 () =>
-                    new TurnBoundTool(
+                    new TurnBoundOperation(
                         new BindingName("memory"),
                         new FacetRef("memory:primary"),
                         new OperationRef("other:read"),

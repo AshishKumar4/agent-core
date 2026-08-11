@@ -406,11 +406,11 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/agents/runs/executor.ts#TurnBoundTool",
+        "src/agents/runs/executor.ts#TurnBoundOperation",
         "src/agents/runs/pins.ts#RunPins"
       ],
       "testSelectors": [
-        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] binds Turn tools through the derived FacetPackageId identity",
+        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] binds Turn operations through the derived FacetPackageId identity",
         "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] keeps PackageId and FacetPackageId distinct opaque identities",
         "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] round-trips Run pin Package identities as PackageId, never a facet-package substitute"
       ],

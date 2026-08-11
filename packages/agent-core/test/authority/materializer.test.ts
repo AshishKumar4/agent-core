@@ -173,7 +173,7 @@ describe("RoleGrantMaterializer", () => {
             new PrincipalRef(tenantId, otherPrincipalId),
             new GuestTrustId("guest-trust"),
             Revision.initial(),
-            "token",
+            GuestVerificationScheme.token,
             Digest.sha256(Uint8Array.of(1)),
             verifiedAt,
             new Date(2_000)

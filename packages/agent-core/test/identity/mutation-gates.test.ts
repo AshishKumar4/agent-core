@@ -39,7 +39,6 @@ import {
     encodeSubjectRef,
     findBuiltInRole,
     type GuestTrustVerifier,
-    type GuestVerificationMethod,
     type MemoryIdentitySnapshot,
     type StoredIdentityRecord
 } from "../../src/identity";
@@ -378,7 +377,7 @@ describe("guest verification gates", () => {
                     new PrincipalRef(homeTenant, guestPrincipalId),
                     trustId,
                     Revision.initial(),
-                    "callback",
+                    GuestVerificationScheme.callback,
                     Digest.sha256(Uint8Array.of(1)),
                     new Date(100),
                     new Date(200),
@@ -395,31 +394,31 @@ describe("guest verification gates", () => {
         expect(decoded.verifiedAt.getTime()).toBe(100);
         expect(decoded.expiresAt.getTime()).toBe(200);
         expect(decoded.trustId.value).toBe(trustId.value);
-        expect(decoded.method).toBe("callback");
+        expect(decoded.verifiedVia).toBe(GuestVerificationScheme.callback);
     });
 
     test("gates guest verification instants at their exact boundaries", { tags: "p0" }, () => {
         expectTypeError(
-            () => mintVerification("callback", undefined, new Date(Number.NaN), new Date(200)),
+            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(Number.NaN), new Date(200)),
             "Guest verification time is invalid"
         );
         expectTypeError(
-            () => mintVerification("callback", undefined, new Date(-1), new Date(200)),
+            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(-1), new Date(200)),
             "Guest verification time is invalid"
         );
         expectTypeError(
-            () => mintVerification("callback", undefined, new Date(100), new Date(Number.NaN)),
+            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(100), new Date(Number.NaN)),
             "Guest verification expiry is invalid"
         );
         expectTypeError(
-            () => mintVerification("callback", undefined, new Date(100), new Date(100)),
+            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(100), new Date(100)),
             "Guest verification must expire after verification"
         );
         expectTypeError(
-            () => mintVerification("handshake" as never),
-            "Guest verification method is invalid"
+            () => mintVerification(GuestVerificationScheme.handshake),
+            "Guest verification is never minted via the handshake scheme"
         );
-        const epoch = mintVerification("token", undefined, new Date(0), new Date(1));
+        const epoch = mintVerification(GuestVerificationScheme.token, undefined, new Date(0), new Date(1));
         expect(epoch.verifiedAt.getTime()).toBe(0);
         expect(epoch.expiresAt.getTime()).toBe(1);
     });
@@ -891,7 +890,7 @@ describe("identity membership gates", () => {
                     readerRole,
                     "active",
                     Revision.initial(),
-                    mintVerification("callback", new PrincipalRef(homeTenant, principalId))
+                    mintVerification(GuestVerificationScheme.callback, new PrincipalRef(homeTenant, principalId))
                 ),
             "Membership guest verification does not match its subject"
         );
@@ -925,7 +924,7 @@ describe("identity membership gates", () => {
         expectIdentityError(
             () =>
                 foreignMembership("gate-foreign").withGuestVerification(
-                    mintVerification("callback", new PrincipalRef(homeTenant, principalId))
+                    mintVerification(GuestVerificationScheme.callback, new PrincipalRef(homeTenant, principalId))
                 ),
             "authority.denied",
             denial
@@ -987,7 +986,7 @@ function trustWith(verifier: GuestTrustVerifier): GuestTrust {
 }
 
 function mintVerification(
-    method: GuestVerificationMethod = "callback",
+    verifiedVia: GuestVerificationScheme = GuestVerificationScheme.callback,
     principal: PrincipalRef = new PrincipalRef(homeTenant, guestPrincipalId),
     verifiedAt: Date = new Date(100),
     expiresAt: Date = new Date(200)
@@ -996,7 +995,7 @@ function mintVerification(
         principal,
         trustId,
         Revision.initial(),
-        method,
+        verifiedVia,
         Digest.sha256(Uint8Array.of(1)),
         verifiedAt,
         expiresAt

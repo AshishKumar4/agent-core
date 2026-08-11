@@ -247,7 +247,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,
-                "callback",
+                GuestVerificationScheme.callback,
                 Digest.sha256(Uint8Array.of(9)),
                 new Date(1),
                 new Date(100)
@@ -337,7 +337,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
-                    "callback",
+                    GuestVerificationScheme.callback,
                     Digest.sha256(Uint8Array.of(21)),
                     new Date(1),
                     new Date(100)
@@ -505,7 +505,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
             principal,
             new GuestTrustId("branch-trust"),
             Revision.initial(),
-            "callback",
+            GuestVerificationScheme.callback,
             Digest.sha256(Uint8Array.of(8)),
             new Date(1),
             new Date(100)
@@ -582,7 +582,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
-                    "callback",
+                    GuestVerificationScheme.callback,
                     Digest.sha256(encodeCanonicalJson({ id })),
                     new Date(1),
                     new Date(expiresAt)
@@ -760,7 +760,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             new PrincipalRef(home, guest),
             trust.id,
             trust.revision,
-            "callback",
+            GuestVerificationScheme.callback,
             Digest.sha256(Uint8Array.of(13)),
             new Date(1),
             new Date(100)
@@ -1034,7 +1034,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
-                    "callback",
+                    GuestVerificationScheme.callback,
                     Digest.sha256(Uint8Array.of(11)),
                     new Date(1),
                     new Date(100)
