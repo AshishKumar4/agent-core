@@ -1,8 +1,9 @@
 import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
-import type { Impact, IsolationMode } from "../facets";
+import { enforcementFloor, type EnforcementTier, type Impact, type IsolationMode } from "../facets";
 import { PLACEMENT_PREFERENCE, PlacementPolicy } from "./placement";
 
-export type EnforcementTier = "direct" | "mediated";
+export { enforcementFloor };
+export type { EnforcementTier } from "../facets";
 export type EnforcementTierOverrides = Readonly<Partial<Record<Impact, EnforcementTier>>>;
 
 export const POLICY_IMPACTS: readonly Impact[] = Object.freeze([
@@ -118,22 +119,6 @@ export interface PolicyEvaluationInput {
 export interface PolicyDecision {
     readonly tier: EnforcementTier;
     readonly approvalRequired: boolean;
-}
-
-export function enforcementFloor(
-    impact: Impact,
-    turnOwnedSession: boolean,
-    sessionFilesystemTarget: boolean
-): EnforcementTier {
-    requireImpact(impact, "Policy impact");
-    if (
-        impact === "observe" ||
-        (impact === "execute" && turnOwnedSession) ||
-        (impact === "mutate" && turnOwnedSession && sessionFilesystemTarget)
-    ) {
-        return "direct";
-    }
-    return "mediated";
 }
 
 export function evaluatePolicy(input: PolicyEvaluationInput): PolicyDecision {

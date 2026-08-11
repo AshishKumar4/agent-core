@@ -236,16 +236,16 @@
       "id": "C13-POLICY-IMPACT-BOUNDARY",
       "owner": "W4",
       "specAnchor": "C13-POLICY-IMPACT-BOUNDARY",
-      "specTextSha256": "sha256:b9559a38f36b1326bc29900bebf43e3e06c1ebecf8d590bbb0059b87b82354bd",
+      "specTextSha256": "sha256:641ee7769bb9e2a7bbd78bcbfc4f160291b6bafbb84d0f3f02309034d4c88145",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The general enforcement path trusts callee-declared impact end to end: composition feeds descriptor.impact straight into evaluatePolicy, and only the MCP facet derives impact from its seam (remote locality) with a floor guard",
-        "SPEC \u00a77.1 requires deriving impact from 'the seam the call leaves through' but never defines a seam record, and \u00a74.2 places impact on the manifest-declared OperationDescriptor while annotating it host-derived \u2014 a structural contradiction only the spec owner can resolve",
-        "Needed: a trust-boundary predicate over destinations, a derivation the host applies at mediation time generalizing the MCP floor-guard rule, and adversarial evidence that a descriptor declaring observe for an external seam is still mediated"
+        "\u00a77.1 now defines the seam precisely \u2014 bundled placement's already-trusted manifest for first-party destinations, or the Tenant's own install-time config for externally configurable ones \u2014 and the floor-preserving comparison (facets/contribution.ts#enforcementFloor, #claimHonorsEnforcementFloor) is no longer duplicated inside the MCP facet: it is one shared, general implementation MCP is now the sole consumer of. An audit of every current OperationDescriptor construction site confirms every non-MCP facet declares a static, first-party impact literal (trivially seam-compliant under bundled placement) and MCP is the only facet deriving impact from anything install-configurable, so the rule holds across the present codebase",
+        "What remains is ownership and architecture, not ambiguity: the atom is filed under W4 (definition/policy), but the actual derivation this rule constrains happens in each facet's own manifest-construction code (W3's shared utility, consumed by W8's MCP facet) \u2014 W4's evaluatePolicy only ever sees an already-derived impact, so no W4-owned source or test can evidence the derivation step itself under this ledger's single-owner evidence rule",
+        "Verifying this atom needs the owner to decide the shape: either a composition-layer gate that re-derives/checks impact against a Binding's own boundary declaration at mediation time for every facet (a new central enforcement point, generalizing today's per-facet pattern), or an explicit acceptance that per-facet seam derivation is the intended architecture and evidence for this atom must be sourced across waves rather than from one owner"
       ]
     },
     {

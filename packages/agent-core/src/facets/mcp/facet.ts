@@ -8,7 +8,13 @@ import {
     type JsonSchemaDocument,
     type JsonValue
 } from "../../core";
-import { Contributions, Contribution, OperationDescriptor, type Impact } from "../contribution";
+import {
+    Contributions,
+    Contribution,
+    OperationDescriptor,
+    claimHonorsEnforcementFloor,
+    type Impact
+} from "../contribution";
 import {
     DataRecordCodec,
     requireArray,
@@ -586,10 +592,12 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
     // it may raise or shift within the mediated floor, never lower the derived floor.
     // Impact freezes at discovery but the floor is evaluated per call, so the claim is
     // refused when it could yield `direct` for any session condition the derived impact
-    // would have mediated — enumerating one impact would miss `execute`, whose floor is
-    // direct on a Turn-owned Session.
+    // would have mediated. `remote` is this profile's seam declaration — install-time
+    // Tenant configuration, never something the discovered server controls — and an MCP
+    // tool's target is never a Turn-owned Session's own filesystem, so
+    // sessionFilesystemTarget is fixed `false`.
     const annotated = requireImpact(value as Impact);
-    return lowersEnforcementFloor(annotated, derived) ? derived : annotated;
+    return claimHonorsEnforcementFloor(annotated, derived, false) ? annotated : derived;
 }
 
 function requireDiscoveryDocument(document: unknown): asserts document is McpDiscoveryDocument {
@@ -705,22 +713,4 @@ function decodeDiscoveryResult(data: import("../data").FacetData): McpDiscoveryR
             )
         )
     });
-}
-
-/**
- * The §7.2 floor, restated here because the definition plane sits above facets and
- * importing it would close a definition -> facets -> identity cycle. `observe` is direct
- * always; `execute` is direct on a Turn-owned Session; everything else is mediated.
- * The own-filesystem `mutate` branch is omitted on purpose: an MCP tool's target is a
- * discovered server, never a Turn-owned Session's own filesystem.
- */
-function directFloor(impact: Impact, turnOwnedSession: boolean): boolean {
-    return impact === "observe" || (impact === "execute" && turnOwnedSession);
-}
-
-/** True when the claimed impact would be admitted directly where the derived one is mediated. */
-function lowersEnforcementFloor(annotated: Impact, derived: Impact): boolean {
-    return [true, false].some(
-        (session) => directFloor(annotated, session) && !directFloor(derived, session)
-    );
 }

@@ -1619,10 +1619,23 @@ platform does not own.
 Boundary rule: an operation whose request crosses the trust boundary is `externalSend`
 regardless of data direction, and reading the response is `observe`. A web fetch is
 `externalSend`; listing its cached result is `observe`. The host derives this from the
-seam the call leaves through, and never from what the callee declares about itself. A
-declared impact is a claim by the party whose reach is in question, so a host that
-accepted one would let any remote name its own enforcement tier. This maps to
-**C13-POLICY-IMPACT-BOUNDARY**.
+**seam** the call leaves through — never from what the callee declares about itself — and a
+seam is fixed by whoever controls the destination, never by the destination itself.
+For an Operation whose destination is the platform's own first-party code, `bundled`
+placement (§9.2) already is that control: a Blueprint that trusts a Package enough to run
+it in-process has already trusted every claim in its manifest, impact included, so the
+manifest's declared impact stands as the seam. For an Operation whose destination is
+externally configurable — an integration reaching an endpoint the Tenant chose — the seam
+is the Tenant's own install-time configuration (the `configSchema`-validated vocabulary
+§4.1 already has, not a new one): a boundary fact the Blueprint or Package config records
+when the integration is installed, never a value the configured endpoint returns at call
+time. A declared impact is a claim by the party whose reach is in question, so a host that
+accepted one uncritically would let any remote name its own enforcement tier — such a claim
+MAY raise the §7.2 floor the seam derives, never lower it: it is refused whenever it would
+admit `direct` under any condition where the derived impact requires `mediated`. §11's MCP
+profile is one instance of this rule, not an exception to it: its `remote` install
+configuration is the seam, and a tool's own impact annotation may only raise the floor
+`remote` derives. This maps to **C13-POLICY-IMPACT-BOUNDARY**.
 
 ### 7.2 Enforcement tiers
 
