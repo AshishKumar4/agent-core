@@ -62,16 +62,16 @@
       "id": "C13-CONFIG-SECRET-CUSTODY",
       "owner": "W4",
       "specAnchor": "C13-CONFIG-SECRET-CUSTODY",
-      "specTextSha256": "sha256:a07db11cfab584b266cfe8459474789abba52d5cbacb7f9bdc1b01f48318afa0",
+      "specTextSha256": "sha256:2967ee1a6b476d8d2654a0370dc38fb8576f10253de8cb59e08e4bd37239928c",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "No secret resolution runtime exists: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) are abstract with no implementation; nothing ever turns a ref into a value",
-        "No custody record ties a SecretRef to the recorded Binding and target endpoint, SecretRef.source is an unconstrained string rather than a Tenant identity, and no repoint-invalidation exists",
-        "SPEC \u00a73.5 states the invariant without a mechanism: no custody record shape, no acceptance operation, no denial vocabulary; the only concrete carrier (credential-injecting seams) is a SHOULD \u2014 needs spec-owner elaboration before honest evidence exists"
+        "\u00a73.5 now defines the custody record as a (SecretRef, consumer, endpoint) triple recorded by whichever Tenant-owned consumer accepts the credential, names the credential-isolation seam (\u00a74.5) as the resolution seam the custody check binds, and ties denial to the existing failed-AttemptReceipt vocabulary (\u00a77.4) rather than a new record kind \u2014 the three gaps the prior evidence named (custody record shape, acceptance operation, denial vocabulary) are now specified by composition, not new machinery",
+        "No secret resolution runtime exists to evidence against: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) remain abstract with no implementation \u2014 the credential-isolation seam is a \u00a74.5 SHOULD, so no substrate is required to implement one at all, and none currently does",
+        "Building the custody check needs an implementation of at least one resolution seam (a substrate's EnvironmentCredentialPort or EnvironmentCredentialIsolationProxy) that records acceptance against a consumer and endpoint and denies a presented mismatch \u2014 genuine W4/W8 implementation scope now that the shape is specified, not a remaining spec ambiguity"
       ]
     },
     {

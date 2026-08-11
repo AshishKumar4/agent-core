@@ -463,11 +463,26 @@ Custody is about who may present a credential, not only about where the bytes li
 SecretRef resolves only inside the Tenant named by its `source`, and only for the exact
 Binding and target endpoint that Tenant recorded when it accepted the credential:
 repointing an integration at a new endpoint invalidates the old resolution rather than
-presenting the old credential to the new place. A delegation, a guest Membership, and a
-cross-tenant reservation each carry the ref and never the value, and a resolution attempted
-outside that custody denies rather than degrading to the raw value. §3.4 rule 3 and §3.3's
-guest prohibition are consequences of this clause, which is the only place it is stated.
-This maps to **C13-CONFIG-SECRET-CUSTODY**.
+presenting the old credential to the new place. `source` MUST equal the exact canonical
+value of that Tenant's `TenantId` — never a free-form label — checked by whatever records
+custody; `SecretRef` itself stays a dependency-free core value type (§1.4) and does not
+import the identity types it names. Acceptance is recorded custody: whichever Tenant-owned
+consumer accepts a SecretRef for use (a Binding, an Environment, an ingress declaration's
+`verification.secret`, or any other consumer this document or a profile names) durably
+pairs it with the exact consumer identity and target endpoint the Tenant authorized — that
+`(SecretRef, consumer, endpoint)` triple is the **custody record**. This document does not
+fix where a substrate stores it beyond that it is Tenant-owned data under the one-owner
+rule every durable record already follows (§8.4); it is a fact a consumer's own record
+carries, not a new durable record kind. A resolution seam — the credential-isolation seam
+of §4.5 is the one this document names, and a profile MAY name others — MUST check the
+presenting consumer and target endpoint against the custody record before returning a
+value, and MUST fail the resolution attempt, never degrade to the raw value, for a
+mismatched or unrecorded pair. For a mediated `externalSend` effect that failure is an
+ordinary failed AttemptReceipt (§7.4); custody denial needs no separate record kind or
+vocabulary of its own. A delegation, a guest Membership, and a cross-tenant reservation
+each carry the ref and never the value. §3.4 rule 3 and §3.3's guest prohibition are
+consequences of this clause, which is the only place it is stated. This maps to
+**C13-CONFIG-SECRET-CUSTODY**.
 
 ---
 
