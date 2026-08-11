@@ -99,11 +99,11 @@ class ContentRetentionReferenceCodecV1 extends RecordCodec<ContentRetentionRefer
             ["actor", "content", "id", "record", "recordKind", "tenant"],
             "Content retention payload"
         );
-        const content = decodeContent(object["content"]!, "Retained content");
+        const content = decodeContent(object["content"], "Retained content");
         return new ContentRetentionReference({
             id: new ContentRetentionId(requireString(object["id"], "Content retention ID")),
             tenant: new TenantId(requireString(object["tenant"], "Content retention tenant")),
-            actor: decodeActor(object["actor"]!, "Content retention Actor"),
+            actor: decodeActor(object["actor"], "Content retention Actor"),
             recordKind: decodeRecordKind(object["recordKind"]),
             record: new RetainedRecordRef(
                 requireString(object["record"], "Retained record reference")

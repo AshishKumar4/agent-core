@@ -1,6 +1,7 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import { TurnId, type LeaseToken } from "../agents";
 import {
+    isJsonObject,
     ContentRef,
     Digest,
     RecordCodec,
@@ -302,15 +303,8 @@ function requireObject(
     value: JsonValue | undefined,
     name: string
 ): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${name} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
+    return value;
 }
 
 function requireKeys(

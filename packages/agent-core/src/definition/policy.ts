@@ -1,4 +1,4 @@
-import { RecordCodec, hasExactJsonKeys, type JsonValue } from "../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 import type { Impact, IsolationMode } from "../facets";
 import { PLACEMENT_PREFERENCE, PlacementPolicy } from "./placement";
 
@@ -80,7 +80,7 @@ export class PolicySet {
             tiers: requireTiers(object["tiers"]),
             approvals: requireImpactArray(object["approvals"], "Policy approvals"),
             ...decodeOptionalDirectRevocationWindow(object["maxDirectRevocationWindowMs"]),
-            placement: PlacementPolicy.fromData(object["placement"]!)
+            placement: PlacementPolicy.fromData(object["placement"])
         });
     }
 
@@ -259,15 +259,8 @@ function requireObject(
     value: JsonValue | undefined,
     subject: string
 ): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 const emptyPolicySet = new PolicySet();

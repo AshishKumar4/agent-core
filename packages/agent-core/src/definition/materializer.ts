@@ -177,7 +177,7 @@ export class LocalMaterializer<TTransaction> {
             current !== undefined &&
             reconciliation.actions.every((action) => action.kind === "noop") &&
             previousRecords.length === desired.records.length;
-        if (semanticNoop && current!.generationId.equals(desired.generation.id)) {
+        if (semanticNoop && current.generationId.equals(desired.generation.id)) {
             return freezeResult({
                 generation: previousGeneration!,
                 pointer: current,

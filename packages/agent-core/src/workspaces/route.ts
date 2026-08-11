@@ -100,7 +100,7 @@ class RouteReservationCodecV1 extends RecordCodec<RouteReservation> {
             ],
             "Route reservation payload"
         );
-        const projection = decodeContent(object["projectionContent"]!, "Route projection content");
+        const projection = decodeContent(object["projectionContent"], "Route projection content");
         const initiator = decodeOptionalPrincipalRef(object["initiator"], "Route initiator");
         return new RouteReservation({
             id: new RouteReservationId(requireString(object["id"], "Route reservation ID")),
@@ -111,15 +111,15 @@ class RouteReservationCodecV1 extends RecordCodec<RouteReservation> {
             sourceAuditCause: new AuditRecordId(
                 requireString(object["sourceAuditCause"], "Route source audit cause")
             ),
-            sourceActor: decodeActor(object["sourceActor"]!, "Route source Actor"),
-            targetActor: decodeActor(object["targetActor"]!, "Route target Actor"),
-            tenants: decodeTenants(object["tenants"]!),
+            sourceActor: decodeActor(object["sourceActor"], "Route source Actor"),
+            targetActor: decodeActor(object["targetActor"], "Route target Actor"),
+            tenants: decodeTenants(object["tenants"]),
             subscription: new SubscriptionId(
                 requireString(object["subscription"], "Route Subscription ID")
             ),
             dedupeKey: requireString(object["dedupeKey"], "Route dedupe key"),
             operation: new OperationRef(requireString(object["operation"], "Route operation")),
-            authority: decodeAuthority(object["authority"]!),
+            authority: decodeAuthority(object["authority"]),
             projection: new RouteProjectionId(
                 requireString(object["projection"], "Route projection ID")
             ),
@@ -245,7 +245,7 @@ class RouteProjectionCodecV2 extends RecordCodec<RouteProjection> {
             ["authenticationDigest", "content", "id", "reservation"],
             "Route projection payload"
         );
-        const content = decodeContent(object["content"]!, "Route projection content");
+        const content = decodeContent(object["content"], "Route projection content");
         const authenticationDigest = requireNullableString(
             object["authenticationDigest"],
             "Route projection authentication digest"

@@ -164,7 +164,7 @@ class InvocationPublicationOutboxCodecV1 extends RecordCodec<InvocationPublicati
             ["audit", "id", "invocation", "receipt", "revision", "state"],
             "Invocation publication outbox"
         );
-        const stateValue = object["state"]!;
+        const stateValue = object["state"];
         const state = requireExactObject(
             stateValue,
             ["commitAppendedAt", "eventPublishedAt", "kind"],

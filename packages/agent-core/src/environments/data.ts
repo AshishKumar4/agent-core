@@ -1,4 +1,4 @@
-import { Revision, hasExactJsonKeys, type JsonValue } from "../core";
+import { Revision, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 
 export type JsonObject = { readonly [key: string]: JsonValue };
@@ -12,10 +12,8 @@ export function requireInstance<Value>(
 }
 
 export function requireObject(value: JsonValue, name: string): JsonObject {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${name} must be an object`);
-    }
-    return value as JsonObject;
+    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
+    return value;
 }
 
 export function requireExact(object: JsonObject, keys: readonly string[], name: string): void {

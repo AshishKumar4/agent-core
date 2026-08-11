@@ -160,7 +160,7 @@ function decodeOwner<Lease>(
         });
     }
     if (kind !== "system") throw new TypeError("Continuation claim owner kind is invalid");
-    const actor = requireExactObject(object["actor"]!, ["id", "kind"], "Continuation Actor");
+    const actor = requireExactObject(object["actor"], ["id", "kind"], "Continuation Actor");
     return Object.freeze({
         kind,
         actor: new ActorRef(

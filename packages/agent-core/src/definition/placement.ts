@@ -1,4 +1,4 @@
-import { RecordCodec, hasExactJsonKeys, type JsonValue } from "../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 import type { IsolationMode } from "../facets";
 import { AgentCoreError } from "../errors";
 
@@ -155,10 +155,8 @@ function canonicalModes(modes: readonly IsolationMode[], subject: string): Nonem
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 function requireModeArray(value: JsonValue | undefined, subject: string): readonly IsolationMode[] {

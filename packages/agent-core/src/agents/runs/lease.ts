@@ -1,4 +1,4 @@
-import { RecordCodec, hasExactJsonKeys, type JsonValue } from "../../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue } from "../../core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../identity";
 import { AgentCoreError } from "../../errors";
 import { TurnId } from "./id";
@@ -210,17 +210,16 @@ interface TurnLeasePayload {
 }
 
 function isTurnLeasePayload(payload: JsonValue): payload is JsonValue & TurnLeasePayload {
-    if (payload === null || Array.isArray(payload) || typeof payload !== "object") {
+    if (!isJsonObject(payload)) {
         return false;
     }
 
-    const object = payload as { readonly [key: string]: JsonValue };
-    const holder = object["holder"];
-    const epoch = object["epoch"];
-    const expiresAt = object["expiresAt"];
+    const holder = payload["holder"];
+    const epoch = payload["epoch"];
+    const expiresAt = payload["expiresAt"];
     return (
-        hasExactJsonKeys(object, ["epoch", "expiresAt", "holder", "turn"]) &&
-        typeof object["turn"] === "string" &&
+        hasExactJsonKeys(payload, ["epoch", "expiresAt", "holder", "turn"]) &&
+        typeof payload["turn"] === "string" &&
         (holder === null || (holder !== undefined && isPrincipalRefData(holder))) &&
         typeof epoch === "number" &&
         Number.isSafeInteger(epoch) &&
@@ -246,15 +245,14 @@ export function leaseTokenToData(token: LeaseToken): JsonValue {
 }
 
 export function leaseTokenFromData(value: JsonValue, name = "Lease token"): LeaseToken {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
+    if (!isJsonObject(value)) {
         throw new AgentCoreError("codec.invalid", `${name} must be an object`);
     }
-    const object = value as { readonly [key: string]: JsonValue };
-    if (!hasExactJsonKeys(object, ["epoch", "holder", "turn"])) {
+    if (!hasExactJsonKeys(value, ["epoch", "holder", "turn"])) {
         throw new AgentCoreError("codec.invalid", `${name} fields are invalid`);
     }
-    const turn = object["turn"];
-    const epoch = object["epoch"];
+    const turn = value["turn"];
+    const epoch = value["epoch"];
     if (
         typeof turn !== "string" ||
         typeof epoch !== "number" ||
@@ -265,7 +263,7 @@ export function leaseTokenFromData(value: JsonValue, name = "Lease token"): Leas
     }
     return Object.freeze({
         turn: new TurnId(turn),
-        holder: principalRefFromData(object["holder"]!),
+        holder: principalRefFromData(value["holder"]),
         epoch
     });
 }
@@ -290,12 +288,11 @@ interface PrincipalRefData {
 }
 
 function isPrincipalRefData(value: JsonValue): value is JsonValue & PrincipalRefData {
-    if (value === null || Array.isArray(value) || typeof value !== "object") return false;
-    const object = value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) return false;
     return (
-        hasExactJsonKeys(object, ["principal", "tenant"]) &&
-        typeof object["principal"] === "string" &&
-        typeof object["tenant"] === "string"
+        hasExactJsonKeys(value, ["principal", "tenant"]) &&
+        typeof value["principal"] === "string" &&
+        typeof value["tenant"] === "string"
     );
 }
 

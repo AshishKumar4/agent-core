@@ -55,7 +55,7 @@ function operation<Name extends string, Input extends PublicProfileInput>(
             (value) => ({ [property]: value[property as keyof Input] as JsonValue }),
             (data) =>
                 ({
-                    [property]: requireDataObject(data, `Self ${name} input`)[property]!
+                    [property]: requireDataObject(data, `Self ${name} input`)[property]
                 }) as unknown as Input
         ),
         facetDataWireCodec<JsonValue>(),

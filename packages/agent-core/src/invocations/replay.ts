@@ -511,12 +511,12 @@ function decodeItem(value: JsonValue): MediatedReplayItem {
         ...(phase === "reserved"
             ? {}
             : {
-                  preparedArguments: object["preparedArguments"]!,
+                  preparedArguments: object["preparedArguments"],
                   before: requireArray(object, "before").map(decodeTrace)
               }),
         ...(phase === "effect" || phase === "presented"
             ? {
-                  effectOutput: object["effectOutput"]!,
+                  effectOutput: object["effectOutput"],
                   receipt: new ReceiptId(receipt as string)
               }
             : {}),
@@ -524,7 +524,7 @@ function decodeItem(value: JsonValue): MediatedReplayItem {
         ...(phase === "presented"
             ? {
                   after: requireArray(object, "after").map(decodeTrace),
-                  presentation: object["presentation"]!
+                  presentation: object["presentation"]
               }
             : {})
     };

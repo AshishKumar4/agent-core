@@ -153,7 +153,7 @@ export class TerminalSnapshot extends CodecRecord {
             new RunCommitId(requireString(object["preterminal"], "Preterminal commit")),
             new RunCommitId(requireString(object["terminalCommit"], "Terminal commit")),
             requireTerminalOutcome(object["outcome"], "Run outcome"),
-            SettlementObligation.fromData(object["obligation"]!),
+            SettlementObligation.fromData(object["obligation"]),
             requireTimestamp(object["recordedAt"], "Terminal timestamp")
         );
     }

@@ -1,4 +1,4 @@
-import { RecordCodec, SemVer, type JsonValue } from "../core";
+import { type JsonFields, RecordCodec, SemVer, type JsonValue } from "../core";
 import { canonicalFacetData, type FacetDataMap } from "../facets";
 import { Config, type ConfigData, type ConfigInputMap } from "./config";
 import { PackageId } from "./id";
@@ -57,10 +57,8 @@ export class PackageInstall {
         const object = requireObject(value, "Package install");
         requireFields(object, ["config", "request"], [], "Package install");
         return new PackageInstall({
-            request: PackageDependency.fromData(object["request"]!),
-            config: Config.fromData(
-                requireObject(object["config"]!, "Package config") as ConfigData
-            )
+            request: PackageDependency.fromData(object["request"]),
+            config: Config.fromData(requireObject(object["config"], "Package config") as ConfigData)
         });
     }
 
@@ -186,12 +184,12 @@ export class Blueprint {
             "Blueprint"
         );
         return new Blueprint({
-            meta: BlueprintMeta.fromData(object["meta"]!),
+            meta: BlueprintMeta.fromData(object["meta"]),
             packages: requireArray(object["packages"], "Blueprint packages").map(
                 PackageInstall.fromData
             ),
-            policies: PolicySet.fromData(object["policies"]!),
-            agents: requireObjectArray(object["agents"]!, "Blueprint agents"),
+            policies: PolicySet.fromData(object["policies"]),
+            agents: requireObjectArray(object["agents"], "Blueprint agents"),
             ...(object["scopes"] === undefined
                 ? {}
                 : { scopes: requireObject(object["scopes"], "Blueprint scope scaffold") }),
@@ -294,12 +292,12 @@ function requireArray(value: JsonValue | undefined, subject: string): readonly J
     return value;
 }
 
-function requireFields(
+function requireFields<Field extends string>(
     value: FacetDataMap,
-    required: readonly string[],
+    required: readonly Field[],
     optional: readonly string[],
     subject: string
-): void {
+): asserts value is FacetDataMap & JsonFields<Field> {
     const admitted = new Set([...required, ...optional]);
     if (
         required.some((field) => !(field in value)) ||

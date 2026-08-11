@@ -5,6 +5,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import { SlotName, type FacetDataMap } from "../facets";
@@ -48,7 +49,7 @@ class ConfigCodec extends RecordCodec<Config> {
         if (!hasExactJsonKeys(object, ["value"])) {
             throw new TypeError("Config payload contains missing or unknown fields");
         }
-        return Config.fromData(requireObject(object["value"]!, "Config value"));
+        return Config.fromData(requireObject(object["value"], "Config value"));
     }
 }
 
@@ -117,7 +118,7 @@ export function decodeSecretRef(value: JsonValue): SecretRef {
     if (!hasExactJsonKeys(object, [SECRET_TAG])) {
         throw new TypeError("Secret reference must use the tagged representation");
     }
-    const reference = requireObject(object[SECRET_TAG]!, "Secret reference value");
+    const reference = requireObject(object[SECRET_TAG], "Secret reference value");
     if (!hasExactJsonKeys(reference, ["id", "provider", "source"])) {
         throw new TypeError("Secret reference contains missing or unknown fields");
     }
@@ -251,10 +252,8 @@ function freezeJson(value: JsonValue): JsonValue {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {

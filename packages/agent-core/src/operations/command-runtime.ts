@@ -422,7 +422,7 @@ function readPointer(value: FacetData, pointer: string): FacetData {
     for (const segment of pointerSegments(pointer)) {
         if (Array.isArray(current)) {
             const index = arrayIndex(segment, current.length);
-            current = current[index]!;
+            current = current[index];
         } else if (isObject(current) && Object.hasOwn(current, segment)) {
             current = current[segment]!;
         } else {

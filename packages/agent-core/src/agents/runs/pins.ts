@@ -125,16 +125,16 @@ export class RunPins extends CodecRecord {
             "Run pins"
         );
         return new RunPins({
-            blueprint: BlueprintPin.fromData(object["blueprint"]!),
+            blueprint: BlueprintPin.fromData(object["blueprint"]),
             packages: requireArray(object["packages"], "Run pin packages").map(PackagePin.fromData),
-            agent: pinFromData(object["agent"]!, AgentId, "Agent pin"),
+            agent: pinFromData(object["agent"], AgentId, "Agent pin"),
             effectivePolicy: pinFromData(
-                object["effectivePolicy"]!,
+                object["effectivePolicy"],
                 AgentPolicyId,
                 "Effective policy pin"
             ),
-            modelPolicy: pinFromData(object["modelPolicy"]!, ModelPolicyId, "Model policy pin"),
-            environment: pinFromData(object["environment"]!, EnvironmentId, "Environment pin")
+            modelPolicy: pinFromData(object["modelPolicy"], ModelPolicyId, "Model policy pin"),
+            environment: pinFromData(object["environment"], EnvironmentId, "Environment pin")
         });
     }
 }
@@ -181,7 +181,7 @@ export class RunConfigurationSnapshot extends CodecRecord {
         const object = requireObject(value, "Run configuration snapshot");
         requireExactFields(object, ["pins"], [], "Run configuration snapshot");
         return new RunConfigurationSnapshot({
-            pins: RunPins.fromData(object["pins"]!)
+            pins: RunPins.fromData(object["pins"])
         });
     }
 }

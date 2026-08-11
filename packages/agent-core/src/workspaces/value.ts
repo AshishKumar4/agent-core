@@ -4,6 +4,7 @@ import {
     encodeCanonicalJson,
     decodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type RecordVersion,
     type JsonValue
 } from "../core";
@@ -94,24 +95,15 @@ export class EventProvenance {
 
     public static fromData(value: JsonValue): EventProvenance {
         if (
-            value === null ||
-            Array.isArray(value) ||
-            typeof value !== "object" ||
-            !hasExactJsonKeys(value as { readonly [key: string]: JsonValue }, [
-                "channel",
-                "claims",
-                "group",
-                "principal",
-                "verification"
-            ])
+            !isJsonObject(value) ||
+            !hasExactJsonKeys(value, ["channel", "claims", "group", "principal", "verification"])
         ) {
             throw new TypeError("Event provenance payload is malformed");
         }
-        const object = value as { readonly [key: string]: JsonValue };
-        const verification = object["verification"];
-        const principal = object["principal"];
-        const channel = object["channel"];
-        const group = object["group"];
+        const verification = value["verification"];
+        const principal = value["principal"];
+        const channel = value["channel"];
+        const group = value["group"];
         if (
             (verification !== "verified" && verification !== "host") ||
             (channel !== null && typeof channel !== "string") ||
@@ -127,7 +119,7 @@ export class EventProvenance {
                 : { principal: decodeOptionalPrincipalRef(principal, "Provenance Principal")! }),
             ...(channel === null ? {} : { channel }),
             ...(group === null ? {} : { group }),
-            claims: object["claims"]!
+            claims: value["claims"]
         });
     }
 

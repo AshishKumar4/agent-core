@@ -428,7 +428,7 @@ export class AuthorityPermit {
             "Authority permit"
         );
         const expectationData = Object.fromEntries(
-            EXPECTATION_FIELDS.map((field) => [field, object[field]!])
+            EXPECTATION_FIELDS.map((field) => [field, object[field]])
         ) as JsonObject;
         const expectation = AuthorityPermitExpectation.fromData(expectationData);
         return new AuthorityPermit({
