@@ -326,3 +326,5 @@ by tests and a substrate implementation under `src/substrates/`; the handler dep
 the interface, never on a concrete backend.
 
 **Live Substrate Evidence:** Consent-gated substrate conformance atoms are verified only against the real deployed substrate; committed live evidence must be hash-bound to the exact current sources and fully passing, never substituted with a local emulation.
+
+**Ratified Outcome Evidence:** A recorded integration outcome is the immutable history of one ratified review: its artifact pins must match its own ratification commit wherever that commit still resolves, the whole record is fingerprinted in the outcome baseline, and unverifiable ratifications are enumerated with recorded reasons, never silently skipped. Re-pinning an outcome to newer content re-ratifies a review that did not happen; evolution since ratification is governed by the live gates, and the baseline moves only through `integration.mjs --update-outcomes`, acknowledging every rewrite, removal, or lost ratification with `--accept-rewrite "<reason>"`.
