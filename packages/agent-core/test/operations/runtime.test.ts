@@ -253,6 +253,47 @@ describe("Facet runtime", () => {
     );
 
     test(
+        "refuses interceptor declarations at unhosted cut points instead of leaving them inert",
+        { tags: "p0" },
+        () => {
+            for (const cutPoint of ["prompt.assemble", "input.submitted", "turn.step"] as const) {
+                const declaration = new InterceptorDeclaration(
+                    new InterceptorId("unhosted"),
+                    cutPoint,
+                    OperationSelector.own(),
+                    1
+                );
+                const pinned = manifest("acme.unhosted", [], [declaration]);
+                const facet = new TestFacet(
+                    "workspace:unhosted",
+                    pinned,
+                    [],
+                    new Map(),
+                    new Map([
+                        [
+                            "unhosted",
+                            new TestInterceptor(declaration, (value) => ({
+                                proceed: true,
+                                value
+                            }))
+                        ]
+                    ])
+                );
+                expect(() =>
+                    new FacetCorrespondenceValidator().validate([pinned], [facet])
+                ).toThrowError(
+                    expect.objectContaining({
+                        code: "facet.inactive",
+                        message:
+                            `Interceptor unhosted declares cut point ${cutPoint}, ` +
+                            "which this host does not execute"
+                    })
+                );
+            }
+        }
+    );
+
+    test(
         "[C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position",
         { tags: "p0" },
         () => {
