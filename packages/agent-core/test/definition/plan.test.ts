@@ -64,11 +64,8 @@ const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new 
 const tenantId = new TenantId("tenant-a");
 const deploymentKey = new DeploymentKey("platform");
 const placementSource = new (class extends PlacementSourcePort {
-    public sources(_release: PackageRelease, _manifest: FacetManifest) {
-        return {
-            substrate: ["dynamic", "provider", "bundled"],
-            trust: ["dynamic", "provider", "bundled"]
-        } as const;
+    public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
+        return ["dynamic", "provider", "bundled"] as const;
     }
 })();
 const topology = new (class extends MaterializationTopologyPort {
@@ -161,7 +158,7 @@ describe("materialization planning", () => {
         expect(projection.desired).toEqual({
             approvals: ["execute"],
             maxDirectRevocationWindowMs: null,
-            placement: { allowed: ["dynamic", "provider", "bundled"] },
+            placement: { allowed: ["dynamic", "provider", "bundled"], trusted: ["*"] },
             tiers: {}
         });
         expect(Object.isFrozen(projection.desired)).toBe(true);
@@ -371,7 +368,7 @@ describe("materialization planning", () => {
             desired: {
                 approvals: ["mutate", "execute"],
                 maxDirectRevocationWindowMs: null,
-                placement: { allowed: ["bundled", "dynamic", "provider"] },
+                placement: { allowed: ["bundled", "dynamic", "provider"], trusted: ["*"] },
                 tiers: {}
             }
         });
@@ -465,7 +462,7 @@ describe("materialization planning", () => {
                     desired: {
                         approvals: [],
                         maxDirectRevocationWindowMs: null,
-                        placement: { allowed: [] },
+                        placement: { allowed: [], trusted: ["*"] },
                         tiers: {}
                     }
                 })

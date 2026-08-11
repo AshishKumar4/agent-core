@@ -37,6 +37,7 @@ import {
     type BlueprintValidatorOptions
 } from "../../src/definition/validator";
 import { PolicySet } from "../../src/definition/policy";
+import { PLACEMENT_PREFERENCE, PlacementPolicy } from "../../src/definition/placement";
 import { PlacementSourcePort } from "../../src/definition/validator";
 import {
     Contribution,
@@ -81,11 +82,8 @@ const declarationCodecs = new BlueprintDeclarationCodecPort(
     }))
 );
 const placement = new (class extends PlacementSourcePort {
-    public sources(_release: PackageRelease, _manifest: FacetManifest) {
-        return {
-            substrate: ["dynamic", "provider", "bundled"],
-            trust: ["dynamic", "provider", "bundled"]
-        } as const;
+    public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
+        return ["dynamic", "provider", "bundled"] as const;
     }
 })();
 
@@ -517,8 +515,8 @@ describe("Blueprint validation", () => {
         ).toThrow(/not canonical/);
 
         const forgedPlacement = new (class extends PlacementSourcePort {
-            public sources() {
-                return { substrate: ["provider"], trust: ["provider"] } as const;
+            public substrateModes() {
+                return ["provider"] as const;
             }
         })();
         expect(() =>
@@ -532,8 +530,8 @@ describe("Blueprint validation", () => {
         ).toThrow(/No isolation mode/);
 
         const foreignManifestPlacement = new (class extends PlacementSourcePort {
-            public sources() {
-                return { substrate: ["provider"], trust: ["provider"] } as const;
+            public substrateModes() {
+                return ["provider"] as const;
             }
         })();
         expect(() =>
@@ -836,6 +834,42 @@ describe("Blueprint validation", () => {
             ["alpha", "z.facet", "2.0.0"],
             ["zeta", "a.facet", "1.0.0"]
         ]);
+    });
+
+    test("[C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust from the Blueprint's own policy, not the substrate port", { tags: "p0" }, () => {
+        const bundledOnly = new FacetManifest({
+            id: new FacetPackageId("bundled-only.facet"),
+            version: new SemVer("1.0.0"),
+            compat: CompatRange.any(),
+            isolation: ["bundled"],
+            bindings: [],
+            contributions: Contributions.empty()
+        });
+        const trustingPolicy = new PolicySet({
+            placement: new PlacementPolicy(PLACEMENT_PREFERENCE, ["trusted.*"])
+        });
+
+        const trustedRelease = releaseWith("trusted.pkg", [bundledOnly], "trusted-code");
+        const trusted = validateBlueprint(
+            blueprint([install("trusted.pkg", "^1")], { policies: trustingPolicy }),
+            { lock: packageLock([trustedRelease]), releases: [trustedRelease], schemaValidator }
+        );
+        expect(trusted.placements).toEqual([
+            {
+                packageId: "trusted.pkg",
+                facetId: "bundled-only.facet",
+                facetVersion: "1.0.0",
+                selection: expect.objectContaining({ selected: "bundled" })
+            }
+        ]);
+
+        const untrustedRelease = releaseWith("untrusted.pkg", [bundledOnly], "untrusted-code");
+        expect(() =>
+            validateBlueprint(
+                blueprint([install("untrusted.pkg", "^1")], { policies: trustingPolicy }),
+                { lock: packageLock([untrustedRelease]), releases: [untrustedRelease], schemaValidator }
+            )
+        ).toThrow(/No isolation mode/);
     });
 
     test("orders declarations by contributor, slot, and contribution index", { tags: "p1" }, () => {

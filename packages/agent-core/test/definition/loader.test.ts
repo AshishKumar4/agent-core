@@ -283,11 +283,8 @@ describe("production Blueprint validation-before-load", () => {
             releases: [release],
             target,
             placement: new (class extends PlacementSourcePort {
-                public sources() {
-                    return {
-                        substrate: ["dynamic", "provider"],
-                        trust: ["dynamic", "provider"]
-                    } as const;
+                public substrateModes() {
+                    return ["dynamic", "provider"] as const;
                 }
             })(),
             content: { get: async (reference) => content.get(reference.value)!.slice() },
@@ -749,11 +746,8 @@ function blueprintLoader(
 
 function allModePlacement(): PlacementSourcePort {
     return new (class extends PlacementSourcePort {
-        public sources(_release: PackageRelease, _manifest: FacetManifest) {
-            return {
-                substrate: ["dynamic", "provider", "bundled"],
-                trust: ["dynamic", "provider", "bundled"]
-            } as const;
+        public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
+            return ["dynamic", "provider", "bundled"] as const;
         }
     })();
 }

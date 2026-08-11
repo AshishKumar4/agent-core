@@ -21,7 +21,8 @@ import {
     canonicalFacetData,
     type FacetData,
     type FacetDataMap,
-    type FacetManifest
+    type FacetManifest,
+    type IsolationMode
 } from "../facets";
 import { BASE_CONFIG_SCHEMA, composeConfigSchema } from "./config";
 import { Blueprint } from "./blueprint";
@@ -67,14 +68,16 @@ export interface ValidatedPlacement {
     readonly selection: PlacementSelection;
 }
 
+// The substrate admissible set is the one part of the four-way intersection (SPEC §9.2)
+// that genuinely varies by profile (§10.2's Cloudflare rules are not the local
+// reference profile's), so it stays an abstract seam. Trust does not vary by profile —
+// it is derived from the Blueprint's own policy — so validatePlacements computes it
+// directly via PlacementPolicy.trustedModes rather than asking the port for it.
 export abstract class PlacementSourcePort {
-    public abstract sources(
+    public abstract substrateModes(
         release: PackageRelease,
         manifest: FacetManifest
-    ): {
-        readonly substrate: readonly import("../facets").IsolationMode[];
-        readonly trust: readonly import("../facets").IsolationMode[];
-    };
+    ): readonly IsolationMode[];
 }
 
 export interface ValidatedContribution {
@@ -249,13 +252,12 @@ function validatePlacements(
 ): readonly ValidatedPlacement[] {
     const placements = releases.flatMap((release) =>
         release.manifests.map((manifest) => {
-            const supplied = source.sources(release, manifest);
             const selected = selectPlacement(
                 new PlacementInput({
                     manifest: manifest.isolation,
                     policy: blueprint.policies.placement.allowed,
-                    substrate: supplied.substrate,
-                    trust: supplied.trust
+                    substrate: source.substrateModes(release, manifest),
+                    trust: blueprint.policies.placement.trustedModes(release.id)
                 })
             );
             return Object.freeze({

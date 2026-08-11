@@ -1,12 +1,13 @@
-import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
-import type { IsolationMode } from "../facets";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
+import { PLACEMENT_PREFERENCE, type IsolationMode } from "../facets";
 import { AgentCoreError } from "../errors";
+import type { PackageId } from "./id";
+import { compareText } from "./order";
 
-export const PLACEMENT_PREFERENCE: readonly IsolationMode[] = Object.freeze([
-    "dynamic",
-    "provider",
-    "bundled"
-]);
+// The vocabulary and its preference order are declared once, in facets/manifest.ts
+// beside the IsolationMode type itself; re-exported here so existing importers of
+// definition's PLACEMENT_PREFERENCE are unaffected.
+export { PLACEMENT_PREFERENCE };
 
 export type NonemptyIsolationModes = readonly [IsolationMode, ...IsolationMode[]];
 export type PlacementErrorCode = "operation.invalid-input";
@@ -20,7 +21,7 @@ export class PlacementUnavailableError extends AgentCoreError {
 
 class PlacementPolicyCodec extends RecordCodec<PlacementPolicy> {
     public constructor() {
-        super("definition.placement-policy", { major: 1, minor: 0 });
+        super("definition.placement-policy", { major: 2, minor: 0 });
     }
 
     protected encodePayload(policy: PlacementPolicy): JsonValue {
@@ -32,12 +33,29 @@ class PlacementPolicyCodec extends RecordCodec<PlacementPolicy> {
     }
 }
 
+// Matches "core.*" against a PackageId the way SPEC §9.2's example intends: '*' is a
+// wildcard for any sequence of characters, the rest of the pattern is literal, and the
+// match covers the package's whole id (no partial/substring matches).
+function globMatches(pattern: string, value: string): boolean {
+    const escaped = pattern
+        .split("*")
+        .map((segment) => segment.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
+        .join(".*");
+    return new RegExp(`^${escaped}$`, "u").test(value);
+}
+
 export class PlacementPolicy {
     public static readonly codec: RecordCodec<PlacementPolicy> = new PlacementPolicyCodec();
     public readonly allowed: NonemptyIsolationModes;
+    // Package-name globs admitted to the trust set (SPEC §9.2 policies.placement.trusted).
+    // Defaults to "everything" so callers that only care about `allowed` (most tests, and
+    // PlacementPolicy.all()) are unaffected; a Blueprint parsed from data always states
+    // this explicitly (see fromData), so no platform silently inherits a permissive default.
+    public readonly trusted: readonly string[];
 
-    public constructor(allowed: readonly IsolationMode[]) {
+    public constructor(allowed: readonly IsolationMode[], trusted: readonly string[] = ["*"]) {
         this.allowed = canonicalModes(allowed, "Placement policy");
+        this.trusted = canonicalGlobs(trusted);
         Object.freeze(this);
     }
 
@@ -55,18 +73,31 @@ export class PlacementPolicy {
 
     public static fromData(payload: JsonValue): PlacementPolicy {
         const object = requireObject(payload, "Placement policy");
-        if (!hasExactJsonKeys(object, ["allowed"])) {
+        if (!hasExactJsonKeys(object, ["allowed", "trusted"])) {
             throw new TypeError("Placement policy contains missing or unknown fields");
         }
-        return new PlacementPolicy(requireModeArray(object["allowed"], "Placement policy modes"));
+        return new PlacementPolicy(
+            requireModeArray(object["allowed"], "Placement policy modes"),
+            requireGlobArray(object["trusted"], "Placement policy trust pattern")
+        );
     }
 
     public admits(mode: IsolationMode): boolean {
         return this.allowed.includes(mode);
     }
 
+    // SPEC §9.2 / C13-PLACEMENT-UNTRUSTED-BUNDLED: a Package is trusted exactly when its
+    // id matches one of the configured glob patterns.
+    public trusts(packageId: PackageId): boolean {
+        return this.trusted.some((pattern) => globMatches(pattern, packageId.value));
+    }
+
+    public trustedModes(packageId: PackageId): NonemptyIsolationModes {
+        return trustPlacementModes(this.trusts(packageId));
+    }
+
     public toData(): JsonValue {
-        return { allowed: this.allowed };
+        return { allowed: this.allowed, trusted: this.trusted };
     }
 }
 
@@ -172,8 +203,30 @@ function canonicalModes(modes: readonly IsolationMode[], subject: string): Nonem
     ) as NonemptyIsolationModes;
 }
 
+function canonicalGlobs(patterns: readonly string[]): readonly string[] {
+    for (const pattern of patterns) requireGlob(pattern, "Placement policy trust pattern");
+    if (new Set(patterns).size !== patterns.length) {
+        throw new TypeError("Placement policy trust patterns must be unique");
+    }
+    return Object.freeze([...patterns].sort(compareText));
+}
+
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
     if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
+}
+
+function requireGlobArray(value: JsonValue | undefined, subject: string): readonly string[] {
+    if (!Array.isArray(value)) {
+        throw new TypeError(`${subject} must be an array`);
+    }
+    return value.map((pattern) => requireGlob(pattern, subject));
+}
+
+function requireGlob(value: JsonValue, subject: string): string {
+    if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
+        throw new TypeError(`${subject} must be a nonblank canonical string`);
+    }
     return value;
 }
 
@@ -185,7 +238,7 @@ function requireModeArray(value: JsonValue | undefined, subject: string): readon
 }
 
 function requireMode(value: JsonValue, subject: string): IsolationMode {
-    if (value === "dynamic" || value === "provider" || value === "bundled") {
+    if (isMember(PLACEMENT_PREFERENCE, value)) {
         return value;
     }
     throw new TypeError(`${subject} contains an unknown isolation mode`);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import type { IsolationMode } from "../../src/facets";
+import { PackageId } from "../../src/definition/id";
 import {
     PLACEMENT_PREFERENCE,
     PlacementInput,
@@ -103,6 +104,60 @@ describe("four-set placement", () => {
         expect(trustPlacementModes(true)).toEqual(["dynamic", "provider", "bundled"]);
         expect(trustPlacementModes(false)).toEqual(["dynamic", "provider"]);
         expect(trustPlacementModes(false)).not.toContain("bundled");
+    });
+
+    test("[C13-PLACEMENT-UNTRUSTED-BUNDLED] a Blueprint's placement policy derives trust from its own glob patterns", { tags: "p0" }, () => {
+        const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, ["core.*", "exact-name"]);
+        expect(policy.trusts(new PackageId("core.chat"))).toBe(true);
+        expect(policy.trusts(new PackageId("core.deploy.nested"))).toBe(true);
+        expect(policy.trusts(new PackageId("exact-name"))).toBe(true);
+        expect(policy.trusts(new PackageId("exact-name-suffixed"))).toBe(false);
+        expect(policy.trusts(new PackageId("acme.deploy"))).toBe(false);
+        expect(policy.trustedModes(new PackageId("core.chat"))).toEqual([
+            "dynamic",
+            "provider",
+            "bundled"
+        ]);
+        expect(policy.trustedModes(new PackageId("acme.deploy"))).toEqual(["dynamic", "provider"]);
+        expect(policy.trustedModes(new PackageId("acme.deploy"))).not.toContain("bundled");
+    });
+});
+
+describe("placement policy trust patterns", () => {
+    test("[definition.placement-policy] canonicalizes trust patterns, sorted and deduplicated", { tags: "p1" }, () => {
+        const trusted = ["zeta.*", "alpha.*"];
+        const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, trusted);
+        trusted.push("mutated");
+
+        expect(policy.trusted).toEqual(["alpha.*", "zeta.*"]);
+        expect(Object.isFrozen(policy.trusted)).toBe(true);
+        const encoded = PlacementPolicy.encode(policy);
+        expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
+    });
+
+    test("defaults trust to everything so callers that only restrict `allowed` are unaffected", { tags: "p1" }, () => {
+        expect(new PlacementPolicy(["dynamic"]).trusted).toEqual(["*"]);
+        expect(PlacementPolicy.all().trusted).toEqual(["*"]);
+    });
+
+    test("rejects a malformed, duplicate, or non-array trust pattern list", { tags: "p1" }, () => {
+        expect(() => new PlacementPolicy(["dynamic"], ["core.*", "core.*"])).toThrow(/unique/);
+        expect(() => new PlacementPolicy(["dynamic"], [""])).toThrow(/nonblank canonical string/);
+        expect(() => new PlacementPolicy(["dynamic"], [" core.*"])).toThrow(
+            /nonblank canonical string/
+        );
+        expect(() =>
+            PlacementPolicy.fromData({ allowed: ["dynamic"], trusted: "core.*" as never })
+        ).toThrow(/array/);
+        expect(() =>
+            PlacementPolicy.fromData({ allowed: ["dynamic"], trusted: [1 as never] })
+        ).toThrow(/nonblank canonical string/);
+    });
+
+    test("[definition.placement-policy] requires the trusted field explicitly, with no implicit wire default", { tags: "p1" }, () => {
+        expect(() => PlacementPolicy.fromData({ allowed: ["dynamic"] })).toThrow(
+            /missing or unknown fields/
+        );
     });
 });
 
@@ -222,9 +277,9 @@ describe("placement adversarial boundaries", () => {
     });
 
     test("rejects unknown declared modes with the modes subject", { tags: "p1" }, () => {
-        expect(() => PlacementPolicy.fromData({ allowed: ["martian"] })).toThrow(
-            /Placement policy modes contains an unknown isolation mode/
-        );
+        expect(() =>
+            PlacementPolicy.fromData({ allowed: ["martian"], trusted: ["*"] })
+        ).toThrow(/Placement policy modes contains an unknown isolation mode/);
     });
 });
 
