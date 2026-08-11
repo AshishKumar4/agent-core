@@ -228,7 +228,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
-        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-CROSS-FACET] rejects cross-workspace restore, non-Promise thenables, and duplicate draft origins"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-CROSS-FACET] denies cross-Facet interception without explicit authority"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -256,7 +256,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
-        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-ORDER] validates every committed map edge and deterministic snapshot ordering"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] orders interceptors by priority before contributor and id"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -298,7 +298,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
-        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-THROW-BLOCK] rejects malformed snapshots, immutable origins, and out-of-transaction access with typed errors"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-THROW-BLOCK] fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

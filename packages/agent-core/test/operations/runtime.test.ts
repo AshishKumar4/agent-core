@@ -1447,54 +1447,63 @@ describe("Protected Operation gateway", () => {
         await host.dispose();
     });
 
-    test("denies cross-Facet interception without explicit authority", { tags: "p0" }, async () => {
-        const descriptor = operationDescriptor("run", "observe", true);
-        const targetManifest = manifest("acme.target", [descriptor]);
-        const target = new TestFacet(
-            "workspace:runtime",
-            targetManifest,
-            [],
-            new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
-            new Map()
-        );
-        const declaration = new InterceptorDeclaration(
-            new InterceptorId("cross"),
-            "operation.before",
-            new OperationSelector([new OperationPattern("run", new FacetPackageId("acme.target"))]),
-            1
-        );
-        const contributorManifest = manifest("acme.policy", [], [declaration]);
-        const contributor = new TestFacet(
-            "workspace:policy",
-            contributorManifest,
-            [],
-            new Map(),
-            new Map([
-                ["cross", new TestInterceptor(declaration, (value) => ({ proceed: true, value }))]
-            ])
-        );
-        const host = new FacetRuntimeHost(
-            [targetManifest, contributorManifest],
-            [target, contributor]
-        );
-        await host.activate();
-        const gateway = new OperationGatewayHost(
-            { caller: "authenticated" },
-            host,
-            new TestAuthority([], "direct", false),
-            new TestInvocations([])
-        );
-        using resolved = await gateway.resolve(new BindingName("runtime"));
+    test(
+        "[C13-INTERCEPTOR-CROSS-FACET] denies cross-Facet interception without explicit authority",
+        { tags: "p0" },
+        async () => {
+            const descriptor = operationDescriptor("run", "observe", true);
+            const targetManifest = manifest("acme.target", [descriptor]);
+            const target = new TestFacet(
+                "workspace:runtime",
+                targetManifest,
+                [],
+                new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+                new Map()
+            );
+            const declaration = new InterceptorDeclaration(
+                new InterceptorId("cross"),
+                "operation.before",
+                new OperationSelector([
+                    new OperationPattern("run", new FacetPackageId("acme.target"))
+                ]),
+                1
+            );
+            const contributorManifest = manifest("acme.policy", [], [declaration]);
+            const contributor = new TestFacet(
+                "workspace:policy",
+                contributorManifest,
+                [],
+                new Map(),
+                new Map([
+                    [
+                        "cross",
+                        new TestInterceptor(declaration, (value) => ({ proceed: true, value }))
+                    ]
+                ])
+            );
+            const host = new FacetRuntimeHost(
+                [targetManifest, contributorManifest],
+                [target, contributor]
+            );
+            await host.activate();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "direct", false),
+                new TestInvocations([])
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
 
-        await expect(
-            resolved.dispatch({
-                requestKey: new OperationRequestKey("cross"),
-                operation: new OperationName("run"),
-                payload: { kind: "single", input: {} }
-            })
-        ).rejects.toMatchObject({ code: "authority.denied" });
-        await host.dispose();
-    });
+            await expect(
+                resolved.dispatch({
+                    requestKey: new OperationRequestKey("cross"),
+                    operation: new OperationName("run"),
+                    payload: { kind: "single", input: {} }
+                })
+            ).rejects.toMatchObject({ code: "authority.denied" });
+            await host.dispose();
+        }
+    );
 
     test(
         "fails closed on invalid schemas, denied direct admission, and malformed mediation output",
@@ -1759,7 +1768,7 @@ describe("Protected Operation gateway", () => {
     );
 
     test(
-        "fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items",
+        "[C13-INTERCEPTOR-THROW-BLOCK] fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items",
         { tags: "p1" },
         async () => {
             const descriptor = operationDescriptor("run", "mutate", false);
@@ -3109,74 +3118,78 @@ describe("Protected Operation gateway", () => {
         }
     );
 
-    test("orders interceptors by priority before contributor and id", { tags: "p1" }, async () => {
-        const calls: string[] = [];
-        const run = operationDescriptor("run");
-        const other = operationDescriptor("other");
-        const samePriority = ["a", "b", "c"].map(
-            (id) =>
-                new InterceptorDeclaration(
-                    new InterceptorId(id),
-                    "operation.before",
-                    OperationSelector.own("run"),
-                    5
+    test(
+        "[C13-INTERCEPTOR-ORDER] orders interceptors by priority before contributor and id",
+        { tags: "p1" },
+        async () => {
+            const calls: string[] = [];
+            const run = operationDescriptor("run");
+            const other = operationDescriptor("other");
+            const samePriority = ["a", "b", "c"].map(
+                (id) =>
+                    new InterceptorDeclaration(
+                        new InterceptorId(id),
+                        "operation.before",
+                        OperationSelector.own("run"),
+                        5
+                    )
+            );
+            const laterButHigher = new InterceptorDeclaration(
+                new InterceptorId("y"),
+                "operation.before",
+                OperationSelector.own("other"),
+                2
+            );
+            const earlierPriority = new InterceptorDeclaration(
+                new InterceptorId("z"),
+                "operation.before",
+                OperationSelector.own("other"),
+                1
+            );
+            const declarations = [...samePriority, laterButHigher, earlierPriority];
+            const facetManifest = manifest("acme.runtime", [run, other], declarations);
+            const facet = new TestFacet(
+                "workspace:runtime",
+                facetManifest,
+                [],
+                new Map([
+                    ["run", new TestOperation(run, async (input) => input)],
+                    ["other", new TestOperation(other, async (input) => input)]
+                ]),
+                new Map(
+                    declarations.map((declaration) => [
+                        declaration.id.value,
+                        new TestInterceptor(declaration, (value) => {
+                            calls.push(declaration.id.value);
+                            return { proceed: true, value };
+                        })
+                    ])
                 )
-        );
-        const laterButHigher = new InterceptorDeclaration(
-            new InterceptorId("y"),
-            "operation.before",
-            OperationSelector.own("other"),
-            2
-        );
-        const earlierPriority = new InterceptorDeclaration(
-            new InterceptorId("z"),
-            "operation.before",
-            OperationSelector.own("other"),
-            1
-        );
-        const declarations = [...samePriority, laterButHigher, earlierPriority];
-        const facetManifest = manifest("acme.runtime", [run, other], declarations);
-        const facet = new TestFacet(
-            "workspace:runtime",
-            facetManifest,
-            [],
-            new Map([
-                ["run", new TestOperation(run, async (input) => input)],
-                ["other", new TestOperation(other, async (input) => input)]
-            ]),
-            new Map(
-                declarations.map((declaration) => [
-                    declaration.id.value,
-                    new TestInterceptor(declaration, (value) => {
-                        calls.push(declaration.id.value);
-                        return { proceed: true, value };
-                    })
-                ])
-            )
-        );
-        const host = new FacetRuntimeHost([facetManifest], [facet]);
-        await host.activate();
-        const gateway = new OperationGatewayHost(
-            { caller: "authenticated" },
-            host,
-            new TestAuthority([], "direct"),
-            new TestInvocations([])
-        );
-        using resolved = await gateway.resolve(new BindingName("runtime"));
-        await resolved.dispatch({
-            requestKey: new OperationRequestKey("id-tiebreak"),
-            operation: new OperationName("run"),
-            payload: { kind: "single", input: {} }
-        });
-        expect(calls).toEqual(["a", "b", "c"]);
-        await resolved.dispatch({
-            requestKey: new OperationRequestKey("priority-first"),
-            operation: new OperationName("other"),
-            payload: { kind: "single", input: {} }
-        });
-        expect(calls).toEqual(["a", "b", "c", "z", "y"]);
-        await host.dispose();
-    });
+            );
+            const host = new FacetRuntimeHost([facetManifest], [facet]);
+            await host.activate();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "direct"),
+                new TestInvocations([])
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
+            await resolved.dispatch({
+                requestKey: new OperationRequestKey("id-tiebreak"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            });
+            expect(calls).toEqual(["a", "b", "c"]);
+            await resolved.dispatch({
+                requestKey: new OperationRequestKey("priority-first"),
+                operation: new OperationName("other"),
+                payload: { kind: "single", input: {} }
+            });
+            expect(calls).toEqual(["a", "b", "c", "z", "y"]);
+            await host.dispose();
+        }
+    );
 });
 
 interface CommandEventRecord {
