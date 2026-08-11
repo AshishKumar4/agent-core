@@ -1,4 +1,4 @@
-import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../../core";
+import { Digest, RecordCodec, encodeCanonicalJson, isMember, type JsonValue } from "../../core";
 import { FacetRef, type IsolationMode } from "../../facets";
 import { PLACEMENT_PREFERENCE, preferredPlacement } from "../../definition";
 import { TurnId } from "../../execution-references";
@@ -160,6 +160,6 @@ function modesFromData(value: JsonValue | undefined, subject: string): readonly 
 }
 
 function requireIsolationMode(value: JsonValue | undefined, subject: string): IsolationMode {
-    if (value === "dynamic" || value === "provider" || value === "bundled") return value;
+    if (isMember(PLACEMENT_PREFERENCE, value)) return value;
     throw new TypeError(`${subject} contains an unknown isolation mode`);
 }
