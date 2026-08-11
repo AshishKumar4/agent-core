@@ -1753,6 +1753,20 @@
       ]
     },
     {
+      "id": "C13-ENVIRONMENT-TURN-OWNED",
+      "owner": "W8",
+      "specAnchor": "C13-ENVIRONMENT-TURN-OWNED",
+      "specTextSha256": "sha256:60a2b6770b13f8e84a29795c09869b863b2408d3aa7b7d3e5f51d8850366f4ba",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
       "owner": "W3",
       "specAnchor": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
@@ -5088,7 +5102,7 @@
       "id": "P11-SHELL-RUN",
       "owner": "W8",
       "specAnchor": "P11-SHELL-RUN",
-      "specTextSha256": "sha256:d0b18672be9a64b6601048d1fc91a975be8bb9c335002946bbd6a83d4d8a30f7",
+      "specTextSha256": "sha256:e6205b7f39ef1227b42c8ac827c7b3e548dbd6d51e9e0c24829c8c1722e658d4",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

@@ -776,6 +776,12 @@ restore for container-backed environments), **preview exposure** (how a port bec
 authenticated URL), and the **credential-isolation seam** (secrets injected by proxy,
 never present inside the environment).
 
+A Session is **Turn-owned** when exactly one Turn opened it, no other Turn may use it,
+and it closes when that Turn reaches a terminal status. A Turn-owned Session cannot be
+shared and cannot outlive its Turn, which is what makes its contents reachable by that
+Turn alone. §7.2 keys an enforcement floor on this property, so it is a condition a
+platform tests rather than assumes. This maps to **C13-ENVIRONMENT-TURN-OWNED**.
+
 A **device environment** (§11) is an Environment behind a reverse-connection
 transport — the user's laptop or phone. Its profile adds pairing (key exchange plus
 operator approval), transport-attached consent (per device × agent, fail-closed), and
@@ -2441,7 +2447,7 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 
 ### 11.2 Shell
 
-- **P11-SHELL-RUN** Operation `run` has `execute` impact and is direct-tier eligible only while session-scoped.
+- **P11-SHELL-RUN** Operation `run` has `execute` impact and is direct-tier eligible only under the §7.2 floor, which requires a Turn-owned Session (§4.5).
 - **P11-SHELL-CANCEL** Operation `cancel` has `mutate` impact.
 - **P11-SHELL-COMPOSITION** Shell is composed from Filesystem and Environment.
 - **P11-SHELL-PARSER** A parser tokenizes the command line.
@@ -2726,6 +2732,7 @@ A conforming implementation provides:
 - **C13-ENVIRONMENT-STALE-SESSION** Environment session lifecycle rejects a stale session.
 - **C13-ENVIRONMENT-DISPOSE-CLOSE** Environment session close disposes child Facets.
 - **C13-ENVIRONMENT-ROTATION** Environment rotation does not retarget open Sessions.
+- **C13-ENVIRONMENT-TURN-OWNED** A Turn-owned Session is opened by exactly one Turn, usable under no other Turn's lease, and closes when its owning Turn reaches a terminal status.
 - **C13-TRUST-HOST-DERIVED** Trust tiers are host-derived.
 - **C13-TRUST-ASSERTION-REJECTION** Tier-asserting sources are rejected.
 - **C13-TRUST-VERIFIED-INGRESS** Verified ingress mints Events.
