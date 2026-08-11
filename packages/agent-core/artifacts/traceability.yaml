@@ -291,7 +291,7 @@
       "id": "AC-PLACEMENT-001",
       "summary": "Four-set placement order plus the formal conservative mediated boundary for execute",
       "status": "proved-component",
-      "boundary": "The selector covers its three ordered branches and empty result. Formal execute is always mediated because Turn-owned Environment Session direct eligibility is intentionally not modeled; input truth and actual isolation are external.",
+      "boundary": "The selector covers its three ordered branches and empty result. The tier floor models the Turn-owned session execute exception as a supplied Boolean fact; the §7.2 own-filesystem mutate exception is intentionally not modeled and formal mutate is conservatively mediated. Input truth and actual isolation are external.",
       "definitions": [
         "AgentCore.Placement",
         "AgentCore.PlacementSet",

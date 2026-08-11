@@ -2148,7 +2148,7 @@
       "id": "C13-POLICY-MEDIATION-FLOOR",
       "owner": "W4",
       "specAnchor": "C13-POLICY-MEDIATION-FLOOR",
-      "specTextSha256": "sha256:4764175261848895fe9dcbc11b9656f1aa7fb7ae9357420ebfd4f982f5dd6184",
+      "specTextSha256": "sha256:0f22eaff6a8edfffe7b917dffe0ec2ebe202b880ad9e0c777e15cf8a50478175",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
@@ -4318,7 +4318,7 @@
       "id": "P11-FILESYSTEM-RECEIPT",
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-RECEIPT",
-      "specTextSha256": "sha256:83a6c035b550242fbb76281d88993c19fec41ffa7e66f0e1fc26a5a508d8a87d",
+      "specTextSha256": "sha256:d7a12ad20f4e93c755898128345280574ef342122db2dd43703dc18ffaab38ea",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
@@ -4333,6 +4333,20 @@
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-REMOVE",
       "specTextSha256": "sha256:f06b95c2bda5627fcdc36cd688e7a6525c25e65afbd5e30b46f065821d0dc0de",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "P11-FILESYSTEM-SESSION-DIRECT",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-SESSION-DIRECT",
+      "specTextSha256": "sha256:a15ccf14dd3babcbb13667d4473f26d7d274fd1952838168cba34cc3d49914bf",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

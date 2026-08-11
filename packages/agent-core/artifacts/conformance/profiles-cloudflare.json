@@ -1826,7 +1826,7 @@
       "id": "P11-FILESYSTEM-RECEIPT",
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-RECEIPT",
-      "specTextSha256": "sha256:83a6c035b550242fbb76281d88993c19fec41ffa7e66f0e1fc26a5a508d8a87d",
+      "specTextSha256": "sha256:d7a12ad20f4e93c755898128345280574ef342122db2dd43703dc18ffaab38ea",
       "status": "verified",
       "prerequisites": [
         "P11-BASE-CONTRACT",
@@ -1865,6 +1865,20 @@
         "ACQ-TEST"
       ],
       "remainingEvidence": []
+    },
+    {
+      "id": "P11-FILESYSTEM-SESSION-DIRECT",
+      "owner": "W8",
+      "specAnchor": "P11-FILESYSTEM-SESSION-DIRECT",
+      "specTextSha256": "sha256:a15ccf14dd3babcbb13667d4473f26d7d274fd1952838168cba34cc3d49914bf",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
     },
     {
       "id": "P11-FILESYSTEM-STAT",

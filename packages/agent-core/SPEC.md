@@ -1608,7 +1608,8 @@ a tiering one.
   cross an isolate boundary.
 
 Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct;
-Turn-owned session `execute` → direct; every other `execute`, plus `mutate`,
+on a Turn-owned Session (§4.5), `execute` and `mutate` whose target is that Session's
+own filesystem → direct; every other `execute` and `mutate`, plus
 `externalSend`, `delegate`, and `administer` → mediated. Policy MAY raise a direct floor
 to mediated, and MAY add approval, which raises it too: an approval has nowhere to be
 recorded on the direct path. It MUST NOT lower a mediated floor or remove an approval
@@ -1620,6 +1621,12 @@ channel to be recorded through; and the absence of a configured
 An interceptor contributed over an `observe` operation therefore moves that read onto the
 mediated path, and a host SHOULD surface that consequence at contribution time rather than
 leave it to be discovered as latency. These tightenings are monotone.
+A write inside a Turn-owned Session crosses no seam (§7.1) and acquires no authority, so it
+can neither exfiltrate nor escalate, and the durable evidence for that filesystem is the
+tree checkpoint the writes produce (§5.4) rather than a receipt per write — which is the
+digest acceptance criteria and merges consume anyway. `mutate` against anything else — a
+platform record, another facet, a shared or longer-lived Session — keeps its mediated
+floor, and so does every `externalSend`, `delegate`, and `administer`.
 
 Every mediated effect, including an internal mutation or execution, uses the one final
 authority-admission linearization point in §3.4 rule 7. Actor-local admission performs
@@ -2430,7 +2437,8 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 - **P11-FILESYSTEM-REMOVE** Operation `remove` has `mutate` impact.
 - **P11-FILESYSTEM-MOVE** Operation `move` has `mutate` impact and is same-filesystem only.
 - **P11-FILESYSTEM-MKDIR** Operation `mkdir` has `mutate` impact.
-- **P11-FILESYSTEM-RECEIPT** Every mutating Operation returns the canonical mediated Invocation `Receipt`; the profile defines no second Receipt type.
+- **P11-FILESYSTEM-SESSION-DIRECT** A mutating Operation is direct-tier eligible only under the §7.2 floor, which requires the target to be a Turn-owned Session's own filesystem.
+- **P11-FILESYSTEM-RECEIPT** Every mediated mutating Operation records the canonical mediated Invocation `Receipt`; the profile defines no second Receipt type.
 - **P11-FILESYSTEM-PATHS** Paths are normalized and cannot traverse outside the root; escape rejects with stable `path.invalid`, never a silent clamp.
 - **P11-FILESYSTEM-RANGES** Reads are byte-ranged.
 - **P11-FILESYSTEM-ATOMIC-WRITE** Writes are atomic at path granularity.
@@ -2704,7 +2712,7 @@ A conforming implementation provides:
 - **C13-PLACEMENT-AUTHORED-BACKING** A platform declares which backing hosts each agent-authored code consumer, and every offered backing preserves identical `dynamic` authority semantics.
 - **C13-POLICY-DIRECT-COLOCATION** The `direct`-tier co-location requirement is enforced.
 - **C13-POLICY-DIRECT-ESCALATION** A direct call that cannot be co-located escalates to `mediated` (§7.2).
-- **C13-POLICY-MEDIATION-FLOOR** No policy can make non-session `execute`, `mutate`, `externalSend`, `delegate`, or `administer` direct.
+- **C13-POLICY-MEDIATION-FLOOR** No policy can make `externalSend`, `delegate`, `administer`, `execute` outside a Turn-owned Session, or `mutate` outside that Session's own filesystem direct.
 - **C13-POLICY-APPROVAL-FLOOR** No policy can remove mandatory approval.
 - **C13-POLICY-EPOCH-RECHECK** Every mediated effect performs the current-epoch check.
 - **C13-CONFIG-SECRET-REF** Configuration is SecretRef-only, with no raw credentials in manifests or Blueprints.
@@ -2927,7 +2935,7 @@ This section names coverage categories and trace IDs, never inferred theorem nam
 | Structural Invocation identity and View replay | `AC-STRUCTURAL-001` | ideal whole-intent identity and structural replay only; no cryptographic or RFC 6902 claim |
 | Operation-cut-point interception | `AC-INTERCEPTOR-001` | pipeline invariants over an admitted schedule the host supplies: total deterministic `(priority, facetId, interceptorId)` order with a unique schedule, last-rewriter attribution, scoped final blocks naming the exact blocker, behavior-free trace replay that refuses broken chains, `ReplayItem` assembly from completed runs, interception authority, and the §7.2 raise — no state admits a call with an applicable interceptor directly; candidate discovery, durable persistence, replay lookup, and the non-operation cut points are not modeled |
 | Grants, Bindings, path epochs, and Role materialization | `AC-AUTH-001`, `AC-AUTH-RESOLUTION-001`, `AC-MATERIALIZE-001` | designated abstract authorization, path-evidence, deadline, holder-join, guest-attenuation, and rematerialization consequences only |
-| Placement, trust, and exact-Turn leases | `AC-PLACEMENT-001`, `AC-TRUST-001`, `AC-LEASE-001` | pure four-set selection, the §7.2 tier floor including the Turn-owned session direct-execute exception, one source-tier rejection property, listed LeaseStep consequences over supplied inputs, and an executable step function proven sound and complete for the lease relation (the differential-testing oracle); no complete lifecycle claim |
+| Placement, trust, and exact-Turn leases | `AC-PLACEMENT-001`, `AC-TRUST-001`, `AC-LEASE-001` | pure four-set selection, the §7.2 tier floor including the Turn-owned session direct-execute exception (the own-filesystem `mutate` exception is not modeled; formal `mutate` is conservatively mediated), one source-tier rejection property, listed LeaseStep consequences over supplied inputs, and an executable step function proven sound and complete for the lease relation (the differential-testing oracle); no complete lifecycle claim |
 | Environment and Session | `AC-ENVIRONMENT-001`, `NC-ENVIRONMENT-LIFECYCLE` | abstract Session transitions only: Turn-owned fail-closed use, terminal close with child disposal, rotation pinning, explicit egress binding, reachable credential isolation over the proxy seam, and fail-closed preview exposure; concrete provider, container, transport, and snapshot-format behavior is not modeled |
 | Slate | `AC-SLATE-001`, `NC-SLATE-RUNTIME` | abstract record and isolate transitions only: version and publication immutability, rollback as an owned-pointer retarget without provider contact, preview as a live Environment Session, dynamic-only placement, and Binding-backed capability provenance for dynamic isolates; generated application code and concrete provider effects are not modeled |
 | Approval, batch effects, and Receipt lineage | `AC-APPROVAL-001`, `AC-EFFECT-001` | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved |
