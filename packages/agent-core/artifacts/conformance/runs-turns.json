@@ -402,14 +402,19 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-PIN-IDENTITY-TYPES",
       "specTextSha256": "sha256:d73015f2fb379d5c2e9d8ef145ec04277f89e6ba0b68b5127c685c1f742fb2a7",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#TurnBoundTool",
+        "src/agents/runs/pins.ts#RunPins"
+      ],
+      "testSelectors": [
+        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] binds Turn tools through the derived FacetPackageId identity",
+        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] keeps PackageId and FacetPackageId distinct opaque identities",
+        "test/agents/runs/pin-identity.test.ts#Run pin identity types [C13-RUN-PIN-IDENTITY-TYPES] round-trips Run pin Package identities as PackageId, never a facet-package substitute"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-PINS-BLUEPRINT",
