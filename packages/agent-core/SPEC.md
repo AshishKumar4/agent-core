@@ -1346,6 +1346,16 @@ queue" — re-read the inbox each step. **Cancellation** is the reserved inbox E
 `turn.cancel`: fencing a Turn (undo, takeover, timeout) delivers it, and a conforming
 executor observes the cancellation signal between steps and stops committing.
 
+An executor MAY hand the model a handle instead of a result: a mediated Invocation's
+tool position then returns its admission identity — the InvocationId, or the child
+RunRef for a `delegate`-impact spawn — and the outcome arrives later as an ordinary
+Event, delivered mid-turn through `turn.deliverEvent` or read from the inbox by a
+later Turn if this one ends first. Nothing about admission changes: the pipeline runs
+unaltered, the Receipt and audit chain attach to the identity the handle names, and a
+spawn's `delegate` Receipt carries the child RunRef, never the child's result. This
+is the non-blocking shape — a parent spawns, ends its Turn, and reads the answer as
+history instead of holding its context open to wait.
+
 The Turn lifecycle above is closed. There is no normative `retryTurn` transition and a
 failed or cancelled Turn is never resurrected. A product may request another execution
 through ordinary Run/Turn admission, but no retry linkage or inherited authority is
