@@ -1,4 +1,5 @@
 import {
+    type JsonFields,
     Digest,
     TextId,
     encodeCanonicalJson,
@@ -20,11 +21,11 @@ export function requireObject(
     return value;
 }
 
-export function requireExactObject(
+export function requireExactObject<Field extends string>(
     value: JsonValue | undefined,
-    fields: readonly string[],
+    fields: readonly Field[],
     subject: string
-): { readonly [key: string]: JsonValue } {
+): JsonFields<Field> {
     const object = requireObject(value, subject);
     if (!hasExactJsonKeys(object, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);

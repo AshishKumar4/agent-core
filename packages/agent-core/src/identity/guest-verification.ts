@@ -148,7 +148,7 @@ export function restoreGuestVerification(payload: JsonValue): GuestVerification 
         ],
         "Guest verification"
     );
-    const principal = requireIdentityObject(object["principal"]!, "Verified guest Principal");
+    const principal = requireIdentityObject(object["principal"], "Verified guest Principal");
     requireIdentityFields(principal, ["principal", "tenant"], "Verified guest Principal");
     const verification = new GuestVerification(
         new PrincipalRef(

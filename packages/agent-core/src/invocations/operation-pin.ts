@@ -197,7 +197,7 @@ export class OperationPin {
             requireString(object, "registration"),
             requireImpact(requireString(object, "impact")),
             requireBoolean(object["approvalRequired"]),
-            InvocationPlacementPin.fromData(object["placement"]!)
+            InvocationPlacementPin.fromData(object["placement"])
         );
     }
 }

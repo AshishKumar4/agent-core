@@ -1,4 +1,5 @@
 import {
+    type JsonFields,
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
@@ -13,7 +14,11 @@ export function requireObject(value: JsonValue | undefined, name: string): JsonO
     return value;
 }
 
-export function requireExact(object: JsonObject, keys: readonly string[], name: string): void {
+export function requireExact<Field extends string>(
+    object: JsonObject,
+    keys: readonly Field[],
+    name: string
+): asserts object is JsonFields<Field> {
     if (!hasExactJsonKeys(object, keys)) {
         throw new TypeError(`${name} contains missing or unknown fields`);
     }

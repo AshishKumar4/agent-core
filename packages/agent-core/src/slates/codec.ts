@@ -1,4 +1,11 @@
-import { ContentRef, Revision, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
+import {
+    type JsonFields,
+    ContentRef,
+    Revision,
+    hasExactJsonKeys,
+    isJsonObject,
+    type JsonValue
+} from "../core";
 import { EnvironmentId, EnvironmentSessionId, PortExposureId } from "../environments";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
@@ -19,11 +26,11 @@ export function requireObjectValue(value: JsonValue | undefined, subject: string
     return value;
 }
 
-export function requireExactObject(
+export function requireExactObject<Field extends string>(
     value: JsonValue | undefined,
-    fields: readonly string[],
+    fields: readonly Field[],
     subject: string
-): JsonObject {
+): JsonObject & JsonFields<Field> {
     const object = requireObjectValue(value, subject);
     if (!hasExactJsonKeys(object, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);

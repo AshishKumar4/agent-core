@@ -215,7 +215,7 @@ class ApprovalRecordCodec extends RecordCodec<Approval> {
             requireDate(object, "requestedAt"),
             requireNullableDate(object, "expiresAt"),
             new Revision(requireNonnegativeInteger(object, "revision")),
-            decodeState(object["state"]!)
+            decodeState(object["state"])
         );
     }
 }

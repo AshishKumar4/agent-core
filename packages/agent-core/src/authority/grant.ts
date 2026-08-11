@@ -221,8 +221,8 @@ export class Grant {
         }
         return new Grant(
             new GrantId(requireString(object, "id", "Grant ID")),
-            decodeAuthorityScope(object["scope"]!),
-            decodeAuthoritySubject(object["subject"]!),
+            decodeAuthorityScope(object["scope"]),
+            decodeAuthoritySubject(object["subject"]),
             requireEffect(object["effect"]),
             CapabilitySpec.fromData(object["capability"]),
             decodeOrigin(object["origin"]),
