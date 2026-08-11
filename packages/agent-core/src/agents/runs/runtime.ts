@@ -1108,8 +1108,8 @@ export class RunRuntime<Transaction> {
         const tree = commit.treeResolution;
         if (tree !== undefined) {
             if (
-                (tree.policy === "ours" && !tree.side.equals(commit.parents[0])) ||
-                (tree.policy === "theirs" && !tree.side.equals(commit.parents[1])) ||
+                (tree.policy === "ours" && !tree.side.equals(commit.parents[0]!)) ||
+                (tree.policy === "theirs" && !tree.side.equals(commit.parents[1]!)) ||
                 (tree.policy === "perPath" &&
                     tree.resolutions.some((path) => !parentIds.includes(path.side.value)))
             ) {

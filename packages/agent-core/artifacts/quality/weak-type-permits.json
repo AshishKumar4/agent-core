@@ -136,7 +136,7 @@
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
       "kind": "non-null",
-      "count": 2,
+      "count": 11,
       "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
@@ -144,6 +144,18 @@
       "kind": "unknown",
       "count": 1,
       "reason": "Run execution is generic over the host transaction and the values a Turn returns."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/lease.ts",
+      "kind": "assertion",
+      "count": 3,
+      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash, so editing it would claim a reviewer approved content they never saw. The vocabulary and field narrowing that removes these assertions is written and verified elsewhere in this change; it lands when the resolution is re-ratified."
+    },
+    {
+      "file": "packages/agent-core/src/agents/runs/lease.ts",
+      "kind": "non-null",
+      "count": 1,
+      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/memory.ts",
@@ -166,8 +178,8 @@
     {
       "file": "packages/agent-core/src/agents/runs/runtime.ts",
       "kind": "non-null",
-      "count": 7,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "count": 9,
+      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/store.ts",

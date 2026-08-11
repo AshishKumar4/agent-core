@@ -219,8 +219,8 @@ export class RunCommit extends CodecRecord {
             parents: requireArray(object["parents"], "Run commit parents").map(
                 (parent) => new RunCommitId(requireString(parent, "Run commit parent"))
             ),
-            pins: RunPins.fromData(object["pins"]),
-            writer: requireCommitWriter(object["writer"]),
+            pins: RunPins.fromData(object["pins"]!),
+            writer: requireCommitWriter(object["writer"]!),
             ...optionalId(
                 object["subjectTurn"],
                 (value) => new TurnId(value),
@@ -247,10 +247,10 @@ export class RunCommit extends CodecRecord {
             ),
             ...(object["resolution"] === null
                 ? {}
-                : { resolution: requireMergeResolution(object["resolution"]) }),
+                : { resolution: requireMergeResolution(object["resolution"]!) }),
             ...(object["treeResolution"] === null
                 ? {}
-                : { treeResolution: requireTreeMergeResolution(object["treeResolution"]) }),
+                : { treeResolution: requireTreeMergeResolution(object["treeResolution"]!) }),
             ...optionalId(
                 object["invocation"],
                 (value) => new InvocationId(value),
@@ -576,11 +576,11 @@ function requireCommitWriter(value: JsonValue): CommitWriter {
     }
     if (kind === "turn") {
         requireExactFields(object, ["kind", "token"], [], "Turn writer");
-        return { kind, token: requireLeaseToken(object["token"]) };
+        return { kind, token: requireLeaseToken(object["token"]!) };
     }
     if (kind !== "system") throw new TypeError("Commit writer kind is invalid");
     requireExactFields(object, ["cause", "kind"], [], "System writer");
-    const cause = requireObject(object["cause"], "System cause");
+    const cause = requireObject(object["cause"]!, "System cause");
     const causeKind = requireString(cause["kind"], "System cause kind");
     if (causeKind === "delivery") {
         requireExactFields(cause, ["audit", "kind", "reservation"], [], "Delivery cause");
@@ -644,7 +644,7 @@ function requireMergeResolution(value: JsonValue): MergeResolution {
         requireExactFields(object, ["kind", "receipt", "token"], [], "Synthesis resolution");
         return {
             kind,
-            token: requireLeaseToken(object["token"]),
+            token: requireLeaseToken(object["token"]!),
             receipt: new ReceiptId(requireString(object["receipt"], "Synthesis Receipt"))
         };
     }
@@ -723,7 +723,7 @@ function requireTreeMergeResolution(value: JsonValue): TreeMergeResolution {
 function migrationFromData(value: JsonValue): { readonly from: RunPins; readonly to: RunPins } {
     const object = requireObject(value, "Run migration");
     requireExactFields(object, ["from", "to"], [], "Run migration");
-    return { from: RunPins.fromData(object["from"]), to: RunPins.fromData(object["to"]) };
+    return { from: RunPins.fromData(object["from"]!), to: RunPins.fromData(object["to"]!) };
 }
 
 function tokenData(token: LeaseToken): JsonValue {
