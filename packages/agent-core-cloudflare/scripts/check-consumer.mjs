@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { parseCanonicalJson, portablePath } from "../../agent-core/scripts/quality/project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const coreRoot = resolve(packageRoot, "../agent-core");
@@ -11,7 +12,8 @@ const consumerRoot = await mkdtemp(resolve(tmpdir(), "agent-core-cloudflare-cons
 const cloudflareArchive = resolve(consumerRoot, "agent-core-cloudflare-0.1.0.tgz");
 const coreArchive = resolve(consumerRoot, "agent-core-core-0.1.0.tgz");
 const packageJson = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
-const registry = JSON.parse(await readFile(resolve(packageRoot, "quality/exports.json"), "utf8"));
+const exportsPath = resolve(packageRoot, "quality/exports.json");
+const registry = parseCanonicalJson(await readFile(exportsPath, "utf8"), portablePath(exportsPath));
 const specifier = packageJson.name;
 if (JSON.stringify(packageJson.files) !== JSON.stringify(["dist"])) {
     throw new TypeError("Cloudflare package files manifest must contain only dist");
