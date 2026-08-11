@@ -4236,6 +4236,20 @@ theorem nonvacuous_invalid_arguments_invocation_rejected {after : CommandRegistr
   invalid_arguments_invocation_rejected
     (installed := ⟨deployCommand, deriveCommandRoute deployCommand⟩) rfl rfl
 
+/-- `deployCommand` declares no explicit `acceptedTrust`, so its derived Subscription
+    realizes the default set exactly: it fires in the supplied tenant at the supplied
+    target, admits `owner` (a default-accepted tier), and rejects `external` — the
+    derivation bridge and the default-excludes-external lemma exercised together on one
+    installed command, discriminating a genuine accept/reject pair rather than a
+    vacuously-true predicate. -/
+theorem nonvacuous_derived_subscription_exactness :
+    (deriveSubscription deployCommand tenant ⟨99⟩).tenant = tenant ∧
+    (deriveSubscription deployCommand tenant ⟨99⟩).target = (⟨99⟩ : InvocationId) ∧
+    (deriveSubscription deployCommand tenant ⟨99⟩).enabled = true ∧
+    (deriveSubscription deployCommand tenant ⟨99⟩).admits .owner = true ∧
+    (deriveSubscription deployCommand tenant ⟨99⟩).admits .external = false :=
+  ⟨rfl, rfl, rfl, rfl, default_derived_subscription_excludes_external deployCommand tenant ⟨99⟩ rfl⟩
+
 /-! ## Command submission witnesses (§4.3 via §6.1 `host.command.submit`) -/
 
 private def submissionIdentity : SubmissionIdentity := ⟨.principal principalRef, ⟨61⟩⟩

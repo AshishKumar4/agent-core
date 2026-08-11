@@ -442,9 +442,9 @@
     },
     {
       "id": "AC-COMMAND-001",
-      "summary": "Per-surface per-Scope command collision rejection, exact derived-Subscription defaults, install-checked mappings with validated invocation input, and duplicate-submission idempotency",
+      "summary": "Per-surface per-Scope command collision rejection, exact derived-Subscription defaults realized as an actual routed Subscription, install-checked mappings with validated invocation input, and duplicate-submission idempotency",
       "status": "proved-safety",
-      "boundary": "A colliding (Scope, surface, name) contribution rejects in every arrival order, an installed command stores exactly the derived initiator/event-dedupe route with nonempty accepted trust, install admits only mappings that send every schema-valid argument value to schema-valid Operation input so every emitted command.invoked input validates, and a resubmitted (caller, idempotencyKey) envelope yields the recorded outcome as a duplicate write that reserves nothing and mints no Event. The concrete JSON-Schema compatibility algorithm, argument grammar, completion providers, alias configuration, visibility disable, dispatcher gate ordering, and command.completed rendering are not proved here.",
+      "boundary": "A colliding (Scope, surface, name) contribution rejects in every arrival order, an installed command stores exactly the derived initiator/event-dedupe route with nonempty accepted trust, install admits only mappings that send every schema-valid argument value to schema-valid Operation input so every emitted command.invoked input validates, and a resubmitted (caller, idempotencyKey) envelope yields the recorded outcome as a duplicate write that reserves nothing and mints no Event. deriveSubscription bridges the derived CommandRoute to an actual RoutedSubscription in the AC-ROUTING-001 routing LTS -- same tenant, same target InvocationId, and admits exactly the derived accepted-trust set -- and the default accepted-trust set excludes external, so a command declaring no explicit acceptedTrust never derives a Subscription that admits externally-sourced firing. Synthesizing a full InvocationHeader from a CommandRoute alone, the concrete JSON-Schema compatibility algorithm, argument grammar, completion providers, alias configuration, visibility disable, dispatcher gate ordering, and command.completed rendering are not proved here.",
       "definitions": [
         "AgentCore.CommandDecl",
         "AgentCore.CommandRoute",
@@ -458,7 +458,8 @@
         "AgentCore.SubmissionOutcome.Reserves",
         "AgentCore.SubmissionLedger",
         "AgentCore.SubmissionLedger.ReservationConsistent",
-        "AgentCore.SubmissionStep"
+        "AgentCore.SubmissionStep",
+        "AgentCore.deriveSubscription"
       ],
       "theorems": [
         "AgentCore.command_surface_collision_rejected",
@@ -480,7 +481,10 @@
         "AgentCore.duplicate_submission_reserves_and_emits_nothing",
         "AgentCore.duplicate_cites_reserving_original",
         "AgentCore.submission_step_preserves_reservation_consistency",
-        "AgentCore.at_most_one_reserving_write_per_identity"
+        "AgentCore.at_most_one_reserving_write_per_identity",
+        "AgentCore.default_accepted_trust_excludes_external",
+        "AgentCore.deriveSubscription_matches_derived_route",
+        "AgentCore.default_derived_subscription_excludes_external"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation",
@@ -494,7 +498,8 @@
         "AgentCore.Examples.nonvacuous_invalid_arguments_invocation_rejected",
         "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence",
         "AgentCore.Examples.nonvacuous_reserved_identity_recommit_rejected",
-        "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent"
+        "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent",
+        "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
       ],
       "witnessCoverage": {
         "AgentCore.command_surface_collision_rejected": [
@@ -557,11 +562,21 @@
         ],
         "AgentCore.at_most_one_reserving_write_per_identity": [
           "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent"
+        ],
+        "AgentCore.default_accepted_trust_excludes_external": [
+          "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
+        ],
+        "AgentCore.deriveSubscription_matches_derived_route": [
+          "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
+        ],
+        "AgentCore.default_derived_subscription_excludes_external": [
+          "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
         ]
       },
       "remainingEvidence": [
         "syntactic mapping compatibility check soundness against the semantic install guarantee",
-        "dispatcher envelope gate ordering and command.completed conformance"
+        "synthesizing a full InvocationHeader from a CommandRoute so deriveSubscription's target does not need to be supplied externally",
+        "dispatcher envelope gate ordering and command.completed conformance (see AC-DISPATCHER-001 for the generic gate-order and duplicate-never-mutates claims)"
       ]
     },
     {

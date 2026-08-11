@@ -416,6 +416,9 @@ import AgentCore
 #print axioms AgentCore.installation_registers_exact_derived_route
 #print axioms AgentCore.nonderived_route_installation_rejected
 #print axioms AgentCore.installed_route_is_initiator_with_event_dedupe
+#print axioms AgentCore.default_accepted_trust_excludes_external
+#print axioms AgentCore.deriveSubscription_matches_derived_route
+#print axioms AgentCore.default_derived_subscription_excludes_external
 #print axioms AgentCore.empty_trust_installation_rejected
 #print axioms AgentCore.unsafe_mapping_installation_rejected
 #print axioms AgentCore.uninstalled_command_invocation_rejected
@@ -453,6 +456,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_entry_id_reuse_rejected
 #print axioms AgentCore.Examples.nonvacuous_slot_noop_reinstallation
 #print axioms AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation
+#print axioms AgentCore.Examples.nonvacuous_derived_subscription_exactness
 #print axioms AgentCore.Examples.nonvacuous_command_surface_collision_rejected
 #print axioms AgentCore.Examples.nonvacuous_occupied_command_id_installation_rejected
 #print axioms AgentCore.Examples.nonvacuous_command_reinstallation_identity

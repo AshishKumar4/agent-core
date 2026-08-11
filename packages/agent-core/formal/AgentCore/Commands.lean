@@ -1,5 +1,6 @@
 import AgentCore.Slots
 import AgentCore.Policy
+import AgentCore.Subscriptions
 
 /-!
 # Commands (SPEC §4.3)
@@ -81,6 +82,55 @@ def deriveCommandRoute (command : CommandDecl) : CommandRoute :=
     target := command.operation
     dedupe := .event
     authority := .initiator command.binding }
+
+/-- **The default accepted-trust set excludes `external`.** A command that declares no
+    explicit `acceptedTrust` never admits an externally-sourced firing — the SPEC §4.3
+    defaults require an explicit opt-in to route on unauthenticated provenance. -/
+theorem default_accepted_trust_excludes_external : TrustTier.external ∉ defaultCommandTrust := by
+  decide
+
+/-- The derived Subscription realized in the routing LTS (`AC-ROUTING-001`): the
+    exactness bridge between §4.3's `CommandRoute` derivation and §6.2's actual
+    `RoutedSubscription`. A caller supplies the Subscription's tenant and the target
+    `InvocationId` that names the derived route's Operation — synthesizing a full
+    `InvocationHeader` from a `CommandRoute` alone is outside this bridge's scope — and
+    `deriveSubscription` carries over exactly the derived accepted-trust set. -/
+def deriveSubscription (command : CommandDecl) (tenant : TenantId) (target : InvocationId) :
+    RoutedSubscription :=
+  { tenant := tenant
+    target := target
+    admits := fun tier => decide (tier ∈ (deriveCommandRoute command).acceptedTrust)
+    enabled := true }
+
+/-- **The derived Subscription is exact.** It fires in the supplied tenant, targets
+    exactly the supplied `InvocationId`, is enabled, and admits exactly the tiers the
+    command's derived route accepts — no tier the derivation excludes is admitted, and
+    none it accepts is silently dropped. -/
+theorem deriveSubscription_matches_derived_route (command : CommandDecl) (tenant : TenantId)
+    (target : InvocationId) :
+    (deriveSubscription command tenant target).tenant = tenant ∧
+    (deriveSubscription command tenant target).target = target ∧
+    (deriveSubscription command tenant target).enabled = true ∧
+    ∀ tier, (deriveSubscription command tenant target).admits tier = true ↔
+      tier ∈ (deriveCommandRoute command).acceptedTrust :=
+  ⟨rfl, rfl, rfl, fun tier => by simp [deriveSubscription]⟩
+
+/-- **An installed command's default derivation never realizes an externally-admitting
+    Subscription.** Composing the two bridges: a command that declares no explicit
+    `acceptedTrust` derives a Subscription whose `admits` rejects `external`. -/
+theorem default_derived_subscription_excludes_external (command : CommandDecl) (tenant : TenantId)
+    (target : InvocationId) (noExplicitTrust : command.acceptedTrust = none) :
+    (deriveSubscription command tenant target).admits .external = false := by
+  have exact := (deriveSubscription_matches_derived_route command tenant target).2.2.2 .external
+  cases admits : (deriveSubscription command tenant target).admits .external with
+  | false => rfl
+  | true =>
+      exfalso
+      have member : TrustTier.external ∈ (deriveCommandRoute command).acceptedTrust :=
+        exact.mp admits
+      unfold deriveCommandRoute at member
+      simp only [noExplicitTrust, Option.getD_none] at member
+      exact default_accepted_trust_excludes_external member
 
 structure InstalledCommand where
   command : CommandDecl
