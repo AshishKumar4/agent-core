@@ -270,6 +270,7 @@
       ],
       "testSelectors": [
         "test/agents/runs/adversarial.test.ts#W5 adversarial invariants permits unary commits to carry an independent tree checkpoint",
+        "test/agents/runs/runtime-mutation.test.ts#suspension guards rejects each checkpoint and commit mismatch individually",
         "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching absent tree checkpoints",
         "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching present tree checkpoints",
         "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips tree and no-tree checkpoints and rejects cursor shape"

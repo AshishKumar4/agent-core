@@ -894,7 +894,7 @@ describe("Facet runtime", () => {
 
 describe("Protected Operation gateway", () => {
     test(
-        "[C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects undeclared hidden handlers",
+        "executes direct only after synchronous authorization and rejects hidden handlers",
         { tags: "p0" },
         async () => {
             const events: string[] = [];

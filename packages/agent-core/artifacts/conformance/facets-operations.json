@@ -146,7 +146,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] names the kind of contribution that has no runtime implementation",
         "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position",
-        "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects undeclared hidden handlers"
+        "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
