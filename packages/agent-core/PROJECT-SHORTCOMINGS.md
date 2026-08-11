@@ -45,11 +45,15 @@ evidence agree where applicable.
 
 ## P1 — missing normative implementation
 
-- [x] **Implement the concrete Turn host and agent harness.** `TurnExecutorHost` now calls
-      the model, binds tools, streams ephemeral output, checkpoints, recovers, and settles
-      the exact leased Turn through canonical Run records. The integration-ledger entry
-      now cites this host and its adversarial tests instead of unrelated Run-frontier
-      evidence.
+- [~] **Implement the concrete Turn host and agent harness.** HOST DONE, HARNESS OPEN.
+      `TurnExecutorHost` binds tools, streams ephemeral output, checkpoints, recovers, and
+      settles the exact leased Turn through canonical Run records. The integration-ledger
+      entry now cites this host and its adversarial tests instead of unrelated Run-frontier
+      evidence. It does NOT call a model: `TurnModelPort` is an abstract class and no
+      implementation of it exists in `src/`, so nothing in this repo reaches a provider.
+      That is correct for the kernel — §5.6 specifies no loop — but it means the harness
+      half of this item is untouched. Binding pi's `runAgentLoop` behind the port is the
+      remaining work, and the item stays open until it exists.
 - [x] **Make the executor boundary typed and public.** `TurnBoundTool` uses the existing
       `OperationDescriptor` source of truth, and the supported Run export exposes
       lease-scoped prompt/content, inbox, invocation, commit, checkpoint, cancellation,
