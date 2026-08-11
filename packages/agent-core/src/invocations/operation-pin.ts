@@ -1,6 +1,6 @@
 import { Digest, SemVer, isMember, type JsonValue } from "../core";
 import { OperationRef, type Impact, type IsolationMode } from "../facets";
-import { POLICY_IMPACTS, PackageId, PLACEMENT_PREFERENCE } from "../definition";
+import { POLICY_IMPACTS, PackageId, PLACEMENT_PREFERENCE, preferredPlacement } from "../definition";
 import {
     requireArray,
     requireCanonicalText,
@@ -39,11 +39,7 @@ export class InvocationPlacementPin {
         ) {
             throw new TypeError("Selected placement must occur in every admissible set");
         }
-        const selected = MODES.find((mode) =>
-            [this.manifest, this.policy, this.substrate, this.trust].every((modes) =>
-                modes.includes(mode)
-            )
-        );
+        const selected = preferredPlacement(this.manifest, this.policy, this.substrate, this.trust);
         if (selected !== init.selected) {
             throw new TypeError("Selected placement must follow the canonical preference order");
         }

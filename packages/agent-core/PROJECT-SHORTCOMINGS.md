@@ -141,9 +141,15 @@ evidence agree where applicable.
 - [ ] **Remove duplicate identity representation.** Several records store both a
       `ContentRef` and its directly derivable digest. Retain one canonical identity unless
       the second field is independently authenticated and necessary.
-- [ ] **Unify closed vocabularies.** Placement cases/order and impact cases/order have
-      multiple owners. Establish one smart value object/source of truth for cases,
-      validation, and canonical ordering. Resolve `CapabilitySpec` ownership.
+- [x] **Unify the placement closed vocabulary.** `IsolationMode`'s cases, order, and
+      validity check now have one owner: `facets/manifest.ts` declares `PLACEMENT_PREFERENCE`
+      beside the type itself; `definition/placement.ts` re-exports it instead of keeping a
+      second copy, and every membership check (`facets/manifest.ts`, `definition/placement.ts`,
+      `agents/runs/placement.ts`) delegates to `core`'s `isMember` against that one array.
+      `invocations/operation-pin.ts` and `definition/policy.ts` already delegated correctly.
+- [ ] **Unify the impact closed vocabulary.** Impact cases/order still have multiple
+      owners. Establish one smart value object/source of truth for cases, validation, and
+      canonical ordering. Resolve `CapabilitySpec` ownership.
 - [ ] **Consolidate narrow codec mechanics.** Byte equality and canonical-JSON parsing
       helpers are repeated across contexts and already differ semantically. Centralize
       syntax mechanics while keeping domain validation local. Specify constant-time
