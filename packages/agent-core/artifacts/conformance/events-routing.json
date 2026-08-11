@@ -136,14 +136,19 @@
       "owner": "W7",
       "specAnchor": "C13-ROUTE-DELIVERY-ONCE",
       "specTextSha256": "sha256:8a296cd0363fd7db0160abcc8a5445f1312ec47497219ebd74589aa01324d1cc",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/workspaces/persistence.ts#WorkspacePersistence",
+        "src/workspaces/route.ts#RouteDelivery",
+        "src/workspaces/target-protocol.ts#TargetProjectionProtocol"
+      ],
+      "testSelectors": [
+        "test/workspaces/persistence-mutations.test.ts#projection and delivery persistence [C13-ROUTE-DELIVERY-ONCE] writes at most one terminal delivery only after admission",
+        "test/workspaces/protocols.test.ts#authenticated target projection protocol [C13-ROUTE-DELIVERY-ONCE] admits projection and invocation once, then returns the terminal delivery on replay"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-ROUTE-PROJECTION-DIGEST",
