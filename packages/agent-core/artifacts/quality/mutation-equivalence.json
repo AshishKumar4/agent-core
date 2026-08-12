@@ -640,6 +640,22 @@
       "replacement": "bytes",
       "mutated": "bytes.slice()",
       "proof": "load decodes the map's own buffer and returns the decoded watermark, never the bytes. The record codec parses the array through decodeCanonicalJson and holds nothing afterwards, and the map is private with save as its only writer, which always stores a freshly encoded buffer. Decoding the stored array directly cannot be told from decoding a copy of it."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "revokeGrantClosure",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "grant?.isLive !== true",
+      "proof": "This loop reaches a root that is not in skip only from revokeGrant, which read the Grant a moment earlier and returned unless it was live, so the lookup here resolves to that same live record and the test is constantly false. reconcile is the only other caller and it passes a skip set built from the very ids it passes as roots, so the continue above this line takes every one of them. Forcing the test false therefore revokes and records exactly the Grants it already did."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "revokeGrantClosure",
+      "mutator": "OptionalChaining",
+      "replacement": "grant.isLive",
+      "mutated": "grant?.isLive",
+      "proof": "Dropping the optional chain dereferences an absent Grant, and none is absent here. A root that reaches this line came from revokeGrant, which found the record through requireRecord on the line above the closure call, and nothing removes a Grant from a store \u2014 revocation writes a revoked record in place. reconcile's roots are all in its skip set and never reach the lookup. The store therefore always answers with a record, and the chain never short-circuits."
     }
   ]
 }

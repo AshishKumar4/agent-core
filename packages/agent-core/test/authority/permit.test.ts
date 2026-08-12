@@ -1433,6 +1433,15 @@ describe("AuthorityPermit mutation gates", () => {
                 }
             })
         ).toThrow(new TypeError("Authority permit claim owner kind is invalid"));
+
+        // The expectation constructor refuses an impact outside POLICY_IMPACTS under this
+        // same message, so asserting it alone would prove nothing about where the refusal
+        // came from. Pairing it with a field the decoder reads immediately afterwards says
+        // which one it reports: the impact is screened as the payload is read, not left
+        // for the record to reject once the rest of it has been interpreted.
+        expect(() =>
+            AuthorityPermitExpectation.fromData({ ...data, impact: "sideways", invocation: 7 })
+        ).toThrow(new TypeError("Authority permit impact is invalid"));
     });
 
     test("requires lease tokens to carry exact qualified identities", { tags: "p0" }, () => {

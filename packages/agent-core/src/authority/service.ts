@@ -513,14 +513,11 @@ export class AuthorityMutationService {
         this.bump(store, closureMutation("guestVerification", [...affected.values()]));
     }
 
-    private bump(
-        store: AuthorityMutationStore,
-        mutations: readonly ResolverInputMutation[]
-    ): readonly ScopeEpoch[] {
-        if (mutations.length === 0) return [];
-        const plan = this.#planner.plan(store.epochs(), mutations);
-        for (const epoch of plan.bumped) store.putEpoch(epoch);
-        return plan.bumped;
+    private bump(store: AuthorityMutationStore, mutations: readonly ResolverInputMutation[]): void {
+        if (mutations.length === 0) return;
+        for (const epoch of this.#planner.plan(store.epochs(), mutations).bumped) {
+            store.putEpoch(epoch);
+        }
     }
 }
 
