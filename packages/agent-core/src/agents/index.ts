@@ -41,6 +41,7 @@ export {
     SettlementEvidencePort,
     SettlementObligation,
     SpawnReservation,
+    SpawnReservationId,
     TerminalSnapshot,
     Turn,
     TurnId,
