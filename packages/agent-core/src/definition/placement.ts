@@ -1,13 +1,21 @@
 import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
-import { PLACEMENT_PREFERENCE, type IsolationMode } from "../facets";
+import {
+    AuthoredCodeBackingPolicy,
+    PLACEMENT_PREFERENCE,
+    type AuthoredCodeBackingId,
+    type AuthoredCodeConsumer,
+    type IsolationMode
+} from "../facets";
 import { AgentCoreError } from "../errors";
 import type { PackageId } from "./id";
 import { compareText } from "./order";
 
 // The vocabulary and its preference order are declared once, in facets/manifest.ts
 // beside the IsolationMode type itself; re-exported here so existing importers of
-// definition's PLACEMENT_PREFERENCE are unaffected.
-export { PLACEMENT_PREFERENCE };
+// definition's PLACEMENT_PREFERENCE are unaffected. The consumer → backing declaration
+// this record now carries (SPEC §4.7) lives beside the §4.7 shape for the same reason.
+export { PLACEMENT_PREFERENCE, AuthoredCodeBackingPolicy };
+export type { AuthoredCodeConsumer };
 
 export type NonemptyIsolationModes = readonly [IsolationMode, ...IsolationMode[]];
 export type PlacementErrorCode = "operation.invalid-input";
@@ -21,7 +29,7 @@ export class PlacementUnavailableError extends AgentCoreError {
 
 class PlacementPolicyCodec extends RecordCodec<PlacementPolicy> {
     public constructor() {
-        super("definition.placement-policy", { major: 2, minor: 0 });
+        super("definition.placement-policy", { major: 2, minor: 1 });
     }
 
     protected encodePayload(policy: PlacementPolicy): JsonValue {
@@ -52,10 +60,22 @@ export class PlacementPolicy {
     // PlacementPolicy.all()) are unaffected; a Blueprint parsed from data always states
     // this explicitly (see fromData), so no platform silently inherits a permissive default.
     public readonly trusted: readonly string[];
+    // Which backing serves which §4.7 consumer. Partial by design: an unnamed consumer
+    // falls back to the substrate profile's declared default, which is why this record
+    // needs no "everything" default of its own.
+    public readonly backings: AuthoredCodeBackingPolicy;
 
-    public constructor(allowed: readonly IsolationMode[], trusted: readonly string[] = ["*"]) {
+    public constructor(
+        allowed: readonly IsolationMode[],
+        trusted: readonly string[] = ["*"],
+        backings: AuthoredCodeBackingPolicy = AuthoredCodeBackingPolicy.unmapped
+    ) {
         this.allowed = canonicalModes(allowed, "Placement policy");
         this.trusted = canonicalGlobs(trusted);
+        if (!(backings instanceof AuthoredCodeBackingPolicy)) {
+            throw new TypeError("Placement policy backings must be a backing policy");
+        }
+        this.backings = backings;
         Object.freeze(this);
     }
 
@@ -73,12 +93,20 @@ export class PlacementPolicy {
 
     public static fromData(payload: JsonValue): PlacementPolicy {
         const object = requireObject(payload, "Placement policy");
-        if (!hasExactJsonKeys(object, ["allowed", "trusted"])) {
+        // `backings` is additive and optional on read: a Blueprint that maps no §4.7
+        // consumer is a complete statement, because §4.7 sends every unmapped consumer
+        // to the profile's declared default. That is a defined fallback rather than a
+        // permissive one, so unlike `trusted` it needs no explicit declaration.
+        if (
+            !hasExactJsonKeys(object, ["allowed", "trusted"]) &&
+            !hasExactJsonKeys(object, ["allowed", "backings", "trusted"])
+        ) {
             throw new TypeError("Placement policy contains missing or unknown fields");
         }
         return new PlacementPolicy(
             requireModeArray(object["allowed"], "Placement policy modes"),
-            requireGlobArray(object["trusted"], "Placement policy trust pattern")
+            requireGlobArray(object["trusted"], "Placement policy trust pattern"),
+            AuthoredCodeBackingPolicy.fromData(object["backings"])
         );
     }
 
@@ -96,8 +124,21 @@ export class PlacementPolicy {
         return trustPlacementModes(this.trusts(packageId));
     }
 
+    // The backing that serves `consumer` under this declaration, falling back to the
+    // substrate profile's declared default (SPEC §4.7).
+    public backingFor(
+        consumer: AuthoredCodeConsumer,
+        profileDefault: AuthoredCodeBackingId
+    ): AuthoredCodeBackingId {
+        return this.backings.backingFor(consumer, profileDefault);
+    }
+
     public toData(): JsonValue {
-        return { allowed: this.allowed, trusted: this.trusted };
+        return {
+            allowed: this.allowed,
+            ...(this.backings.isEmpty ? {} : { backings: this.backings.toData() }),
+            trusted: this.trusted
+        };
     }
 }
 

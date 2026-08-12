@@ -242,12 +242,16 @@ describe("Cloudflare runtime integration", () => {
         socket.close(1000, "done");
     });
 
-    it("passes an allowlisted capability through Dynamic Worker env", async () => {
+    it("passes a callable capability through Dynamic Worker env and nothing else", async () => {
         const context = createExecutionContext();
         const response = await worker.fetch(new Request("https://test/loader"), env, context);
         expect(await response.json()).toEqual({
-            capability: "allowed",
-            keys: ["CAPABILITY"]
+            names: ["CAPABILITY"],
+            result: {
+                binding: "CAPABILITY",
+                operation: "read",
+                input: { path: "/a" }
+            }
         });
     });
 

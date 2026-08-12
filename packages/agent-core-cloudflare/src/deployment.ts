@@ -17,7 +17,6 @@ export type CloudflareDeployment =
     | {
           readonly mode: "dynamic";
           readonly source: DynamicWorkerSource;
-          readonly capabilities: Readonly<Record<string, unknown>>;
       }
     | {
           readonly mode: "dispatch";
@@ -35,7 +34,7 @@ export class ExplicitCloudflareDeploymentAdapter {
     public resolve(deployment: CloudflareDeployment): ScopedFetchServiceLike {
         if (deployment.mode === "dynamic") {
             return new DynamicFetchServiceScope(
-                this.dynamic.load(deployment.source, deployment.capabilities, (entrypoint) =>
+                this.dynamic.load(deployment.source, (entrypoint) =>
                     this.requireService(entrypoint)
                 )
             );

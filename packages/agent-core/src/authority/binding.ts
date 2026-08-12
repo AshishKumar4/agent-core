@@ -125,13 +125,27 @@ export class Binding {
         return Binding.codec.decode(bytes);
     }
 
-    public get key(): string {
+    /**
+     * Binding identity is exactly its addressing coordinates, so a caller holding those
+     * can look one up without first fabricating a record around a Grant and Facet it
+     * does not yet know.
+     */
+    public static keyFor(
+        scope: ScopeRef,
+        subject: SubjectRef,
+        domain: ProtectionDomain,
+        name: BindingName
+    ): string {
         return authorityKey("binding", [
-            encodeAuthorityScope(this.scope),
-            encodeAuthoritySubject(this.subject),
-            encodeDomain(this.domain),
-            this.name.value
+            encodeAuthorityScope(scope),
+            encodeAuthoritySubject(subject),
+            encodeDomain(domain),
+            name.value
         ]);
+    }
+
+    public get key(): string {
+        return Binding.keyFor(this.scope, this.subject, this.domain, this.name);
     }
 
     public get resolves(): boolean {

@@ -1,6 +1,7 @@
 export type { FacetData, FacetDataMap } from "./data";
 export { canonicalFacetData, canonicalFacetDataMap, isFacetData, isFacetDataMap } from "./data";
 export {
+    AuthoredCodeBackingId,
     BindingName,
     EventKind,
     FacetPackageId,
@@ -12,6 +13,13 @@ export {
     SlotName,
     SurfaceId
 } from "./id";
+export {
+    AUTHORED_CODE_CONSUMERS,
+    AuthoredCodeBackingPolicy,
+    AuthoredCodeSource,
+    requireAuthoredCodeConsumer
+} from "./authored-code";
+export type { AuthoredCodeConsumer } from "./authored-code";
 export { CapabilitySpec, isCapabilityEffect } from "./capability";
 export type { CapabilityEffect, CapabilityIntent, CapabilitySpecInit } from "./capability";
 export {

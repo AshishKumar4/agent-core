@@ -3,6 +3,7 @@ export { Grant } from "./grant";
 export { ScopeEpoch } from "./epoch";
 export { InvalidationWatermark, PathEpochEvidence } from "./epoch";
 export { Binding, domainKey } from "./binding";
+export type { TenantAuthorityReadStore } from "./runtime";
 export { BindingValidationEvidence, BindingValidationRequest } from "./binding-evidence";
 export { AuthorityCheckEvidence, AuthorityCheckRequest } from "./evidence";
 export { RoleGrantMaterializer } from "./materializer";

@@ -8,7 +8,11 @@ export interface DynamicWorkerSource {
 }
 
 export interface DynamicWorkerLoadOptions extends DynamicWorkerSource {
-    readonly env: Readonly<Record<string, unknown>>;
+    // A §4.7 isolate's environment is empty and the type says so. Worker Loader
+    // structured-clones `env`, so a capability could not ride in it even if the shape
+    // allowed one: the delegated set reaches the isolate as the argument of its single
+    // entry call instead, and nothing else ever reaches it at all.
+    readonly env: Readonly<Record<string, never>>;
     readonly globalOutbound: null;
 }
 
@@ -26,46 +30,23 @@ export interface DynamicWorkerScope<Entrypoint> extends Disposable {
 }
 
 export class DynamicWorkerLoaderAdapter {
-    readonly #allowedCapabilities: ReadonlySet<string>;
-
     public constructor(
         private readonly loader: WorkerLoaderBindingLike,
-        allowedCapabilities: readonly string[],
         private readonly errors: CloudflareErrorPort
-    ) {
-        if (allowedCapabilities.some((name) => name.length === 0)) {
-            throw new TypeError("Dynamic Worker capability names must be non-empty");
-        }
-        if (new Set(allowedCapabilities).size !== allowedCapabilities.length) {
-            throw new TypeError("Dynamic Worker capability allowlist must not contain duplicates");
-        }
-        this.#allowedCapabilities = new Set(allowedCapabilities);
-    }
+    ) {}
 
     public load<Entrypoint>(
         source: DynamicWorkerSource,
-        capabilities: Readonly<Record<string, unknown>>,
         createEntrypoint: (entrypoint: unknown) => Entrypoint
     ): DynamicWorkerScope<Entrypoint> {
         validateSource(source);
-        const env: Record<string, unknown> = {};
-        for (const [name, capability] of Object.entries(capabilities)) {
-            if (!this.#allowedCapabilities.has(name)) {
-                operationalFailure(
-                    this.errors,
-                    "authority.denied",
-                    `Dynamic Worker capability ${name} is not allowlisted`
-                );
-            }
-            env[name] = capability;
-        }
         let worker: DynamicWorkerHandleLike;
         try {
             worker = this.loader.load({
                 compatibilityDate: source.compatibilityDate,
                 mainModule: source.mainModule,
                 modules: Object.freeze({ ...source.modules }),
-                env: Object.freeze(env),
+                env: Object.freeze({}),
                 globalOutbound: null
             });
         } catch (cause) {

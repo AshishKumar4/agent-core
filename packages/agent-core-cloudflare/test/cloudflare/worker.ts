@@ -1,4 +1,11 @@
 import { AgentCoreError, ContentRef, Digest, RouteReservationId, TenantId } from "@agent-core/core";
+import { BindingName, FacetRef, type FacetData } from "@agent-core/core/facets";
+import {
+    AuthoredCodeCapability,
+    AuthoredCodeCapabilitySet,
+    AuthoredCodeInvocationPort,
+    type AuthoredCodeInvocationRequest
+} from "@agent-core/core/operations";
 import { ActorId, ActorRef } from "@agent-core/core/actors";
 import { ProviderDescriptor, ProviderId } from "@agent-core/core/environment-provider";
 import {
@@ -7,7 +14,7 @@ import {
     SqliteContentStore
 } from "@agent-core/core/substrates/sqlite";
 import { AuthorityPermit, AuthorityPermitExpectation } from "@agent-core/core/authority";
-import { DurableObject } from "cloudflare:workers";
+import { DurableObject, RpcTarget } from "cloudflare:workers";
 import {
     AlarmOutboxReconciler,
     AtLeastOnceQueueAdapter,
@@ -18,6 +25,9 @@ import {
     DurableObjectSlateProvider,
     PermitIssuerDurableObjectHost,
     DynamicWorkerLoaderAdapter,
+    createPassedCapabilityFactory,
+    passedCapabilities,
+    type AuthoredCodeEntrypointLike,
     SqliteApplicationMigrator,
     SqlitePlacementRegistry,
     SqliteReconciliationOutbox,
@@ -36,6 +46,37 @@ import {
 import { queueCodecs } from "../queue-codecs.js";
 
 export type TestEnvironment = Env;
+
+const loaderCapabilities = new AuthoredCodeCapabilitySet([
+    new AuthoredCodeCapability(new BindingName("CAPABILITY"), new FacetRef("mail:instance"))
+]);
+
+// A stand-in for the isolate's gateway port: the point of this scenario is that a
+// delegated capability crosses the real Worker Loader boundary and calls back into the
+// host, not what the host does with the call.
+const loaderInvocations = new (class extends AuthoredCodeInvocationPort {
+    public async invoke(request: AuthoredCodeInvocationRequest): Promise<FacetData> {
+        return {
+            binding: request.binding.value,
+            operation: request.operation.value,
+            input: request.input
+        };
+    }
+})();
+
+function requireAuthoredCodeEntrypoint(entrypoint: unknown): AuthoredCodeEntrypointLike {
+    if (
+        (typeof entrypoint !== "object" || entrypoint === null) &&
+        typeof entrypoint !== "function"
+    ) {
+        throw new AgentCoreError("operation.invalid-output", "Loaded code has no entry point");
+    }
+    const run = Reflect.get(entrypoint, "run");
+    if (typeof run !== "function") {
+        throw new AgentCoreError("operation.invalid-output", "Loaded code declares no run");
+    }
+    return { run: (call) => Reflect.apply(run, entrypoint, [call]) };
+}
 
 const errors: CloudflareErrorPort = {
     raise(code, message): never {
@@ -375,7 +416,6 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
             if (url.pathname === "/loader") {
                 const adapter = new DynamicWorkerLoaderAdapter(
                     environment.LOADER satisfies WorkerLoaderBindingLike,
-                    ["CAPABILITY"],
                     errors
                 );
                 const scope = adapter.load(
@@ -384,20 +424,35 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
                         mainModule: "index.js",
                         modules: {
                             "index.js": `export default {
-                            fetch(_request, env) {
-                                return Response.json({
-                                    capability: env.CAPABILITY,
-                                    keys: Object.keys(env).sort()
-                                });
+                            async fetch(request, env) {
+                                const body = await request.json();
+                                return Response.json({ keys: Object.keys(env).sort(), body });
+                            },
+                            async run(call) {
+                                return {
+                                    names: Object.keys(call.capabilities).sort(),
+                                    result: await call.capabilities.CAPABILITY.invoke(
+                                        "read",
+                                        call.input
+                                    )
+                                };
                             }
                         }`
                         }
                     },
-                    { CAPABILITY: "allowed" },
-                    requireFetchService
+                    requireAuthoredCodeEntrypoint
                 );
                 try {
-                    return await scope.entrypoint.fetch(request);
+                    return Response.json(
+                        await scope.entrypoint.run({
+                            capabilities: passedCapabilities(
+                                loaderCapabilities,
+                                loaderInvocations,
+                                createPassedCapabilityFactory(RpcTarget)
+                            ),
+                            input: { path: "/a" }
+                        })
+                    );
                 } finally {
                     scope[Symbol.dispose]();
                 }
@@ -405,7 +460,6 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
             if (url.pathname === "/loader-outbound") {
                 const adapter = new DynamicWorkerLoaderAdapter(
                     environment.LOADER satisfies WorkerLoaderBindingLike,
-                    [],
                     errors
                 );
                 const scope = adapter.load(
@@ -425,7 +479,6 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
                         }`
                         }
                     },
-                    {},
                     requireFetchService
                 );
                 try {

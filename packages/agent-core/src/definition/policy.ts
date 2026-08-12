@@ -171,6 +171,11 @@ export function mergePolicySets(policies: readonly PolicySet[]): PolicySet {
         tiers,
         approvals: POLICY_IMPACTS.filter((impact) => approvals.has(impact)),
         ...(maxDirectRevocationWindowMs === undefined ? {} : { maxDirectRevocationWindowMs }),
+        // The merge answers exactly one question: which modes every policy on the chain
+        // still admits. The placement record's other declarations — the trust globs and
+        // the §4.7 consumer → backing mapping — are single Blueprint statements with no
+        // tightening semantics to merge, so callers that need them read the Blueprint's
+        // own PlacementPolicy (definition/validator.ts, composition) rather than this.
         placement: new PlacementPolicy(placement)
     });
 }

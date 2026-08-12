@@ -304,29 +304,12 @@ describe("Cloudflare operational failure mapping", () => {
     });
 
     test("maps Loader and Dispatch failures and validates explicit inputs", () => {
-        expect(
-            () =>
-                new DynamicWorkerLoaderAdapter(
-                    { load: () => ({ getEntrypoint: () => ({}) }) },
-                    [""],
-                    fakeErrors
-                )
-        ).toThrow(TypeError);
-        expect(
-            () =>
-                new DynamicWorkerLoaderAdapter(
-                    { load: () => ({ getEntrypoint: () => ({}) }) },
-                    ["A", "A"],
-                    fakeErrors
-                )
-        ).toThrow(TypeError);
         const loader = new DynamicWorkerLoaderAdapter(
             {
                 load(): never {
                     throw new TypeError("load");
                 }
             },
-            [],
             fakeErrors
         );
         expectOperationalFailure(
@@ -337,7 +320,6 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
-                    {},
                     identity
                 ),
             "protocol.invalid-state"
@@ -352,7 +334,6 @@ describe("Cloudflare operational failure mapping", () => {
                         }
                     }) as never
             },
-            [],
             fakeErrors
         );
         expectOperationalFailure(
@@ -363,7 +344,6 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
-                    {},
                     identity
                 ),
             "operation.invalid-output"
@@ -381,7 +361,6 @@ describe("Cloudflare operational failure mapping", () => {
                     }
                 })
             },
-            [],
             fakeErrors
         );
         expectOperationalFailure(
@@ -392,7 +371,6 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
-                    {},
                     identity
                 ),
             "protocol.invalid-state"
@@ -408,7 +386,6 @@ describe("Cloudflare operational failure mapping", () => {
                     }
                 })
             },
-            [],
             fakeErrors
         );
         expectOperationalFailure(
@@ -419,7 +396,6 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
-                    {},
                     identity
                 ),
             "operation.invalid-output"
@@ -432,7 +408,6 @@ describe("Cloudflare operational failure mapping", () => {
                     mainModule: "missing.js",
                     modules: { "index.js": "" }
                 },
-                {},
                 identity
             )
         ).toThrow(TypeError);
@@ -467,7 +442,6 @@ describe("Cloudflare operational failure mapping", () => {
                 {
                     load: () => ({ getEntrypoint: () => ({}) as never })
                 },
-                [],
                 fakeErrors
             ),
             new DispatchNamespaceAdapter({ get: () => ({}) as never }, fakeErrors),
@@ -481,8 +455,7 @@ describe("Cloudflare operational failure mapping", () => {
                         compatibilityDate: "2026-07-10",
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
-                    },
-                    capabilities: {}
+                    }
                 }),
             "operation.invalid-output"
         );
