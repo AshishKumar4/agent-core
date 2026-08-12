@@ -3,11 +3,31 @@ import { Revision } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { RunCommit } from "../../../src/agents/runs/commit";
-import { ForcedTurnCancellation } from "../../../src/agents/runs/forced-cancellation";
+import {
+    ForcedTurnCancellation,
+    ForcedTurnCancellationCodec,
+    type ForcedTurnCancellationInit
+} from "../../../src/agents/runs/forced-cancellation";
 import { RunCheckpointId, RunId, TurnInboxEntryId } from "../../../src/agents/runs/id";
+import { TurnLease } from "../../../src/agents/runs/lease";
+import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
-import type { TerminalizeRunRequest } from "../../../src/agents/runs/runtime";
-import { RunCheckpoint, Turn, TurnInboxEntry } from "../../../src/agents/runs/turn";
+import { RunRuntime, type TerminalizeRunRequest } from "../../../src/agents/runs/runtime";
+import {
+    RunRepository,
+    type RunRecordKind,
+    type RunStoragePort,
+    type StoredRunParent,
+    type StoredRunRecord
+} from "../../../src/agents/runs/store";
+import {
+    RunCheckpoint,
+    Turn,
+    TurnCodec,
+    TurnInboxEntry,
+    TurnStatus
+} from "../../../src/agents/runs/turn";
+import type { SynchronousResultGuard } from "../../../src/actors";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
@@ -43,10 +63,7 @@ function cancelEntry(
         token: { turn: TurnId; holder: PrincipalRef; epoch: number } | undefined;
     }> = {}
 ): TurnInboxEntry {
-    const token =
-        "token" in over
-            ? over.token
-            : { turn: ids.turn, holder: ids.holder, epoch: 1 };
+    const token = "token" in over ? over.token : { turn: ids.turn, holder: ids.holder, epoch: 1 };
     return new TurnInboxEntry(
         new TurnInboxEntryId(id),
         ids.turn,
@@ -118,11 +135,7 @@ function claimSibling(value: ReturnType<typeof seedRunningTurn>, id: string): Tu
     );
 }
 
-function forcedEvidence(
-    value: ReturnType<typeof seedRunningTurn>,
-    sibling: Turn,
-    suffix: string
-) {
+function forcedEvidence(value: ReturnType<typeof seedRunningTurn>, sibling: Turn, suffix: string) {
     const receipt = new ReceiptId(`forced-control-${suffix}`);
     const controlAudit = new AuditRecordId(`forced-control-audit-${suffix}`);
     const event = new EventId(`forced-event-${suffix}`);
@@ -164,8 +177,8 @@ function terminalRequest(
     return {
         run: ids.run,
         turn: ids.turn,
-        expectedRunRevision: value.repository.transaction((tx) =>
-            must(value.repository.loadRun(tx, ids.run)).revision
+        expectedRunRevision: value.repository.transaction(
+            (tx) => must(value.repository.loadRun(tx, ids.run)).revision
         ),
         expectedTurnRevision: value.running.revision,
         expectedBranchRevision: new Revision(0),
@@ -389,9 +402,8 @@ describe("held cancellation and timeout fencing", () => {
             value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
         ).toHaveLength(2);
         expect(
-            value.repository.transaction((tx) =>
-                must(value.repository.loadTurn(tx, ids.turn))
-            ).status.kind
+            value.repository.transaction((tx) => must(value.repository.loadTurn(tx, ids.turn)))
+                .status.kind
         ).toBe("cancelled");
     });
 
@@ -725,9 +737,7 @@ describe("forced sibling cancellation", () => {
                     value.runtime.terminalizeRun(
                         terminalRequest(value, {
                             forcedCancellationControl: forced.control,
-                            siblingCancellations: new Map([
-                                [sibling.id.value, forced.evidence]
-                            ])
+                            siblingCancellations: new Map([[sibling.id.value, forced.evidence]])
                         })
                     ),
                 "authority.denied",
@@ -843,9 +853,7 @@ describe("forced sibling cancellation", () => {
                     value.runtime.terminalizeRun(
                         terminalRequest(value, {
                             forcedCancellationControl: forced.control,
-                            siblingCancellations: new Map([
-                                [sibling.id.value, forced.evidence]
-                            ])
+                            siblingCancellations: new Map([[sibling.id.value, forced.evidence]])
                         })
                     ),
                 "run.invalid-state",
@@ -882,8 +890,8 @@ describe("forced sibling cancellation", () => {
         expect(record.fencedLeaseEpoch).toBe(2);
         expect(record.terminalTurn.equals(ids.turn)).toBe(true);
         expect(
-            value.repository.transaction((tx) =>
-                must(value.repository.loadRun(tx, ids.run)).lifecycle.kind
+            value.repository.transaction(
+                (tx) => must(value.repository.loadRun(tx, ids.run)).lifecycle.kind
             )
         ).toBe("terminal");
     });
@@ -915,79 +923,476 @@ describe("forced sibling cancellation", () => {
         expect(record.fencedLeaseEpoch).toBe(1);
     });
 
-    test("terminalizes cleanly over succeeded, failed, and cancelled siblings", { tags: "p0" }, () => {
-        const value = seedRunningTurn();
-        const succeeded = claimSibling(value, "sibling-succeeded");
-        const succeededResult = resultCommit("sibling-succeeded-result", succeeded.id, ids.root, {
-            turn: succeeded.id,
-            holder: ids.holder,
-            epoch: 1
-        });
-        value.runtime.completeTurn({
-            turn: succeeded.id,
-            expectedTurnRevision: succeeded.revision,
-            expectedBranchRevision: new Revision(0),
-            token: { turn: succeeded.id, holder: ids.holder, epoch: 1 },
-            outcome: "succeeded",
-            commit: succeededResult,
-            now: new Date(1200)
-        });
-
-        const failedId = queueSibling(value, "sibling-failed", new Revision(1), succeededResult.id);
-        const failed = value.runtime.claimTurn(
-            failedId,
-            new Revision(0),
-            ids.holder,
-            new Date(1200),
-            new Date(5000)
-        );
-        const failedResult = resultCommit("sibling-failed-result", failedId, succeededResult.id, {
-            turn: failedId,
-            holder: ids.holder,
-            epoch: 1
-        });
-        value.runtime.completeTurn({
-            turn: failedId,
-            expectedTurnRevision: failed.revision,
-            expectedBranchRevision: new Revision(1),
-            token: { turn: failedId, holder: ids.holder, epoch: 1 },
-            outcome: "failed",
-            commit: failedResult,
-            now: new Date(1300)
-        });
-
-        const cancelledId = queueSibling(
-            value,
-            "sibling-cancelled",
-            new Revision(2),
-            failedResult.id
-        );
-        value.runtime.cancelUnheldTurn(cancelledId, new Revision(0));
-
-        const snapshot = value.runtime.terminalizeRun(
-            terminalRequest(value, {
-                outcome: "succeeded",
-                expectedBranchRevision: new Revision(2),
-                commit: resultCommit("terminal-final", ids.turn, failedResult.id, value.token)
-            })
-        );
-        expect(snapshot.outcome).toBe("succeeded");
-        expect(
-            value.repository.transaction((tx) =>
-                value.repository.listForcedCancellations(tx, ids.run)
-            )
-        ).toEqual([]);
-        for (const [turnId, status] of [
-            [succeeded.id, "succeeded"],
-            [failedId, "failed"],
-            [cancelledId, "cancelled"]
-        ] as const) {
-            const sibling = value.repository.transaction((tx) =>
-                must(value.repository.loadTurn(tx, turnId))
+    test(
+        "terminalizes cleanly over succeeded, failed, and cancelled siblings",
+        { tags: "p0" },
+        () => {
+            const value = seedRunningTurn();
+            const succeeded = claimSibling(value, "sibling-succeeded");
+            const succeededResult = resultCommit(
+                "sibling-succeeded-result",
+                succeeded.id,
+                ids.root,
+                {
+                    turn: succeeded.id,
+                    holder: ids.holder,
+                    epoch: 1
+                }
             );
-            expect(sibling.status.kind).toBe(status);
-            expect(sibling.lease.holder).toBeUndefined();
+            value.runtime.completeTurn({
+                turn: succeeded.id,
+                expectedTurnRevision: succeeded.revision,
+                expectedBranchRevision: new Revision(0),
+                token: { turn: succeeded.id, holder: ids.holder, epoch: 1 },
+                outcome: "succeeded",
+                commit: succeededResult,
+                now: new Date(1200)
+            });
+
+            const failedId = queueSibling(
+                value,
+                "sibling-failed",
+                new Revision(1),
+                succeededResult.id
+            );
+            const failed = value.runtime.claimTurn(
+                failedId,
+                new Revision(0),
+                ids.holder,
+                new Date(1200),
+                new Date(5000)
+            );
+            const failedResult = resultCommit(
+                "sibling-failed-result",
+                failedId,
+                succeededResult.id,
+                {
+                    turn: failedId,
+                    holder: ids.holder,
+                    epoch: 1
+                }
+            );
+            value.runtime.completeTurn({
+                turn: failedId,
+                expectedTurnRevision: failed.revision,
+                expectedBranchRevision: new Revision(1),
+                token: { turn: failedId, holder: ids.holder, epoch: 1 },
+                outcome: "failed",
+                commit: failedResult,
+                now: new Date(1300)
+            });
+
+            const cancelledId = queueSibling(
+                value,
+                "sibling-cancelled",
+                new Revision(2),
+                failedResult.id
+            );
+            value.runtime.cancelUnheldTurn(cancelledId, new Revision(0));
+
+            const snapshot = value.runtime.terminalizeRun(
+                terminalRequest(value, {
+                    outcome: "succeeded",
+                    expectedBranchRevision: new Revision(2),
+                    commit: resultCommit("terminal-final", ids.turn, failedResult.id, value.token)
+                })
+            );
+            expect(snapshot.outcome).toBe("succeeded");
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.listForcedCancellations(tx, ids.run)
+                )
+            ).toEqual([]);
+            for (const [turnId, status] of [
+                [succeeded.id, "succeeded"],
+                [failedId, "failed"],
+                [cancelledId, "cancelled"]
+            ] as const) {
+                const sibling = value.repository.transaction((tx) =>
+                    must(value.repository.loadTurn(tx, turnId))
+                );
+                expect(sibling.status.kind).toBe(status);
+                expect(sibling.lease.holder).toBeUndefined();
+            }
+            expect(value.runtime.settled(ids.run)).toBe(true);
         }
-        expect(value.runtime.settled(ids.run)).toBe(true);
+    );
+});
+
+// A storage port that accepts every write and then answers a later read with something
+// else. The port is the real seam between the two backends we ship, and the SQLite one
+// validates a row against its own bytes without re-deriving any cross-record invariant,
+// so "the store took the write" and "the store hands it back" are separate facts. The
+// divergence arms on the first forced-cancellation insert, which is the last write
+// terminalization makes before it reads the same records back.
+type MemoryTransaction = Parameters<MemoryRunStorage["get"]>[0];
+
+type ReadBackDivergence = (
+    kind: RunRecordKind,
+    rows: readonly StoredRunRecord[]
+) => readonly StoredRunRecord[];
+
+class ReadBackDivergentStorage implements RunStoragePort<MemoryTransaction> {
+    #armed = false;
+    public divergence: ReadBackDivergence | undefined;
+
+    public constructor(private readonly inner: MemoryRunStorage) {}
+
+    public transaction<Result>(
+        operation: (transaction: MemoryTransaction) => Result,
+        ...guard: SynchronousResultGuard<Result>
+    ): Result {
+        return this.inner.transaction(operation, ...guard);
+    }
+
+    public get(
+        transaction: MemoryTransaction,
+        kind: RunRecordKind,
+        key: string
+    ): StoredRunRecord | undefined {
+        return this.inner.get(transaction, kind, key);
+    }
+
+    public list(transaction: MemoryTransaction, kind: RunRecordKind): readonly StoredRunRecord[] {
+        const rows = this.inner.list(transaction, kind);
+        return this.#armed && this.divergence !== undefined ? this.divergence(kind, rows) : rows;
+    }
+
+    public insert(transaction: MemoryTransaction, record: StoredRunRecord): void {
+        this.inner.insert(transaction, record);
+        if (record.kind === "forcedCancellation") this.#armed = true;
+    }
+
+    public replace(
+        transaction: MemoryTransaction,
+        record: StoredRunRecord,
+        expectedRevision: number
+    ): void {
+        this.inner.replace(transaction, record, expectedRevision);
+    }
+
+    public insertParent(transaction: MemoryTransaction, edge: StoredRunParent): void {
+        this.inner.insertParent(transaction, edge);
+    }
+
+    public parents(transaction: MemoryTransaction, commit: string): readonly StoredRunParent[] {
+        return this.inner.parents(transaction, commit);
+    }
+}
+
+function turnRow(turn: Turn): StoredRunRecord {
+    return {
+        kind: "turn",
+        key: turn.id.value,
+        revision: turn.revision.value,
+        bytes: TurnCodec.encode(turn)
+    };
+}
+
+function cancellationRow(record: ForcedTurnCancellation): StoredRunRecord {
+    return {
+        kind: "forcedCancellation",
+        key: record.turn.value,
+        revision: null,
+        bytes: ForcedTurnCancellationCodec.encode(record)
+    };
+}
+
+function unheldLease(sibling: Turn, epoch: number): TurnLease {
+    return TurnLease.restore(sibling.id, undefined, epoch, new Date(5000));
+}
+
+// The fenced sibling as another store might hand it back: every field it was written with
+// except the ones a case names.
+function siblingAs(
+    sibling: Turn,
+    over: {
+        readonly status?: TurnStatus;
+        readonly lease: TurnLease;
+        readonly checkpoint?: RunCheckpointId;
+        readonly result?: ReturnType<typeof content>;
+    }
+): Turn {
+    return new Turn({
+        id: sibling.id,
+        run: sibling.run,
+        branch: sibling.branch,
+        startHead: sibling.startHead,
+        effectiveInput: sibling.effectiveInput,
+        pins: sibling.pins,
+        placement: sibling.placement,
+        input: sibling.input,
+        status: over.status ?? TurnStatus.cancelled,
+        lease: over.lease,
+        ...(over.checkpoint === undefined ? {} : { checkpoint: over.checkpoint }),
+        ...(over.result === undefined ? {} : { result: over.result }),
+        revision: sibling.revision.next()
     });
+}
+
+// Replaces, or drops, the one row a case is about and passes every other row through.
+function replacing(
+    kind: RunRecordKind,
+    key: string,
+    row: StoredRunRecord | undefined
+): ReadBackDivergence {
+    return (listed, rows) =>
+        listed !== kind
+            ? rows
+            : rows.flatMap((existing) =>
+                  existing.key === key ? (row === undefined ? [] : [row]) : [existing]
+              );
+}
+
+describe("terminal sibling read-back", () => {
+    // Terminalization fences every active sibling, then reads the Turns and the
+    // cancellation records back out of the store before it closes the admission registry.
+    // That read-back is why validateTerminalSiblings cannot fail on any logic input: the
+    // facts it checks were established ten lines above, in the same transaction. What it
+    // screens is the storage port. Every case below accepts the writes and then answers a
+    // later read with something else, which is the only way to reach these branches — and
+    // the reason a Run does not close its admission registry over writes nobody has
+    // confirmed landed.
+    function fenced(
+        build: (sibling: Turn, forced: ReturnType<typeof forcedEvidence>) => ReadBackDivergence
+    ) {
+        const seeded = seedRunningTurn();
+        const sibling = claimSibling(seeded, "sibling-readback");
+        const forced = forcedEvidence(seeded, sibling, "readback");
+        const request = terminalRequest(seeded, {
+            forcedCancellationControl: forced.control,
+            siblingCancellations: new Map([[sibling.id.value, forced.evidence]])
+        });
+        const storage = new ReadBackDivergentStorage(
+            new MemoryRunStorage(seeded.storage.snapshot())
+        );
+        const repository = new RunRepository(storage);
+        const runtime = new RunRuntime(
+            repository,
+            seeded.sources,
+            seeded.evidence,
+            seeded.settlement,
+            seeded.spawn,
+            seeded.merge
+        );
+        storage.divergence = build(sibling, forced);
+        return {
+            repository,
+            sibling,
+            run: () => runtime.terminalizeRun(request)
+        };
+    }
+
+    // The record forceCancelSiblings builds for the fenced sibling, so a case can hand one
+    // field of it back changed and leave every other agreeing.
+    function recordFor(
+        sibling: Turn,
+        forced: ReturnType<typeof forcedEvidence>,
+        over: Partial<ForcedTurnCancellationInit> = {}
+    ): ForcedTurnCancellation {
+        return new ForcedTurnCancellation({
+            run: ids.run,
+            terminalTurn: ids.turn,
+            turn: sibling.id,
+            priorLeaseEpoch: sibling.lease.epoch,
+            fencedLeaseEpoch: sibling.lease.epoch + 1,
+            controlReceipt: forced.control.receipt,
+            controlAudit: forced.control.audit,
+            cancellationEvent: forced.evidence.event,
+            cancellationAudit: forced.evidence.audit,
+            ...over
+        });
+    }
+
+    function expectStillActive(repository: RunRepository<MemoryTransaction>): void {
+        expect(
+            repository.transaction((tx) => must(repository.loadRun(tx, ids.run))).lifecycle.kind
+        ).toBe("active");
+    }
+
+    test("refuses a cancellation record the store never hands back", { tags: "p0" }, () => {
+        const { repository, run } = fenced(
+            () => (kind, rows) => (kind === "forcedCancellation" ? [] : rows)
+        );
+        expectCode(
+            run,
+            "run.invalid-state",
+            "Every forcibly fenced sibling requires one cancellation record"
+        );
+        expectStillActive(repository);
+    });
+
+    test("refuses a cancellation record read back under another Turn", { tags: "p0" }, () => {
+        // One record for one fenced sibling, so the count agrees; it is just not this
+        // sibling's record, which is the pairing a count alone cannot see.
+        const { repository, run } = fenced((sibling, forced) =>
+            replacing(
+                "forcedCancellation",
+                sibling.id.value,
+                cancellationRow(
+                    recordFor(sibling, forced, { turn: new TurnId("sibling-readback-other") })
+                )
+            )
+        );
+        expectCode(
+            run,
+            "run.invalid-state",
+            "Every forcibly fenced sibling requires one cancellation record"
+        );
+        expectStillActive(repository);
+    });
+
+    test("refuses a record read back naming another terminal Turn", { tags: "p0" }, () => {
+        const { repository, run } = fenced((sibling, forced) =>
+            replacing(
+                "forcedCancellation",
+                sibling.id.value,
+                cancellationRow(
+                    recordFor(sibling, forced, {
+                        terminalTurn: new TurnId("sibling-readback-terminal")
+                    })
+                )
+            )
+        );
+        expectCode(
+            run,
+            "run.invalid-state",
+            "Forced cancellation record does not match its fenced sibling"
+        );
+        expectStillActive(repository);
+    });
+
+    test("refuses a fenced sibling the store no longer lists", { tags: "p0" }, () => {
+        // The Turn row is gone while its cancellation record remains, so the count and the
+        // pairing both still agree and only the join back to the sibling fails.
+        const { repository, run } = fenced((sibling) =>
+            replacing("turn", sibling.id.value, undefined)
+        );
+        expectCode(
+            run,
+            "run.invalid-state",
+            "Forced cancellation record does not match its fenced sibling"
+        );
+        expectStillActive(repository);
+    });
+
+    test(
+        "refuses a sibling read back in a terminal state it was not fenced into",
+        { tags: "p0" },
+        () => {
+            // Terminal and unheld, so the active-sibling screen is satisfied. The Run still may
+            // not close: the record says this Turn was cancelled and the store says it
+            // succeeded.
+            const { repository, run } = fenced((sibling) =>
+                replacing(
+                    "turn",
+                    sibling.id.value,
+                    turnRow(
+                        siblingAs(sibling, {
+                            status: TurnStatus.succeeded,
+                            lease: unheldLease(sibling, sibling.lease.epoch + 1),
+                            result: content("3")
+                        })
+                    )
+                )
+            );
+            expectCode(
+                run,
+                "run.invalid-state",
+                "Forced cancellation record does not match its fenced sibling"
+            );
+            expectStillActive(repository);
+        }
+    );
+
+    test(
+        "refuses a sibling whose read-back lease epoch is not the fenced one",
+        { tags: "p0" },
+        () => {
+            // Cancelled and unheld, but at an epoch the fence never produced: the record and
+            // the lease disagree about which generation was severed, so a displaced holder
+            // could still be admitted against the epoch nobody fenced.
+            const { repository, run } = fenced((sibling) =>
+                replacing(
+                    "turn",
+                    sibling.id.value,
+                    turnRow(
+                        siblingAs(sibling, { lease: unheldLease(sibling, sibling.lease.epoch + 2) })
+                    )
+                )
+            );
+            expectCode(
+                run,
+                "run.invalid-state",
+                "Forced cancellation record does not match its fenced sibling"
+            );
+            expectStillActive(repository);
+        }
+    );
+
+    test("refuses a sibling the store still reports as live", { tags: "p0" }, () => {
+        // Running is held and suspended is not, so the two halves of the screen are
+        // exercised apart: a sibling is live either by not being terminal or by still
+        // holding its lease.
+        const live = [
+            { label: "running", build: (sibling: Turn) => sibling },
+            {
+                label: "suspended",
+                build: (sibling: Turn) =>
+                    siblingAs(sibling, {
+                        status: TurnStatus.suspended,
+                        lease: unheldLease(sibling, sibling.lease.epoch + 1),
+                        checkpoint: new RunCheckpointId("sibling-readback-checkpoint")
+                    })
+            }
+        ] as const;
+        for (const probe of live) {
+            const { repository, run } = fenced((sibling) =>
+                replacing("turn", sibling.id.value, turnRow(probe.build(sibling)))
+            );
+            expectCode(
+                run,
+                "run.invalid-state",
+                "Run admission cannot close while a sibling is active or held"
+            );
+            expectStillActive(repository);
+        }
+    });
+
+    test(
+        "re-checks the control and cancellation evidence each record names",
+        { tags: "p0" },
+        () => {
+            // Every field the sibling join compares still agrees; only the evidence the record
+            // points at has moved, so the loop's own authority checks are what has to catch it.
+            const probes = [
+                {
+                    over: { controlReceipt: new ReceiptId("readback-other-control") },
+                    code: "authority.denied" as const,
+                    message:
+                        "Forced cancellation requires the exact successful administer Receipt and Audit"
+                },
+                {
+                    over: { cancellationEvent: new EventId("readback-other-event") },
+                    code: "run.invalid-state" as const,
+                    message: "Forced cancellation inbox and Audit evidence do not match the fence"
+                }
+            ] as const satisfies readonly {
+                readonly over: Partial<ForcedTurnCancellationInit>;
+                readonly code: AgentCoreError["code"];
+                readonly message: string;
+            }[];
+            for (const probe of probes) {
+                const { repository, run } = fenced((sibling, forced) =>
+                    replacing(
+                        "forcedCancellation",
+                        sibling.id.value,
+                        cancellationRow(recordFor(sibling, forced, probe.over))
+                    )
+                );
+                expectCode(run, probe.code, probe.message);
+                expectStillActive(repository);
+            }
+        }
+    );
 });

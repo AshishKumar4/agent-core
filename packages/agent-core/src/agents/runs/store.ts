@@ -546,7 +546,7 @@ export class RunRepository<Transaction> {
     ): Value | undefined {
         const stored = this.storage.get(tx, kind, key);
         if (stored === undefined) return undefined;
-        const value = codec.decode(stored.bytes.slice());
+        const value = codec.decode(stored.bytes);
         if (
             keyOf(value) !== stored.key ||
             (revisionOf?.(value).value ?? null) !== stored.revision
@@ -567,7 +567,7 @@ export class RunRepository<Transaction> {
         revisionOf?: (value: Value) => Revision
     ): readonly Value[] {
         return this.storage.list(tx, kind).map((row) => {
-            const value = codec.decode(row.bytes.slice());
+            const value = codec.decode(row.bytes);
             if (keyOf(value) !== row.key || (revisionOf?.(value).value ?? null) !== row.revision) {
                 throw new AgentCoreError(
                     "codec.invalid",
