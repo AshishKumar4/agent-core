@@ -1,6 +1,7 @@
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { TenantId } from "../identity";
+import { bytesEqual } from "./data";
 import { authorityKey } from "./key";
 import { InvalidationWatermark, type ScopeEpoch } from "./epoch";
 
@@ -143,12 +144,6 @@ function requireSnapshot(snapshot: MemoryInvalidationWatermarkSnapshot): void {
             throw corruptWatermarkSnapshot("Memory watermark snapshot record is malformed");
         }
     }
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-    return (
-        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
-    );
 }
 
 function corruptWatermarkSnapshot(message: string): AgentCoreError {

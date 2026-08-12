@@ -3,6 +3,7 @@ import { AgentCoreError } from "../errors";
 import { CapabilitySpec, isCapabilityEffect, type CapabilityEffect } from "../facets";
 import { MembershipId, requireSubjectTenant, type ScopeRef, type SubjectRef } from "../identity";
 import {
+    bytesEqual,
     requireBoolean,
     requireExact,
     requireObject,
@@ -288,12 +289,6 @@ function sameOriginIdentity(left: GrantOrigin, right: GrantOrigin): boolean {
         left.membershipId.equals(right.membershipId) &&
         left.ruleOrdinal === right.ruleOrdinal &&
         left.guest === right.guest
-    );
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-    return (
-        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
     );
 }
 

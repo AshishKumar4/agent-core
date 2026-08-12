@@ -334,6 +334,97 @@ describe("Tenant authority runtime", () => {
             ).reason
         ).toBe("invalidBinding");
     });
+
+    // A Binding names one Facet; the intent names the Facet actually being invoked. Only
+    // the Grant's capability pattern is weighed against the intent, so whenever a Grant
+    // covers a family of Facets — which is the point of a pattern — the Binding's own
+    // Facet is the only thing keeping a Binding minted for one member of that family from
+    // driving another. Nothing else in the plane compares the two: createBinding never
+    // reads the Facet, and AuthorityCheckRequest accepts any intent Facet beside any
+    // Binding.
+    test("refuses an intent Facet the Binding does not name", { tags: "p0" }, () => {
+        const { service, runtime } = fixture();
+        const covering = grant(
+            "facet-family",
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+            "allow"
+        );
+        service.createGrant(covering);
+        const binding = Binding.active(
+            workspaceScope,
+            covering.subject,
+            domain,
+            new BindingName("facet-family"),
+            covering.id,
+            facet
+        );
+        service.createBinding(binding);
+        const currentPath = runtime.validateBinding(
+            validationRequest(covering.id),
+            new Date(4_000)
+        ).pathEpochs;
+        const sibling = new FacetRef("workspace:mail.sibling");
+        expect(covering.capability.facetPattern).toBe("workspace:mail.*");
+
+        const evidence = runtime.check(
+            checkRequest(binding, new PrincipalRef(tenantId, principalId), currentPath, sibling),
+            new Date(4_001)
+        );
+
+        expect(evidence.reason).toBe("noMatchingAllow");
+        expect(evidence.decision).toBe("deny");
+        expect(evidence.matchedAllow).toEqual([]);
+        expect(
+            runtime.check(
+                checkRequest(binding, new PrincipalRef(tenantId, principalId), currentPath),
+                new Date(4_002)
+            ).reason
+        ).toBe("allowed");
+    });
+
+    // Binding state is the Binding's own lifecycle, and both stores accept an inactive
+    // record: the closure they re-derive weighs a Binding against its Grant and never
+    // reads Binding state. So a deactivated Binding that still matches the request
+    // byte-for-byte reaches the evaluator, and only the evaluator refuses it. Passing a
+    // deactivated Binding in the request instead does not reach here — the stored record
+    // no longer matches, and the check stops at canonical Binding identity.
+    test("refuses a stored Binding that no longer resolves", { tags: "p0" }, () => {
+        const { store, service, runtime } = fixture();
+        const backing = grant(
+            "inactive-backing",
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+            "allow"
+        );
+        service.createGrant(backing);
+        const binding = Binding.active(
+            workspaceScope,
+            backing.subject,
+            domain,
+            new BindingName("inactive"),
+            backing.id,
+            facet
+        );
+        service.createBinding(binding);
+        const currentPath = runtime.validateBinding(
+            validationRequest(backing.id),
+            new Date(5_000)
+        ).pathEpochs;
+        const inactive = binding.deactivate();
+        store.transaction((candidate) => {
+            candidate.putBinding(inactive);
+        });
+
+        expect(store.binding(binding.key)?.resolves).toBe(false);
+        const evidence = runtime.check(
+            checkRequest(inactive, new PrincipalRef(tenantId, principalId), currentPath),
+            new Date(5_001)
+        );
+
+        expect(evidence.reason).toBe("invalidBinding");
+        expect(evidence.decision).toBe("deny");
+        expect(evidence.matchedAllow).toEqual([]);
+        expect(evidence.matchedDeny).toEqual([]);
+    });
 });
 
 describe("verified guest lifecycle", () => {
@@ -615,7 +706,8 @@ function validationRequest(grantId: GrantId): BindingValidationRequest {
 function checkRequest(
     binding: Binding,
     principal: PrincipalRef,
-    expectedPath: import("../../src/authority/epoch").PathEpochEvidence
+    expectedPath: import("../../src/authority/epoch").PathEpochEvidence,
+    intentFacet: FacetRef = facet
 ): AuthorityCheckRequest {
     return new AuthorityCheckRequest({
         ownerTenant: tenantId,
@@ -624,7 +716,7 @@ function checkRequest(
         principal,
         binding,
         intent: {
-            facet,
+            facet: intentFacet,
             operation: "read",
             impact: "observe",
             arguments: argumentsValue,

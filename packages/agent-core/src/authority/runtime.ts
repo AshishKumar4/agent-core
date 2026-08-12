@@ -193,7 +193,7 @@ export class TenantAuthorityRuntime {
             (grant) =>
                 grant.effect === "allow" &&
                 validateLineage(grant, all, exactPath) === undefined &&
-                (grant.subject.kind !== "foreign" || this.guestGrantIsCurrent(grant, now))
+                this.guestGrantIsCurrent(grant, now)
         );
         return allow.some((grant) => grant.id.equals(backing.id))
             ? { reason: "allowed", allow, deny: [] }

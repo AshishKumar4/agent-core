@@ -28,6 +28,7 @@ import {
     type MembershipState,
     type TenantKind
 } from "../identity";
+import { bytesEqual } from "./data";
 import { ScopeEpoch } from "./epoch";
 import { Binding } from "./binding";
 import { Grant } from "./grant";
@@ -296,7 +297,7 @@ export class AuthorityMutationService {
     public changeRole(role: Role): Role {
         return this.store.transaction((store) => {
             const current = requireRecord(store.role(role.name), "Role");
-            if (equalBytes(Role.encode(current), Role.encode(role))) return current;
+            if (bytesEqual(Role.encode(current), Role.encode(role))) return current;
             store.putRole(role);
             const affected = new Map<string, ScopeEpoch["scope"]>();
             for (const membership of store
@@ -512,14 +513,11 @@ export class AuthorityMutationService {
         this.bump(store, closureMutation("guestVerification", [...affected.values()]));
     }
 
-    private bump(
-        store: AuthorityMutationStore,
-        mutations: readonly ResolverInputMutation[]
-    ): readonly ScopeEpoch[] {
-        if (mutations.length === 0) return [];
-        const plan = this.#planner.plan(store.epochs(), mutations);
-        for (const epoch of plan.bumped) store.putEpoch(epoch);
-        return plan.bumped;
+    private bump(store: AuthorityMutationStore, mutations: readonly ResolverInputMutation[]): void {
+        if (mutations.length === 0) return;
+        for (const epoch of this.#planner.plan(store.epochs(), mutations).bumped) {
+            store.putEpoch(epoch);
+        }
     }
 }
 
@@ -678,12 +676,6 @@ function requireGrantSubject(store: AuthorityMutationStore, grant: Grant): void 
             "Guest Grants materialize only through verified guest Memberships"
         );
     }
-}
-
-function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
-    return (
-        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
-    );
 }
 
 function deterministicOwnerMembershipId(anchor: TenantControlBootstrapAnchor): MembershipId {
