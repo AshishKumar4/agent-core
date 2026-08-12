@@ -356,6 +356,24 @@ export class RunRepository<Transaction> {
         return this.load(tx, "spawn", id.value, SpawnReservationCodec, (value) => value.id.value);
     }
 
+    // A Run is spawned at most once, so the reservation naming it as child is unique and
+    // is where that Run's declared resource ceiling lives (SPEC §5.2).
+    public loadSpawnForChild(tx: Transaction, child: RunId): SpawnReservation | undefined {
+        const reservations = this.list(
+            tx,
+            "spawn",
+            SpawnReservationCodec,
+            (value) => value.id.value
+        ).filter((value) => value.childRun.equals(child));
+        if (reservations.length > 1) {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                "Run has more than one spawn reservation"
+            );
+        }
+        return reservations[0];
+    }
+
     public insertAdmission(tx: Transaction, value: RunAdmissionRegistry): void {
         this.insert(
             tx,

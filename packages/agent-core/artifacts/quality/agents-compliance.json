@@ -77,6 +77,19 @@
       ]
     },
     {
+      "id": "ACQ-NORM",
+      "instructions": ["AGENTS.md:349"],
+      "instructionContains": "is anchored to a conformance atom in the same block",
+      "checker": "scripts/quality/coherence.mjs",
+      "tests": [
+        "test/quality/coherence.test.ts#SPEC coherence rules refuses a normative rule that no atom anchors and no disposition judges",
+        "test/quality/coherence.test.ts#SPEC coherence rules refuses a baseline that accepts an unjudged normative rule as debt",
+        "test/quality/coherence.test.ts#SPEC coherence rules counts each rule of a numbered list, not the block its neighbour anchors",
+        "test/quality/coherence.test.ts#SPEC coherence rules reopens a disposition when the prose it judged changes",
+        "test/quality/coherence.test.ts#SPEC coherence rules gates exactly the sections and keywords §1.3 declares"
+      ]
+    },
+    {
       "id": "ACQ-OUTCOME",
       "instructions": ["AGENTS.md:347-347"],
       "instructionContains": "Ratified Outcome Evidence",

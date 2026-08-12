@@ -18,9 +18,20 @@ import {
 } from "./ownership.mjs";
 import { dependencyClosure, hermeticEdges, topologicalOrder, validateGraph } from "./dag.mjs";
 import { validateNonrecursiveQualityScripts } from "./recursion.mjs";
-import { cloudflareRoot, cloudflareTestLanes, hasCloudflareSource } from "./workspaces.mjs";
+import {
+    activeAdjunctPackages,
+    adjunctLintPaths,
+    adjunctPackageRoot,
+    adjunctPackages,
+    adjunctReportRoot,
+    adjunctTestLanes
+} from "./workspaces.mjs";
 import { requireSuccessfulTestReport } from "./evidence.mjs";
 import { discoverPriorityTestFiles, validatePriorityLanes } from "./test-priorities.mjs";
+
+// Every adjunct package carries its packed-consumer check at the same
+// conventional path, so the registry does not restate it per package.
+const CONSUMER_CHECK = "scripts/check-consumer.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const runCommit = gitIdentity(["rev-parse", "HEAD"]);
@@ -66,7 +77,9 @@ const results = [];
 // product node with final semantics, so downstream evidence readers see "final".
 const effectiveStage = options.stage === "hermetic" ? "final" : options.stage;
 await rm(reportRoot, { recursive: true, force: true });
-await rm(resolve(cloudflareRoot, "reports/quality"), { recursive: true, force: true });
+for (const workspace of adjunctPackages()) {
+    await rm(adjunctReportRoot(workspace), { recursive: true, force: true });
+}
 await mkdir(resolve(reportRoot, "tests"), { recursive: true });
 
 for (const node of order) {
@@ -162,12 +175,9 @@ async function execute(node, context) {
                 "packages/agent-core/test",
                 "packages/agent-core/scripts"
             ];
-            if (await hasCloudflareSource())
-                paths.push(
-                    "packages/agent-core-cloudflare/src",
-                    "packages/agent-core-cloudflare/test",
-                    "packages/agent-core-cloudflare/scripts"
-                );
+            for (const workspace of await activeAdjunctPackages()) {
+                paths.push(...adjunctLintPaths(workspace));
+            }
             run(
                 resolve(repositoryRoot, "node_modules/oxlint/bin/oxlint"),
                 ["--deny-warnings", ...paths],
@@ -180,49 +190,34 @@ async function execute(node, context) {
                 [resolve(packageRoot, "node_modules/typescript/bin/tsc"), "--noEmit"],
                 { cwd: packageRoot }
             );
-            if (await hasCloudflareSource()) {
-                run(
-                    process.execPath,
-                    [
-                        resolve(cloudflareRoot, "node_modules/typescript/bin/tsc"),
-                        "-p",
-                        "tsconfig.json",
-                        "--noEmit"
-                    ],
-                    { cwd: cloudflareRoot }
-                );
-                run(
-                    process.execPath,
-                    [
-                        resolve(cloudflareRoot, "node_modules/typescript/bin/tsc"),
-                        "-p",
-                        "test/tsconfig.json",
-                        "--noEmit"
-                    ],
-                    { cwd: cloudflareRoot }
-                );
-                run(
-                    process.execPath,
-                    [
-                        resolve(cloudflareRoot, "node_modules/typescript/bin/tsc"),
-                        "-p",
-                        "test/cloudflare/tsconfig.json",
-                        "--noEmit"
-                    ],
-                    { cwd: cloudflareRoot }
-                );
-                run(
-                    process.execPath,
-                    [
-                        resolve(cloudflareRoot, "node_modules/wrangler/bin/wrangler.js"),
-                        "types",
-                        "test/cloudflare/worker-configuration.d.ts",
-                        "--config",
-                        "wrangler.test.jsonc",
-                        "--check"
-                    ],
-                    { cwd: cloudflareRoot }
-                );
+            for (const workspace of await activeAdjunctPackages()) {
+                const root = adjunctPackageRoot(workspace);
+                for (const project of workspace.typeProjects) {
+                    run(
+                        process.execPath,
+                        [
+                            resolve(root, "node_modules/typescript/bin/tsc"),
+                            "-p",
+                            project,
+                            "--noEmit"
+                        ],
+                        { cwd: root }
+                    );
+                }
+                if (workspace.wranglerTypes !== undefined) {
+                    run(
+                        process.execPath,
+                        [
+                            resolve(root, "node_modules/wrangler/bin/wrangler.js"),
+                            "types",
+                            workspace.wranglerTypes.declaration,
+                            "--config",
+                            workspace.wranglerTypes.config,
+                            "--check"
+                        ],
+                        { cwd: root }
+                    );
+                }
             }
         },
         dag: () => undefined,
@@ -270,18 +265,19 @@ async function execute(node, context) {
                 { cwd: packageRoot }
             );
             await requireSuccessfulTestReport(coreReport);
-            if (await hasCloudflareSource()) {
-                await mkdir(resolve(cloudflareRoot, "reports/quality/tests"), { recursive: true });
-                for (const lane of await cloudflareTestLanes()) {
-                    const cloudflareReport = resolve(
-                        cloudflareRoot,
-                        "reports/quality/tests",
+            for (const workspace of await activeAdjunctPackages()) {
+                const root = adjunctPackageRoot(workspace);
+                await mkdir(resolve(adjunctReportRoot(workspace), "tests"), { recursive: true });
+                for (const lane of await adjunctTestLanes(workspace)) {
+                    const laneReport = resolve(
+                        adjunctReportRoot(workspace),
+                        "tests",
                         `${lane.id}.json`
                     );
                     run(
                         process.execPath,
                         [
-                            resolve(cloudflareRoot, "node_modules/vitest/vitest.mjs"),
+                            resolve(root, "node_modules/vitest/vitest.mjs"),
                             "run",
                             "--config",
                             lane.config,
@@ -297,11 +293,11 @@ async function execute(node, context) {
                                   ]
                                 : []),
                             "--reporter=json",
-                            `--outputFile=${cloudflareReport}`
+                            `--outputFile=${laneReport}`
                         ],
-                        { cwd: cloudflareRoot }
+                        { cwd: root }
                     );
-                    await requireSuccessfulTestReport(cloudflareReport);
+                    await requireSuccessfulTestReport(laneReport);
                 }
             }
         },
@@ -324,20 +320,18 @@ async function execute(node, context) {
                 options.stage === "hermetic" ? ["--hermetic"] : []
             ),
         build: async () => {
-            if (await hasCloudflareSource()) {
-                run(process.execPath, [resolve(cloudflareRoot, "scripts/build.mjs")], {
-                    cwd: cloudflareRoot
-                });
+            for (const workspace of await activeAdjunctPackages()) {
+                const root = adjunctPackageRoot(workspace);
+                run(process.execPath, [resolve(root, "scripts/build.mjs")], { cwd: root });
             }
         },
         exports: async () => {
             run(process.execPath, [resolve(packageRoot, "scripts/check-exports.mjs")], {
                 cwd: packageRoot
             });
-            if (await hasCloudflareSource()) {
-                run(process.execPath, [resolve(cloudflareRoot, "scripts/check-consumer.mjs")], {
-                    cwd: cloudflareRoot
-                });
+            for (const workspace of await activeAdjunctPackages()) {
+                const root = adjunctPackageRoot(workspace);
+                run(process.execPath, [resolve(root, CONSUMER_CHECK)], { cwd: root });
             }
         },
         traceability: () =>

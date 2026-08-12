@@ -19,6 +19,7 @@ import {
     runObligationKey,
     type RunObligation
 } from "./admission";
+import { requireResourceDimension, type ResourceDimension } from "./ceiling";
 import { AcceptanceId, RunId } from "./id";
 import { requireTerminalOutcome, type TerminalOutcome } from "./outcome";
 
@@ -112,11 +113,17 @@ export class TerminalSnapshot extends CodecRecord {
         public readonly terminalCommit: RunCommitId,
         public readonly outcome: RunOutcome,
         public readonly obligation: SettlementObligation,
-        recordedAt: Date
+        recordedAt: Date,
+        // SPEC §5.2: resource exhaustion cancels through the ordinary terminal rows and
+        // names the dimension that ran out; every other cancellation names none.
+        public readonly exhausted: ResourceDimension | undefined = undefined
     ) {
         super();
         if (outcome !== "succeeded" && outcome !== "failed" && outcome !== "cancelled") {
             throw new TypeError("Run outcome is invalid");
+        }
+        if (exhausted !== undefined && outcome !== "cancelled") {
+            throw new TypeError("Resource exhaustion terminalizes a Run as cancelled");
         }
         if (!Number.isFinite(recordedAt.getTime())) throw new TypeError("Terminal time is invalid");
         this.#recordedAt = recordedAt.getTime();
@@ -129,6 +136,7 @@ export class TerminalSnapshot extends CodecRecord {
 
     public toData(): JsonValue {
         return {
+            exhausted: this.exhausted ?? null,
             obligation: this.obligation.toData(),
             outcome: this.outcome,
             preterminal: this.preterminal.value,
@@ -143,7 +151,16 @@ export class TerminalSnapshot extends CodecRecord {
         const object = requireObject(value, "Terminal snapshot");
         requireExactFields(
             object,
-            ["obligation", "outcome", "preterminal", "recordedAt", "run", "terminalCommit", "turn"],
+            [
+                "exhausted",
+                "obligation",
+                "outcome",
+                "preterminal",
+                "recordedAt",
+                "run",
+                "terminalCommit",
+                "turn"
+            ],
             [],
             "Terminal snapshot"
         );
@@ -154,14 +171,17 @@ export class TerminalSnapshot extends CodecRecord {
             new RunCommitId(requireString(object["terminalCommit"], "Terminal commit")),
             requireTerminalOutcome(object["outcome"], "Run outcome"),
             SettlementObligation.fromData(object["obligation"]),
-            requireTimestamp(object["recordedAt"], "Terminal timestamp")
+            requireTimestamp(object["recordedAt"], "Terminal timestamp"),
+            object["exhausted"] === null
+                ? undefined
+                : requireResourceDimension(object["exhausted"], "Terminal exhausted dimension")
         );
     }
 }
 
 class TerminalSnapshotRecordCodec extends RecordCodec<TerminalSnapshot> {
     public constructor() {
-        super("run.terminal-snapshot", { major: 2, minor: 0 });
+        super("run.terminal-snapshot", { major: 3, minor: 0 });
     }
     protected encodePayload(value: TerminalSnapshot): JsonValue {
         return value.toData();

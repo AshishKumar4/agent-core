@@ -78,9 +78,18 @@ export type DispatchScriptNaming = (request: AuthoredCodeRunRequest) => string;
 
 /**
  * Workers for Platforms as a §4.7 backing, for the consumers whose code is deployed
- * ahead of the call. It owes the guarantees every `dynamic` backing owes and shows them
- * directly rather than by comparison with Worker Loader: the entry point receives
- * exactly the delegated capability set, and no other channel is opened to it.
+ * ahead of the call.
+ *
+ * It discharges one half of what every `dynamic` backing owes: the entry point receives
+ * exactly the delegated capability set and no other channel is opened to it. It does not
+ * discharge the other half. Zero ambient egress for a pre-deployed script is a property
+ * of that deployment and of the namespace binding's own `outbound` configuration —
+ * neither visible nor settable here at call time — so this adapter can neither establish
+ * it nor check it, and the platform states it where it deploys. §4.7 requires each
+ * backing to demonstrate the invariant independently, "never by comparison against
+ * another backing", so Worker Loader's `globalOutbound: null` does not cover this one.
+ * That gap is what keeps C13-PLACEMENT-AUTHORED-BACKING behind
+ * C13-PLACEMENT-DYNAMIC-NO-EGRESS.
  */
 export class DispatchNamespaceAuthoredCodeBacking extends AuthoredCodeBacking {
     public readonly id = DISPATCH_NAMESPACE_BACKING;

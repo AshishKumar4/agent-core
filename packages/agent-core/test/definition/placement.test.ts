@@ -14,131 +14,162 @@ import {
 } from "../../src/definition/placement";
 
 describe("four-set placement", () => {
-    test("[C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations", { tags: "p1" }, () => {
-        let combinations = 0;
-        for (let manifest = 0; manifest < 8; manifest += 1) {
-            for (let policy = 0; policy < 8; policy += 1) {
-                for (let substrate = 0; substrate < 8; substrate += 1) {
-                    for (let trust = 0; trust < 8; trust += 1) {
-                        combinations += 1;
-                        const sources = {
-                            manifest: subset(manifest),
-                            policy: subset(policy),
-                            substrate: subset(substrate),
-                            trust: subset(trust)
-                        };
-                        const expected = PLACEMENT_PREFERENCE.find(
-                            (mode) =>
-                                sources.manifest.includes(mode) &&
-                                sources.policy.includes(mode) &&
-                                sources.substrate.includes(mode) &&
-                                sources.trust.includes(mode)
-                        );
+    test(
+        "[C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations",
+        { tags: "p1" },
+        () => {
+            let combinations = 0;
+            for (let manifest = 0; manifest < 8; manifest += 1) {
+                for (let policy = 0; policy < 8; policy += 1) {
+                    for (let substrate = 0; substrate < 8; substrate += 1) {
+                        for (let trust = 0; trust < 8; trust += 1) {
+                            combinations += 1;
+                            const sources = {
+                                manifest: subset(manifest),
+                                policy: subset(policy),
+                                substrate: subset(substrate),
+                                trust: subset(trust)
+                            };
+                            const expected = PLACEMENT_PREFERENCE.find(
+                                (mode) =>
+                                    sources.manifest.includes(mode) &&
+                                    sources.policy.includes(mode) &&
+                                    sources.substrate.includes(mode) &&
+                                    sources.trust.includes(mode)
+                            );
 
-                        if (expected === undefined) {
-                            expectPlacementUnavailable(() => selectPlacement(sources));
-                            continue;
+                            if (expected === undefined) {
+                                expectPlacementUnavailable(() => selectPlacement(sources));
+                                continue;
+                            }
+
+                            const selection = selectPlacement(sources);
+                            expect(selection.selected).toBe(expected);
+                            expect(selection.manifest).toEqual(canonical(sources.manifest));
+                            expect(selection.policy).toEqual(canonical(sources.policy));
+                            expect(selection.substrate).toEqual(canonical(sources.substrate));
+                            expect(selection.trust).toEqual(canonical(sources.trust));
                         }
-
-                        const selection = selectPlacement(sources);
-                        expect(selection.selected).toBe(expected);
-                        expect(selection.manifest).toEqual(canonical(sources.manifest));
-                        expect(selection.policy).toEqual(canonical(sources.policy));
-                        expect(selection.substrate).toEqual(canonical(sources.substrate));
-                        expect(selection.trust).toEqual(canonical(sources.trust));
                     }
                 }
             }
+            expect(combinations).toBe(8 ** 4);
         }
-        expect(combinations).toBe(8 ** 4);
-    });
+    );
 
-    test("[C13-PLACEMENT-EMPTY] reports every empty source and a disjoint intersection as typed unavailability", { tags: "p1" }, () => {
-        for (const source of ["manifest", "policy", "substrate", "trust"] as const) {
-            expectPlacementUnavailable(
-                () =>
-                    new PlacementInput({
-                        manifest: ["dynamic"],
-                        policy: ["dynamic"],
-                        substrate: ["dynamic"],
-                        trust: ["dynamic"],
-                        [source]: []
-                    })
+    test(
+        "[C13-PLACEMENT-EMPTY] reports every empty source and a disjoint intersection as typed unavailability",
+        { tags: "p1" },
+        () => {
+            for (const source of ["manifest", "policy", "substrate", "trust"] as const) {
+                expectPlacementUnavailable(
+                    () =>
+                        new PlacementInput({
+                            manifest: ["dynamic"],
+                            policy: ["dynamic"],
+                            substrate: ["dynamic"],
+                            trust: ["dynamic"],
+                            [source]: []
+                        })
+                );
+            }
+            expectPlacementUnavailable(() =>
+                selectPlacement({
+                    manifest: ["dynamic"],
+                    policy: ["provider"],
+                    substrate: ["dynamic", "provider"],
+                    trust: ["dynamic", "provider"]
+                })
             );
         }
-        expectPlacementUnavailable(() =>
-            selectPlacement({
-                manifest: ["dynamic"],
-                policy: ["provider"],
-                substrate: ["dynamic", "provider"],
-                trust: ["dynamic", "provider"]
-            })
-        );
-    });
+    );
 
-    test("rejects duplicate and unknown modes instead of silently changing a source set", { tags: "p1" }, () => {
-        for (const source of ["manifest", "policy", "substrate", "trust"] as const) {
+    test(
+        "rejects duplicate and unknown modes instead of silently changing a source set",
+        { tags: "p1" },
+        () => {
+            for (const source of ["manifest", "policy", "substrate", "trust"] as const) {
+                expect(
+                    () =>
+                        new PlacementInput({
+                            manifest: ["dynamic"],
+                            policy: ["dynamic"],
+                            substrate: ["dynamic"],
+                            trust: ["dynamic"],
+                            [source]: ["dynamic", "dynamic"]
+                        })
+                ).toThrow(/unique/);
+            }
             expect(
                 () =>
                     new PlacementInput({
-                        manifest: ["dynamic"],
+                        manifest: ["unknown" as IsolationMode],
                         policy: ["dynamic"],
                         substrate: ["dynamic"],
-                        trust: ["dynamic"],
-                        [source]: ["dynamic", "dynamic"]
+                        trust: ["dynamic"]
                     })
-            ).toThrow(/unique/);
+            ).toThrow(/unknown/);
         }
-        expect(
-            () =>
-                new PlacementInput({
-                    manifest: ["unknown" as IsolationMode],
-                    policy: ["dynamic"],
-                    substrate: ["dynamic"],
-                    trust: ["dynamic"]
-                })
-        ).toThrow(/unknown/);
-    });
+    );
 
-    test("[C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages", { tags: "p0" }, () => {
-        expect(trustPlacementModes(true)).toEqual(["dynamic", "provider", "bundled"]);
-        expect(trustPlacementModes(false)).toEqual(["dynamic", "provider"]);
-        expect(trustPlacementModes(false)).not.toContain("bundled");
-    });
+    test(
+        "[C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages",
+        { tags: "p0" },
+        () => {
+            expect(trustPlacementModes(true)).toEqual(["dynamic", "provider", "bundled"]);
+            expect(trustPlacementModes(false)).toEqual(["dynamic", "provider"]);
+            expect(trustPlacementModes(false)).not.toContain("bundled");
+        }
+    );
 
-    test("[C13-PLACEMENT-UNTRUSTED-BUNDLED] a Blueprint's placement policy derives trust from its own glob patterns", { tags: "p0" }, () => {
-        const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, ["core.*", "exact-name"]);
-        expect(policy.trusts(new PackageId("core.chat"))).toBe(true);
-        expect(policy.trusts(new PackageId("core.deploy.nested"))).toBe(true);
-        expect(policy.trusts(new PackageId("exact-name"))).toBe(true);
-        expect(policy.trusts(new PackageId("exact-name-suffixed"))).toBe(false);
-        expect(policy.trusts(new PackageId("acme.deploy"))).toBe(false);
-        expect(policy.trustedModes(new PackageId("core.chat"))).toEqual([
-            "dynamic",
-            "provider",
-            "bundled"
-        ]);
-        expect(policy.trustedModes(new PackageId("acme.deploy"))).toEqual(["dynamic", "provider"]);
-        expect(policy.trustedModes(new PackageId("acme.deploy"))).not.toContain("bundled");
-    });
+    test(
+        "[C13-PLACEMENT-UNTRUSTED-BUNDLED] a Blueprint's placement policy derives trust from its own glob patterns",
+        { tags: "p0" },
+        () => {
+            const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, ["core.*", "exact-name"]);
+            expect(policy.trusts(new PackageId("core.chat"))).toBe(true);
+            expect(policy.trusts(new PackageId("core.deploy.nested"))).toBe(true);
+            expect(policy.trusts(new PackageId("exact-name"))).toBe(true);
+            expect(policy.trusts(new PackageId("exact-name-suffixed"))).toBe(false);
+            expect(policy.trusts(new PackageId("acme.deploy"))).toBe(false);
+            expect(policy.trustedModes(new PackageId("core.chat"))).toEqual([
+                "dynamic",
+                "provider",
+                "bundled"
+            ]);
+            expect(policy.trustedModes(new PackageId("acme.deploy"))).toEqual([
+                "dynamic",
+                "provider"
+            ]);
+            expect(policy.trustedModes(new PackageId("acme.deploy"))).not.toContain("bundled");
+        }
+    );
 });
 
 describe("placement policy trust patterns", () => {
-    test("[definition.placement-policy] canonicalizes trust patterns, sorted and deduplicated", { tags: "p1" }, () => {
-        const trusted = ["zeta.*", "alpha.*"];
-        const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, trusted);
-        trusted.push("mutated");
+    test(
+        "[definition.placement-policy] canonicalizes trust patterns, sorted and deduplicated",
+        { tags: "p1" },
+        () => {
+            const trusted = ["zeta.*", "alpha.*"];
+            const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, trusted);
+            trusted.push("mutated");
 
-        expect(policy.trusted).toEqual(["alpha.*", "zeta.*"]);
-        expect(Object.isFrozen(policy.trusted)).toBe(true);
-        const encoded = PlacementPolicy.encode(policy);
-        expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
-    });
+            expect(policy.trusted).toEqual(["alpha.*", "zeta.*"]);
+            expect(Object.isFrozen(policy.trusted)).toBe(true);
+            const encoded = PlacementPolicy.encode(policy);
+            expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
+        }
+    );
 
-    test("defaults trust to everything so callers that only restrict `allowed` are unaffected", { tags: "p1" }, () => {
-        expect(new PlacementPolicy(["dynamic"]).trusted).toEqual(["*"]);
-        expect(PlacementPolicy.all().trusted).toEqual(["*"]);
-    });
+    test(
+        "defaults trust to everything so callers that only restrict `allowed` are unaffected",
+        { tags: "p1" },
+        () => {
+            expect(new PlacementPolicy(["dynamic"]).trusted).toEqual(["*"]);
+            expect(PlacementPolicy.all().trusted).toEqual(["*"]);
+        }
+    );
 
     test("rejects a malformed, duplicate, or non-array trust pattern list", { tags: "p1" }, () => {
         expect(() => new PlacementPolicy(["dynamic"], ["core.*", "core.*"])).toThrow(/unique/);
@@ -147,52 +178,68 @@ describe("placement policy trust patterns", () => {
             /nonblank canonical string/
         );
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["dynamic"], trusted: "core.*" as never })
+            PlacementPolicy.fromData({
+                allowed: ["dynamic"],
+                backings: {},
+                trusted: "core.*" as never
+            })
         ).toThrow(/array/);
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["dynamic"], trusted: [1 as never] })
+            PlacementPolicy.fromData({ allowed: ["dynamic"], backings: {}, trusted: [1 as never] })
         ).toThrow(/nonblank canonical string/);
     });
 
-    test("[definition.placement-policy] requires the trusted field explicitly, with no implicit wire default", { tags: "p1" }, () => {
-        expect(() => PlacementPolicy.fromData({ allowed: ["dynamic"] })).toThrow(
-            /missing or unknown fields/
-        );
-    });
+    test(
+        "[definition.placement-policy] requires the trusted field explicitly, with no implicit wire default",
+        { tags: "p1" },
+        () => {
+            expect(() => PlacementPolicy.fromData({ allowed: ["dynamic"] })).toThrow(
+                /missing or unknown fields/
+            );
+        }
+    );
 });
 
 describe("placement policy declaration", () => {
-    test("[definition.placement-policy] canonicalizes immutable modes and round-trips its strict codec", { tags: "p0" }, () => {
-        const allowed: IsolationMode[] = ["bundled", "dynamic"];
-        const policy = new PlacementPolicy(allowed);
-        allowed.pop();
+    test(
+        "[definition.placement-policy] canonicalizes immutable modes and round-trips its strict codec",
+        { tags: "p0" },
+        () => {
+            const allowed: IsolationMode[] = ["bundled", "dynamic"];
+            const policy = new PlacementPolicy(allowed);
+            allowed.pop();
 
-        expect(policy.allowed).toEqual(["dynamic", "bundled"]);
-        expect(Object.isFrozen(policy)).toBe(true);
-        expect(Object.isFrozen(policy.allowed)).toBe(true);
-        const encoded = PlacementPolicy.encode(policy);
-        expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
-    });
+            expect(policy.allowed).toEqual(["dynamic", "bundled"]);
+            expect(Object.isFrozen(policy)).toBe(true);
+            expect(Object.isFrozen(policy.allowed)).toBe(true);
+            const encoded = PlacementPolicy.encode(policy);
+            expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
+        }
+    );
 
-    test("[C13-ADV-EMPTY-PLACEMENT] rejects empty, duplicate, unknown, and unknown codec fields", { tags: "p1" }, () => {
-        expectPlacementUnavailable(() => new PlacementPolicy([]));
-        expect(() => new PlacementPolicy(["dynamic", "dynamic"])).toThrow(/unique/);
-        expect(() => new PlacementPolicy(["other" as IsolationMode])).toThrow(/unknown/);
+    test(
+        "[C13-ADV-EMPTY-PLACEMENT] rejects empty, duplicate, unknown, and unknown codec fields",
+        { tags: "p1" },
+        () => {
+            expectPlacementUnavailable(() => new PlacementPolicy([]));
+            expect(() => new PlacementPolicy(["dynamic", "dynamic"])).toThrow(/unique/);
+            expect(() => new PlacementPolicy(["other" as IsolationMode])).toThrow(/unknown/);
 
-        const policy = new PlacementPolicy(["provider"]);
-        const envelope = requireObject(decodeCanonicalJson(PlacementPolicy.encode(policy)));
-        const payload = requireObject(envelope["payload"]!);
-        expectCodecError(
-            () =>
-                PlacementPolicy.decode(
-                    encodeCanonicalJson({
-                        ...envelope,
-                        payload: { ...payload, fallback: "bundled" }
-                    })
-                ),
-            "codec.invalid"
-        );
-    });
+            const policy = new PlacementPolicy(["provider"]);
+            const envelope = requireObject(decodeCanonicalJson(PlacementPolicy.encode(policy)));
+            const payload = requireObject(envelope["payload"]!);
+            expectCodecError(
+                () =>
+                    PlacementPolicy.decode(
+                        encodeCanonicalJson({
+                            ...envelope,
+                            payload: { ...payload, fallback: "bundled" }
+                        })
+                    ),
+                "codec.invalid"
+            );
+        }
+    );
 });
 
 describe("placement adversarial boundaries", () => {
@@ -268,17 +315,21 @@ describe("placement adversarial boundaries", () => {
         }
     });
 
-    test("rejects non-object placement policy payloads with the object subject", { tags: "p1" }, () => {
-        for (const payload of [null, ["dynamic"], "dynamic"] as JsonValue[]) {
-            expect(() => PlacementPolicy.fromData(payload)).toThrow(
-                /Placement policy must be an object/
-            );
+    test(
+        "rejects non-object placement policy payloads with the object subject",
+        { tags: "p1" },
+        () => {
+            for (const payload of [null, ["dynamic"], "dynamic"] as JsonValue[]) {
+                expect(() => PlacementPolicy.fromData(payload)).toThrow(
+                    /Placement policy must be an object/
+                );
+            }
         }
-    });
+    );
 
     test("rejects unknown declared modes with the modes subject", { tags: "p1" }, () => {
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["martian"], trusted: ["*"] })
+            PlacementPolicy.fromData({ allowed: ["martian"], backings: {}, trusted: ["*"] })
         ).toThrow(/Placement policy modes contains an unknown isolation mode/);
     });
 });

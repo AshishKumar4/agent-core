@@ -521,6 +521,11 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
         );
         requireUsage(result.usage);
         await this.scope.requireContent(result.output);
+        // SPEC §5.2: the Run's token total advances where the model call commits.
+        this.scope.init.runtime.recordModelTokens(
+            snapshot.scope.turn.run,
+            totalTokens(result.usage)
+        );
         return Object.freeze({ output: result.output, usage: freezeUsage(result.usage) });
     }
 }
@@ -732,6 +737,15 @@ function requireUsage(usage: TurnModelUsage): void {
             throw new TypeError("Turn model usage values must be non-negative safe integers");
         }
     }
+}
+
+function totalTokens(usage: TurnModelUsage): number {
+    return (
+        usage.inputTokens +
+        usage.outputTokens +
+        (usage.cacheReadTokens ?? 0) +
+        (usage.cacheWriteTokens ?? 0)
+    );
 }
 
 function freezeUsage(usage: TurnModelUsage): TurnModelUsage {

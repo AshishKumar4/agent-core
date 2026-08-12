@@ -29,8 +29,15 @@ export {
     RunMergePort,
     RunRepository,
     RunRuntime,
+    RESOURCE_DIMENSIONS,
+    ResourceCeiling,
     RunSpawnPort,
+    SpawnAttenuation,
+    SpawnAttenuationCodec,
+    exhaustedResource,
     isSettled,
+    narrowResources,
+    widensResourceCeiling,
     SettlementEvidencePort,
     SettlementObligation,
     SpawnReservation,
@@ -46,6 +53,12 @@ export {
 export { RunCheckpointId } from "./runs/id";
 export { RunPins } from "./runs/pins";
 export type { LeaseToken, RunStoragePort, TurnLeaseVerifier } from "./runs";
+export type {
+    ResourceDimension,
+    ResourceLimits,
+    ResourceUsage,
+    SpawnAttenuationInit
+} from "./runs";
 export type {
     AcceptanceCriterionInit,
     AcceptanceReceiptEvidence,

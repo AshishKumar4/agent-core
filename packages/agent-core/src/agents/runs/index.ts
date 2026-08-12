@@ -25,11 +25,29 @@ export type {
     RunObligation,
     RunObligationReservation
 } from "./admission";
+export {
+    RESOURCE_DIMENSIONS,
+    ResourceCeiling,
+    SpawnAttenuation,
+    SpawnAttenuationCodec,
+    exhaustedResource,
+    narrowResources,
+    widensResourceCeiling
+} from "./ceiling";
+export type {
+    ResourceDimension,
+    ResourceLimits,
+    ResourceUsage,
+    SpawnAttenuationInit
+} from "./ceiling";
 export { TurnLease } from "./lease";
 export type { LeaseToken, TurnLeaseVerifier } from "./lease";
 export { MemoryTurnLeaseVerifier, RepositoryTurnLeaseVerifier } from "./lease-verifier";
 export { RunCommit } from "./commit";
-export { RunConfigurationSnapshot } from "./pins";
+export { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
+export { RunSourceRevisionPort } from "../source";
+export { BlueprintPin, RunConfigurationSnapshot, RunPins } from "./pins";
+export type { RunPinsInit, SourcePin } from "./pins";
 export { PlacementPin, TurnPlacementSnapshot } from "./placement";
 export type { PlacementPinInit } from "./placement";
 export { Run, RunBranch } from "./run";

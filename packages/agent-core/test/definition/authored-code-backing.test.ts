@@ -73,6 +73,7 @@ describe("declaring which backing serves which §4.7 consumer", () => {
             expect(restored.backingFor("programmaticToolCall", workerLoader).value).toBe(
                 workerLoader.value
             );
+            expect(Object.isFrozen(declared.backings)).toBe(true);
             // A Blueprint that maps nothing states that completely without the field:
             // the empty mapping and an absent one mean the same thing (§4.7).
             expect(PlacementPolicy.all().toData()).toEqual({
@@ -108,6 +109,7 @@ describe("declaring which backing serves which §4.7 consumer", () => {
             expect(() => AuthoredCodeBackingPolicy.fromData("dispatchNamespace")).toThrow(
                 TypeError
             );
+            expect(() => AuthoredCodeBackingPolicy.fromData(["workerLoader"])).toThrow(TypeError);
         }
     );
 
@@ -115,13 +117,16 @@ describe("declaring which backing serves which §4.7 consumer", () => {
         "[C13-PLACEMENT-AUTHORED-BACKING] rejects a placement record whose declaration is malformed",
         { tags: "p1" },
         () => {
-            expect(() =>
-                PlacementPolicy.fromData({
-                    allowed: ["dynamic"],
-                    backings: { slateBackend: "" },
-                    trusted: ["*"]
-                })
-            ).toThrow(TypeError);
+            // A backing id is opaque but still canonical: neither blank nor padded.
+            for (const backing of ["", " padded"]) {
+                expect(() =>
+                    PlacementPolicy.fromData({
+                        allowed: ["dynamic"],
+                        backings: { slateBackend: backing },
+                        trusted: ["*"]
+                    })
+                ).toThrow(TypeError);
+            }
             expect(() =>
                 PlacementPolicy.fromData({
                     allowed: ["dynamic"],

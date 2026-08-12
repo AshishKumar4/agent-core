@@ -25,7 +25,9 @@ import {
     type TurnInit
 } from "../../../src/agents/runs/turn";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
+import { SpawnAttenuation } from "../../../src/agents/runs/ceiling";
 import {
+    attenuationDigest,
     configuration,
     content,
     digest,
@@ -222,7 +224,7 @@ describe("spawn reservation guards", () => {
             over.rootContent ?? content("5"),
             refs.invocation,
             refs.receipt,
-            digest("6"),
+            attenuationDigest(new SpawnAttenuation()),
             new Date(1500)
         );
     }

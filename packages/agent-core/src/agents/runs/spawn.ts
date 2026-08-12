@@ -11,6 +11,7 @@ import {
     requireString,
     requireTimestamp
 } from "../record-data";
+import type { SpawnAttenuation } from "./ceiling";
 import { RunId, SpawnReservationId } from "./id";
 import { leaseTokenFromData, leaseTokenToData, type LeaseToken } from "./lease";
 
@@ -126,4 +127,10 @@ export const SpawnReservationCodec: RecordCodec<SpawnReservation> = new SpawnCod
 
 export abstract class RunSpawnPort<Transaction> {
     public abstract verify(transaction: Transaction, reservation: SpawnReservation): boolean;
+    // The attenuation content the reservation's digest commits to (SPEC §5.2). The Run
+    // runtime re-digests whatever this returns, so the port cannot substitute another.
+    public abstract attenuation(
+        transaction: Transaction,
+        reservation: SpawnReservation
+    ): SpawnAttenuation;
 }
