@@ -1122,18 +1122,18 @@ describe("SQLite Tenant control canonical Scope enforcement", () => {
             control.putWorkspace(workspace);
         });
 
+        // The shared closure rejects a foreign Scope at commit with this same sentence, so
+        // only the refusal arriving before the write distinguishes the writer's own guard.
+        let written = false;
         expect(() =>
-            store.transaction((control) =>
+            store.transaction((control) => {
                 control.putGrant(
                     allowGrant("foreign-scope-grant", ScopeRef.tenant(foreignTenantId))
-                )
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Authority Scope belongs to another Tenant"
+                );
+                written = true;
             })
-        );
+        ).toThrow(foreignOwnerFault("Authority Scope"));
+        expect(written).toBe(false);
 
         const notCanonicalProject = expect.objectContaining({
             code: "protocol.invalid-state",
@@ -1311,6 +1311,48 @@ describe("SQLite Tenant control closure integrity", () => {
             foreignOwnerFault("Guest trust")
         );
     });
+
+    // Whether a record already existed decides what an incremental audit reaches: only a
+    // *replaced* Grant makes the closure walk down to the Grants attenuating from it. If
+    // this store reported a revocation as a creation, the revocation would commit and
+    // leave live delegated Grants resting on authority that no longer allows anything —
+    // and nothing in the store's own tests would notice, because the record it wrote is
+    // itself perfectly well formed.
+    test(
+        "reports a replaced Grant as replaced, so its children are audited",
+        { tags: "p0" },
+        () => {
+            const store = bootstrappedStore(new TestSqlite());
+            const parent = new Grant(
+                new GrantId("presence-parent"),
+                tenantScope,
+                SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "mutate"] }),
+                { kind: "direct" }
+            );
+            const child = new Grant(
+                new GrantId("presence-child"),
+                tenantScope,
+                parent.subject,
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                { kind: "direct" },
+                parent.id
+            );
+            store.transaction((control) => {
+                control.putGrant(parent);
+                control.putGrant(child);
+            });
+
+            expect(() =>
+                store.transaction((control) => {
+                    control.putGrant(parent.revoke());
+                })
+            ).toThrow(closureFault("Delegated Grant references invalid parent authority"));
+            expect(store.grant(parent.id)?.state.name).toBe("active");
+        }
+    );
 
     // Reopening re-derives the bootstrap from the anchor and demands every record it
     // names. Deleting one leaves a store the shared closure would also refuse, but with
