@@ -299,14 +299,6 @@
     },
     {
       "file": "src/authority/service.ts",
-      "symbol": "AuthorityMutationService.reconcile.replaced",
-      "mutator": "MethodExpression",
-      "replacement": "materialization.changedRecords",
-      "mutated": "materialization.changedRecords .filter((grant) => previous.has(grant.id.value))",
-      "proof": "Dropping the filter widens replaced from the changed records that already existed to every changed record, and the widened list is passed to revokeGrantClosure as roots together with a skip set built from that same list. The roots loop skips every id in skip, so the extra entries can only matter through the descendant walk \u2014 and a record that did not exist before this materialization has no descendants, because attenuationOf can only name a Grant createGrant found present when the child was created. The closure revokes the same Grants and returns the same affected Scopes either way."
-    },
-    {
-      "file": "src/authority/service.ts",
       "symbol": "AuthorityMutationService.revokeGuestMemberships",
       "mutator": "ConditionalExpression",
       "replacement": "false",
