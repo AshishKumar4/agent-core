@@ -366,6 +366,27 @@ describe("Binding validation request and evidence gates", () => {
         }
     );
 
+    // The path alignment above ties the evidence Scope to the path target and the path
+    // ties its own entries to one Tenant, but nothing there reaches the issuer Tenant:
+    // the record can name a Tenant that owns none of the Scopes it is evidence about.
+    test("refuses evidence issued by a Tenant its Scope does not belong to", { tags: "p0" }, () => {
+        const otherTenant = new TenantId("binding-mutation-other-tenant");
+        expectTypeError(
+            () =>
+                new BindingValidationEvidence(
+                    otherTenant,
+                    new ActorRef("tenant", new ActorId("binding-mutation-issuer")),
+                    validationRequest().digest(),
+                    workspaceScope,
+                    subject,
+                    grantId(),
+                    epochPath(),
+                    new Date(10)
+                ),
+            "Binding validation issuer Tenant must match its Scope"
+        );
+    });
+
     test(
         "[C13-AUTH-PATH-EVIDENCE] decodes every Actor kind and requires a Tenant issuer",
         { tags: "p0" },

@@ -539,6 +539,19 @@ describe("memory invalidation watermark store mutation gates", () => {
                 "codec.invalid",
                 "Memory watermark snapshot record is malformed"
             );
+            // A non-string key has to be refused as a malformed record. The emptiness test
+            // beside it reads `.length` off whatever the key is, which is undefined rather
+            // than zero for a number, and the key comparison further down would then
+            // report bytes disagreeing with their key — naming the wrong fault.
+            expectAgentError(
+                () =>
+                    new MemoryInvalidationWatermarkStore(tenantId, owner, {
+                        version: 1,
+                        records: [{ key: 5 as never, bytes }]
+                    }),
+                "codec.invalid",
+                "Memory watermark snapshot record is malformed"
+            );
         }
     );
 

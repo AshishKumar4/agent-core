@@ -38,10 +38,13 @@ import {
 import { GuestVerification, Workspace } from "../identity/internal-fixture";
 import {
     allowGrant,
+    capability,
+    principal,
     principalId,
     projectId,
     projectScope,
     tenantId,
+    tenantScope,
     workspaceId,
     workspaceScope
 } from "./fixture";
@@ -1593,6 +1596,46 @@ describe("MemoryTenantControlStore mutation gates", () => {
             "Binding references invalid Tenant authority"
         );
         expect(MemoryTenantControlStore.restore(snapshot).bindings()).toHaveLength(1);
+    });
+
+    // The lineage walk seeds its visited set with the Grant it starts from, so a Grant
+    // reachable from itself is reported as a cycle on the hop that closes it. Seeded
+    // empty, the walk takes one more hop before recognising the same loop, and that hop
+    // asks a question the loop never intended: whether the child attenuates its own
+    // parent. Where it does not — a broad Tenant Grant over a narrow Workspace one — the
+    // store would report a broken lineage for a Grant set whose actual fault is the cycle.
+    test("names a cycle rather than the lineage hop it closes on", { tags: "p0" }, () => {
+        const snapshot = bootstrapped().store.snapshot();
+        const narrow = allowGrant(
+            "cycle-a",
+            principal,
+            workspaceScope,
+            capability(["observe"], "workspace:mail.*"),
+            new GrantId("cycle-b")
+        );
+        const broad = allowGrant(
+            "cycle-b",
+            principal,
+            tenantScope,
+            capability(["observe"], "*"),
+            new GrantId("cycle-a")
+        );
+        expect(broad.canAttenuate(narrow)).toBe(true);
+        expect(narrow.canAttenuate(broad)).toBe(false);
+
+        expectAgentCoreError(
+            () =>
+                MemoryTenantControlStore.restore({
+                    ...snapshot,
+                    grants: [
+                        ...snapshot.grants,
+                        { id: narrow.id.value, bytes: Grant.encode(narrow) },
+                        { id: broad.id.value, bytes: Grant.encode(broad) }
+                    ]
+                }),
+            "codec.invalid",
+            "Delegated Grant attenuation contains a cycle"
+        );
     });
 });
 

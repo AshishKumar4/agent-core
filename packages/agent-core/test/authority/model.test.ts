@@ -365,6 +365,14 @@ describe("Grant model", () => {
                 }
             })
         ).toThrow(new TypeError("Role name must be a string"));
+
+        // The Grant constructor refuses a bad effect under this same message, so asserting
+        // it on its own would prove nothing about where the refusal came from. Pairing it
+        // with a capability that is also malformed says which field the decoder reports:
+        // the effect is screened before the rest of the record is interpreted.
+        expect(() => Grant.fromData({ ...data, effect: "sideways", capability: null })).toThrow(
+            new TypeError("Grant effect is invalid")
+        );
     });
 
     test("round-trips role Grant origins through the canonical codec", { tags: "p0" }, () => {
