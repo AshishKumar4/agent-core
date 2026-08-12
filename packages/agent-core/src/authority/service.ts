@@ -477,12 +477,9 @@ export class AuthorityMutationService {
         membership: Membership,
         role: Role
     ): readonly ScopeEpoch["scope"][] {
-        const previous = new Map(store.grants().map((grant) => [grant.id.value, grant]));
-        const materialization = this.#materializer.materialize({
-            membership,
-            role,
-            existing: store.grants()
-        });
+        const existing = store.grants();
+        const previous = new Map(existing.map((grant) => [grant.id.value, grant]));
+        const materialization = this.#materializer.materialize({ membership, role, existing });
         for (const grant of materialization.changedRecords) store.putGrant(grant);
         const replaced = materialization.changedRecords
             .filter((grant) => previous.has(grant.id.value))
@@ -701,6 +698,16 @@ function revokeGrantClosure(
     roots: readonly GrantId[],
     skip = new Set<string>()
 ): readonly Grant[] {
+    if (roots.length === 0) return Object.freeze([]);
+    // A Grant's attenuation parent is immutable across replacement, so revoking cannot
+    // move an edge this walk has yet to follow. The lineage is read once rather than once
+    // per node, which is what kept a revocation proportional to depth times store size.
+    const children = new Map<string, Grant[]>();
+    for (const grant of store.grants()) {
+        const parent = grant.attenuationOf?.value;
+        if (parent === undefined) continue;
+        children.set(parent, [...(children.get(parent) ?? []), grant]);
+    }
     const revoked: Grant[] = [];
     const pending = roots.map((id) => id.value);
     const visited = new Set<string>();
@@ -708,9 +715,7 @@ function revokeGrantClosure(
         const parent = pending.pop()!;
         if (visited.has(parent)) continue;
         visited.add(parent);
-        for (const grant of store
-            .grants()
-            .filter((candidate) => candidate.attenuationOf?.value === parent)) {
+        for (const grant of children.get(parent) ?? []) {
             pending.push(grant.id.value);
             if (!grant.isLive || skip.has(grant.id.value)) continue;
             const next = grant.revoke();
