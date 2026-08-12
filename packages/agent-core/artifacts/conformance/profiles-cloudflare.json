@@ -153,6 +153,21 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-CLOUDFLARE-RUN-HOSTING",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-RUN-HOSTING",
+      "specTextSha256": "sha256:c3ad1104451a8d8846397376ae0f776002ad56f02844cfd3a93e041bbc9f1f07",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Run ownership is modelled in the SQLite substrate (run.ts refuses storage that belongs to neither a Workspace nor a dedicated Run Actor), but the Cloudflare package has no Run-hosting or start-time `dedicated` pin path, so the profile obligation is unimplemented there",
+        "Needs evidence that the owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations across the default and `dedicated` hostings, and that a pin is only accepted at Run start"
+      ]
+    },
+    {
       "id": "C13-CLOUDFLARE-STORAGE-LIMIT",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-STORAGE-LIMIT",
@@ -863,7 +878,7 @@
       "checkerInvariants": [],
       "remainingEvidence": [
         "No Session egress plane exists in the runtime: environments model files, snapshots, and exposures but no EgressGrant or destination Binding, so the positive half (a send reaches exactly its named Binding's destination and an unbound destination refuses) has no source symbol; it is currently claimed only formally (AC-ENVIRONMENT-001, session_egress_is_explicitly_bound / unbound_send_is_refused) with NC-ENVIRONMENT-LIFECYCLE deferring the runtime",
-        "The adversarial half \u2014 code inside the Session cannot open a connection the platform did not pass \u2014 is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute"
+        "The adversarial half — code inside the Session cannot open a connection the platform did not pass — is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute"
       ]
     },
     {

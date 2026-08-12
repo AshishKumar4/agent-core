@@ -34,7 +34,7 @@
       "id": "C13-COMMAND-ARGUMENT-BINDING",
       "owner": "W3",
       "specAnchor": "C13-COMMAND-ARGUMENT-BINDING",
-      "specTextSha256": "sha256:501db9361554afdc3a6e9c8f9a4f8ce6a4dfb197c373ae049bcf08fe0b115d12",
+      "specTextSha256": "sha256:304c4922f2df8a590234d0f8baae6fccaaaddf3a1aae9d654a7b981dcdd8b6ed",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
@@ -48,7 +48,7 @@
       "id": "C13-COMMAND-COLLISION",
       "owner": "W3",
       "specAnchor": "C13-COMMAND-COLLISION",
-      "specTextSha256": "sha256:939dde511c260374e733c00f50d01f290301c7ee5d97079377b2214e7cec3b2c",
+      "specTextSha256": "sha256:573bb77e382e75f5b053d1740adf898ceb927f95f5777dfd74c43ea4220d449d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
@@ -60,10 +60,25 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-COMMAND-COMPLETION-IMPACT",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-COMPLETION-IMPACT",
+      "specTextSha256": "sha256:df81ba396ab32f074f69adac7ec7512056bbfa045fb16676bcdc7ba708e1fd21",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Install-time enforcement exists — command-runtime.ts refuses a completion target whose descriptor impact is not `observe` — but no test names this atom, so the rule is implemented and uncited rather than verified",
+        "The tiering consequence the rule exists for is untested: nothing asserts that a host-issued completion call stays on the direct tier, which is what the `observe` impact buys"
+      ]
+    },
+    {
       "id": "C13-COMMAND-INSTALL-MAPPING",
       "owner": "W3",
       "specAnchor": "C13-COMMAND-INSTALL-MAPPING",
-      "specTextSha256": "sha256:cfa185f26f989414b3606d699ad048492f934904bafdbea957a504da1ea71755",
+      "specTextSha256": "sha256:304c4922f2df8a590234d0f8baae6fccaaaddf3a1aae9d654a7b981dcdd8b6ed",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
@@ -74,10 +89,25 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-COMMAND-INVOCATION-CORRELATION",
+      "owner": "W3",
+      "specAnchor": "C13-COMMAND-INVOCATION-CORRELATION",
+      "specTextSha256": "sha256:58044e1ec3f13b5b254206d27aa5689b1f96440bd61524f79b1146aa46b83c15",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The correlation payload is exercised only by the test C13-COMMAND-RESULT cites; this atom needs evidence of its own that `command.invoked` carries the originating SurfaceId and, from a conversation, the RunRef and branch",
+        "The prohibition half — no inferred compatibility relation and no alternate authority source in the derived Subscription — has no negative test at all"
+      ]
+    },
+    {
       "id": "C13-COMMAND-RESULT",
       "owner": "W3",
       "specAnchor": "C13-COMMAND-RESULT",
-      "specTextSha256": "sha256:9cfd78270dcb530e8b4a4e313b8dc90a1cbfc77e7d5d2ea15bd6ff5998734b22",
+      "specTextSha256": "sha256:c062cfdaa51921769141dadec1040f2502b90b4dcf7a7b9a28f7fbc28212d72f",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
@@ -91,7 +121,7 @@
       "id": "C13-COMMAND-SUBSCRIPTION-DEFAULTS",
       "owner": "W3",
       "specAnchor": "C13-COMMAND-SUBSCRIPTION-DEFAULTS",
-      "specTextSha256": "sha256:87356c8eb6e84df6c094500ad778307f1171211fe1b0972c029f9b37dc658abf",
+      "specTextSha256": "sha256:92d949e7c41a6b1095c093ef8f4d7e35df59910db3e8fb661001f590a5bf80cc",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
@@ -128,7 +158,7 @@
       "remainingEvidence": [
         "Disposal is per-invocation today: the Turn invocation port disposes each resolved Facet in a finally, but no Turn-scoped resolved-Facet registry exists, so a Facet held across Turn work has no disposal sweep on suspension or authority loss",
         "'Authority loss' has no operational signal: no revocation or epoch-invalidation callback reaches a held ResolvedFacet, and requireActive checks host liveness, not Grant/Binding/lease validity",
-        "W3-citable implementation must live in src/operations (a ResolvedFacet scope the W5 executor consumes), since the Turn-side call sites are W5-owned; SPEC \u00a75.3 also names a resolved FacetSet no type declares"
+        "W3-citable implementation must live in src/operations (a ResolvedFacet scope the W5 executor consumes), since the Turn-side call sites are W5-owned; SPEC §5.3 also names a resolved FacetSet no type declares"
       ]
     },
     {
@@ -236,6 +266,21 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-INTERCEPTOR-DOMAIN-CONFINEMENT",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-DOMAIN-CONFINEMENT",
+      "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The interceptor runner has no protection-domain concept: src/operations/interception.ts never reads the placement or isolation mode of a contributing facet, so confinement is neither enforced nor representable today",
+        "Needs a negative test that an interceptor contributed from a `provider` or `dynamic` domain does not run in-process at another domain's cut point, and a positive one that the cross-domain case is expressed as an asynchronous Event"
+      ]
+    },
+    {
       "id": "C13-INTERCEPTOR-FROZEN-RETRY",
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-FROZEN-RETRY",
@@ -253,7 +298,7 @@
       "id": "C13-INTERCEPTOR-ORDER",
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-ORDER",
-      "specTextSha256": "sha256:efaa89dbdf92bf0e71eda8fb9a0f849891f1af91104a4db2a72cc3051fae0d9e",
+      "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
@@ -264,10 +309,25 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-INTERCEPTOR-POST-PREPARATION",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-POST-PREPARATION",
+      "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The adversarial counterpart C13-ADV-POST-PREPARATION-INTERCEPTOR is verified, but its test asserts that mediated effects route through the invocation port with frozen traces — it never attempts a post-preparation rewrite, so it is not evidence for this prohibition",
+        "Needs a test that an interceptor reached after preparation cannot alter the PreparedInvocation, Approval, EffectAttempt, or effect arguments, and that the attempt is refused rather than silently dropped"
+      ]
+    },
+    {
       "id": "C13-INTERCEPTOR-REPLAY",
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-REPLAY",
-      "specTextSha256": "sha256:c81400f848a6086c2c05af1b4d23423888120d6276268acb6834349da2cd3c8f",
+      "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],

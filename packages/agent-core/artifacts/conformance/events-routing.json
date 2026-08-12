@@ -121,7 +121,7 @@
       "id": "C13-ROUTE-CROSS-TENANT-BINDING",
       "owner": "W7",
       "specAnchor": "C13-ROUTE-CROSS-TENANT-BINDING",
-      "specTextSha256": "sha256:72c2295103d49ee79354339b9080ac7fe0907c66d779fbb9b0cd1dfae54129fd",
+      "specTextSha256": "sha256:8eae0e22fe229968e3fa99039ec9aeee884c77a5c672dd218eca07df9d27f308",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
@@ -241,7 +241,7 @@
       "id": "C13-SUBSCRIPTION-AUTHORITY",
       "owner": "W7",
       "specAnchor": "C13-SUBSCRIPTION-AUTHORITY",
-      "specTextSha256": "sha256:c2f13ff3be208bc1a2ac17ed6319ca35fe9c2f73bebe46a38119e818f6a90629",
+      "specTextSha256": "sha256:8eae0e22fe229968e3fa99039ec9aeee884c77a5c672dd218eca07df9d27f308",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/workspaces/subscription.ts#Subscription"],
@@ -304,8 +304,8 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "\u00a76.3 now defines every missing term by composition: a decision View is discriminated by the presence of a new optional `intentDigest` field; provenance uses a new optional `marks: readonly ViewMark[]` field whose `path` reuses the existing FieldMapping/PayloadMapping JSON Pointer vocabulary (\u00a76.2) rather than inventing pointer syntax; and platform voice is defined functionally \u2014 any rendered position a viewer would attribute to the platform rather than to the marked value's own source",
-        "View carries no provenance in code: no TrustTier reaches src/workspaces/view.ts, no ViewMark/marks representation exists, and no intentDigest field exists on the View record; implementing the atom is a View codec major-version change (View is durable and replayed via ViewDelta/JSON-Patch, \u00a710.3) with delta-replay mark preservation across revisions",
+        "§6.3 now defines every missing term by composition: a decision View is discriminated by the presence of a new optional `intentDigest` field; provenance uses a new optional `marks: readonly ViewMark[]` field whose `path` reuses the existing FieldMapping/PayloadMapping JSON Pointer vocabulary (§6.2) rather than inventing pointer syntax; and platform voice is defined functionally — any rendered position a viewer would attribute to the platform rather than to the marked value's own source",
+        "View carries no provenance in code: no TrustTier reaches src/workspaces/view.ts, no ViewMark/marks representation exists, and no intentDigest field exists on the View record; implementing the atom is a View codec major-version change (View is durable and replayed via ViewDelta/JSON-Patch, §10.3) with delta-replay mark preservation across revisions",
         "This is squarely a design-scale change, not a definition gap: it touches every Surface rendering path and the ViewDelta replay contract. Genuinely the owner's call on when to take the codec major bump, consistent with why it was deferred rather than attempted incidentally to this pass"
       ]
     },

@@ -268,7 +268,8 @@ three built-in roles every platform provides — `owner` (all capabilities at th
 including `administer`), `editor` (everything except `administer`), and `reader`
 (`observe`-impact capabilities only) — each as allow rules, and platforms MAY declare
 more rules including denies. A Role is a template; it becomes authority only when a
-Membership assigns it.
+Membership assigns it. This stable rule order and allow/deny rule shape are what a
+Membership materializes into Grants, and map to **C13-AUTH-ROLE-MATERIALIZATION**.
 
 **Roles materialize Grants.** A Membership is not itself callable authority. Assigning
 a Role at a Scope materializes — idempotently, exactly as a Blueprint materializes
@@ -300,7 +301,8 @@ sharing uses a **guest Membership** whose subject is a `ForeignPrincipalRef
 { homeTenant, principalId, verifiedVia }`. Guest-materialized Grants are always
 attenuated, MUST NOT carry `delegate` or `administer` capability, and MUST NOT resolve
 the host Tenant's credentials. Credential custody never leaves the owning Tenant. The
-same Grant precedence and Binding resolver apply to guests.
+same Grant precedence and Binding resolver apply to guests. This prohibition maps to
+**C13-AUTH-GUEST-ELEVATION**.
 
 **Verifying a guest.** `verifiedVia` names how the host Tenant establishes that a
 request actually comes from the foreign principal. It is one of three schemes, in
@@ -457,7 +459,8 @@ Configuration, manifests, and Blueprints carry SecretRefs, never raw credential
 values. A SecretRef is custody delegation, not process isolation: if plaintext is
 readable in an agent-visible filesystem, the ref does not protect it. Substrates
 SHOULD provide credential-injecting seams — proxy-injected headers, masked environment
-variables — so raw values never enter agent-visible domains at all.
+variables — so raw values never enter agent-visible domains at all. The ref-only rule
+maps to **C13-CONFIG-SECRET-REF**.
 
 Custody is about who may present a credential, not only about where the bytes live. A
 SecretRef resolves only inside the Tenant named by its `source`, and only for the exact
@@ -655,35 +658,45 @@ derived Subscription is exactly:
 
 An automation template defaults `mapping` to root-to-root identity, `dedupe` to
 `event`, and `authority` to initiator using its `binding`. Delegated automation MUST be
-explicit. Its `source.acceptedTrust` is always explicit and nonempty.
+explicit. Its `source.acceptedTrust` is always explicit and nonempty. These defaults map
+to **C13-COMMAND-SUBSCRIPTION-DEFAULTS**.
 
 The lifecycle, end to end:
 
 1. **Install.** The materializer registers the command in each declared surface slot.
    Command `name` MUST be unique per surface slot per Scope; a collision rejects the
    later contribution unless the Scope configures an alias. Per-Scope visibility
-   policy (§9.2) MAY disable individual commands.
+   policy (§9.2) MAY disable individual commands. This maps to
+   **C13-COMMAND-COLLISION**.
+
 2. **Discovery.** Surfaces render catalogs via `SlotCatalog.query`. For dynamic
    argument completion beyond schema enums, the host MAY call the command's
-   `completion` Operation (`observe` impact) with the partial argument context.
+   `completion` Operation (`observe` impact) with the partial argument context. The
+   impact is what keeps completion off the mediated tier, and maps to
+   **C13-COMMAND-COMPLETION-IMPACT**.
+
 3. **Argument binding.** A Surface owns its input grammar and produces a `FacetData`
    value that validates against `arguments` before any Event is emitted. CLI token
    ordering, quoting, and flags belong to the CLI Surface profile, not this core
    contract. With no `mapping`, the validated value is passed through unchanged;
    otherwise the declared pure mapping produces the Operation input. The mapping and both
    schemas MUST be checked at install; the produced value MUST validate against the
-   Operation input schema at execution.
+   Operation input schema at execution. These map to **C13-COMMAND-INSTALL-MAPPING**
+   and **C13-COMMAND-ARGUMENT-BINDING**.
+
 4. **Invocation.** The surface emits `Event(command.invoked)` whose correlation MUST
    carry the originating `SurfaceId` and, when invoked from a conversation, the
    `RunRef`/branch. The derived Subscription routes it to the target Operation.
    The derived Subscription uses exactly the fixed defaults above; no inferred
-   compatibility relation or alternate authority source is permitted.
+   compatibility relation or alternate authority source is permitted. This maps to
+   **C13-COMMAND-INVOCATION-CORRELATION**.
+
 5. **Result.** The host MUST emit `Event(command.completed)` correlated to the
    invoking Event's id, carrying the Operation's output reference (or the failure).
    Surfaces that render a `commands` slot MUST subscribe to `command.completed` for
    their own invocations and render results via ViewDelta (§6.3). A command whose
    effect belongs in the conversation appends a RunCommit to the correlated Run under
-   the invoker's authority.
+   the invoker's authority. This maps to **C13-COMMAND-RESULT**.
 
 A worked example — a deploy facet adds `/deploy` to a chat platform:
 
@@ -753,14 +766,14 @@ type InterceptResult =
 Rules:
 
 1. Interceptors run only within one protection domain; cross-domain interception MUST
-   use asynchronous Events.
+   use asynchronous Events. This maps to **C13-INTERCEPTOR-DOMAIN-CONFINEMENT**.
 2. `appliesTo` defaults to the contributing facet's own operations. Intercepting
    another facet's operations requires that facet to declare the operation
    `interceptable` and the interceptor's facet to hold a Grant for it. Sharing a
    domain confers no interception rights.
 3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`;
    interceptor ids MUST be unique within a Facet. Hosts record
-   which interceptor last rewrote a value.
+   which interceptor last rewrote a value. This maps to **C13-INTERCEPTOR-ORDER**.
 4. A thrown error blocks — scoped to the interceptor's `appliesTo`, surfaced as a
    typed operation error, never as a silent global veto.
 5. Mutating interceptions are attributable: the host records interceptor identity plus
@@ -769,8 +782,9 @@ Rules:
    mediated (§7.2); a direct invocation that presented interception evidence would be an
    invalid state rather than a case to record.
 6. `operation.before` completes before preparation. Its final rewritten input is what
-   the PreparedInvocation freezes and structurally digests. No interceptor may rewrite
-   a PreparedInvocation, Approval, EffectAttempt, or effect arguments afterward.
+   the PreparedInvocation freezes and structurally digests. An interceptor MUST NOT
+   rewrite a PreparedInvocation, Approval, EffectAttempt, or effect arguments
+   afterward. This maps to **C13-INTERCEPTOR-POST-PREPARATION**.
 7. The host persists the ordered `operation.before` transformation trace, including
    each interceptor identity and before/after digest, with the PreparedInvocation. A
    replay reuses the persisted transformed input and trace and does not rerun mutating
@@ -1031,6 +1045,7 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   never implicit, and branches with different pins cannot merge until explicitly
   migrated to equal pins. Parent inheritance maps to
   **C13-RUN-PARENT-PIN-INHERITANCE**.
+
 - Each Turn separately captures one immutable **TurnPlacementSnapshot** after §9.2
   selection. RunPins do not encode placement, and later policy or substrate changes do
   not retarget that Turn. Terminalization requires the terminal Turn's snapshot pins to
@@ -1038,6 +1053,7 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   the current head. A Turn retained across migration keeps its old pins and MUST be
   rejected as terminalizer after the Run migrates. These pin-validity clauses map to
   **C13-RUN-MIGRATED-TURN-REJECTION**.
+
 - Before any Run-associated Approval, Invocation item, RouteReservation,
   reconciliation, or required system commit is admitted locally or remotely, the
   Run-owning Actor MUST reserve its canonical `RunObligation` in the durable
@@ -1050,6 +1066,7 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   validates the exact `RunAdmissionReservation` identity, Run, and registry epoch before
   admission; a substituted identity or closed/changed epoch rejects. This maps to
   **C13-RUN-ADMISSION-REGISTRY** and **C13-RUN-RESERVATION-EPOCH**.
+
 - **Terminalization** is one Run-owner transaction: close the admission registry,
   advance its epoch, snapshot exactly `reserved − completed`, append the
   terminal result commit under the exact current Turn token, fence that Turn, record the
@@ -1066,6 +1083,7 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   running sibling retains admission. This maps to **C13-RUN-FORCED-CANCELLATION**. Once closed, the Run rejects new routes,
   preparations, Turns, migrations, merges, undo, and other control writes; system
   writers may complete only captured evidence obligations.
+
 - The terminal snapshot is exactly the just-closed registry's reserved-minus-completed
   set, not a remote discovery
   query: all pending Approvals, admitted Invocation items without a terminal current
@@ -1075,21 +1093,24 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   when no reservation was admitted; empty does not mean discovery was skipped. This
   maps to **C13-RUN-FRONTIER-COMPLETE** and
   **C13-RUN-FRONTIER-EMPTY**.
+
 - Terminal does not assert all asynchronous evidence has arrived. **Settled** is
   derived, never assigned: a Run is Settled exactly when every captured Invocation item
   has a terminal current Receipt, no indeterminate Receipt is current, every captured
   RouteReservation has delivery or terminal rejection evidence, and every captured
-  system RunCommit exists. Every required audit obligation must resolve to an existing
+  system RunCommit exists. Every required audit obligation MUST resolve to an existing
   AuditRecord of the stated evidence kind whose typed causal chain reaches that exact
-  terminal Receipt, route delivery, or commit. Every captured Approval must resolve for
+  terminal Receipt, route delivery, or commit. Every captured Approval MUST resolve for
   its exact Invocation as consumed, denied, or expired. Every captured reconciliation
-  must resolve the exact captured indeterminate Receipt to one final Receipt for the
+  MUST resolve the exact captured indeterminate Receipt to one final Receipt for the
   same EffectAttempt with the required `receiptSuperseded` lineage. Every captured
-  acceptance criterion must hold a current satisfying verdict. BatchOutcome is available when every item has
+  acceptance criterion MUST hold a current satisfying verdict. BatchOutcome is available when every item has
   a current Receipt; its terminal form additionally requires non-indeterminate outcome.
   This maps to **C13-RUN-SETTLED-DERIVED**.
+
 - `spawn` creates a child Run under attenuated authority (`delegate` impact, §11 Self
   profile).
+
 - The commit graph is **append-only**. An `undo` appends an undo RunCommit `U` whose
   parent is the current head and whose `selects` field names an ancestor commit; the
   branch head advances to `U`, and the branch's **effective state** becomes the
@@ -1097,15 +1118,18 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   commit. The interval until the next non-undo commit is the **pending revert**: it is
   durable and reversible. Prior heads remain reachable; ancestry
   queries are unaffected.
+
 - Undo targeting a branch with a held Turn MUST first fence that Turn (§5.3), whether or
   not its lease has expired — an expired lease is still reclaimable until someone fences
   it. An undo that would orphan an in-flight Turn is rejected until the Turn is fenced or
-  completes.
+  completes. This maps to **C13-RUN-UNDO-FENCE**.
+
 - `merge` is binary: it appends one RunCommit whose ordered parents are exactly the
   target branch's current head followed by the distinct source branch's current head.
   Multiway merge is a deterministic left fold of binary merges in caller-supplied
   branch order. A merge records one of the three content resolutions in §5.2.1; the
   graph records lineage and does not compute content.
+
 - Conforming stores support ancestry and reachability queries, not merely head moves.
 
 The **canonical graph** has one root with zero parents; every non-root, non-merge commit
@@ -1152,7 +1176,7 @@ record. The same rule governs it as governs capability (§3.4 rule 2): a child c
 NOT exceed the parent's remaining allowance in any declared dimension, and a dimension the
 child does not declare inherits the parent's remainder. A Run that declares no ceiling is
 unbounded — the platform imposes none — so fan-out narrows downward without anything
-capping work nobody chose to bound.
+capping work nobody chose to bound. This maps to **C13-RUN-RESOURCE-CEILING**.
 
 The three dimensions differ in how their remainder is known. `depth` and `wallClockMs` are
 derived, never separately accounted: depth is the length of the spawn lineage from the Run
@@ -1169,8 +1193,7 @@ closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded 
 `RunLifecycle`'s terminal `exhausted` field, and the Run's acceptance criteria still say
 whether the work was finished, so an exhausted Run with an undischarged criterion reads as
 exactly that. A ceiling is scheduling state, like claim expiry (§7.4); it never appears in
-authority admission and changes no admission decision. This maps to
-**C13-RUN-RESOURCE-CEILING**.
+authority admission and changes no admission decision.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
@@ -1197,7 +1220,8 @@ its parents without re-running anything. `synthesize` is the mixture-of-agents c
 **Tree conflicts.** Tree merge is defined only for the same binary parent pair, over
 the same Environment and one common-ancestor tree. The platform MUST resolve the tree
 separately and record the outcome on the merge commit's `treeCheckpoint`. A merge with
-more than two tree inputs is invalid rather than implementation-defined.
+more than two tree inputs is invalid rather than implementation-defined. This maps to
+**C13-RUN-BINARY-TREE-MERGE**.
 `policies.treeMerge` is a field of `PolicySet` (§9.2) alongside `tiers`, `approvals`, and
 `placement` — one more declared policy, not a new artifact — naming three settings and
 never picking silently:
@@ -1211,12 +1235,11 @@ never picking silently:
   resolution path: there is exactly one mechanism, an `administer`-impact Operation, and
   "the operator" is how this document refers to whoever legitimately calls it. That
   Operation supplies an explicit side for every conflict; the final merge records those
-  path resolutions. This maps to **C13-RUN-TREE-CONFLICT-EXPLICIT**.
-
-A platform that never merges over a shared tree (each branch owns a disjoint Environment,
-the Cognition read/write-split pattern) never encounters tree conflicts and MAY omit
-`policies.treeMerge`. A platform that omitted it and then merges two branches over one
-Environment rejects that merge; it does not pick.
+  path resolutions. A platform that never merges over a shared tree (each branch owns a
+  disjoint Environment, the Cognition read/write-split pattern) never encounters tree
+  conflicts and MAY omit `policies.treeMerge`; one that omitted it and then merges two
+  branches over one Environment rejects that merge, because no explicit side can be
+  supplied. This maps to **C13-RUN-TREE-CONFLICT-EXPLICIT**.
 
 ![The commit graph: undo as selection](diagrams/undo-graph.svg)
 
@@ -1400,7 +1423,8 @@ Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an E
 to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
 queue" — re-read the inbox each step. **Cancellation** is the reserved inbox Event
 `turn.cancel`: fencing a Turn (undo, takeover, timeout) delivers it, and a conforming
-executor observes the cancellation signal between steps and stops committing.
+executor observes the cancellation signal between steps and stops committing. This maps
+to **C13-TURN-CANCEL-INBOX**.
 
 An executor MAY hand the model a handle instead of a result: a mediated Invocation's
 tool position then returns its admission identity — the InvocationId, or the child
@@ -1410,7 +1434,8 @@ later Turn if this one ends first. Nothing about admission changes: the pipeline
 unaltered, the Receipt and audit chain attach to the identity the handle names, and a
 spawn's `delegate` Receipt carries the child RunRef, never the child's result. This
 is the non-blocking shape — a parent spawns, ends its Turn, and reads the answer as
-history instead of holding its context open to wait.
+history instead of holding its context open to wait. This maps to
+**C13-TURN-ADMISSION-HANDLE**.
 
 The Turn lifecycle above is closed. There is no normative `retryTurn` transition and a
 failed or cancelled Turn is never resurrected. A product may request another execution
@@ -1584,7 +1609,8 @@ LeaseToken holder, and any AuthorityPermit; matching `PrincipalId` values in dif
 Tenants are different principals.
 `delegated` uses the named Binding independently of the initiator. A same-tenant reservation prohibits cross-tenant authority. A cross-tenant
 reservation requires the `TenantRelation.cross.authority` Binding in addition to the
-Subscription's AuthoritySource; absence or tenant mismatch denies delivery.
+Subscription's AuthoritySource; absence or tenant mismatch denies delivery. These map to
+**C13-SUBSCRIPTION-AUTHORITY** and **C13-ROUTE-CROSS-TENANT-BINDING**.
 
 For a deduplicating policy, `(subscription, dedupeKey)` identifies one reservation and
 one stable InvocationId; redelivery reuses both and cannot prepare another intent.
@@ -1717,10 +1743,11 @@ a tiering one.
   attempted Receipt → AuditRecord → Event.
 - **direct** — an in-process call. Authority, exact current Turn lease, delivered
   watermark, PathEpochEvidence, and immutable §3.4 deadline are checked in memory; no durable
-  writes occur on the call path; telemetry MAY be sampled. The `direct` tier
-  REQUIRES the facet to be `bundled` in the Actor that owns the Turn lease; a
+  writes occur on the call path; telemetry MAY be sampled. A `direct` call MUST resolve a
+  facet `bundled` in the Actor that owns the Turn lease; a
   provider- or dynamic-mode facet is never `direct`, because its authority check would
-  cross an isolate boundary.
+  cross an isolate boundary. This co-location requirement maps to
+  **C13-POLICY-DIRECT-COLOCATION**.
 
 Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct;
 on a Turn-owned Session (§4.5), `execute` and `mutate` whose target is that Session's
@@ -1741,7 +1768,9 @@ can neither exfiltrate nor escalate, and the durable evidence for that filesyste
 tree checkpoint the writes produce (§5.4) rather than a receipt per write — which is the
 digest acceptance criteria and merges consume anyway. `mutate` against anything else — a
 platform record, another facet, a shared or longer-lived Session — keeps its mediated
-floor, and so does every `externalSend`, `delegate`, and `administer`.
+floor, and so does every `externalSend`, `delegate`, and `administer`. The two
+prohibitions this floor states map to **C13-POLICY-MEDIATION-FLOOR** and
+**C13-POLICY-APPROVAL-FLOOR**.
 
 Every mediated effect, including an internal mutation or execution, uses the one final
 authority-admission linearization point in §3.4 rule 7. Actor-local admission performs
@@ -1888,14 +1917,17 @@ projection digest, target Actor/domain, and audit bridge. `route` and `projectio
 are either both absent or both present; when present, the digest MUST equal the
 reservation's authenticated projection digest and `auditCause` MUST be the target
 Actor's `routeProjected` AuditRecord for that reservation. Initiator authority MUST name
-exactly the authenticated Principal owned by the source reservation. A local preparation has
-neither and allocates one stable InvocationId. The host also assigns the immutable
-idempotency seed. If `lease` is present, preparation and every executor effect require
-that exact current token and the matching entry in the TurnPlacementSnapshot. If
-absent, `actor` MUST be authenticated as the exact owner of `domain`; only that Actor
-may prepare or continue the invocation.
+exactly the authenticated Principal owned by the source reservation. This maps to
+**C13-PREPARED-ROUTED-PROJECTION**.
+
+A local preparation has neither and allocates one stable InvocationId. The host also
+assigns the immutable idempotency seed. If `lease` is present, preparation and every
+executor effect require that exact current token and the matching entry in the
+TurnPlacementSnapshot. If absent, `actor` MUST be authenticated as the exact owner of
+`domain`; only that Actor may prepare or continue the invocation.
 In all cases `auditCause` MUST be a preexisting compatible record in that Actor's local
-audit chain with matching tenant and correlation.
+audit chain with matching tenant and correlation. These map to
+**C13-PREPARED-NO-TURN-OWNER** and **C13-PREPARED-NO-TURN-AUDIT**.
 
 An **Approval** authorizes exactly one InvocationId and its `intentDigest`; an
 Invocation has at most one Approval record. An `InvocationContinuation` MUST be absent
@@ -2000,24 +2032,30 @@ all items; `AttemptReceipt.previous` and `AuditKind.receiptSuperseded`'s `previo
 Each nonterminal item has at most one live claim. Claiming is an atomic
 compare-and-set over `(InvocationId, itemIndex)`; the first claim uses attempt ordinal 0
 and requires `expiresAt > now`. Claim ownership and expiry are scheduling state,
-separate from attempt ordinal. An abandoned claim may be recovered only when
-`expiresAt <= now` and no EffectAttempt exists for that claim's ordinal. Its replacement
-retains the same invocation, item index, and ordinal, names a different worker, and
-requires a new `expiresAt > now`. Recovery never advances the ordinal; a new ordinal is
-claimed only after the prior ordinal has a final `failed` Receipt. An executor claim
-embeds the exact LeaseToken; a system claim names its owning Actor. Only the current
-claim owner may append the one matching EffectAttempt for that ordinal. An ordinal that
-already has an EffectAttempt is not eligible for abandoned-claim recovery and follows
-Receipt reconciliation instead. Scoping both rules to the ordinal rather than the item is
-what keeps an item recoverable after a worker claims a retry ordinal and stops before
-appending its EffectAttempt: no attempt at that ordinal means no effect was attempted at
-it, because the attempt is appended in the same guarded transaction that admits it.
-Pre-effect policy may terminalize an unclaimed item. A final
+separate from attempt ordinal. An executor claim embeds the exact LeaseToken; a system
+claim names its owning Actor. Only the current claim owner may append the one matching
+EffectAttempt for that ordinal: when an EffectAttempt is appended, its invocation, item
+index, ordinal, and optional token MUST equal the admitting claim's invocation, item
+index, attemptOrdinal, and owner token. These map to **C13-CLAIM-INITIAL-ATOMIC** and
+**C13-CLAIM-FUTURE-EXPIRY**.
+
+An abandoned claim may be recovered only when `expiresAt <= now` and no EffectAttempt
+exists for that claim's ordinal. Its replacement retains the same invocation, item index,
+and ordinal, names a different worker, and requires a new `expiresAt > now`. Recovery
+never advances the ordinal. An ordinal that already has an EffectAttempt is not eligible
+for abandoned-claim recovery and follows Receipt reconciliation instead. These map to
+**C13-CLAIM-RECOVERY-NO-ATTEMPT**, **C13-CLAIM-RECOVERY-NEW-OWNER**,
+**C13-CLAIM-RECOVERY-FUTURE-EXPIRY**, and **C13-CLAIM-RECOVERY-SAME-ORDINAL**.
+
+A new ordinal is claimed only after the prior ordinal has a final `failed` Receipt, which
+maps to **C13-ATTEMPT-ORDINAL-AFTER-FAILURE**. Scoping recovery and ordinal advance to
+the ordinal rather than the item is what keeps an item recoverable after a worker claims a
+retry ordinal and stops before appending its EffectAttempt: no attempt at that ordinal
+means no effect was attempted at it, because the attempt is appended in the same guarded
+transaction that admits it. Pre-effect policy may terminalize an unclaimed item. A final
 Receipt clears the claim; `succeeded` terminalizes the item while `failed` permits the
 next ordinal. These rules apply to index 0 of a single too, and prevent two executors
-from continuing one item. When an EffectAttempt is appended, its invocation, item
-index, ordinal, and optional token MUST equal the admitting claim's invocation, item
-index, attemptOrdinal, and owner token.
+from continuing one item.
 
 `BatchOutcome` is unavailable until every item has a current Receipt; those Receipts
 need not be final, so the derived outcome may be `indeterminate`. A
@@ -2088,7 +2126,8 @@ never rewrites an entry.
 Invocation records are ordinary roots. A `routeProjected` record is the special
 target-local bridge root described below, not an ordinary root. A host-created
 command-rejection WriteRecord MAY also be a root only under the §8.5 no-caller-cause
-rule.
+rule. These map to **C13-AUDIT-EDGE-RELATION**, **C13-AUDIT-PREEXISTING-CAUSE**, and
+**C13-AUDIT-APPEND-ONLY**.
 
 Cross-Actor causality never points directly into another Audit log. The source-owned
 RouteReservation is the authenticated bridge: it cites the preexisting source Event
@@ -2249,14 +2288,15 @@ forbidden fields are `rejectedMalformed`, except token-policy violations, which 
 `rejectedLease`.
 
 Every request appends exactly one WriteRecord and one linked AuditRecord, including
-malformed and rejected requests. A valid `callerCause` must preexist and be a permitted
+malformed and rejected requests. A valid `callerCause` MUST preexist and be a permitted
 typed cause. When rejection has no usable caller cause, the host creates an attributable
 root `write` AuditRecord; malformed input may omit caller and command. An accepted
 request without a caller cause first receives a host-created Invocation root. The
 envelope digest covers the raw submitted envelope even when decode fails. WriteRecord
 and AuditRecord contain each other's preallocated ids and commit atomically
 with the decision. RunCommit commands additionally enforce §5.2. Cross-Actor
-observation is post-commit and uses §6.2 reservation bridges.
+observation is post-commit and uses §6.2 reservation bridges. The rejection-root rule
+maps to **C13-PROTOCOL-REJECTION-ROOT**.
 
 ---
 
@@ -2304,7 +2344,7 @@ chosen mode cannot admit a policy-selected direct call, that call escalates to m
 
 The composed platform config schema is the spec's base schema plus every installed
 package's `settings` fragments, and a Blueprint MUST validate against it **before any
-package code loads**.
+package code loads**. This maps to **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD**.
 
 A skeleton:
 
@@ -2362,7 +2402,7 @@ against those facts.
 | --- | --- |
 | Tenant Actor | one Durable Object per Tenant (SQLite): principals, teams, memberships, Projects, canonical Bindings, allow/deny Grants, path epochs and invalidation holders, credential custody, quotas |
 | Workspace Actor | one DO per Workspace (SQLite): facet installs, Binding ids and rebuildable lookup indexes only, its event log, subscriptions, runs (default) or run index (dedicated), tasks |
-| Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2. |
+| Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations; migration only per §5.2. Maps to **C13-CLOUDFLARE-RUN-HOSTING**. |
 | Turn execution | in the Run-owning DO; each Turn retains a placement snapshot, and offloaded callbacks carry exact Turn, holder, and epoch — delivery is at-least-once and mismatches reject |
 | Environment | Sandbox SDK container or session DO; tree checkpoints and filesystem durability via R2 snapshots; preview via authenticated exposed ports |
 | Slate | records in the owning DO; frontend on static assets; backend as dynamic-mode code (§10.2) |
@@ -2374,7 +2414,8 @@ returns complete PathEpochEvidence. The profile MUST monotonically deliver inval
 watermarks, atomically advance them on mediated stale observation, enforce the exact
 Turn lease and immutable deadline for direct calls, perform Actor-local final authority
 admission in the attempt transaction, and perform cross-DO final authority admission at
-Tenant permit issuance after exact claim identity is known (§3.4, §10.3).
+Tenant permit issuance after exact claim identity is known (§3.4, §10.3). The watermark
+obligation maps to **C13-AUTH-WATERMARK-MONOTONE**.
 
 ![Cloudflare topology](diagrams/cloudflare.svg)
 
@@ -2866,7 +2907,11 @@ A conforming implementation provides:
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
 - **C13-COMMAND-COLLISION** Command collisions are rejected.
+- **C13-COMMAND-COMPLETION-IMPACT** A command's `completion` Operation carries `observe` impact, so argument completion never leaves the direct tier.
+- **C13-COMMAND-INVOCATION-CORRELATION** `Event(command.invoked)` correlation carries the originating SurfaceId and, from a conversation, the RunRef and branch, and the derived Subscription admits no inferred compatibility relation or alternate authority source.
 - **C13-COMMAND-RESULT** Command results are delivered as correlated `command.completed` Events.
+- **C13-INTERCEPTOR-DOMAIN-CONFINEMENT** Interception happens only within one protection domain, and crossing one uses asynchronous Events.
+- **C13-INTERCEPTOR-POST-PREPARATION** No interceptor rewrites a PreparedInvocation, Approval, EffectAttempt, or effect arguments after preparation.
 - **C13-INTERCEPTOR-ORDER** Interceptors order by `(priority, facetId, interceptorId)`.
 - **C13-INTERCEPTOR-SELF-SCOPE** Interceptors default to self-scope.
 - **C13-INTERCEPTOR-CROSS-FACET** Cross-facet interception is opt-in.
@@ -2972,6 +3017,8 @@ A conforming implementation provides:
 - **C13-RUN-FRONTIER-COMPLETE** The terminal snapshot captures exactly reserved-minus-completed obligations with no omissions or extras.
 - **C13-RUN-FRONTIER-EMPTY** An honestly empty admitted unfinished frontier is valid.
 - **C13-RUN-SETTLED-DERIVED** Settled is derived from captured obligations, including exact Approval and reconciliation lineage discharge.
+- **C13-TURN-ADMISSION-HANDLE** An executor may return a mediated Invocation's admission identity in the model's tool position without changing admission, and a spawn's `delegate` Receipt carries the child RunRef, never the child's result.
+- **C13-TURN-CANCEL-INBOX** Mid-turn delivery appends to the running Turn's lease-fenced inbox, cancellation is the reserved `turn.cancel` Event, and a conforming executor observes it between steps and stops committing.
 - **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
 - **C13-TURN-MODEL-CALL** A model call happens only inside a Turn.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
@@ -3000,6 +3047,7 @@ A conforming implementation provides:
 - **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit binds every specified tenant, source, target, authority, intent, item, claim, pin, epoch, nonce, and time field.
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim, fence, reservation identity/epoch, single use, and expiry, then irreversibly consumes a valid issued permit regardless of newer post-issuance watermark.
+- **C13-CLOUDFLARE-RUN-HOSTING** A Run is Workspace-owned by default and may be pinned `dedicated` at start; its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations, and migration follows §5.2.
 - **C13-CLOUDFLARE-ALARM-CLAIMS** The object's single alarm is arbitrated by durable per-owner claims and tracks the earliest live one, so no owner clobbers another's wakeup.
 - **C13-CLOUDFLARE-RECONCILIATION-DRIVER** The reconciliation driver's claim tracks the earliest durable outbox entry, armed on enqueue, rebuilt at startup, and released when the outbox drains.
 - **C13-CLOUDFLARE-ALARM-DURABILITY** An armed alarm survives instance loss and a throwing handler, and the platform, not an external re-arming path, recovers it.
