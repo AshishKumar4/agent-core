@@ -39,6 +39,11 @@ import {
     isFacetData,
     type FacetDataMap
 } from "../../src/facets-public";
+import {
+    claimHonorsEnforcementFloor,
+    enforcementFloor,
+    type Impact
+} from "../../src/facets/contribution";
 import { FacetRef } from "../../src/facets/id";
 import { BoundOperationRef, FacetOperationRef } from "../../src/facets/operation";
 
@@ -1408,3 +1413,56 @@ function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): 
         expect(error).toMatchObject({ code });
     }
 }
+
+describe("Impact is derived from the seam, not declared by the callee", () => {
+    test(
+        "[C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied",
+        { tags: "p0" },
+        () => {
+            const impacts = [
+                "observe",
+                "execute",
+                "mutate",
+                "externalSend",
+                "delegate",
+                "administer"
+            ] as const;
+
+            // The conditions under which an impact reaches `direct` at all. Stating the
+            // rule as containment of these sets is deliberately not how
+            // claimHonorsEnforcementFloor computes it: re-deriving the implementation's
+            // own boolean here would agree with any mutation of it.
+            const reachesDirect = (impact: Impact): readonly boolean[] =>
+                [true, false].filter(
+                    (turnOwnedSession) =>
+                        enforcementFloor(impact, turnOwnedSession, false) === "direct"
+                );
+
+            // A claim may raise the floor the seam derived and never lower it, so it is
+            // admissible exactly when it reaches `direct` nowhere the derived impact does
+            // not. Both Turn-owned-Session conditions are weighed because a claim recorded
+            // once at discovery or install has to stay safe at every later call site.
+            for (const claimed of impacts) {
+                for (const derived of impacts) {
+                    const permitted = reachesDirect(claimed).every((condition) =>
+                        reachesDirect(derived).includes(condition)
+                    );
+                    expect(claimHonorsEnforcementFloor(claimed, derived, false)).toBe(permitted);
+                }
+            }
+
+            // The two directions that carry the rule, named rather than left implicit.
+            // `observe` is the only impact reaching `direct` under both conditions, so
+            // claiming it against anything else is the escalation the host refuses, while
+            // claiming anything else against it is the harmless tightening.
+            expect(claimHonorsEnforcementFloor("observe", "externalSend", false)).toBe(false);
+            expect(claimHonorsEnforcementFloor("externalSend", "observe", false)).toBe(true);
+
+            // A Turn-owned Session lets `execute` reach `direct` too, so claiming it
+            // against an impact that never does is still refused — otherwise the claim
+            // buys `direct` at exactly the call sites where that condition holds.
+            expect(claimHonorsEnforcementFloor("execute", "mutate", false)).toBe(false);
+            expect(claimHonorsEnforcementFloor("mutate", "execute", false)).toBe(true);
+        }
+    );
+});

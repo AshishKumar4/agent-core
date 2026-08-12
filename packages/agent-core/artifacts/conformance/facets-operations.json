@@ -164,6 +164,23 @@
       ]
     },
     {
+      "id": "C13-FACET-IMPACT-BOUNDARY",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-IMPACT-BOUNDARY",
+      "specTextSha256": "sha256:2199c11c4fb01bd7e11a619e1690d5251adc55869c7e2f2ccb6d11161d2136f0",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/facets/contribution.ts#claimHonorsEnforcementFloor",
+        "src/facets/contribution.ts#enforcementFloor"
+      ],
+      "testSelectors": [
+        "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
       "id": "C13-FACET-INSTALL-VERIFICATION",
       "owner": "W3",
       "specAnchor": "C13-FACET-INSTALL-VERIFICATION",

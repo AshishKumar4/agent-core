@@ -1747,7 +1747,7 @@ MAY raise the §7.2 floor the seam derives, never lower it: it is refused whenev
 admit `direct` under any condition where the derived impact requires `mediated`. §11's MCP
 profile is one instance of this rule, not an exception to it: its `remote` install
 configuration is the seam, and a tool's own impact annotation may only raise the floor
-`remote` derives. This maps to **C13-POLICY-IMPACT-BOUNDARY**.
+`remote` derives. This maps to **C13-FACET-IMPACT-BOUNDARY**.
 
 ### 7.2 Enforcement tiers
 
@@ -2736,7 +2736,7 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 - **P11-MCP-PROMPT-BYTES** The canonical UTF-8 encoding of all contributed prompt titles and bodies is at most 262144 bytes per discovery.
 - **P11-MCP-POSITIVE-BOUNDS** Both MCP prompt maxima are positive, finite, and enforced before materialization.
 - **P11-MCP-INVOCATION** An MCP tool call is an ordinary Invocation.
-- **P11-MCP-IMPACT-ANNOTATION** Tool `_meta["io.agent-core/impact"]` is a claim by the discovered server, so the host applies it only when it does not lower the §7.2 enforcement floor of the impact the host derived under `C13-POLICY-IMPACT-BOUNDARY` (§7.1); otherwise the derived impact stands.
+- **P11-MCP-IMPACT-ANNOTATION** Tool `_meta["io.agent-core/impact"]` is a claim by the discovered server, so the host applies it only when it does not lower the §7.2 enforcement floor of the impact the host derived under `C13-FACET-IMPACT-BOUNDARY` (§7.1); otherwise the derived impact stands.
 - **P11-MCP-IMPACT-UNKNOWN** An annotation value outside the closed `Impact` set rejects discovery.
 - **P11-MCP-IMPACT-DEFAULT-REMOTE** A remote tool's host-derived impact is `externalSend`.
 - **P11-MCP-IMPACT-DEFAULT-LOCAL** A local tool's host-derived impact is `execute`.
@@ -2947,6 +2947,7 @@ A conforming implementation provides:
 - **C13-FACET-SLOT-VISIBILITY** `SlotCatalog.query` is viewer-filtered.
 - **C13-FACET-DISPOSAL** A Turn disposes its resolved Facets on completion, failure, cancellation, suspension, or authority loss.
 - **C13-FACET-INSTALL-VERIFICATION** Install-time verification requires every implementation the manifest declares and refuses a contribution it does not declare.
+- **C13-FACET-IMPACT-BOUNDARY** The host derives an operation's impact from the seam its request crosses, never from a declaration by the callee.
 - **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
@@ -2962,7 +2963,6 @@ A conforming implementation provides:
 - **C13-INTERCEPTOR-ATTRIBUTION** Pre-preparation rewrites are attributable.
 - **C13-INTERCEPTOR-FROZEN-RETRY** Retrying a frozen intent does not rerun mutating interceptors.
 - **C13-INTERCEPTOR-REPLAY** Replay persists and reuses both pre-effect and post-effect interceptor transformations and traces.
-- **C13-POLICY-IMPACT-BOUNDARY** The host derives an operation's impact from the seam its request crosses, never from a declaration by the callee.
 - **C13-INTERCEPTOR-THROW-BLOCK** A thrown interceptor error is a scoped block.
 - **C13-ENVIRONMENT-STALE-SESSION** Environment session lifecycle rejects a stale session.
 - **C13-ENVIRONMENT-DISPOSE-CLOSE** Environment session close disposes child Facets.

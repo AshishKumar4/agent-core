@@ -588,7 +588,7 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
     if (typeof value !== "string") {
         throw new McpDiscoveryError("impact.invalid", "MCP tool impact metadata must be a string");
     }
-    // The annotation is a claim by the discovered server (C13-POLICY-IMPACT-BOUNDARY):
+    // The annotation is a claim by the discovered server (C13-FACET-IMPACT-BOUNDARY):
     // it may raise or shift within the mediated floor, never lower the derived floor.
     // Impact freezes at discovery but the floor is evaluated per call, so the claim is
     // refused when it could yield `direct` for any session condition the derived impact

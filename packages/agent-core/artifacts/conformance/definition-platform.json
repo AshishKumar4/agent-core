@@ -240,23 +240,6 @@
       "remainingEvidence": []
     },
     {
-      "id": "C13-POLICY-IMPACT-BOUNDARY",
-      "owner": "W4",
-      "specAnchor": "C13-POLICY-IMPACT-BOUNDARY",
-      "specTextSha256": "sha256:641ee7769bb9e2a7bbd78bcbfc4f160291b6bafbb84d0f3f02309034d4c88145",
-      "status": "planned",
-      "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "§7.1 now defines the seam precisely — bundled placement's already-trusted manifest for first-party destinations, or the Tenant's own install-time config for externally configurable ones — and the floor-preserving comparison (facets/contribution.ts#enforcementFloor, #claimHonorsEnforcementFloor) is no longer duplicated inside the MCP facet: it is one shared, general implementation MCP is now the sole consumer of. An audit of every current OperationDescriptor construction site confirms every non-MCP facet declares a static, first-party impact literal (trivially seam-compliant under bundled placement) and MCP is the only facet deriving impact from anything install-configurable, so the rule holds across the present codebase",
-        "What remains is ownership and architecture, not ambiguity: the atom is filed under W4 (definition/policy), but the actual derivation this rule constrains happens in each facet's own manifest-construction code (W3's shared utility, consumed by W8's MCP facet) — W4's evaluatePolicy only ever sees an already-derived impact, so no W4-owned source or test can evidence the derivation step itself under this ledger's single-owner evidence rule",
-        "Verifying this atom needs the owner to decide the shape: either a composition-layer gate that re-derives/checks impact against a Binding's own boundary declaration at mediation time for every facet (a new central enforcement point, generalizing today's per-facet pattern), or an explicit acceptance that per-facet seam derivation is the intended architecture and evidence for this atom must be sourced across waves rather than from one owner",
-        "A third resolution is available and needs no new enforcement point: re-own the atom to W3. The rule constrains how an OperationDescriptor's impact may be derived, and the one general implementation of the floor-preserving comparison already lives in W3-owned src/facets/contribution.ts (#enforcementFloor, #claimHonorsEnforcementFloor). Its only derivation consumer is src/facets/mcp/facet.ts, which accepts an annotated impact solely when it does not weaken the derived floor — that call is the derivation gate the rule describes. Under W3 ownership the atom cites code that already exists and evidences the exact step; under W4 it can only ever cite evaluatePolicy, which is handed a finished impact. This is an owner decision because it means changing the SPEC-declared owner rather than adding code"
-      ]
-    },
-    {
       "id": "C13-POLICY-MEDIATION-FLOOR",
       "owner": "W4",
       "specAnchor": "C13-POLICY-MEDIATION-FLOOR",

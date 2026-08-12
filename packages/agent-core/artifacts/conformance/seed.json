@@ -1851,6 +1851,20 @@
       ]
     },
     {
+      "id": "C13-FACET-IMPACT-BOUNDARY",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-IMPACT-BOUNDARY",
+      "specTextSha256": "sha256:2199c11c4fb01bd7e11a619e1690d5251adc55869c7e2f2ccb6d11161d2136f0",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-FACET-INSTALL-VERIFICATION",
       "owner": "W3",
       "specAnchor": "C13-FACET-INSTALL-VERIFICATION",
@@ -2233,20 +2247,6 @@
       "owner": "W4",
       "specAnchor": "C13-POLICY-EPOCH-RECHECK",
       "specTextSha256": "sha256:5db97aedd6cc13d3a92d4352f2610582ce1ac78313e1345a2dd619cbdbfb3b4e",
-      "status": "planned",
-      "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
-    },
-    {
-      "id": "C13-POLICY-IMPACT-BOUNDARY",
-      "owner": "W4",
-      "specAnchor": "C13-POLICY-IMPACT-BOUNDARY",
-      "specTextSha256": "sha256:641ee7769bb9e2a7bbd78bcbfc4f160291b6bafbb84d0f3f02309034d4c88145",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
@@ -4626,7 +4626,7 @@
       "id": "P11-MCP-IMPACT-ANNOTATION",
       "owner": "W8",
       "specAnchor": "P11-MCP-IMPACT-ANNOTATION",
-      "specTextSha256": "sha256:b592e372de08794e2eb5dba14069234b60b795445217f432392a35e5b4a06f49",
+      "specTextSha256": "sha256:06812e367df8e1ef8815854b9bca679eb905efd1b4f4526d2cf273c8d0f5e9a8",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

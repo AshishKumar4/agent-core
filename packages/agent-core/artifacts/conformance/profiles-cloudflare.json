@@ -1328,7 +1328,7 @@
       "id": "P11-MCP-IMPACT-ANNOTATION",
       "owner": "W8",
       "specAnchor": "P11-MCP-IMPACT-ANNOTATION",
-      "specTextSha256": "sha256:b592e372de08794e2eb5dba14069234b60b795445217f432392a35e5b4a06f49",
+      "specTextSha256": "sha256:06812e367df8e1ef8815854b9bca679eb905efd1b4f4526d2cf273c8d0f5e9a8",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
