@@ -489,6 +489,14 @@ describe("Tenant operation authority membrane", () => {
                         ]
                     })
                 },
+                {
+                    reason: "the Facet is not bundled with the Turn lease holder",
+                    candidate: leasedCandidate({ placement: providerPlacement })
+                },
+                {
+                    reason: "the Turn Actor holds no local authority projection",
+                    candidate: leasedCandidate({ turnActorAuthorityLocal: false })
+                },
                 { reason: "the revocation deadline elapsed", at: DEADLINE },
                 {
                     reason: "the current watermark belongs to another holder",

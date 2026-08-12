@@ -348,8 +348,6 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
             deadline === undefined ||
             originalLeaseExpiresAt === undefined ||
             !token.holder.equals(resolution.principal) ||
-            !resolution.turnActorAuthorityLocal ||
-            resolution.placement.selected !== "bundled" ||
             this.tier(resolution, descriptor, false) !== "direct" ||
             !resolution.admitsDirectAt(at) ||
             !watermark.holder.equals(resolution.principal) ||
