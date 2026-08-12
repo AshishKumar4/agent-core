@@ -24,7 +24,7 @@ import {
     RuntimeRunInboxPort,
     type RoutedInvocationProjection
 } from "../../src/composition";
-import { SpawnReservationId } from "../../src/agents/runs/id";
+import { SpawnReservationId } from "../../src/agents";
 import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
 import {
     PackageId,

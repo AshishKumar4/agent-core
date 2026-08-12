@@ -143,11 +143,16 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             "Reviewed authoritative atom C13-FACET-REF-CANONICAL is anchored 0 times outside §13"
         );
 
+        // An adversarial atom is the stable choice here: the C13-ADV-* family states
+        // attack cases the suite must refuse, not obligations the prose declares, so no
+        // anchoring pass makes one authoritative. A normative atom would only hold this
+        // fixture until the next sweep bound its prose — which is how C13-AUTH-PLANE,
+        // named here before, stopped being §13-only.
         const unreviewed = await fixture({
-            spec: insertSection(original, "This fixture clause maps to **C13-AUTH-PLANE**.")
+            spec: insertSection(original, "This fixture clause maps to **C13-ADV-STALE-LEASE**.")
         });
         expect(run(unreviewed).stderr).toContain(
-            "§13-only summary C13-AUTH-PLANE is anchored 1 times outside §13"
+            "§13-only summary C13-ADV-STALE-LEASE is anchored 1 times outside §13"
         );
 
         const agreed = run(await fixture({}));

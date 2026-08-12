@@ -4,6 +4,7 @@ export {
     RunCheckpointId,
     RunCommitId,
     RunId,
+    SpawnReservationId,
     TurnId,
     TurnInboxEntryId
 } from "./id";
