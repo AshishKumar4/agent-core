@@ -328,7 +328,13 @@ describe("Tenant authority closure incremental audit", () => {
                 memberSubject,
                 "allow",
                 observe,
-                { kind: "role", membershipId: member.id, roleName: readerName.value, ruleOrdinal: 3, guest: false }
+                {
+                    kind: "role",
+                    membershipId: member.id,
+                    roleName: readerName.value,
+                    ruleOrdinal: 3,
+                    guest: false
+                }
             )
         );
         const changed = new AuthorityChangeSet();
@@ -539,7 +545,11 @@ function brokenTables(): readonly {
                     membership(
                         "closure-gate-foreign-membership",
                         ScopeRef.tenant(foreignTenantId),
-                        { subject: SubjectRef.principal(new PrincipalRef(foreignTenantId, memberId)) }
+                        {
+                            subject: SubjectRef.principal(
+                                new PrincipalRef(foreignTenantId, memberId)
+                            )
+                        }
                     )
                 )
         },
