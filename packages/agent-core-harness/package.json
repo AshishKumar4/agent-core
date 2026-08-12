@@ -14,6 +14,8 @@
   },
   "scripts": {
     "build": "pnpm --filter @agent-core/core build && node ./scripts/build.mjs",
+    "check:consumer": "pnpm build && node ./scripts/check-consumer.mjs",
+    "check:exports": "pnpm check:consumer",
     "check:types": "pnpm --filter @agent-core/core build && tsc -p tsconfig.json && tsc -p test/tsconfig.json",
     "lint": "pnpm --workspace-root exec oxlint --deny-warnings packages/agent-core-harness/src packages/agent-core-harness/test packages/agent-core-harness/scripts",
     "test": "pnpm --filter @agent-core/core build && vitest run --config test/vitest.config.mjs"
