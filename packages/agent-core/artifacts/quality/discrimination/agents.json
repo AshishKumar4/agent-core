@@ -1,0 +1,4914 @@
+{
+  "edition": "1.0.0",
+  "area": "agents",
+  "measuredAt": "17d748967008c0a143a55146c939803875a08d42",
+  "fingerprint": "sha256:e3fa72604e52bd2ecc07af77269180e2f7e0ddba53076793282517e0644f48a7",
+  "files": {
+    "src/agents/id.ts": {
+      "mutants": 8,
+      "sha256": "sha256:3ad17371bbbb68566b6ba2b89420e734ae4c161cd72d76664f7eea62ff59dae9"
+    },
+    "src/agents/record-data.ts": {
+      "mutants": 96,
+      "sha256": "sha256:7c898a89e043203821f86810fece92b9027b4b4188ffef4c31bffb7ce3e681e1"
+    },
+    "src/agents/runs/acceptance.ts": {
+      "mutants": 65,
+      "sha256": "sha256:3455c2a11824782978658c421ddaca4986a94c9f6fb12d5696be4534fc83d703"
+    },
+    "src/agents/runs/admission.ts": {
+      "mutants": 346,
+      "sha256": "sha256:c3abdaeab0bf5669d650000bf9587062025559f2ebb65356521e20095adc6dad"
+    },
+    "src/agents/runs/commit.ts": {
+      "mutants": 861,
+      "sha256": "sha256:94c0554276752bfbc3a581bc9787b9937171e5ff6d546c521a261c268ee07c2e"
+    },
+    "src/agents/runs/executor.ts": {
+      "mutants": 356,
+      "sha256": "sha256:beb9b5ea129b4dc2af5d5b0780a94110daaac123bc35a68d226b4d9001b75a4e"
+    },
+    "src/agents/runs/forced-cancellation.ts": {
+      "mutants": 92,
+      "sha256": "sha256:7bc32a84cdb008610035b7da8291490bffc4def450e6411c1faa8c7e644f7fb7"
+    },
+    "src/agents/runs/id.ts": {
+      "mutants": 10,
+      "sha256": "sha256:2bfa0b8fb0dbb89d0923af9441ebbe8f9656bf28ce578f92a647d74137a0d760"
+    },
+    "src/agents/runs/lease-verifier.ts": {
+      "mutants": 18,
+      "sha256": "sha256:d551de56c827531eaad9896586154e40146c678daf7e3a1129a8af5df22b63c8"
+    },
+    "src/agents/runs/lease.ts": {
+      "mutants": 330,
+      "sha256": "sha256:dab9e2c1f461e74d2c4fc37f3c049fc9831aa1fe355ffd15880231f5662f6f61"
+    },
+    "src/agents/runs/memory.ts": {
+      "mutants": 216,
+      "sha256": "sha256:7fe7b038b3c6d67b9390118665d752dda54c07e09f141b0c1c2f47b8e197f7ec"
+    },
+    "src/agents/runs/outcome.ts": {
+      "mutants": 5,
+      "sha256": "sha256:0c08ced7727435d766639a198d3626d91a312910c98bfb455d709f67672251cb"
+    },
+    "src/agents/runs/pins.ts": {
+      "mutants": 112,
+      "sha256": "sha256:929cb80cf30d4880272fbe86e37acdc99f719bc421e17d95358b5f13296140d9"
+    },
+    "src/agents/runs/placement.ts": {
+      "mutants": 119,
+      "sha256": "sha256:18b2e1f0260704106befe0dbaeb3fe20ba8904e58425da9fe173d12cf08bbb9b"
+    },
+    "src/agents/runs/run.ts": {
+      "mutants": 172,
+      "sha256": "sha256:e3b95b09883f6ca7b9d2c92e94d4a390ae4bbcd258bf66870bfeeb3854ebf2b6"
+    },
+    "src/agents/runs/runtime.ts": {
+      "mutants": 1216,
+      "sha256": "sha256:cd5037a2ff0162e0ec700e5907580d399bca90bfde8208c554fb2bed919c534b"
+    },
+    "src/agents/runs/settlement.ts": {
+      "mutants": 152,
+      "sha256": "sha256:399823d9870d30618c10119e3fe1385ac6ba53aab518e6ef2a5ebfa572a6be38"
+    },
+    "src/agents/runs/spawn.ts": {
+      "mutants": 71,
+      "sha256": "sha256:9dc3a2ae5f93fa3a37c584181fc9347c89a80a728c77e79516412bcc669905a4"
+    },
+    "src/agents/runs/store.ts": {
+      "mutants": 372,
+      "sha256": "sha256:f1b80545b1aeaee40f68ae16ed4599db54b8b1d8869dca7322c51e1e53c63224"
+    },
+    "src/agents/runs/turn.ts": {
+      "mutants": 445,
+      "sha256": "sha256:7f7b88270aa62cce0934eeb5c01efe499f67a4244ab107a7f738eb72f6f277f5"
+    },
+    "src/agents/source.ts": {
+      "mutants": 66,
+      "sha256": "sha256:bc892fc9d104f78120a09eceff0ae31b1611b3b38a5c31737503c2376301900e"
+    }
+  },
+  "killed": {
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] reserves each declared criterion at open and completes only through a succeeded current-subject verdict": {
+      "src/agents/runs/acceptance.ts": [
+        26,
+        28,
+        36,
+        37,
+        43,
+        45,
+        46,
+        47,
+        49,
+        59,
+        62,
+        85,
+        88,
+        89,
+        90,
+        100,
+        101,
+        108,
+        110,
+        111,
+        113,
+        115,
+        116,
+        125,
+        128
+      ],
+      "src/agents/runs/admission.ts": [
+        90,
+        96,
+        101,
+        144,
+        146,
+        147,
+        306,
+        307,
+        310,
+        316,
+        333,
+        334,
+        338,
+        385,
+        386,
+        387,
+        390,
+        413
+      ],
+      "src/agents/runs/commit.ts": [
+        135,
+        181,
+        191,
+        196,
+        201,
+        203,
+        208
+      ],
+      "src/agents/runs/id.ts": [
+        5
+      ],
+      "src/agents/runs/runtime.ts": [
+        199,
+        200,
+        206,
+        207,
+        217,
+        230,
+        240,
+        252,
+        272,
+        273,
+        282,
+        289,
+        290,
+        293,
+        297,
+        299,
+        306,
+        308,
+        317,
+        318,
+        329,
+        330,
+        339,
+        342,
+        345,
+        348,
+        349,
+        358,
+        361,
+        363,
+        365,
+        1349,
+        1454,
+        1455
+      ],
+      "src/agents/runs/store.ts": [
+        245,
+        275,
+        429,
+        430,
+        436,
+        439,
+        442,
+        446,
+        447,
+        454,
+        457,
+        458,
+        503,
+        530,
+        534,
+        584,
+        585
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] snapshots an unsatisfied criterion into the terminal frontier and blocks Settled until a current satisfying verdict": {
+      "src/agents/runs/admission.ts": [
+        72,
+        76,
+        155,
+        157,
+        318,
+        319,
+        342,
+        343
+      ],
+      "src/agents/runs/runtime.ts": [
+        234
+      ],
+      "src/agents/runs/settlement.ts": [
+        54,
+        67,
+        244,
+        246,
+        248,
+        290
+      ],
+      "src/agents/runs/store.ts": [
+        553
+      ],
+      "src/agents/runs/turn.ts": [
+        70
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-SUBJECT] treats a verdict as evidence for its exact subject and admits a further attempt only against an unnamed head tree digest": {
+      "src/agents/runs/admission.ts": [
+        146
+      ],
+      "src/agents/runs/runtime.ts": [
+        342,
+        344,
+        345,
+        363,
+        399,
+        400,
+        412,
+        581
+      ],
+      "src/agents/runs/store.ts": [
+        286
+      ],
+      "src/agents/runs/turn.ts": [
+        174
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-SUBJECT] withholds admission and completion while the head names no tree digest": {
+      "src/agents/runs/runtime.ts": [
+        344,
+        361,
+        1358
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] persists criteria, verdicts, and completion across a memory restart": {
+      "src/agents/runs/runtime.ts": [
+        365
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] round-trips exact records and rejects malformed identities": {
+      "src/agents/runs/acceptance.ts": [
+        28,
+        29,
+        88,
+        89,
+        90,
+        91,
+        92
+      ],
+      "src/agents/runs/admission.ts": [
+        307
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria binds a verdict to the declaring Run's own reserved criterion": {
+      "src/agents/runs/admission.ts": [
+        147
+      ],
+      "src/agents/runs/runtime.ts": [
+        200,
+        202,
+        293,
+        342
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity names each cancellation field in decode errors": {
+      "src/agents/runs/forced-cancellation.ts": [
+        134,
+        136,
+        138,
+        148,
+        151,
+        154,
+        157
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity rejects unknown cancellation fields": {
+      "src/agents/runs/forced-cancellation.ts": [
+        130,
+        131
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity requires each identifier to use its exact context class": {
+      "src/agents/runs/forced-cancellation.ts": [
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity requires exactly one lease fence increment": {
+      "src/agents/runs/forced-cancellation.ts": [
+        78,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity round-trips through the static codec surface": {
+      "src/agents/runs/forced-cancellation.ts": [
+        34,
+        45,
+        51,
+        101,
+        102,
+        115,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        133,
+        134,
+        136,
+        138,
+        140,
+        144,
+        148,
+        151,
+        154,
+        157
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity decodes each obligation kind exactly": {
+      "src/agents/runs/admission.ts": [
+        277,
+        278,
+        282,
+        292,
+        296,
+        300,
+        302,
+        340,
+        351,
+        358,
+        360,
+        361,
+        364,
+        365,
+        368,
+        372,
+        373,
+        376,
+        380,
+        381,
+        383
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity names each obligation payload field in decode errors": {
+      "src/agents/runs/admission.ts": [
+        346,
+        358,
+        361,
+        368,
+        376,
+        383
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity names registry fields in decode errors": {
+      "src/agents/runs/admission.ts": [
+        216
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity names reserved and completed obligation subjects": {
+      "src/agents/runs/admission.ts": [
+        71,
+        73,
+        402
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity propagates non-TypeError faults from obligation identity probes": {
+      "src/agents/runs/admission.ts": [
+        139,
+        228,
+        230,
+        236,
+        237,
+        267,
+        272,
+        406
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity rejects unknown obligation kinds in canonical copies": {
+      "src/agents/runs/admission.ts": [
+        311,
+        312
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity rejects unknown registry and obligation fields": {
+      "src/agents/runs/admission.ts": [
+        209,
+        210,
+        327,
+        328,
+        331,
+        332,
+        343,
+        348,
+        352,
+        353,
+        363,
+        364,
+        371,
+        372,
+        379,
+        380
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity requires exact canonical approval identities": {
+      "src/agents/runs/admission.ts": [
+        274,
+        275,
+        419
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity validates the accepting flag before constructing": {
+      "src/agents/runs/admission.ts": [
+        212,
+        213
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity accepts registry epoch zero": {
+      "src/agents/runs/settlement.ts": [
+        51
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity canonicalizes obligations by identity key": {
+      "src/agents/runs/settlement.ts": [
+        54,
+        56
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity derives the exact ordered audit projection": {
+      "src/agents/runs/settlement.ts": [
+        294
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity names terminal snapshot fields in decode errors": {
+      "src/agents/runs/settlement.ts": [
+        118,
+        121,
+        146,
+        151,
+        152,
+        153,
+        154
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity rejects unknown settlement record fields": {
+      "src/agents/runs/settlement.ts": [
+        75,
+        118,
+        147,
+        148
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-FENCE-SYSTEM-EVIDENCE] captures exactly reserved minus completed and rejects every post-close race": {
+      "src/agents/runs/admission.ts": [
+        68,
+        101,
+        102,
+        106,
+        160,
+        171,
+        172,
+        173,
+        178,
+        179,
+        185,
+        188,
+        291,
+        296,
+        297,
+        301,
+        302,
+        305,
+        318,
+        329,
+        403,
+        405
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions": {
+      "src/agents/runs/admission.ts": [
+        106,
+        108,
+        127,
+        129,
+        130,
+        131,
+        132,
+        133,
+        135,
+        137,
+        138,
+        139,
+        157,
+        158,
+        160,
+        237
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-UNEQUAL-PIN-MERGE] persists reservations and completion across a memory restart": {
+      "src/agents/runs/admission.ts": [
+        129,
+        137,
+        342,
+        343,
+        344,
+        346
+      ],
+      "src/agents/runs/commit.ts": [
+        128,
+        170,
+        178
+      ],
+      "src/agents/runs/store.ts": [
+        216,
+        220,
+        276
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry fails closed when durable admission is omitted and when its epoch is exhausted": {
+      "src/agents/runs/admission.ts": [
+        173,
+        174
+      ],
+      "src/agents/runs/runtime.ts": [
+        269
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry rejects malformed registry and reservation identities before admission": {
+      "src/agents/runs/admission.ts": [
+        61,
+        62,
+        65,
+        66,
+        68,
+        69,
+        235,
+        278,
+        282,
+        292,
+        297,
+        302,
+        393,
+        394,
+        402,
+        412,
+        413,
+        414,
+        418
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry round-trips immutable canonical state and rejects malformed completion sets": {
+      "src/agents/runs/admission.ts": [
+        68,
+        72,
+        74,
+        76,
+        77,
+        91,
+        95,
+        100,
+        101,
+        108,
+        109,
+        112,
+        113,
+        117,
+        119,
+        122,
+        157,
+        161,
+        162,
+        195,
+        204,
+        208,
+        212,
+        216,
+        217,
+        285,
+        320,
+        348,
+        351,
+        355,
+        402,
+        406,
+        407,
+        413
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-PREPARATION] requires every canonical settlement identity without accepting broad Invocation evidence": {
+      "src/agents/runs/settlement.ts": [
+        217
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each derived audit independently": {
+      "src/agents/runs/settlement.ts": [
+        211,
+        228,
+        234,
+        240,
+        254
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-EMPTY] records an honestly empty frontier": {
+      "src/agents/runs/settlement.ts": [
+        252
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities": {
+      "src/agents/runs/settlement.ts": [
+        51,
+        52,
+        121
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-SETTLED-DERIVED] captures a nonempty exact frontier and derives all settlement categories": {
+      "src/agents/runs/admission.ts": [
+        330
+      ],
+      "src/agents/runs/lease.ts": [
+        109,
+        119
+      ],
+      "src/agents/runs/runtime.ts": [
+        559,
+        937
+      ],
+      "src/agents/runs/settlement.ts": [
+        75,
+        77,
+        207,
+        209,
+        211,
+        213,
+        215,
+        217,
+        224,
+        226,
+        228,
+        230,
+        232,
+        234,
+        236,
+        238,
+        240,
+        242,
+        253,
+        254,
+        269,
+        270,
+        272,
+        273,
+        274,
+        281,
+        282,
+        283,
+        288,
+        289,
+        291
+      ],
+      "src/agents/runs/store.ts": [
+        198,
+        209,
+        210,
+        239,
+        249,
+        274,
+        291,
+        294,
+        300,
+        310,
+        311
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-INCOMPLETE-PACKAGE-CLOSURE] rejects genesis when the authoritative Package closure is incomplete": {
+      "src/agents/runs/memory.ts": [
+        37,
+        44,
+        54
+      ],
+      "src/agents/runs/runtime.ts": [
+        177,
+        178,
+        181,
+        183
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit": {
+      "src/agents/runs/turn.ts": [
+        30
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease": {
+      "src/agents/runs/runtime.ts": [
+        463,
+        475,
+        1042
+      ],
+      "src/agents/runs/store.ts": [
+        469
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart": {
+      "src/agents/runs/commit.ts": [
+        612
+      ],
+      "src/agents/runs/runtime.ts": [
+        518,
+        1000,
+        1060
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent": {
+      "src/agents/runs/runtime.ts": [
+        503,
+        505
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-EXECUTOR-WRITER] rejects nonfresh ordinary Turn genesis": {
+      "src/agents/runs/memory.ts": [
+        54
+      ],
+      "src/agents/runs/runtime.ts": [
+        558,
+        581
+      ],
+      "src/agents/runs/turn.ts": [
+        33,
+        167,
+        177
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization": {
+      "src/agents/runs/admission.ts": [
+        331
+      ],
+      "src/agents/runs/commit.ts": [
+        751
+      ],
+      "src/agents/runs/runtime.ts": [
+        528,
+        538,
+        541,
+        543,
+        545,
+        548
+      ],
+      "src/agents/runs/store.ts": [
+        581
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [MIGRATE-RUN-PINS] rejects an invalid target pin snapshot without partial persistence": {
+      "src/agents/runs/runtime.ts": [
+        501,
+        502,
+        504,
+        508
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants atomically commits held cancellation result, inbox event, and fence": {
+      "src/agents/runs/runtime.ts": [
+        805,
+        815
+      ],
+      "src/agents/runs/turn.ts": [
+        45
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants atomically records displaced-token cancellation on reclaim": {
+      "src/agents/runs/memory.ts": [
+        58,
+        59
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants composes transaction-scoped genesis with outer rollback and rejects nesting": {
+      "src/agents/runs/memory.ts": [
+        34,
+        36
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants delivers an ordinary event at the next durable inbox sequence": {
+      "src/agents/runs/runtime.ts": [
+        733
+      ],
+      "src/agents/runs/store.ts": [
+        341,
+        342
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants persists a verified explicit migration snapshot and commit": {
+      "src/agents/runs/admission.ts": [
+        321,
+        340
+      ],
+      "src/agents/runs/commit.ts": [
+        599,
+        600,
+        726
+      ],
+      "src/agents/runs/run.ts": [
+        140
+      ],
+      "src/agents/runs/runtime.ts": [
+        501,
+        518,
+        996
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants rejects corrupted keys and parent projections after restore": {
+      "src/agents/runs/store.ts": [
+        276,
+        566,
+        569,
+        571,
+        574
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants rejects reserved cancellation through generic delivery": {
+      "src/agents/runs/runtime.ts": [
+        732,
+        737
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants requires symmetric optional Turn attribution in evidence": {
+      "src/agents/runs/commit.ts": [
+        298,
+        321,
+        751
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants returns false for missing ancestry endpoints": {
+      "src/agents/runs/run.ts": [
+        162,
+        167
+      ],
+      "src/agents/runs/store.ts": [
+        467
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants times out only an expired held Turn and records its exact displaced token": {
+      "src/agents/runs/runtime.ts": [
+        833,
+        834,
+        845,
+        849
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Run commit codec matrix round-trips delivery and every tree resolution shape": {
+      "src/agents/runs/commit.ts": [
+        655,
+        657,
+        658,
+        664,
+        669,
+        674,
+        685,
+        686,
+        687,
+        690,
+        694,
+        698,
+        704,
+        712,
+        715,
+        762
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Run commit codec matrix round-trips pick and synthesis resolution evidence": {
+      "src/agents/runs/commit.ts": [
+        648,
+        744
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Settlement codec and lifecycle derives every typed audit obligation from the frontier and round-trips": {
+      "src/agents/runs/settlement.ts": [
+        57,
+        58,
+        73,
+        89,
+        92,
+        118,
+        119,
+        126,
+        130,
+        142,
+        146,
+        152,
+        154,
+        155,
+        156,
+        157,
+        166,
+        169,
+        205,
+        207
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Settlement codec and lifecycle keeps terminal state immutable and permits only captured evidence revision": {
+      "src/agents/runs/settlement.ts": [
+        118
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-TURN-EXECUTOR-WRITER] accepts root and exact Turn writers and rejects forged writer pairs": {
+      "src/agents/runs/commit.ts": [
+        299,
+        300,
+        306,
+        388,
+        405,
+        755
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-MATRIX] rejects every Receipt evidence mismatch": {
+      "src/agents/runs/commit.ts": [
+        316,
+        321,
+        322,
+        323,
+        325,
+        326,
+        327,
+        328,
+        329,
+        444,
+        445,
+        448,
+        750,
+        751,
+        759
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-POST-FENCE-EVIDENCE] rejects every delivery and control evidence mismatch": {
+      "src/agents/runs/commit.ts": [
+        316,
+        334,
+        339,
+        340,
+        341,
+        344,
+        345,
+        346,
+        355,
+        356,
+        358,
+        360,
+        362,
+        461
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-SYNTHESIS] requires exact synthesis Run, token, and content evidence": {
+      "src/agents/runs/commit.ts": [
+        367,
+        372,
+        373,
+        374,
+        375,
+        376,
+        377
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-RUN-GRAPH-ARITY] rejects invalid root, merge, and unary arities": {
+      "src/agents/runs/commit.ts": [
+        383,
+        388,
+        389,
+        400,
+        441
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-TURN-EXECUTOR-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits": {
+      "src/agents/runs/commit.ts": [
+        444,
+        518
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes rejects malformed serialized writer and resolution variants": {
+      "src/agents/runs/commit.ts": [
+        578,
+        744,
+        745,
+        765
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards names each malformed scalar payload field exactly": {
+      "src/agents/runs/commit.ts": [
+        215,
+        216,
+        217,
+        222,
+        223,
+        227,
+        231,
+        233,
+        237,
+        239,
+        243,
+        245,
+        248,
+        251,
+        257,
+        263,
+        269,
+        386,
+        737,
+        738,
+        784,
+        786
+      ],
+      "src/agents/runs/lease.ts": [
+        259,
+        260
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards names malformed writer, resolution, and tree payloads exactly": {
+      "src/agents/runs/commit.ts": [
+        572,
+        581,
+        598,
+        609,
+        627,
+        634,
+        636,
+        637,
+        643,
+        644,
+        645,
+        647,
+        648,
+        651,
+        684,
+        685,
+        686,
+        690,
+        698,
+        701
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards rejects the exact alien optional field at every decode site": {
+      "src/agents/runs/commit.ts": [
+        210,
+        211,
+        250,
+        251,
+        253,
+        386,
+        574,
+        578,
+        582,
+        583,
+        584,
+        585,
+        586,
+        598,
+        599,
+        604,
+        605,
+        613,
+        615,
+        616,
+        617,
+        624,
+        625,
+        626,
+        627,
+        628,
+        629,
+        632,
+        634,
+        635,
+        636,
+        639,
+        640,
+        643,
+        644,
+        654,
+        655,
+        656,
+        657,
+        660,
+        663,
+        664,
+        665,
+        669,
+        682,
+        684,
+        687,
+        691,
+        692,
+        701,
+        704,
+        705,
+        706,
+        712,
+        714,
+        723,
+        725,
+        767
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards rejects unknown commit kinds instead of admitting them": {
+      "src/agents/runs/commit.ts": [
+        775,
+        776
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards round-trips the verdict kind and every optional payload exactly": {
+      "src/agents/runs/commit.ts": [
+        226,
+        228,
+        232,
+        234,
+        244,
+        246,
+        262,
+        264,
+        272,
+        602,
+        714,
+        716,
+        717,
+        725,
+        726,
+        786
+      ],
+      "src/agents/runs/lease.ts": [
+        266
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations constrains merge pick and tree sides to the ordered parents": {
+      "src/agents/runs/commit.ts": [
+        417,
+        422,
+        423,
+        424,
+        425,
+        429,
+        430,
+        431,
+        432,
+        433,
+        434,
+        436,
+        437,
+        614,
+        625,
+        655,
+        657
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects event delivery commits that violate exactly one delivery requirement": {
+      "src/agents/runs/commit.ts": [
+        461,
+        463,
+        464,
+        465,
+        466,
+        475,
+        476
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects invocation commits that violate exactly one receipt requirement": {
+      "src/agents/runs/commit.ts": [
+        405,
+        441,
+        442,
+        444,
+        445,
+        446,
+        447,
+        456,
+        457
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects lease tokens whose members are not canonical references": {
+      "src/agents/runs/commit.ts": [
+        545,
+        546,
+        738,
+        739,
+        741,
+        742
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects merge commits that violate exactly one merge requirement": {
+      "src/agents/runs/commit.ts": [
+        405,
+        407,
+        408,
+        409,
+        410,
+        411,
+        412,
+        413,
+        414,
+        415,
+        545
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects migration commits that break the pin bind and accepts the exact migration": {
+      "src/agents/runs/commit.ts": [
+        480,
+        497,
+        500,
+        501,
+        502,
+        511,
+        512
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects root commits that carry any non-root field or writer": {
+      "src/agents/runs/commit.ts": [
+        385,
+        386,
+        388,
+        390,
+        391,
+        401,
+        543,
+        544,
+        741,
+        744
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects turn-authored commits that violate exactly one turn requirement": {
+      "src/agents/runs/commit.ts": [
+        497,
+        517,
+        519,
+        529,
+        530
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects undo commits that violate exactly one control requirement": {
+      "src/agents/runs/commit.ts": [
+        461,
+        480,
+        483,
+        484,
+        494,
+        534,
+        536,
+        537,
+        538,
+        540
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations requires the tree resolution and checkpoint to occur together": {
+      "src/agents/runs/commit.ts": [
+        385,
+        408,
+        409,
+        417,
+        418
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches accepts exact synthesis evidence and denies token identity mismatches": {
+      "src/agents/runs/commit.ts": [
+        372
+      ],
+      "src/agents/runs/lease.ts": [
+        12,
+        14
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches denies a turn writer when the commit carries no subject Turn": {
+      "src/agents/runs/commit.ts": [
+        309,
+        310,
+        311
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches denies commits that omit their own evidence reference fields": {
+      "src/agents/runs/commit.ts": [
+        326,
+        327,
+        344,
+        355,
+        357,
+        361,
+        367,
+        372,
+        376,
+        378
+      ],
+      "src/agents/runs/lease.ts": [
+        232
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches denies system writers whose commit kind does not match the cause evidence": {
+      "src/agents/runs/commit.ts": [
+        321,
+        330,
+        334,
+        339,
+        347,
+        355,
+        444,
+        463,
+        464,
+        483,
+        758
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches matches receipt evidence subject Turns exactly in both directions": {
+      "src/agents/runs/commit.ts": [
+        321,
+        322,
+        324,
+        751
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches states the exact refusal for a root writer beyond the root commit": {
+      "src/agents/runs/commit.ts": [
+        299,
+        301,
+        517,
+        518,
+        520,
+        754
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output": {
+      "src/agents/runs/commit.ts": [
+        225,
+        299,
+        304,
+        553,
+        573,
+        577,
+        578,
+        579,
+        733,
+        769
+      ],
+      "src/agents/runs/executor.ts": [
+        283,
+        286,
+        290,
+        305,
+        313,
+        336,
+        338,
+        348,
+        349,
+        363,
+        369,
+        377,
+        378,
+        383,
+        385,
+        392,
+        393,
+        396,
+        397,
+        400,
+        401,
+        402,
+        403,
+        405,
+        409,
+        410,
+        411,
+        417,
+        437,
+        508,
+        511,
+        513,
+        524,
+        533,
+        536,
+        538,
+        556,
+        557,
+        564,
+        566,
+        641,
+        642,
+        679,
+        682,
+        698,
+        700,
+        701,
+        704,
+        707,
+        716,
+        717,
+        718,
+        731,
+        757,
+        763,
+        770,
+        780,
+        785,
+        786,
+        790
+      ],
+      "src/agents/runs/lease.ts": [
+        68,
+        234
+      ],
+      "src/agents/runs/memory.ts": [
+        58,
+        59,
+        89,
+        90,
+        95,
+        103,
+        106
+      ],
+      "src/agents/runs/outcome.ts": [
+        10,
+        11
+      ],
+      "src/agents/runs/placement.ts": [
+        83,
+        154,
+        157,
+        164,
+        168
+      ],
+      "src/agents/runs/runtime.ts": [
+        965,
+        968,
+        976,
+        979,
+        980,
+        990,
+        992
+      ],
+      "src/agents/runs/store.ts": [
+        100,
+        125,
+        132,
+        140,
+        148,
+        149,
+        151,
+        152,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        161,
+        162,
+        163,
+        164,
+        166,
+        180,
+        280,
+        281,
+        290,
+        315,
+        319,
+        322,
+        325,
+        345,
+        553,
+        569,
+        588,
+        589
+      ],
+      "src/agents/runs/turn.ts": [
+        39,
+        70,
+        95,
+        240,
+        242,
+        263,
+        320,
+        339,
+        351
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam accepts only the exact immutable bound-tool object for mediated invocation": {
+      "src/agents/runs/executor.ts": [
+        557,
+        559,
+        576
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam adapts one exact bound tool to the existing mediated OperationGateway and disposes it": {
+      "src/agents/runs/executor.ts": [
+        99,
+        102,
+        110,
+        113,
+        114,
+        115,
+        116,
+        127,
+        130,
+        133,
+        139,
+        143,
+        799
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam appends verdict commits through the ordinary Turn commit handle": {
+      "src/agents/runs/commit.ts": [
+        771
+      ],
+      "src/agents/runs/executor.ts": [
+        589
+      ],
+      "src/agents/runs/runtime.ts": [
+        412
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam assembles the prompt from the complete immutable execution scope": {
+      "src/agents/runs/executor.ts": [
+        289,
+        344
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam atomically suspends with the canonical checkpoint and recovers it after restart": {
+      "src/agents/runs/commit.ts": [
+        766
+      ],
+      "src/agents/runs/executor.ts": [
+        286,
+        417,
+        430,
+        431,
+        432,
+        435,
+        609,
+        611,
+        613,
+        772
+      ],
+      "src/agents/runs/memory.ts": [
+        27
+      ],
+      "src/agents/runs/runtime.ts": [
+        744
+      ],
+      "src/agents/runs/store.ts": [
+        125,
+        132,
+        144,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        176,
+        329,
+        330,
+        333,
+        334,
+        476,
+        478,
+        596,
+        597
+      ],
+      "src/agents/runs/turn.ts": [
+        36,
+        68,
+        92,
+        102,
+        226,
+        338,
+        350,
+        363,
+        398,
+        404,
+        415,
+        419,
+        425,
+        428,
+        430
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam canonicalizes ephemeral stream events and validates complete model usage": {
+      "src/agents/runs/executor.ts": [
+        717,
+        718,
+        721,
+        724,
+        725,
+        730,
+        731,
+        737,
+        738,
+        741,
+        742,
+        744
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam durably records explicit failure and self-cancellation outcomes": {
+      "src/agents/runs/executor.ts": [
+        409,
+        441,
+        443,
+        444,
+        645,
+        646,
+        649,
+        654,
+        659
+      ],
+      "src/agents/runs/runtime.ts": [
+        804,
+        814,
+        815
+      ],
+      "src/agents/runs/turn.ts": [
+        42,
+        72
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam exposes one exact typed bound tool contract through the supported Run export": {
+      "src/agents/runs/executor.ts": [
+        30,
+        31,
+        32,
+        33,
+        35
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam fails closed before execution for duplicate bindings or tools absent from placement": {
+      "src/agents/runs/executor.ts": [
+        704,
+        705,
+        707,
+        795
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam fences a boundary result when cancellation arrives during the operation": {
+      "src/agents/runs/executor.ts": [
+        387
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam identifies exact Turn authorship by commit kind and complete lease token": {
+      "src/agents/runs/admission.ts": [
+        248,
+        401,
+        402
+      ],
+      "src/agents/runs/commit.ts": [
+        114,
+        128,
+        130,
+        135,
+        146,
+        147,
+        149,
+        150,
+        155,
+        162,
+        170,
+        171,
+        172,
+        174,
+        176,
+        187,
+        194,
+        198,
+        202,
+        544,
+        545,
+        551,
+        552,
+        570,
+        572,
+        573,
+        738,
+        741,
+        744,
+        747,
+        763,
+        775,
+        786
+      ],
+      "src/agents/runs/lease.ts": [
+        14,
+        16,
+        51,
+        54,
+        57,
+        60,
+        65,
+        104,
+        107,
+        109,
+        119,
+        121,
+        132,
+        228
+      ],
+      "src/agents/runs/memory.ts": [
+        39,
+        43,
+        52,
+        54,
+        64,
+        83
+      ],
+      "src/agents/runs/pins.ts": [
+        31,
+        35,
+        41,
+        104,
+        109,
+        177,
+        182,
+        183,
+        184,
+        194,
+        198,
+        212,
+        214
+      ],
+      "src/agents/runs/placement.ts": [
+        103,
+        114,
+        124,
+        128,
+        138,
+        142
+      ],
+      "src/agents/runs/run.ts": [
+        94,
+        96,
+        151,
+        158,
+        165,
+        170,
+        218,
+        240,
+        263,
+        264,
+        265,
+        275,
+        278,
+        288,
+        289
+      ],
+      "src/agents/runs/runtime.ts": [
+        102,
+        103,
+        1394
+      ],
+      "src/agents/runs/store.ts": [
+        192,
+        195,
+        201,
+        205,
+        206,
+        235,
+        248,
+        263,
+        264,
+        316,
+        362,
+        500,
+        503,
+        530
+      ],
+      "src/agents/runs/turn.ts": [
+        62,
+        64,
+        66,
+        82,
+        163,
+        167,
+        177,
+        178,
+        272,
+        275,
+        288,
+        300,
+        303,
+        306,
+        310,
+        322,
+        326,
+        329,
+        331,
+        333,
+        335,
+        337,
+        338,
+        339,
+        341,
+        347,
+        348,
+        349,
+        352,
+        589
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam keeps content access owned and rejects a mismatched put identity": {
+      "src/agents/runs/executor.ts": [
+        480,
+        481,
+        482,
+        484,
+        485,
+        487,
+        491,
+        492,
+        495,
+        496
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle": {
+      "src/agents/runs/executor.ts": [
+        344,
+        409,
+        437,
+        439,
+        440,
+        441,
+        444,
+        451,
+        452,
+        455,
+        463,
+        465,
+        490,
+        588,
+        589,
+        605,
+        631,
+        668,
+        670,
+        751,
+        753,
+        754,
+        757,
+        778,
+        779
+      ],
+      "src/agents/runs/id.ts": [
+        23
+      ],
+      "src/agents/runs/runtime.ts": [
+        663,
+        664,
+        685,
+        686,
+        1160,
+        1163
+      ],
+      "src/agents/runs/store.ts": [
+        337,
+        338,
+        346,
+        347
+      ],
+      "src/agents/runs/turn.ts": [
+        221,
+        223,
+        467,
+        471
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam recovers a committed result when the executor crashes before returning and never reruns it": {
+      "src/agents/runs/executor.ts": [
+        309,
+        401,
+        410
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam recovers only the terminal result matching the Turn outcome": {
+      "src/agents/runs/executor.ts": [
+        403
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a content mismatch between returned and durable cancellation outcomes": {
+      "src/agents/runs/executor.ts": [
+        779
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a gateway facet identity mismatch and disposes the resolution": {
+      "src/agents/runs/executor.ts": [
+        113,
+        120,
+        122
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a gateway missing descriptor mismatch and disposes the resolution": {
+      "src/agents/runs/executor.ts": [
+        115
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a kind mismatch between returned and durable terminal outcomes": {
+      "src/agents/runs/executor.ts": [
+        781
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a prompt that is absent or reported under another exact content identity": {
+      "src/agents/runs/executor.ts": [
+        376,
+        378,
+        379
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a returned checkpoint that differs from the durable checkpoint record": {
+      "src/agents/runs/executor.ts": [
+        772,
+        773
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a structural tool substitute from the tool source": {
+      "src/agents/runs/executor.ts": [
+        701
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a wrong-Turn or stale-head commit at the handle call without mutation": {
+      "src/agents/runs/executor.ts": [
+        307,
+        309
+      ],
+      "src/agents/runs/runtime.ts": [
+        980,
+        1445
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects ambiguous same-token terminal result evidence": {
+      "src/agents/runs/executor.ts": [
+        405
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects an executor that returns without a canonical outcome transition": {
+      "src/agents/runs/executor.ts": [
+        313
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects checkpoint and result commits outside their atomic lifecycle transitions": {
+      "src/agents/runs/runtime.ts": [
+        412
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects checkpoint commits through the ordinary append handle": {
+      "src/agents/runs/executor.ts": [
+        589
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects direct gateway dispatch and cancellation across the gateway boundary": {
+      "src/agents/runs/executor.ts": [
+        133,
+        135,
+        798,
+        799,
+        800
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
+      "src/agents/runs/executor.ts": [
+        396,
+        786,
+        794
+      ],
+      "src/agents/runs/lease.ts": [
+        140
+      ],
+      "src/agents/runs/turn.ts": [
+        262,
+        263
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam requires optional checkpoint tree content before suspension": {
+      "src/agents/runs/executor.ts": [
+        611
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam returns the exact inclusive inbox cursor slice": {
+      "src/agents/runs/executor.ts": [
+        452,
+        461,
+        463,
+        465,
+        670,
+        752,
+        754
+      ],
+      "src/agents/runs/runtime.ts": [
+        713,
+        714,
+        726,
+        732,
+        735
+      ],
+      "src/agents/runs/turn.ts": [
+        258,
+        471,
+        475
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam uses the exact current head after an intermediate message commit": {
+      "src/agents/runs/store.ts": [
+        140
+      ]
+    },
+    "test/agents/runs/forced-cancellation.test.ts#ForcedTurnCancellation record [run.forced-turn-cancellation] persists immutably through memory snapshot restart and rejects identity conflict": {
+      "src/agents/runs/store.ts": [
+        413
+      ]
+    },
+    "test/agents/runs/forced-cancellation.test.ts#ForcedTurnCancellation record rejects same-Turn, nonincrementing fences, unknown fields, and unknown codec majors": {
+      "src/agents/runs/forced-cancellation.ts": [
+        78
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins": {
+      "src/agents/id.ts": [
+        10
+      ],
+      "src/agents/record-data.ts": [
+        87,
+        93
+      ],
+      "src/agents/runs/pins.ts": [
+        39,
+        45,
+        77,
+        79,
+        80,
+        81,
+        84,
+        214,
+        215,
+        216,
+        220,
+        223,
+        224,
+        233,
+        235,
+        236,
+        237,
+        238
+      ],
+      "src/agents/source.ts": [
+        89,
+        91,
+        97,
+        112,
+        134,
+        136,
+        148,
+        152,
+        170,
+        172,
+        173,
+        174,
+        177,
+        183
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PLACEMENT-SNAPSHOT] binds placement snapshots to one Turn and one pin set": {
+      "src/agents/runs/placement.ts": [
+        168
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Agent and Run records enforces the closed writer matrix and complete control proposal binding": {
+      "src/agents/runs/commit.ts": [
+        355,
+        356,
+        360,
+        364,
+        367
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Agent and Run records rejects duplicate package IDs and nonpreferred placement": {
+      "src/agents/runs/pins.ts": [
+        30,
+        31,
+        83,
+        84,
+        85,
+        87,
+        214,
+        217,
+        218
+      ],
+      "src/agents/runs/placement.ts": [
+        31,
+        38
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Agent and Run records rejects empty, reordered, and duplicate Run configuration histories": {
+      "src/agents/runs/commit.ts": [
+        386
+      ],
+      "src/agents/runs/run.ts": [
+        79,
+        80,
+        81,
+        82,
+        84
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-EQUAL-PIN-MERGE] accepts only ordered equal-pin current heads for binary merge": {
+      "src/agents/runs/commit.ts": [
+        355
+      ],
+      "src/agents/runs/runtime.ts": [
+        379,
+        1012,
+        1058,
+        1060,
+        1129,
+        1132,
+        1134
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-GRAPH-ARITY] atomically creates and restores a canonical Run graph": {
+      "src/agents/runs/admission.ts": [
+        61,
+        68
+      ],
+      "src/agents/runs/run.ts": [
+        178,
+        180,
+        189,
+        248,
+        249,
+        258,
+        260,
+        262
+      ],
+      "src/agents/runs/store.ts": [
+        229
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-PINS-SOURCES] rejects migration ahead of an admitted old-pin Turn": {
+      "src/agents/runs/runtime.ts": [
+        1004,
+        1007
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-UNDO-REDO] appends undo selection without rewinding ancestry": {
+      "src/agents/runs/runtime.ts": [
+        1034
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-EXECUTOR-WRITER] anchors a Turn, rejects stale tokens, and terminalizes with derived settlement": {
+      "src/agents/runs/run.ts": [
+        96,
+        97,
+        103,
+        114,
+        117,
+        133,
+        134,
+        137,
+        189,
+        191
+      ],
+      "src/agents/runs/runtime.ts": [
+        650,
+        1188,
+        1253
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-NO-RETRY-RUNTIME] cancels an unheld queued Turn without creating a result commit": {
+      "src/agents/runs/runtime.ts": [
+        693
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime creates one attenuated child through lease-bound atomic spawn genesis": {
+      "src/agents/runs/run.ts": [
+        176,
+        188,
+        207
+      ],
+      "src/agents/runs/spawn.ts": [
+        107
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime rolls back incomplete genesis and rejects unresolved source revisions": {
+      "src/agents/runs/runtime.ts": [
+        177
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime uses expected-head CAS without leaving an orphan losing commit": {
+      "src/agents/runs/lease.ts": [
+        96
+      ],
+      "src/agents/runs/run.ts": [
+        114,
+        199,
+        244
+      ],
+      "src/agents/runs/runtime.ts": [
+        1027,
+        1033,
+        1405
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-LIFECYCLE] enforces claim, renewal, suspension, resume, completion, and terminal rejection": {
+      "src/agents/runs/lease.ts": [
+        57
+      ],
+      "src/agents/runs/turn.ts": [
+        49,
+        50,
+        596
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct": {
+      "src/agents/runs/turn.ts": [
+        471,
+        476,
+        479,
+        486,
+        498
+      ]
+    },
+    "test/agents/runs/lease-state-machine.test.ts#generated lease histories never restore authority to a stale token": {
+      "src/agents/runs/lease.ts": [
+        47,
+        48,
+        51,
+        155,
+        166,
+        168,
+        172,
+        182,
+        307,
+        309,
+        315,
+        316,
+        319
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn lease verifiers mutation kills memory verifier defaults are safe and enforce the stored lease clock": {
+      "src/agents/runs/lease-verifier.ts": [
+        9,
+        10,
+        15,
+        19,
+        20
+      ],
+      "src/agents/runs/lease.ts": [
+        33,
+        87
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn lease verifiers mutation kills repository verifier defaults are safe for missing and expired leases": {
+      "src/agents/id.ts": [
+        4,
+        16,
+        22
+      ],
+      "src/agents/record-data.ts": [
+        21,
+        22,
+        70,
+        79
+      ],
+      "src/agents/runs/lease-verifier.ts": [
+        27,
+        32,
+        33,
+        35
+      ],
+      "src/agents/runs/memory.ts": [
+        26,
+        27,
+        33,
+        34
+      ],
+      "src/agents/runs/turn.ts": [
+        180,
+        184,
+        188,
+        193,
+        197,
+        206,
+        296,
+        302,
+        305,
+        307,
+        308,
+        311,
+        313,
+        328,
+        334,
+        336,
+        338,
+        588,
+        589,
+        596,
+        603,
+        604
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills checkpoint record decoding names each malformed field exactly": {
+      "src/agents/runs/turn.ts": [
+        425,
+        426,
+        427,
+        428
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills queued turns require an unheld epoch-zero lease without expiry": {
+      "src/agents/runs/turn.ts": [
+        177,
+        178,
+        179,
+        180,
+        182
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills record codecs reject unknown sentinel fields in every strict shape": {
+      "src/agents/record-data.ts": [
+        36
+      ],
+      "src/agents/runs/turn.ts": [
+        316,
+        317,
+        324,
+        420,
+        421,
+        469,
+        471,
+        475,
+        490,
+        508,
+        523,
+        538,
+        539,
+        573
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills suspended and every terminal status must be unheld": {
+      "src/agents/runs/turn.ts": [
+        188,
+        189,
+        190,
+        197,
+        198,
+        200,
+        595,
+        596
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills turn lifecycle transitions produce the exact lease and revision post-state": {
+      "src/agents/runs/turn.ts": [
+        193,
+        198,
+        212,
+        213,
+        215,
+        228,
+        249,
+        253,
+        254,
+        263,
+        363,
+        364
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills turn mutations demand the exact current lease token": {
+      "src/agents/runs/turn.ts": [
+        213,
+        221,
+        222,
+        263,
+        265,
+        266
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills turn record decoding names each malformed field exactly": {
+      "src/agents/record-data.ts": [
+        57
+      ],
+      "src/agents/runs/turn.ts": [
+        326,
+        327,
+        328,
+        329,
+        331,
+        334,
+        335,
+        341,
+        573,
+        575,
+        576
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills turn revision exhaustion is fatal with the exact message": {
+      "src/agents/runs/turn.ts": [
+        604,
+        605
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills turn status transition rejections carry exact messages": {
+      "src/agents/runs/turn.ts": [
+        53,
+        56,
+        59,
+        599,
+        600
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills TurnStatus.from maps every kind onto its singleton": {
+      "src/agents/runs/turn.ts": [
+        64
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnInboxEntry mutation kills inbox entries require an event, a key, and an exact cancellation token": {
+      "src/agents/record-data.ts": [
+        9,
+        16
+      ],
+      "src/agents/runs/turn.ts": [
+        469,
+        470,
+        471,
+        475,
+        476,
+        477,
+        480,
+        481,
+        483,
+        490,
+        509,
+        527,
+        530,
+        531,
+        534,
+        535,
+        542,
+        544,
+        545,
+        546,
+        547,
+        548,
+        549,
+        551,
+        561,
+        580,
+        584
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnInboxEntry mutation kills inbox record decoding names each malformed field exactly": {
+      "src/agents/runs/turn.ts": [
+        542,
+        543,
+        545,
+        546,
+        547,
+        548,
+        585
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills admits rejects tokens that differ from the live lease in exactly one field": {
+      "src/agents/runs/lease.ts": [
+        48,
+        51,
+        54,
+        100,
+        140,
+        143,
+        154,
+        303,
+        307
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills lease payload decoding rejects every single-field forgery": {
+      "src/agents/runs/lease.ts": [
+        65,
+        113,
+        114,
+        115,
+        119,
+        212,
+        213,
+        214,
+        218,
+        219,
+        222,
+        223,
+        224,
+        225,
+        227,
+        228,
+        280,
+        281,
+        292,
+        293,
+        296,
+        297,
+        298
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills lease time and epoch guards carry exact messages": {
+      "src/agents/runs/lease.ts": [
+        302,
+        303,
+        304,
+        316,
+        317
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills lease token decoding enforces shape, exact fields, and field types": {
+      "src/agents/runs/lease.ts": [
+        248,
+        249,
+        250,
+        253,
+        254,
+        256,
+        257,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        268,
+        281,
+        282
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills lease token encoding rejects malformed tokens and preserves epoch zero": {
+      "src/agents/runs/lease.ts": [
+        234,
+        235,
+        236,
+        237,
+        238,
+        239,
+        241,
+        273,
+        274
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills reclaim requires a held lease that has already expired": {
+      "src/agents/runs/lease.ts": [
+        187,
+        188,
+        189,
+        190,
+        192,
+        193
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills renewal requires the exact current token and a strictly later expiration": {
+      "src/agents/runs/lease.ts": [
+        64,
+        166,
+        169,
+        172,
+        174,
+        175
+      ]
+    },
+    "test/agents/runs/lease.test.ts#lease admission trust boundary decoding a token with a null holder reports codec corruption": {
+      "src/agents/runs/lease.ts": [
+        293
+      ]
+    },
+    "test/agents/runs/lease.test.ts#lease admission trust boundary rejects a structural holder clone that is not a PrincipalRef": {
+      "src/agents/runs/lease.ts": [
+        140
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease [C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement": {
+      "src/agents/runs/lease.ts": [
+        189
+      ],
+      "src/agents/runs/memory.ts": [
+        57
+      ],
+      "src/agents/runs/runtime.ts": [
+        651
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease [turn-lease-verifier] memory and repository implementations enforce the exact durable lease": {
+      "src/agents/runs/lease-verifier.ts": [
+        11,
+        20
+      ],
+      "src/agents/runs/lease.ts": [
+        29,
+        83,
+        114,
+        121,
+        140,
+        145,
+        146,
+        147,
+        151,
+        154,
+        222,
+        224
+      ],
+      "src/agents/runs/memory.ts": [
+        24,
+        68,
+        83
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease admits only the exact live Turn, holder, and epoch": {
+      "src/agents/runs/lease.ts": [
+        140,
+        147
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease fences old tokens and can be claimed again for the same Turn": {
+      "src/agents/runs/lease.ts": [
+        200
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease rejects malformed, future-major, and invalid lease values": {
+      "src/agents/runs/lease.ts": [
+        48,
+        51,
+        54,
+        57,
+        58,
+        114,
+        154,
+        155,
+        307,
+        310
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease renews only an exact live token with a later expiration": {
+      "src/agents/runs/lease.ts": [
+        161,
+        165,
+        166
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#MemoryRunStorage mutation kills insert replay equality compares the revision and every byte": {
+      "src/agents/runs/memory.ts": [
+        68,
+        69,
+        70,
+        140,
+        193,
+        194,
+        197,
+        199,
+        200,
+        201
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#MemoryRunStorage mutation kills parent edges validate the ordinal and stay immutable": {
+      "src/agents/runs/memory.ts": [
+        90,
+        91,
+        95,
+        96,
+        97,
+        99,
+        142,
+        208,
+        209,
+        221,
+        222
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#MemoryRunStorage mutation kills parents returns only the requested commit's edges ordered by ordinal": {
+      "src/agents/runs/memory.ts": [
+        103,
+        104,
+        105,
+        106,
+        142
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#MemoryRunStorage mutation kills replace enforces exact compare-and-swap without mutating state": {
+      "src/agents/runs/memory.ts": [
+        79,
+        83,
+        84
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#MemoryRunStorage mutation kills snapshot restoration rejects each single defect with the exact message": {
+      "src/agents/runs/memory.ts": [
+        149,
+        152,
+        153,
+        159,
+        160,
+        163,
+        165,
+        166,
+        168,
+        169,
+        170,
+        171,
+        174,
+        175,
+        176,
+        181,
+        183,
+        184,
+        188,
+        189
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#MemoryRunStorage mutation kills snapshots order every table canonically and deep-copy record bytes": {
+      "src/agents/runs/memory.ts": [
+        113,
+        114,
+        122,
+        123,
+        128,
+        147,
+        149,
+        150,
+        151,
+        156,
+        159,
+        165,
+        166,
+        167,
+        168,
+        169,
+        174,
+        186,
+        194,
+        205,
+        206
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#MemoryRunStorage mutation kills transactions accept synchronous results, reject thenables, and roll back on failure": {
+      "src/agents/runs/memory.ts": [
+        39,
+        40,
+        90,
+        95,
+        102,
+        109,
+        110,
+        134,
+        135,
+        138,
+        139,
+        183,
+        184,
+        185,
+        186,
+        187,
+        211,
+        212,
+        213,
+        214,
+        217,
+        218
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#RunRepository over MemoryRunStorage mutation kills a restored snapshot preserves every table and its commit ancestry": {
+      "src/agents/runs/store.ts": [
+        467,
+        468,
+        471,
+        474,
+        478
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#RunRepository over MemoryRunStorage mutation kills forced cancellation listing returns only the requested Run": {
+      "src/agents/runs/store.ts": [
+        403,
+        404,
+        420,
+        421,
+        425
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#RunRepository over MemoryRunStorage mutation kills inbox listing filters by Turn and orders by sequence": {
+      "src/agents/runs/pins.ts": [
+        44
+      ],
+      "src/agents/runs/store.ts": [
+        191,
+        219,
+        242,
+        287,
+        301,
+        346,
+        348,
+        497
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#transaction result forwarding returns a null transaction result unchanged": {
+      "src/agents/runs/memory.ts": [
+        212
+      ]
+    },
+    "test/agents/runs/ownership.test.ts#W5 ownership isolation keeps mutable source records out of Run storage": {
+      "src/agents/runs/acceptance.ts": [
+        56,
+        57,
+        122,
+        123
+      ],
+      "src/agents/runs/forced-cancellation.ts": [
+        26,
+        27
+      ]
+    },
+    "test/agents/runs/ownership.test.ts#W5 ownership isolation maps every durable W5 codec to exactly one owner and store": {
+      "src/agents/runs/commit.ts": [
+        92
+      ],
+      "src/agents/runs/pins.ts": [
+        66,
+        163
+      ],
+      "src/agents/runs/run.ts": [
+        58
+      ],
+      "src/agents/runs/settlement.ts": [
+        41
+      ],
+      "src/agents/runs/spawn.ts": [
+        18
+      ],
+      "src/agents/runs/turn.ts": [
+        386
+      ],
+      "src/agents/source.ts": [
+        53,
+        122
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#constituent shape validation rejects malformed placement sets": {
+      "src/agents/runs/placement.ts": [
+        38,
+        41,
+        42,
+        46,
+        51,
+        59,
+        73,
+        103,
+        104,
+        105
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#constituent shape validation rejects malformed spawn reservations": {
+      "src/agents/runs/spawn.ts": [
+        37,
+        38,
+        41,
+        43,
+        44,
+        45,
+        47,
+        50,
+        51
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#record data shape helpers accepts valid values and rejects every malformed category": {
+      "src/agents/record-data.ts": [
+        22,
+        42,
+        51,
+        52,
+        56,
+        65,
+        71,
+        88
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#Run lifecycle record errors separates constructor shape errors from operational transition errors": {
+      "src/agents/runs/run.ts": [
+        103,
+        105,
+        240
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#uniform durable record contract [agent.revision] [agent.policy-revision] [agent.model-revision] provides static codec, encode, decode, and frozen source records": {
+      "src/agents/record-data.ts": [
+        56,
+        75
+      ],
+      "src/agents/source.ts": [
+        36,
+        104
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record": {
+      "src/agents/record-data.ts": [
+        52,
+        56,
+        62,
+        71,
+        83
+      ],
+      "src/agents/runs/admission.ts": [
+        49,
+        59,
+        65,
+        68,
+        94
+      ],
+      "src/agents/runs/placement.ts": [
+        89,
+        124
+      ],
+      "src/agents/runs/run.ts": [
+        148,
+        154,
+        164,
+        169,
+        188,
+        229,
+        266
+      ],
+      "src/agents/runs/settlement.ts": [
+        103
+      ],
+      "src/agents/runs/spawn.ts": [
+        42,
+        43,
+        47,
+        48,
+        50,
+        57,
+        62,
+        77,
+        81,
+        83,
+        85,
+        86,
+        88,
+        89,
+        91,
+        92,
+        99,
+        101,
+        103
+      ],
+      "src/agents/runs/turn.ts": [
+        134,
+        450,
+        511,
+        529,
+        533
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#uniform durable record contract defensively copies arrays, nested evidence, tokens, and dates": {
+      "src/agents/runs/turn.ts": [
+        504
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#nominal identifier subjects every Agent and Run scoped ID names its exact subject": {
+      "src/agents/id.ts": [
+        5,
+        11,
+        17,
+        23
+      ],
+      "src/agents/runs/id.ts": [
+        11,
+        12,
+        18,
+        24,
+        30
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins canonicalizes snapshot placements by facet order": {
+      "src/agents/runs/pins.ts": [
+        147,
+        151
+      ],
+      "src/agents/runs/placement.ts": [
+        97,
+        99,
+        100,
+        101,
+        103,
+        115,
+        117,
+        122,
+        124,
+        126,
+        127
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins decodes bundled selections exactly": {
+      "src/agents/runs/placement.ts": [
+        58,
+        69,
+        73,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        163,
+        167,
+        168,
+        169
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins names each mode source in canonicalization errors": {
+      "src/agents/runs/placement.ts": [
+        33,
+        34,
+        35,
+        36,
+        154,
+        155
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins names each placement field in decode errors": {
+      "src/agents/record-data.ts": [
+        71
+      ],
+      "src/agents/runs/placement.ts": [
+        78,
+        80,
+        81,
+        82,
+        168
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins names snapshot fields and rejects unknown placement fields": {
+      "src/agents/runs/placement.ts": [
+        74,
+        75,
+        124,
+        126,
+        128
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins rejects unknown modes before preference selection": {
+      "src/agents/runs/placement.ts": [
+        157,
+        158
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins selects the first preference shared by every source set": {
+      "src/agents/runs/placement.ts": [
+        38,
+        45,
+        46,
+        51,
+        52,
+        153,
+        154,
+        157,
+        160
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#record data helpers bytesEqual compares both length and content": {
+      "src/agents/record-data.ts": [
+        93
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#record data helpers rejects a partially missing required field set": {
+      "src/agents/record-data.ts": [
+        33,
+        34,
+        36,
+        37
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#record data helpers rejects non-string values distinctly from empty strings": {
+      "src/agents/record-data.ts": [
+        41,
+        42,
+        43
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#record data helpers terminal outcomes admit only the closed vocabulary": {
+      "src/agents/runs/outcome.ts": [
+        11
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record appends configuration history exactly once per digest": {
+      "src/agents/record-data.ts": [
+        55,
+        56
+      ],
+      "src/agents/runs/commit.ts": [
+        389
+      ],
+      "src/agents/runs/pins.ts": [
+        79,
+        83,
+        108,
+        115,
+        119,
+        123,
+        127,
+        128,
+        129,
+        130,
+        132,
+        136,
+        137,
+        169,
+        176,
+        231
+      ],
+      "src/agents/runs/run.ts": [
+        21,
+        72,
+        77,
+        134,
+        140,
+        141
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run branch field in decode errors": {
+      "src/agents/runs/run.ts": [
+        262,
+        263,
+        264,
+        265,
+        266
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run field in decode errors": {
+      "src/agents/record-data.ts": [
+        52,
+        56
+      ],
+      "src/agents/runs/run.ts": [
+        178,
+        179,
+        180,
+        181,
+        182,
+        184,
+        186,
+        192
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record rejects unknown Run and Run branch fields": {
+      "src/agents/record-data.ts": [
+        36
+      ],
+      "src/agents/runs/run.ts": [
+        173,
+        174,
+        260
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record reports exact closed codes for terminal transitions": {
+      "src/agents/runs/run.ts": [
+        24,
+        40,
+        41,
+        116,
+        124,
+        126,
+        127,
+        136,
+        208,
+        289,
+        290
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run pins names each blueprint pin field in decode errors": {
+      "src/agents/runs/pins.ts": [
+        43,
+        44,
+        45
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run pins names each pin field in decode errors": {
+      "src/agents/record-data.ts": [
+        22,
+        23
+      ],
+      "src/agents/runs/pins.ts": [
+        129,
+        130,
+        136,
+        137,
+        236,
+        237,
+        238
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run pins rejects unknown pin record fields": {
+      "src/agents/runs/pins.ts": [
+        41,
+        124,
+        125,
+        180,
+        182,
+        233
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#source revision records names each agent revision field in decode errors": {
+      "src/agents/source.ts": [
+        27,
+        35,
+        61,
+        70,
+        80,
+        84,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        97,
+        107,
+        125
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#source revision records names policy and model revision subjects in decode errors": {
+      "src/agents/source.ts": [
+        116,
+        130,
+        135,
+        172,
+        174,
+        175,
+        176,
+        177,
+        181,
+        182
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#source revision records rejects unknown source revision fields": {
+      "src/agents/source.ts": [
+        85,
+        86,
+        172
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#spawn reservations accepts epoch zero and rejects malformed token holders": {
+      "src/agents/runs/spawn.ts": [
+        41,
+        43
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#spawn reservations names each spawn field in decode errors": {
+      "src/agents/runs/lease.ts": [
+        259
+      ],
+      "src/agents/runs/spawn.ts": [
+        61,
+        82,
+        84,
+        87,
+        90,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#spawn reservations rejects unknown spawn reservation fields": {
+      "src/agents/runs/spawn.ts": [
+        94,
+        95
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content": {
+      "src/agents/runs/commit.ts": [
+        770
+      ],
+      "src/agents/runs/runtime.ts": [
+        384,
+        387,
+        424,
+        425,
+        435,
+        437,
+        438,
+        445,
+        446,
+        456,
+        457,
+        979
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers": {
+      "src/agents/runs/runtime.ts": [
+        968,
+        976,
+        980,
+        982
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-PARENT-PIN-INHERITANCE] rejects migration evidence whose from pins do not match the durable parent": {
+      "src/agents/runs/runtime.ts": [
+        966
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-TURN-NO-RETRY-PROTOCOL] has no retry transition and rejects a wrong effective Run": {
+      "src/agents/runs/runtime.ts": [
+        937,
+        956
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix rejects invalid branches and generic migration append": {
+      "src/agents/runs/commit.ts": [
+        135,
+        173
+      ],
+      "src/agents/runs/runtime.ts": [
+        369,
+        384,
+        390
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix uses run.invalid-state for malformed and duplicate genesis": {
+      "src/agents/runs/commit.ts": [
+        176,
+        178,
+        181,
+        193,
+        195,
+        200,
+        204
+      ],
+      "src/agents/runs/runtime.ts": [
+        157,
+        158,
+        159,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        173,
+        177,
+        178,
+        187
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix [C13-ADV-ADMITTED-SIBLING] rejects missing and malformed held sibling cancellation evidence": {
+      "src/agents/runs/runtime.ts": [
+        1306,
+        1315
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix [C13-RUN-TERMINAL-SIBLINGS] atomically fences queued, running, and suspended siblings with durable evidence": {
+      "src/agents/runs/memory.ts": [
+        58,
+        60
+      ],
+      "src/agents/runs/runtime.ts": [
+        755,
+        1254,
+        1261,
+        1262,
+        1263,
+        1264,
+        1266,
+        1270,
+        1289,
+        1291,
+        1292,
+        1315,
+        1316,
+        1317,
+        1318,
+        1319,
+        1321,
+        1322,
+        1323,
+        1326,
+        1327
+      ],
+      "src/agents/runs/settlement.ts": [
+        118,
+        146
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects duplicate inbox idempotency keys": {
+      "src/agents/runs/runtime.ts": [
+        735
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects ordinary inbox sequence and suspend/complete mismatches with turn.invalid-state": {
+      "src/agents/runs/runtime.ts": [
+        732,
+        734,
+        736,
+        747,
+        755
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects terminalization with mismatched result and sibling cancellation evidence": {
+      "src/agents/runs/runtime.ts": [
+        882
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects unsuccessful control and mismatched fence evidence atomically": {
+      "src/agents/runs/runtime.ts": [
+        1283,
+        1288,
+        1290
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation fences a queued sibling with exact durable evidence": {
+      "src/agents/runs/runtime.ts": [
+        1190,
+        1416,
+        1417
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation fences a running sibling with exact durable evidence": {
+      "src/agents/runs/run.ts": [
+        94,
+        102,
+        154
+      ],
+      "src/agents/runs/runtime.ts": [
+        897,
+        901,
+        1226,
+        1228,
+        1232,
+        1243,
+        1246,
+        1254,
+        1261,
+        1316,
+        1416,
+        1418
+      ],
+      "src/agents/runs/settlement.ts": [
+        49,
+        57,
+        66,
+        75,
+        76,
+        78,
+        118
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects every administer control evidence mismatch": {
+      "src/agents/runs/runtime.ts": [
+        1288,
+        1289,
+        1295,
+        1298
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects every forced cancellation evidence mismatch": {
+      "src/agents/runs/runtime.ts": [
+        1210,
+        1214,
+        1315,
+        1316,
+        1317,
+        1320,
+        1321,
+        1322,
+        1323,
+        1324,
+        1325,
+        1328,
+        1329
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects preexisting forced cancellation records": {
+      "src/agents/runs/forced-cancellation.ts": [
+        68
+      ],
+      "src/agents/runs/runtime.ts": [
+        1183,
+        1184
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects unused forced cancellation evidence": {
+      "src/agents/runs/runtime.ts": [
+        1194,
+        1195,
+        1196,
+        1197
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation requires one control and exact evidence for every active sibling": {
+      "src/agents/runs/runtime.ts": [
+        1188,
+        1190,
+        1202,
+        1204
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation requires sibling cancellation evidence under the exact Turn key": {
+      "src/agents/runs/runtime.ts": [
+        1202,
+        1208,
+        1210,
+        1211,
+        1288,
+        1290
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation terminalizes cleanly over succeeded, failed, and cancelled siblings": {
+      "src/agents/runs/runtime.ts": [
+        694,
+        703,
+        704,
+        930,
+        937,
+        1189,
+        1190,
+        1416,
+        1417
+      ],
+      "src/agents/runs/turn.ts": [
+        85,
+        250
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing cancels a held Turn with a cancelled result and inbox fence": {
+      "src/agents/runs/commit.ts": [
+        552,
+        553
+      ],
+      "src/agents/runs/runtime.ts": [
+        1338
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing fences a held Turn after ordinary inbox traffic": {
+      "src/agents/runs/runtime.ts": [
+        1168
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing held cancellation requires a cancelled result": {
+      "src/agents/runs/commit.ts": [
+        546
+      ],
+      "src/agents/runs/runtime.ts": [
+        815,
+        816
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing timeout rejects a suspended Turn whose fenced lease has expired": {
+      "src/agents/runs/runtime.ts": [
+        846,
+        849,
+        852,
+        854,
+        855,
+        1436,
+        1437
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing timeout requires an expired running lease": {
+      "src/agents/runs/runtime.ts": [
+        847,
+        851
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing times out exactly at lease expiry and fences the epoch": {
+      "src/agents/runs/runtime.ts": [
+        850,
+        851
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminalization guards rejects an already-closed admission registry": {
+      "src/agents/runs/admission.ts": [
+        172
+      ],
+      "src/agents/runs/runtime.ts": [
+        897,
+        898,
+        1186,
+        1188,
+        1192,
+        1194,
+        1195,
+        1199,
+        1241,
+        1243,
+        1245,
+        1379
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminalization guards terminal result must name the finishing Turn": {
+      "src/agents/runs/runtime.ts": [
+        865,
+        871,
+        882,
+        883,
+        884,
+        885,
+        886
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends cannot displace a Turn that holds no lease": {
+      "src/agents/runs/runtime.ts": [
+        1423,
+        1424
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends reclaims an expired lease with an exact displaced cancellation": {
+      "src/agents/runs/runtime.ts": [
+        1163,
+        1164,
+        1166,
+        1168,
+        1426
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends rejects a cancellation reusing an inbox idempotency key": {
+      "src/agents/runs/runtime.ts": [
+        1168
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends rejects each malformed displaced-token cancellation entry": {
+      "src/agents/runs/admission.ts": [
+        208
+      ],
+      "src/agents/runs/commit.ts": [
+        544,
+        552
+      ],
+      "src/agents/runs/run.ts": [
+        113,
+        166,
+        171,
+        177
+      ],
+      "src/agents/runs/runtime.ts": [
+        1163,
+        1165,
+        1167,
+        1169,
+        1171,
+        1361,
+        1366,
+        1369,
+        1371,
+        1422,
+        1423
+      ],
+      "src/agents/runs/turn.ts": [
+        162
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#admission registry plumbing reports a missing admission registry as corruption": {
+      "src/agents/runs/runtime.ts": [
+        1379,
+        1380
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#admission registry plumbing reserving the same obligation twice keeps the stored registry": {
+      "src/agents/runs/admission.ts": [
+        291,
+        292,
+        295,
+        327
+      ],
+      "src/agents/runs/runtime.ts": [
+        216,
+        226,
+        234,
+        269,
+        1377,
+        1455
+      ],
+      "src/agents/runs/store.ts": [
+        374,
+        375,
+        383
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards names the missing Run exactly": {
+      "src/agents/runs/runtime.ts": [
+        412,
+        413,
+        967
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards non-migration commits must inherit the parent pins": {
+      "src/agents/runs/runtime.ts": [
+        1009,
+        1010
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects a parent commit that belongs to another Run": {
+      "src/agents/runs/runtime.ts": [
+        990,
+        991
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects duplicate commit identifiers and foreign branches": {
+      "src/agents/runs/runtime.ts": [
+        976,
+        977
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects stale and absent parents with a revision conflict": {
+      "src/agents/runs/runtime.ts": [
+        980,
+        983
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects Turn writers outside the commit lineage": {
+      "src/agents/runs/runtime.ts": [
+        1012,
+        1018,
+        1021,
+        1022
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards terminal Runs reject ordinary commits with the exact error": {
+      "src/agents/runs/runtime.ts": [
+        968,
+        969
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards undo ignores running Turns of other Runs and branches": {
+      "src/agents/runs/commit.ts": [
+        238,
+        240,
+        355,
+        367,
+        598,
+        772
+      ],
+      "src/agents/runs/runtime.ts": [
+        941,
+        942,
+        951,
+        956,
+        1036,
+        1366
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards undo requires the in-flight Turn to be fenced first": {
+      "src/agents/runs/runtime.ts": [
+        1033,
+        1034,
+        1036,
+        1038,
+        1039,
+        1044,
+        1045
+      ],
+      "src/agents/runs/store.ts": [
+        464,
+        473
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards undo selection must be an ancestor of the head": {
+      "src/agents/runs/runtime.ts": [
+        464,
+        474,
+        475,
+        1027,
+        1028,
+        1029,
+        1030
+      ],
+      "src/agents/runs/store.ts": [
+        467
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#branch creation guards rejects a duplicate branch name among several branches": {
+      "src/agents/runs/runtime.ts": [
+        388,
+        390
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#branch creation guards rejects each invalid branch creation field individually": {
+      "src/agents/runs/runtime.ts": [
+        368,
+        384,
+        385,
+        386,
+        391,
+        392,
+        393
+      ],
+      "src/agents/runs/store.ts": [
+        253,
+        258,
+        550
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#branch creation guards requires an existing active Run": {
+      "src/agents/runs/run.ts": [
+        191
+      ],
+      "src/agents/runs/runtime.ts": [
+        1370,
+        1371,
+        1372,
+        1410
+      ],
+      "src/agents/runs/settlement.ts": [
+        75
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards appends exact invocation and delivery obligations after terminal": {
+      "src/agents/runs/admission.ts": [
+        189
+      ],
+      "src/agents/runs/commit.ts": [
+        255,
+        256,
+        258,
+        261,
+        267,
+        268,
+        270,
+        316,
+        342,
+        343,
+        555,
+        556,
+        557,
+        558,
+        564,
+        565,
+        566,
+        577,
+        581,
+        582,
+        586,
+        587,
+        589,
+        591,
+        593,
+        598,
+        599,
+        768
+      ],
+      "src/agents/runs/run.ts": [
+        123,
+        124,
+        208
+      ],
+      "src/agents/runs/runtime.ts": [
+        541,
+        542,
+        544,
+        545,
+        547,
+        548,
+        555,
+        864,
+        968,
+        1012
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards names the missing Run exactly": {
+      "src/agents/runs/commit.ts": [
+        442
+      ],
+      "src/agents/runs/runtime.ts": [
+        527,
+        539
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards non-commit obligations never satisfy a captured commit": {
+      "src/agents/runs/runtime.ts": [
+        545
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards rejects a commit that is not a settled obligation": {
+      "src/agents/record-data.ts": [
+        52
+      ],
+      "src/agents/runs/admission.ts": [
+        68,
+        176,
+        301,
+        380
+      ],
+      "src/agents/runs/commit.ts": [
+        220,
+        577,
+        578,
+        579
+      ],
+      "src/agents/runs/runtime.ts": [
+        543,
+        545,
+        882,
+        883,
+        884,
+        897,
+        1009,
+        1018,
+        1019,
+        1020,
+        1027,
+        1033,
+        1182,
+        1183,
+        1188,
+        1243,
+        1245,
+        1253
+      ],
+      "src/agents/runs/store.ts": [
+        266
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards rejects captured evidence on an active Run": {
+      "src/agents/runs/runtime.ts": [
+        541,
+        549,
+        551,
+        552
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards rejects forged writer and commit kinds for captured obligations": {
+      "src/agents/runs/runtime.ts": [
+        547,
+        548
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#completion guards completes a running Turn with an exact result commit": {
+      "src/agents/runs/runtime.ts": [
+        788,
+        791
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#completion guards rejects each non-result completion commit individually": {
+      "src/agents/runs/runtime.ts": [
+        776,
+        777,
+        780,
+        788,
+        789,
+        790,
+        791,
+        792,
+        793,
+        794
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#event delivery names the missing Turn exactly": {
+      "src/agents/runs/runtime.ts": [
+        727
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation accepts exact ours, theirs, and per-path tree resolutions": {
+      "src/agents/runs/commit.ts": [
+        176,
+        635,
+        639,
+        641,
+        687,
+        690,
+        701,
+        704,
+        708,
+        714
+      ],
+      "src/agents/runs/runtime.ts": [
+        1114,
+        1118,
+        1119,
+        1121,
+        1122,
+        1129,
+        1131
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation concat resolution requires canonical parent-order verification": {
+      "src/agents/runs/runtime.ts": [
+        1089,
+        1101,
+        1102,
+        1104,
+        1105,
+        1106
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation merge parents must be the distinct ordered current heads": {
+      "src/agents/runs/commit.ts": [
+        128,
+        407,
+        615,
+        627
+      ],
+      "src/agents/runs/runtime.ts": [
+        457,
+        979,
+        1060,
+        1061,
+        1063,
+        1065,
+        1066
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation merge requires an exact source branch and stored head commits": {
+      "src/agents/runs/runtime.ts": [
+        1073,
+        1080,
+        1081,
+        1082,
+        1085,
+        1086
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation pick resolution must copy one exact parent content": {
+      "src/agents/runs/commit.ts": [
+        174,
+        248,
+        355,
+        613,
+        625,
+        636,
+        637
+      ],
+      "src/agents/runs/runtime.ts": [
+        1072,
+        1073,
+        1080,
+        1083,
+        1084,
+        1088,
+        1089,
+        1091,
+        1093,
+        1094,
+        1095,
+        1096,
+        1097,
+        1101,
+        1109
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation tree resolution sides must name the ordered merge parents": {
+      "src/agents/runs/commit.ts": [
+        130,
+        430,
+        432,
+        434
+      ],
+      "src/agents/runs/runtime.ts": [
+        1102,
+        1109,
+        1111,
+        1112,
+        1113,
+        1114,
+        1115,
+        1116
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation tree side resolution must copy the selected parent tree": {
+      "src/agents/runs/runtime.ts": [
+        1111,
+        1113,
+        1118,
+        1121,
+        1123,
+        1124,
+        1125
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards migrateRun rejects a commit that is not a migration": {
+      "src/agents/runs/runtime.ts": [
+        486,
+        487,
+        498,
+        501,
+        502,
+        506
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards rejects migration ahead of an admitted Turn on the branch": {
+      "src/agents/runs/runtime.ts": [
+        999,
+        1000,
+        1002,
+        1006
+      ],
+      "src/agents/runs/store.ts": [
+        308
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards rejects migration evidence whose from pins differ from the parent": {
+      "src/agents/record-data.ts": [
+        93
+      ],
+      "src/agents/runs/runtime.ts": [
+        501,
+        504,
+        505,
+        968,
+        976,
+        980,
+        992,
+        993,
+        994
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards the non-transition Turn append refuses migrations": {
+      "src/agents/runs/commit.ts": [
+        167,
+        442
+      ],
+      "src/agents/runs/runtime.ts": [
+        410,
+        412,
+        414,
+        415
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects a Run whose Agent is not the pinned Agent": {
+      "src/agents/runs/runtime.ts": [
+        174
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each non-canonical genesis record field": {
+      "src/agents/runs/runtime.ts": [
+        157,
+        164,
+        165,
+        166,
+        167,
+        168,
+        171,
+        1440,
+        1441
+      ],
+      "src/agents/runs/settlement.ts": [
+        51
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each preexisting genesis identifier individually": {
+      "src/agents/runs/runtime.ts": [
+        187,
+        188,
+        189,
+        190,
+        191,
+        192
+      ],
+      "src/agents/runs/store.ts": [
+        359,
+        392,
+        398
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#runtime lookup errors effective commits reject a branch of another Run": {
+      "src/agents/runs/runtime.ts": [
+        956
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#runtime lookup errors settled names the missing Run exactly": {
+      "src/agents/runs/runtime.ts": [
+        931,
+        934,
+        935
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#runtime lookup errors turn updates name the missing Turn exactly": {
+      "src/agents/runs/runtime.ts": [
+        1146
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#spawn reservation guards rejects every non-exact attenuated child genesis field": {
+      "src/agents/runs/runtime.ts": [
+        139,
+        141,
+        143,
+        144,
+        145,
+        147,
+        148
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#spawn reservation guards replays an identical reservation only when the spawned child Run exists": {
+      "src/agents/record-data.ts": [
+        56,
+        65,
+        71,
+        91,
+        93
+      ],
+      "src/agents/runs/admission.ts": [
+        61,
+        65,
+        194,
+        208,
+        212,
+        215,
+        218,
+        219,
+        222
+      ],
+      "src/agents/runs/commit.ts": [
+        163,
+        172,
+        173,
+        174,
+        177,
+        179,
+        206,
+        207,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        272,
+        384,
+        388,
+        390,
+        573,
+        574,
+        575
+      ],
+      "src/agents/runs/id.ts": [
+        29
+      ],
+      "src/agents/runs/lease.ts": [
+        65,
+        105,
+        107
+      ],
+      "src/agents/runs/run.ts": [
+        144,
+        145,
+        151,
+        154,
+        163,
+        168,
+        179,
+        192,
+        200,
+        221,
+        240
+      ],
+      "src/agents/runs/runtime.ts": [
+        106,
+        107,
+        117,
+        119,
+        122,
+        126,
+        130,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        155,
+        157,
+        177,
+        180,
+        187,
+        188,
+        189,
+        190,
+        199,
+        568,
+        581,
+        582,
+        583,
+        584,
+        585,
+        586,
+        587,
+        588,
+        589,
+        590,
+        591,
+        592,
+        593,
+        594,
+        597,
+        612,
+        613,
+        625,
+        626,
+        1145,
+        1391,
+        1393,
+        1396,
+        1404,
+        1409,
+        1410
+      ],
+      "src/agents/runs/spawn.ts": [
+        37,
+        41,
+        108,
+        117,
+        120
+      ],
+      "src/agents/runs/store.ts": [
+        96,
+        213,
+        234,
+        276,
+        351,
+        352,
+        355,
+        356,
+        533
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards names the missing Turn exactly": {
+      "src/agents/runs/runtime.ts": [
+        1339
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards rejects each checkpoint and commit mismatch individually": {
+      "src/agents/runs/runtime.ts": [
+        755,
+        756,
+        757,
+        758,
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        1437
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching absent tree checkpoints": {
+      "src/agents/runs/lease.ts": [
+        14
+      ],
+      "src/agents/runs/runtime.ts": [
+        757,
+        759,
+        763
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching present tree checkpoints": {
+      "src/agents/runs/runtime.ts": [
+        1437
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects a duplicate Turn identifier": {
+      "src/agents/runs/runtime.ts": [
+        597
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects each non-canonical Turn genesis field individually": {
+      "src/agents/runs/id.ts": [
+        17
+      ],
+      "src/agents/runs/runtime.ts": [
+        581,
+        582,
+        583,
+        584,
+        585,
+        586,
+        587,
+        588,
+        598,
+        599,
+        1444
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards requires exactly one configuration snapshot for the head pins": {
+      "src/agents/runs/runtime.ts": [
+        1389,
+        1390,
+        1394,
+        1396,
+        1397
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry": {
+      "src/agents/runs/store.ts": [
+        467,
+        473,
+        518,
+        533,
+        534,
+        566,
+        567
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted": {
+      "src/agents/runs/store.ts": [
+        305
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior accepts equal immutable replay and rejects conflicting replay": {
+      "src/agents/runs/memory.ts": [
+        69
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior detects key and revision projection corruption through the repository": {
+      "src/agents/runs/pins.ts": [
+        36,
+        41,
+        43
+      ],
+      "src/agents/runs/store.ts": [
+        224,
+        227,
+        230,
+        528,
+        533,
+        535,
+        537,
+        551,
+        553
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior enforces exact revision increments": {
+      "src/agents/runs/memory.ts": [
+        83
+      ],
+      "src/agents/runs/store.ts": [
+        516
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior fails closed after restart when ancestry loses an intermediate commit": {
+      "src/agents/runs/store.ts": [
+        478,
+        480,
+        569
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior rejects admission identity changes before compare-and-swap": {
+      "src/agents/runs/store.ts": [
+        375,
+        377,
+        395,
+        399
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior rejects async and nested transactions with stable codes": {
+      "src/agents/runs/memory.ts": [
+        34
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior rejects every malformed raw record and snapshot projection": {
+      "src/agents/runs/memory.ts": [
+        186,
+        187
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository ancestry returns an exact false verdict after full traversal": {
+      "src/agents/runs/store.ts": [
+        534,
+        566
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects a missing parent edge for a merge commit": {
+      "src/agents/runs/store.ts": [
+        282,
+        563,
+        566,
+        573
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects a tampered parent edge ordinal with the exact parent value": {
+      "src/agents/runs/store.ts": [
+        569
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects a tampered parent edge value": {
+      "src/agents/runs/store.ts": [
+        568,
+        569
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects key corruption on the list path": {
+      "src/agents/runs/store.ts": [
+        553,
+        555,
+        556
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects revision corruption on the single-record load path": {
+      "src/agents/runs/store.ts": [
+        534,
+        538,
+        580
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository projections filters forced cancellations to the requested Run": {
+      "src/agents/runs/store.ts": [
+        423
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository projections orders inbox entries by sequence within the addressed Turn": {
+      "src/agents/runs/store.ts": [
+        553
+      ],
+      "src/agents/runs/turn.ts": [
+        467
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips ordinary and cancellation inbox entries and rejects every malformed shape": {
+      "src/agents/runs/turn.ts": [
+        467,
+        468,
+        469,
+        472,
+        478,
+        480,
+        486,
+        487,
+        490,
+        492,
+        498,
+        511,
+        528,
+        532,
+        536,
+        543,
+        549,
+        552,
+        564
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips tree and no-tree checkpoints and rejects cursor shape": {
+      "src/agents/runs/turn.ts": [
+        398,
+        399,
+        405,
+        410,
+        419,
+        423,
+        430,
+        442
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects a negative inbox timestamp on decode": {
+      "src/agents/record-data.ts": [
+        56
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects a queued Turn whose lease claims a holder without an expiration": {
+      "src/agents/runs/turn.ts": [
+        178
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior [C13-TURN-NO-RETRY] rejects retry linkage in the Turn record codec": {
+      "src/agents/runs/turn.ts": [
+        275,
+        281,
+        288
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior rejects every invalid aggregate shape": {
+      "src/agents/runs/turn.ts": [
+        174,
+        175,
+        181,
+        184,
+        185,
+        188,
+        189,
+        191,
+        193,
+        194,
+        197,
+        199,
+        596
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior rejects lifecycle methods outside running and exact-token state": {
+      "src/agents/runs/turn.ts": [
+        178,
+        179,
+        197,
+        205,
+        220
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior round-trips advisory cache lineage without affecting transitions": {
+      "src/agents/runs/turn.ts": [
+        167,
+        169,
+        275,
+        277,
+        322,
+        340,
+        365,
+        571,
+        573,
+        574,
+        576
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior round-trips optional checkpoint, result, lease, and every status": {
+      "src/agents/runs/outcome.ts": [
+        14
+      ],
+      "src/agents/runs/turn.ts": [
+        193,
+        301,
+        304,
+        309,
+        312,
+        314,
+        319,
+        322,
+        325,
+        327,
+        375,
+        378,
+        589,
+        592
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#TurnStatus complete transition matrix [C13-TURN-EXECUTOR-WRITER] rejects every illegal queued, running, suspended, and terminal transition": {
+      "src/agents/runs/turn.ts": [
+        52,
+        55,
+        58
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#TurnStatus complete transition matrix returns every legal status singleton": {
+      "src/agents/runs/turn.ts": [
+        105
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-ADMISSION-REGISTRY] memory and SQLite durably reserve, complete, close, restart, and reject stale epoch and CAS": {
+      "src/agents/runs/admission.ts": [
+        157,
+        160,
+        161,
+        167,
+        173,
+        229,
+        230,
+        233,
+        235,
+        274,
+        275,
+        276,
+        422,
+        423
+      ],
+      "src/agents/runs/commit.ts": [
+        304,
+        306,
+        309,
+        577,
+        729
+      ],
+      "src/agents/runs/lease.ts": [
+        136,
+        145
+      ],
+      "src/agents/runs/runtime.ts": [
+        241,
+        249,
+        256,
+        259,
+        260,
+        268,
+        269,
+        1194,
+        1254
+      ],
+      "src/agents/runs/settlement.ts": [
+        51,
+        118,
+        121,
+        131,
+        146
+      ],
+      "src/agents/runs/store.ts": [
+        581
+      ],
+      "src/agents/runs/turn.ts": [
+        66,
+        263
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-FORCED-CANCELLATION] memory and SQLite require exact administer evidence and CAS before persisting a sibling fence across restart": {
+      "src/agents/runs/runtime.ts": [
+        1190,
+        1192,
+        1202,
+        1254,
+        1259,
+        1265,
+        1288,
+        1289,
+        1290,
+        1293,
+        1294,
+        1297,
+        1403,
+        1404,
+        1405,
+        1414,
+        1416
+      ],
+      "src/agents/runs/store.ts": [
+        281,
+        426
+      ],
+      "src/agents/runs/turn.ts": [
+        255
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact tenant-qualified durable Turn lease across restart, CAS, and terminal fencing": {
+      "src/agents/runs/lease-verifier.ts": [
+        30,
+        33
+      ],
+      "src/agents/runs/lease.ts": [
+        140,
+        143
+      ],
+      "src/agents/runs/runtime.ts": [
+        637,
+        638
+      ],
+      "src/agents/runs/turn.ts": [
+        213
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXECUTOR-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS": {
+      "src/agents/runs/commit.ts": [
+        744
+      ],
+      "src/agents/runs/lease.ts": [
+        140,
+        147
+      ],
+      "src/agents/runs/runtime.ts": [
+        743
+      ],
+      "src/agents/runs/turn.ts": [
+        68,
+        263,
+        429,
+        439,
+        589
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [MIGRATE-RUN-PINS] survives SQLite close and reopen with old and new Turn pins": {
+      "src/agents/runs/admission.ts": [
+        208,
+        252
+      ],
+      "src/agents/runs/commit.ts": [
+        120,
+        130,
+        137,
+        177,
+        181,
+        183,
+        192,
+        197,
+        199,
+        205,
+        213,
+        272,
+        274,
+        284,
+        287,
+        299,
+        304,
+        316,
+        355,
+        359,
+        367,
+        385,
+        553,
+        574,
+        598,
+        599,
+        725,
+        764,
+        773
+      ],
+      "src/agents/runs/lease.ts": [
+        114,
+        121,
+        220
+      ],
+      "src/agents/runs/run.ts": [
+        81,
+        134
+      ],
+      "src/agents/runs/runtime.ts": [
+        384,
+        518,
+        993,
+        1000,
+        1004,
+        1410
+      ],
+      "src/agents/runs/store.ts": [
+        238,
+        256,
+        259,
+        265,
+        275,
+        297,
+        530
+      ],
+      "src/agents/runs/turn.ts": [
+        152,
+        174,
+        271,
+        281,
+        589
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [run.forced-turn-cancellation] survives file-backed close and reopen with owner and bytes intact": {
+      "src/agents/runs/admission.ts": [
+        189,
+        277,
+        278,
+        282
+      ],
+      "src/agents/runs/store.ts": [
+        410,
+        416
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage fails closed across memory and SQLite when any joined execution-scope record is corrupt": {
+      "src/agents/runs/store.ts": [
+        140,
+        148,
+        150,
+        153,
+        166,
+        167,
+        177,
+        473,
+        487,
+        600,
+        602
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage rolls back records and edges together": {
+      "src/agents/runs/forced-cancellation.ts": [
+        30
+      ],
+      "src/agents/runs/turn.ts": [
+        74,
+        177,
+        254
+      ]
+    }
+  }
+}

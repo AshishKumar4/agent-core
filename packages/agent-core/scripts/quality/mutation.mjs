@@ -21,7 +21,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
-import { artifactRoot, packageRoot, readCanonicalJson, writeCanonicalJson } from "./project.mjs";
+import {
+    artifactRoot,
+    packageRoot,
+    readCanonicalJson,
+    sha256,
+    writeCanonicalJson
+} from "./project.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const baselinePath = options.baseline ?? resolve(artifactRoot, "quality/mutation-baseline.json");
@@ -101,11 +107,27 @@ if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${options
 const report = JSON.parse(
     readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
 );
+// Kill attribution is the trustworthy direction of a perTest measurement: a test is
+// recorded only because it actually failed while the mutant was applied. The JSON
+// report indexes killedBy into its testFiles section; a test's selector rebuilt from
+// it is byte-identical to the conformance ledger's testSelectors format.
+const testSelectors = new Map();
+for (const [testPath, testFile] of Object.entries(report.testFiles ?? {})) {
+    for (const test of testFile.tests ?? []) {
+        testSelectors.set(String(test.id), `${testPath}#${test.name}`);
+    }
+}
 const summary = { mutants: 0, killed: 0, actionable: 0, tolerated: 0, survivors: [] };
+const measuredFiles = new Map();
+const kills = new Map();
 for (const [path, file] of Object.entries(report.files)) {
-    const source = readFileSync(resolve(packageRoot, path), "utf8").split("\n");
+    const text = readFileSync(resolve(packageRoot, path), "utf8");
+    const source = text.split("\n");
+    const measured = { mutants: 0, sha256: `sha256:${sha256(text)}` };
+    measuredFiles.set(path, measured);
     for (const mutant of file.mutants) {
         if (mutant.status === "Ignored") continue;
+        measured.mutants += 1;
         if (mutant.status === "NoCoverage") {
             summary.mutants += 1;
             summary.actionable += 1;
@@ -115,6 +137,7 @@ for (const [path, file] of Object.entries(report.files)) {
         summary.mutants += 1;
         if (mutant.status !== "Survived") {
             summary.killed += 1;
+            if (mutant.status === "Killed") recordKills(path, mutant);
             continue;
         }
         const classification = classify(mutant, source);
@@ -144,6 +167,28 @@ await writeCanonicalJson(resolve(packageRoot, `reports/mutation/${options.area}-
     area: options.area,
     ...entry,
     survivors: summary.survivors
+});
+await writeCanonicalJson(resolve(artifactRoot, `quality/discrimination/${options.area}.json`), {
+    edition: "1.0.0",
+    area: options.area,
+    measuredAt: entry.measuredAt,
+    fingerprint: entry.fingerprint,
+    files: sortedObject(measuredFiles),
+    killed: sortedObject(
+        new Map(
+            [...kills].map(([selector, files]) => [
+                selector,
+                sortedObject(
+                    new Map(
+                        [...files].map(([path, lines]) => [
+                            path,
+                            [...lines].sort((left, right) => left - right)
+                        ])
+                    )
+                )
+            ])
+        )
+    )
 });
 console.log(
     `${options.area}: score ${score}%, ${summary.actionable} actionable + ` +
@@ -199,16 +244,18 @@ function requireCleanWorktree() {
     if (result.status !== 0) {
         throw new TypeError("Mutation baselines may be updated only from a clean worktree");
     }
-    // The baseline artifact is this runner's own output: a multi-area measurement
-    // sequence legitimately dirties it between areas. Everything else must be clean
-    // so the recorded fingerprints describe committed sources.
+    // The baseline and per-area discrimination attribution are this runner's own
+    // outputs: a multi-area measurement sequence legitimately dirties them between
+    // areas. Everything else must be clean so the recorded fingerprints describe
+    // committed sources.
     const dirty = result.stdout
         .split("\n")
         .map((line) => line.slice(3).trim())
         .filter(
             (path) =>
                 path.length > 0 &&
-                path !== "packages/agent-core/artifacts/quality/mutation-baseline.json"
+                path !== "packages/agent-core/artifacts/quality/mutation-baseline.json" &&
+                !path.startsWith("packages/agent-core/artifacts/quality/discrimination/")
         );
     if (dirty.length > 0) {
         throw new TypeError(
@@ -232,6 +279,22 @@ function classify(mutant, source) {
             line
         );
     return messageContext && !identityContext ? "tolerated" : "actionable";
+}
+
+function recordKills(path, mutant) {
+    for (const id of mutant.killedBy ?? []) {
+        const selector = testSelectors.get(String(id));
+        if (selector === undefined) continue;
+        const files = kills.get(selector) ?? new Map();
+        kills.set(selector, files);
+        const lines = files.get(path) ?? new Set();
+        files.set(path, lines);
+        lines.add(mutant.location.start.line);
+    }
+}
+
+function sortedObject(map) {
+    return Object.fromEntries([...map].sort(([left], [right]) => left.localeCompare(right, "en")));
 }
 
 function survivorRecord(path, mutant, source, classification) {

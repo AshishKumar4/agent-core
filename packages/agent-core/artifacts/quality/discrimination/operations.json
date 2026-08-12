@@ -1,0 +1,1080 @@
+{
+  "edition": "1.0.0",
+  "area": "operations",
+  "measuredAt": "17d748967008c0a143a55146c939803875a08d42",
+  "fingerprint": "sha256:05f5fc8b542b6b204dc9c7e4a9dc41b226644f777852a35afe2f4eb974cb110d",
+  "files": {
+    "src/operations/command-runtime.ts": {
+      "mutants": 547,
+      "sha256": "sha256:f68670c6f32c691e72e819095d8866c608519a2105a6a4af66d7e5761ef1abc3"
+    },
+    "src/operations/correspondence.ts": {
+      "mutants": 102,
+      "sha256": "sha256:f1cde2093defbf5840c7a253a3731db4f4df4be3f65d921c957a3fdea22f1717"
+    },
+    "src/operations/gateway.ts": {
+      "mutants": 205,
+      "sha256": "sha256:b8ebaeb2aa11b75d4e87594691d76aa2034b587129a7af4681b11bd521a614ca"
+    },
+    "src/operations/interception.ts": {
+      "mutants": 111,
+      "sha256": "sha256:70a841884dcf05e6cbfd8ff0636a963f2eca7dbbae59711b600778d626093eeb"
+    },
+    "src/operations/lifecycle.ts": {
+      "mutants": 165,
+      "sha256": "sha256:1d557e279a87a201c1ec629a4223dad3751118f0d3da918eeba1813eb1efd0bc"
+    }
+  },
+  "killed": {
+    "test/composition/behavior-branches.test.ts#W9 composition behavior branches owns loaded package handles, rejects double activation, and preserves cleanup failures": {
+      "src/operations/lifecycle.ts": [
+        151,
+        180
+      ]
+    },
+    "test/operations/barrel.test.ts#W3 operations context barrel names the Operation request key it rejects": {
+      "src/operations/gateway.ts": [
+        25
+      ]
+    },
+    "test/operations/barrel.test.ts#W3 operations context barrel reports a confirmed Operation failure as an invalid invocation with its evidence": {
+      "src/operations/gateway.ts": [
+        505
+      ]
+    },
+    "test/operations/command-routing.test.ts#Command invocation routing routes an invocation only when the derived Subscription accepts the Event trust": {
+      "src/operations/command-runtime.ts": [
+        87,
+        198
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation binds arguments through nested and array pointers into a canonical input": {
+      "src/operations/command-runtime.ts": [
+        139,
+        141,
+        147,
+        415,
+        416,
+        420,
+        422,
+        423,
+        426,
+        438,
+        439,
+        443,
+        444,
+        445,
+        451,
+        457,
+        480,
+        481,
+        488,
+        497,
+        498,
+        499,
+        501,
+        506,
+        507,
+        514,
+        515
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation invokes on every surface the Command declares": {
+      "src/operations/command-runtime.ts": [
+        123,
+        125,
+        126,
+        130,
+        147,
+        154
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation only invokes through an installed Command on one of its declared surfaces": {
+      "src/operations/command-runtime.ts": [
+        153,
+        154,
+        155
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects an invocation whose bound input the installed Operation schema refuses": {
+      "src/operations/command-runtime.ts": [
+        130,
+        132,
+        133
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects arguments their schema refuses before applying any mapping": {
+      "src/operations/command-runtime.ts": [
+        141,
+        143,
+        144
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects binding through a destination that traverses a non-object value": {
+      "src/operations/command-runtime.ts": [
+        445,
+        447,
+        448,
+        457,
+        461
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects binding when a source value or array index is missing": {
+      "src/operations/command-runtime.ts": [
+        426,
+        428,
+        430,
+        431,
+        488,
+        490,
+        491
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects binding whose source pointer traverses a null value": {
+      "src/operations/command-runtime.ts": [
+        507
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects malformed, boundary, and multi-digit array indexes when binding": {
+      "src/operations/command-runtime.ts": [
+        481,
+        483,
+        484,
+        488
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COLLISION] keeps NUL-bearing surface and Command name tuples distinct within one scope": {
+      "src/operations/command-runtime.ts": [
+        378,
+        379,
+        382,
+        383
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime installation refuses to hand an installed Command to a different contributor in the same scope": {
+      "src/operations/command-runtime.ts": [
+        69,
+        375,
+        388
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime installation rejects a completion installation the Command never declared": {
+      "src/operations/command-runtime.ts": [
+        176,
+        178,
+        179
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime installation rejects a target whose package or operation differs from the Command's Operation reference": {
+      "src/operations/command-runtime.ts": [
+        166,
+        168,
+        170,
+        171
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime installation requires a declared completion to resolve to its exact observe Operation": {
+      "src/operations/command-runtime.ts": [
+        175,
+        185,
+        186,
+        187,
+        188,
+        189,
+        191,
+        192
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime installation returns the identical installed Command for an equal reinstallation and rejects a divergent one": {
+      "src/operations/command-runtime.ts": [
+        61,
+        64,
+        67,
+        68,
+        72,
+        78,
+        80,
+        81,
+        86,
+        90,
+        166,
+        167,
+        175,
+        176,
+        198,
+        199,
+        306,
+        309,
+        311,
+        312,
+        313,
+        314,
+        317,
+        319,
+        320,
+        374,
+        386,
+        388,
+        397,
+        398,
+        405,
+        407,
+        411
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation accepts a required input covered by one of several destinations": {
+      "src/operations/command-runtime.ts": [
+        337,
+        347,
+        348
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation accepts an identity mapping against a permissive input schema": {
+      "src/operations/command-runtime.ts": [
+        310
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation checks literal moves against boolean and byte-exact destination schemas": {
+      "src/operations/command-runtime.ts": [
+        224,
+        324,
+        325,
+        341,
+        342,
+        407
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation compares argument and destination schemas by type, const, and enum": {
+      "src/operations/command-runtime.ts": [
+        311,
+        314,
+        316,
+        317,
+        318,
+        319,
+        320,
+        323,
+        325,
+        326,
+        327,
+        329,
+        333,
+        334
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation counts a nested destination toward its required root property": {
+      "src/operations/command-runtime.ts": [
+        246,
+        292,
+        297,
+        298,
+        299,
+        301,
+        401
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation covers a boolean Operation input document only when it admits values": {
+      "src/operations/command-runtime.ts": [
+        293
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation covers the whole input with a root destination": {
+      "src/operations/command-runtime.ts": [
+        293,
+        469
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation escapes tilde and slash property names on both sides of the required-coverage check": {
+      "src/operations/command-runtime.ts": [
+        299,
+        402,
+        474
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation matches literal values against destination const, enum, and every primitive type form": {
+      "src/operations/command-runtime.ts": [
+        328,
+        329,
+        330,
+        339,
+        341,
+        342,
+        343,
+        344,
+        345,
+        346,
+        349,
+        350,
+        351,
+        352
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects a literal move whose value the destination schema refuses": {
+      "src/operations/command-runtime.ts": [
+        223,
+        224,
+        226,
+        227,
+        324,
+        327,
+        329,
+        332,
+        333,
+        348
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects a mapping that writes the same destination twice": {
+      "src/operations/command-runtime.ts": [
+        198,
+        209,
+        211,
+        212,
+        217,
+        223,
+        233,
+        239,
+        257,
+        260,
+        261,
+        262,
+        358,
+        359,
+        362,
+        368,
+        370,
+        468,
+        470,
+        473,
+        524
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects a mapping whose destination is absent from the Operation input schema": {
+      "src/operations/command-runtime.ts": [
+        209,
+        217,
+        219,
+        220,
+        259,
+        280,
+        469
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects a move between incompatible source and destination schemas": {
+      "src/operations/command-runtime.ts": [
+        239,
+        241,
+        242
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects a move whose source pointer is absent from the arguments schema": {
+      "src/operations/command-runtime.ts": [
+        233,
+        235
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects an identity mapping whose argument and input schemas are incompatible": {
+      "src/operations/command-runtime.ts": [
+        199,
+        201,
+        202,
+        307,
+        308,
+        310,
+        311,
+        314,
+        315,
+        407
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects unsafe mapping path segments": {
+      "src/operations/command-runtime.ts": [
+        523,
+        524,
+        526,
+        527
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation requires an unconstrained argument sub-schema of true to equal its destination": {
+      "src/operations/command-runtime.ts": [
+        309
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation requires the mapping to produce every required Operation input": {
+      "src/operations/command-runtime.ts": [
+        246,
+        248,
+        249,
+        293,
+        294,
+        295,
+        296,
+        298,
+        300,
+        301
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation resolves boolean destination sub-schemas instead of reporting them absent": {
+      "src/operations/command-runtime.ts": [
+        307,
+        309,
+        359
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation resolves destinations through prefixItems, items, and additionalProperties": {
+      "src/operations/command-runtime.ts": [
+        262,
+        266,
+        268,
+        269,
+        273,
+        274,
+        279,
+        280,
+        295
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation resolves numeric destination segments past prefixItems, through items and additionalProperties": {
+      "src/operations/command-runtime.ts": [
+        266,
+        269,
+        274
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation treats an argument sub-schema of false as compatible with any destination": {
+      "src/operations/command-runtime.ts": [
+        301,
+        308
+      ]
+    },
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation treats const and enum sources as compatible exactly when the destination accepts their values": {
+      "src/operations/command-runtime.ts": [
+        314
+      ]
+    },
+    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
+      "src/operations/correspondence.ts": [
+        38
+      ],
+      "src/operations/gateway.ts": [
+        263,
+        292,
+        299,
+        301
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime cancels startup immediately and retries failed cleanup before disposal": {
+      "src/operations/lifecycle.ts": [
+        46,
+        122
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime disposes an inactive host and continues stopping after a hook failure": {
+      "src/operations/lifecycle.ts": [
+        39,
+        40,
+        45,
+        62,
+        63,
+        64,
+        110,
+        146,
+        150,
+        151,
+        173,
+        189,
+        190
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime hands a dispose call racing a cancelled start the same disposal transition": {
+      "src/operations/lifecycle.ts": [
+        56,
+        130
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime hides Facets and holds the drain while runtime leases remain outstanding": {
+      "src/operations/lifecycle.ts": [
+        63,
+        84,
+        158,
+        159,
+        160,
+        195,
+        197,
+        200
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime holds disposal until an in-flight activation transition settles": {
+      "src/operations/lifecycle.ts": [
+        51,
+        96,
+        140,
+        141
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime names the kind of contribution that has no runtime implementation": {
+      "src/operations/correspondence.ts": [
+        137,
+        156,
+        169
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rejects a runtime declaration that differs from its pinned bytes at a single position": {
+      "src/operations/correspondence.ts": [
+        141,
+        253
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rejects correspondence failures before lifecycle code runs": {
+      "src/operations/correspondence.ts": [
+        81,
+        87,
+        89,
+        95,
+        96,
+        131,
+        133,
+        186,
+        187,
+        191,
+        192,
+        193,
+        197,
+        201,
+        211,
+        214,
+        217,
+        219,
+        238,
+        239,
+        243,
+        251,
+        253,
+        257,
+        258
+      ],
+      "src/operations/lifecycle.ts": [
+        33,
+        43,
+        44,
+        50,
+        114
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rejects cycles, duplicate references, and descriptor mismatch": {
+      "src/operations/correspondence.ts": [
+        165,
+        192,
+        239,
+        242,
+        243,
+        246,
+        247,
+        248,
+        253
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rejects every malformed runtime forest and duplicate declaration shape": {
+      "src/operations/correspondence.ts": [
+        95,
+        100,
+        101,
+        116,
+        117,
+        118,
+        193,
+        197,
+        217,
+        218,
+        219,
+        221
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rejects two runtime Facets that present the same pinned manifest": {
+      "src/operations/correspondence.ts": [
+        89,
+        90
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime reports no facets while a never-activated host is stopping": {
+      "src/operations/lifecycle.ts": [
+        69
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime retries activation cleanly after a rolled-back start failure": {
+      "src/operations/lifecycle.ts": [
+        55,
+        56,
+        131
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime retries failed stop hooks on the next disposal without restarting": {
+      "src/operations/lifecycle.ts": [
+        150
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rolls back a failed activation in reverse start order": {
+      "src/operations/lifecycle.ts": [
+        127
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rolls back already-started Facets after a later start hook fails": {
+      "src/operations/lifecycle.ts": [
+        116,
+        126,
+        134,
+        135,
+        184,
+        185,
+        186
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime starts parent before child once and disposes child before parent": {
+      "src/operations/correspondence.ts": [
+        50,
+        54,
+        85,
+        117,
+        121,
+        133,
+        152,
+        165,
+        196,
+        230,
+        231
+      ],
+      "src/operations/lifecycle.ts": [
+        27,
+        34,
+        35,
+        44,
+        45,
+        46,
+        47,
+        50,
+        67,
+        70,
+        92,
+        93,
+        94,
+        98,
+        118,
+        119,
+        122,
+        125,
+        139,
+        146,
+        151,
+        154,
+        155,
+        159,
+        168,
+        169,
+        170,
+        171,
+        181,
+        207,
+        210,
+        214
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime uses idempotent runtime leases and fences rollback cleanup failures": {
+      "src/operations/lifecycle.ts": [
+        47,
+        48,
+        73,
+        75,
+        76,
+        77,
+        78,
+        80,
+        81,
+        82,
+        83,
+        85,
+        130,
+        131,
+        134
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime validates Surface declarations against runtime implementations": {
+      "src/operations/correspondence.ts": [
+        32,
+        42,
+        152,
+        177
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-ADV-POST-PREPARATION-INTERCEPTOR] routes mediated effects through the invocation port with frozen interceptor traces": {
+      "src/operations/correspondence.ts": [
+        46
+      ],
+      "src/operations/gateway.ts": [
+        292,
+        359,
+        360,
+        363,
+        364,
+        365,
+        369,
+        371,
+        380,
+        382,
+        391,
+        401,
+        409,
+        410,
+        437,
+        466
+      ],
+      "src/operations/interception.ts": [
+        67,
+        68,
+        77,
+        83,
+        84,
+        85,
+        92,
+        118,
+        119,
+        122,
+        123,
+        124,
+        151,
+        174,
+        175,
+        177,
+        180,
+        184,
+        185
+      ],
+      "src/operations/lifecycle.ts": [
+        68
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked": {
+      "src/operations/command-runtime.ts": [
+        86,
+        121,
+        123,
+        136,
+        154,
+        166,
+        175,
+        208
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically": {
+      "src/operations/command-runtime.ts": [
+        71,
+        72,
+        74,
+        99
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command": {
+      "src/operations/command-runtime.ts": [
+        160,
+        197,
+        224,
+        236
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults": {
+      "src/operations/command-runtime.ts": [
+        86,
+        88
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ATTRIBUTION] persists attributable pre-preparation rewrite evidence": {
+      "src/operations/gateway.ts": [
+        402
+      ],
+      "src/operations/interception.ts": [
+        96,
+        103
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either": {
+      "src/operations/gateway.ts": [
+        551
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-SELF-SCOPE] defaults an omitted selector to only the contributing Facet": {
+      "src/operations/interception.ts": [
+        103,
+        180,
+        185
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway applies a selector when any pattern matches and never prefix-matches exact names": {
+      "src/operations/interception.ts": [
+        175,
+        185
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway applies root, literal, nested, and array command mappings strictly": {
+      "src/operations/command-runtime.ts": [
+        439,
+        451,
+        457,
+        472,
+        517,
+        524
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
+      "src/operations/gateway.ts": [
+        350,
+        369,
+        546,
+        547,
+        548,
+        551,
+        552,
+        553,
+        555,
+        559,
+        560
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway covers direct batches, inactive resolution, disposal idempotency, and invalid interceptor rewrites": {
+      "src/operations/gateway.ts": [
+        207,
+        255,
+        329,
+        331,
+        415,
+        444,
+        446,
+        473,
+        475,
+        487,
+        488,
+        518,
+        524
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway denies cross-Facet interception without explicit authority": {
+      "src/operations/interception.ts": [
+        128,
+        136,
+        143,
+        145,
+        177
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway dispatches only through implementation identities captured before start": {
+      "src/operations/gateway.ts": [
+        259
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway drains in-flight execution before stopping and releasing authority": {
+      "src/operations/gateway.ts": [
+        267,
+        272,
+        273,
+        413,
+        414,
+        416,
+        417,
+        494
+      ],
+      "src/operations/lifecycle.ts": [
+        68
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers": {
+      "src/operations/correspondence.ts": [
+        68
+      ],
+      "src/operations/gateway.ts": [
+        24,
+        204,
+        207,
+        228,
+        230,
+        260,
+        266,
+        268,
+        270,
+        273,
+        277,
+        279,
+        281,
+        286,
+        292,
+        293,
+        301,
+        309,
+        312,
+        325,
+        329,
+        338,
+        341,
+        420,
+        422,
+        435,
+        444,
+        457,
+        459,
+        473,
+        482,
+        488,
+        489,
+        514,
+        515,
+        516,
+        570,
+        571
+      ],
+      "src/operations/interception.ts": [
+        65,
+        108,
+        116,
+        117,
+        119
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items": {
+      "src/operations/gateway.ts": [
+        382,
+        384
+      ],
+      "src/operations/interception.ts": [
+        79,
+        83,
+        84,
+        86,
+        89,
+        129,
+        131,
+        189,
+        192
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway fails closed on invalid schemas, denied direct admission, and malformed mediation output": {
+      "src/operations/gateway.ts": [
+        301,
+        302,
+        391,
+        393,
+        424,
+        461
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway fails closed on non-object results and non-boolean proceed flags": {
+      "src/operations/interception.ts": [
+        83,
+        85
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway fails closed when a synchronous interceptor returns a Promise": {
+      "src/operations/interception.ts": [
+        188,
+        191
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway holds authority release until every in-flight dispatch completes": {
+      "src/operations/gateway.ts": [
+        273
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway orders interceptors by priority before contributor and id": {
+      "src/operations/interception.ts": [
+        156,
+        197
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway orders same-priority interceptors deterministically and applies authorized wildcard targets": {
+      "src/operations/interception.ts": [
+        129,
+        136,
+        154,
+        155,
+        156,
+        185,
+        196,
+        197
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway presents the full intercept context to each interceptor": {
+      "src/operations/interception.ts": [
+        70
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway records attributable direct interception evidence for both cut points": {
+      "src/operations/gateway.ts": [
+        533,
+        534,
+        539
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway refuses descriptors once the host no longer runs the resolved Facet": {
+      "src/operations/gateway.ts": [
+        489
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway rejects invalid command arguments and missing mapping sources": {
+      "src/operations/command-runtime.ts": [
+        141,
+        147,
+        524
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway rejects invalid input before consulting mediated authorization": {
+      "src/operations/gateway.ts": [
+        422
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway rejects invalid raw output before after-interceptors can repair it": {
+      "src/operations/gateway.ts": [
+        459
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway rejects payloads with an unknown kind or non-array batch inputs": {
+      "src/operations/gateway.ts": [
+        518
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway releases resolution authority exactly once for an idle disposed resolution": {
+      "src/operations/gateway.ts": [
+        251,
+        414,
+        416
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway reports interceptor applicability to the authority tier decision": {
+      "src/operations/interception.ts": [
+        51,
+        53,
+        54,
+        185
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway submits one homogeneous mediated batch and invalidates resolutions on host disposal": {
+      "src/operations/gateway.ts": [
+        409,
+        490,
+        515,
+        518,
+        519,
+        520,
+        579,
+        580
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway surfaces an interceptor veto as a typed scoped denial": {
+      "src/operations/interception.ts": [
+        92,
+        128
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway wraps unknown handler failures and preserves typed failures": {
+      "src/operations/gateway.ts": [
+        573,
+        574,
+        575
+      ]
+    }
+  }
+}

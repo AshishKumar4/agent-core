@@ -15,6 +15,7 @@ const checkerEntrypoints = new Set([
         "attest",
         "coherence",
         "coverage",
+        "discrimination",
         "format",
         "governance",
         "integration",
