@@ -7,7 +7,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.projectId === undefined",
-      "proof": "ScopeRef's constructor is private and every `new ScopeRef(...)` in the module sits inside one of its own static factories, so kind and the optional ids are always assigned together, at four sites and nowhere else. The only site that yields kind \"project\" is ScopeRef.project(tenantId, projectId), whose projectId parameter is a required ProjectId; no factory can build a project scope with an absent projectId, and decodeScopeRef reaches the class only through those same factories. Control arrives at this guard only after the kind \"tenant\" branch has returned, so the scope here is a project scope and scope.projectId === undefined is constantly false. Replacing the test with false therefore selects the identical branch on every input. The complementary mutant that replaces it with true, which would throw for every project scope, is killed — the outward signature of an unreachable guard."
+      "proof": "ScopeRef's constructor is private and every `new ScopeRef(...)` in the module sits inside one of its own static factories, so kind and the optional ids are always assigned together, at four sites and nowhere else. The only site that yields kind \"project\" is ScopeRef.project(tenantId, projectId), whose projectId parameter is a required ProjectId; no factory can build a project scope with an absent projectId, and decodeScopeRef reaches the class only through those same factories. Control arrives at this guard only after the kind \"tenant\" branch has returned, so the scope here is a project scope and scope.projectId === undefined is constantly false. Replacing the test with false therefore selects the identical branch on every input. The complementary mutant that replaces it with true, which would throw for every project scope, is killed \u2014 the outward signature of an unreachable guard."
     },
     {
       "file": "src/identity/scope.ts",
@@ -31,7 +31,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.workspaceId === undefined",
-      "proof": "ScopeKind is a closed union of three members, and control reaches this guard only after the tenant and project branches have returned, so scope.kind is \"workspace\" here. The only factory that produces a workspace scope is ScopeRef.workspace, whose implementation passes either requireWorkspace(projectOrWorkspace) — which returns a WorkspaceId or throws — or the workspace argument on the branch where it has already been tested as defined. Neither path can store an absent workspaceId, so the condition is constantly false and replacing it with false selects the same branch on every input. The complementary mutant replacing it with true, which would reject every workspace scope, is killed."
+      "proof": "ScopeKind is a closed union of three members, and control reaches this guard only after the tenant and project branches have returned, so scope.kind is \"workspace\" here. The only factory that produces a workspace scope is ScopeRef.workspace, whose implementation passes either requireWorkspace(projectOrWorkspace) \u2014 which returns a WorkspaceId or throws \u2014 or the workspace argument on the branch where it has already been tested as defined. Neither path can store an absent workspaceId, so the condition is constantly false and replacing it with false selects the same branch on every input. The complementary mutant replacing it with true, which would reject every workspace scope, is killed."
     },
     {
       "file": "src/identity/scope.ts",
@@ -64,6 +64,86 @@
       "proof": "The only effect of this statement is the assignment remaining[dimension] = left, and current was read from remaining[dimension] on the line immediately above. Original and mutant therefore differ on exactly one class of input: current !== undefined && left === current. There the original skips the assignment and leaves remaining[dimension] holding current, while the mutant performs it and writes left. Because left === current on precisely that branch, and remaining holds primitive numbers with no reference or identity semantics to leak a difference, both leave the same key holding the same value. Assigning a key that already exists also leaves insertion order untouched, and current !== undefined guarantees the key exists on exactly that branch. Order could not matter regardless: ResourceCeiling's constructor iterates the fixed RESOURCE_DIMENSIONS list rather than Object.keys, so neither the Object.keys(remaining).length test in narrowResources nor the ceiling it constructs can vary with it. On every other input the two conditions agree and the same assignment happens or is skipped in both. The claim therefore holds through the whole call chain, not merely inside narrow, and no test written against the resulting ceiling could distinguish the two.",
       "replacement": "left <= current",
       "symbol": "narrow"
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "DerivedPreparationAdmission.admits",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "header.projectionDigest !== undefined",
+      "proof": "This is the routed branch's whole result, and it reads as the gate that stops a routed record with no projection digest. It cannot observe that state. PreparedInvocationHeader's constructor rejects `(route === undefined) !== (projectionDigest === undefined)` with \"Route and projection digest must be present together\", and every PreparedInvocation reaches this port through that constructor: PreparedInvocation.create builds its header there, and PreparedInvocationCodec.decode reconstructs one the same way, so no record exists in memory or in storage that carries a route without a digest. Control arrives here only when header.route !== undefined, so the pairing rule makes header.projectionDigest !== undefined constantly true on this branch and returning true selects the identical value for every record. The complementary mutants are killed: replacing it with false, and flipping the operator to ===, both refuse a routed record the port must admit."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "payload",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"batch\"",
+      "proof": "The discriminant of the UnpreparedPayload this function returns is never read as \"batch\" by anything downstream. The value flows to exactly one place, PreparedInvocation.create, which tests it three times and always against \"single\": the shape it commits is `payload.kind === \"single\" ? {kind: \"single\"} : {itemCount, kind: \"batch\"}`, the item list is `payload.kind === \"single\" ? [payload.item] : payload.items`, and the payload it freezes is chosen by the same test, so the emitted record's own kind is the literal \"batch\" written in prepared.ts rather than the one passed in. requireNonemptyPayload does test `kind === \"batch\"`, but only to reject an empty items array, and this function returns `[first, ...rest]` after refusing an absent first, so that guard has nothing to catch on either the original or the mutant. Every byte of the resulting record is therefore identical."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "facetPackage",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "separator <= 0",
+      "proof": "The guard restates an invariant its own parameter type already carries. facetPackage takes a FacetRef, and FacetRef's constructor calls requireFacetRef, which computes `const separator = value.indexOf(\":\")` and throws unless `separator > 0`, `separator === value.lastIndexOf(\":\")`, `separator !== value.length - 1`, and the whole value matches a pattern demanding a canonical segment on each side of a single colon. FacetRef has no other construction path and freezes itself, and indexOf is a pure function of the frozen value, so recomputing it here yields the same positive number the constructor already accepted. The condition is therefore constantly false for every FacetRef that exists, and replacing it with false selects the same branch on every input. This is the same shape as the delegation guard in authored-code.ts: a check enforced twice, whose second copy cannot fire."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "facetPackage",
+      "mutator": "EqualityOperator",
+      "replacement": "separator < 0",
+      "mutated": "separator <= 0",
+      "proof": "Original and mutant differ on exactly one input, separator === 0, where `<= 0` throws and `< 0` falls through to slice a zero-length package name. That input requires a FacetRef whose value begins with a colon, and requireFacetRef refuses one: it demands `separator > 0` outright, and its pattern requires a segment matching [a-z][a-z0-9]* before the colon. No FacetRef can hold such a value, so the distinguishing input cannot be constructed and the two conditions agree on every argument this function can receive. The negative case separator === -1 is likewise unreachable for the same constructor reason, but it is not where these two conditions differ, so it does not bear on this claim."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "facetPackage",
+      "mutator": "StringLiteral",
+      "replacement": "``",
+      "mutated": "`Facet reference ${facet.value} names no Package`",
+      "proof": "The template is the sole argument of the invalid() call inside facetPackage's separator guard, and that guard's condition is constantly false because FacetRef's constructor already refuses any reference whose colon is absent or leading. The template is therefore never evaluated: neither its literal chunks nor its facet.value interpolation is ever materialized, no AgentCoreError is ever constructed from it, and no caller, log, or assertion can read it. Emptying a template that the program cannot reach changes nothing observable. This is a stronger claim than the message-text tolerance the classifier grants a reachable throw site, and it is why the mutant arrives as NoCoverage rather than Survived."
+    },
+    {
+      "file": "src/composition/mediation-records.ts",
+      "symbol": "CanonicalMediationRecords.audit",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "cause === undefined",
+      "proof": "The conditional chooses between spreading nothing and spreading `{ cause }` into the AuditRecordInit literal. Forcing the second branch changes the init object only when cause is undefined, and then only by adding an own property whose value is undefined. AuditRecord's constructor reads that init exactly twice: `init.kind.kind === \"invocation\" && init.cause !== undefined`, which is false either way because init.cause evaluates to undefined in both, and `this.cause = init.cause`, which assigns undefined in both. It never tests for the key's presence with `in` or Object.hasOwn, never enumerates the init, and never re-emits it \u2014 the record it freezes exposes only the fields it assigned. Every record this method returns is therefore identical under the mutation, including the one path where the operands differ at all, invocationAudit passing an undefined cause."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "TenantAuthoredCodeDelegationPort.delegateOne",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "parent === undefined",
+      "proof": "The Grant read here is store.grant(source.grantId), where source is the Binding sourceBinding just resolved and refused as absent or non-resolving. A Binding naming a Grant the store does not hold cannot be created: createBinding runs requireBindingAuthority, which requires a live allow Grant matching the Binding's subject and scope, and no operation on the store deletes a Grant \u2014 revokeGrant marks the record through revokeGrantClosure and then reads it back with requireRecord, so the record survives revocation rather than disappearing. The store therefore always answers this read with a Grant, the disjunct is constantly false, and dropping it selects the same branch on every input. Its sibling disjunct !parent.isLive is reachable by exactly that revocation path and is killed by the test for it."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "TenantAuthoredCodeDelegationPort.delegateOne",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "parent.effect !== \"allow\"",
+      "proof": "A deny Grant cannot be the backing of a resolvable Binding. createBinding requires the named Grant to be a live allow through requireBindingAuthority, and a Grant's effect is fixed at construction \u2014 the record exposes it as readonly and no mutation service operation rewrites it, revocation changing liveness rather than effect. The Binding reached here has already been refused unless it resolves, so its Grant was an allow when the Binding was created and is an allow now. The disjunct is therefore constantly false and removing it cannot change which branch runs. The distinction from the sibling disjunct matters: liveness is mutable state that revocation reaches, effect is not, which is why one of these two operands earns a test and this one earns a proof."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "required",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value === undefined",
+      "proof": "required has exactly one call site, guarding request.requested.capability(name) for a name drawn from request.requested.names in the same expression. Both members read one frozen AuthoredCodeCapabilitySet: names is `[...capabilities.values()].map((entry) => entry.name)` and capability(name) is `capabilities.get(name.value)`, over a private Map the constructor keys by each capability's own name.value. Every name the map yields therefore round-trips to the entry it came from. The set is frozen with Object.freeze and its map is a private field with no mutator, and the two reads happen inside one synchronous map callback with nothing between them, so the \"disappeared between reads\" state the message describes cannot arise. The condition is constantly false and the guard selects the same branch on every input."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "required",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"protocol.invalid-state\"",
+      "proof": "This literal is the error code of an AgentCoreError constructed only inside required's undefined guard, whose condition is constantly false because the single call site draws its key from the very capability set it then reads, over a frozen record with no mutator and no suspension point between the two reads. The error is therefore never constructed and its code never reaches a catch, a Receipt, or an assertion. The classifier keeps error codes actionable while tolerating message prose, which is right \u2014 a code is a discriminant callers branch on \u2014 but that reasoning presumes the throw can happen. Here it cannot, so the discriminant has no observation to discriminate."
     }
   ]
 }

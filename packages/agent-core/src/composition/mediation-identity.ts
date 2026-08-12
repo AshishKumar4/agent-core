@@ -46,7 +46,7 @@ const IDENTITY_DOMAIN = Object.freeze({
 
 export class DerivedMediationIdentities implements MediatedInvocationIdentityPort {
     public constructor(private readonly scope: string) {
-        if (scope.trim().length === 0 || scope !== scope.trim()) {
+        if (scope.length === 0 || scope !== scope.trim()) {
             throw new TypeError("Mediation identity scope must be canonical");
         }
     }
