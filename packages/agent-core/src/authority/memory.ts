@@ -748,26 +748,17 @@ function requireSnapshot(snapshot: MemoryTenantControlSnapshot): void {
     }
 }
 
+// Only the default Tenant kind separates a bootstrap anchor from the snapshot shape, so
+// the validation and the detaching copy are copyAnchorSnapshot's — the one every restore
+// already runs. Repeating them here left a second copy of the same guards that nothing
+// could reach: whatever this admitted, the constructor immediately re-judged.
 function anchorSnapshot(anchor: TenantControlBootstrapAnchor): MemoryTenantControlAnchorSnapshot {
-    if (
-        !(anchor.actorId instanceof ActorId) ||
-        !(anchor.tenantId instanceof TenantId) ||
-        !(anchor.principalId instanceof PrincipalId) ||
-        !(anchor.trustAnchor instanceof Uint8Array) ||
-        anchor.trustAnchor.byteLength === 0
-    ) {
-        throw corruptMemoryTenantControl("Memory Tenant control bootstrap anchor is malformed");
-    }
-    const tenantKind = anchor.tenantKind ?? "personal";
-    if (tenantKind !== "personal" && tenantKind !== "organization" && tenantKind !== "service") {
-        throw corruptMemoryTenantControl("Memory Tenant control bootstrap Tenant kind is invalid");
-    }
-    return Object.freeze({
+    return copyAnchorSnapshot({
         actorId: anchor.actorId,
         tenantId: anchor.tenantId,
         principalId: anchor.principalId,
-        tenantKind,
-        trustAnchor: anchor.trustAnchor.slice()
+        tenantKind: anchor.tenantKind ?? "personal",
+        trustAnchor: anchor.trustAnchor
     });
 }
 
