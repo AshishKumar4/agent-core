@@ -609,3 +609,19 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_capability_refuses_pattern_escalation
 #print axioms AgentCore.Examples.nonvacuous_capability_validity_holds
 #print axioms AgentCore.Examples.nonvacuous_covering_chain_reaches_leaf
+
+-- Composite key representation (SPEC §3.4, §8.1): when a stored delimiter-joined key
+-- determines the identity it was built from, and when it does not.
+#print axioms AgentCore.delimiterFree_iff
+#print axioms AgentCore.pair_key_injective_of_free_left
+#print axioms AgentCore.pair_key_injective_of_free_right
+#print axioms AgentCore.pair_key_not_injective
+#print axioms AgentCore.prefix_scan_selects_exact_identifier
+#print axioms AgentCore.prefix_scan_admits_foreign_identifier
+
+-- Composite key nonvacuity witnesses.
+#print axioms AgentCore.Examples.nonvacuous_delimiter_free_discriminates
+#print axioms AgentCore.Examples.nonvacuous_free_left_keys_separate
+#print axioms AgentCore.Examples.nonvacuous_free_right_keys_separate
+#print axioms AgentCore.Examples.nonvacuous_nul_key_collision
+#print axioms AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign

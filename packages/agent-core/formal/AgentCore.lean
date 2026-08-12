@@ -1,5 +1,6 @@
 import AgentCore.Model
 import AgentCore.Capability
+import AgentCore.Keys
 import AgentCore.Secrets
 import AgentCore.Content
 import AgentCore.Interceptors

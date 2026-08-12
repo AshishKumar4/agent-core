@@ -341,6 +341,59 @@
       ]
     },
     {
+      "id": "AC-KEY-001",
+      "summary": "When a stored delimiter-joined composite key determines the identity it was built from",
+      "status": "proved-safety",
+      "boundary": "Two-component delimiter joins only. Injectivity is proved for a delimiter-free left component and, separately, for a delimiter-free right one; the join is proved not injective when neither side is constrained, and the prefix scan built from it is proved to admit a foreign identifier's key under the same condition — both by explicit construction, for every delimiter. What this does not do is decide any particular stored key: it states the obligation an implementation must discharge per key by naming the delimiter-free side and showing its component domain excludes the delimiter. Canonical-JSON composite keys are a different scheme whose injectivity rests on the encoder's escaping rules; those are not modeled here and stand as ASM-CANONICAL-KEY-INJECTIVE. Joins of more than two components, ordering, and storage behavior are outside this requirement.",
+      "definitions": [
+        "AgentCore.pairKey",
+        "AgentCore.keyPrefix",
+        "AgentCore.HasPrefix",
+        "AgentCore.DelimiterFree",
+        "AgentCore.delimiterFree"
+      ],
+      "theorems": [
+        "AgentCore.delimiterFree_iff",
+        "AgentCore.pair_key_injective_of_free_left",
+        "AgentCore.pair_key_injective_of_free_right",
+        "AgentCore.pair_key_not_injective",
+        "AgentCore.prefix_scan_selects_exact_identifier",
+        "AgentCore.prefix_scan_admits_foreign_identifier"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_delimiter_free_discriminates",
+        "AgentCore.Examples.nonvacuous_free_left_keys_separate",
+        "AgentCore.Examples.nonvacuous_free_right_keys_separate",
+        "AgentCore.Examples.nonvacuous_nul_key_collision",
+        "AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign"
+      ],
+      "witnessCoverage": {
+        "AgentCore.delimiterFree_iff": [
+          "AgentCore.Examples.nonvacuous_delimiter_free_discriminates"
+        ],
+        "AgentCore.pair_key_injective_of_free_left": [
+          "AgentCore.Examples.nonvacuous_free_left_keys_separate"
+        ],
+        "AgentCore.pair_key_injective_of_free_right": [
+          "AgentCore.Examples.nonvacuous_free_right_keys_separate"
+        ],
+        "AgentCore.pair_key_not_injective": [
+          "AgentCore.Examples.nonvacuous_nul_key_collision"
+        ],
+        "AgentCore.prefix_scan_selects_exact_identifier": [
+          "AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign"
+        ],
+        "AgentCore.prefix_scan_admits_foreign_identifier": [
+          "AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign"
+        ]
+      },
+      "remainingEvidence": [
+        "per-key discharge of the delimiter-free side across every record store",
+        "canonical-JSON key injectivity (ASM-CANONICAL-KEY-INJECTIVE)",
+        "identifier validation excluding the delimiter at the trust boundary"
+      ]
+    },
+    {
       "id": "AC-SECRET-001",
       "summary": "SecretRef custody (§3.5): resolution bound to the exact home Tenant, Binding, and endpoint the Tenant recorded, repointing invalidation, and delegation/guest-Membership/cross-tenant-reservation carriers that hold refs, never raw values",
       "status": "proved-safety",
@@ -2722,6 +2775,11 @@
       "status": "operational-assumption"
     },
     {
+      "id": "ASM-CANONICAL-KEY-INJECTIVE",
+      "summary": "Composite keys built by canonical-JSON encoding a component tuple are injective on that tuple. The encoder's quoting and escaping rules are not modeled, so this stands as an assumption rather than a result; the delimiter-join scheme is modeled and proved separately under AC-KEY-001.",
+      "status": "operational-assumption"
+    },
+    {
       "id": "ASM-LIVENESS-TIME-INVALIDATION",
       "summary": "Modeled time advances monotonically. Eventual transport delivery, scheduling, and invalidation require explicit fairness assumptions only for liveness; no designated safety theorem assumes delivery, fairness, or progress.",
       "status": "operational-assumption"
@@ -2871,6 +2929,7 @@
           "AC-AUTH-RESOLUTION-001",
           "AC-CAPABILITY-001",
           "AC-COMPOSED-001",
+          "AC-KEY-001",
           "AC-MATERIALIZE-001",
           "AC-SECRET-001"
         ],
@@ -2878,6 +2937,7 @@
           "NC-SECRET-PROCESS-ISOLATION"
         ],
         "assumptionIds": [
+          "ASM-CANONICAL-KEY-INJECTIVE",
           "ASM-LIVENESS-TIME-INVALIDATION",
           "ASM-TRUTHFUL-VERIFICATION-INPUTS"
         ]
@@ -3019,9 +3079,10 @@
         "requirementIds": [
           "AC-AUDIT-001",
           "AC-COMPOSED-001",
-          "AC-GRAPH-WRITER-001",
+          "AC-CONTENT-001",
           "AC-DISPATCHER-001",
-          "AC-CONTENT-001"
+          "AC-GRAPH-WRITER-001",
+          "AC-KEY-001"
         ],
         "nonClaimIds": [
           "NC-CODECS",

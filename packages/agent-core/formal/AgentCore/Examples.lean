@@ -1,5 +1,6 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
 import AgentCore.Capability
+import AgentCore.Keys
 import AgentCore.Slates
 import AgentCore.Subscriptions
 import AgentCore.Commands
@@ -5580,5 +5581,54 @@ theorem nonvacuous_covering_chain_reaches_leaf :
       acmeMailSend ∈ [anyFacetObserve, acmeObserve, acmeMailSend] ∧
       anyFacetObserve.coversBool acmeMailSend = true :=
   ⟨⟨by decide, by decide, trivial⟩, by simp, by decide⟩
+
+/-! ## Composite key representation (SPEC §3.4, §8.1)
+
+The delimiter every record store joins with is U+0000, and `TextId` admits it: the only
+constraints are one to 256 characters and no lone surrogates. So the witnesses below are
+about identifiers the implementation actually accepts, not hypothetical ones.
+-/
+
+private def nul : Char := Char.ofNat 0
+
+/-- The delimiter-free test discriminates, at the delimiter the stores actually use. -/
+theorem nonvacuous_delimiter_free_discriminates :
+    delimiterFree nul ['a'] = true ∧ delimiterFree nul ['a', nul, 'b'] = false := by decide
+
+/-- With a delimiter-free left component the key separates distinct identifiers: two
+identifiers that differ cannot share a key, whatever revision each carries. -/
+theorem nonvacuous_free_left_keys_separate :
+    DelimiterFree nul ['a'] ∧ DelimiterFree nul ['b'] ∧
+      pairKey nul ['a'] ['1'] ≠ pairKey nul ['b'] ['1'] := by
+  refine ⟨by decide, by decide, fun equal => ?_⟩
+  exact absurd (pair_key_injective_of_free_left (by decide) (by decide) equal).1 (by decide)
+
+/-- The same separation from the other side, which is what a key whose right component is a
+decimal revision relies on. -/
+theorem nonvacuous_free_right_keys_separate :
+    DelimiterFree nul ['1'] ∧ DelimiterFree nul ['2'] ∧
+      pairKey nul ['a', nul, 'b'] ['1'] ≠ pairKey nul ['a'] ['2'] := by
+  refine ⟨by decide, by decide, fun equal => ?_⟩
+  exact absurd (pair_key_injective_of_free_right (by decide) (by decide) equal).2 (by decide)
+
+/-- **Two identifiers the implementation accepts, sharing one key.** `TextId` admits
+U+0000, so this collision is reachable wherever both components of a stored key are
+free-form identifiers. -/
+theorem nonvacuous_nul_key_collision :
+    (['a'], ['b', nul, 'c']) ≠ ((['a', nul, 'b'], ['c']) : List Char × List Char) ∧
+      pairKey nul ['a'] ['b', nul, 'c'] = pairKey nul ['a', nul, 'b'] ['c'] := by
+  refine ⟨by decide, rfl⟩
+
+/-- **A record scan for one identifier selecting another identifier's record.** The scanned
+prefix belongs to `a`; the key belongs to the distinct identifier `a\0b`, whose own join was
+unambiguous. The scan still admits it. A delimiter-free identifier domain is the only thing
+that excludes this. -/
+theorem nonvacuous_nul_prefix_scan_admits_foreign :
+    (['a'] : List Char) ≠ ['a', nul, 'b'] ∧
+      HasPrefix (keyPrefix nul ['a']) (pairKey nul ['a', nul, 'b'] ['1']) ∧
+      ¬ HasPrefix (keyPrefix nul ['a']) (pairKey nul ['b'] ['1']) := by
+  refine ⟨by decide, ⟨['b', nul, '1'], rfl⟩, ?_⟩
+  rintro ⟨rest, shape⟩
+  simp [keyPrefix, pairKey] at shape
 
 end AgentCore.Examples
