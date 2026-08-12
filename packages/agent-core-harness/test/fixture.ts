@@ -148,6 +148,7 @@ export interface RunFixture {
     readonly content: MemoryContentStore;
     readonly token: LeaseToken;
     readonly input: ContentRef;
+    readonly inputDigest: Digest;
 }
 
 /** A live Run with one claimed Turn, built entirely through supported exports. */
@@ -188,7 +189,8 @@ export async function seedRunningTurn(inputText: string): Promise<RunFixture> {
         root
     });
 
-    const input = (await content.put(new TextEncoder().encode(inputText))).ref;
+    const stored = await content.put(new TextEncoder().encode(inputText));
+    const input = stored.ref;
     const placement = new TurnPlacementSnapshot(ids.turn, snapshot.pins, [
         new PlacementPin({
             facet: ids.facet,
@@ -223,7 +225,8 @@ export async function seedRunningTurn(inputText: string): Promise<RunFixture> {
         repository,
         content,
         token: Object.freeze({ turn: ids.turn, holder: ids.holder, epoch: 1 }),
-        input
+        input,
+        inputDigest: stored.digest
     };
 }
 

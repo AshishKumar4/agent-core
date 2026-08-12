@@ -1,10 +1,5 @@
 import { RunCommit, TurnExecutor } from "@agent-core/core/agents/runs";
-import type {
-    TurnBoundOperation,
-    TurnContext,
-    TurnInboxEntry,
-    TurnOutcome
-} from "@agent-core/core/agents/runs";
+import type { TurnBoundOperation, TurnContext, TurnOutcome } from "@agent-core/core/agents/runs";
 import { RunCommitId } from "@agent-core/core/agents/runs";
 import type { ContentRef } from "@agent-core/core/core";
 import { OperationRequestKey } from "@agent-core/core/operations";
@@ -55,9 +50,7 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
         for (let step = 0; step < this.options.maximumSteps; step += 1) {
             const cancellation = await this.observedCancellation(turn, cursor);
             cursor = cancellation.cursor;
-            if (cancellation.entry !== undefined) {
-                return this.cancel(turn, transcript, head, cancellation.entry);
-            }
+            if (cancellation.cancelled) return turn.outcome.cancelled();
 
             const promptRef = (await turn.content.put(TranscriptCodec.encode(transcript))).ref;
             const reply = await turn.model.call({ prompt: promptRef });
@@ -130,12 +123,13 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
 
     /**
      * The durable inbox is the queue: each step re-reads it and stops committing as
-     * soon as a cancellation for this exact lease is present (§5.6).
+     * soon as a cancellation for this exact lease is present (§5.6). The cancellation
+     * transition itself is the runtime's — the executor only reports the evidence.
      */
     private async observedCancellation(
         turn: TurnContext,
         cursor: number
-    ): Promise<{ readonly cursor: number; readonly entry: TurnInboxEntry | undefined }> {
+    ): Promise<{ readonly cursor: number; readonly cancelled: boolean }> {
         const entries = await turn.inbox.read(cursor);
         const next = entries.reduce(
             (highest, entry) => Math.max(highest, entry.sequence + 1),
@@ -143,25 +137,8 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
         );
         return {
             cursor: next,
-            entry: entries.find((entry) => entry.event === "turn.cancel")
+            cancelled: entries.some((entry) => entry.event === "turn.cancel")
         };
-    }
-
-    private async cancel(
-        turn: TurnContext,
-        transcript: Transcript,
-        head: RunCommitId,
-        entry: TurnInboxEntry
-    ): Promise<TurnOutcome> {
-        const stored = await turn.content.put(
-            TranscriptCodec.encode(
-                transcript.append(new AssistantMessage("Turn was cancelled before completion."))
-            )
-        );
-        return turn.outcome.cancel(
-            resultCommit(turn, `${turn.turn.id.value}-cancelled`, head, stored.ref),
-            entry
-        );
     }
 }
 

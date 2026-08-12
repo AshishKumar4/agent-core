@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
     TurnExecutorHost,
+    TurnInboxEntry,
+    TurnInboxEntryId,
     TurnMediatedInvocationPort,
     TurnStreamPort,
     type TurnMediatedInvocationRequest,
@@ -23,7 +25,7 @@ import {
     type ModelCompletion,
     type ModelRequest
 } from "../src/index";
-import { boundOperation, ids, seedRunningTurn } from "./fixture";
+import { boundOperation, ids, seedRunningTurn, type RunFixture } from "./fixture";
 
 class ScriptedModelProvider extends ModelProvider {
     public readonly requests: ModelRequest[] = [];
@@ -68,6 +70,27 @@ function reply(text: string, calls: readonly ToolCall[] = []): ModelCompletion {
         message: new AssistantMessage(text, calls),
         usage: { inputTokens: 11, outputTokens: 7 }
     };
+}
+
+function deliverCancellation(fixture: RunFixture): void {
+    // The runtime inserts turn.cancel only from its own cancellation paths, so the
+    // fixture writes the same entry the runtime's appendCancellation would.
+    fixture.repository.transaction((transaction) => {
+        fixture.repository.insertInbox(
+            transaction,
+            new TurnInboxEntry(
+                new TurnInboxEntryId("cancel-1"),
+                ids.turn,
+                0,
+                "turn.cancel",
+                fixture.input,
+                fixture.inputDigest,
+                "cancel-key",
+                fixture.token,
+                new Date(1_500)
+            )
+        );
+    });
 }
 
 async function runLoop(
@@ -280,6 +303,31 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
             expect(stored.messages.at(-1)).toMatchObject({
                 text: "Step budget of 2 model calls was exhausted."
             });
+        }
+    );
+
+    test(
+        "stops committing and settles as cancelled once turn.cancel reaches the inbox",
+        { tags: "p0" },
+        async () => {
+            const fixture = await seedRunningTurn("Where did I park?");
+            const provider = new ScriptedModelProvider([reply("You parked on level 3.")]);
+            deliverCancellation(fixture);
+
+            const outcome = await new TurnExecutorHost({
+                runtime: fixture.runtime,
+                executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
+                content: fixture.content,
+                operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
+                prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
+                invocations: new RecordingInvocationPort(),
+                model: new TranscriptTurnModelPort(provider, fixture.content),
+                stream: new RecordingStreamPort(),
+                now: () => new Date(2_000)
+            }).execute(fixture.token);
+
+            expect(outcome.kind).toBe("cancelled");
+            expect(provider.requests).toHaveLength(0);
         }
     );
 
