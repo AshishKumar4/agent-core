@@ -17,6 +17,11 @@
       "description": "Quality checks form one nonrecursive acyclic graph"
     },
     {
+      "id": "ACQ-EQUIV",
+      "node": "mutation",
+      "description": "A surviving mutant is excused only by its own falsifiable, individually proven equivalence register entry"
+    },
+    {
       "id": "ACQ-ERR",
       "node": "architecture",
       "description": "Runtime failures use the closed AgentCoreError taxonomy"
