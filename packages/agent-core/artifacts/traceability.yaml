@@ -2219,6 +2219,53 @@
       ]
     },
     {
+      "id": "AC-MATERIALIZER-001",
+      "summary": "Blueprint materializer idempotence for Subscriptions (§9.3): re-materializing an already-installed SubscriptionTemplate is a stored no-op, never a duplicate SubscriptionId, so AC-ROUTING-001's per-Subscription at-most-once is the materialized automation's end-to-end at-most-once",
+      "status": "proved-safety",
+      "boundary": "materialize installs a template never before materialized under its Blueprint at a fresh SubscriptionId, indexed by (blueprint, template.name) and declared in the routing ledger with the exact derived RoutedSubscription. already_materialized_template_cannot_rematerialize proves no materialize step for an already-installed (blueprint, template.name) is ever admissible again, whatever SubscriptionId it would use; reconcile is the only path once installed, and it is a proved stored identity; materialize_step_preserves_installed_mapping shows the installed id is stable across every later transition. Together these mean a declared automation has exactly one SubscriptionId for its entire lifetime, so AC-ROUTING-001's consumed_key_never_refires closes the automation end-to-end, not just one of several Subscriptions that might race to fire it. General Package/Blueprint validation, loading, contribution assembly, and materialization of Facet installs/Bindings/slots/policies/scope scaffolding are not modeled -- only the Subscription-materialization slice.",
+      "definitions": [
+        "AgentCore.SubscriptionTemplateName",
+        "AgentCore.SubscriptionTemplate",
+        "AgentCore.SubscriptionTemplate.materialize",
+        "AgentCore.MaterializerLedger",
+        "AgentCore.MaterializerLedger.boot",
+        "AgentCore.MaterializeLabel",
+        "AgentCore.MaterializeStep"
+      ],
+      "theorems": [
+        "AgentCore.materialize_registers_exact_subscription",
+        "AgentCore.already_materialized_template_cannot_rematerialize",
+        "AgentCore.reconcile_is_stored_identity",
+        "AgentCore.materialize_step_preserves_installed_mapping",
+        "AgentCore.materialized_automation_has_unique_firing_subscription"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+      ],
+      "witnessCoverage": {
+        "AgentCore.materialize_registers_exact_subscription": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.already_materialized_template_cannot_rematerialize": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.reconcile_is_stored_identity": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.materialize_step_preserves_installed_mapping": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.materialized_automation_has_unique_firing_subscription": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ]
+      },
+      "remainingEvidence": [
+        "general Package/Blueprint validation, loading, and contribution assembly beyond Subscription materialization",
+        "materialization of Facet installs, Bindings, slots, policies, and scope scaffolding",
+        "concrete SubscriptionId derivation/allocation mechanics and Blueprint-managed-record adoption/removal semantics"
+      ]
+    },
+    {
       "id": "AC-ENVIRONMENT-001",
       "summary": "Environment Session lifecycle: Turn-owned fail-closed use, terminal close with child disposal, rotation pinning, explicit egress binding, credential isolation, and fail-closed preview exposure",
       "status": "proved-safety",
@@ -2672,7 +2719,7 @@
     },
     {
       "id": "NC-BLUEPRINT-MATERIALIZATION",
-      "summary": "Exact Package and Blueprint validation, loading, contribution assembly, and Blueprint materialization are not modeled.",
+      "summary": "General Package and Blueprint validation, loading, contribution assembly, and materialization of Facet installs/Bindings/slots/policies/scope scaffolding are not modeled; Subscription-materialization idempotence -- re-materializing an already-installed template is a stored no-op, never a duplicate SubscriptionId -- is claimed under AC-MATERIALIZER-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -2891,7 +2938,8 @@
         "requirementIds": [
           "AC-MATERIALIZE-001",
           "AC-PLACEMENT-001",
-          "AC-RUN-001"
+          "AC-RUN-001",
+          "AC-MATERIALIZER-001"
         ],
         "nonClaimIds": [
           "NC-BLUEPRINT-MATERIALIZATION"

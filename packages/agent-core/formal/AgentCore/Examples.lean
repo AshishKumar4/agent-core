@@ -5,6 +5,7 @@ import AgentCore.Commands
 import AgentCore.Dispatcher
 import AgentCore.Secrets
 import AgentCore.Content
+import AgentCore.Materializer
 
 /-! Constructive witnesses for the final designated claim families. -/
 
@@ -5453,5 +5454,45 @@ theorem nonvacuous_collected_owned_content_is_unreachable :
     ¬ ContentReachable
         { ContentLedger.boot with owningRecords := mark2 ContentLedger.boot.owningRecords contentRef1 contentOwningRecord } :=
   collected_owned_content_is_unreachable (Or.inl ⟨rfl, rfl⟩) rfl
+
+/-! ## Blueprint materializer idempotence witnesses (SPEC §9.3) -/
+
+private def materializerBlueprint : BlueprintId := ⟨1⟩
+private def materializerTemplateName : SubscriptionTemplateName := ⟨1⟩
+private def materializerTemplate : SubscriptionTemplate :=
+  ⟨materializerTemplateName, routedTenant, routedTarget, fun tier => tier == TrustTier.owner⟩
+private def materializerSubId : SubscriptionId := ⟨1⟩
+
+private def materializedLedger : MaterializerLedger :=
+  { installed := fun candidateBlueprint candidateName =>
+      if candidateBlueprint = materializerBlueprint ∧ candidateName = materializerTemplateName
+        then some materializerSubId
+        else MaterializerLedger.boot.installed candidateBlueprint candidateName
+    routing := { MaterializerLedger.boot.routing with
+      subscriptions := tableSet MaterializerLedger.boot.routing.subscriptions materializerSubId
+        materializerTemplate.materialize } }
+
+private def materializeStep :
+    MaterializeStep MaterializerLedger.boot
+      (.materialize materializerBlueprint materializerTemplate materializerSubId) materializedLedger :=
+  MaterializeStep.materialize rfl rfl
+
+/-- Materializing a declared automation once installs it at one `SubscriptionId`;
+    re-applying the Blueprint reconciles to the identical no-op; and no second
+    `materialize` step for the same `(blueprint, template)` is ever admissible again —
+    whatever `SubscriptionId` it would try to use. Two distinct Subscriptions for one
+    declared automation, the concrete way "duplicate Subscriptions defeat end-to-end
+    at-most-once" would happen, is excluded by construction. -/
+theorem nonvacuous_materialize_then_reconcile_never_duplicates :
+    MaterializeStep MaterializerLedger.boot
+      (.materialize materializerBlueprint materializerTemplate materializerSubId)
+      materializedLedger ∧
+    MaterializeStep materializedLedger (.reconcile materializerBlueprint materializerTemplate)
+      materializedLedger ∧
+    ∀ after otherId, ¬ MaterializeStep materializedLedger
+      (.materialize materializerBlueprint materializerTemplate otherId) after :=
+  ⟨materializeStep, MaterializeStep.reconcile rfl,
+    fun _ _ => already_materialized_template_cannot_rematerialize
+      (existing := materializerSubId) rfl⟩
 
 end AgentCore.Examples

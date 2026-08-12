@@ -92,6 +92,13 @@ import AgentCore
 #print axioms AgentCore.reachable_owned_implies_stored
 #print axioms AgentCore.collected_owned_content_is_unreachable
 
+-- Blueprint materializer idempotence for Subscriptions (SPEC §9.3).
+#print axioms AgentCore.materialize_registers_exact_subscription
+#print axioms AgentCore.already_materialized_template_cannot_rematerialize
+#print axioms AgentCore.reconcile_is_stored_identity
+#print axioms AgentCore.materialize_step_preserves_installed_mapping
+#print axioms AgentCore.materialized_automation_has_unique_firing_subscription
+
 -- Environment Sessions: Turn-owned use, fail-closed lifecycle, credential isolation.
 #print axioms AgentCore.session_use_is_turn_owned_and_live
 #print axioms AgentCore.stale_session_admits_nothing
@@ -425,6 +432,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_content_custody_lifecycle
 #print axioms AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution
 #print axioms AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable
+#print axioms AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates
 #print axioms AgentCore.Examples.nonvacuous_credential_isolated_session_trace
 #print axioms AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable
 #print axioms AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection
