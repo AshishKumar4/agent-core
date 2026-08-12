@@ -594,16 +594,16 @@
       "id": "C13-RUN-TREE-CONFLICT-EXPLICIT",
       "owner": "W5",
       "specAnchor": "C13-RUN-TREE-CONFLICT-EXPLICIT",
-      "specTextSha256": "sha256:85325f46d0e0866d5a28c3275f34524a427c7ebe674394b14f0a2babe5630cbc",
+      "specTextSha256": "sha256:029db6c76e9c09677816b4e7d97814755a6a50cf267fb345fa701ff2ccc7e24d",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The resolution record shape and merge validation exist (TreeMergeResolution, validateMerge, verifyTree seam), but conflict detection does not: no per-path tree model exists over the single opaque tree checkpoint digest, so 'paths changed on both sides' cannot be computed, and no unresolved-conflict state blocks a merge commit",
-        "policies.treeMerge has no declaration site \u2014 PolicySet is a closed-key codec-major-2 record owned by W4 \u2014 and nothing binds each PathResolution.side to operator or administer-impact provenance",
-        "SPEC gaps: 'the operator' is not a defined primitive, treeMerge is absent from the Blueprint policy enumeration, and the implementation's base/environment fields on TreeMergeResolution exceed the \u00a75.2 record shape"
+        "\u00a75.2.1 now closes every named spec gap by composition: 'the operator' is defined as the authenticated Principal invoking the administer-impact merge-resolution Operation \u2014 there was never a second resolution path, just one mechanism the prose named twice; policies.treeMerge is specified as one more field of PolicySet (\u00a79.2) alongside tiers/approvals/placement, not a new artifact; and the SPEC's TreeMergeResolution type now carries the base/environment fields the implementation already has, closing that mismatch",
+        "PolicySet (src/definition/policy.ts) still has no treeMerge field \u2014 a closed-key codec-major-3 change to one existing W4 record, now scoped precisely \u2014 and commit.ts's environment field is a bare string rather than EnvironmentId, a small typing fix bundled with whatever implementation lands the field",
+        "Conflict detection itself remains entirely unimplemented: no per-path tree model exists over the single opaque tree checkpoint digest, so 'paths changed on both sides' cannot be computed and no unresolved-conflict state blocks a merge commit. This is the substantial remaining piece \u2014 a real diff engine over ContentStore-addressed trees \u2014 genuine W5 implementation scope, not a spec ambiguity"
       ]
     },
     {

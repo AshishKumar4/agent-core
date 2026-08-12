@@ -1197,15 +1197,21 @@ its parents without re-running anything. `synthesize` is the mixture-of-agents c
 **Tree conflicts.** Tree merge is defined only for the same binary parent pair, over
 the same Environment and one common-ancestor tree. The platform MUST resolve the tree
 separately and record the outcome on the merge commit's `treeCheckpoint`. A merge with
-more than two tree inputs is invalid rather than implementation-defined. The
-`policies.treeMerge` policy has three settings and MUST NOT pick silently:
+more than two tree inputs is invalid rather than implementation-defined.
+`policies.treeMerge` is a field of `PolicySet` (§9.2) alongside `tiers`, `approvals`, and
+`placement` — one more declared policy, not a new artifact — naming three settings and
+never picking silently:
 
 - `ours` / `theirs` — take one side's tree wholesale (the resolution records which);
 - `perPath` — take, per path, the side that changed it relative to the common ancestor;
   paths changed on **both** sides are conflicts and are surfaced, not guessed. No merge
-  commit is appended while any conflict is unresolved. The operator or an
-  `administer`-impact Operation supplies an explicit side for every conflict; the final
-  merge records those path resolutions. This maps to **C13-RUN-TREE-CONFLICT-EXPLICIT**.
+  commit is appended while any conflict is unresolved. **The operator** is the
+  authenticated Principal who invokes the `administer`-impact merge-resolution Operation
+  for this Run's Scope — the term names who that Operation's caller is, not a second
+  resolution path: there is exactly one mechanism, an `administer`-impact Operation, and
+  "the operator" is how this document refers to whoever legitimately calls it. That
+  Operation supplies an explicit side for every conflict; the final merge records those
+  path resolutions. This maps to **C13-RUN-TREE-CONFLICT-EXPLICIT**.
 
 A platform that never merges over a shared tree (each branch owns a disjoint Environment,
 the Cognition read/write-split pattern) never encounters tree conflicts and MAY omit
@@ -1253,9 +1259,14 @@ type MergeResolution =
       readonly receipt: ReceiptId };
 
 type TreeMergeResolution =
-  | { readonly policy: "ours" | "theirs"; readonly side: RunCommitId }
-  | { readonly policy: "perPath"; readonly resolutions: readonly PathResolution[] };
+  | { readonly policy: "ours" | "theirs"; readonly side: RunCommitId;
+      readonly base: ContentRef; readonly environment: EnvironmentId }
+  | { readonly policy: "perPath"; readonly resolutions: readonly PathResolution[];
+      readonly base: ContentRef; readonly environment: EnvironmentId };
 
+// `base` and `environment` name the exact common-ancestor tree and the Environment the
+// merge resolved over — the two facts "the same Environment and one common-ancestor
+// tree" (below) requires a reader be able to check without re-deriving them.
 interface PathResolution {
   readonly path: string;
   readonly side: RunCommitId;
