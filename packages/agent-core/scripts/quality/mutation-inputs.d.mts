@@ -1,3 +1,5 @@
+import type { EquivalenceEntry } from "./mutation-equivalence.mjs";
+
 export function sourceAreas(): string[];
 export function mutationTestFiles(): string[];
-export function mutationFingerprint(area: string): string;
+export function mutationFingerprint(area: string, register?: readonly EquivalenceEntry[]): string;

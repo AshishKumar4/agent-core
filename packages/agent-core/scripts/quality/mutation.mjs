@@ -17,10 +17,27 @@
 //   tolerated  — mutants of human-facing message text inside throw sites. Tests assert
 //                error codes and types, not prose; killing these would pin every message
 //                string without adding behavioral confidence.
+//   equivalent — mutants whose own entry in artifacts/quality/mutation-equivalence.json
+//                proves no test can distinguish them. See mutation-equivalence.mjs; this
+//                is the only way a survivor is excused, and there is no count-level
+//                override. An actionable count that rises is closed by killing the
+//                mutants or by proving them one at a time.
+//
+// The baseline holds counts, the register holds proofs, and neither restates the other:
+// `mutants` counts every mutant Stryker ran, `killed + actionable + tolerated` counts the
+// ones the register says nothing about, and the difference is exactly the entries the
+// register carries for that area.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
+import {
+    auditEquivalenceAnchors,
+    equivalenceArea,
+    equivalenceKey,
+    readEquivalenceRegister,
+    reconcileEquivalence
+} from "./mutation-equivalence.mjs";
 import {
     artifactRoot,
     packageRoot,
@@ -31,6 +48,9 @@ import {
 
 const options = parseArguments(process.argv.slice(2));
 const baselinePath = options.baseline ?? resolve(artifactRoot, "quality/mutation-baseline.json");
+const registerPath =
+    options.registerArtifact ?? resolve(artifactRoot, "quality/mutation-equivalence.json");
+const register = readEquivalenceRegister(await readCanonicalJson(registerPath));
 
 if (options.gate) {
     // The gate follows the project's two-stage discipline. While the SPEC conformance
@@ -47,6 +67,16 @@ if (options.gate) {
     const failures = [];
     const notes = [];
     const expectedAreas = sourceAreas();
+    // Whether a registered mutant still survives is only knowable at measure time, and is
+    // enforced there. What the gate can settle on every run is that each entry still
+    // anchors exactly one site in the tree it claims to describe, so a proof cannot quietly
+    // outlive the code it was written about.
+    failures.push(
+        ...auditEquivalenceAnchors(register, expectedAreas, (file) => {
+            const path = resolve(packageRoot, file);
+            return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+        })
+    );
     const recordedAreas = Object.keys(baseline.areas).sort();
     const unmeasured = expectedAreas.filter((area) => baseline.areas[area] === undefined);
     if (unmeasured.length > 0) {
@@ -60,9 +90,11 @@ if (options.gate) {
     for (const area of expectedAreas) {
         const entry = baseline.areas[area];
         if (entry === undefined) continue;
+        const proven = register.filter((item) => equivalenceArea(item.file) === area).length;
         console.log(
             `${area}: score ${entry.score}%, ${entry.actionable} actionable, ` +
-                `${entry.tolerated} tolerated of ${entry.mutants} mutants`
+                `${entry.tolerated} tolerated, ${proven} proven equivalent ` +
+                `of ${entry.mutants} mutants`
         );
         if (entry.actionable > 0) {
             (finalStage ? failures : notes).push(`${area}: ${entry.actionable} actionable`);
@@ -117,25 +149,58 @@ for (const [testPath, testFile] of Object.entries(report.testFiles ?? {})) {
         testSelectors.set(String(test.id), `${testPath}#${test.name}`);
     }
 }
-const summary = { mutants: 0, killed: 0, actionable: 0, tolerated: 0, survivors: [] };
+const { equivalent, refuted, stale, ambiguous } = reconcileEquivalence(report, register);
+const registerFailures = [
+    ...refuted.map(({ entry, mutant }) => {
+        const by = killingTests(mutant);
+        return (
+            `refuted — ${equivalenceKey(entry)} is reported ${mutant.status}` +
+            `${by.length === 0 ? "" : ` by ${by.join(", ")}`}; the proof is wrong`
+        );
+    }),
+    ...stale.map((entry) => `stale — ${equivalenceKey(entry)} no longer anchors a live mutant`),
+    ...ambiguous.map(
+        ({ entry, matches }) =>
+            `ambiguous — ${equivalenceKey(entry)} anchors ${matches.length} mutants; ` +
+            "one proof excuses one mutant"
+    )
+];
+if (registerFailures.length > 0) {
+    throw new TypeError(`Mutation equivalence register failed:\n${registerFailures.join("\n")}`);
+}
+
+const summary = {
+    mutants: 0,
+    killed: 0,
+    actionable: 0,
+    tolerated: 0,
+    equivalent: 0,
+    survivors: []
+};
 const measuredFiles = new Map();
 const kills = new Map();
 const messageHelperCall = messageHelperPattern();
 for (const [path, file] of Object.entries(report.files)) {
-    const text = readFileSync(resolve(packageRoot, path), "utf8");
-    const source = text.split("\n");
-    const measured = { mutants: 0, sha256: `sha256:${sha256(text)}` };
+    const source = file.source.split("\n");
+    const measured = { mutants: 0, sha256: `sha256:${sha256(file.source)}` };
     measuredFiles.set(path, measured);
     for (const mutant of file.mutants) {
         if (mutant.status === "Ignored") continue;
         measured.mutants += 1;
+        summary.mutants += 1;
+        const proven = equivalent.get(mutant.id);
+        if (proven !== undefined) {
+            summary.equivalent += 1;
+            summary.survivors.push(
+                survivorRecord(path, mutant, source, "equivalent", proven.proof)
+            );
+            continue;
+        }
         if (mutant.status === "NoCoverage") {
-            summary.mutants += 1;
             summary.actionable += 1;
             summary.survivors.push(survivorRecord(path, mutant, source, "actionable"));
             continue;
         }
-        summary.mutants += 1;
         if (mutant.status !== "Survived") {
             summary.killed += 1;
             if (mutant.status === "Killed") recordKills(path, mutant);
@@ -167,6 +232,7 @@ await writeCanonicalJson(resolve(packageRoot, `reports/mutation/${options.area}-
     edition: "1.0.0",
     area: options.area,
     ...entry,
+    equivalent: summary.equivalent,
     survivors: summary.survivors
 });
 await writeCanonicalJson(resolve(artifactRoot, `quality/discrimination/${options.area}.json`), {
@@ -193,7 +259,8 @@ await writeCanonicalJson(resolve(artifactRoot, `quality/discrimination/${options
 });
 console.log(
     `${options.area}: score ${score}%, ${summary.actionable} actionable + ` +
-        `${summary.tolerated} tolerated survivors of ${summary.mutants} mutants`
+        `${summary.tolerated} tolerated + ${summary.equivalent} proven equivalent ` +
+        `survivors of ${summary.mutants} mutants`
 );
 
 if (options.update) {
@@ -202,21 +269,7 @@ if (options.update) {
     // so --update — the one path that actually writes the floor — accepted any increase
     // silently, and a re-pin could raise the number it was supposed to hold down.
     if (previous !== undefined && summary.actionable > previous.actionable) {
-        if (options.acceptRegression === undefined) {
-            throw new TypeError(
-                `Mutation ratchet: ${options.area} actionable survivors rose ` +
-                    `${previous.actionable} -> ${summary.actionable}. Kill them, or re-run ` +
-                    `with --accept-regression "<reason>" to record why the floor moves.`
-            );
-        }
-        entry.acceptedRegression = {
-            from: previous.actionable,
-            to: summary.actionable,
-            reason: options.acceptRegression
-        };
-        console.log(
-            `accepting ${previous.actionable} -> ${summary.actionable}: ${options.acceptRegression}`
-        );
+        throw new TypeError(ratchetFailure(previous.actionable, summary.actionable));
     }
     baseline.areas[options.area] = entry;
     await writeCanonicalJson(baselinePath, baseline);
@@ -226,15 +279,30 @@ if (options.update) {
         `Mutation area ${options.area} has no reviewed baseline; rerun with --update from a clean tree`
     );
 } else if (summary.actionable > previous.actionable) {
-    throw new TypeError(
-        `Mutation ratchet: ${options.area} actionable survivors rose ` +
-            `${previous.actionable} -> ${summary.actionable}`
-    );
+    throw new TypeError(ratchetFailure(previous.actionable, summary.actionable));
 } else if (summary.actionable < previous.actionable) {
     console.log(
         `mutation improved ${previous.actionable} -> ${summary.actionable}; ` +
             "review and re-run with --update from a clean tree"
     );
+}
+
+// There is one way out of a rising actionable count and it is per mutant. A count-level
+// override would let one sentence absorb any number of genuine coverage gaps, and nothing
+// could ever contradict it; a register entry names its mutant and dies the moment a test
+// kills it.
+function ratchetFailure(previous, actual) {
+    return (
+        `Mutation ratchet: ${options.area} actionable survivors rose ${previous} -> ${actual}. ` +
+        "Kill them, or prove each equivalent mutant individually in " +
+        "artifacts/quality/mutation-equivalence.json."
+    );
+}
+
+function killingTests(mutant) {
+    return (mutant.killedBy ?? [])
+        .map((id) => testSelectors.get(String(id)))
+        .filter((selector) => selector !== undefined);
 }
 
 function requireCleanWorktree() {
@@ -342,7 +410,7 @@ function sortedObject(map) {
 // cannot say which of them survived — reading `false` against
 // `current === undefined || left < current`, triage cannot tell the surviving operand
 // from the killed whole condition, and reproducing the wrong one invents a phantom.
-function survivorRecord(path, mutant, source, classification) {
+function survivorRecord(path, mutant, source, classification, proof) {
     return {
         file: path,
         line: mutant.location.start.line,
@@ -352,7 +420,8 @@ function survivorRecord(path, mutant, source, classification) {
         mutator: mutant.mutatorName,
         classification,
         replacement: (mutant.replacement ?? "").slice(0, 120),
-        source: (source[mutant.location.start.line - 1] ?? "").trim().slice(0, 160)
+        source: (source[mutant.location.start.line - 1] ?? "").trim().slice(0, 160),
+        ...(proof === undefined ? {} : { proof })
     };
 }
 
@@ -367,22 +436,19 @@ function gitHead() {
 function parseArguments(args) {
     let area;
     let update = false;
-    let acceptRegression;
     let gate = false;
     let baseline;
     let stageArtifact;
+    let registerArtifact;
     for (let index = 0; index < args.length; index += 1) {
         if (args[index] === "--area") area = args[++index];
         else if (args[index] === "--update") update = true;
-        else if (args[index] === "--accept-regression") acceptRegression = args[++index];
         else if (args[index] === "--gate") gate = true;
         else if (args[index] === "--baseline") baseline = args[++index];
         else if (args[index] === "--stage-artifact") stageArtifact = args[++index];
+        else if (args[index] === "--register") registerArtifact = args[++index];
         else throw new TypeError(`Unknown mutation argument ${args[index]}`);
     }
     if (!gate && area === undefined) throw new TypeError("--area or --gate is required");
-    if (acceptRegression !== undefined && !update) {
-        throw new TypeError("--accept-regression requires --update");
-    }
-    return { area, update, acceptRegression, gate, baseline, stageArtifact };
+    return { area, update, gate, baseline, stageArtifact, registerArtifact };
 }

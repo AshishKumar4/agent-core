@@ -32,6 +32,16 @@
       ]
     },
     {
+      "id": "ACQ-EQUIV",
+      "instructions": ["AGENTS.md:351"],
+      "instructionContains": "A surviving mutant is excused from the actionability ratchet only by its own entry",
+      "checker": "scripts/quality/mutation.mjs",
+      "tests": [
+        "test/quality/mutation.test.ts#mutation equivalence register refutes the proof when the registered mutant turns out killable",
+        "test/quality/mutation.test.ts#mutation equivalence anchors names the entry when its file, area, symbol, or anchor has moved on"
+      ]
+    },
+    {
       "id": "ACQ-ERR",
       "instructions": ["AGENTS.md:223-225"],
       "instructionContains": "Runtime/domain failures",
