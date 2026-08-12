@@ -68,10 +68,13 @@ try {
 import {
     DurableObjectEnvironmentProvider,
     DynamicWorkerLoaderAdapter,
+    WorkerLoaderAuthoredCodeBacking,
+    createPassedCapabilityFactory,
     type CloudflareErrorPort,
     type DynamicWorkerLoadOptions
 } from "@agent-core/cloudflare";
 import { AgentCoreError } from "@agent-core/core";
+import { AuthoredCodeBacking } from "@agent-core/core/operations";
 import { EnvironmentProvider } from "@agent-core/core/environment-provider";
 import { SlateProvider } from "@agent-core/core/slate-provider";
 
@@ -88,14 +91,22 @@ const options: DynamicWorkerLoadOptions = {
     compatibilityDate: "2026-07-10",
     mainModule: "index.js",
     modules: { "index.js": "export default {}" },
-    env: { CAPABILITY: "allowed" },
+    env: {},
     globalOutbound: null
 };
 const adapter = new DynamicWorkerLoaderAdapter({
     load: (_value: DynamicWorkerLoadOptions) => ({ getEntrypoint: () => ({}) })
-}, ["CAPABILITY"], errors);
+}, errors);
+const backing = new WorkerLoaderAuthoredCodeBacking(
+    adapter,
+    "2026-07-10",
+    createPassedCapabilityFactory(class {}),
+    errors
+);
+const canonicalBacking: AuthoredCodeBacking = backing;
 void options;
 void adapter;
+void canonicalBacking;
 void canonicalEnvironmentProvider;
 void canonicalSlateProvider;
 `

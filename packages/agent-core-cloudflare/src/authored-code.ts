@@ -16,10 +16,10 @@ export const DISPATCH_NAMESPACE_BACKING = new AuthoredCodeBackingId("dispatchNam
 
 /**
  * The one call a §4.7 isolate ever receives. The delegated capability set arrives here
- * and never as an ambient binding: a Worker Loader `env` is structured-cloned and
- * cannot carry a live capability at all, and a dispatch namespace's `env` belongs to
- * its own deployment. So the isolate starts holding nothing, and this argument is the
- * whole of what it is handed.
+ * and never as an ambient binding: a Worker Loader `env` is structured-cloned and cannot
+ * carry a live capability at all, and a dispatch namespace's `env` belongs to its own
+ * deployment. So the isolate starts holding nothing, and this argument is the whole of
+ * what it is handed.
  */
 export interface AuthoredCodeCallLike {
     readonly capabilities: PassedCapabilities;
@@ -49,7 +49,7 @@ export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
     }
 
     public async run(request: AuthoredCodeRunRequest): Promise<FacetData> {
-        const scope = this.loader.load<AuthoredCodeEntrypointLike>(
+        const scope = this.loader.load(
             {
                 compatibilityDate: this.compatibilityDate,
                 mainModule: request.entry,
@@ -58,24 +58,14 @@ export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
             (entrypoint) => requireEntrypoint(entrypoint, this.errors)
         );
         try {
-            return requireReturnedValue(
-                await scope.entrypoint.run(this.call(request)),
-                this.errors
+            const returned = await scope.entrypoint.run(
+                authoredCodeCall(request, this.capabilities)
             );
+            if (!isFacetData(returned)) notData(this.errors);
+            return returned;
         } finally {
             scope[Symbol.dispose]();
         }
-    }
-
-    private call(request: AuthoredCodeRunRequest): AuthoredCodeCallLike {
-        return {
-            capabilities: passedCapabilities(
-                request.capabilities,
-                request.invocations,
-                this.capabilities
-            ),
-            input: request.input
-        };
     }
 }
 
@@ -105,31 +95,31 @@ export class DispatchNamespaceAuthoredCodeBacking extends AuthoredCodeBacking {
     }
 
     public async run(request: AuthoredCodeRunRequest): Promise<FacetData> {
-        const entrypoint: AuthoredCodeEntrypointLike = requireEntrypoint(
+        const entrypoint = requireEntrypoint(
             this.namespace.resolve(this.naming(request)),
             this.errors
         );
-        return requireReturnedValue(await entrypoint.run(this.call(request)), this.errors);
-    }
-
-    private call(request: AuthoredCodeRunRequest): AuthoredCodeCallLike {
-        return {
-            capabilities: passedCapabilities(
-                request.capabilities,
-                request.invocations,
-                this.capabilities
-            ),
-            input: request.input
-        };
+        const returned = await entrypoint.run(authoredCodeCall(request, this.capabilities));
+        if (!isFacetData(returned)) notData(this.errors);
+        return returned;
     }
 }
 
-interface AuthoredCodeRunner {
-    run(...args: unknown[]): unknown;
+function authoredCodeCall(
+    request: AuthoredCodeRunRequest,
+    capabilities: PassedCapabilityFactory
+): AuthoredCodeCallLike {
+    return {
+        capabilities: passedCapabilities(request.capabilities, request.invocations, capabilities),
+        input: request.input
+    };
 }
 
-function requireEntrypoint(value: unknown, errors: CloudflareErrorPort): AuthoredCodeRunner {
-    if (!isRunner(value)) {
+function requireEntrypoint(
+    value: unknown,
+    errors: CloudflareErrorPort
+): AuthoredCodeEntrypointLike {
+    if (!isEntrypoint(value)) {
         operationalFailure(
             errors,
             "operation.invalid-output",
@@ -139,19 +129,16 @@ function requireEntrypoint(value: unknown, errors: CloudflareErrorPort): Authore
     return value;
 }
 
-function isRunner(value: unknown): value is AuthoredCodeRunner {
+function isEntrypoint(value: unknown): value is AuthoredCodeEntrypointLike {
     return (typeof value === "object" && value !== null) || typeof value === "function"
         ? typeof Reflect.get(value, "run") === "function"
         : false;
 }
 
-function requireReturnedValue(value: unknown, errors: CloudflareErrorPort): FacetData {
-    if (!isFacetData(value)) {
-        operationalFailure(
-            errors,
-            "operation.invalid-output",
-            "Agent-authored code returned a value that is not data"
-        );
-    }
-    return value;
+function notData(errors: CloudflareErrorPort): never {
+    operationalFailure(
+        errors,
+        "operation.invalid-output",
+        "Agent-authored code returned a value that is not data"
+    );
 }

@@ -93,16 +93,21 @@
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-AUTHORED-BACKING",
       "specTextSha256": "sha256:ed466b5774deae1cc7f2dbccf15a9f3fbd578e87e8a83dff397b79819a28aefd",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "\u00a74.7/\u00a710.2 now name the declaration site (policies.placement, \u00a79.2 \u2014 one more consumer \u2192 backing id mapping alongside the isolation-mode admissibility PlacementPolicy already declares, not a new artifact), the closed consumer set (the three \u00a74.7-named consumers, which is also now the agent-authored-code marker: membership in that closed set, not a runtime flag), canonical backing ids for the Cloudflare profile (workerLoader, dispatchNamespace), and the equivalence procedure (each backing independently satisfies the \u00a71.5 dynamic-mode invariants under C13-PLACEMENT-DYNAMIC-NO-EGRESS; never a comparison between backings)",
-        "PlacementPolicy (src/definition/placement.ts) still has no backings field. quality/unify-placement (merged into main after this atom's SPEC amendment) already spent PlacementPolicy's major-2 bump on an unrelated field (`trusted`, for C13-PLACEMENT-UNTRUSTED-BUNDLED); adding consumer \u2192 backing id is now a closed-key codec-major-3 change to that record, not major-2 as first scoped",
-        "Verifying this atom needs that field plus a selector reading it (a TurnPlacementSnapshot/composition consumer choosing a backing id per \u00a74.7 consumer) and adversarial evidence that an unmapped consumer falls back to the profile default rather than an arbitrary backing"
-      ]
+      "sourceSymbols": [
+        "src/definition/placement.ts#AuthoredCodeBackingPolicy",
+        "src/definition/placement.ts#PlacementPolicy"
+      ],
+      "testSelectors": [
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from the backing the Blueprint named",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] sends an unmapped consumer to the profile's declared default",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] round-trips the declaration through the placement record",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] admits only the three \u00a74.7 consumers",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] rejects a placement record whose declaration is malformed"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",

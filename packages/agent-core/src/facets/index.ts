@@ -15,7 +15,6 @@ export {
 } from "./id";
 export {
     AUTHORED_CODE_CONSUMERS,
-    AuthoredCodeBackingPolicy,
     AuthoredCodeSource,
     requireAuthoredCodeConsumer
 } from "./authored-code";

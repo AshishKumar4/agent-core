@@ -65,6 +65,7 @@
   "runtime": {
     "@agent-core/core": [
       "ACTOR_STATE_SNAPSHOT",
+      "AUTHORED_CODE_CONSUMERS",
       "Actor",
       "ActorActivation",
       "ActorCommitUnknownError",
@@ -82,6 +83,18 @@
       "AuditRecord",
       "AuditRecordCodec",
       "AuditRecordId",
+      "AuthoredCodeBacking",
+      "AuthoredCodeBackingId",
+      "AuthoredCodeBackingPolicy",
+      "AuthoredCodeBackingSet",
+      "AuthoredCodeCapability",
+      "AuthoredCodeCapabilitySet",
+      "AuthoredCodeDelegation",
+      "AuthoredCodeDelegationPort",
+      "AuthoredCodeHost",
+      "AuthoredCodeInvocationPort",
+      "AuthoredCodeOperation",
+      "AuthoredCodeSource",
       "AuthorityAdmissionReference",
       "AuthorityPermit",
       "AuthorityPermitAuthenticator",
@@ -144,6 +157,7 @@
       "FailClosedRunPinsReservationPort",
       "FieldMapping",
       "FieldMove",
+      "GatewayAuthoredCodeInvocationPort",
       "Grant",
       "GrantId",
       "GuestTrust",
@@ -330,6 +344,7 @@
       "decodeScopeRef",
       "decodeSecretRef",
       "decodeSubjectRef",
+      "decodeSubmission",
       "deriveBatchOutcome",
       "encodeBase64",
       "encodeCanonicalJson",
@@ -527,6 +542,8 @@
     ],
     "@agent-core/core/definition": [
       "ActorPlan",
+      "AuthoredCodeBackingId",
+      "AuthoredCodeBackingPolicy",
       "BASE_CONFIG_SCHEMA",
       "Blueprint",
       "BlueprintDeclarationCodecPort",
@@ -614,6 +631,9 @@
       "validateBlueprint"
     ],
     "@agent-core/core/facets": [
+      "AUTHORED_CODE_CONSUMERS",
+      "AuthoredCodeBackingId",
+      "AuthoredCodeSource",
       "Automation",
       "BindingName",
       "BindingRequirement",
@@ -788,16 +808,27 @@
       "validateStoredAuditShape"
     ],
     "@agent-core/core/operations": [
+      "AuthoredCodeBacking",
+      "AuthoredCodeBackingSet",
+      "AuthoredCodeCapability",
+      "AuthoredCodeCapabilitySet",
+      "AuthoredCodeDelegation",
+      "AuthoredCodeDelegationPort",
+      "AuthoredCodeHost",
+      "AuthoredCodeInvocationPort",
+      "AuthoredCodeOperation",
       "CommandRuntime",
       "ConfirmedOperationFailure",
       "Facet",
       "FacetCorrespondenceValidator",
+      "GatewayAuthoredCodeInvocationPort",
       "Interceptor",
       "Operation",
       "OperationGateway",
       "OperationRequestKey",
       "ResolvedFacet",
-      "Surface"
+      "Surface",
+      "decodeSubmission"
     ],
     "@agent-core/core/protocol": [
       "CommandAuthenticator",
@@ -852,6 +883,7 @@
   "declarations": {
     "@agent-core/core": [
       "ACTOR_STATE_SNAPSHOT",
+      "AUTHORED_CODE_CONSUMERS",
       "Actor",
       "ActorActivation",
       "ActorActivationStore",
@@ -892,6 +924,24 @@
       "AuditRootAdmission",
       "AuthenticatedAuthorityPermit",
       "AuthenticatedPackageInstallation",
+      "AuthoredCodeBacking",
+      "AuthoredCodeBackingId",
+      "AuthoredCodeBackingPolicy",
+      "AuthoredCodeBackingSet",
+      "AuthoredCodeCapability",
+      "AuthoredCodeCapabilitySet",
+      "AuthoredCodeConsumer",
+      "AuthoredCodeDelegation",
+      "AuthoredCodeDelegationPort",
+      "AuthoredCodeDelegationRequest",
+      "AuthoredCodeHost",
+      "AuthoredCodeHostInit",
+      "AuthoredCodeInvocationPort",
+      "AuthoredCodeInvocationRequest",
+      "AuthoredCodeOperation",
+      "AuthoredCodeRunRequest",
+      "AuthoredCodeSource",
+      "AuthoredCodeSubmission",
       "AuthorityAdmissionContext",
       "AuthorityAdmissionPort",
       "AuthorityAdmissionReference",
@@ -1027,6 +1077,7 @@
       "FieldMapping",
       "FieldMove",
       "ForeignPrincipalRef",
+      "GatewayAuthoredCodeInvocationPort",
       "Grant",
       "GrantId",
       "GuestTrust",
@@ -1389,6 +1440,7 @@
       "decodeScopeRef",
       "decodeSecretRef",
       "decodeSubjectRef",
+      "decodeSubmission",
       "deriveBatchOutcome",
       "encodeBase64",
       "encodeCanonicalJson",
@@ -1662,6 +1714,9 @@
       "ActorPlan",
       "ActorPlanInit",
       "AuthenticatedPackageInstallation",
+      "AuthoredCodeBackingId",
+      "AuthoredCodeBackingPolicy",
+      "AuthoredCodeConsumer",
       "BASE_CONFIG_SCHEMA",
       "Blueprint",
       "BlueprintDeclarationCodec",
@@ -1806,6 +1861,10 @@
       "validateBlueprint"
     ],
     "@agent-core/core/facets": [
+      "AUTHORED_CODE_CONSUMERS",
+      "AuthoredCodeBackingId",
+      "AuthoredCodeConsumer",
+      "AuthoredCodeSource",
       "Automation",
       "AutomationAuthority",
       "AutomationInit",
@@ -2105,6 +2164,20 @@
       "validateStoredAuditShape"
     ],
     "@agent-core/core/operations": [
+      "AuthoredCodeBacking",
+      "AuthoredCodeBackingSet",
+      "AuthoredCodeCapability",
+      "AuthoredCodeCapabilitySet",
+      "AuthoredCodeDelegation",
+      "AuthoredCodeDelegationPort",
+      "AuthoredCodeDelegationRequest",
+      "AuthoredCodeHost",
+      "AuthoredCodeHostInit",
+      "AuthoredCodeInvocationPort",
+      "AuthoredCodeInvocationRequest",
+      "AuthoredCodeOperation",
+      "AuthoredCodeRunRequest",
+      "AuthoredCodeSubmission",
       "AuthorityResolution",
       "CommandEventPort",
       "CommandInstallation",
@@ -2116,6 +2189,7 @@
       "Facet",
       "FacetCorrespondenceValidator",
       "FacetLifecycleContext",
+      "GatewayAuthoredCodeInvocationPort",
       "InstalledCommand",
       "InterceptContext",
       "InterceptResult",
@@ -2143,7 +2217,8 @@
       "OperationRequestKey",
       "ResolvedFacet",
       "Surface",
-      "ValidatedFacetRuntime"
+      "ValidatedFacetRuntime",
+      "decodeSubmission"
     ],
     "@agent-core/core/protocol": [
       "CommandAuthenticator",
@@ -2335,9 +2410,7 @@
       "WorkspaceSlotStore",
       "createProtectedProfileRuntime"
     ],
-    "@agent-core/core/substrates/sqlite": [
-      "SqliteWorkspaceSlotStore"
-    ]
+    "@agent-core/core/substrates/sqlite": ["SqliteWorkspaceSlotStore"]
   },
   "forbiddenSubpaths": [
     "@agent-core/core/agents",

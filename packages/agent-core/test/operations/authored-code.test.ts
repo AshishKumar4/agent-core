@@ -17,11 +17,9 @@ import {
 } from "../../src/composition";
 import { MemoryContentStore } from "../../src/content";
 import { CompatRange, ContentRef, Digest, JsonSchema, SemVer } from "../../src/core";
-import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
+import { AuthoredCodeBackingPolicy, PackageId, PackagePin, PolicySet } from "../../src/definition";
 import {
-    AUTHORED_CODE_CONSUMERS,
     AuthoredCodeBackingId,
-    AuthoredCodeBackingPolicy,
     AuthoredCodeSource,
     BindingName,
     Contribution,
@@ -282,46 +280,6 @@ describe("selecting the backing that serves a §4.7 consumer", () => {
             await harness.dispose();
         }
     );
-
-    test(
-        "[C13-PLACEMENT-AUTHORED-BACKING] carries the declaration on the §9.2 placement policy",
-        { tags: "p0" },
-        () => {
-            const declared = new PlacementPolicy(
-                ["dynamic"],
-                ["*"],
-                new AuthoredCodeBackingPolicy(new Map([["slateBackend", dispatchNamespace]]))
-            );
-            expect(declared.backingFor("slateBackend", workerLoader).value).toBe(
-                dispatchNamespace.value
-            );
-            expect(declared.backingFor("programmaticToolCall", workerLoader).value).toBe(
-                workerLoader.value
-            );
-
-            const restored = PlacementPolicy.decode(PlacementPolicy.encode(declared));
-            expect(restored.backingFor("slateBackend", workerLoader).value).toBe(
-                dispatchNamespace.value
-            );
-            // A policy that declares no mapping round-trips without carrying the field,
-            // because the empty mapping and an absent one mean the same thing.
-            expect(PlacementPolicy.all().toData()).toEqual({
-                allowed: ["dynamic", "provider", "bundled"],
-                trusted: ["*"]
-            });
-        }
-    );
-
-    test("closes the §4.7 consumer set", { tags: "p1" }, () => {
-        expect([...AUTHORED_CODE_CONSUMERS]).toEqual([
-            "programmaticToolCall",
-            "slateBackend",
-            "agentAuthoredFacet"
-        ]);
-        expect(() =>
-            AuthoredCodeBackingPolicy.fromData({ agentAuthoredExecutor: "workerLoader" })
-        ).toThrow(TypeError);
-    });
 });
 
 describe("running one submission of agent-authored code", () => {

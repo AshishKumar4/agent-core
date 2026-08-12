@@ -1,14 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Binding } from "../../src/authority/binding";
-import { BindingValidationRequest } from "../../src/authority/binding-evidence";
-import type { PathEpochEvidence } from "../../src/authority/epoch";
-import { AuthorityCheckRequest } from "../../src/authority/evidence";
-import { Grant } from "../../src/authority/grant";
-import { GrantId } from "../../src/authority/id";
-import { MemoryTenantControlStore } from "../../src/authority/memory";
-import { TenantAuthorityRuntime } from "../../src/authority/runtime";
-import { AuthorityMutationService } from "../../src/authority/service";
+import {
+    AuthorityCheckRequest,
+    AuthorityMutationService,
+    Binding,
+    BindingValidationRequest,
+    Grant,
+    GrantId,
+    MemoryTenantControlStore,
+    TenantAuthorityRuntime,
+    type PathEpochEvidence
+} from "../../src/authority";
 import { TenantAuthoredCodeDelegationPort, isolateDomain } from "../../src/composition";
 import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";

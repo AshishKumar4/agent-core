@@ -1,8 +1,8 @@
 import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
 import {
-    AuthoredCodeBackingPolicy,
+    AuthoredCodeBackingId,
     PLACEMENT_PREFERENCE,
-    type AuthoredCodeBackingId,
+    requireAuthoredCodeConsumer,
     type AuthoredCodeConsumer,
     type IsolationMode
 } from "../facets";
@@ -12,10 +12,78 @@ import { compareText } from "./order";
 
 // The vocabulary and its preference order are declared once, in facets/manifest.ts
 // beside the IsolationMode type itself; re-exported here so existing importers of
-// definition's PLACEMENT_PREFERENCE are unaffected. The consumer → backing declaration
-// this record now carries (SPEC §4.7) lives beside the §4.7 shape for the same reason.
-export { PLACEMENT_PREFERENCE, AuthoredCodeBackingPolicy };
+// definition's PLACEMENT_PREFERENCE are unaffected. The §4.7 consumer set and backing
+// identifier live there for the same reason; the policy that maps between them is a
+// §9.2 Blueprint declaration and so lives here, beside PlacementPolicy itself.
+export { PLACEMENT_PREFERENCE, AuthoredCodeBackingId };
 export type { AuthoredCodeConsumer };
+
+/**
+ * Which backing serves which §4.7 consumer, as `policies.placement` declares it
+ * (§9.2). The mapping is partial on purpose: a consumer the Blueprint does not name
+ * uses the substrate profile's declared default backing rather than an arbitrary one.
+ * Backings differ operationally and never in authority, so this record is a hosting
+ * choice and carries no capability.
+ */
+export class AuthoredCodeBackingPolicy {
+    readonly #backings: ReadonlyMap<AuthoredCodeConsumer, AuthoredCodeBackingId>;
+
+    public constructor(backings: ReadonlyMap<AuthoredCodeConsumer, AuthoredCodeBackingId>) {
+        // The consumer set and the identifier type are proved by the constructor's own
+        // signature; `fromData` is the one place an unproved key or value can arrive,
+        // and it validates there rather than here.
+        this.#backings = new Map([...backings].sort(([left], [right]) => compareText(left, right)));
+        Object.freeze(this);
+    }
+
+    public static get unmapped(): AuthoredCodeBackingPolicy {
+        return unmappedBackingPolicy;
+    }
+
+    public static fromData(payload: JsonValue | undefined): AuthoredCodeBackingPolicy {
+        if (payload === undefined) return unmappedBackingPolicy;
+        const object = requireObject(payload, "Agent-authored code backing policy");
+        return new AuthoredCodeBackingPolicy(
+            new Map(
+                Object.entries(object).map(([consumer, backing]) => [
+                    requireAuthoredCodeConsumer(consumer, "Agent-authored code backing consumer"),
+                    new AuthoredCodeBackingId(
+                        requireCanonicalString(
+                            backing,
+                            `Agent-authored code backing for ${consumer}`
+                        )
+                    )
+                ])
+            )
+        );
+    }
+
+    /**
+     * The backing that serves `consumer`: the declared mapping when the Blueprint names
+     * one, and otherwise the profile's declared default. There is no third outcome —
+     * an unmapped consumer never reaches an arbitrary offered backing.
+     */
+    public backingFor(
+        consumer: AuthoredCodeConsumer,
+        profileDefault: AuthoredCodeBackingId
+    ): AuthoredCodeBackingId {
+        return this.#backings.get(consumer) ?? profileDefault;
+    }
+
+    public get isEmpty(): boolean {
+        return this.#backings.size === 0;
+    }
+
+    public get consumers(): readonly AuthoredCodeConsumer[] {
+        return Object.freeze([...this.#backings.keys()]);
+    }
+
+    public toData(): JsonValue {
+        return Object.fromEntries(
+            [...this.#backings].map(([consumer, backing]) => [consumer, backing.value] as const)
+        );
+    }
+}
 
 export type NonemptyIsolationModes = readonly [IsolationMode, ...IsolationMode[]];
 export type PlacementErrorCode = "operation.invalid-input";
@@ -72,9 +140,6 @@ export class PlacementPolicy {
     ) {
         this.allowed = canonicalModes(allowed, "Placement policy");
         this.trusted = canonicalGlobs(trusted);
-        if (!(backings instanceof AuthoredCodeBackingPolicy)) {
-            throw new TypeError("Placement policy backings must be a backing policy");
-        }
         this.backings = backings;
         Object.freeze(this);
     }
@@ -245,7 +310,9 @@ function canonicalModes(modes: readonly IsolationMode[], subject: string): Nonem
 }
 
 function canonicalGlobs(patterns: readonly string[]): readonly string[] {
-    for (const pattern of patterns) requireGlob(pattern, "Placement policy trust pattern");
+    for (const pattern of patterns) {
+        requireCanonicalString(pattern, "Placement policy trust pattern");
+    }
     if (new Set(patterns).size !== patterns.length) {
         throw new TypeError("Placement policy trust patterns must be unique");
     }
@@ -261,10 +328,12 @@ function requireGlobArray(value: JsonValue | undefined, subject: string): readon
     if (!Array.isArray(value)) {
         throw new TypeError(`${subject} must be an array`);
     }
-    return value.map((pattern) => requireGlob(pattern, subject));
+    return value.map((pattern) => requireCanonicalString(pattern, subject));
 }
 
-function requireGlob(value: JsonValue, subject: string): string {
+// Nonblank, already-canonical text: a trust glob and a backing identifier are both
+// exactly that, and neither is normalized on the caller's behalf.
+function requireCanonicalString(value: JsonValue, subject: string): string {
     if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);
     }
@@ -287,4 +356,5 @@ function requireMode(value: JsonValue, subject: string): IsolationMode {
 
 const trustedPlacementModes = Object.freeze([...PLACEMENT_PREFERENCE]) as NonemptyIsolationModes;
 const untrustedPlacementModes = Object.freeze(["dynamic", "provider"] as const);
+const unmappedBackingPolicy = new AuthoredCodeBackingPolicy(new Map());
 const allPlacementPolicy = new PlacementPolicy(PLACEMENT_PREFERENCE);

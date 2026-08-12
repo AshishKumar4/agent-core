@@ -276,17 +276,26 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-ISOLATE-DELEGATION",
       "specTextSha256": "sha256:494305452be6488c1df5f410dbe32e877232187478ff9e118ff38210efdb8f5e",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "No dynamic isolate exists: src/ contains no loader, no capability-passing boundary, and no isolate-scoped Invocation identity, so the delegation the atom bounds has no subject yet",
-        "The delegation primitives (Grant.attenuationOf, validateLineage, revokeGrantClosure) are built; the loader that must consume them is unwritten and its home (src/definition or src/operations) is outside W2's citable evidence",
-        "SPEC \u00a74.7/\u00a73.4 leave the passed capability set's record shape, the isolate's subject identity, and its Grant Scope unspecified; those choices are load-bearing for lineage validation and need spec-owner resolution",
-        "Undeclared prerequisites: C13-PLACEMENT-AUTHORED-BACKING and C13-PLACEMENT-DYNAMIC-NO-EGRESS cover the sibling \u00a74.7 clauses and are still planned"
-      ]
+      "sourceSymbols": [
+        "src/authority/binding.ts#Binding",
+        "src/authority/grant.ts#Grant",
+        "src/authority/service.ts#AuthorityMutationService",
+        "src/composition/authored-code.ts#TenantAuthoredCodeDelegationPort",
+        "src/composition/authored-code.ts#isolateDomain"
+      ],
+      "testSelectors": [
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a \u00a74.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] binds the passed set to attenuations in the isolate's own domain",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a \u00a74.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] revoking a passed Grant severs the isolate and leaves its loader whole",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a \u00a74.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] ends the delegation when the submission ends",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a \u00a74.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] refuses a passed set wider than the delegator holds",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a \u00a74.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] admits an equal or narrower passed set",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a \u00a74.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] refuses a capability the delegator does not hold at all",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a \u00a74.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] gives two submissions two unshared isolate domains"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-AUTH-MEDIATED-ADMISSION",
@@ -321,7 +330,7 @@
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence",
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
+        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (\u00a73.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

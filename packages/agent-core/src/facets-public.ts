@@ -18,11 +18,7 @@ export {
     SlotName,
     SurfaceId
 } from "./facets/id";
-export {
-    AUTHORED_CODE_CONSUMERS,
-    AuthoredCodeBackingPolicy,
-    AuthoredCodeSource
-} from "./facets/authored-code";
+export { AUTHORED_CODE_CONSUMERS, AuthoredCodeSource } from "./facets/authored-code";
 export type { AuthoredCodeConsumer } from "./facets/authored-code";
 export { CapabilitySpec } from "./facets/capability";
 export type { CapabilityIntent, CapabilitySpecInit } from "./facets/capability";
