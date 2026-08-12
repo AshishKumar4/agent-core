@@ -157,22 +157,27 @@ function manifest(): FacetManifest {
 class RecallOperation extends Operation {
     public readonly descriptor = descriptor();
 
-    public constructor(private readonly observed: { signalAborted: boolean; calls: number }) {
+    public constructor(private readonly observed: Observed) {
         super();
     }
 
     public async execute(context: OperationContext, _input: FacetData): Promise<FacetData> {
         this.observed.calls += 1;
-        this.observed.signalAborted = context.signal.aborted;
+        this.observed.signal = context.signal;
         return { attempt: context.attempt?.id.value ?? null };
     }
+}
+
+interface Observed {
+    signal: AbortSignal | undefined;
+    calls: number;
 }
 
 class MemoryFacet extends Facet {
     public readonly ref = facet;
     public readonly manifest = manifest();
 
-    public constructor(private readonly observed: { signalAborted: boolean; calls: number }) {
+    public constructor(private readonly observed: Observed) {
         super();
     }
 
@@ -453,14 +458,14 @@ interface Harness {
     readonly pipeline: MediatedOperationPipeline<PipelineState, DemoAdmission, undefined>;
     readonly transactions: MemoryTransactions;
     readonly authority: DemoAuthorityState;
-    readonly observed: { signalAborted: boolean; calls: number };
+    readonly observed: Observed;
     readonly observations: ReceiptObservation[];
 }
 
 async function harness(): Promise<Harness> {
     const transactions = new MemoryTransactions();
     const authority = new DemoAuthorityState();
-    const observed = { signalAborted: false, calls: 0 };
+    const observed: Observed = { signal: undefined, calls: 0 };
     const observations: ReceiptObservation[] = [];
     const pipeline = await MediatedOperationPipeline.activate<
         PipelineState,
@@ -562,10 +567,11 @@ describe("the published mediation composition root", () => {
         ).rejects.toMatchObject({ code: "lease.invalid" });
         expect(value.observed.calls).toBe(0);
 
+        // The Operation runs under this Turn's own signal, not a substitute.
         const live = new AbortController();
         await value.pipeline.invocations.invoke(invocationRequest(live.signal, "live-request"));
         expect(value.observed.calls).toBe(1);
-        expect(value.observed.signalAborted).toBe(false);
+        expect(value.observed.signal).toBe(live.signal);
         await value.pipeline.dispose();
     });
 
@@ -618,7 +624,7 @@ describe("the published mediation composition root", () => {
                 evidence: new MemoryInvocationMediationPersistence(),
                 authority: new DemoAuthorityState(),
                 manifests: [manifest()],
-                roots: [new FailingFacet({ signalAborted: false, calls: 0 })],
+                roots: [new FailingFacet({ signal: undefined, calls: 0 })],
                 activations,
                 permits: new DemoPermits(),
                 authentication: new DemoAuthentication(),
