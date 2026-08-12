@@ -9,8 +9,13 @@ TypeScript differential suite generates random inputs, runs them through the liv
 implementation, and asks this oracle for the model's answer; every function used here
 is either definitionally the model (`choosePlacement`, `effectiveTier`) or proven
 equivalent to the model relation (`TurnLease.admitsBool` ↔ `TurnLease.Admits`,
-`leaseStepExec` ↔ `LeaseStep`), so an agreement failure is a genuine semantic
-divergence between the implementation and the verified model.
+`leaseStepExec` ↔ `LeaseStep`, `Capability.matchesBool` ↔ `Capability.Matches`), so an
+agreement failure is a genuine semantic divergence between the implementation and the
+verified model.
+
+`capability.covers` carries more than an equivalence. `capability_covering_is_sound`
+proves a true answer implies the child admits no intent the parent refuses, so agreeing
+with it is agreeing with SPEC §3.4 rule 2 itself, not with a restatement of the check.
 
 Protocol: one JSON request per stdin line, one JSON response per stdout line.
 Unknown operations and malformed requests produce `{"error": ...}` responses rather
@@ -99,6 +104,35 @@ def parsePlacement : String → Except String Placement
 def placementName : Placement → String
   | .bundled => "bundled" | .provider => "provider" | .dynamic => "dynamic"
 
+def parseStringList (json : Json) : Except String (List String) := do
+  let items ← json.getArr?
+  items.toList.mapM Json.getStr?
+
+/-- An intent's or capability's path projection: the canonical encoding observed at each
+path. The harness supplies the projection; canonical JSON encoding and path resolution are
+implementation obligations the model does not reproduce. -/
+def parseProjection (json : Json) : Except String (List (ArgumentPath × CanonicalValue)) := do
+  let entries ← json.getArr?
+  entries.toList.mapM fun entry => do
+    let segments ← parseStringList (← entry.getObjVal? "path")
+    let encoded ← (← entry.getObjVal? "value").getStr?
+    pure (⟨segments⟩, ⟨encoded⟩)
+
+def parseCapability (json : Json) : Except String Capability := do
+  let facetPattern ← (← json.getObjVal? "facetPattern").getStr?
+  let operations ← parseStringList (← json.getObjVal? "operations")
+  let impactNames ← parseStringList (← json.getObjVal? "impacts")
+  let impacts ← impactNames.mapM parseImpact
+  let constraints ← parseProjection (← json.getObjVal? "constraints")
+  pure ⟨facetPattern.data, operations, impacts, constraints⟩
+
+def parseCapabilityIntent (json : Json) : Except String CapabilityIntent := do
+  let facet ← (← json.getObjVal? "facet").getStr?
+  let operation ← (← json.getObjVal? "operation").getStr?
+  let impact ← parseImpact (← (← json.getObjVal? "impact").getStr?)
+  let arguments ← parseProjection (← json.getObjVal? "arguments")
+  pure ⟨facet.data, operation, impact, arguments⟩
+
 def parsePlacementSet (json : Json) : Except String PlacementSet := do
   let bundled ← (← json.getObjVal? "bundled").getBool?
   let provider ← (← json.getObjVal? "provider").getBool?
@@ -132,6 +166,14 @@ where
         let tier := effectiveTier placement impact sessionScoped intercepted
         pure (Json.mkObj [("tier", Json.str (match tier with
           | .direct => "direct" | .mediated => "mediated"))])
+    | "capability.matches" => do
+        let spec ← parseCapability (← request.getObjVal? "capability")
+        let intent ← parseCapabilityIntent (← request.getObjVal? "intent")
+        pure (Json.mkObj [("matches", Json.bool (spec.matchesBool intent))])
+    | "capability.covers" => do
+        let parent ← parseCapability (← request.getObjVal? "parent")
+        let child ← parseCapability (← request.getObjVal? "child")
+        pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])
     | "policy.placement" => do
         let manifest ← parsePlacementSet (← request.getObjVal? "manifest")
         let policy ← parsePlacementSet (← request.getObjVal? "policy")

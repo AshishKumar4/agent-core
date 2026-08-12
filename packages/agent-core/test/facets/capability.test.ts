@@ -18,7 +18,28 @@ describe("CapabilitySpec authority semantics", () => {
         expect(cap("a*z").covers(cap("ab*yz"))).toBe(true);
         expect(cap("a*z").covers(cap("a*y"))).toBe(false);
         expect(cap("a*z").covers(cap("b*z"))).toBe(false);
-        expect(cap("a*b*c").covers(cap("abc"))).toBe(false);
+        // Every name `abc` admits — only `abc` itself — starts with `a`, then reaches a
+        // `b` and then a `c`, so `a*b*c` admits it too.
+        expect(cap("a*b*c").covers(cap("abc"))).toBe(true);
+    });
+
+    test("covers refuses a child admitting a Facet the parent refuses", { tags: "p0" }, () => {
+        // A prefix/suffix reading of the parent accepts each of these: the child's text
+        // starts with the parent's prefix and ends with its suffix. But the parent's
+        // wildcard has nothing left to span, so the child admits a Facet name the parent
+        // refuses and approving the delegation would widen authority.
+        // `AgentCore.glob_covering_iff_containment` proves this decision is exactly
+        // containment.
+        for (const [parent, child] of [
+            ["a*a", "a"],
+            ["ab*b", "ab"],
+            ["aa*aa", "aaa"],
+            ["core.*.read", "core.read"]
+        ] as const) {
+            expect(cap(parent).covers(cap(child)), `${parent} covers ${child}`).toBe(false);
+            expect(cap(child).matches(intent({ facet: child }))).toBe(true);
+            expect(cap(parent).matches(intent({ facet: child }))).toBe(false);
+        }
     });
 
     test("covers requires operation and constraint containment", { tags: "p0" }, () => {
@@ -28,9 +49,7 @@ describe("CapabilitySpec authority semantics", () => {
             cap("*", { operations: ["read", "write"] }).covers(cap("*", { operations: ["read"] }))
         ).toBe(true);
         expect(
-            cap("*", { operations: ["read"] }).covers(
-                cap("*", { operations: ["read", "write"] })
-            )
+            cap("*", { operations: ["read"] }).covers(cap("*", { operations: ["read", "write"] }))
         ).toBe(false);
 
         const constrained = cap("*", { argumentConstraints: { tier: "gold" } });
@@ -75,7 +94,9 @@ describe("CapabilitySpec authority semantics", () => {
         expect(cap("*", { impacts: ["delegate"] }).grantsElevation()).toBe(true);
         expect(cap("*", { impacts: ["administer"] }).grantsElevation()).toBe(true);
         expect(
-            cap("*", { impacts: ["observe", "mutate", "externalSend", "execute"] }).grantsElevation()
+            cap("*", {
+                impacts: ["observe", "mutate", "externalSend", "execute"]
+            }).grantsElevation()
         ).toBe(false);
     });
 
@@ -91,9 +112,9 @@ describe("CapabilitySpec authority semantics", () => {
         expect(() => cap("*", { operations: [" pad "] })).toThrow(
             "Capability operations must contain canonical nonblank strings"
         );
-        expect(() =>
-            cap("*", { impacts: ["observe", "bogus"] as unknown as [Impact] })
-        ).toThrow("Capability impacts must contain known values");
+        expect(() => cap("*", { impacts: ["observe", "bogus"] as unknown as [Impact] })).toThrow(
+            "Capability impacts must contain known values"
+        );
         expect(() => cap("*", { impacts: ["observe", "observe"] })).toThrow(
             "Capability impacts must be unique"
         );

@@ -95,9 +95,18 @@ export class CapabilitySpec {
         );
     }
 
+    /**
+     * SPEC §3.4 rule 2: the candidate admits no Invocation this capability would refuse.
+     *
+     * A pattern covers another exactly when it matches the other pattern's own text —
+     * `'*'` is the only metacharacter and a validated pattern never contains one as a
+     * literal, so a parent literal can never absorb a child wildcard. That equivalence
+     * with glob language containment is proved in both directions by the formal model
+     * (`AgentCore.glob_covering_iff_containment`).
+     */
     public covers(candidate: CapabilitySpec): boolean {
         return (
-            patternCovers(this.facetPattern, candidate.facetPattern) &&
+            matchesPattern(this.facetPattern, candidate.facetPattern) &&
             (this.operations.length === 0 ||
                 (candidate.operations.length > 0 &&
                     candidate.operations.every((operation) =>
@@ -201,18 +210,6 @@ function matchesPattern(pattern: string, value: string): boolean {
         .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
         .join(".*");
     return new RegExp(`^${expression}$`, "u").test(value);
-}
-
-function patternCovers(parent: string, child: string): boolean {
-    if (parent === "*" || parent === child) return true;
-    const wildcard = parent.indexOf("*");
-    if (wildcard < 0 || parent.indexOf("*", wildcard + 1) >= 0) return false;
-    const prefix = parent.slice(0, wildcard);
-    const suffix = parent.slice(wildcard + 1);
-    const childWildcard = child.indexOf("*");
-    const childPrefix = childWildcard < 0 ? child : child.slice(0, childWildcard);
-    const childSuffix = childWildcard < 0 ? child : child.slice(child.lastIndexOf("*") + 1);
-    return childPrefix.startsWith(prefix) && childSuffix.endsWith(suffix);
 }
 
 function valueAtPath(
