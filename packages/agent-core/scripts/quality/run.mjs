@@ -29,6 +29,10 @@ import {
 import { requireSuccessfulTestReport } from "./evidence.mjs";
 import { discoverPriorityTestFiles, validatePriorityLanes } from "./test-priorities.mjs";
 
+// Every adjunct package carries its packed-consumer check at the same
+// conventional path, so the registry does not restate it per package.
+const CONSUMER_CHECK = "scripts/check-consumer.mjs";
+
 const options = parseArguments(process.argv.slice(2));
 const runCommit = gitIdentity(["rev-parse", "HEAD"]);
 const runTree = gitIdentity(["show", "-s", "--format=%T", "HEAD"]);
@@ -327,7 +331,7 @@ async function execute(node, context) {
             });
             for (const workspace of await activeAdjunctPackages()) {
                 const root = adjunctPackageRoot(workspace);
-                run(process.execPath, [resolve(root, workspace.consumerCheck)], { cwd: root });
+                run(process.execPath, [resolve(root, CONSUMER_CHECK)], { cwd: root });
             }
         },
         traceability: () =>
