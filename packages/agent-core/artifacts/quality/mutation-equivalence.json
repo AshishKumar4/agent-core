@@ -120,6 +120,70 @@
       "proof": "Unlike its two neighbours this spread carries the receiver's own field straight through a transition, so with the test forced false the literal always names cacheLineage and holds whatever this.cacheLineage held, undefined included. The conditional is present because TurnInit declares `cacheLineage?: TurnCacheLineage` and exactOptionalPropertyTypes forbids assigning the optional field to the optional parameter directly. Turn's constructor reads init.cacheLineage and branches on it being undefined, freezing a copy of turn and promptPrefix when it is present and storing undefined when it is not, so the field the new Turn ends up with is the same under either spelling and its encoding, which writes null for an absent lineage, is byte-identical. The literal never escapes the call, is never enumerated and is never tested with `in`, so no test of the transition's result can tell the key apart from its absence.",
       "replacement": "false",
       "symbol": "Turn.transition"
+    },
+    {
+      "file": "src/agents/runs/turn.ts",
+      "mutated": "this.lease.holder === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "Forcing this conjunct true leaves `if (isTerminal(this.status)) return this`, so original and mutant differ only for a Turn that is terminal and still holds a lease. No such Turn exists. The constructor refuses one outright — `(this.status.kind === \"suspended\" || isTerminal(this.status)) && this.lease.holder !== undefined` throws \"Suspended and terminal Turns must be unheld\" — and it is the single gate into the class: TurnCodec decodes through Turn.fromData, which calls the constructor, and every transition rebuilds through new Turn as well. The two predicates are the same isTerminal call against the same status field, so the state the mutated conjunct exists to exclude is exactly the state the constructor has already made unconstructible. On every reachable Turn the conjunct is therefore constantly true and the branch selected is identical, with or without it.",
+      "replacement": "true",
+      "symbol": "Turn.forceCancel"
+    },
+    {
+      "file": "src/agents/runs/turn.ts",
+      "mutated": "this.status.kind !== \"running\"",
+      "mutator": "ConditionalExpression",
+      "proof": "Dropping this disjunct leaves the refusal resting on the lease alone, and the lease already refuses every Turn the status test would have caught. The constructor pins holder to status: a queued Turn requires an unheld epoch-zero lease, a suspended or terminal Turn must be unheld, and only a running Turn may hold one. ExactTurnLease.admits requires `this.holder !== undefined` before it can return true, so for any Turn whose status is not running admits is false, !admits is true, and the same lease.invalid error is raised with the same message. For a running Turn the disjunct is false and contributes nothing. The extra evaluation the mutant performs is harmless: admits reads frozen fields and calls instanceof, TextId.equals and PrincipalRef.equals, all total and pure, and it cannot reach now.getTime() because that conjunct sits behind the holder test that no non-running Turn passes.",
+      "replacement": "false",
+      "symbol": "Turn.requireToken"
+    },
+    {
+      "file": "src/agents/runs/lease.ts",
+      "mutated": "expiresAtTime !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This conjunct is the type narrowing that lets the next line compare expiresAtTime against now.getTime(); its runtime effect is subsumed twice over. Control reaches it only after `this.holder !== undefined` has passed, and TurnLease's protected constructor throws \"Held Turn leases require an expiration\" for a held lease with no expiry, so a lease that gets this far always has one and the conjunct is constantly true. Even if it did not, the mutant would compute `undefined > now.getTime()`, and JavaScript's relational comparison sends undefined through ToNumber to NaN, which compares false against every value — the same answer the short circuit gave. The comparison the mutant additionally evaluates is pure, and now.getTime() is unreachable behind the holder test anyway, so nothing observable changes.",
+      "replacement": "true",
+      "symbol": "ExactTurnLease.admits"
+    },
+    {
+      "file": "src/agents/runs/lease.ts",
+      "mutated": "currentExpiresAtTime === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "The disjunct is implied by the one before it. admits returns true only when `expiresAtTime !== undefined && expiresAtTime > now.getTime()` holds, and currentExpiresAtTime was read from the very same private field on the line above; the field is set once in the constructor and the instance is frozen, so nothing can change it between the two reads. When admits succeeds the field is defined and the disjunct is false; when admits fails the first disjunct has already selected the throw. Removing it therefore selects the same branch on every input. It is written because the later comparison `expiresAt.getTime() <= currentExpiresAtTime` needs the narrowing that admits, being a plain boolean method, cannot give the checker, and it evaluates nothing and raises nothing of its own.",
+      "replacement": "false",
+      "symbol": "ExactTurnLease.renew"
+    },
+    {
+      "file": "src/agents/runs/lease.ts",
+      "mutated": "expiresAtTime === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "Reaching this disjunct means `this.holder === undefined` was false, so the lease is held, and TurnLease's constructor admits no held lease without an expiration — it throws \"Held Turn leases require an expiration\" before such an instance can exist, and every construction path in the file, including restore, unclaimed, fence, claim, renew and the decoder, goes through it. So on every reachable lease this disjunct is constantly false and the branch is decided by the two around it. The mutant does evaluate `expiresAtTime > now.getTime()` where the original short-circuited, but that state is unreachable, and reclaim has already called ensureFutureExpiration(expiresAt, now), which reads now.getTime() on every call, so even the evaluation would add nothing observable.",
+      "replacement": "false",
+      "symbol": "ExactTurnLease.reclaim"
+    },
+    {
+      "file": "src/agents/runs/lease.ts",
+      "mutated": "holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "Forcing this true leaves `holder === null || isPrincipalRefData(holder)`, and isPrincipalRefData answers false for undefined on its own: its first line rejects anything whose typeof is not \"object\", and typeof undefined is \"undefined\". So the mutant returns the same false the short circuit produced. The conjunct is present for the checker, because noUncheckedIndexedAccess types object[\"holder\"] as JsonValue | undefined while isPrincipalRefData takes JsonValue. It is doubly redundant at runtime: hasExactJsonKeys has already established the payload carries exactly the four named keys before this conjunct is reached, and a value decoded from JSON is never undefined regardless. Nothing here can throw or record anything, so no input distinguishes the two.",
+      "replacement": "true",
+      "symbol": "isTurnLeasePayload"
+    },
+    {
+      "file": "src/agents/runs/lease.ts",
+      "mutated": "typeof epoch === \"number\"",
+      "mutator": "ConditionalExpression",
+      "proof": "Number.isSafeInteger, the conjunct immediately after this one, performs no coercion: it returns false for every argument that is not a number, so a string, boolean, null, array or object epoch is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every payload, and both spellings send a malformed epoch down the same codec.invalid path with the same message. The typeof test earns its place only in the type system, where it narrows JsonValue | undefined to number so that `epoch >= 0` on the following line is accepted — Number.isSafeInteger is declared as returning boolean rather than as a type predicate, so it cannot do that narrowing itself. Neither operand has a side effect, so nothing else can separate them.",
+      "replacement": "true",
+      "symbol": "isTurnLeasePayload"
+    },
+    {
+      "file": "src/agents/runs/lease.ts",
+      "mutated": "typeof epoch !== \"number\"",
+      "mutator": "ConditionalExpression",
+      "proof": "This disjunct is subsumed by `!Number.isSafeInteger(epoch)` two lines below it, which is true for every value that is not a number because Number.isSafeInteger coerces nothing. Any epoch the removed test would have rejected is rejected by the surviving one, and the codec.invalid error raised carries the same `${name} is malformed` text either way, so a caller sees an identical failure. Where epoch is a number the disjunct is false and contributes nothing. It is written for the narrowing: under strict typing epoch is JsonValue | undefined, and both `epoch < 0` and the epoch field of the frozen token that is returned require it to be a number, which a boolean-returning helper cannot establish. The mutant's extra evaluations are pure.",
+      "replacement": "false",
+      "symbol": "leaseTokenFromData"
     }
   ]
 }
