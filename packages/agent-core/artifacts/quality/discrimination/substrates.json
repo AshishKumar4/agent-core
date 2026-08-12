@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "substrates",
-  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
-  "fingerprint": "sha256:c51777244656b4028b77bb1231506a7d3baf73f645c9289ae36fac942c34602c",
+  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
+  "fingerprint": "sha256:5728b4c52fa6dd4b40a6e1254f68f97ef5bc252b59d3be5eb77321e43642a291",
   "files": {
     "src/substrates/sqlite/actor.ts": {
       "mutants": 175,
@@ -81,37 +81,28 @@
     "test/actors/actor.test.ts#SQLite ActorStore contract [actor.recovery-state] recovers durable fencing state before a restarted actor serves": {
       "src/substrates/sqlite/actor.ts": [
         50,
-        85
-      ]
-    },
-    "test/actors/actor.test.ts#SQLite ActorStore contract revokes an escaped Promise transaction before continuation": {
-      "src/substrates/sqlite/actor.ts": [
-        237,
-        251
+        75
       ]
     },
     "test/actors/actor.test.ts#SQLite ActorStore contract runs an asynchronous mailbox outside synchronous transactions": {
       "src/substrates/sqlite/actor.ts": [
+        71,
         78,
         85,
         88,
-        111,
-        150,
-        155,
-        173,
+        100,
+        105,
+        107,
+        124,
+        156,
+        165,
+        169,
         178,
         179,
         188,
         191,
-        204,
-        211,
-        218,
-        223,
-        304,
-        306
-      ],
-      "src/substrates/sqlite/sqlite.ts": [
-        12
+        198,
+        304
       ]
     },
     "test/actors/actor.test.ts#SqliteActorStore recovery storage binds a SQLite database to exactly one Actor identity": {
@@ -121,18 +112,16 @@
     },
     "test/actors/actor.test.ts#SqliteActorStore recovery storage binds reads and recovery operations to its exact active transaction": {
       "src/substrates/sqlite/actor.ts": [
+        100,
         134,
-        203,
-        204,
         292,
+        293,
         297
       ]
     },
     "test/actors/actor.test.ts#SqliteActorStore recovery storage fails closed when a SQLite Actor identity has no recovery state": {
       "src/substrates/sqlite/actor.ts": [
-        61,
-        75,
-        300
+        61
       ]
     },
     "test/actors/actor.test.ts#SqliteActorStore recovery storage fails closed when SQLite recovery state has no Actor identity": {
@@ -149,12 +138,14 @@
     "test/actors/actor.test.ts#SqliteActorStore recovery storage rejects Actor identity changes inside and beside an active transaction": {
       "src/substrates/sqlite/actor.ts": [
         58,
+        177,
         179,
         288
       ]
     },
     "test/actors/actor.test.ts#SqliteActorStore recovery storage rejects mutation statements from SQLite read scopes": {
       "src/substrates/sqlite/actor.ts": [
+        258,
         281,
         283
       ]
@@ -167,7 +158,6 @@
     "test/actors/actor.test.ts#SqliteActorStore recovery storage rejects nested SQLite scope transactions and expires escaped scopes": {
       "src/substrates/sqlite/actor.ts": [
         245,
-        265,
         266,
         268,
         276,
@@ -190,15 +180,10 @@
         179,
         181,
         184
-      ],
-      "src/substrates/sqlite/sqlite.ts": [
-        46
       ]
     },
     "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite issues and consumes exactly once across owner-store restart": {
       "src/substrates/sqlite/permit.ts": [
-        27,
-        29,
         40,
         41,
         46,
@@ -214,6 +199,7 @@
         79,
         91,
         94,
+        102,
         105,
         111,
         117,
@@ -224,14 +210,15 @@
         145,
         146,
         147,
-        149,
         150,
-        158,
         162,
         164,
-        174,
-        182,
+        173,
+        181,
         190
+      ],
+      "src/substrates/sqlite/sqlite.ts": [
+        46
       ]
     },
     "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite rolls issue and consume back with their owner transactions": {
@@ -267,59 +254,46 @@
         158,
         161,
         164,
-        171,
-        173
+        171
       ]
     },
     "test/authority/permit.test.ts#AuthorityPermit SQLite recovery rejects a substituted owner and malformed permit bytes": {
       "src/substrates/sqlite/permit.ts": [
         31,
-        32
+        32,
+        202
       ]
     },
     "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage [C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes": {
-      "src/substrates/sqlite/authority.ts": [
-        93,
-        99
-      ],
-      "src/substrates/sqlite/tenant.ts": [
-        369,
-        400,
-        426
+      "src/substrates/sqlite/identity.ts": [
+        223
       ]
     },
     "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage bumps team and principal resolver-input mutations": {
       "src/substrates/sqlite/tenant.ts": [
-        427,
         460,
         461,
         873,
         880
       ]
     },
-    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage persists canonical Workspace topology and verified guest lifecycle across restart": {
-      "src/substrates/sqlite/tenant.ts": [
-        321,
-        520,
-        531,
-        532
-      ]
-    },
     "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage reconciles Membership Grants and bumps exactly once on revoke": {
-      "src/substrates/sqlite/authority.ts": [
-        76
-      ],
       "src/substrates/sqlite/identity.ts": [
         207
       ],
       "src/substrates/sqlite/tenant.ts": [
-        345,
-        623,
-        624,
-        630
+        345
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) admits exact current check and permit leases while rejecting stale epochs": {
+      "src/substrates/sqlite/permit.ts": [
+        44,
+        46,
+        60,
+        79,
+        157,
+        158
+      ],
       "src/substrates/sqlite/sqlite.ts": [
         32,
         36
@@ -327,13 +301,29 @@
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) binds validation and check evidence to the authenticated source and decision time": {
       "src/substrates/sqlite/permit.ts": [
-        181
+        29
+      ],
+      "src/substrates/sqlite/sqlite.ts": [
+        46
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) rejects source Actor and qualified Principal spoofing before authority evaluation": {
+      "src/substrates/sqlite/permit.ts": [
+        27,
+        28
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it": {
+      "src/substrates/sqlite/watermark.ts": [
+        218
       ]
     },
     "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not": {
       "src/substrates/sqlite/watermark.ts": [
         196,
+        202,
         204,
+        208,
         210
       ]
     },
@@ -342,12 +332,13 @@
         145,
         146,
         148,
-        272,
+        294,
         322,
         325,
+        394,
+        395,
         476,
-        477,
-        609
+        612
       ],
       "src/substrates/sqlite/content.ts": [
         74
@@ -358,25 +349,19 @@
         41,
         69,
         84,
-        93,
+        91,
+        95,
         97,
         124,
+        126,
         134,
-        165,
-        167,
-        173,
-        180,
-        186,
-        188
+        135
       ]
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite content row validation returns exact stat shape with and without media and rejects malformed media": {
       "src/substrates/sqlite/content.ts": [
-        78,
         80,
-        150,
-        154,
-        196
+        154
       ]
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite content row validation rolls back a blob when post-insert verification cannot observe it": {
@@ -386,23 +371,21 @@
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation classifies missing and malformed storage bindings": {
       "src/substrates/sqlite/content-retention.ts": [
-        159,
+        205,
+        416,
         440,
         441,
+        443,
+        454,
         471,
-        573,
+        578,
         616,
         618
       ],
       "src/substrates/sqlite/content.ts": [
         103,
-        167,
-        200
-      ]
-    },
-    "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation detects leased content disappearing after lease validation": {
-      "src/substrates/sqlite/content-retention.ts": [
-        662
+        105,
+        167
       ]
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation fails closed for missing related blobs, relations, and invalid unowned deadlines": {
@@ -413,28 +396,31 @@
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation propagates an active SQLite driver TypeError from the binding read": {
       "src/substrates/sqlite/content-retention.ts": [
         455
-      ],
-      "src/substrates/sqlite/sqlite.ts": [
-        46
       ]
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation rejects every owner-edge metadata mismatch and selected column type": {
       "src/substrates/sqlite/content-retention.ts": [
+        103,
+        107,
+        112,
+        467,
+        502,
+        513,
         515,
         516,
         517,
         518,
         519,
         540,
-        551,
-        555
+        551
       ]
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation rejects every relation ownership mismatch and malformed nullable timestamp": {
       "src/substrates/sqlite/content-retention.ts": [
         263,
+        271,
+        272,
         277,
-        291,
         580,
         583,
         588,
@@ -443,7 +429,8 @@
         638,
         676,
         707,
-        708
+        708,
+        717
       ]
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation rejects every transient lease metadata mismatch and selected column type": {
@@ -460,34 +447,42 @@
         659,
         660,
         661,
+        664,
         668,
         674
       ]
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation rejects immutable lease collision, missing bytes, foreign bindings, and bound owner reuse": {
       "src/substrates/sqlite/content-retention.ts": [
-        169,
+        247,
         263,
         264,
         294,
+        310,
+        335,
+        355,
+        389,
         443,
         485,
-        553,
+        486,
+        549,
+        555,
+        563,
         565,
+        585,
         588,
+        589,
         590,
+        605,
         638,
         651,
-        654,
-        658,
-        660,
+        655,
+        657,
+        659,
         661,
-        662,
         663,
         684,
-        690,
-        731,
-        755,
+        686,
         832
       ]
     },
@@ -504,43 +499,35 @@
     },
     "test/content/sqlite-lifecycle.test.ts#SQLite retention row validation uses the default observation clock for transient acquisition": {
       "src/substrates/sqlite/content-retention.ts": [
-        215,
-        313
+        215
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract blocks GC through active lease and opens at close or exact expiry": {
       "src/substrates/sqlite/content-retention.ts": [
-        225,
+        265,
         271,
-        272,
         277,
+        291,
         325,
-        394,
-        395,
-        627,
-        636,
-        638,
-        648,
-        649,
+        355,
+        401,
+        646,
         731,
-        752,
+        755,
         763,
         764,
-        791,
-        798,
-        817,
-        834
+        771,
+        817
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract deduplicates content until every owner releases in either order": {
       "src/substrates/sqlite/content-retention.ts": [
-        122,
         146
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract lease-only failure is not eligible before close and reacquisition advances safely": {
       "src/substrates/sqlite/content-retention.ts": [
-        616
+        272
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract normalizes inactive leases without weakening unrelated owners": {
@@ -553,31 +540,23 @@
         337
       ]
     },
-    "test/content/sqlite.test.ts#SQLite content-retention contract rechecks owners and leases added during policy evaluation": {
-      "src/substrates/sqlite/content-retention.ts": [
-        125,
-        194
-      ]
-    },
     "test/content/sqlite.test.ts#SQLite content-retention contract rejects foreign or mismatched lease acquisition without partial insertion": {
       "src/substrates/sqlite/content-retention.ts": [
-        787,
-        788
+        788,
+        791
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract rejects missing content and immutable owner-key collisions": {
       "src/substrates/sqlite/content-retention.ts": [
         104,
+        107,
         144
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract replaces closed or expired same-envelope leases but rejects active conflicts": {
       "src/substrates/sqlite/content-retention.ts": [
-        246,
-        247,
         364,
-        366,
-        698
+        825
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract retains idempotently and starts the tombstone on final release": {
@@ -585,103 +564,90 @@
         97,
         103,
         104,
-        107,
-        112,
         122,
         130,
         143,
         144,
-        145,
         146,
-        148,
+        169,
         170,
         172,
-        178,
-        186,
+        188,
         411,
-        417,
+        414,
+        420,
         423,
-        442,
-        605,
-        607,
-        612,
-        615,
-        616,
-        778,
-        805
+        612
       ],
       "src/substrates/sqlite/content.ts": [
-        105,
-        107,
-        111
+        100,
+        107
       ]
     },
     "test/content/sqlite.test.ts#SQLite ContentStore contract detaches input and every returned byte range": {
       "src/substrates/sqlite/content.ts": [
-        128,
-        150,
         173
       ]
     },
     "test/content/sqlite.test.ts#SQLite ContentStore contract distinguishes an unresolved store-produced reference": {
       "src/substrates/sqlite/content.ts": [
         74,
-        80,
-        97
+        97,
+        193
       ]
     },
     "test/content/sqlite.test.ts#SQLite ContentStore contract puts, resolves, and stats content-addressed bytes": {
       "src/substrates/sqlite/content.ts": [
         72,
-        74,
-        95,
-        97,
-        126,
-        132,
-        135,
-        137,
-        140,
-        142,
+        93,
+        114,
+        128,
+        133,
+        141,
         143,
-        146,
         150,
         159,
         161,
+        165,
         167,
-        171,
-        174
+        173,
+        174,
+        180
       ]
     },
     "test/content/sqlite.test.ts#SqliteContentStore [C13-CONTENT-RESOLUTION] resolves content and retention edges after an adapter restart": {
       "src/substrates/sqlite/content-retention.ts": [
+        90,
         248
       ]
     },
     "test/content/sqlite.test.ts#SqliteContentStore accepts root and live same-provenance Actor transactions but rejects stale scopes": {
       "src/substrates/sqlite/actor.ts": [
         53,
+        218,
+        236,
+        237,
         250,
-        252
+        251
       ]
     },
     "test/content/sqlite.test.ts#SqliteContentStore fails closed on malformed lease and unowned relation rows": {
       "src/substrates/sqlite/content-retention.ts": [
-        588,
-        594
+        588
       ]
     },
     "test/content/sqlite.test.ts#SqliteContentStore rejects a corrupt row on a content-address conflict": {
       "src/substrates/sqlite/content.ts": [
         140,
-        143,
-        197
+        143
       ]
     },
     "test/content/sqlite.test.ts#SqliteContentStore rejects same-identity transactions from another SQLite capability": {
       "src/substrates/sqlite/content-retention.ts": [
-        205,
-        454,
         455
+      ],
+      "src/substrates/sqlite/sqlite.ts": [
+        46
       ]
     },
     "test/content/sqlite.test.ts#SqliteContentStore validates ref, digest, size, and recomputed bytes on every read": {
@@ -698,6 +664,8 @@
         710,
         711,
         714,
+        716,
+        732,
         735
       ]
     },
@@ -705,11 +673,9 @@
       "src/substrates/sqlite/materialization.ts": [
         786,
         832,
-        909,
+        843,
         912,
-        913,
         937,
-        939,
         1235
       ]
     },
@@ -736,7 +702,7 @@
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects divergent codec bytes under one managed-state identity": {
       "src/substrates/sqlite/materialization.ts": [
         975,
-        1947
+        1948
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects divergent record sets under one generation identity": {
@@ -753,12 +719,10 @@
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects immutable key conflicts and rolls their partial state back": {
       "src/substrates/sqlite/materialization.ts": [
-        727,
         911,
         912,
         916,
-        1186,
-        1986
+        1186
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects multi-actor plans even when they include the owner": {
@@ -768,7 +732,6 @@
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects plans and records for a foreign Actor": {
       "src/substrates/sqlite/materialization.ts": [
-        793,
         816,
         818
       ]
@@ -785,6 +748,7 @@
         1017,
         1018,
         1025,
+        1026,
         1027,
         1033,
         1036,
@@ -795,18 +759,22 @@
         1055,
         1056,
         1060,
-        1307,
+        1287,
         1309,
-        1311,
-        1340,
+        1316,
         1341,
+        1412,
         1416,
+        1734,
         1791,
         1793,
         1795,
         1797,
+        1892,
         1893,
         1894,
+        1895,
+        1897,
         1899
       ]
     },
@@ -820,13 +788,14 @@
         1025,
         1028,
         1030,
-        1292
+        1298
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract replays managed state through addManagedState in a multi-record generation": {
       "src/substrates/sqlite/materialization.ts": [
         822,
         823,
+        884,
         914,
         955,
         963
@@ -835,103 +804,107 @@
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract returns false for a revision-expecting CAS on an absent pointer": {
       "src/substrates/sqlite/materialization.ts": [
         1001,
-        1005
+        1005,
+        1014
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract returns undefined for every absent immutable record and deployment pointer": {
       "src/substrates/sqlite/materialization.ts": [
-        693,
         735,
         769,
+        886,
         939,
         985,
+        1069,
         1073,
         1115,
         1120,
+        1159,
         1164,
         1222,
-        1227,
         1282,
         1287,
+        1526,
+        1601,
         1620,
-        1647,
+        1625,
+        1626,
+        1627,
+        1629,
+        1640,
+        1645,
         1836,
         1841,
         1903,
         1905,
-        1913
+        1911,
+        1913,
+        1977
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rolls back standalone managed state without its generation": {
       "src/substrates/sqlite/materialization.ts": [
         822,
-        824
-      ]
-    },
-    "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract seals a stored generation closure against new managed state": {
-      "src/substrates/sqlite/materialization.ts": [
-        953,
-        957
+        824,
+        826
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract stores codec records synchronously and lists every record deterministically": {
       "src/substrates/sqlite/materialization.ts": [
-        732,
-        735,
-        741,
-        752,
-        769,
+        766,
         771,
+        780,
         801,
         802,
-        804,
-        838,
         840,
         888,
-        898,
         903,
-        916,
         941,
         953,
+        965,
+        1067,
         1071,
-        1073,
-        1079,
         1081,
         1083,
         1085,
         1088,
         1090,
         1100,
-        1102,
         1113,
         1118,
-        1120,
         1123,
-        1126,
-        1137,
+        1129,
         1139,
         1142,
-        1157,
+        1162,
         1172,
-        1181,
-        1241,
+        1174,
+        1178,
+        1196,
+        1235,
+        1237,
+        1244,
+        1256,
+        1258,
         1262,
         1351,
         1356,
+        1357,
         1358,
         1359,
         1360,
         1361,
         1370,
+        1372,
         1374,
-        1389,
-        1399,
-        1443,
-        1444,
-        1453,
+        1385,
+        1401,
+        1651,
         1656,
         1676,
         1677,
+        1702,
+        1748,
         1750,
         1751,
         1752,
@@ -951,26 +924,28 @@
         1783,
         1784,
         1803,
+        1847,
         1848,
-        1849,
+        1850,
+        1856,
         1857,
         1858,
         1860,
+        1866,
         1867,
-        1869,
+        1868,
+        1870,
         1871,
-        1872,
-        1875,
+        1873,
+        1879,
         1881,
         1882,
         1883,
+        1884,
         1887,
-        1888,
         1917,
         1919,
         1925,
-        1952,
-        1957,
         1962
       ]
     },
@@ -984,11 +959,6 @@
         1309,
         1326,
         1330
-      ]
-    },
-    "test/definition/materialization-sqlite.test.ts#SqliteMaterializationStore persistence joins W1 Actor activation and W4 initialization in one SQLite transaction": {
-      "src/substrates/sqlite/sqlite.ts": [
-        38
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SqliteMaterializationStore persistence rejects a corrupt Blueprint name projection": {
@@ -1113,12 +1083,12 @@
     },
     "test/definition/materialization-sqlite.test.ts#SqliteMaterializationStore persistence rejects missing generation state and a pointer retargeted outside its Actor": {
       "src/substrates/sqlite/materialization.ts": [
+        1437,
         1443
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SqliteMaterializationStore persistence survives adapter recreation over one database": {
       "src/substrates/sqlite/materialization.ts": [
-        693,
         1488
       ]
     },
@@ -1137,12 +1107,10 @@
         96,
         104,
         106,
-        198,
         203,
         264,
         267,
         268,
-        269,
         270,
         271,
         272,
@@ -1150,9 +1118,10 @@
         299,
         300,
         301,
-        302,
+        303,
         324,
-        326
+        326,
+        365
       ]
     },
     "test/definition/package-sqlite.test.ts#SQLite PackageStore contract lists all or one package in canonical key order": {
@@ -1163,7 +1132,6 @@
         114,
         206,
         208,
-        210,
         213,
         216,
         220,
@@ -1174,44 +1142,40 @@
     },
     "test/definition/package-sqlite.test.ts#SQLite PackageStore contract misses absent snapshots and orders them by revision then digest": {
       "src/substrates/sqlite/package.ts": [
-        146,
         230
       ]
     },
     "test/definition/package-sqlite.test.ts#SQLite PackageStore contract persists exact metadata snapshots": {
       "src/substrates/sqlite/package.ts": [
-        126,
+        121,
         128,
-        132,
-        136,
         144,
+        146,
         149,
         153,
         155,
         158,
         225,
-        227,
-        228,
         230,
         246,
-        249,
         250,
         251,
         317,
         319,
         320,
-        334
+        332
       ]
     },
     "test/definition/package-sqlite.test.ts#SQLite PackageStore contract persists package locks by canonical lock digest": {
       "src/substrates/sqlite/package.ts": [
-        165,
+        162,
+        170,
         179,
-        183,
         191,
         193,
         233,
         235,
+        238,
         240,
         281,
         284,
@@ -1221,14 +1185,14 @@
         308,
         309,
         310,
+        311,
         312
       ]
     },
     "test/definition/package-sqlite.test.ts#SQLite PackageStore contract rejects a different release under an immutable full-version key": {
       "src/substrates/sqlite/package.ts": [
         96,
-        99,
-        365
+        99
       ]
     },
     "test/definition/package-sqlite.test.ts#SqlitePackageStore persistence fails closed when a lock insert produces no durable row": {
@@ -1251,7 +1215,7 @@
     },
     "test/definition/package-sqlite.test.ts#SqlitePackageStore persistence rejects a corrupt lock lock_digest projection": {
       "src/substrates/sqlite/package.ts": [
-        284
+        288
       ]
     },
     "test/definition/package-sqlite.test.ts#SqlitePackageStore persistence rejects a corrupt lock snapshot_digest projection": {
@@ -1306,7 +1270,8 @@
     "test/definition/rollout.test.ts#materialization rollout and outbox restores SQLite control state and fails closed on projection corruption": {
       "src/substrates/sqlite/materialization.ts": [
         198,
-        496,
+        486,
+        495,
         521
       ]
     },
@@ -1316,32 +1281,22 @@
         194,
         198,
         203,
+        212,
         219,
         225,
-        229,
+        226,
+        228,
         475,
         478,
-        488,
         533,
-        561,
-        574,
-        575
+        539,
+        562
       ]
     },
     "test/definition/rollout.test.ts#materialization rollout and outbox SQLite starts forward compensation while a prior rollout remains pending": {
       "src/substrates/sqlite/materialization.ts": [
         544,
-        553,
-        555
-      ]
-    },
-    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (SQLite) validates a Binding, checks the intent, and issues the permit as linked evidence": {
-      "src/substrates/sqlite/permit.ts": [
-        28,
-        29,
-        44,
-        46,
-        157
+        553
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt": {
@@ -1360,13 +1315,11 @@
         91,
         92,
         116,
-        120,
         125,
-        133,
+        135,
         194,
-        196,
-        197,
-        198
+        198,
+        206
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-TASK-EVENT] replays one mediated task source Event across profile and SQLite restart": {
@@ -1375,31 +1328,58 @@
         69,
         71,
         84,
-        120,
-        123,
-        131
+        89,
+        114,
+        118,
+        131,
+        213,
+        222,
+        235,
+        237,
+        245
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] [protocol.tenant-bootstrap-marker] file SQLite composition creates and restores the complete closure": {
+      "src/substrates/sqlite/actor.ts": [
+        306
+      ],
       "src/substrates/sqlite/authority.ts": [
+        54,
+        61,
+        67,
+        75,
+        99,
+        173,
+        174,
+        285,
         287,
-        293,
-        295,
-        299
+        295
       ],
       "src/substrates/sqlite/bootstrap.ts": [
+        45,
+        48,
+        55,
         57,
+        79,
         80,
-        81,
-        92,
+        84,
+        96,
         97,
-        108,
+        135,
+        152,
         156,
         164,
         166,
         177,
         183,
         198
+      ],
+      "src/substrates/sqlite/identity.ts": [
+        111,
+        113
+      ],
+      "src/substrates/sqlite/tenant.ts": [
+        68
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions SQLite composition rejects Actor drift and protocol ID exhaustion": {
@@ -1410,7 +1390,6 @@
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions SQLite composition rejects wrong Actor kind and corrupt protocol ID state": {
       "src/substrates/sqlite/bootstrap.ts": [
-        145,
         194,
         198
       ]
@@ -1429,55 +1408,51 @@
         48,
         50,
         53,
-        71,
         72,
         75,
         78,
-        85,
         88,
-        100,
-        105,
         133,
-        134,
         143,
-        147,
         152,
+        155,
         156,
-        165,
-        169,
+        173,
         178,
+        179,
+        186,
         191,
-        196,
+        211,
         283
       ],
       "src/substrates/sqlite/protocol.ts": [
-        84,
-        109,
         125,
         130,
         133,
-        136,
         139,
         144,
         147,
-        155,
-        164,
-        165,
+        160,
         174,
         177,
         181,
-        190,
         194,
-        211,
+        209,
         212,
         215,
+        216,
         217,
-        220,
         221,
         222,
+        385,
+        418,
+        421,
+        433,
+        447,
         455,
         461,
         463,
+        469,
         471,
         477,
         479,
@@ -1486,20 +1461,24 @@
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) evaluates post-payload gates in deterministic order": {
       "src/substrates/sqlite/protocol.ts": [
-        450,
         451,
         452,
         453
       ]
     },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) persists duplicate evidence and replays before mutable gates": {
+      "src/substrates/sqlite/protocol.ts": [
+        449
+      ]
+    },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects a missing caller cause before content and replays its identity": {
       "src/substrates/sqlite/protocol.ts": [
         123,
-        128,
         130,
         196,
         198,
-        202,
+        384,
+        409,
         454
       ]
     },
@@ -1508,7 +1487,9 @@
         72,
         75,
         78,
-        88
+        85,
+        88,
+        184
       ],
       "src/substrates/sqlite/protocol.ts": [
         213,
@@ -1542,38 +1523,47 @@
         113,
         118,
         120,
+        215,
         226
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) stores codec-backed records and resolves them synchronously": {
       "src/substrates/sqlite/protocol.ts": [
+        128,
+        155,
+        165,
+        190,
+        215,
+        220,
+        223,
         233,
+        234,
         235,
-        239,
-        244,
-        318,
+        240,
+        245,
+        269,
+        277,
+        283,
+        293,
+        298,
+        300,
+        310,
+        323,
+        345,
         355,
+        357,
         358,
-        376,
         377,
-        383,
-        385,
-        386,
-        405,
-        406,
+        378,
+        404,
         407,
-        409,
-        413,
         414,
         416,
-        418,
-        419,
         420,
         421,
-        422,
+        426,
         428,
         433,
-        439,
         445,
         447
       ]
@@ -1591,11 +1581,6 @@
         438
       ]
     },
-    "test/protocol/persistence-sqlite.test.ts#SQLite rejects a projected nullable text column with the wrong runtime type": {
-      "src/substrates/sqlite/protocol.ts": [
-        480
-      ]
-    },
     "test/protocol/persistence-sqlite.test.ts#SQLite rejects columns protocol schema corruption": {
       "src/substrates/sqlite/protocol.ts": [
         357
@@ -1608,7 +1593,8 @@
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite repairs corrupt identity projections from canonical write bytes": {
       "src/substrates/sqlite/protocol.ts": [
-        187
+        187,
+        202
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite repairs deleted identity projections and lost or corrupt indexes": {
@@ -1616,13 +1602,9 @@
         364
       ]
     },
-    "test/protocol/persistence-sqlite.test.ts#SQLite rolls back an Error identity-index rebuild fault": {
-      "src/substrates/sqlite/protocol.ts": [
-        368
-      ]
-    },
     "test/protocol/persistence-sqlite.test.ts#SQLite validates STRICT protocol schema version without accepting legacy tables": {
       "src/substrates/sqlite/protocol.ts": [
+        231,
         300
       ]
     },
@@ -1633,45 +1615,50 @@
         47,
         49,
         53,
+        54,
         57,
         58,
         59,
         71,
+        76,
         78,
         79,
         92,
-        99,
+        93,
+        106,
         110,
         115,
         117,
         120,
+        123,
         126,
-        136,
+        131,
         139,
-        141,
         143,
         149,
-        153,
-        158,
+        156,
         163,
-        166,
+        169,
+        180,
         183,
         189,
         196,
-        213,
         214,
         217,
+        228,
         229,
         232,
         256,
         257,
         259,
+        264,
         265,
         266,
-        267,
+        268,
+        269,
+        271,
         273,
-        278,
-        284,
+        276,
         288,
         291,
         292,
@@ -1685,17 +1672,21 @@
         311,
         312,
         320,
-        328,
+        326,
         338,
         339,
         342,
         343,
-        351
+        350,
+        352,
+        373,
+        386,
+        406
       ]
     },
     "test/sqlite/slot.test.ts#SQLite [workspace-slot-store] Workspace Slot store rejects missing slots, invalid schemas, and conflicting contribution origins": {
       "src/substrates/sqlite/slot.ts": [
-        167,
+        166,
         169,
         172,
         183,
@@ -1724,7 +1715,8 @@
         99,
         101,
         131,
-        171
+        171,
+        415
       ]
     },
     "test/sqlite/slot.test.ts#SqliteWorkspaceSlotStore persistence rejects partial schemas, missing singleton state, and unexpected protected objects on restart": {
@@ -1748,7 +1740,6 @@
         333,
         342,
         343,
-        344,
         345
       ]
     },
@@ -1768,15 +1759,18 @@
         47,
         57,
         59,
+        60,
         61,
-        202,
+        201,
+        205,
         206,
         209,
+        210,
         254,
         256,
-        320,
         329,
         332,
+        335,
         343
       ]
     },
@@ -1790,7 +1784,9 @@
       "src/substrates/sqlite/actor.ts": [
         70,
         75,
+        147,
         152,
+        300,
         301
       ]
     },
@@ -1798,13 +1794,16 @@
       "src/substrates/sqlite/actor.ts": [
         49,
         99,
-        107,
+        100,
+        111,
         251
+      ],
+      "src/substrates/sqlite/sqlite.ts": [
+        38
       ]
     },
     "test/substrates/sqlite/actor.test.ts#SQLite Actor store closed Actor transaction scopes report their exact error": {
       "src/substrates/sqlite/actor.ts": [
-        236,
         251,
         252
       ]
@@ -1828,21 +1827,26 @@
       "src/substrates/sqlite/actor.ts": [
         134,
         135,
+        203,
+        204,
         205,
         296
       ]
     },
     "test/substrates/sqlite/actor.test.ts#SQLite Actor store non-byte recovery state storage reports the exact codec error": {
       "src/substrates/sqlite/actor.ts": [
+        150,
+        152,
         306,
         307
       ]
     },
     "test/substrates/sqlite/actor.test.ts#SQLite Actor store read scopes trim statements and reject non-SELECT exactly": {
       "src/substrates/sqlite/actor.ts": [
+        134,
         240,
         243,
-        258,
+        265,
         266,
         282,
         283,
@@ -1852,26 +1856,21 @@
     "test/substrates/sqlite/actor.test.ts#SQLite Actor store rebinding a different Actor reports the exact isolation error": {
       "src/substrates/sqlite/actor.ts": [
         58,
-        184,
-        186,
-        198,
+        196,
         199,
-        289,
-        293
+        289
       ]
     },
     "test/substrates/sqlite/actor.test.ts#SQLite Actor store recovery state on an unbound store reports the isolation error": {
       "src/substrates/sqlite/actor.ts": [
         113,
-        124,
-        177,
         179,
         204
       ]
     },
     "test/substrates/sqlite/actor.test.ts#SQLite Actor store rejects recovery state saved for a foreign Actor": {
       "src/substrates/sqlite/actor.ts": [
-        179
+        223
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite authority adapter mutation gates epoch driver rows must match the queried scope key": {
@@ -1979,12 +1978,15 @@
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates enforces every mutable identity writer before commit": {
+      "src/substrates/sqlite/authority.ts": [
+        76,
+        301
+      ],
       "src/substrates/sqlite/tenant.ts": [
+        321,
         427,
         430,
-        453,
-        616,
-        921
+        616
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates enforces SQLite Project, Workspace, Team, Principal, and trust revisions": {
@@ -1992,25 +1994,23 @@
         141,
         142,
         143,
-        146,
         147,
-        148,
         158,
-        161,
         162,
+        163,
         164,
-        173,
+        174,
+        178,
         179,
         180,
-        189,
-        192
+        187,
+        188,
+        189
       ],
       "src/substrates/sqlite/tenant.ts": [
-        452,
-        462,
-        478,
+        477,
         482,
-        573,
+        491,
         812
       ]
     },
@@ -2042,19 +2042,15 @@
         150,
         161,
         163,
+        165,
         176,
         178,
         192,
         197,
         220,
         225,
-        227,
+        312,
         343
-      ]
-    },
-    "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates rejects extra Tenant relational corruption on restart": {
-      "src/substrates/sqlite/tenant.ts": [
-        768
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates rejects Grant missing Principal relational corruption on restart": {
@@ -2071,6 +2067,7 @@
         119,
         121,
         122,
+        130,
         160,
         236,
         237,
@@ -2082,8 +2079,7 @@
       "src/substrates/sqlite/tenant.ts": [
         382,
         910,
-        911,
-        913
+        912
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates rejects malformed low-level identity row types": {
@@ -2111,8 +2107,9 @@
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates requires anchor, completed bootstrap, and nonnested transactions": {
       "src/substrates/sqlite/authority.ts": [
-        67,
-        81,
+        93,
+        99,
+        111,
         113,
         170,
         173,
@@ -2122,11 +2119,15 @@
         184,
         185,
         186,
+        188,
         189,
+        199,
         201,
         202,
         210,
+        213,
         215,
+        220,
         221,
         223,
         224,
@@ -2135,14 +2136,21 @@
         227,
         228,
         229,
-        285,
         287,
-        309
+        293,
+        295,
+        299,
+        301,
+        309,
+        310,
+        322,
+        323
       ],
       "src/substrates/sqlite/identity.ts": [
+        93,
         110,
-        111,
         112,
+        115,
         116,
         117,
         118,
@@ -2155,35 +2163,29 @@
         133,
         134,
         173,
+        208,
+        209,
         217,
-        220,
-        222,
-        224,
-        241,
-        256,
-        276,
-        292,
+        262,
         306
       ],
       "src/substrates/sqlite/tenant.ts": [
-        68,
-        401,
-        423,
-        438,
-        611,
-        760,
-        761,
-        771,
-        774,
-        777,
-        783,
-        817,
+        59,
+        67,
+        378,
+        400,
+        426,
+        749,
+        784,
+        786,
+        793,
+        819,
         820,
-        825,
-        879,
+        896,
         922,
-        923,
-        998
+        994,
+        999,
+        1045
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite watermark hard gates anchors stores and enforces monotonic revisions": {
@@ -2193,18 +2195,17 @@
         31,
         41,
         42,
-        51,
         54,
         57,
-        60,
-        69,
-        71,
+        70,
         77,
+        79,
         80,
         89,
         90,
-        175,
-        178
+        97,
+        141,
+        180
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite watermark hard gates rejects foreign owner records": {
@@ -2220,51 +2221,59 @@
         313
       ],
       "src/substrates/sqlite/identity.ts": [
+        286,
         287,
         296
       ],
       "src/substrates/sqlite/watermark.ts": [
         32,
         33,
-        72,
         108,
-        174,
-        181,
+        117,
+        129,
         222
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite materialization CAS behavior treats multiple RETURNING rows as an exact CAS outcome and rolls back rejected writes": {
       "src/substrates/sqlite/materialization.ts": [
-        1341
+        1341,
+        1342
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite materialization CAS behavior treats zero RETURNING rows as an exact CAS outcome and rolls back rejected writes": {
       "src/substrates/sqlite/materialization.ts": [
         1050,
         1051,
-        1164,
+        1227,
         1340,
-        1389,
-        1396,
-        1438
+        1401,
+        1453,
+        1519,
+        1537
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite package, bootstrap, and Slot failure behavior fails closed on missing Slot revision, ignored CAS, and declaration projection drift": {
       "src/substrates/sqlite/slot.ts": [
+        57,
+        58,
+        59,
+        75,
         92,
+        99,
         110,
         111,
-        120,
+        117,
         131,
         256,
-        268,
-        286
+        278,
+        284,
+        355,
+        362
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite package, bootstrap, and Slot failure behavior translates a malformed bootstrap ID schema without replacing it": {
       "src/substrates/sqlite/bootstrap.ts": [
         48,
-        55,
         56,
         64,
         66
@@ -2273,47 +2282,37 @@
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract": {
       "src/substrates/sqlite/authority.ts": [
         121,
-        130,
         136,
         139,
         143,
         146,
         160,
-        165,
         167,
-        301,
-        310,
-        323
+        170,
+        171
       ],
       "src/substrates/sqlite/tenant.ts": [
-        527,
+        520,
+        531,
         532,
-        543,
-        546,
-        604,
-        615,
-        616,
-        910
+        541,
+        602,
+        616
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches persists a complete topology and lifecycle closure across adapter restart": {
       "src/substrates/sqlite/tenant.ts": [
+        482,
         499,
         506,
-        508,
-        533,
-        555,
-        562,
-        563,
-        570,
-        589
+        508
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches rejects immutable, skipped-revision, and noncanonical topology conflicts": {
       "src/substrates/sqlite/tenant.ts": [
         527,
-        531,
         532,
+        534,
         537
       ]
     },
@@ -2326,24 +2325,20 @@
     },
     "test/substrates/sqlite/bootstrap.test.ts#SQLite Tenant bootstrap exact failure and identity behavior fails closed with the exact error when the anchor vanishes under the composition": {
       "src/substrates/sqlite/bootstrap.ts": [
-        45,
         48,
         50,
         51,
         59,
         60,
         76,
+        108,
         114,
         116,
-        152,
         188,
         190,
         191,
         197,
         198
-      ],
-      "src/substrates/sqlite/identity.ts": [
-        93
       ]
     },
     "test/substrates/sqlite/bootstrap.test.ts#SQLite Tenant bootstrap exact failure and identity behavior preserves a typed dispatcher construction fault exactly": {
@@ -2383,19 +2378,16 @@
     "test/substrates/sqlite/bootstrap.test.ts#SQLite Tenant bootstrap exact failure and identity behavior stamps every protocol ID with its record-kind prefix": {
       "src/substrates/sqlite/bootstrap.ts": [
         71,
-        79,
         80,
         81,
         82,
         83,
-        84,
         85,
         90,
+        92,
         93,
         94,
         95,
-        96,
-        135,
         143,
         145,
         158,
@@ -2406,7 +2398,7 @@
       "src/substrates/sqlite/identity.ts": [
         111,
         112,
-        113,
+        115,
         126,
         128
       ]
@@ -2436,10 +2428,12 @@
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention boundaries advances the replaced content boundary when a lease is reacquired with a new ref": {
       "src/substrates/sqlite/content-retention.ts": [
         245,
+        246,
         277,
         278,
         279,
-        302
+        302,
+        698
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention boundaries clamps reacquisition to the persisted unowned maximum": {
@@ -2459,9 +2453,11 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention boundaries leaves the persisted boundary untouched on reclose": {
       "src/substrates/sqlite/content-retention.ts": [
+        122,
         124,
         125,
-        335
+        335,
+        690
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention boundaries persists the exact unowned boundary through acquisition and close": {
@@ -2470,7 +2466,6 @@
         335,
         337,
         400,
-        401,
         763
       ]
     },
@@ -2480,10 +2475,11 @@
         186,
         189,
         194,
+        616,
         729,
         731,
         733,
-        755,
+        752,
         756,
         763,
         766,
@@ -2494,17 +2490,14 @@
       ],
       "src/substrates/sqlite/content.ts": [
         110,
-        111,
-        114
+        111
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention collection gating rechecks boundary advancement before deleting an approved candidate": {
       "src/substrates/sqlite/content-retention.ts": [
         194,
-        263,
         264,
         272,
-        294,
         297
       ]
     },
@@ -2518,6 +2511,7 @@
         172
       ],
       "src/substrates/sqlite/content.ts": [
+        78,
         80
       ]
     },
@@ -2544,9 +2538,11 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation accepts zero-timestamp retention boundaries": {
       "src/substrates/sqlite/content-retention.ts": [
+        146,
+        172,
+        178,
         179,
         186,
-        188,
         727,
         806
       ]
@@ -2558,6 +2554,7 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation rejects a negative unowned-since relation column as corruption": {
       "src/substrates/sqlite/content-retention.ts": [
+        594,
         595,
         806,
         808,
@@ -2566,20 +2563,20 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation rejects owned-relation drift with the exact diagnostic": {
       "src/substrates/sqlite/content-retention.ts": [
+        107,
         109,
+        130,
+        159,
         413,
-        414,
         415,
-        416,
+        417,
         418,
-        420,
         435,
         437,
-        440,
         441,
         442,
         443,
-        467,
+        455,
         469,
         472,
         476,
@@ -2587,7 +2584,6 @@
         478,
         479,
         500,
-        502,
         504,
         506,
         509,
@@ -2602,13 +2598,14 @@
         519,
         537,
         555,
+        573,
         576,
-        578,
-        585,
         586,
         588,
         589,
         590,
+        615,
+        616,
         621,
         805,
         806,
@@ -2621,13 +2618,15 @@
         62,
         65,
         85,
-        91,
-        100,
+        97,
         128,
-        133,
+        132,
         136,
+        137,
         138,
-        140
+        140,
+        142,
+        150
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation rejects owner edges bound to a foreign Tenant": {
@@ -2642,12 +2641,11 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation rejects unowned-relation drift with the exact diagnostic": {
       "src/substrates/sqlite/content-retention.ts": [
+        225,
         227,
         238,
         245,
         263,
-        265,
-        271,
         272,
         277,
         291,
@@ -2664,33 +2662,38 @@
         487,
         488,
         535,
-        549,
-        555,
-        563,
-        565,
+        553,
         584,
+        607,
         612,
         624,
-        646,
+        627,
+        636,
+        638,
         647,
+        648,
+        649,
+        651,
         652,
         653,
         654,
         655,
         656,
         657,
-        659,
-        661,
-        686,
-        717,
+        658,
+        660,
+        662,
+        755,
         761,
         771,
         788,
         791,
         798,
         803,
+        805,
         815,
         817,
+        834,
         839,
         840
       ],
@@ -2701,8 +2704,8 @@
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation reports exact lease corruption diagnostics": {
       "src/substrates/sqlite/content-retention.ts": [
         651,
+        661,
         663,
-        664,
         669,
         856
       ]
@@ -2710,8 +2713,13 @@
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation reports exact malformed relation column diagnostics": {
       "src/substrates/sqlite/content-retention.ts": [
         137,
+        143,
+        144,
+        145,
+        476,
         595,
         596,
+        609,
         806
       ]
     },
@@ -2723,13 +2731,13 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation wraps a driver read fault raised while decoding a lease": {
       "src/substrates/sqlite/content-retention.ts": [
+        662,
         669,
         670
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite transient lease contract binds retention storage to the exact actor kind": {
       "src/substrates/sqlite/content-retention.ts": [
-        90,
         433,
         440,
         442,
@@ -2755,6 +2763,7 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite transient lease contract rejects foreign lease bindings with the exact messages": {
       "src/substrates/sqlite/content-retention.ts": [
+        787,
         788,
         789,
         791,
@@ -2770,12 +2779,10 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite transient lease contract rejects replaced lease generations differing by a single boundary": {
       "src/substrates/sqlite/content-retention.ts": [
-        310,
         313,
-        364,
+        366,
         367,
         388,
-        389,
         834,
         839,
         840
@@ -2784,11 +2791,10 @@
     "test/substrates/sqlite/content-retention.test.ts#SQLite transient lease contract reports exact owner, lease, and missing-content collision messages": {
       "src/substrates/sqlite/content-retention.ts": [
         103,
-        107,
+        104,
         247,
         821,
         822,
-        825,
         826,
         844,
         852,
@@ -2802,16 +2808,18 @@
     },
     "test/substrates/sqlite/content.test.ts#SQLite content store reports the exact diagnostic for every malformed blob column": {
       "src/substrates/sqlite/content.ts": [
-        141,
+        146,
         154,
         161,
         167,
-        173,
+        171,
         174,
         178,
         180,
         181,
+        186,
         188,
+        200,
         201
       ]
     },
@@ -2830,14 +2838,12 @@
     "test/substrates/sqlite/content.test.ts#SQLite content store validates every stored blob during retention state checks": {
       "src/substrates/sqlite/content.ts": [
         107,
+        196,
         197
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#SQLite workspace record coverage covers pointer insert, update, conflicts, and insert/update race postconditions": {
       "src/substrates/sqlite/events/records.ts": [
-        161,
-        163,
-        183,
         185
       ]
     },
@@ -2863,7 +2869,7 @@
         196,
         197,
         198,
-        204,
+        199,
         207
       ]
     },
@@ -2873,37 +2879,29 @@
         77,
         79,
         87,
-        89,
         102,
         103,
         106,
         107,
-        114,
-        118,
-        125,
-        135,
+        120,
+        123,
+        133,
         145,
-        147,
-        149,
         151,
+        157,
         161,
         162,
         169,
-        171,
-        177,
+        179,
         183,
         197,
-        198,
-        211,
-        213,
-        214,
+        212,
         215,
         220,
         221,
-        222,
-        223,
+        228,
         229,
-        231,
+        230,
         237,
         238,
         239,
@@ -2912,8 +2910,8 @@
         242,
         243,
         244,
-        245,
         251,
+        253,
         257,
         259
       ]
@@ -2934,6 +2932,7 @@
     "test/substrates/sqlite/events-persistence.test.ts#pointer compare-and-set reports a stale expectation exactly": {
       "src/substrates/sqlite/events/records.ts": [
         161,
+        163,
         165,
         166
       ]
@@ -2961,7 +2960,8 @@
     },
     "test/substrates/sqlite/events-persistence.test.ts#rejects preexisting lax workspace event tables": {
       "src/substrates/sqlite/events/records.ts": [
-        199
+        198,
+        204
       ]
     },
     "test/substrates/sqlite/events-persistence.test.ts#schema comparison tolerates whitespace layout but not content drift": {
@@ -2973,29 +2973,34 @@
     "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence binds retained content to the exact durable record atomically": {
       "src/substrates/sqlite/events/records.ts": [
         120,
+        125,
         193,
+        196,
         197,
-        206,
-        212,
+        198,
+        211,
+        214,
         219,
-        235,
+        223,
         237,
         253
       ]
     },
     "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence enforces subscription and View compare-and-set revisions": {
       "src/substrates/sqlite/events/records.ts": [
+        147,
+        149,
         151,
         161,
         162,
         169,
+        171,
         173,
         175,
-        179,
+        177,
         183,
         227,
-        228,
-        230,
+        231,
         238,
         242
       ]
@@ -3007,20 +3012,10 @@
         241
       ]
     },
-    "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence restores Events, routes, Views, and deltas after restart": {
-      "src/substrates/sqlite/events/records.ts": [
-        243
-      ]
-    },
     "test/substrates/sqlite/events-persistence.test.ts#verifies initial pointer compare-and-set postconditions": {
       "src/substrates/sqlite/events/records.ts": [
         183,
         186
-      ]
-    },
-    "test/substrates/sqlite/events-seam.test.ts#[workspace-record-storage] memory and SQLite satisfy the shared storage contract": {
-      "src/substrates/sqlite/events/records.ts": [
-        157
       ]
     },
     "test/substrates/sqlite/identity.test.ts#SQLite identity reader fails closed on a text column that is not a string": {
@@ -3037,7 +3032,6 @@
     },
     "test/substrates/sqlite/identity.test.ts#SQLite identity reader loads stored identity records with their exact persisted fields": {
       "src/substrates/sqlite/identity.ts": [
-        144,
         146,
         147,
         148,
@@ -3047,19 +3041,16 @@
         158,
         159,
         161,
-        162,
         163,
         164,
         171,
         172,
         173,
-        174,
         176,
         177,
         178,
         179,
         180,
-        187,
         188,
         189,
         190,
@@ -3073,7 +3064,6 @@
         205,
         206,
         207,
-        208,
         209,
         215,
         216,
@@ -3082,22 +3072,24 @@
         220,
         221,
         222,
-        223,
         224,
         225,
         226,
+        233,
         235,
         236,
-        246,
+        241,
+        245,
         247,
         251,
         255,
+        256,
         257,
-        262,
-        266,
         275,
         276,
+        283,
         284,
+        292,
         293,
         294,
         304,
@@ -3105,7 +3097,9 @@
         310,
         312,
         317,
-        319
+        319,
+        327,
+        335
       ]
     },
     "test/substrates/sqlite/identity.test.ts#SQLite identity reader maps invalid projected identifiers to the corruption error": {
@@ -3138,7 +3132,6 @@
         149,
         161,
         164,
-        165,
         176,
         180,
         181,
@@ -3154,6 +3147,7 @@
         223,
         224,
         226,
+        227,
         344
       ]
     },
@@ -3172,26 +3166,22 @@
     },
     "test/substrates/sqlite/identity.test.ts#SQLite identity reader wraps substrate read failures in the exact identity read error": {
       "src/substrates/sqlite/identity.ts": [
-        286,
-        287,
         288
       ]
     },
     "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-ADV-RECEIPT-INDETERMINATE] atomically persists attempt, Receipt, and supersession audit edges through the invocation evidence port": {
-      "src/substrates/sqlite/invocations/mediation.ts": [
-        141
-      ],
       "src/substrates/sqlite/invocations/persistence.ts": [
         157,
         158,
         159,
         170,
         174,
+        177,
         178,
         180,
         181,
         183,
-        192
+        187
       ]
     },
     "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract": {
@@ -3225,7 +3215,6 @@
         193,
         199,
         201,
-        212,
         214,
         215,
         216,
@@ -3411,7 +3400,6 @@
         302,
         304,
         306,
-        313,
         316,
         319,
         321,
@@ -3539,8 +3527,6 @@
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
       "src/substrates/sqlite/invocations/persistence.ts": [
-        187,
-        191,
         545,
         550,
         552,
@@ -3723,16 +3709,20 @@
         62,
         67,
         137,
+        141,
+        163,
         172,
         192,
-        193
+        212
       ],
       "src/substrates/sqlite/invocations/persistence.ts": [
-        177,
-        180
+        191,
+        192,
+        313
       ],
       "src/substrates/sqlite/protocol.ts": [
         82,
+        84,
         92,
         102,
         104,
@@ -3740,25 +3730,22 @@
         109,
         115,
         120,
+        136,
         150,
         157,
-        160,
         164,
-        209,
+        211,
         212,
         215,
-        216,
-        223,
-        226,
-        415,
-        420,
-        421,
-        426,
+        217,
+        246,
+        254,
+        255,
         428,
         430,
         431,
-        463,
-        469
+        439,
+        471
       ]
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior fails closed when writes do not produce durable rows": {
@@ -3774,35 +3761,33 @@
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior fails pointer CAS closed for a missing pointer with an expected revision": {
       "src/substrates/sqlite/materialization.ts": [
-        1014,
         1015,
+        1292,
         1295,
-        1298,
         1952
       ]
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior keeps immutable replay errors exact for conflicting blueprints": {
       "src/substrates/sqlite/materialization.ts": [
-        716,
-        1067,
-        1069,
+        727,
+        735,
+        1073,
         1098,
-        1356,
-        1357,
+        1102,
         1841,
         1846,
-        1847,
-        1850,
+        1849,
         1851,
+        1947,
         1948
       ]
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior lists managed state, generations, and plans in canonical sorted order": {
       "src/substrates/sqlite/materialization.ts": [
         738,
+        741,
         744,
         783,
-        1360,
         1817,
         1962
       ]
@@ -3879,7 +3864,6 @@
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects a pointer CAS read-back that returns a truncated record prefix": {
       "src/substrates/sqlite/materialization.ts": [
         1341,
-        1342,
         1957
       ]
     },
@@ -3893,7 +3877,6 @@
       "src/substrates/sqlite/materialization.ts": [
         797,
         963,
-        1437,
         1443,
         1444,
         1445,
@@ -3902,6 +3885,7 @@
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects generation replay when stored bytes were tampered": {
       "src/substrates/sqlite/materialization.ts": [
+        793,
         794,
         903
       ]
@@ -3916,10 +3900,12 @@
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects managed state that its generation does not reference": {
       "src/substrates/sqlite/materialization.ts": [
+        838,
         953,
         955,
+        957,
         1235,
-        1237
+        1241
       ]
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects managed state whose Actor differs from its own generation": {
@@ -3938,7 +3924,7 @@
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects plans that do not target exactly the store owner": {
       "src/substrates/sqlite/materialization.ts": [
         750,
-        780,
+        752,
         1827,
         1828,
         1830
@@ -3962,20 +3948,21 @@
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior reports exact projection corruption for each stored record family": {
       "src/substrates/sqlite/materialization.ts": [
-        766,
+        769,
+        939,
+        1120,
+        1137,
         1356,
         1364,
-        1372,
         1376,
-        1389,
         1390,
+        1401,
         1403,
         1416,
         1418,
         1750,
         1828,
         1855,
-        1856,
         1859,
         1861,
         1862
@@ -3998,42 +3985,39 @@
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior requires strictly increasing generation ordinals on pointer activation": {
       "src/substrates/sqlite/materialization.ts": [
-        987,
+        1012,
         1014,
         1280,
         1285,
-        1287,
-        1412,
         1416,
         1423,
         1424,
         1425,
-        1892,
-        1895,
         1896,
-        1897,
         1898,
         1919
       ]
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior surfaces foreign persisted rows through every listing seam": {
       "src/substrates/sqlite/materialization.ts": [
+        693,
         699,
         802,
+        804,
         807,
         810,
         811,
-        843,
         846,
         847,
         862,
         891,
+        909,
         912,
         913,
-        1129,
+        1079,
+        1081,
+        1126,
         1172,
-        1174,
-        1178,
         1467,
         1474,
         1476,
@@ -4044,76 +4028,65 @@
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior verifies persisted pointer bytes through the CAS read-back seam": {
       "src/substrates/sqlite/materialization.ts": [
-        884,
         886,
+        898,
         903,
         916,
         948,
-        953,
-        965,
-        985,
         1005,
-        1012,
         1013,
         1015,
-        1017,
         1018,
-        1026,
-        1033,
         1055,
         1057,
         1058,
-        1159,
-        1162,
+        1157,
+        1164,
         1170,
+        1181,
         1194,
-        1196,
         1200,
         1220,
         1225,
         1227,
         1233,
-        1244,
         1248,
-        1256,
-        1258,
-        1287,
-        1309,
-        1316,
+        1307,
+        1311,
         1340,
         1341,
         1344,
-        1385,
-        1401,
+        1389,
+        1396,
+        1399,
+        1438,
         1441,
         1443,
+        1444,
         1453,
         1454,
         1458,
-        1519,
+        1517,
+        1525,
         1529,
         1530,
-        1532,
         1533,
         1534,
-        1535,
         1544,
-        1836,
-        1866,
-        1868,
-        1870,
-        1873,
+        1556,
+        1869,
+        1872,
         1874,
-        1879,
+        1875,
         1880,
-        1884,
         1885,
         1886,
+        1888,
         1905,
-        1911,
         1913,
         1919,
         1927,
+        1933,
         1934,
         1940,
         1941,
@@ -4199,6 +4172,7 @@
       "src/substrates/sqlite/materialization.ts": [
         252,
         254,
+        1986,
         1987
       ]
     },
@@ -4219,7 +4193,8 @@
         612,
         1975,
         1978,
-        1994
+        1994,
+        1996
       ]
     },
     "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control corruption and lineage requires the stored validation attestation before accepting a rollout": {
@@ -4261,8 +4236,7 @@
       "src/substrates/sqlite/materialization.ts": [
         267,
         481,
-        485,
-        486
+        485
       ]
     },
     "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control rejects corrupt outbox revision projections": {
@@ -4296,7 +4270,6 @@
     "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control rejects truncated target outbox closure on completion and restart": {
       "src/substrates/sqlite/materialization.ts": [
         494,
-        495,
         496,
         503,
         506,
@@ -4318,7 +4291,7 @@
         516,
         518,
         560,
-        562,
+        561,
         564,
         565,
         569,
@@ -4349,16 +4322,11 @@
         616,
         679,
         1515,
-        1517,
         1524,
-        1525,
-        1526,
         1527,
+        1532,
         1533,
-        1534,
         1535,
-        1537,
-        1913,
         1997
       ]
     },
@@ -4387,13 +4355,12 @@
     },
     "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control validates deployment projections revisions and missing lookups": {
       "src/substrates/sqlite/materialization.ts": [
-        212,
         213,
         221,
         223,
         225,
-        226,
         228,
+        229,
         230,
         231,
         232,
@@ -4489,23 +4456,20 @@
         1585,
         1586,
         1599,
-        1601,
         1618,
         1622,
         1625,
         1626,
         1627,
         1628,
-        1629,
         1638,
         1639,
-        1640,
         1641,
         1642,
         1643,
         1644,
-        1645,
-        1646
+        1646,
+        1647
       ]
     },
     "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema names exact unsupported managed-state reset reasons and keeps plain codec failures": {
@@ -4531,8 +4495,7 @@
         1545,
         1553,
         1556,
-        1557,
-        1996
+        1557
       ]
     },
     "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema names the exact malformed marked object reset reasons": {
@@ -4567,17 +4530,12 @@
         1655,
         1688,
         1689,
-        1702,
         1703,
         1718,
         1719,
-        1734,
         1735,
-        1748,
         1750,
-        1927,
-        1933,
-        1948
+        1828
       ]
     },
     "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema requires exactly one schema marker row without rewriting the extra one": {
@@ -4647,8 +4605,7 @@
     },
     "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema rolls back standalone managed state that has no stored generation": {
       "src/substrates/sqlite/materialization.ts": [
-        822,
-        826
+        822
       ]
     },
     "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema scopes legacy composition detection to tables only": {
@@ -4677,13 +4634,18 @@
     },
     "test/substrates/sqlite/package-store.test.ts#SQLite package store exact failure and projection behavior getSnapshot returns undefined for a missing digest and restores revision zero exactly": {
       "src/substrates/sqlite/package.ts": [
-        121,
         124,
+        126,
+        132,
         136,
         146,
+        227,
+        228,
+        230,
+        249,
+        251,
         316,
         318,
-        332,
         334
       ]
     },
@@ -4693,6 +4655,9 @@
         113,
         114,
         115,
+        208,
+        210,
+        271,
         348,
         350,
         359,
@@ -4709,17 +4674,14 @@
     },
     "test/substrates/sqlite/package-store.test.ts#SQLite package store exact failure and projection behavior lock rows with a forged key column fail the key projection": {
       "src/substrates/sqlite/package.ts": [
-        162,
+        165,
         167,
-        170,
         183,
         193,
-        238,
+        240,
         284,
-        288,
         290,
-        307,
-        311
+        307
       ]
     },
     "test/substrates/sqlite/package-store.test.ts#SQLite package store exact failure and projection behavior malformed stored snapshot projections fail closed with exact column messages": {
@@ -4736,9 +4698,13 @@
       "src/substrates/sqlite/package.ts": [
         98,
         196,
+        198,
         201,
+        203,
+        269,
+        272,
         297,
-        303,
+        302,
         326,
         340,
         342,
@@ -4748,6 +4714,7 @@
     },
     "test/substrates/sqlite/package-store.test.ts#SQLite package store exact failure and projection behavior release rows swapped across keys fail the expected-id and expected-version projections": {
       "src/substrates/sqlite/package.ts": [
+        267,
         271,
         272,
         275
@@ -4786,32 +4753,28 @@
         137,
         138,
         155,
+        158,
         161,
         162,
         163,
-        164,
         165,
         173,
         174,
-        181,
+        182,
         188,
-        190,
         194,
         195
       ],
       "src/substrates/sqlite/sqlite.ts": [
-        44,
-        46
+        12,
+        44
       ]
     },
     "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issued and consumed project only their exact states": {
       "src/substrates/sqlite/permit.ts": [
         46,
         52,
-        94,
-        100,
-        102,
-        111
+        100
       ]
     },
     "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issued rejects driver rows for another nonce": {
@@ -4837,6 +4800,7 @@
         144,
         146,
         147,
+        149,
         150,
         173,
         174,
@@ -4880,7 +4844,6 @@
     },
     "test/substrates/sqlite/protocol.test.ts#SQLite protocol persistence exact schema and projection behavior names a schema object with the wrong type exactly": {
       "src/substrates/sqlite/protocol.ts": [
-        231,
         232,
         246,
         247
@@ -4891,12 +4854,18 @@
         321,
         345,
         346,
+        383,
         384,
         385,
+        386,
+        413,
+        415,
         417,
+        419,
         420,
+        421,
+        422,
         428,
-        447,
         479,
         480
       ]
@@ -4917,16 +4886,16 @@
     "test/substrates/sqlite/protocol.test.ts#SQLite protocol persistence exact schema and projection behavior rejects an unknown stored audit kind with its exact message": {
       "src/substrates/sqlite/protocol.ts": [
         428,
-        430,
+        431,
         442
       ]
     },
     "test/substrates/sqlite/protocol.test.ts#SQLite protocol persistence exact schema and projection behavior rejects an unknown stored write outcome with its exact message": {
       "src/substrates/sqlite/protocol.ts": [
-        404,
+        405,
+        406,
         408,
         447,
-        448,
         458
       ]
     },
@@ -4946,9 +4915,11 @@
         234,
         235,
         236,
+        239,
         240,
         241,
         243,
+        244,
         245,
         246,
         251,
@@ -4963,20 +4934,17 @@
         266,
         267,
         268,
-        269,
         270,
         272,
         273,
         274,
         275,
         276,
-        277,
         278,
         279,
         280,
         281,
         282,
-        283,
         285,
         286,
         287,
@@ -4985,7 +4953,6 @@
         290,
         291,
         292,
-        293,
         296,
         298,
         299,
@@ -4996,7 +4963,7 @@
         310,
         311,
         316,
-        323,
+        318,
         343,
         345,
         355,
@@ -5004,6 +4971,7 @@
         358,
         366,
         367,
+        376,
         377,
         378,
         471
@@ -5018,6 +4986,7 @@
     "test/substrates/sqlite/protocol.test.ts#SQLite protocol persistence exact schema and projection behavior surfaces the identity-index rebuild fault message verbatim": {
       "src/substrates/sqlite/protocol.ts": [
         365,
+        368,
         370,
         371,
         486
@@ -5328,7 +5297,6 @@
     },
     "test/substrates/sqlite/slot.test.ts#SQLite Workspace Slot store exact failure and schema behavior keeps installed declarations immutable with the exact error": {
       "src/substrates/sqlite/slot.ts": [
-        131,
         132,
         406
       ]
@@ -5340,6 +5308,7 @@
     },
     "test/substrates/sqlite/slot.test.ts#SQLite Workspace Slot store exact failure and schema behavior rejects a drifted expected schema object with the exact error": {
       "src/substrates/sqlite/slot.ts": [
+        289,
         292,
         349,
         351,
@@ -5388,15 +5357,13 @@
       "src/substrates/sqlite/slot.ts": [
         57,
         58,
-        60,
         386
       ]
     },
     "test/substrates/sqlite/slot.test.ts#SQLite Workspace Slot store exact failure and schema behavior rejects nested transactions with the exact invalid-state error": {
       "src/substrates/sqlite/slot.ts": [
         72,
-        414,
-        415
+        414
       ]
     },
     "test/substrates/sqlite/slot.test.ts#SQLite Workspace Slot store exact failure and schema behavior rejects schema DDL that drops a structural comma": {
@@ -5406,50 +5373,39 @@
     },
     "test/substrates/sqlite/slot.test.ts#SQLite Workspace Slot store exact failure and schema behavior reopens its own schema with state intact": {
       "src/substrates/sqlite/slot.ts": [
-        54,
-        57,
-        59,
         72,
         74,
-        75,
-        76,
         86,
         89,
         90,
         92,
-        93,
         96,
         99,
-        106,
         108,
         110,
-        117,
-        123,
+        120,
         126,
+        131,
+        136,
+        141,
         143,
-        156,
+        153,
+        158,
         166,
-        169,
         177,
-        180,
         183,
         189,
-        196,
-        201,
-        205,
-        210,
-        217,
-        228,
+        202,
+        213,
         232,
-        264,
-        269,
-        271,
-        276,
-        288,
-        326,
-        335,
-        350,
-        352,
+        267,
+        286,
+        300,
+        312,
+        320,
+        328,
+        332,
+        351,
         355,
         356,
         359,
@@ -5476,6 +5432,7 @@
     "test/substrates/sqlite/slot.test.ts#SQLite Workspace Slot store exact failure and schema behavior reports tampered revision values with the exact column error": {
       "src/substrates/sqlite/slot.ts": [
         342,
+        344,
         392,
         393
       ]
@@ -5498,9 +5455,10 @@
         60,
         61,
         68,
-        70,
+        71,
         79,
-        89
+        89,
+        219
       ]
     },
     "test/substrates/sqlite/store-parity.test.ts#SQLite invalidation watermark store restart reopens watermark codec bytes from a file": {
@@ -5521,7 +5479,6 @@
         225,
         226,
         962,
-        964,
         965
       ]
     },
@@ -5627,8 +5584,10 @@
         313
       ],
       "src/substrates/sqlite/tenant.ts": [
+        533,
         860,
         884,
+        923,
         1061,
         1062,
         1064,
@@ -5690,6 +5649,7 @@
         731,
         733,
         739,
+        768,
         803,
         805,
         809,
@@ -5724,9 +5684,11 @@
         887,
         890,
         896,
+        918,
         931,
         932,
-        935
+        935,
+        939
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity surfaces foreign Membership Scopes as Scope ownership faults": {
@@ -5767,11 +5729,11 @@
         281,
         283,
         296,
-        946,
         949,
+        952,
+        962,
         991,
         998,
-        999,
         1001,
         1002,
         1003,
@@ -5781,7 +5743,6 @@
         1027,
         1039,
         1041,
-        1045,
         1047,
         1050,
         1055,
@@ -5808,58 +5769,36 @@
         68,
         73,
         75,
+        81,
         88,
-        93,
-        99,
-        111,
-        167,
+        165,
         170,
-        171,
-        173,
-        174,
-        175,
-        184,
-        188,
-        189,
-        199,
-        202,
-        213,
-        220,
         274,
         278,
         280,
-        295,
-        301,
-        322
+        301
       ],
       "src/substrates/sqlite/identity.ts": [
-        115,
-        116,
-        118,
-        207,
-        209,
-        216,
-        217,
-        233,
-        245,
-        283,
+        131,
+        223,
+        225,
+        226,
+        235,
+        246,
+        247,
+        266,
         319,
         325,
         327,
         331,
-        335,
         336
       ],
       "src/substrates/sqlite/tenant.ts": [
-        59,
-        60,
-        67,
         68,
         72,
         73,
         74,
         79,
-        80,
         81,
         97,
         101,
@@ -5889,15 +5828,19 @@
         333,
         361,
         365,
-        378,
+        369,
         387,
         391,
         395,
+        401,
         408,
-        426,
+        412,
+        423,
+        438,
         441,
-        602,
+        604,
         606,
+        611,
         615,
         616,
         647,
@@ -5921,7 +5864,6 @@
         746,
         747,
         748,
-        749,
         750,
         751,
         752,
@@ -5929,19 +5871,20 @@
         759,
         760,
         761,
+        771,
         772,
         774,
         776,
         777,
-        784,
+        783,
         786,
         792,
-        793,
         795,
         801,
         802,
         817,
         819,
+        820,
         825,
         830,
         852,
@@ -5953,9 +5896,12 @@
         887,
         888,
         889,
-        896,
+        920,
+        923,
+        925,
         931,
-        933,
+        935,
+        936,
         983,
         1031,
         1033,
@@ -5967,12 +5913,10 @@
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating requires an immutable bootstrap anchor to construct": {
       "src/substrates/sqlite/tenant.ts": [
         140,
-        141,
         142,
         152,
         154,
         155,
-        994,
         996,
         998,
         1016,
@@ -5995,7 +5939,6 @@
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating wraps schema initialization faults into an exact revision conflict": {
       "src/substrates/sqlite/authority.ts": [
         53,
-        54,
         55,
         56,
         57
@@ -6017,19 +5960,21 @@
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards creates and replays guest trust exactly": {
       "src/substrates/sqlite/identity.ts": [
-        196,
-        198,
         257
       ],
       "src/substrates/sqlite/tenant.ts": [
         329,
+        555,
         562,
         563,
         565,
         566,
+        570,
+        573,
         583,
         584,
         587,
+        589,
         866
       ]
     },
@@ -6068,11 +6013,16 @@
         640,
         642,
         643,
+        921,
         923,
+        932,
         1070
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards keeps Workspace topology immutable with exact diagnoses": {
+      "src/substrates/sqlite/identity.ts": [
+        173
+      ],
       "src/substrates/sqlite/tenant.ts": [
         521,
         527,
@@ -6080,9 +6030,8 @@
         531,
         532,
         533,
-        534,
         536,
-        541,
+        543,
         546,
         855,
         857,
@@ -6098,7 +6047,6 @@
         401,
         403,
         404,
-        477,
         478,
         479,
         521,
@@ -6118,6 +6066,11 @@
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards requires initial revisions and exact successors for Teams and Projects": {
+      "src/substrates/sqlite/identity.ts": [
+        143,
+        144,
+        236
+      ],
       "src/substrates/sqlite/tenant.ts": [
         309,
         313,
@@ -6128,16 +6081,17 @@
         456,
         460,
         461,
+        462,
         464,
         465,
         469,
         472,
+        478,
         482,
         483,
         485,
         486,
         490,
-        491,
         498,
         499,
         501,
@@ -6149,9 +6103,8 @@
     },
     "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage creates only the retained strict Tenant control schema": {
       "src/substrates/sqlite/tenant.ts": [
-        952,
-        962,
-        1005
+        141,
+        946
       ]
     },
     "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage fails closed on a null bootstrap marker projection column": {
@@ -6161,9 +6114,14 @@
     },
     "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reconstruction rejects an extra role Grant beyond the materialized set": {
       "src/substrates/sqlite/tenant.ts": [
-        918,
-        932,
-        939
+        935
+      ]
+    },
+    "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage rejects a different anchor after restart": {
+      "src/substrates/sqlite/tenant.ts": [
+        962,
+        964,
+        1047
       ]
     },
     "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage rejects corrupted identity, authority, and bootstrap projections": {
@@ -6191,27 +6149,27 @@
         263,
         264,
         265,
-        272,
-        274
+        272
       ],
       "src/substrates/sqlite/identity.ts": [
-        131,
+        130,
         132,
         133
       ],
       "src/substrates/sqlite/tenant.ts": [
+        60,
+        68,
+        72,
+        73,
+        80,
         374,
-        412,
-        677,
+        426,
         911,
-        912,
         913,
         920,
         923,
-        925,
         931,
-        935,
-        936,
+        933,
         1033
       ]
     },
@@ -6225,17 +6183,11 @@
         190
       ]
     },
-    "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior persists a same-length join transition instead of treating it as a no-op": {
-      "src/substrates/sqlite/watermark.ts": [
-        210
-      ]
-    },
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior persists joins exactly once and keeps stale joins idempotent": {
       "src/substrates/sqlite/watermark.ts": [
         106,
         108,
         109,
-        117,
         119,
         137,
         138,
@@ -6261,6 +6213,7 @@
         178,
         179,
         180,
+        181,
         182,
         227,
         228
@@ -6269,7 +6222,6 @@
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior rejects watermarks of another Actor with the exact code": {
       "src/substrates/sqlite/watermark.ts": [
         72,
-        79,
         81,
         83,
         84
@@ -6278,7 +6230,6 @@
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior reports a silently dropped insert as an exact concurrent change": {
       "src/substrates/sqlite/watermark.ts": [
         124,
-        129,
         131,
         132
       ]
@@ -6299,7 +6250,6 @@
     },
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior requires revision zero for new watermarks": {
       "src/substrates/sqlite/watermark.ts": [
-        89,
         90,
         92,
         93
@@ -6307,7 +6257,9 @@
     },
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior requires the exact next revision on watermark updates": {
       "src/substrates/sqlite/watermark.ts": [
-        97,
+        51,
+        60,
+        89,
         103,
         106,
         108,
@@ -6332,20 +6284,17 @@
         190,
         194,
         196,
-        202,
         204,
-        208,
         210
       ]
     },
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior wraps foreign insert faults as an exact watermark write failure": {
       "src/substrates/sqlite/watermark.ts": [
-        57,
+        69,
+        72,
         73,
-        79,
-        90,
-        218,
-        219
+        89,
+        90
       ]
     },
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior wraps foreign join faults as an exact join failure": {

@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "errors",
-  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
-  "fingerprint": "sha256:dc597367314c3d705c3437b169bfed6adc88a5be284d8c1071b5f61f647e53db",
+  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
+  "fingerprint": "sha256:8bc8d1512864e1dd8adf3426d5639036488f2971995c98e54e6216b34379ba85",
   "files": {
     "src/errors.ts": {
       "mutants": 6,

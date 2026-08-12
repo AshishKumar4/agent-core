@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "interaction-references",
-  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
-  "fingerprint": "sha256:8398ee32322a9ae244e5a55349d6863c7a1d6037a25edd64ae2eb292e18713b4",
+  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
+  "fingerprint": "sha256:21856ae363b9d7752c7098d28fc2094e39a394cb08e4bb3fcef4abb41817b037",
   "files": {
     "src/interaction-references/id.ts": {
       "mutants": 14,
@@ -10,9 +10,9 @@
     }
   },
   "killed": {
-    "test/integration/blueprint-live-composition.test.ts#a declared Blueprint is what executes the derived Subscription record targets exactly the declared Operation": {
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects preexisting forced cancellation records": {
       "src/interaction-references/id.ts": [
-        11
+        4
       ]
     },
     "test/interaction-references/identity.test.ts#canonical interaction identities every interaction and invocation reference ID names its exact subject": {
@@ -26,14 +26,22 @@
         47
       ]
     },
-    "test/interaction-references/identity.test.ts#canonical interaction identities re-exports one frozen constructor through W6 and W7 barrels": {
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] prepareWithAudit persists a local preparation with its root AuditRecord": {
       "src/interaction-references/id.ts": [
-        4,
+        25
+      ]
+    },
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
+      "src/interaction-references/id.ts": [
         18,
-        25,
-        32,
-        39,
         46
+      ]
+    },
+    "test/workspaces/coverage-protocols.test.ts#route records and authentication validates reservation invariants and round-trips authority, tenant, trust, and initiator variants": {
+      "src/interaction-references/id.ts": [
+        11,
+        32,
+        39
       ]
     }
   }

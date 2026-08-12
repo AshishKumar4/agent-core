@@ -1,12 +1,12 @@
 {
   "edition": "1.0.0",
   "area": "composition",
-  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
-  "fingerprint": "sha256:6a91f119d8459c960538693fb2fbaf73de8be4e337506c0c575488adbf7c5d88",
+  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
+  "fingerprint": "sha256:360535094023ef193dc457f8c5fcaeaf1be1fc26771417b6b6ce0ed5620629ed",
   "files": {
     "src/composition/authored-code.ts": {
-      "mutants": 54,
-      "sha256": "sha256:b59079e1bed71833818527747f533eacc10668cf431e66fac3a24c8a7789d822"
+      "mutants": 53,
+      "sha256": "sha256:4eecc04bafc63956b016ca6a0856bec2d11dfca782674d4e164e7d3222e55ef1"
     },
     "src/composition/authority-commands.ts": {
       "mutants": 168,
@@ -17,8 +17,8 @@
       "sha256": "sha256:26b5bc50bdfaf1d35a5bb6732531cd245cf63851c128f0bad881db47fa1a6b45"
     },
     "src/composition/authority.ts": {
-      "mutants": 316,
-      "sha256": "sha256:8f3d2f4ce1f0412a66e8807e4d16ed11dcc832be0044a1431d2f60eecb9dede3"
+      "mutants": 307,
+      "sha256": "sha256:b81c9d329fc87df8e39a1fa411b533cb02818f01d8d55081488bca5825eed54c"
     },
     "src/composition/device-consent.ts": {
       "mutants": 59,
@@ -42,7 +42,7 @@
     },
     "src/composition/mediation-identity.ts": {
       "mutants": 51,
-      "sha256": "sha256:96b4321c669ff996833b9fc0458dbff1cf46abae875ed97477e04a770b2ffcf0"
+      "sha256": "sha256:4eb8d151d38c02659494483c94d4adbded67f84b692c010589aa5dbdc1ca798b"
     },
     "src/composition/mediation-preparation.ts": {
       "mutants": 171,
@@ -105,9 +105,7 @@
     },
     "test/composition/admission-ports.test.ts#authority permit composition ports consumed authority admission converts denials and propagates other faults": {
       "src/composition/permit.ts": [
-        188,
         195,
-        197,
         198,
         202,
         204
@@ -115,7 +113,6 @@
     },
     "test/composition/admission-ports.test.ts#authority permit composition ports consumed authority admission denies each missing admission precondition": {
       "src/composition/permit.ts": [
-        181,
         183,
         188,
         189,
@@ -136,14 +133,17 @@
     },
     "test/composition/admission-ports.test.ts#device consent final admission admits only the exact cached read or a consented live Device Operation": {
       "src/composition/device-consent.ts": [
+        50,
         51,
         55,
         56,
         59,
+        60,
         66,
         67,
         69,
         70,
+        74,
         75,
         76,
         79
@@ -162,6 +162,7 @@
         70,
         71,
         72,
+        90,
         91
       ]
     },
@@ -179,13 +180,9 @@
     },
     "test/composition/admission-ports.test.ts#single-tenant policy assembly a second assembly is refused with the exact typed error": {
       "src/composition/single-tenant.ts": [
-        60,
         62,
         64,
-        65,
-        82,
-        83,
-        85
+        65
       ]
     },
     "test/composition/admission-ports.test.ts#single-tenant policy assembly multiplicity policy values are frozen and count-checked": {
@@ -197,6 +194,17 @@
         40,
         41,
         113
+      ]
+    },
+    "test/composition/admission-ports.test.ts#single-tenant policy assembly the owner Membership materializes the one allow Grant the Binding names": {
+      "src/composition/single-tenant.ts": [
+        60,
+        62,
+        81,
+        82,
+        83,
+        85,
+        101
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] binds the passed set to attenuations in the isolate's own domain": {
@@ -227,6 +235,7 @@
         141,
         158,
         159,
+        160,
         187
       ]
     },
@@ -235,6 +244,12 @@
         133,
         196,
         197
+      ]
+    },
+    "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] refuses a capability whose backing Grant was revoked": {
+      "src/composition/authored-code.ts": [
+        100,
+        102
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] refuses a passed set wider than the delegator holds": {
@@ -416,16 +431,15 @@
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane a leased resolution without a revocation window carries no deadline and stays mediated": {
       "src/composition/authority.ts": [
-        138,
-        162,
         163,
         169,
         175,
+        312,
         319,
-        323,
-        324,
+        321,
         325,
-        347,
+        327,
+        349,
         526
       ]
     },
@@ -436,10 +450,11 @@
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane a route-scoped resolution carries no lease evidence and never admits direct": {
       "src/composition/authority.ts": [
+        137,
         163,
-        319,
-        320,
-        347,
+        321,
+        322,
+        349,
         504,
         505,
         506,
@@ -448,25 +463,29 @@
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane direct authorization refuses every individually stale precondition": {
       "src/composition/authority.ts": [
-        347,
+        349,
         353,
-        560,
         561
       ]
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane direct authorization stamps the exact resolution identity and operation digests": {
       "src/composition/authority.ts": [
-        131,
+        169,
         175,
-        238,
+        232,
         243,
         247,
         251,
         255,
         257,
         259,
-        340,
+        342,
+        349,
+        350,
+        354,
+        358,
         528,
+        532,
         545,
         561
       ]
@@ -484,7 +503,10 @@
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane mediated authorization denies every individually stale precondition": {
       "src/composition/authority.ts": [
+        380,
         383,
+        384,
+        391,
         392,
         396,
         552,
@@ -494,14 +516,18 @@
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane mediated authorization yields a frozen intent replayed as exact canonical digests": {
       "src/composition/authority.ts": [
-        284,
+        286,
+        392,
+        417,
         427,
         429,
         440,
         442,
         447,
         452,
-        459
+        459,
+        550,
+        552
       ]
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane releasing a resolution delegates to the authority state": {
@@ -512,7 +538,6 @@
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane resolve denies a direct revocation deadline beyond the safe range": {
       "src/composition/authority.ts": [
         519,
-        520,
         526,
         527,
         528,
@@ -521,16 +546,14 @@
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane resolve denies a missing or non-resolving Binding for the authenticated Principal": {
       "src/composition/authority.ts": [
-        304,
-        306,
-        307,
+        308,
+        309,
         572,
         573
       ]
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane resolve denies a non-finite resolution time": {
       "src/composition/authority.ts": [
-        306,
         496,
         497,
         498
@@ -549,6 +572,12 @@
         508,
         509,
         510
+      ]
+    },
+    "test/composition/authority-membrane.test.ts#Tenant operation authority membrane resolve refuses a current Turn lease that reports no expiration": {
+      "src/composition/authority.ts": [
+        519,
+        520
       ]
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane resolve requires the exact current Turn lease": {
@@ -574,9 +603,10 @@
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane the direct tier gate requires a lease, local authority, granted capability, and a window": {
       "src/composition/authority.ts": [
-        319,
         321,
-        322
+        323,
+        324,
+        329
       ]
     },
     "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it": {
@@ -602,13 +632,13 @@
         110,
         111,
         119,
-        121,
         158,
-        163,
+        162,
+        169,
         174,
         175,
-        310,
-        347
+        238,
+        308
       ]
     },
     "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-LEASE] rejects direct admission for a wrong Turn, holder, or epoch": {
@@ -650,6 +680,10 @@
       "src/composition/authority-state.ts": [
         95,
         238
+      ],
+      "src/composition/authority.ts": [
+        119,
+        138
       ]
     },
     "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-RESOLUTION-LIFETIME] a bundled resolution cannot outlive its Turn without an explicit release": {
@@ -660,7 +694,7 @@
         239
       ],
       "src/composition/authority.ts": [
-        306
+        308
       ]
     },
     "test/composition/authority-state.test.ts#production authority state seams (memory) authorizes a fresh mediated intent through the composed Actor state": {
@@ -670,6 +704,7 @@
       ],
       "src/composition/authority.ts": [
         383,
+        389,
         390,
         391,
         392,
@@ -843,6 +878,15 @@
         261
       ]
     },
+    "test/composition/behavior-branches.test.ts#W9 composition behavior branches treats an unimplemented evidence source as absent evidence, never as satisfied": {
+      "src/composition/run-evidence.ts": [
+        89,
+        90,
+        135,
+        136,
+        162
+      ]
+    },
     "test/composition/behavior-branches.test.ts#W9 composition behavior branches treats slot installation and contribution as byte-stable append-only provenance": {
       "src/composition/package-runtime.ts": [
         104,
@@ -853,12 +897,13 @@
         133,
         136,
         138,
+        139,
         143,
         144,
         146,
         148,
         149,
-        155,
+        159,
         163,
         165,
         166,
@@ -866,7 +911,6 @@
         169,
         172,
         175,
-        178,
         180,
         181,
         183,
@@ -887,6 +931,11 @@
         18
       ]
     },
+    "test/composition/json-patch.test.ts#detached RFC 6902 composition rejects a patch value that cannot be serialized": {
+      "src/composition/json-patch.ts": [
+        12
+      ]
+    },
     "test/composition/json-patch.test.ts#detached RFC 6902 composition rejects malformed and inapplicable patches with the exact typed error": {
       "src/composition/json-patch.ts": [
         20,
@@ -905,108 +954,163 @@
         15
       ]
     },
+    "test/composition/mediation-execution.test.ts#the direct tier's Operation context carries no EffectAttempt and no target admission": {
+      "src/composition/mediation-execution.ts": [
+        51
+      ]
+    },
+    "test/composition/mediation-execution.test.ts#the direct tier's Operation context gives every item of a batch its own context": {
+      "src/composition/mediation-execution.ts": [
+        50
+      ],
+      "src/composition/mediation-identity.ts": [
+        101,
+        102
+      ]
+    },
+    "test/composition/mediation-execution.test.ts#the direct tier's Operation context refuses an item index outside its payload shape": {
+      "src/composition/mediation-execution.ts": [
+        49,
+        50,
+        51,
+        52
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them binds each audit record to the record it describes": {
+      "src/composition/mediation-identity.ts": [
+        173,
+        177,
+        178,
+        181,
+        183
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them binds every per-Invocation derivation to its Invocation": {
+      "src/composition/mediation-identity.ts": [
+        111,
+        167
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them mints a different Invocation for every bound field": {
+      "src/composition/mediation-identity.ts": [
+        66,
+        75
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them pins the derived identifiers of a stable evidence set": {
+      "src/composition/mediation-identity.ts": [
+        83,
+        84,
+        97
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them recomputes every identifier from the same evidence": {
+      "src/composition/mediation-identity.ts": [
+        120
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them refuses a mediation scope that is not canonical": {
+      "src/composition/mediation-identity.ts": [
+        48,
+        49
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them separates a single payload from its one-item batch": {
+      "src/composition/mediation-identity.ts": [
+        82
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them separates every derivation that reads one Invocation": {
+      "src/composition/mediation-identity.ts": [
+        109
+      ]
+    },
+    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them separates the attempts and Receipts of one item": {
+      "src/composition/mediation-identity.ts": [
+        151,
+        159,
+        161
+      ]
+    },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root does not become a mediation surface when activation fails": {
       "src/composition/mediation.ts": [
         164
       ]
     },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root gives a direct-tier dispatch the Turn's own execution resources": {
+      "src/composition/authority.ts": [
+        74,
+        76,
+        322,
+        352,
+        355
+      ],
+      "src/composition/mediation-execution.ts": [
+        35,
+        39,
+        51
+      ],
+      "src/composition/mediation-identity.ts": [
+        95
+      ],
+      "src/composition/mediation.ts": [
+        244
+      ]
+    },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root produces the whole §7 evidence chain for one mediated call": {
       "src/composition/authority.ts": [
-        384,
-        389,
-        392,
         415,
         417,
         424,
-        507,
-        550
+        437
       ],
       "src/composition/mediation-identity.ts": [
         49,
-        102,
-        106,
-        117,
-        132,
-        146,
-        156,
-        162,
-        174,
-        188
+        59,
+        82,
+        105,
+        135,
+        149,
+        171,
+        191
       ],
       "src/composition/mediation-preparation.ts": [
-        68,
+        67,
         90,
-        95,
-        99,
-        100,
-        107,
-        109,
+        92,
+        108,
         114,
-        120,
         123,
-        126,
         127,
         128,
-        129,
-        136,
         142,
         145,
         148,
         149,
         152,
-        154,
-        155,
-        156,
         162,
-        167,
         170,
         173,
-        174,
         176,
         177,
         181,
         187,
-        212,
-        213,
-        285,
-        287,
-        288,
-        293,
-        298,
-        330,
-        334,
-        338,
-        370,
-        372,
-        374,
-        376,
-        385,
-        386,
-        387,
-        388,
-        393,
-        394,
-        395,
-        396
+        395
       ],
       "src/composition/mediation-records.ts": [
         55,
         57,
-        62,
         92,
         93,
-        100,
-        101,
+        111,
+        113,
         114,
         187,
-        196,
-        205,
         251,
         252,
         272,
         274,
         283,
-        289,
         294
       ],
       "src/composition/mediation.ts": [
@@ -1023,157 +1127,274 @@
         303
       ]
     },
-    "test/composition/mediation.test.ts#canonical mediation preparation admits only a preparation whose evidence its own identity derives": {
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root stops its Facets when the composition root is disposed": {
+      "src/composition/mediation.ts": [
+        209
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root stops its Facets when used as an async disposable": {
+      "src/composition/mediation.ts": [
+        213
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent freezes the resolved authority into the record": {
       "src/composition/mediation-identity.ts": [
-        164
+        73,
+        82,
+        165,
+        192
       ],
       "src/composition/mediation-preparation.ts": [
-        67,
+        285,
+        287,
+        288,
+        293,
+        298,
+        330,
+        334,
+        338,
+        339,
+        383,
+        385,
+        387,
+        388,
+        393,
+        394,
+        395,
+        396
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent prepares each payload shape as the shape it was asked for": {
+      "src/composition/mediation-identity.ts": [
+        61,
+        192
+      ],
+      "src/composition/mediation-preparation.ts": [
+        386,
+        390
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent reads the approval requirement from policy rather than assuming one": {
+      "src/composition/authority.ts": [
+        287
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent refuses a Facet the host never activated": {
+      "src/composition/mediation-preparation.ts": [
+        334
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent refuses a header carrying neither a lease nor a route": {
+      "src/composition/mediation-preparation.ts": [
+        288,
+        289,
+        399,
+        400
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent refuses a payload the shape does not describe": {
+      "src/composition/mediation-preparation.ts": [
+        385,
+        386,
+        387
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent refuses a routed Invocation with no durable reservation": {
+      "src/composition/mediation-preparation.ts": [
+        320,
+        322
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#mediated preparation freezes the effect intent returns the RouteReservation's own durable record": {
+      "src/composition/mediation-preparation.ts": [
+        212,
+        213,
+        287,
+        316,
+        317,
+        320
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#structural references cross the invocations boundary as data admits both Invocation authority kinds and no others": {
+      "src/composition/mediation-preparation.ts": [
+        149,
+        403,
+        404
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#structural references cross the invocations boundary as data admits both protection domain kinds and both secret policies": {
+      "src/composition/mediation-preparation.ts": [
+        176,
+        177,
+        178
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#structural references cross the invocations boundary as data carries a Lease token through its reference unchanged": {
+      "src/composition/mediation-preparation.ts": [
+        68,
+        76,
+        77
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#structural references cross the invocations boundary as data compares Lease references on every field": {
+      "src/composition/mediation-preparation.ts": [
+        92,
+        93,
+        94,
+        95
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#structural references cross the invocations boundary as data round-trips every structural reference through its codec": {
+      "src/composition/mediation-preparation.ts": [
+        99,
+        107,
+        109,
+        120,
+        123,
+        126,
+        145,
+        149,
+        154,
+        170,
+        176,
+        177,
+        181,
+        187
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#the ledger's preparation gate admits a locally prepared Invocation with its own derived identity": {
+      "src/composition/mediation-preparation.ts": [
+        370,
+        372,
         374,
         376
       ]
     },
-    "test/composition/mediation.test.ts#canonical mediation preparation freezes the exact intent the gateway resolved": {
+    "test/composition/mediation-preparation.test.ts#the ledger's preparation gate gates a routed Invocation on its reservation, not this scope": {
       "src/composition/mediation-preparation.ts": [
-        108,
-        123,
-        130,
-        339,
-        383,
-        385
+        372
       ]
     },
-    "test/composition/mediation.test.ts#canonical mediation preparation reads the approval requirement from policy instead of assuming one": {
-      "src/composition/authority.ts": [
-        285
-      ]
-    },
-    "test/composition/mediation.test.ts#canonical mediation preparation refuses a Facet with no activation pin to freeze": {
+    "test/composition/mediation-preparation.test.ts#the ledger's preparation gate refuses a locally prepared Invocation carrying no lease": {
       "src/composition/mediation-preparation.ts": [
-        334,
-        335
+        374
       ]
     },
-    "test/composition/mediation.test.ts#canonical mediation preparation refuses an intent with neither an exact lease nor a route": {
+    "test/composition/mediation-preparation.test.ts#the ledger's preparation gate refuses an audit cause or seed this Invocation does not derive": {
+      "src/composition/mediation-identity.ts": [
+        106
+      ],
       "src/composition/mediation-preparation.ts": [
-        288,
-        289
+        374,
+        376
       ]
     },
-    "test/composition/mediation.test.ts#canonical mediation records advances the ordinal only on retry after a failed attempt": {
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs chains each audit record to the record that caused it": {
       "src/composition/mediation-records.ts": [
-        141,
-        143
-      ]
-    },
-    "test/composition/mediation.test.ts#canonical mediation records chains invocation, attempt, and receipt audit evidence": {
-      "src/composition/mediation-records.ts": [
-        92,
         99,
-        111,
-        114,
-        164,
+        100,
+        101,
         182,
-        216,
+        196,
+        205,
         247,
         251,
-        270,
-        282
+        261,
+        266,
+        282,
+        289,
+        294
       ]
     },
-    "test/composition/mediation.test.ts#canonical mediation records recovers an expired claim under a different worker": {
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs gives a retried claim a fresh lifetime and the next ordinal": {
+      "src/composition/mediation-identity.ts": [
+        137
+      ],
       "src/composition/mediation-records.ts": [
-        113,
+        141,
+        143,
+        155
+      ]
+    },
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs recovers an expired claim under a different worker": {
+      "src/composition/mediation-identity.ts": [
+        122
+      ],
+      "src/composition/mediation-records.ts": [
         114
       ]
     },
-    "test/composition/mediation.test.ts#canonical mediation records refuses to author records for another Actor's Invocation": {
-      "src/composition/mediation-records.ts": [
-        283,
-        286
-      ]
-    },
-    "test/composition/mediation.test.ts#canonical mediation records rejects a non-positive claim lifetime": {
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs refuses a claim lifetime that is not a positive duration": {
       "src/composition/mediation-records.ts": [
         90,
         92,
         93,
-        94,
-        95
+        94
       ]
     },
-    "test/composition/mediation.test.ts#derived mediation identities binds the mediated Invocation to its exact replay identity": {
-      "src/composition/mediation-identity.ts": [
-        49,
-        59,
-        61,
-        66,
-        73
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs refuses to mint records for another Actor's Invocation": {
+      "src/composition/mediation-records.ts": [
+        283,
+        285,
+        286
       ]
     },
-    "test/composition/mediation.test.ts#derived mediation identities mints one stable identity per piece of durable evidence": {
-      "src/composition/mediation-identity.ts": [
-        189
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs supersedes a Receipt with one naming what it replaced": {
+      "src/composition/mediation-records.ts": [
+        216,
+        232
       ]
     },
-    "test/composition/mediation.test.ts#derived mediation identities rejects a blank replay scope": {
-      "src/composition/mediation-identity.ts": [
-        48,
-        49,
-        50
-      ]
-    },
-    "test/composition/mediation.test.ts#derived mediation identities separates every identity that must not collide": {
-      "src/composition/mediation-identity.ts": [
-        92,
-        119,
-        134,
-        148,
-        158,
-        168,
-        189
-      ]
-    },
-    "test/composition/mediation.test.ts#direct Operation context carries no EffectAttempt and no target admission": {
-      "src/composition/mediation-execution.ts": [
-        35,
-        39,
-        51
-      ]
-    },
-    "test/composition/mediation.test.ts#direct Operation context refuses an item index outside its payload shape": {
-      "src/composition/mediation-execution.ts": [
-        49,
-        50,
-        51,
-        52
-      ]
-    },
-    "test/composition/mediation.test.ts#mediation claim ownership admits an executor claim attempting under its own exact lease": {
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs takes a claim under the authority the Invocation was prepared with": {
       "src/composition/mediation-preparation.ts": [
-        92,
-        93,
-        94,
-        95
+        123,
+        129,
+        130
       ],
       "src/composition/mediation-records.ts": [
-        57,
+        274
+      ]
+    },
+    "test/composition/mediation-records.test.ts#the ledger's claim-owner gate admits the attempt its own claim names": {
+      "src/composition/mediation-records.ts": [
         59,
         60,
         61,
         62
       ]
     },
-    "test/composition/mediation.test.ts#mediation claim ownership refuses a system claim that borrows executor fencing": {
+    "test/composition/mediation-records.test.ts#the ledger's claim-owner gate holds an executor attempt to the exact token its claim was taken with": {
       "src/composition/mediation-records.ts": [
-        61,
-        64
+        62
       ]
     },
-    "test/composition/mediation.test.ts#mediation claim ownership refuses an attempt that names a different claim position": {
+    "test/composition/mediation-records.test.ts#the ledger's claim-owner gate refuses a system claim an attempt fences against": {
+      "src/composition/mediation-records.ts": [
+        61,
+        64,
+        114,
+        164,
+        270,
+        272,
+        273
+      ]
+    },
+    "test/composition/mediation-records.test.ts#the ledger's claim-owner gate refuses an attempt any part of the claim does not name": {
+      "src/composition/mediation-preparation.ts": [
+        100,
+        136,
+        145,
+        149,
+        155,
+        156,
+        167,
+        170,
+        174
+      ],
       "src/composition/mediation-records.ts": [
         57,
-        59
+        59,
+        60
       ]
     },
     "test/composition/slate-profile.test.ts#Slate profile composition maps profile wire DTOs to typed SlateRuntime arguments": {
@@ -1203,15 +1424,14 @@
         119
       ]
     },
-    "test/integration/blueprint-live-composition.test.ts#a declared Blueprint is what executes a policy tightening declared in the Blueprint flips live admission to mediated": {
-      "src/composition/authority.ts": [
-        317,
-        327
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition admits a target-pulled canonical Tenant permit exactly once": {
+      "src/composition/permit.ts": [
+        188,
+        189
       ]
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition captures exact reserved-minus-completed Run frontier across restart and close races": {
       "src/composition/run-admission.ts": [
-        14,
         15
       ]
     },
@@ -1222,7 +1442,10 @@
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition denies an exact locally constructed permit before target admission": {
       "src/composition/permit.ts": [
-        178
+        178,
+        181,
+        197,
+        198
       ]
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed for malformed permits while preserving infrastructure failures": {
@@ -1232,13 +1455,7 @@
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed on substituted resolution evidence and only admits same-domain interception": {
       "src/composition/authority.ts": [
-        418,
-        437
-      ]
-    },
-    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
-      "src/composition/authority.ts": [
-        391
+        418
       ]
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects invalid permit lifetimes before issuing authority": {
@@ -1250,8 +1467,6 @@
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects stale authority and preserves an opaque no-write direct stamp": {
       "src/composition/authority.ts": [
-        74,
-        76,
         394
       ]
     },
@@ -1281,69 +1496,40 @@
         141
       ]
     },
-    "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CACHED-READ] keeps cached observe reads outside live consent admission": {
+    "test/integration/device-consent-admission.test.ts#Device target-local consent admission preserves target consent infrastructure failures": {
       "src/composition/device-consent.ts": [
-        55,
-        56
-      ]
-    },
-    "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-PAIR] admits only live consent for the exact Device and Agent pair": {
-      "src/composition/device-consent.ts": [
-        50,
-        51,
-        55,
-        60,
-        69,
-        74,
-        84,
-        90
-      ]
-    },
-    "test/integration/device-consent-admission.test.ts#Device target-local consent admission fails closed for substituted targets, operations, and malformed canonical inputs": {
-      "src/composition/device-consent.ts": [
-        66
+        84
       ]
     },
     "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-POLICY] admits the initial Tenant and denies creating a second Tenant": {
       "src/composition/single-tenant.ts": [
         32,
-        81,
-        82,
-        101,
+        62,
         112,
         113,
         114
       ]
     },
-    "test/operations/authored-code.test.ts#the one channel out of a §4.7 isolate [C13-AUTH-ISOLATE-DELEGATION] cannot reach a Binding that exists only in the loader's domain": {
-      "src/composition/authority.ts": [
-        306
-      ]
-    },
     "test/operations/authored-code.test.ts#the one channel out of a §4.7 isolate [C13-AUTH-ISOLATE-DELEGATION] carries a call the passed set names": {
       "src/composition/authority.ts": [
-        119,
-        137,
+        321,
+        326,
         389,
         391,
         417,
-        497,
-        552
+        507
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway binds immutable resolution authority and call stamps to descriptor and canonical input": {
       "src/composition/authority.ts": [
         85,
-        232,
         257,
         359
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway derives the minimum deadline once and cannot be extended by renewal or mutation": {
       "src/composition/authority.ts": [
-        175,
-        347,
-        532
+        349
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway rejects wrong Turn, holder tenant, and epoch through the same gateway": {
@@ -1353,31 +1539,24 @@
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway tightens to mediated when the Turn Actor lacks local versioned Binding authority": {
       "src/composition/authority.ts": [
-        319,
-        380,
+        321,
         383
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
       "src/composition/authority.ts": [
-        111,
-        119,
+        121,
+        131,
         168,
-        169,
-        323,
-        347,
-        348,
+        306,
         349,
-        350,
         351,
-        352,
         353,
-        354,
-        355,
         356,
         358,
         359,
-        360
+        360,
+        560
       ]
     },
     "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher": {
@@ -1386,16 +1565,17 @@
       ],
       "src/composition/package-runtime.ts": [
         115,
+        136,
         146,
-        159,
+        155,
+        178,
         180
       ]
     },
     "test/protocol/facet-commands.test.ts#Facet Slot protocol commands atomically rejects payload, authority, and installation provenance substitution": {
       "src/composition/package-runtime.ts": [
         130,
-        136,
-        139
+        136
       ]
     }
   }

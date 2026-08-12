@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "identity",
-  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
-  "fingerprint": "sha256:a4cc126c293a2429bcad484f31bef41d4d614f6dd00013302bdfa6757b31191c",
+  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
+  "fingerprint": "sha256:8c13c7917e363681014eae62467fd1a92e221ae00ac56bc64a47405524c9eef0",
   "files": {
     "src/identity/codec.ts": {
       "mutants": 53,
@@ -66,60 +66,34 @@
     }
   },
   "killed": {
-    "test/agents/runs/lease.test.ts#TurnLease [turn-lease-verifier] memory and repository implementations enforce the exact durable lease": {
-      "src/identity/id.ts": [
-        4,
-        16
-      ],
-      "src/identity/principal-ref.ts": [
-        45,
-        46
-      ]
-    },
-    "test/agents/runs/lease.test.ts#TurnLease admits only the exact live Turn, holder, and epoch": {
-      "src/identity/principal-ref.ts": [
-        46
-      ]
-    },
-    "test/authority/binding-mutation-gates.test.ts#authority key identity [C13-AUTH-BINDING-RESOLUTION] pins exact binding, domain, scope, and subject key formats": {
-      "src/identity/codec.ts": [
-        19
-      ]
-    },
-    "test/authority/binding-mutation-gates.test.ts#Binding validation request and evidence gates [C13-AUTH-PATH-EVIDENCE] validates evidence time and Scope-to-path alignment": {
-      "src/identity/scope.ts": [
-        125,
-        126
-      ]
-    },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates direct Principal and Membership writers enforce lifecycle": {
+      "src/identity/member.ts": [
+        225
+      ],
       "src/identity/principal.ts": [
-        95
+        95,
+        102
+      ]
+    },
+    "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates direct topology writers validate eagerly with exact errors": {
+      "src/identity/team.ts": [
+        22
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates enforces canonical Scopes on every direct authority write": {
       "src/identity/scope.ts": [
-        52,
-        64,
-        65,
-        68,
-        94,
-        95,
-        97,
-        98,
-        156
+        97
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates holds a Membership's subject fixed across a revision for a team subject": {
       "src/identity/repository.ts": [
-        149,
-        187
+        149
       ],
       "src/identity/team.ts": [
+        28,
         32,
         35,
-        37,
-        75
+        37
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates keeps Membership subjects immutable across every subject kind": {
@@ -127,33 +101,24 @@
         150
       ]
     },
-    "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates rejects bootstrap plans violating any single anchor constraint": {
-      "src/identity/subject.ts": [
-        103,
-        117,
-        132
-      ],
-      "src/identity/tenant.ts": [
-        126
-      ]
-    },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates rejects restored records that escape the local Tenant": {
-      "src/identity/guest-trust.ts": [
-        79
-      ],
       "src/identity/repository.ts": [
-        183
+        155
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates returns defensive copies of anchor and record bytes to callers": {
       "src/identity/member.ts": [
+        229,
         230
       ],
       "src/identity/principal.ts": [
+        11,
         102
       ],
       "src/identity/project.ts": [
+        27,
         32,
+        47,
         54,
         58
       ],
@@ -161,110 +126,74 @@
         56,
         59,
         104,
-        108,
-        155,
+        135,
+        151,
+        153,
         157,
-        182,
+        165,
         185,
-        186,
-        189,
-        201,
-        203
-      ],
-      "src/identity/role.ts": [
-        50,
-        59,
-        61,
-        85,
-        127
+        188
       ],
       "src/identity/scope.ts": [
-        41,
-        61,
-        62,
-        74,
-        85,
-        88,
-        89,
-        91,
-        101,
-        104,
-        107
+        64,
+        74
       ],
-      "src/identity/subject.ts": [
-        96,
-        97,
-        114,
-        117,
-        120
-      ],
-      "src/identity/tenant.ts": [
-        53,
-        133
+      "src/identity/workspace.ts": [
+        36,
+        60
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates revalidates guest Membership trust evidence on restore": {
-      "src/identity/guest-verification.ts": [
-        160
-      ]
-    },
-    "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors": {
-      "src/identity/member.ts": [
-        82,
-        95,
-        100
-      ],
-      "src/identity/team.ts": [
-        38,
-        47,
-        79
+      "src/identity/subject.ts": [
+        134,
+        137
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates covers guest trust and Role lifecycle errors": {
       "src/identity/guest-trust.ts": [
-        93,
-        128,
-        129,
-        138,
-        159,
-        161,
-        164,
-        171,
-        179
-      ]
-    },
-    "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates covers Membership admission and transition errors": {
-      "src/identity/member.ts": [
-        46
+        195,
+        206,
+        208,
+        222,
+        223,
+        225,
+        227,
+        230,
+        231,
+        232
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore [authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot": {
-      "src/identity/repository.ts": [
-        151,
-        153,
-        165
-      ],
       "src/identity/scope.ts": [
-        50
+        135
       ],
       "src/identity/workspace.ts": [
-        35,
-        60
+        65
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore restores deny authority through Team and verified guest identity closures": {
       "src/identity/guest-trust.ts": [
         236,
         237,
-        239
+        240
       ],
       "src/identity/guest-verification.ts": [
-        69,
-        179,
-        184
+        162,
+        179
       ],
-      "src/identity/repository.ts": [
-        155
+      "src/identity/subject.ts": [
+        37,
+        38
+      ]
+    },
+    "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService Binding authority gate refuses a Binding whose Workspace path never reaches the Grant": {
+      "src/identity/scope.ts": [
+        156
+      ]
+    },
+    "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects changing a Team invalidates its Membership Scopes": {
+      "src/identity/team.ts": [
+        96
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects disabling a Principal invalidates team-derived Grant Scopes exactly once": {
@@ -272,25 +201,23 @@
         12,
         18,
         25,
-        80,
         81,
         88,
         90,
         94,
+        101,
         102
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects revoking a Membership is idempotent for revision and epoch": {
       "src/identity/member.ts": [
         31,
-        172,
-        224,
-        230
+        172
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects revoking guest trust cascades through delegated Grants": {
-      "src/identity/guest-trust.ts": [
-        164
+      "src/identity/scope.ts": [
+        125
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects role swap rematerializes live Grants at stable IDs": {
@@ -301,8 +228,7 @@
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects rotating guest trust twice leaves revoked Memberships untouched": {
       "src/identity/guest-trust.ts": [
         136,
-        138,
-        141
+        138
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects suspending a Membership revokes replaced role Grants and delegations": {
@@ -310,6 +236,21 @@
         164,
         172,
         176
+      ]
+    },
+    "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService creation gate precedence canonical Project Scopes admit Memberships and bump their epoch": {
+      "src/identity/scope.ts": [
+        98
+      ]
+    },
+    "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService creation gate precedence guest trust creation gate covers host, state, and revision faults": {
+      "src/identity/guest-trust.ts": [
+        129
+      ]
+    },
+    "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService creation gate precedence Membership admission rejects revision and state faults before Role lookup": {
+      "src/identity/member.ts": [
+        230
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] never materializes a subject still stamped handshake": {
@@ -324,46 +265,39 @@
       ],
       "src/identity/member.ts": [
         193,
-        195,
-        197
+        198
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane denies inactive trust with matching evidence": {
       "src/identity/guest-trust.ts": [
         161,
+        179,
         195
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane denies verifier method drift": {
       "src/identity/guest-trust.ts": [
-        210,
         222,
-        223,
-        224,
-        225,
-        226,
-        230
+        247
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane missing trust and Role records interrupt guest admission by name": {
       "src/identity/subject.ts": [
-        149
+        26,
+        27
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane rejects verification without host provenance": {
       "src/identity/guest-verification.ts": [
+        160,
         161,
-        162,
         163,
         178,
         179
       ],
       "src/identity/subject.ts": [
-        27,
         74,
-        130,
-        137,
-        141,
+        75,
         143,
         150
       ]
@@ -374,116 +308,138 @@
       ],
       "src/identity/guest-trust.ts": [
         90,
-        206,
+        91,
+        93,
+        120,
+        124,
+        129,
         207,
-        217,
-        222
+        222,
+        260,
+        265
+      ],
+      "src/identity/id.ts": [
+        48
       ],
       "src/identity/member.ts": [
         30,
-        82,
-        91,
-        95,
-        101,
-        105,
-        106,
-        163,
+        79,
         164
       ],
       "src/identity/principal.ts": [
-        11,
         48,
         52,
-        66
+        66,
+        84
       ],
       "src/identity/project.ts": [
+        16,
         17,
         25,
         27,
+        29,
         30,
         31
       ],
       "src/identity/repository.ts": [
+        62,
+        108,
         149,
+        151,
         153,
         155,
         157,
         167,
         182,
+        183,
         184,
         185,
         186,
+        187,
         188,
         189,
+        193,
+        194,
+        201,
+        202,
         203
       ],
       "src/identity/role.ts": [
-        89
+        49,
+        52,
+        61
       ],
       "src/identity/scope.ts": [
-        88,
-        89,
-        94,
+        74,
+        79,
         156
       ],
       "src/identity/team.ts": [
         18,
-        19,
-        32,
-        63
+        38,
+        63,
+        68,
+        103,
+        104
+      ],
+      "src/identity/tenant.ts": [
+        52,
+        65,
+        70,
+        99
       ],
       "src/identity/workspace.ts": [
+        19,
+        27,
+        28,
+        29,
         35,
-        56,
-        65
+        64
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService record-existence taxonomy names the record in every does-not-exist rejection": {
       "src/identity/subject.ts": [
+        67,
         68,
-        90,
         130,
-        131
+        131,
+        132
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#createTenantControlBootstrapPlan anchor validation derives the owner Membership ID deterministically from the anchor": {
       "src/identity/codec.ts": [
         7,
-        8
+        8,
+        19
+      ],
+      "src/identity/member.ts": [
+        230
       ],
       "src/identity/principal.ts": [
         95,
         102
       ],
       "src/identity/subject.ts": [
-        65
+        64,
+        65,
+        90
       ]
     },
     "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart": {
       "src/identity/scope.ts": [
         132,
-        133
+        145
       ]
     },
     "test/authority/permit.test.ts#AuthorityPermit mutation gates requires the Tenant to qualify the path even when the principal matches": {
       "src/identity/scope.ts": [
-        125
-      ]
-    },
-    "test/authority/runtime-epoch-mutation-gates.test.ts#authority check request and evidence mutation gates round-trips delegate-impact intents through the codec": {
-      "src/identity/subject.ts": [
-        65
+        125,
+        126
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates accepts every canonical Scope chain and rejects malformed paths with exact reasons": {
       "src/identity/scope.ts": [
-        129,
-        130
-      ]
-    },
-    "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates decodes path evidence strictly with exact subjects": {
-      "src/identity/codec.ts": [
-        8
+        129
       ]
     },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny": {
@@ -491,81 +447,54 @@
         132
       ]
     },
-    "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-DIRECT-SUBJECT] unions direct and Team subjects without allowing unrelated principals": {
-      "src/identity/subject.ts": [
-        68,
-        90,
-        96,
-        103,
-        104
-      ]
-    },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime persists immutable Tenant Project and Workspace topology": {
       "src/identity/scope.ts": [
         129,
         132,
-        138,
-        139,
-        145,
-        146,
-        155,
-        156
-      ],
-      "src/identity/subject.ts": [
-        90,
-        95,
-        96,
-        116,
-        117,
-        120
+        138
       ]
     },
     "test/authority/runtime-foundation.test.ts#verified guest lifecycle materializes attenuated guest Grants and revokes them when trust is revoked": {
       "src/identity/guest-trust.ts": [
-        236,
         237,
-        238
+        239
       ],
       "src/identity/guest-verification.ts": [
-        76
-      ],
-      "src/identity/subject.ts": [
-        75
+        80,
+        82,
+        89,
+        136,
+        144,
+        151,
+        155
       ]
     },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates [C13-AUTH-GUEST-ELEVATION] enforces guest proof, current trust, and elevation": {
-      "src/identity/subject.ts": [
-        103
+    "test/authority/runtime-foundation.test.ts#verified guest lifecycle rejects verification issued in the future without persisting guest state": {
+      "src/identity/guest-verification.ts": [
+        92
       ]
     },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates checks Team closure and rejects foreign identity substitution": {
-      "src/identity/subject.ts": [
-        103
+    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage bumps team and principal resolver-input mutations": {
+      "src/identity/team.ts": [
+        32
       ]
     },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates rejects missing, deny, revoked, unreachable, and invalid-lineage backing Grants": {
+    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage persists canonical Workspace topology and verified guest lifecycle across restart": {
       "src/identity/subject.ts": [
-        96
-      ]
-    },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime mutation kill gates reports canonical topology and Grant denials with exact messages": {
-      "src/identity/scope.ts": [
-        156
+        150
       ]
     },
     "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] fails a restored Tenant control snapshot closed on an unqualified stored subject": {
       "src/identity/tenant.ts": [
-        65,
-        70,
-        99,
+        61,
+        69,
+        95,
         126
       ],
       "src/identity/workspace.ts": [
         19,
         27,
-        29,
-        33,
-        34
+        29
       ]
     },
     "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] refuses a record whose Principal subject belongs to another Tenant": {
@@ -579,33 +508,27 @@
       ]
     },
     "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] rejects an unqualified stored Principal subject rather than inferring its Tenant": {
+      "src/identity/member.ts": [
+        143
+      ],
       "src/identity/subject.ts": [
         121
       ]
     },
     "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] separates equal Principal IDs from different Tenants in every subject key": {
       "src/identity/subject.ts": [
-        120,
-        125,
         126
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] binds the passed set to attenuations in the isolate's own domain": {
       "src/identity/principal.ts": [
+        80,
         81
-      ],
-      "src/identity/repository.ts": [
-        62
-      ],
-      "src/identity/workspace.ts": [
-        65
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
       "src/identity/scope.ts": [
-        79,
-        88,
-        125
+        79
       ]
     },
     "test/identity/authority-foundation.test.ts#guest trust and verification [identity.guest-trust] persists only steady-state token or callback trust": {
@@ -614,7 +537,19 @@
         113
       ]
     },
+    "test/identity/authority-foundation.test.ts#guest trust and verification revocation is terminal and rotation advances revision": {
+      "src/identity/guest-trust.ts": [
+        159,
+        179
+      ]
+    },
     "test/identity/authority-foundation.test.ts#qualified identity and Tenant topology [C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically": {
+      "src/identity/codec.ts": [
+        8
+      ],
+      "src/identity/id.ts": [
+        16
+      ],
       "src/identity/principal-ref.ts": [
         10,
         11,
@@ -628,105 +563,138 @@
     },
     "test/identity/authority-foundation.test.ts#qualified identity and Tenant topology [identity.workspace] derives exact immutable Workspace ancestry from the Tenant record": {
       "src/identity/workspace.ts": [
-        36
+        35,
+        56
       ]
     },
     "test/identity/hard-gates.test.ts#behavior-carrying identity states admits only fresh host-minted guest proof and prevents restored proof reuse": {
-      "src/identity/codec.ts": [
-        35
-      ],
       "src/identity/member.ts": [
+        95,
         130,
+        131,
+        136,
+        137,
+        139,
+        145,
         195
+      ],
+      "src/identity/scope.ts": [
+        62,
+        88,
+        89
       ]
     },
     "test/identity/hard-gates.test.ts#behavior-carrying identity states enforces Membership transitions with AgentCoreError": {
-      "src/identity/member.ts": [
-        58,
-        59,
-        79,
-        172,
-        173,
-        176,
-        177,
-        195,
-        230
+      "src/identity/id.ts": [
+        48
       ],
-      "src/identity/scope.ts": [
-        23
+      "src/identity/member.ts": [
+        30,
+        59,
+        61,
+        126,
+        136,
+        143,
+        172,
+        176,
+        230
       ]
     },
     "test/identity/hard-gates.test.ts#behavior-carrying identity states keeps Principal disable terminal and immutable": {
       "src/identity/principal.ts": [
-        95
+        102
       ]
     },
     "test/identity/hard-gates.test.ts#behavior-carrying identity states makes deleted Tenant state terminal": {
       "src/identity/tenant.ts": [
+        19,
+        36,
+        112,
+        113,
+        115,
+        119,
+        126,
         132,
         133
       ]
     },
     "test/identity/hard-gates.test.ts#behavior-carrying identity states uses AgentCoreError for invalid Team and Project operations": {
-      "src/identity/project.ts": [
-        47,
-        63
-      ],
       "src/identity/team.ts": [
-        68,
-        89
+        104
       ]
     },
     "test/identity/hard-gates.test.ts#guest trust and verification hard gates carries state behavior and closed operational errors": {
       "src/identity/guest-trust.ts": [
-        179,
         194,
         197,
         199,
-        207,
         265
       ]
     },
     "test/identity/hard-gates.test.ts#guest trust and verification hard gates strictly rejects malformed guest codec variants": {
       "src/identity/guest-trust.ts": [
         272
-      ],
-      "src/identity/guest-verification.ts": [
-        18
       ]
     },
     "test/identity/hard-gates.test.ts#identity shape and codec hard gates strictly restores every identity repository branch": {
+      "src/identity/id.ts": [
+        48
+      ],
       "src/identity/repository.ts": [
         62,
         64,
-        123,
-        171,
-        182
+        123
       ]
     },
     "test/identity/hard-gates.test.ts#identity shape and codec hard gates strictly validates Role capability declarations": {
       "src/identity/role.ts": [
         33,
         36,
+        80,
         81
       ]
     },
     "test/identity/hard-gates.test.ts#identity shape and codec hard gates validates immutable Workspace topology shape": {
-      "src/identity/codec.ts": [
-        34
-      ],
-      "src/identity/scope.ts": [
-        41
-      ],
       "src/identity/workspace.ts": [
         49,
         50,
-        64
+        65
+      ]
+    },
+    "test/identity/model.test.ts#identity codecs [identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.role] [identity.membership] round-trips frozen 'Membership' records": {
+      "src/identity/subject.ts": [
+        96,
+        103
+      ]
+    },
+    "test/identity/model.test.ts#identity codecs [identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.role] [identity.membership] round-trips frozen 'Role' records": {
+      "src/identity/role.ts": [
+        127
+      ]
+    },
+    "test/identity/model.test.ts#roles does not retain legacy admin or member aliases": {
+      "src/identity/role.ts": [
+        106,
+        107,
+        108
+      ]
+    },
+    "test/identity/model.test.ts#scope and subject references admits only the fixed Tenant to optional Project to Workspace paths": {
+      "src/identity/scope.ts": [
+        129,
+        130
+      ]
+    },
+    "test/identity/model.test.ts#scope and subject references round-trips Principal, Team, and verified foreign subjects": {
+      "src/identity/subject.ts": [
+        97
       ]
     },
     "test/identity/mutation-gates.test.ts#guest trust lifecycle gates enforces guest trust replacement identity and revision": {
       "src/identity/guest-trust.ts": [
         129,
+        164,
+        171,
         177,
         179,
         180,
@@ -753,12 +721,14 @@
     },
     "test/identity/mutation-gates.test.ts#guest trust lifecycle gates keeps guest trust revision exhaustion and revocation terminal": {
       "src/identity/guest-trust.ts": [
+        31,
         47,
         48,
         50,
-        129,
+        128,
         138,
         139,
+        141,
         161,
         162,
         164,
@@ -768,38 +738,37 @@
     },
     "test/identity/mutation-gates.test.ts#guest trust lifecycle gates rejects malformed guest trust payloads with exact reasons": {
       "src/identity/guest-trust.ts": [
-        63,
+        30,
         65,
         75,
         79,
+        82,
         83,
         84,
         87,
         88,
         89,
-        91,
         92,
         93,
+        111,
         112,
-        120,
-        124,
         132,
         207,
-        208,
+        210,
+        217,
         220,
         222,
         223,
+        224,
         225,
+        226,
         228,
-        231,
-        232,
         236,
         243,
         246,
         247,
         248,
         251,
-        260,
         265,
         268,
         272
@@ -823,6 +792,9 @@
         89,
         92,
         93
+      ],
+      "src/identity/subject.ts": [
+        75
       ]
     },
     "test/identity/mutation-gates.test.ts#guest verification gates gates guest verification instants at their exact boundaries": {
@@ -838,6 +810,7 @@
     },
     "test/identity/mutation-gates.test.ts#guest verification gates mints, restores, and refuses unminted guest verification": {
       "src/identity/guest-verification.ts": [
+        18,
         22,
         46,
         47,
@@ -846,23 +819,21 @@
         55,
         61,
         65,
+        69,
         72,
+        76,
         97,
         98,
         101,
         121,
-        136,
         140,
         141,
         142,
         143,
-        144,
         145,
         146,
         147,
-        151,
         152,
-        155,
         156,
         158,
         159,
@@ -872,7 +843,7 @@
       ],
       "src/identity/subject.ts": [
         22,
-        37,
+        27,
         38,
         39
       ]
@@ -889,14 +860,19 @@
       "src/identity/codec.ts": [
         8,
         9,
+        25,
         45,
         46
       ],
       "src/identity/scope.ts": [
         22,
+        23,
+        85,
         86,
         87,
-        88
+        88,
+        89,
+        91
       ],
       "src/identity/subject.ts": [
         115
@@ -920,19 +896,24 @@
         36
       ],
       "src/identity/id.ts": [
+        4,
         10
       ],
       "src/identity/scope.ts": [
         91
       ],
       "src/identity/team.ts": [
-        22,
+        19,
         32,
         37,
+        38,
+        43,
+        45,
         46,
         47,
         68,
-        103,
+        75,
+        79,
         104
       ]
     },
@@ -959,34 +940,35 @@
         30,
         31,
         38,
+        80,
         95,
-        103,
+        100,
+        102,
+        105,
         106,
-        126,
         130,
         131,
         132,
         136,
-        137,
         138,
-        139,
         140,
         143,
         144,
-        145,
         146,
         149,
         150,
         155,
         159,
         167,
-        171,
         172,
         176,
         195,
         196,
-        198,
+        197,
         230
+      ],
+      "src/identity/subject.ts": [
+        90
       ]
     },
     "test/identity/mutation-gates.test.ts#identity membership gates denies guest proof that does not match an unverified subject": {
@@ -1005,9 +987,10 @@
         46,
         48,
         49,
+        58,
         59,
-        61,
         62,
+        163,
         164,
         172,
         173,
@@ -1016,7 +999,7 @@
         217,
         220,
         221,
-        225,
+        224,
         230
       ]
     },
@@ -1024,7 +1007,6 @@
       "src/identity/principal.ts": [
         95,
         98,
-        102,
         105
       ],
       "src/identity/tenant.ts": [
@@ -1043,6 +1025,7 @@
         46,
         47,
         48,
+        62,
         63,
         65,
         66,
@@ -1089,16 +1072,15 @@
         32,
         33,
         36,
+        52,
         63,
         64,
-        106,
         107,
         108,
+        125,
         127,
-        128,
         129,
-        130,
-        132
+        130
       ],
       "src/identity/team.ts": [
         37,
@@ -1109,12 +1091,12 @@
       "src/identity/workspace.ts": [
         16,
         17,
-        19,
         25,
         27,
-        28,
         29,
         30,
+        33,
+        34,
         50
       ]
     },
@@ -1131,11 +1113,14 @@
         42,
         43,
         46,
+        50,
         52,
         124,
         125,
-        129,
-        135,
+        133,
+        139,
+        146,
+        155,
         156
       ]
     },
@@ -1144,9 +1129,15 @@
         60,
         61,
         64,
-        74,
-        79,
+        65,
+        68,
+        77,
+        88,
+        94,
+        95,
         101,
+        104,
+        107,
         109,
         111,
         112,
@@ -1159,13 +1150,24 @@
     },
     "test/identity/mutation-gates.test.ts#identity subject references decodes only the fixed subject reference kinds": {
       "src/identity/subject.ts": [
+        65,
+        95,
+        96,
+        103,
+        104,
         106,
+        116,
+        117,
+        120,
+        125,
         130,
         131,
         134,
         137,
+        141,
         142,
         146,
+        149,
         150,
         153
       ]
@@ -1180,6 +1182,7 @@
     },
     "test/identity/mutation-gates.test.ts#memory identity repository snapshots rejects every malformed memory identity snapshot shape": {
       "src/identity/repository.ts": [
+        131,
         133,
         134,
         136,
@@ -1192,6 +1195,7 @@
     "test/identity/mutation-gates.test.ts#memory identity repository snapshots rejects every malformed stored identity record shape": {
       "src/identity/repository.ts": [
         143,
+        160,
         161,
         167,
         168,
@@ -1199,7 +1203,8 @@
         172,
         174,
         175,
-        182
+        182,
+        183
       ]
     },
     "test/identity/mutation-gates.test.ts#memory identity repository snapshots restores an empty snapshot and orders records canonically": {
@@ -1210,54 +1215,55 @@
       "src/identity/principal.ts": [
         38,
         39,
+        46,
         48,
         50,
         72,
         76,
-        84,
         95,
         102
       ],
       "src/identity/repository.ts": [
         72,
         73,
+        96,
+        105,
         108,
         109,
-        123,
+        121,
         127,
         128,
+        133,
         134,
         135,
         136,
+        137,
         145,
         147,
         149,
-        151,
+        153,
+        157,
+        167,
         168,
         169,
+        170,
+        171,
         172,
+        173,
         177,
         180,
-        182,
-        184,
-        186,
-        188,
-        194
+        182
       ],
       "src/identity/role.ts": [
-        67,
-        80
+        89
       ],
       "src/identity/tenant.ts": [
         17,
-        52,
-        61,
+        53,
         65,
-        69,
         71,
         73,
         89,
-        95,
         107,
         126,
         133
@@ -1275,60 +1281,50 @@
         89,
         92,
         93,
-        96,
         97,
         100,
         101,
-        105,
         177
       ]
     },
     "test/identity/repository.test.ts#MemoryIdentityRepository is a synchronous read-only view over detached codec bytes": {
       "src/identity/repository.ts": [
-        121,
         123,
-        133,
-        135,
-        137,
-        145,
-        147,
-        151,
-        153,
+        134,
         155,
         157,
-        160,
-        167,
-        168,
-        169,
-        170,
-        171,
-        173,
-        182,
-        183,
-        184,
-        185,
-        187,
-        188,
-        189,
-        193,
-        202,
-        203
+        160
       ],
       "src/identity/role.ts": [
-        49,
-        52,
+        50,
+        59,
         61,
         62,
         63,
-        125
+        67
       ]
     },
     "test/identity/repository.test.ts#MemoryIdentityRepository strictly rejects malformed snapshots and codec-key disagreement": {
       "src/identity/repository.ts": [
-        131,
         133,
         160,
         203
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
+      "src/identity/member.ts": [
+        82,
+        95,
+        103
+      ],
+      "src/identity/principal.ts": [
+        48
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) accepts an absent caller cause with a host-created Invocation root": {
+      "src/identity/principal-ref.ts": [
+        45,
+        46
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) persists duplicate evidence and replays before mutable gates": {
@@ -1338,59 +1334,47 @@
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates enforces every mutable identity writer before commit": {
       "src/identity/member.ts": [
-        46
-      ],
-      "src/identity/principal.ts": [
-        90,
-        102
+        46,
+        171
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates enforces SQLite Project, Workspace, Team, Principal, and trust revisions": {
-      "src/identity/guest-trust.ts": [
-        227
-      ],
-      "src/identity/project.ts": [
-        16,
-        27,
-        29
-      ],
       "src/identity/team.ts": [
         38,
-        43,
-        44,
-        45,
-        68
-      ]
-    },
-    "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates rejects Team missing Principal relational corruption on restart": {
-      "src/identity/team.ts": [
-        65
+        44
+      ],
+      "src/identity/workspace.ts": [
+        29
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates requires anchor, completed bootstrap, and nonnested transactions": {
       "src/identity/member.ts": [
-        95,
-        102
+        82,
+        98,
+        104,
+        106
+      ],
+      "src/identity/role.ts": [
+        85,
+        128,
+        129,
+        132
+      ]
+    },
+    "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract": {
+      "src/identity/principal.ts": [
+        51
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches persists a complete topology and lifecycle closure across adapter restart": {
       "src/identity/member.ts": [
-        216,
-        230
-      ],
-      "src/identity/project.ts": [
-        62,
-        63
+        216
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control canonical Scope enforcement requires canonical authority Scopes for Grants and epochs": {
       "src/identity/scope.ts": [
-        77,
-        139,
-        146
-      ],
-      "src/identity/workspace.ts": [
-        65
+        52,
+        139
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity [C13-AUTH-PRINCIPAL-REF] fails closed on a stored subject that names a Principal without its Tenant": {
@@ -1400,81 +1384,59 @@
         20
       ]
     },
-    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity fails closed on non-canonical stored Principal and Role keys": {
-      "src/identity/id.ts": [
-        48
-      ]
-    },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity fails closed when relational rows reference ghosts": {
       "src/identity/subject.ts": [
-        67
+        90,
+        96,
+        103,
+        117
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity verifies stored foreign Memberships against their guest trust": {
       "src/identity/guest-verification.ts": [
-        80,
+        82,
+        89,
+        92,
         179,
         183,
         184
       ],
       "src/identity/member.ts": [
-        131,
-        137
+        106
       ],
       "src/identity/subject.ts": [
-        26,
-        27,
-        75,
         150
-      ]
-    },
-    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating fails closed on identity rows without a marker and anchors eligibility": {
-      "src/identity/principal.ts": [
-        102
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating rejects nested Tenant control transactions": {
       "src/identity/codec.ts": [
         24,
         25,
+        34,
         35
       ],
       "src/identity/member.ts": [
-        80,
+        91,
         95,
-        98,
-        104,
-        106,
-        229,
-        230
-      ],
-      "src/identity/principal.ts": [
-        46,
-        51
+        101
       ],
       "src/identity/subject.ts": [
-        64
+        96,
+        114,
+        117,
+        120
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards creates and replays guest trust exactly": {
       "src/identity/guest-trust.ts": [
-        30,
         31,
+        63,
         64,
         65,
         79,
-        82,
-        83,
-        111,
-        237,
-        240
-      ]
-    },
-    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards enforces principal kind immutability and disabled terminality": {
-      "src/identity/principal.ts": [
-        12,
-        95,
-        101
+        236,
+        238,
+        272
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards enforces the Membership lifecycle exactly": {
@@ -1482,10 +1444,14 @@
         31
       ]
     },
-    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards requires initial revisions and exact successors for Teams and Projects": {
-      "src/identity/team.ts": [
-        28,
-        32
+    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards pins every record type to its own Tenant": {
+      "src/identity/guest-trust.ts": [
+        247
+      ]
+    },
+    "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact": {
+      "src/identity/workspace.ts": [
+        65
       ]
     }
   }
