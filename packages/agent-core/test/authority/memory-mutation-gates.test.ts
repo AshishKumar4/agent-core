@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId } from "../../src/actors";
-import { AuthorityMutationService, Grant, GrantId } from "../../src/authority";
+import { AuthorityMutationService, Binding, Grant, GrantId } from "../../src/authority";
 import {
     MemoryTenantControlStore,
     type MemoryTenantControlSnapshot
@@ -11,7 +11,7 @@ import {
 } from "../../src/authority/service";
 import { Digest, Revision, SecretRef } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
-import { CapabilitySpec } from "../../src/facets";
+import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
     GuestTrust,
     GuestTrustId,
@@ -149,8 +149,13 @@ describe("MemoryTenantControlStore mutation gates", () => {
 
     test("ties bootstrap eligibility to every empty collection", { tags: "p0" }, () => {
         const empty = MemoryTenantControlStore.create(anchor).snapshot();
-        const boot = bootstrapped().store.snapshot();
-        expect(bootstrapped().store.isBootstrapEligible()).toBe(false);
+        const bound = bootstrapped();
+        const backing = allowGrant("eligibility-binding-grant");
+        bound.service.createGrant(backing);
+        bound.service.createBinding(bindingAt("eligibility", backing.id, 0, 0));
+        const boot = bound.store.snapshot();
+        expect(bound.store.isBootstrapEligible()).toBe(false);
+        expect(boot.bindings).toHaveLength(1);
 
         expectAgentCoreError(
             () => MemoryTenantControlStore.restore({ ...empty, identity: boot.identity }),
@@ -159,6 +164,11 @@ describe("MemoryTenantControlStore mutation gates", () => {
         );
         expectAgentCoreError(
             () => MemoryTenantControlStore.restore({ ...empty, grants: boot.grants }),
+            "codec.invalid",
+            "Unmarked Tenant control snapshot is not empty"
+        );
+        expectAgentCoreError(
+            () => MemoryTenantControlStore.restore({ ...empty, bindings: boot.bindings }),
             "codec.invalid",
             "Unmarked Tenant control snapshot is not empty"
         );
@@ -1467,7 +1477,138 @@ describe("MemoryTenantControlStore mutation gates", () => {
             }
         }
     );
+
+    // putGrant and putGuestTrust have the same three rules and all three are asserted for
+    // them; the Binding copy was not. saveSqliteBinding repeats them word for word, so
+    // these are the store contract rather than Memory bookkeeping.
+    test("holds new Bindings to generation and revision zero", { tags: "p0" }, () => {
+        const { store, service } = bootstrapped();
+        const backing = allowGrant("memory-binding-generation");
+        service.createGrant(backing);
+
+        expectEagerRejection(
+            store,
+            (candidate) => {
+                candidate.putBinding(bindingAt("generation-ahead", backing.id, 1, 0));
+            },
+            "protocol.revision-conflict",
+            "New Bindings require generation and revision zero"
+        );
+        expectEagerRejection(
+            store,
+            (candidate) => {
+                candidate.putBinding(bindingAt("revision-ahead", backing.id, 0, 1));
+            },
+            "protocol.revision-conflict",
+            "New Bindings require generation and revision zero"
+        );
+        expect(store.bindings()).toEqual([]);
+    });
+
+    test("replaces a Binding only by its exact successor", { tags: "p0" }, () => {
+        const { store, service } = bootstrapped();
+        const backing = allowGrant("memory-binding-replacement");
+        service.createGrant(backing);
+        const binding = bindingAt("replaceable", backing.id, 0, 0);
+        store.transaction((candidate) => {
+            candidate.putBinding(binding);
+        });
+
+        // Rewriting the identical record is the idempotent write both stores short-circuit
+        // on. Without that short-circuit the record reaches assertCanReplace and is
+        // refused as its own successor.
+        store.transaction((candidate) => {
+            candidate.putBinding(Binding.decode(Binding.encode(binding)));
+        });
+        expect(store.binding(binding.key)?.generation).toBe(0);
+
+        expectEagerRejection(
+            store,
+            (candidate) => {
+                candidate.putBinding(bindingAt("replaceable", backing.id, 2, 2));
+            },
+            "binding.invalid",
+            "Binding updates require immutable identity and the next generation and revision"
+        );
+        expect(store.binding(binding.key)?.generation).toBe(0);
+    });
+
+    // The Binding-to-Grant closure is the Memory store's own recomputation of what
+    // requireBindingAuthority refuses up front, and it is what makes a restored snapshot
+    // trustworthy. Restore is the only way to present it with records the service would
+    // never have written, and each operand needs its own snapshot: the message alone does
+    // not say which one fired.
+    test("refuses a restored Binding its Grant does not authorize", { tags: "p0" }, () => {
+        const { store, service } = bootstrapped();
+        const backing = allowGrant("memory-closure-grant");
+        service.createGrant(backing);
+        const stranger = new PrincipalId("memory-closure-stranger");
+        service.createPrincipal(new Principal(stranger, "user", "active"));
+        service.createBinding(bindingAt("closure", backing.id, 0, 0));
+        const snapshot = store.snapshot();
+        const rewrite = (grant: Grant): MemoryTenantControlSnapshot =>
+            withGrantBytes(snapshot, backing.id.value, Grant.encode(grant));
+
+        expectAgentCoreError(
+            () =>
+                MemoryTenantControlStore.restore({
+                    ...snapshot,
+                    grants: snapshot.grants.filter((entry) => entry.id !== backing.id.value)
+                }),
+            "codec.invalid",
+            "Binding references invalid Tenant authority"
+        );
+        expectAgentCoreError(
+            () =>
+                MemoryTenantControlStore.restore(
+                    rewrite(
+                        new Grant(
+                            backing.id,
+                            backing.scope,
+                            backing.subject,
+                            "deny",
+                            backing.capability,
+                            { kind: "direct" }
+                        )
+                    )
+                ),
+            "codec.invalid",
+            "Binding references invalid Tenant authority"
+        );
+        expectAgentCoreError(
+            () =>
+                MemoryTenantControlStore.restore(
+                    rewrite(
+                        new Grant(
+                            backing.id,
+                            backing.scope,
+                            SubjectRef.principal(new PrincipalRef(tenantId, stranger)),
+                            "allow",
+                            backing.capability,
+                            { kind: "direct" }
+                        )
+                    )
+                ),
+            "codec.invalid",
+            "Binding references invalid Tenant authority"
+        );
+        expect(MemoryTenantControlStore.restore(snapshot).bindings()).toHaveLength(1);
+    });
 });
+
+function bindingAt(name: string, grantId: GrantId, generation: number, revision: number): Binding {
+    return new Binding(
+        workspaceScope,
+        SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+        new ProtectionDomain("backend", "memory-gate", "no-secrets"),
+        new BindingName(name),
+        grantId,
+        new FacetRef("workspace:memory.gate"),
+        generation,
+        "active",
+        new Revision(revision)
+    );
+}
 
 function bootstrapped(): { store: MemoryTenantControlStore; service: AuthorityMutationService } {
     const store = MemoryTenantControlStore.create(anchor);
