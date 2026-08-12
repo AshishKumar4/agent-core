@@ -82,10 +82,6 @@ export class AuthoredCodeCapabilitySet {
     public get names(): readonly BindingName[] {
         return Object.freeze([...this.#capabilities.values()].map((entry) => entry.name));
     }
-
-    public get size(): number {
-        return this.#capabilities.size;
-    }
 }
 
 export interface AuthoredCodeInvocationRequest {
@@ -274,10 +270,6 @@ export class AuthoredCodeBackingSet {
             );
         }
         return backing;
-    }
-
-    public get offered(): readonly AuthoredCodeBackingId[] {
-        return Object.freeze([...this.#backings.values()].map((backing) => backing.id));
     }
 }
 
