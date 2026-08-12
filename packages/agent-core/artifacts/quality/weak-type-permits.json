@@ -214,7 +214,7 @@
     {
       "file": "packages/agent-core/src/authority/memory.ts",
       "kind": "non-null",
-      "count": 4,
+      "count": 3,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {

@@ -139,45 +139,41 @@ describe("SQLite Tenant control storage", () => {
         }
     );
 
-    test(
-        "stores the same Binding identity independently in two Workspaces",
-        { tags: "p0" },
-        () => {
-            const database = new TestSqlite();
-            const store = createSqliteTenantControlStore(database, anchor);
-            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
-            const service = new AuthorityMutationService(store);
-            const subject = SubjectRef.principal(new PrincipalRef(tenantId, principalId));
-            const domain = new ProtectionDomain("backend", "shared", "no-secrets");
-            const name = new BindingName("shared-binding");
-            const facet = new FacetRef("core:shared");
+    test("stores the same Binding identity independently in two Workspaces", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = createSqliteTenantControlStore(database, anchor);
+        database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+        const service = new AuthorityMutationService(store);
+        const subject = SubjectRef.principal(new PrincipalRef(tenantId, principalId));
+        const domain = new ProtectionDomain("backend", "shared", "no-secrets");
+        const name = new BindingName("shared-binding");
+        const facet = new FacetRef("core:shared");
 
-            for (const ordinal of [1, 2]) {
-                const workspace = new Workspace(
-                    new WorkspaceId(`binding-workspace-${ordinal}`),
-                    tenantId,
-                    undefined,
-                    Revision.initial()
-                );
-                service.createWorkspace(workspace);
-                const grant = new Grant(
-                    new GrantId(`binding-grant-${ordinal}`),
-                    workspace.scope,
-                    subject,
-                    "allow",
-                    new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
-                    { kind: "direct" }
-                );
-                service.createGrant(grant);
-                service.createBinding(
-                    Binding.active(workspace.scope, subject, domain, name, grant.id, facet)
-                );
-            }
-
-            expect(store.bindings()).toHaveLength(2);
-            expect(new Set(store.bindings().map((binding) => binding.key)).size).toBe(2);
+        for (const ordinal of [1, 2]) {
+            const workspace = new Workspace(
+                new WorkspaceId(`binding-workspace-${ordinal}`),
+                tenantId,
+                undefined,
+                Revision.initial()
+            );
+            service.createWorkspace(workspace);
+            const grant = new Grant(
+                new GrantId(`binding-grant-${ordinal}`),
+                workspace.scope,
+                subject,
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                { kind: "direct" }
+            );
+            service.createGrant(grant);
+            service.createBinding(
+                Binding.active(workspace.scope, subject, domain, name, grant.id, facet)
+            );
         }
-    );
+
+        expect(store.bindings()).toHaveLength(2);
+        expect(new Set(store.bindings().map((binding) => binding.key)).size).toBe(2);
+    });
 
     test("rolls the complete resolver-input mutation back on failure", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -458,7 +454,10 @@ describe("SQLite Tenant control storage", () => {
         );
 
         expect(() => createSqliteTenantControlStore(database)).toThrow(
-            expect.objectContaining({ code: "codec.invalid" })
+            expect.objectContaining({
+                code: "protocol.invalid-state",
+                message: "Project belongs to another Tenant"
+            })
         );
     });
 

@@ -202,7 +202,7 @@ describe("SQLite Tenant authority mutation storage", () => {
             Revision.initial()
         );
         expect(() => store.transaction((candidate) => candidate.putMembership(orphan))).toThrow(
-            /malformed/
+            "Membership references a missing Role"
         );
         expect(store.loadMembership(orphan.id)).toBeUndefined();
     });
@@ -352,12 +352,11 @@ describe("SQLite Tenant authority mutation storage", () => {
         }
     );
 
-    // The Memory store re-derives the Binding-to-Grant closure whenever a transaction
-    // commits, so a Memory-backed test can pass on that check rather than on the service
-    // gate that is supposed to refuse first. The SQLite ledger derives nothing: it weighs
-    // a row against its own record bytes, and revocation leaves a Binding's own row
-    // untouched. So the service gate is the entire enforcement here, and this asserts the
-    // durable consequence — no row, not merely a thrown error.
+    // Both backings re-derive the Binding-to-Grant closure whenever a transaction commits,
+    // but that closure reads a Grant's effect and never its state, and revocation leaves a
+    // Binding's own row untouched. So the service gate is the entire enforcement for a
+    // revoked Grant, and this asserts the durable consequence — no row, not merely a
+    // thrown error.
     test(
         "refuses a durable Binding on a revoked Grant, which the ledger alone would keep",
         { tags: "p0" },

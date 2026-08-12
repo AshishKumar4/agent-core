@@ -1,11 +1,13 @@
 import {
+    AuthorityChangeSet,
     Binding,
     Grant,
     GrantId,
     ScopeEpoch,
-    RoleGrantMaterializer,
+    assertAuthorityClosure,
     createTenantControlBootstrapPlan,
-    type AuthorityMutationStore
+    type AuthorityMutationStore,
+    type AuthorityRecordPresence
 } from "../../authority";
 import type { SynchronousResultGuard } from "../../actors";
 import { RecordCodec, Revision, isJsonObject, type JsonValue } from "../../core";
@@ -18,7 +20,6 @@ import {
     Principal,
     PrincipalId,
     Project,
-    ProjectId,
     Role,
     RoleName,
     Team,
@@ -126,7 +127,9 @@ export class SqliteTenantControlStore
     implements AuthorityMutationStore
 {
     public readonly tenantId: TenantId;
-    #activeWrite: TransactionalSqlite | undefined;
+    #activeWrite:
+        | { readonly database: TransactionalSqlite; readonly changes: AuthorityChangeSet }
+        | undefined;
 
     public constructor(
         private readonly database: TransactionalSqlite,
@@ -179,10 +182,11 @@ export class SqliteTenantControlStore
         try {
             return this.database.transaction(
                 () => {
-                    this.#activeWrite = this.database;
+                    const changes = new AuthorityChangeSet();
+                    this.#activeWrite = { database: this.database, changes };
                     try {
                         const result = operation(this);
-                        this.assertCompleteClosure();
+                        this.assertCompleteClosure(changes);
                         return result;
                     } finally {
                         this.#activeWrite = undefined;
@@ -233,7 +237,7 @@ export class SqliteTenantControlStore
             );
         }
         try {
-            this.#activeWrite = transaction;
+            this.#activeWrite = { database: transaction, changes: new AuthorityChangeSet() };
             try {
                 const plan = createTenantControlBootstrapPlan(anchor, expectedRevision);
                 this.saveTenant(plan.tenant);
@@ -243,7 +247,7 @@ export class SqliteTenantControlStore
                 for (const grant of plan.grants) this.saveGrant(grant);
                 for (const epoch of plan.epochs) this.saveEpoch(epoch);
                 this.saveMarker(anchor);
-                this.assertCompleteClosure();
+                this.assertCompleteClosure(this.activeWrite().changes);
             } finally {
                 this.#activeWrite = undefined;
             }
@@ -368,7 +372,10 @@ export class SqliteTenantControlStore
 
     public putGrant(grant: Grant): void {
         requireCanonicalScope(this, grant.scope);
-        saveSqliteGrant(this.writeDatabase(), grant);
+        const write = this.activeWrite();
+        const presence = recordPresence(this.grant(grant.id));
+        saveSqliteGrant(write.database, grant);
+        write.changes.grants.record(grant.id.value, grant, presence);
     }
 
     public binding(key: string): Binding | undefined {
@@ -381,7 +388,10 @@ export class SqliteTenantControlStore
 
     public putBinding(binding: Binding): void {
         requireCanonicalScope(this, binding.scope);
-        saveSqliteBinding(this.writeDatabase(), binding);
+        const write = this.activeWrite();
+        const presence = recordPresence(this.binding(binding.key));
+        saveSqliteBinding(write.database, binding);
+        write.changes.bindings.record(binding.key, binding, presence);
     }
 
     public epochs(): readonly ScopeEpoch[] {
@@ -394,7 +404,9 @@ export class SqliteTenantControlStore
 
     public putEpoch(epoch: ScopeEpoch): void {
         requireCanonicalScope(this, epoch.scope);
-        saveSqliteEpoch(this.writeDatabase(), epoch);
+        const write = this.activeWrite();
+        saveSqliteEpoch(write.database, epoch);
+        write.changes.epochs.record(sqliteScopeKey(epoch.scope), epoch, "replaced");
     }
 
     public saveTenant(tenant: Tenant): void {
@@ -472,6 +484,7 @@ export class SqliteTenantControlStore
             [team.id.value, team.tenantId.value, team.revision.value, Team.encode(team)]
         );
         requireSaved(this.loadTeam(team.id), team, Team.encode);
+        this.activeWrite().changes.teams.record(team.id.value, team, recordPresence(previous));
     }
 
     public saveProject(project: Project): void {
@@ -515,6 +528,11 @@ export class SqliteTenantControlStore
             );
         }
         requireSaved(this.loadProject(project.id), project, Project.encode);
+        this.activeWrite().changes.projects.record(
+            project.id.value,
+            project,
+            recordPresence(previous)
+        );
     }
 
     public saveWorkspace(workspace: Workspace): void {
@@ -549,6 +567,7 @@ export class SqliteTenantControlStore
             ]
         );
         requireSaved(this.loadWorkspace(workspace.id), workspace, Workspace.encode);
+        this.activeWrite().changes.workspaces.record(workspace.id.value, workspace, "created");
     }
 
     public saveGuestTrust(trust: GuestTrust): void {
@@ -597,15 +616,23 @@ export class SqliteTenantControlStore
             );
         }
         requireSaved(this.loadGuestTrust(trust.id), trust, GuestTrust.encode);
+        this.activeWrite().changes.guestTrusts.record(
+            trust.id.value,
+            trust,
+            recordPresence(previous)
+        );
     }
 
     public saveRole(role: Role): void {
-        this.writeDatabase().run(
+        const write = this.activeWrite();
+        const presence = recordPresence(this.loadRole(role.name));
+        write.database.run(
             `INSERT INTO tenant_roles (name, record) VALUES (?, ?)
              ON CONFLICT(name) DO UPDATE SET record = excluded.record`,
             [role.name.value, Role.encode(role)]
         );
         requireSaved(this.loadRole(role.name), role, Role.encode);
+        write.changes.roles.record(role.name.value, role, presence);
     }
 
     public saveMembership(membership: Membership): void {
@@ -661,6 +688,11 @@ export class SqliteTenantControlStore
             ]
         );
         requireSaved(this.loadMembership(membership.id), membership, Membership.encode);
+        this.activeWrite().changes.memberships.record(
+            membership.id.value,
+            membership,
+            recordPresence(previous)
+        );
     }
 
     public saveGrant(grant: Grant): void {
@@ -718,6 +750,13 @@ export class SqliteTenantControlStore
     }
 
     private writeDatabase(): TransactionalSqlite {
+        return this.activeWrite().database;
+    }
+
+    private activeWrite(): {
+        readonly database: TransactionalSqlite;
+        readonly changes: AuthorityChangeSet;
+    } {
         if (this.#activeWrite === undefined) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
@@ -727,16 +766,16 @@ export class SqliteTenantControlStore
         return this.#activeWrite;
     }
 
-    private assertCompleteClosure(): void {
+    private assertCompleteClosure(changed?: AuthorityChangeSet): void {
         try {
-            this.assertCompleteClosureUnchecked();
+            this.assertCompleteClosureUnchecked(changed);
         } catch (error) {
             if (error instanceof TypeError) throw corruptTenantControl();
             throw error;
         }
     }
 
-    private assertCompleteClosureUnchecked(): void {
+    private assertCompleteClosureUnchecked(changed?: AuthorityChangeSet): void {
         const anchor = this.bootstrapAnchor();
         const marker = this.bootstrapMarker();
         const tenant = anchor === undefined ? undefined : this.loadTenant(anchor.tenantId);
@@ -762,10 +801,15 @@ export class SqliteTenantControlStore
         ) {
             throw corruptTenantControl();
         }
-        this.assertRelationalClosure();
+        if (changed === undefined) this.assertStoredRows();
+        assertAuthorityClosure(this, changed);
     }
 
-    private assertRelationalClosure(): void {
+    /**
+     * The row-level closure the shared record closure cannot see: every projected row has
+     * to decode back to the record it projects, and exactly one Tenant may own the file.
+     */
+    private assertStoredRows(): void {
         const tenantRows = readTenant(
             this.database,
             "SELECT id FROM tenant_identities ORDER BY id",
@@ -796,151 +840,6 @@ export class SqliteTenantControlStore
                 throw corruptTenantControl();
             }
         }
-        for (const row of readTenant(
-            this.database,
-            "SELECT id FROM tenant_projects ORDER BY id",
-            []
-        )) {
-            const project = this.loadProject(new ProjectId(text(row, "id")));
-            if (project === undefined || !project.tenantId.equals(this.tenantId)) {
-                throw corruptTenantControl();
-            }
-        }
-        for (const team of this.teams()) {
-            if (!team.tenantId.equals(this.tenantId)) throw corruptTenantControl();
-            for (const principal of team.principals) {
-                if (this.loadPrincipal(principal) === undefined) throw corruptTenantControl();
-            }
-        }
-        for (const membership of this.memberships()) {
-            requireCanonicalScope(this, membership.scope);
-            if (this.loadRole(membership.role) === undefined) throw corruptTenantControl();
-            if (
-                membership.subject.kind === "principal" &&
-                this.loadPrincipal(membership.subject.principal.principalId) === undefined
-            ) {
-                throw corruptTenantControl();
-            }
-            if (
-                membership.subject.kind === "team" &&
-                this.loadTeam(membership.subject.teamId) === undefined
-            ) {
-                throw corruptTenantControl();
-            }
-            if (membership.subject.kind === "foreign") {
-                const verification = membership.guestVerification;
-                const trust =
-                    verification === undefined
-                        ? undefined
-                        : this.loadGuestTrust(verification.trustId);
-                if (
-                    verification === undefined ||
-                    trust === undefined ||
-                    !trust.hostTenant.equals(this.tenantId) ||
-                    !trust.homeTenant.equals(membership.subject.homeTenant) ||
-                    (membership.state === "active" &&
-                        (trust.revision.value !== verification.trustRevision.value ||
-                            trust.verifier.kind !== verification.verifiedVia.value ||
-                            !trust.isActive))
-                ) {
-                    throw corruptTenantControl();
-                }
-            }
-        }
-        for (const row of readTenant(
-            this.database,
-            "SELECT id FROM tenant_workspaces ORDER BY id",
-            []
-        )) {
-            const workspace = this.loadWorkspace(new WorkspaceId(text(row, "id")));
-            if (
-                workspace === undefined ||
-                !workspace.tenantId.equals(this.tenantId) ||
-                (workspace.projectId !== undefined &&
-                    this.loadProject(workspace.projectId) === undefined)
-            ) {
-                throw corruptTenantControl();
-            }
-        }
-        for (const trust of this.guestTrusts()) {
-            if (!trust.hostTenant.equals(this.tenantId)) throw corruptTenantControl();
-        }
-        const grants = this.grants();
-        const grantsById = new Map(grants.map((grant) => [grant.id.value, grant]));
-        for (const grant of grants) {
-            requireCanonicalScope(this, grant.scope);
-            if (
-                grant.subject.kind === "principal" &&
-                this.loadPrincipal(grant.subject.principal.principalId) === undefined
-            ) {
-                throw corruptTenantControl();
-            }
-            if (
-                grant.subject.kind === "team" &&
-                this.loadTeam(grant.subject.teamId) === undefined
-            ) {
-                throw corruptTenantControl();
-            }
-            if (grant.origin.kind === "role") {
-                const membership = this.loadMembership(grant.origin.membershipId);
-                if (
-                    membership === undefined ||
-                    membership.role.value !== grant.origin.roleName ||
-                    sqliteSubjectKey(membership.subject) !== sqliteSubjectKey(grant.subject)
-                ) {
-                    throw corruptTenantControl();
-                }
-            }
-            const seen = new Set([grant.id.value]);
-            let child = grant;
-            while (child.attenuationOf !== undefined) {
-                if (seen.has(child.attenuationOf.value)) throw corruptTenantControl();
-                seen.add(child.attenuationOf.value);
-                const parent = grantsById.get(child.attenuationOf.value);
-                if (parent === undefined || !parent.canAttenuate(child)) {
-                    throw corruptTenantControl();
-                }
-                child = parent;
-            }
-        }
-        for (const binding of this.bindings()) {
-            requireCanonicalScope(this, binding.scope);
-            const grant = grantsById.get(binding.grantId.value);
-            if (
-                grant === undefined ||
-                grant.effect !== "allow" ||
-                sqliteSubjectKey(grant.subject) !== sqliteSubjectKey(binding.subject) ||
-                !binding.scope.path.some((scope) => scope.equals(grant.scope))
-            ) {
-                throw corruptTenantControl();
-            }
-        }
-        for (const membership of this.memberships()) {
-            const role = this.loadRole(membership.role);
-            if (role === undefined) throw corruptTenantControl();
-            const owned = grants.filter(
-                (grant) =>
-                    grant.origin.kind === "role" && grant.origin.membershipId.equals(membership.id)
-            );
-            const expected = new RoleGrantMaterializer().materialize({
-                membership,
-                role,
-                existing: owned
-            }).desiredRecords;
-            if (
-                expected.length !== owned.length ||
-                expected.some((record) => {
-                    const actual = owned.find((candidate) => candidate.id.equals(record.id));
-                    return (
-                        actual === undefined ||
-                        !equalBytes(Grant.encode(actual), Grant.encode(record))
-                    );
-                })
-            ) {
-                throw corruptTenantControl();
-            }
-        }
-        for (const epoch of this.epochs()) requireCanonicalScope(this, epoch.scope);
     }
 
     private bindBootstrapAnchor(anchor: TenantBootstrapAnchor): void {
@@ -973,6 +872,10 @@ export function createSqliteTenantControlStore(
     anchor?: TenantBootstrapAnchor
 ): SqliteTenantControlStore {
     return new SqliteTenantControlStore(database, anchor);
+}
+
+function recordPresence<Record>(previous: Record | undefined): AuthorityRecordPresence {
+    return previous === undefined ? "created" : "replaced";
 }
 
 function requireSaved<Record>(

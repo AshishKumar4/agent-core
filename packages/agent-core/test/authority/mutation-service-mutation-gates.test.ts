@@ -31,15 +31,14 @@ import {
     Workspace
 } from "../identity/internal-fixture";
 import { Binding } from "../../src/authority/binding";
-import { ScopeEpoch } from "../../src/authority/epoch";
 import { Grant } from "../../src/authority/grant";
 import { GrantId } from "../../src/authority/id";
 import { MemoryTenantControlStore } from "../../src/authority/memory";
 import {
     AuthorityMutationService,
-    createTenantControlBootstrapPlan,
-    type AuthorityMutationStore
+    createTenantControlBootstrapPlan
 } from "../../src/authority/service";
+import { DivergentGrantStore, GrantDivergence } from "./divergent-store";
 
 const tenantId = new TenantId("mutation-gate-tenant");
 const ownerId = new PrincipalId("mutation-gate-owner");
@@ -1104,14 +1103,14 @@ describe("AuthorityMutationService closure and epoch effects", () => {
     });
 });
 
-// requireBindingAuthority is the only place a Binding is weighed against the Grant it
-// names. The Memory store re-derives the same closure in assertRestoredState, but that is
-// Memory's own bookkeeping: the SQLite ledger validates a row against its own record
-// bytes and nothing more, so for a durable Tenant this function is the whole enforcement.
-// Each case therefore asserts the denial code and message, which is what tells the
-// service's refusal apart from a store noticing afterwards — and the revoked case is
-// stronger still, because that closure never reads Grant state, so with the service check
-// gone nothing behind it refuses the write at all.
+// requireBindingAuthority is where a Binding is weighed against the Grant it names before
+// the write. Both backings re-derive the rest of that closure when the transaction commits,
+// so four of these cases would still be refused by something; each therefore asserts the
+// denial code and message, which is what tells the service's refusal apart from a store
+// noticing afterwards. The revoked case is the one the closure cannot cover on either
+// backing, because it reads a Grant's effect and never its state: with this check gone,
+// nothing behind it refuses the write. test/authority/record-closure.test.ts holds the
+// same five cases against both backings.
 describe("AuthorityMutationService Binding authority gate", () => {
     test("refuses a Binding naming a Grant that does not exist", { tags: "p0" }, () => {
         const { store, service } = fixture();
@@ -1241,11 +1240,10 @@ describe("AuthorityMutationService Binding authority gate", () => {
 });
 
 // Two properties of the revocation closure that only a store answering with a Grant graph
-// it was never given can show. The Memory store re-derives the attenuation closure at the
-// end of every transaction and on every restore, so neither state survives a commit there;
-// src/substrates/sqlite/authority.ts checks a row against its own record bytes and derives
-// no cross-record invariant, so both are states a durable ledger can hold. The service is
-// the layer both backends share, which is why it has to hold on the weaker one.
+// it was never given can show. Both backings re-derive the attenuation closure when a
+// transaction commits and when a store opens, so neither state survives a commit on
+// either — but a store the service is handed need not be one of them, and the walk has to
+// terminate whatever it is answered with.
 describe("AuthorityMutationService revocation over a divergent Grant graph", () => {
     test("leaves a Grant the store reports as already revoked untouched", { tags: "p0" }, () => {
         const { store, service } = fixture();
@@ -1317,138 +1315,6 @@ function attenuating(grant: Grant, parent: GrantId): Grant {
         parent,
         grant.state
     );
-}
-
-/**
- * The diverged Grant records, plus the budget of Grant-table reads the store will answer.
- * A walk that does not terminate blocks the event loop, so no test timeout can catch it;
- * refusing the read is what turns non-termination into an observable failure. The budget
- * is loose — a two-Grant closure reads the table twice — so only a walk that has stopped
- * making progress can exhaust it.
- */
-class GrantDivergence {
-    public reads = 0;
-    public readonly budget = 64;
-    public constructor(public readonly records: Map<string, Grant>) {}
-
-    public spend(): void {
-        this.reads += 1;
-        if (this.reads > this.budget) {
-            throw new Error(`Grant walk read the table more than ${this.budget} times`);
-        }
-    }
-}
-
-/**
- * A store that accepts every write and then answers a later read with something else. Grant
- * records the divergence names are served from it and written back to it; everything else
- * passes through to the store underneath, so the records the service does not diverge on
- * stay consistent and the transaction commits.
- */
-class DivergentGrantStore implements AuthorityMutationStore {
-    public constructor(
-        private readonly inner: AuthorityMutationStore,
-        private readonly divergence: GrantDivergence
-    ) {}
-
-    public get tenantId(): TenantId {
-        return this.inner.tenantId;
-    }
-
-    public transaction<Result>(operation: (store: AuthorityMutationStore) => Result): Result {
-        return this.inner.transaction((candidate) =>
-            operation(new DivergentGrantStore(candidate, this.divergence))
-        );
-    }
-
-    public grant(id: GrantId): Grant | undefined {
-        return this.divergence.records.get(id.value) ?? this.inner.grant(id);
-    }
-
-    public grants(): readonly Grant[] {
-        this.divergence.spend();
-        return this.inner
-            .grants()
-            .map((grant) => this.divergence.records.get(grant.id.value) ?? grant);
-    }
-
-    public putGrant(grant: Grant): void {
-        if (this.divergence.records.has(grant.id.value)) {
-            this.divergence.records.set(grant.id.value, grant);
-        } else {
-            this.inner.putGrant(grant);
-        }
-    }
-
-    public principal(id: PrincipalId): Principal | undefined {
-        return this.inner.principal(id);
-    }
-    public putPrincipal(principal: Principal): void {
-        this.inner.putPrincipal(principal);
-    }
-    public team(id: TeamId): Team | undefined {
-        return this.inner.team(id);
-    }
-    public teams(): readonly Team[] {
-        return this.inner.teams();
-    }
-    public putTeam(team: Team): void {
-        this.inner.putTeam(team);
-    }
-    public project(id: ProjectId): Project | undefined {
-        return this.inner.project(id);
-    }
-    public putProject(project: Project): void {
-        this.inner.putProject(project);
-    }
-    public workspace(id: WorkspaceId): Workspace | undefined {
-        return this.inner.workspace(id);
-    }
-    public putWorkspace(workspace: Workspace): void {
-        this.inner.putWorkspace(workspace);
-    }
-    public guestTrust(id: GuestTrustId): GuestTrust | undefined {
-        return this.inner.guestTrust(id);
-    }
-    public guestTrusts(): readonly GuestTrust[] {
-        return this.inner.guestTrusts();
-    }
-    public putGuestTrust(trust: GuestTrust): void {
-        this.inner.putGuestTrust(trust);
-    }
-    public role(name: RoleName): Role | undefined {
-        return this.inner.role(name);
-    }
-    public putRole(role: Role): void {
-        this.inner.putRole(role);
-    }
-    public membership(id: MembershipId): Membership | undefined {
-        return this.inner.membership(id);
-    }
-    public memberships(): readonly Membership[] {
-        return this.inner.memberships();
-    }
-    public putMembership(membership: Membership): void {
-        this.inner.putMembership(membership);
-    }
-    public binding(key: string): Binding | undefined {
-        return this.inner.binding(key);
-    }
-    public bindings(): readonly Binding[] {
-        return this.inner.bindings();
-    }
-    public putBinding(binding: Binding): void {
-        this.inner.putBinding(binding);
-    }
-    public epochs(): readonly ScopeEpoch[] {
-        return this.inner.epochs();
-    }
-    public epoch(scope: ScopeEpoch["scope"]): ScopeEpoch {
-        return this.inner.epoch(scope);
-    }
-    public putEpoch(epoch: ScopeEpoch): void {
-        this.inner.putEpoch(epoch);
-    }
 }
 
 function fixture(): { store: MemoryTenantControlStore; service: AuthorityMutationService } {

@@ -238,6 +238,23 @@ export class SqliteIdentityReader extends IdentityRepository {
         );
     }
 
+    public projects(): readonly Project[] {
+        return Object.freeze(
+            readIdentity(this.readDatabase, "SELECT id FROM tenant_projects ORDER BY id", []).map(
+                (row) => projectedRecord(this.loadProject(projectedId(ProjectId, text(row, "id"))))
+            )
+        );
+    }
+
+    public workspaces(): readonly Workspace[] {
+        return Object.freeze(
+            readIdentity(this.readDatabase, "SELECT id FROM tenant_workspaces ORDER BY id", []).map(
+                (row) =>
+                    projectedRecord(this.loadWorkspace(projectedId(WorkspaceId, text(row, "id"))))
+            )
+        );
+    }
+
     public memberships(): readonly Membership[] {
         return Object.freeze(
             readIdentity(
@@ -338,6 +355,11 @@ function projectedId<Id>(Constructor: new (value: string) => Id, value: string):
     } catch {
         throw corruptIdentity();
     }
+}
+
+function projectedRecord<Record>(record: Record | undefined): Record {
+    if (record === undefined) throw corruptIdentity();
+    return record;
 }
 
 function corruptIdentity(): AgentCoreError {
