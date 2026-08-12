@@ -34,6 +34,7 @@ import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import { BlueprintPin, RunConfigurationSnapshot, RunPins } from "../../../src/agents/runs/pins";
 import { Run, RunBranch } from "../../../src/agents/runs/run";
 import { RunSpawnPort, type SpawnReservation } from "../../../src/agents/runs/spawn";
+import { SpawnAttenuation } from "../../../src/agents/runs/ceiling";
 import { RunRuntime } from "../../../src/agents/runs/runtime";
 import {
     SettlementEvidencePort,
@@ -189,9 +190,21 @@ export class TestSourcePort<Transaction = object> extends RunSourceRevisionPort<
 
 export class TestSpawnPort<Transaction = object> extends RunSpawnPort<Transaction> {
     public accepts = true;
+    // Keyed by reservation id; a reservation with no entry presents an empty attenuation.
+    public attenuations = new Map<string, SpawnAttenuation>();
     public verify(_transaction: Transaction, _reservation: SpawnReservation): boolean {
         return this.accepts;
     }
+    public attenuation(
+        _transaction: Transaction,
+        reservation: SpawnReservation
+    ): SpawnAttenuation {
+        return this.attenuations.get(reservation.id.value) ?? new SpawnAttenuation();
+    }
+}
+
+export function attenuationDigest(attenuation: SpawnAttenuation): Digest {
+    return Digest.sha256(SpawnAttenuation.codec.encode(attenuation));
 }
 
 export class TestMergePort<Transaction = object> extends RunMergePort<Transaction> {

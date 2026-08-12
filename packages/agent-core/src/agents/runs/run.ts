@@ -7,6 +7,7 @@ import {
     digestFromData,
     requireArray,
     requireExactFields,
+    requireInteger,
     requireObject,
     requireOptionalString,
     requireString,
@@ -15,28 +16,37 @@ import {
 } from "../record-data";
 import { RunBranchId, RunId } from "./id";
 import { TerminalSnapshot } from "./settlement";
+import type { ResourceDimension } from "./ceiling";
 import { Digest } from "../../core";
 
 export abstract class RunLifecycle {
     public static get active(): RunLifecycle {
         return activeRun;
     }
-    public static get terminal(): RunLifecycle {
-        return terminalRun;
+    // SPEC §5.2: the terminal variant records which ceiling dimension exhaustion
+    // cancelled the Run, and nothing when the Run ended for any other reason.
+    public static terminal(exhausted?: ResourceDimension): RunLifecycle {
+        return exhausted === undefined ? terminalRun : new TerminalRun(exhausted);
     }
     public abstract readonly kind: "active" | "terminal";
+    public abstract readonly exhausted: ResourceDimension | undefined;
     public abstract terminalize(): RunLifecycle;
 }
 
 class ActiveRun extends RunLifecycle {
     public readonly kind = "active" as const;
+    public readonly exhausted = undefined;
     public terminalize(): RunLifecycle {
-        return RunLifecycle.terminal;
+        return RunLifecycle.terminal();
     }
 }
 
 class TerminalRun extends RunLifecycle {
     public readonly kind = "terminal" as const;
+    public constructor(public readonly exhausted: ResourceDimension | undefined = undefined) {
+        super();
+        Object.freeze(this);
+    }
     public terminalize(): RunLifecycle {
         throw new AgentCoreError("run.invalid-state", "Terminal Runs cannot transition");
     }
@@ -51,6 +61,7 @@ export interface RunInit {
     readonly initialBranch: RunBranchId;
     readonly parent?: RunId;
     readonly terminal?: TerminalSnapshot;
+    readonly tokensConsumed?: number;
     readonly revision: Revision;
 }
 
@@ -67,6 +78,9 @@ export class Run extends CodecRecord {
     public readonly parent: RunId | undefined;
     public readonly lifecycle: RunLifecycle;
     public readonly terminal: TerminalSnapshot | undefined;
+    // SPEC §5.2: tokens are the one ceiling dimension with no derivation, so the Run
+    // carries their running total. depth and wallClockMs stay derived.
+    public readonly tokensConsumed: number;
     public readonly revision: Revision;
 
     public constructor(init: RunInit) {
@@ -89,9 +103,17 @@ export class Run extends CodecRecord {
         this.initialBranch = init.initialBranch;
         this.parent = init.parent;
         this.terminal = init.terminal;
+        const tokensConsumed = init.tokensConsumed ?? 0;
+        if (!Number.isSafeInteger(tokensConsumed) || tokensConsumed < 0) {
+            throw new TypeError("Run token total must be a non-negative safe integer");
+        }
+        this.tokensConsumed = tokensConsumed;
         // A Run is terminal exactly when it holds its terminal snapshot. Storing the
         // state beside the evidence would only create two ways to answer one question.
-        this.lifecycle = init.terminal === undefined ? RunLifecycle.active : RunLifecycle.terminal;
+        this.lifecycle =
+            init.terminal === undefined
+                ? RunLifecycle.active
+                : RunLifecycle.terminal(init.terminal.exhausted);
         this.revision = init.revision;
         if (this.terminal !== undefined && !this.terminal.run.equals(this.id)) {
             throw new TypeError("Terminal snapshot belongs to a different Run");
@@ -130,6 +152,21 @@ export class Run extends CodecRecord {
         return this.transition(this.terminal);
     }
 
+    // Accumulated where a model call commits (SPEC §5.1, §5.2).
+    public recordTokens(tokens: number): Run {
+        if (this.lifecycle.kind !== "active") {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                "Terminal Runs consume no further tokens"
+            );
+        }
+        return this.transition(
+            this.terminal,
+            this.configurations,
+            this.tokensConsumed + requireTokenUsage(tokens)
+        );
+    }
+
     public recordConfiguration(configuration: Digest): Run {
         if (this.lifecycle.kind !== "active") {
             throw new AgentCoreError(
@@ -151,7 +188,8 @@ export class Run extends CodecRecord {
             parent: this.parent?.value ?? null,
             revision: revisionData(this.revision),
             root: this.root.value,
-            terminal: this.terminal === undefined ? null : this.terminal.toData()
+            terminal: this.terminal === undefined ? null : this.terminal.toData(),
+            tokensConsumed: this.tokensConsumed
         };
     }
 
@@ -168,7 +206,8 @@ export class Run extends CodecRecord {
                 "parent",
                 "revision",
                 "root",
-                "terminal"
+                "terminal",
+                "tokensConsumed"
             ],
             [],
             "Run"
@@ -189,13 +228,15 @@ export class Run extends CodecRecord {
             ...(object["terminal"] === null
                 ? {}
                 : { terminal: TerminalSnapshot.fromData(object["terminal"]) }),
+            tokensConsumed: requireInteger(object["tokensConsumed"], "Run token total"),
             revision: revisionFromData(object["revision"], "Run revision")
         });
     }
 
     private transition(
         terminal: TerminalSnapshot | undefined,
-        configurations: readonly Digest[] = this.configurations
+        configurations: readonly Digest[] = this.configurations,
+        tokensConsumed: number = this.tokensConsumed
     ): Run {
         return new Run({
             id: this.id,
@@ -206,6 +247,7 @@ export class Run extends CodecRecord {
             initialBranch: this.initialBranch,
             ...(this.parent === undefined ? {} : { parent: this.parent }),
             ...(terminal === undefined ? {} : { terminal }),
+            tokensConsumed,
             revision: nextRunRevision(this.revision)
         });
     }
@@ -213,7 +255,7 @@ export class Run extends CodecRecord {
 
 class RunRecordCodec extends RecordCodec<Run> {
     public constructor() {
-        super("run.record", { major: 1, minor: 0 });
+        super("run.record", { major: 2, minor: 0 });
     }
     protected encodePayload(value: Run): JsonValue {
         return value.toData();
@@ -284,6 +326,13 @@ export const RunBranchCodec: RecordCodec<RunBranch> = new BranchCodec();
 
 const activeRun = Object.freeze(new ActiveRun());
 const terminalRun = Object.freeze(new TerminalRun());
+
+function requireTokenUsage(tokens: number): number {
+    if (!Number.isSafeInteger(tokens) || tokens < 0) {
+        throw new TypeError("Run token usage must be a non-negative safe integer");
+    }
+    return tokens;
+}
 
 function nextRunRevision(revision: Revision): Revision {
     if (revision.value === Number.MAX_SAFE_INTEGER) {

@@ -1505,6 +1505,49 @@ describe("TurnExecutor seam", () => {
         ).resolves.toMatchObject({ kind: "succeeded" });
     });
 
+    it(
+        "[C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits",
+        { tags: "p1" },
+        async () => {
+            const seeded = seedRunningTurn();
+            const boundaries = await TestBoundaries.create();
+            const tokens = () =>
+                seeded.repository.transaction(
+                    (tx) => seeded.repository.loadRun(tx, ids.run)!.tokensConsumed
+                );
+            expect(tokens()).toBe(0);
+
+            const executor = new FunctionExecutor(async (context) => {
+                await context.model.call({ prompt: boundaries.prompt });
+                expect(tokens()).toBe(4);
+                await context.model.call({ prompt: boundaries.prompt });
+                expect(tokens()).toBe(8);
+                return context.outcome.succeed(
+                    resultCommit(context, "token-total", boundaries.output, ids.root)
+                );
+            });
+
+            await expect(
+                boundaries
+                    .host(seeded, executor, {
+                        model: {
+                            call: async () => ({
+                                output: boundaries.output,
+                                usage: {
+                                    inputTokens: 1,
+                                    outputTokens: 1,
+                                    cacheReadTokens: 1,
+                                    cacheWriteTokens: 1
+                                }
+                            })
+                        }
+                    })
+                    .execute(seeded.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+            expect(tokens()).toBe(8);
+        }
+    );
+
     it("appends verdict commits through the ordinary Turn commit handle", async () => {
         const seeded = seedRunningTurn();
         const boundaries = await TestBoundaries.create();

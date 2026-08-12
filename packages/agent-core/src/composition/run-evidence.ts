@@ -14,6 +14,7 @@ import {
     type RunCommit,
     type RunConfigurationSnapshot,
     type SettlementAuditObligation,
+    type SpawnAttenuation,
     type SpawnReservation,
     type SynthesisCommitEvidence
 } from "../agents";
@@ -145,6 +146,7 @@ export class CanonicalSettlementEvidencePort<
 export interface CanonicalSpawnEvidenceSource<Transaction> {
     successfulDelegateReceipt(transaction: Transaction, reservation: SpawnReservation): boolean;
     durableAttenuation(transaction: Transaction, reservation: SpawnReservation): boolean;
+    attenuation(transaction: Transaction, reservation: SpawnReservation): SpawnAttenuation;
 }
 
 export class CanonicalRunSpawnPort<Transaction> extends RunSpawnPort<Transaction> {
@@ -156,6 +158,12 @@ export class CanonicalRunSpawnPort<Transaction> extends RunSpawnPort<Transaction
             this.source.successfulDelegateReceipt(transaction, reservation) &&
             this.source.durableAttenuation(transaction, reservation)
         );
+    }
+    public attenuation(
+        transaction: Transaction,
+        reservation: SpawnReservation
+    ): SpawnAttenuation {
+        return this.source.attenuation(transaction, reservation);
     }
 }
 
