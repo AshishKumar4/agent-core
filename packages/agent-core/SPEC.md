@@ -863,15 +863,14 @@ and alive as long as any install references them. The three differ in lifetime a
 nothing else, and this section states the shared shape once so they cannot drift apart.
 
 The shape is a composition of primitives this document already has, not a seventeenth:
-placement (§9.2) MUST put the code in a `dynamic` domain — the trust set never hands
+placement (§9.2) puts the code in a `dynamic` domain — the trust set never hands
 agent-authored code `bundled`, and holding nothing is the point of it — which §1.5
 strips of ambient authority and ambient egress; the capability set arrives only as
 explicitly passed Bindings; every call the code makes against one is an ordinary
 Invocation, tiered by §7.2; and nothing crosses back out except the code's returned
 value and asynchronous Events. From the model's side a programmatic tool call is one
 Operation invocation — code in, value out — while every Operation the code called in
-between carries its own admission and evidence. That trust-set exclusion maps to
-**C13-PLACEMENT-UNTRUSTED-BUNDLED**.
+between carries its own admission and evidence.
 
 Handing the capability set to the isolate is not transport; it is delegation. §1.5
 already says nothing else crosses a domain boundary, and the §3.4 rules bound the
@@ -2189,9 +2188,10 @@ maps to **C13-AUDIT-TELEMETRY-EXCLUDED**.
 
 An **Actor** is a durably addressable state machine with one authoritative
 coordination unit owning its mailbox, local transaction boundary, lifecycle, recovery,
-and fencing state. It serializes conflicting commands, recovers state before serving,
-commits at declared linearization points, and rejects stale fences. Actor roles:
-Tenant, Workspace, Run (when dedicated), Environment, Slate host.
+and fencing state. It MUST serialize conflicting commands, recover state before serving,
+commit at declared linearization points, and reject stale fences. Actor roles:
+Tenant, Workspace, Run (when dedicated), Environment, Slate host. This maps to
+**C13-OWNERSHIP-ACTOR-CONTRACT**.
 
 ### 8.2 ContentStore
 
@@ -2203,10 +2203,11 @@ abstract class ContentStore {
 }
 ```
 
-Every `ContentRef` in this specification resolves through a ContentStore — run inputs,
-checkpoints, instructions, results, slate sources. A ContentStore belongs to exactly one
-Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller whose authority
-reaches that Tenant; there is no cross-Tenant content read without a Grant that says so.
+Every `ContentRef` in this specification MUST resolve through a ContentStore — run
+inputs, checkpoints, instructions, results, slate sources. A ContentStore belongs to
+exactly one Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller
+whose authority reaches that Tenant; there is no cross-Tenant content read without a
+Grant that says so. This maps to **C13-CONTENT-RESOLUTION**.
 
 A reference alone keeps nothing alive. Every durable record type that names a `ContentRef`
 is a retained owner of that content for as long as the record exists, and the §8.4 rule 6
@@ -2227,10 +2228,11 @@ no declared retainer owns, so a record cannot outlive the bytes it names. This m
 
 Durable records are data. Every record type defines a stable serialized form with a
 **versioned codec**, used identically for storage, the command protocol, and
-export/import. A codec upcasts records of an older minor within the same major, and rejects
-an unknown major — newer or older — and an unknown newer minor with a typed error, never a
-silent truncation. Live behavior wraps records; it never *is* the
-record, and durable records never own live substrate resources.
+export/import. A codec MUST upcast records of an older minor within the same major, and
+MUST reject an unknown major — newer or older — and an unknown newer minor with a typed
+error, never a silent truncation. Live behavior wraps records; it never *is* the
+record, and durable records never own live substrate resources. This maps to
+**C13-CODEC-VERSIONING**.
 
 ### 8.4 State-ownership rules
 
@@ -2246,11 +2248,11 @@ record, and durable records never own live substrate resources.
 6. Conformance includes an **ownership map** artifact — record type → owning Actor —
    verified against the implementation.
 
-In particular, the Tenant Actor is the sole durable owner of Binding, Grant, and
+In particular, the Tenant Actor MUST be the sole durable owner of Binding, Grant, and
 ScopeEpoch records. Creating, replacing, or deactivating a Binding and advancing its
-affected path epoch occur in one Tenant-local control transaction. Workspace and Run
-Actors may retain Binding ids and rebuildable indexes, never canonical or mirrored
-Binding records.
+affected path epoch MUST occur in one Tenant-local control transaction. Workspace and
+Run Actors MAY retain Binding ids and rebuildable indexes, never canonical or mirrored
+Binding records. This maps to **C13-OWNERSHIP-AUTHORITY-RECORDS**.
 
 These rules exist because mirrored state is the most expensive class of bug a durable
 platform can have: two copies of the truth always eventually disagree, and by the time
@@ -2309,18 +2311,19 @@ interface WriteRecord {
 }
 ```
 
-The dispatcher evaluates in this order: decode/shape, authenticate exact caller,
+The dispatcher MUST evaluate in this order: decode/shape, authenticate exact caller,
 duplicate lookup on `(caller, idempotencyKey)`, authority, lifecycle, expected revision,
 optional LeaseToken, then mutation. A Turn-owned command requires a token; a supplied
-token is always checked for exact Turn, holder, epoch, and non-expiry. Missing required,
-unexpected, stale, wrong-Turn, or expired tokens yield `rejectedLease`. Duplicate
-returns the original reply and records `duplicateOf` without re-running later gates or
-mutation.
+token MUST always be checked for exact Turn, holder, epoch, and non-expiry. Missing
+required, unexpected, stale, wrong-Turn, or expired tokens yield `rejectedLease`.
+Duplicate MUST return the original reply and record `duplicateOf` without re-running
+later gates or mutation. These map to **C13-PROTOCOL-OUTCOMES**,
+**C13-PROTOCOL-EXACT-ENVELOPE**, and **C13-PROTOCOL-DUPLICATE**.
 
-Each command family declares whether `expectedRevision` is required and whether a
+Each command family MUST declare whether `expectedRevision` is required and whether a
 LeaseToken is required, optional, or forbidden. Missing required envelope fields and
 forbidden fields are `rejectedMalformed`, except token-policy violations, which are
-`rejectedLease`.
+`rejectedLease`. This maps to **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY**.
 
 Every request appends exactly one WriteRecord and one linked AuditRecord, including
 malformed and rejected requests. A valid `callerCause` MUST preexist and be a permitted
@@ -2367,15 +2370,19 @@ interface Blueprint {
 `policies.placement` decides isolation (§1.5) using one explicit preference order.
 For each Facet, compute exactly `manifest ∩ policy ∩ substrate ∩ trust`, where each term
 is an independently derived admissible-mode set. One preference order applies
-everywhere: `dynamic`, then `provider`, then `bundled`. Placement is the first member of
-the intersection in that order. An empty intersection rejects the Blueprint; no
-fallback is inferred. `policies.placement.trusted` names the Packages the trust set
+everywhere: `dynamic`, then `provider`, then `bundled`. Placement MUST be the first
+member of the intersection in that order. An empty intersection MUST reject the
+Blueprint; no fallback is inferred. These map to **C13-PLACEMENT-INTERSECTION**,
+**C13-PLACEMENT-ORDER**, and **C13-PLACEMENT-EMPTY**.
+
+`policies.placement.trusted` names the Packages the trust set
 admits to `bundled`, as a nonempty list of globs matched against the whole `PackageId`:
 `*` matches any sequence of characters, including none, everywhere it appears in the
 pattern; every other character matches itself; a pattern with no `*` matches only that
-exact id. The trust set excludes `bundled` for every Package no glob matches. If the
-chosen mode cannot admit a policy-selected direct call, that call escalates to mediated
-(§7.2); placement itself does not change.
+exact id. The trust set MUST exclude `bundled` for every Package no glob matches. If the
+chosen mode cannot admit a policy-selected direct call, that call MUST escalate to
+mediated (§7.2); placement itself does not change. These map to
+**C13-PLACEMENT-UNTRUSTED-BUNDLED** and **C13-POLICY-DIRECT-ESCALATION**.
 
 The composed platform config schema is the spec's base schema plus every installed
 package's `settings` fragments, and a Blueprint MUST validate against it **before any
@@ -2403,15 +2410,16 @@ A skeleton:
 
 ### 9.3 Materialization
 
-A **materializer** projects a Blueprint into records — Facet installs, Bindings,
+A **materializer** MUST project a Blueprint into records — Facet installs, Bindings,
 Subscriptions, slots, policies, scope scaffolding — **idempotently**: re-applying
 reconciles (create, update, remove-managed) rather than duplicates. Materialized
 records are marked Blueprint-managed; manual edits to managed records are rejected or
 adopted explicitly, per policy. The materializer enforces slot contribute-authority
 (§4.2), command uniqueness (§4.3), and role→Grant materialization (§3.3) through the
-same records the runtime uses. Reconciliation on a live platform orders changes so
+same records the runtime uses. Reconciliation on a live platform MUST order changes so
 existing RunPins remain resolvable (§5.2); removing a pinned Package is deferred until
-no Run references it or performed through explicit Run migration — never silent.
+no Run references it or performed through explicit Run migration — never silent. These
+map to **C13-BLUEPRINT-REMATERIALIZE** and **C13-BLUEPRINT-RUN-PINS**.
 
 ![From Blueprint to running platform](diagrams/blueprint.svg)
 
@@ -3070,10 +3078,11 @@ A conforming implementation provides:
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
 - **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.
-- **C13-CONTENT-RESOLUTION** Every ContentRef resolves through ContentStore.
-- **C13-CONTENT-CUSTODY** Stored content is owned by one Tenant, and every record naming a `ContentRef` retains it until the record releases it.
+- **C13-CONTENT-RESOLUTION** Every ContentRef resolves through a ContentStore that belongs to exactly one Tenant, and only for a caller whose authority reaches that Tenant.
+- **C13-CONTENT-CUSTODY** Every record naming a `ContentRef` retains that content until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
 - **C13-PROTOCOL-EXACT-ENVELOPE** The command dispatcher enforces exact caller and optional LeaseToken envelopes.
+- **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY** Each command family declares whether `expectedRevision` is required and whether a LeaseToken is required, optional, or forbidden, and a violated declaration is `rejectedMalformed` except for token policy, which is `rejectedLease`.
 - **C13-PROTOCOL-OUTCOMES** The command dispatcher produces deterministic complete outcomes.
 - **C13-PROTOCOL-DUPLICATE** Duplicate commands return duplicate replies without repeating mutation.
 - **C13-PROTOCOL-REJECTION-ROOT** Host rejection roots follow §8.5.
@@ -3081,6 +3090,8 @@ A conforming implementation provides:
 - **C13-PROTOCOL-ATOMIC-EVIDENCE** Domain decision, WriteRecord, and AuditRecord commit atomically.
 - **C13-OWNERSHIP-MAP** Conformance includes the state-ownership map required by §8.4 rule 6.
 - **C13-OWNERSHIP-SINGLE-OWNER** Every record type has one owning Actor; other Actors hold only rebuildable indexes and derived caches, and never dual-write.
+- **C13-OWNERSHIP-ACTOR-CONTRACT** An Actor serializes conflicting commands, recovers state before serving, commits at declared linearization points, and rejects stale fences.
+- **C13-OWNERSHIP-AUTHORITY-RECORDS** The Tenant Actor is the sole durable owner of Binding, Grant, and ScopeEpoch records, a Binding change and its path-epoch advance commit in one Tenant-local control transaction, and other Actors retain no canonical or mirrored copy.
 - **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD** Blueprint validation completes before package code loads.
 - **C13-BLUEPRINT-REMATERIALIZE** Blueprint re-materialization is idempotent.
 - **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).
