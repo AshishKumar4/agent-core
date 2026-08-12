@@ -590,6 +590,58 @@ describe("TurnExecutor seam", () => {
         }
     );
 
+    it(
+        "lets the live lease holder observe a delivered cancellation and settle the Turn itself",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn();
+            const boundaries = await TestBoundaries.create();
+            const cancellation = cancellationEntry(
+                "requested-cancellation",
+                seeded.token,
+                boundaries.cancellationPayload,
+                0
+            );
+            seeded.runtime.deliverEvent(
+                ids.turn,
+                seeded.running.revision,
+                seeded.token,
+                cancellation,
+                new Date(2_000)
+            );
+            let observed: readonly TurnInboxEntry[] | undefined;
+            const executor = new FunctionExecutor(async (context) => {
+                observed = await context.inbox.read(0);
+                expect(context.cancellation.aborted).toBe(true);
+                // The lease is still live, so the delivered request is not yet an
+                // outcome: only the holder's own transition makes it one.
+                await expect(context.outcome.cancelled()).rejects.toMatchObject({
+                    code: "turn.invalid-state"
+                });
+                return context.outcome.cancel(
+                    resultCommit(context, "requested-cancel-result", boundaries.output, ids.root),
+                    cancellation
+                );
+            });
+
+            await expect(
+                boundaries.host(seeded, executor).execute(seeded.token)
+            ).resolves.toEqual({
+                kind: "cancelled",
+                result: boundaries.output,
+                commit: new RunCommitId("requested-cancel-result")
+            });
+            expect(observed).toEqual([cancellation]);
+            const persisted = seeded.repository.transaction((transaction) => ({
+                turn: seeded.repository.loadTurn(transaction, ids.turn),
+                inbox: seeded.repository.listInbox(transaction, ids.turn)
+            }));
+            expect(persisted.turn?.status.kind).toBe("cancelled");
+            expect(persisted.turn?.lease.holder).toBeUndefined();
+            expect(persisted.inbox).toEqual([cancellation]);
+        }
+    );
+
     it("atomically suspends with the canonical checkpoint and recovers it after restart", async () => {
         const seeded = seedRunningTurn();
         const boundaries = await TestBoundaries.create();

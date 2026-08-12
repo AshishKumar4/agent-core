@@ -131,7 +131,7 @@
       "file": "packages/agent-core/src/agents/runs/admission.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
@@ -179,7 +179,7 @@
       "file": "packages/agent-core/src/agents/runs/run.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/agents/runs/runtime.ts",
@@ -191,7 +191,7 @@
       "file": "packages/agent-core/src/agents/runs/store.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/agents/source.ts",
@@ -209,13 +209,13 @@
       "file": "packages/agent-core/src/authority/epoch.ts",
       "kind": "non-null",
       "count": 6,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/memory.ts",
       "kind": "non-null",
       "count": 4,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/memory.ts",
@@ -233,7 +233,7 @@
       "file": "packages/agent-core/src/authority/permit.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/runtime.ts",
@@ -245,7 +245,7 @@
       "file": "packages/agent-core/src/authority/runtime.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/service.ts",
@@ -257,7 +257,7 @@
       "file": "packages/agent-core/src/authority/service.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/service.ts",
@@ -308,6 +308,12 @@
       "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
     },
     {
+      "file": "packages/agent-core/src/composition/mediation-identity.ts",
+      "kind": "unknown",
+      "count": 1,
+      "reason": "MediatedInvocationIdentityPort mints an Invocation identity from a preflight whose authorization the port never inspects, so the contract it implements declares that generic open."
+    },
+    {
       "file": "packages/agent-core/src/composition/package-runtime.ts",
       "kind": "unknown",
       "count": 1,
@@ -323,7 +329,7 @@
       "file": "packages/agent-core/src/content/memory.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/core/base64.ts",
@@ -383,7 +389,7 @@
       "file": "packages/agent-core/src/definition/attestation.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/blueprint.ts",
@@ -395,7 +401,7 @@
       "file": "packages/agent-core/src/definition/code-manifest.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/config.ts",
@@ -407,13 +413,13 @@
       "file": "packages/agent-core/src/definition/config.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/loader.ts",
       "kind": "non-null",
       "count": 3,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/loader.ts",
@@ -431,19 +437,19 @@
       "file": "packages/agent-core/src/definition/materialization-kind.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/materialization-store.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/materializer.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/memory.ts",
@@ -455,19 +461,19 @@
       "file": "packages/agent-core/src/definition/memory.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/package-store.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/package.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/placement.ts",
@@ -491,7 +497,7 @@
       "file": "packages/agent-core/src/definition/policy.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/policy.ts",
@@ -503,13 +509,13 @@
       "file": "packages/agent-core/src/definition/resolver.ts",
       "kind": "non-null",
       "count": 8,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/rollout.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/validator.ts",
@@ -545,7 +551,7 @@
       "file": "packages/agent-core/src/facets/automation.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/capability.ts",
@@ -587,7 +593,7 @@
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "non-null",
       "count": 3,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/device/facet.ts",
@@ -599,7 +605,7 @@
       "file": "packages/agent-core/src/facets/environment/facet.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/event.ts",
@@ -611,7 +617,7 @@
       "file": "packages/agent-core/src/facets/event.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/event.ts",
@@ -629,13 +635,13 @@
       "file": "packages/agent-core/src/facets/filesystem/facet.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/filesystem/memory.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/manifest.ts",
@@ -647,7 +653,7 @@
       "file": "packages/agent-core/src/facets/manifest.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/manifest.ts",
@@ -659,7 +665,7 @@
       "file": "packages/agent-core/src/facets/mapping.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/mcp/facet.ts",
@@ -671,7 +677,7 @@
       "file": "packages/agent-core/src/facets/memory/facet.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/profile-runtime/contract.ts",
@@ -731,7 +737,7 @@
       "file": "packages/agent-core/src/facets/slot-entry.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/slot-memory.ts",
@@ -755,13 +761,13 @@
       "file": "packages/agent-core/src/facets/slot.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/task/facet.ts",
       "kind": "non-null",
       "count": 5,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/web/facet.ts",
@@ -773,7 +779,7 @@
       "file": "packages/agent-core/src/facets/web/facet.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/identity/codec.ts",
@@ -791,7 +797,7 @@
       "file": "packages/agent-core/src/identity/member.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/identity/team.ts",
@@ -809,7 +815,7 @@
       "file": "packages/agent-core/src/invocations/audit.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/canonical-batch.ts",
@@ -857,7 +863,7 @@
       "file": "packages/agent-core/src/invocations/memory.ts",
       "kind": "non-null",
       "count": 5,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/operation-mediation.ts",
@@ -869,7 +875,7 @@
       "file": "packages/agent-core/src/invocations/operation-mediation.ts",
       "kind": "non-null",
       "count": 12,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/operation-mediation.ts",
@@ -893,7 +899,7 @@
       "file": "packages/agent-core/src/invocations/prepared.ts",
       "kind": "non-null",
       "count": 11,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/prepared.ts",
@@ -905,7 +911,7 @@
       "file": "packages/agent-core/src/invocations/publication.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/receipt.ts",
@@ -923,13 +929,13 @@
       "file": "packages/agent-core/src/invocations/replay.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/command-runtime.ts",
       "kind": "non-null",
       "count": 3,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/correspondence.ts",
@@ -941,7 +947,7 @@
       "file": "packages/agent-core/src/operations/gateway.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/gateway.ts",
@@ -953,7 +959,7 @@
       "file": "packages/agent-core/src/operations/interception.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/interception.ts",
@@ -965,7 +971,7 @@
       "file": "packages/agent-core/src/operations/lifecycle.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/lifecycle.ts",
@@ -1109,7 +1115,7 @@
       "file": "packages/agent-core/src/slates/store.ts",
       "kind": "non-null",
       "count": 6,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/slates/store.ts",
@@ -1217,7 +1223,7 @@
       "file": "packages/agent-core/src/workspaces/codec.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/workspaces/persistence.ts",
@@ -1235,19 +1241,19 @@
       "file": "packages/agent-core/src/workspaces/policy.ts",
       "kind": "non-null",
       "count": 9,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/workspaces/route.ts",
       "kind": "non-null",
       "count": 2,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/workspaces/value.ts",
       "kind": "non-null",
       "count": 1,
-      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
+      "reason": "An entry read back at an index, key, or optional field the surrounding code has already established \u2014 a length check, a prior write, or a validated variant \u2014 which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/workspaces/view.ts",

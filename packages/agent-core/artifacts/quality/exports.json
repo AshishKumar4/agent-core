@@ -45,6 +45,10 @@
       "types": "./dist/invocations/index.d.ts",
       "import": "./dist/invocations/index.js"
     },
+    "./mediation": {
+      "types": "./dist/mediation-public.d.ts",
+      "import": "./dist/mediation-public.js"
+    },
     "./operations": {
       "types": "./dist/operations/index.d.ts",
       "import": "./dist/operations/index.js"
@@ -891,6 +895,17 @@
       "SqliteTransientContentAccess",
       "TransactionalSqlite",
       "createSqliteTenantBootstrap"
+    ],
+    "@agent-core/core/mediation": [
+      "MediatedAuthorityIntent",
+      "MediatedOperationPipeline",
+      "ResolutionStamp",
+      "ResolvedOperationAuthority",
+      "leaseReference",
+      "leaseToken",
+      "mediationInvocationCodecs",
+      "mediationPreparedCodecs",
+      "sameLeaseReference"
     ]
   },
   "declarations": {
@@ -2345,6 +2360,31 @@
       "SqliteValue",
       "TransactionalSqlite",
       "createSqliteTenantBootstrap"
+    ],
+    "@agent-core/core/mediation": [
+      "FacetActivationPin",
+      "FacetActivationPinPort",
+      "MediatedAuthorityIntent",
+      "MediatedOperationPipeline",
+      "MediatedOperationPipelineInit",
+      "MediatedTurnCaller",
+      "MediationAuthorityReference",
+      "MediationDomainReference",
+      "MediationLeaseReference",
+      "MediationPathEpochReference",
+      "MediationPersistence",
+      "MediationPreparedInvocation",
+      "OperationAuthorityStatePort",
+      "OperationResolutionCandidate",
+      "OperationResolutionEvidence",
+      "OperationResolutionState",
+      "ResolutionStamp",
+      "ResolvedOperationAuthority",
+      "leaseReference",
+      "leaseToken",
+      "mediationInvocationCodecs",
+      "mediationPreparedCodecs",
+      "sameLeaseReference"
     ]
   },
   "forbiddenSymbols": {
@@ -2442,7 +2482,16 @@
       "WorkspaceSlotStore",
       "createProtectedProfileRuntime"
     ],
-    "@agent-core/core/substrates/sqlite": ["SqliteWorkspaceSlotStore"]
+    "@agent-core/core/substrates/sqlite": ["SqliteWorkspaceSlotStore"],
+    "@agent-core/core/mediation": [
+      "CanonicalBatchInvocationPort",
+      "FacetRuntimeHost",
+      "InvocationComposition",
+      "InvocationLedger",
+      "OperationGatewayHost",
+      "ReplayOperationInvocationPort",
+      "TenantOperationAuthority"
+    ]
   },
   "forbiddenSubpaths": [
     "@agent-core/core/agents",

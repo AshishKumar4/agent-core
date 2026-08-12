@@ -738,16 +738,22 @@ export class RunRuntime<Transaction> {
         const turn = requireValue(this.repository.loadTurn(tx, turnId), "Turn does not exist");
         requireRevision(turn.revision, expected);
         turn.requireToken(token, now);
-        const inbox = this.repository.listInbox(tx, turnId);
-        if (
-            entry.event === "turn.cancel" ||
-            !entry.turn.equals(turnId) ||
-            entry.sequence !== inbox.length ||
-            inbox.some((existing) => existing.idempotencyKey === entry.idempotencyKey)
-        ) {
-            throw invalidTurn("Inbox entry does not have the next Turn sequence");
+        if (entry.event === "turn.cancel") {
+            // SPEC §5.6: cancellation is the reserved inbox Event. Delivering it against the
+            // exact live lease leaves the holder in charge of the running -> cancelled
+            // transition (§5.3) instead of fencing it out of its own settlement.
+            this.appendCancellation(tx, turn, entry, token);
+        } else {
+            const inbox = this.repository.listInbox(tx, turnId);
+            if (
+                !entry.turn.equals(turnId) ||
+                entry.sequence !== inbox.length ||
+                inbox.some((existing) => existing.idempotencyKey === entry.idempotencyKey)
+            ) {
+                throw invalidTurn("Inbox entry does not have the next Turn sequence");
+            }
+            this.repository.insertInbox(tx, entry);
         }
-        this.repository.insertInbox(tx, entry);
         this.repository.replaceTurn(tx, turn.revision, turn.revise());
     }
 
@@ -1214,9 +1220,34 @@ export class RunRuntime<Transaction> {
         if (
             entry.event !== "turn.cancel" ||
             !entry.turn.equals(turn.id) ||
-            entry.sequence !== inbox.length ||
             entry.cancellationToken === undefined ||
-            !leaseTokensEqual(entry.cancellationToken, displaced) ||
+            !leaseTokensEqual(entry.cancellationToken, displaced)
+        ) {
+            throw invalidTurn(
+                "Turn cancellation must append the next entry for the displaced token"
+            );
+        }
+        // Cancellation evidence for one lease is recorded exactly once: a delivered request
+        // and the holder's own settlement name the same entry, and the executor seam rejects
+        // a token that carries two (§5.6).
+        const recorded = inbox.find(
+            (existing) =>
+                existing.cancellationToken !== undefined &&
+                leaseTokensEqual(existing.cancellationToken, displaced)
+        );
+        if (recorded !== undefined) {
+            if (
+                !bytesEqual(
+                    TurnInboxEntry.codec.encode(recorded),
+                    TurnInboxEntry.codec.encode(entry)
+                )
+            ) {
+                throw invalidTurn("Turn cancellation for this lease is already recorded");
+            }
+            return;
+        }
+        if (
+            entry.sequence !== inbox.length ||
             inbox.some((existing) => existing.idempotencyKey === entry.idempotencyKey)
         ) {
             throw invalidTurn(

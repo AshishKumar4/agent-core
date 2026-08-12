@@ -51,6 +51,10 @@
       "types": "./dist/invocations/index.d.ts",
       "import": "./dist/invocations/index.js"
     },
+    "./mediation": {
+      "types": "./dist/mediation-public.d.ts",
+      "import": "./dist/mediation-public.js"
+    },
     "./operations": {
       "types": "./dist/operations/index.d.ts",
       "import": "./dist/operations/index.js"

@@ -263,6 +263,8 @@ export class ResolutionStamp {
 }
 
 export class MediatedAuthorityIntent {
+    public readonly policies: readonly PolicySet[];
+
     public constructor(
         public readonly principal: PrincipalRef,
         public readonly binding: Binding,
@@ -272,8 +274,15 @@ export class MediatedAuthorityIntent {
         public readonly placement: InvocationPlacementPin,
         public readonly owner: ActorRef,
         public readonly lease: LeaseToken | undefined,
-        public readonly route: RouteReservationId | undefined
+        public readonly route: RouteReservationId | undefined,
+        /**
+         * Carried through because preparation freezes the §7.2 approval requirement into
+         * the OperationPin, and resolution is the only place the governing policy sets
+         * are known. Preparation must read that requirement, never assume one.
+         */
+        policies: readonly PolicySet[] = []
     ) {
+        this.policies = Object.freeze([...policies]);
         Object.freeze(this);
     }
 }
@@ -395,7 +404,8 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
             resolution.placement,
             resolution.owner,
             resolution.lease,
-            resolution.route
+            resolution.route,
+            resolution.policies
         );
     }
 

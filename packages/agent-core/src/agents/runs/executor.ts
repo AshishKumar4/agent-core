@@ -436,6 +436,10 @@ class LeaseScopedTurn<Transaction> {
             }
             if (findCancellation(repository.listInbox(transaction, turn.id), this.token)) {
                 this.#controller.abort();
+                // A cancellation delivered against a lease this token still holds is a
+                // request the holder must settle itself (§5.6); only a displaced or
+                // fenced lease makes the cancellation the Turn's recorded outcome.
+                if (holdsCurrentLease(turn, this.token)) return undefined;
                 return Object.freeze({
                     kind: "cancelled",
                     ...(resultCommit?.content === undefined
@@ -673,7 +677,7 @@ class ScopedOutcomeHandle<Transaction> extends TurnOutcomeHandle {
     public async cancelled(): Promise<TurnOutcome> {
         const outcome = this.scope.recover();
         if (outcome?.kind !== "cancelled") {
-            throw invalidTurn("Turn token has no canonical cancellation evidence");
+            throw invalidTurn("Turn token has no settled cancellation outcome");
         }
         return outcome;
     }
@@ -772,6 +776,17 @@ function findCancellation(
         throw invalidTurn("Turn executor cancellation evidence is not canonical");
     }
     return matches[0];
+}
+
+function holdsCurrentLease(turn: Turn, token: LeaseToken): boolean {
+    return (
+        turn.status.kind === "running" &&
+        turn.lease.holder !== undefined &&
+        leaseTokensEqual(
+            { turn: turn.id, holder: turn.lease.holder, epoch: turn.lease.epoch },
+            token
+        )
+    );
 }
 
 function outcomesEqual(left: TurnOutcome, right: TurnOutcome): boolean {

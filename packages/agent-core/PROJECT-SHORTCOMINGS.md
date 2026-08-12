@@ -59,26 +59,31 @@ evidence agree where applicable.
       `OperationDescriptor` source of truth, and the supported Run export exposes
       lease-scoped prompt/content, inbox, invocation, commit, checkpoint, cancellation,
       model-call, usage, and stream contracts.
-- [ ] **Give the mediation pipeline a production assembly.** `CanonicalBatchInvocationPort`
-      is real, but four of its collaborators have implementations only in
-      `test/integration/canonical-batch-harness.ts`: `CanonicalBatchPreparationPort`,
-      `CanonicalBatchRecordPort`, `MediatedInvocationIdentityPort`, and
-      `DirectOperationContextPort`. Nothing in `src/` mints an InvocationId, ItemClaimId,
-      EffectAttemptId, ReceiptId, or the AuditRecord causes that link them. Until those
-      exist beside `composition/permit.ts` and `composition/device-consent.ts`, no
-      Invocation, Receipt, or AuditRecord can be produced outside a test double.
-- [ ] **Make the mediated pipeline constructible by a consumer.** `OperationGatewayHost`,
-      `FacetRuntimeHost`, `TenantOperationAuthority`, and `InvocationComposition` appear
-      on no published subpath, so an external package can implement every mediation port
-      and still be unable to build the `OperationGateway` that `GatewayTurnInvocationPort`
-      requires. Decide which of these is a supported composition surface and publish it,
-      or provide one composition entry point that assembles them.
-- [ ] **Give a running Turn a cancellation entry point.** §5.6 says fencing a Turn
-      delivers the reserved `turn.cancel` inbox Event, but `RunRuntime.deliverEvent`
-      rejects that event outright and `appendCancellation` is reachable only from
-      `cancelHeldTurn` and from system force-cancellation during Run terminalization.
-      An ordinary stop request against a running Turn therefore has no entry point, and
-      `TurnOutcomeHandle.cancel` cannot be reached by a conforming executor.
+- [x] **Give the mediation pipeline a production assembly.** All four collaborators now
+      live beside `composition/permit.ts`: `DerivedMediationIdentities`,
+      `CanonicalMediationPreparation`, `CanonicalMediationRecords`, and
+      `DerivedDirectOperationContext`. Every identifier is a domain-separated digest of
+      the durable evidence that determines it, so a restarted worker recomputes the same
+      identity rather than forking a second one. `packages/agent-core-harness/test/audit-chain.test.ts`
+      drives one real conversation end to end and shows the Run, Turn, commits,
+      InvocationId, ItemClaim, EffectAttempt, Receipt, and the invocation -> attempt ->
+      receipt AuditRecord chain.
+- [~] **Make the mediated pipeline constructible by a consumer.** `@agent-core/core/mediation`
+      publishes `MediatedOperationPipeline`, a composition root that takes the substrate
+      ports and returns a `TurnMediatedInvocationPort`. `OperationGatewayHost` and
+      `FacetRuntimeHost` stay forbidden — now including on the new subpath — because the
+      root assembles them itself. What remains: the Tenant authority permit plane
+      (`AuthorityPermitIssuer`, `AuthorityPermitAdmissionPort`, `MemoryAuthorityPermitStore`,
+      `StoredAuthorityPermitAdmissionPort`, and an `AuthorityPermitExpectationFactory`) is
+      still unexported, so a consumer must supply its own permit, authentication, and
+      target-admission ports. Decide whether that plane gets its own composition root or
+      stays a consumer responsibility.
+- [x] **Give a running Turn a cancellation entry point.** `RunRuntime.deliverEvent` now
+      admits the reserved `turn.cancel` Event against the exact presented live lease, so
+      an ordinary stop request reaches the holder without fencing it out of its own
+      §5.3 `running -> cancelled` transition. Cancellation evidence is recorded once per
+      lease, and the executor seam no longer treats a cancellation on a still-current
+      lease as a settled outcome.
 - [ ] **Implement all interceptor cut points through one engine.** Only
       `operation.before` and `operation.after` execute. `prompt.assemble`,
       `input.submitted`, and `turn.step` are declarations without runtime behavior.
