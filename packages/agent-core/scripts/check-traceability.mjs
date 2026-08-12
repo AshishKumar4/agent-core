@@ -51,7 +51,8 @@ const requiredRequirementIds = [
     "AC-REP-BROKER-001",
     "AC-REP-CONSENT-001",
     "AC-REP-REACTION-001",
-    "AC-REP-MOA-001"
+    "AC-REP-MOA-001",
+    "AC-CONTENT-001"
 ];
 const requiredNonClaimIds = [
     "NC-SURFACE-RUNTIME-ACTIONS",

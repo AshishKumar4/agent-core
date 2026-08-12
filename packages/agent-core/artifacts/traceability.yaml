@@ -2151,6 +2151,73 @@
       ]
     },
     {
+      "id": "AC-CONTENT-001",
+      "summary": "ContentStore custody (§8.2, C13-CONTENT-CUSTODY): a resolve step admits only the home Tenant a ContentRef names or an explicitly granted Tenant, and unowned-only collection holds at every reachable ledger state, so a record cannot outlive the bytes it names",
+      "status": "proved-safety",
+      "boundary": "A resolve step for a ContentRef is admitted only for the Tenant its own tenant field names, or a Tenant an explicit grantCrossTenant step has named -- never an arbitrary caller -- and only when the content is currently stored. A collect step requires the ref to be currently unowned by every record; content_step_preserves_owned_implies_stored proves the OwnedImpliesStored invariant (a ref any record still owns has not been collected) survives every transition, so reachable_owned_implies_stored gives it at every ContentReachable state, not merely as collect's own side condition, and collected_owned_content_is_unreachable is the constructive refutation form. Exact resolution transport, ContentStore persistence and retention-policy timing, and the ContentRef wire representation are not modeled.",
+      "definitions": [
+        "AgentCore.ContentRef",
+        "AgentCore.RecordId",
+        "AgentCore.ContentLedger",
+        "AgentCore.ContentLedger.boot",
+        "AgentCore.OwnedImpliesStored",
+        "AgentCore.mark2",
+        "AgentCore.ContentLabel",
+        "AgentCore.ContentStep",
+        "AgentCore.ContentReachable"
+      ],
+      "theorems": [
+        "AgentCore.boot_owned_implies_stored",
+        "AgentCore.content_resolution_requires_home_or_grant",
+        "AgentCore.foreign_tenant_content_resolution_rejected",
+        "AgentCore.missing_content_resolution_rejected",
+        "AgentCore.collect_requires_unowned",
+        "AgentCore.owned_content_cannot_be_collected",
+        "AgentCore.content_step_preserves_owned_implies_stored",
+        "AgentCore.reachable_owned_implies_stored",
+        "AgentCore.collected_owned_content_is_unreachable"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_content_custody_lifecycle",
+        "AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution",
+        "AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable"
+      ],
+      "witnessCoverage": {
+        "AgentCore.boot_owned_implies_stored": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.content_resolution_requires_home_or_grant": [
+          "AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution"
+        ],
+        "AgentCore.foreign_tenant_content_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.missing_content_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.collect_requires_unowned": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.owned_content_cannot_be_collected": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.content_step_preserves_owned_implies_stored": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.reachable_owned_implies_stored": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.collected_owned_content_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete ContentStore put/get/stat transport and persistence conformance",
+        "retention/GC policy timing and scheduling over unowned content",
+        "the ContentRef wire representation and digest binding to stored bytes"
+      ]
+    },
+    {
       "id": "AC-ENVIRONMENT-001",
       "summary": "Environment Session lifecycle: Turn-owned fail-closed use, terminal close with child disposal, rotation pinning, explicit egress binding, credential isolation, and fail-closed preview exposure",
       "status": "proved-safety",
@@ -2589,7 +2656,7 @@
     },
     {
       "id": "NC-CONTENTSTORE",
-      "summary": "Exact ContentStore resolution, persistence, retention, and ContentRef behavior are not modeled.",
+      "summary": "Concrete ContentStore put/get/stat transport and persistence, retention/GC policy timing, and the ContentRef wire representation are not modeled; tenant-bound resolution and the reachable unowned-only-collection invariant (C13-CONTENT-CUSTODY) are claimed under AC-CONTENT-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -2803,7 +2870,8 @@
           "AC-AUDIT-001",
           "AC-COMPOSED-001",
           "AC-GRAPH-WRITER-001",
-          "AC-DISPATCHER-001"
+          "AC-DISPATCHER-001",
+          "AC-CONTENT-001"
         ],
         "nonClaimIds": [
           "NC-CODECS",

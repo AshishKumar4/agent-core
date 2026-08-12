@@ -4,6 +4,7 @@ import AgentCore.Subscriptions
 import AgentCore.Commands
 import AgentCore.Dispatcher
 import AgentCore.Secrets
+import AgentCore.Content
 
 /-! Constructive witnesses for the final designated claim families. -/
 
@@ -5357,5 +5358,100 @@ theorem nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable :
     secret_value_carrier_is_unreachable
       (id := secretDelegationId) (secret := secretRef1) (raw := (⟨0⟩ : SecretValue)) ?_⟩
   simp only [tableSet_self]
+
+/-! ## ContentStore custody witnesses (SPEC §8.2, C13-CONTENT-CUSTODY) -/
+
+private def contentTenantA : TenantId := ⟨1⟩
+private def contentTenantB : TenantId := ⟨2⟩
+private def contentRef1 : ContentRef := ⟨contentTenantA, 7⟩
+private def contentOwningRecord : RecordId := ⟨1⟩
+
+private def contentPutLedger : ContentLedger :=
+  { ContentLedger.boot with
+    stored := fun candidate => if candidate = contentRef1 then true else ContentLedger.boot.stored candidate }
+
+private def contentPutStep :
+    ContentStep ContentLedger.boot (.put contentRef1) contentPutLedger :=
+  ContentStep.put rfl
+
+private def contentOwnedLedger : ContentLedger :=
+  { contentPutLedger with owningRecords := mark2 contentPutLedger.owningRecords contentRef1 contentOwningRecord }
+
+private def contentOwnStep :
+    ContentStep contentPutLedger (.own contentRef1 contentOwningRecord) contentOwnedLedger :=
+  ContentStep.own rfl
+
+private def contentReleasedLedger : ContentLedger :=
+  { contentOwnedLedger with
+    owningRecords := fun candidateRef candidateRecord =>
+      (candidateRef, candidateRecord) ≠ (contentRef1, contentOwningRecord) ∧
+        contentOwnedLedger.owningRecords candidateRef candidateRecord }
+
+private def contentReleaseStep :
+    ContentStep contentOwnedLedger (.release contentRef1 contentOwningRecord) contentReleasedLedger :=
+  ContentStep.release (Or.inl ⟨rfl, rfl⟩)
+
+private def contentCollectedLedger : ContentLedger :=
+  { contentReleasedLedger with
+    stored := fun candidate => if candidate = contentRef1 then false else contentReleasedLedger.stored candidate }
+
+private theorem contentReleasedUnowned :
+    ∀ record, ¬ contentReleasedLedger.owningRecords contentRef1 record := by
+  intro record owns
+  obtain ⟨differs, owned⟩ := owns
+  rcases owned with ⟨_, sameRecord⟩ | falseCase
+  · subst sameRecord
+    exact differs rfl
+  · exact falseCase
+
+private def contentCollectStep :
+    ContentStep contentReleasedLedger (.collect contentRef1) contentCollectedLedger :=
+  ContentStep.collect rfl contentReleasedUnowned
+
+private def contentReachable : ContentReachable contentCollectedLedger :=
+  .step (.step (.step (.step .boot contentPutStep) contentOwnStep) contentReleaseStep) contentCollectStep
+
+/-- The full custody lifecycle on one ref: home-Tenant resolution succeeds once
+    stored, a foreign Tenant without a grant is refused, granting cross-tenant access
+    then admits it, an owned ref cannot be collected, and only after the owning
+    record releases it does collection succeed — a genuine reachable trace, not an
+    asserted side condition. -/
+theorem nonvacuous_content_custody_lifecycle :
+    ContentStep contentPutLedger (.resolve contentRef1 contentTenantA) contentPutLedger ∧
+    (∀ after, ¬ ContentStep contentPutLedger (.resolve contentRef1 contentTenantB) after) ∧
+    (∀ after, ¬ ContentStep contentOwnedLedger (.collect contentRef1) after) ∧
+    ContentStep contentReleasedLedger (.collect contentRef1) contentCollectedLedger ∧
+    ContentReachable contentCollectedLedger :=
+  ⟨ContentStep.resolveHome rfl,
+    fun _ => foreign_tenant_content_resolution_rejected (by decide) (fun granted => granted),
+    fun _ => owned_content_cannot_be_collected (Or.inl ⟨rfl, rfl⟩),
+    contentCollectStep, contentReachable⟩
+
+/-- A cross-tenant grant admits the resolution it names, and only that requester. -/
+theorem nonvacuous_content_cross_tenant_grant_admits_resolution :
+    ContentStep contentPutLedger (.grantCrossTenant contentTenantB contentRef1)
+      { contentPutLedger with
+        crossTenantGrants := fun candidateTenant candidateRef =>
+          (candidateTenant = contentTenantB ∧ candidateRef = contentRef1) ∨
+            contentPutLedger.crossTenantGrants candidateTenant candidateRef } ∧
+    ContentStep
+      { contentPutLedger with
+        crossTenantGrants := fun candidateTenant candidateRef =>
+          (candidateTenant = contentTenantB ∧ candidateRef = contentRef1) ∨
+            contentPutLedger.crossTenantGrants candidateTenant candidateRef }
+      (.resolve contentRef1 contentTenantB)
+      { contentPutLedger with
+        crossTenantGrants := fun candidateTenant candidateRef =>
+          (candidateTenant = contentTenantB ∧ candidateRef = contentRef1) ∨
+            contentPutLedger.crossTenantGrants candidateTenant candidateRef } :=
+  ⟨ContentStep.grantCrossTenant, ContentStep.resolveGranted rfl (Or.inl ⟨rfl, rfl⟩)⟩
+
+/-- A ledger asserting a record owns a ref whose content is absent is representable —
+    the field types allow writing it down — and is provably unreachable, the
+    constructive form of "a record cannot outlive the bytes it names." -/
+theorem nonvacuous_collected_owned_content_is_unreachable :
+    ¬ ContentReachable
+        { ContentLedger.boot with owningRecords := mark2 ContentLedger.boot.owningRecords contentRef1 contentOwningRecord } :=
+  collected_owned_content_is_unreachable (Or.inl ⟨rfl, rfl⟩) rfl
 
 end AgentCore.Examples

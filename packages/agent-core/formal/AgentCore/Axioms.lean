@@ -80,6 +80,18 @@ import AgentCore
 #print axioms AgentCore.guest_grant_value_carrier_is_unreachable
 #print axioms AgentCore.cross_tenant_reservation_value_carrier_is_unreachable
 
+-- ContentStore custody (SPEC §8.2, C13-CONTENT-CUSTODY): tenant-bound resolution and
+-- unowned-only collection, reachably.
+#print axioms AgentCore.boot_owned_implies_stored
+#print axioms AgentCore.content_resolution_requires_home_or_grant
+#print axioms AgentCore.foreign_tenant_content_resolution_rejected
+#print axioms AgentCore.missing_content_resolution_rejected
+#print axioms AgentCore.collect_requires_unowned
+#print axioms AgentCore.owned_content_cannot_be_collected
+#print axioms AgentCore.content_step_preserves_owned_implies_stored
+#print axioms AgentCore.reachable_owned_implies_stored
+#print axioms AgentCore.collected_owned_content_is_unreachable
+
 -- Environment Sessions: Turn-owned use, fail-closed lifecycle, credential isolation.
 #print axioms AgentCore.session_use_is_turn_owned_and_live
 #print axioms AgentCore.stale_session_admits_nothing
@@ -410,6 +422,9 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
 #print axioms AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates
 #print axioms AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable
+#print axioms AgentCore.Examples.nonvacuous_content_custody_lifecycle
+#print axioms AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution
+#print axioms AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable
 #print axioms AgentCore.Examples.nonvacuous_credential_isolated_session_trace
 #print axioms AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable
 #print axioms AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection
