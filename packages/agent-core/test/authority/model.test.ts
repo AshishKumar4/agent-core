@@ -133,6 +133,20 @@ describe("authority value records", () => {
         ).toThrow(/canonical ancestry/);
     });
 
+    // The nonempty tuple type keeps this out of reach of the plane's own callers, and
+    // fromData refuses an empty array before it constructs. Nothing else in validatePath
+    // reports it as an arity fault: without the length test the empty path reads as a
+    // Scope chain that is not Tenant-to-target, and the last entry it goes on to read
+    // does not exist.
+    test("rejects an empty authority path as an arity fault", { tags: "p0" }, () => {
+        expect(() => new PathEpochEvidence([] as never)).toThrow(
+            "Authority path must contain one to three Scopes"
+        );
+        expect(() => PathEpochEvidence.fromData({ path: [] })).toThrow(
+            "Path epoch evidence must not be empty"
+        );
+    });
+
     test(
         "[authority.path-epoch-evidence] round-trips exact path evidence and reports changed Scopes",
         { tags: "p0" },

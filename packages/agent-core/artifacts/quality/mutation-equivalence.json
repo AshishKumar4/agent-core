@@ -7,7 +7,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.projectId === undefined",
-      "proof": "ScopeRef's constructor is private and every `new ScopeRef(...)` in the module sits inside one of its own static factories, so kind and the optional ids are always assigned together, at four sites and nowhere else. The only site that yields kind \"project\" is ScopeRef.project(tenantId, projectId), whose projectId parameter is a required ProjectId; no factory can build a project scope with an absent projectId, and decodeScopeRef reaches the class only through those same factories. Control arrives at this guard only after the kind \"tenant\" branch has returned, so the scope here is a project scope and scope.projectId === undefined is constantly false. Replacing the test with false therefore selects the identical branch on every input. The complementary mutant that replaces it with true, which would throw for every project scope, is killed — the outward signature of an unreachable guard."
+      "proof": "ScopeRef's constructor is private and every `new ScopeRef(...)` in the module sits inside one of its own static factories, so kind and the optional ids are always assigned together, at four sites and nowhere else. The only site that yields kind \"project\" is ScopeRef.project(tenantId, projectId), whose projectId parameter is a required ProjectId; no factory can build a project scope with an absent projectId, and decodeScopeRef reaches the class only through those same factories. Control arrives at this guard only after the kind \"tenant\" branch has returned, so the scope here is a project scope and scope.projectId === undefined is constantly false. Replacing the test with false therefore selects the identical branch on every input. The complementary mutant that replaces it with true, which would throw for every project scope, is killed \u2014 the outward signature of an unreachable guard."
     },
     {
       "file": "src/identity/scope.ts",
@@ -31,7 +31,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.workspaceId === undefined",
-      "proof": "ScopeKind is a closed union of three members, and control reaches this guard only after the tenant and project branches have returned, so scope.kind is \"workspace\" here. The only factory that produces a workspace scope is ScopeRef.workspace, whose implementation passes either requireWorkspace(projectOrWorkspace) — which returns a WorkspaceId or throws — or the workspace argument on the branch where it has already been tested as defined. Neither path can store an absent workspaceId, so the condition is constantly false and replacing it with false selects the same branch on every input. The complementary mutant replacing it with true, which would reject every workspace scope, is killed."
+      "proof": "ScopeKind is a closed union of three members, and control reaches this guard only after the tenant and project branches have returned, so scope.kind is \"workspace\" here. The only factory that produces a workspace scope is ScopeRef.workspace, whose implementation passes either requireWorkspace(projectOrWorkspace) \u2014 which returns a WorkspaceId or throws \u2014 or the workspace argument on the branch where it has already been tested as defined. Neither path can store an absent workspaceId, so the condition is constantly false and replacing it with false selects the same branch on every input. The complementary mutant replacing it with true, which would reject every workspace scope, is killed."
     },
     {
       "file": "src/identity/scope.ts",
@@ -64,6 +64,214 @@
       "proof": "The only effect of this statement is the assignment remaining[dimension] = left, and current was read from remaining[dimension] on the line immediately above. Original and mutant therefore differ on exactly one class of input: current !== undefined && left === current. There the original skips the assignment and leaves remaining[dimension] holding current, while the mutant performs it and writes left. Because left === current on precisely that branch, and remaining holds primitive numbers with no reference or identity semantics to leak a difference, both leave the same key holding the same value. Assigning a key that already exists also leaves insertion order untouched, and current !== undefined guarantees the key exists on exactly that branch. Order could not matter regardless: ResourceCeiling's constructor iterates the fixed RESOURCE_DIMENSIONS list rather than Object.keys, so neither the Object.keys(remaining).length test in narrowResources nor the ceiling it constructs can vary with it. On every other input the two conditions agree and the same assignment happens or is skipped in both. The claim therefore holds through the whole call chain, not merely inside narrow, and no test written against the resulting ceiling could distinguish the two.",
       "replacement": "left <= current",
       "symbol": "narrow"
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "new Set(path.map((entry) => scopeKey(entry.scope))).size !== path.length",
+      "proof": "The kinds check immediately above admits exactly four sequences \u2014 \"tenant\", \"tenant,project\", \"tenant,workspace\" and \"tenant,project,workspace\" \u2014 and each of them names a ScopeRef kind at most once. scopeKey is authorityKey(\"scope\", [encodeScopeRef(scope)]) and encodeScopeRef writes the kind into every encoding it produces, so two entries of different kinds can never hash to the same key. Control reaches this line only after that check has returned, so the entries in hand carry distinct kinds and therefore distinct keys, the Set is exactly as large as the array, and the comparison is constantly false. Replacing it with false selects the same branch on every path the function accepts."
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw new TypeError(\"Authority path Scopes must be unique\"); }",
+      "proof": "This block is the throw guarded by the Scope uniqueness comparison, and that comparison is constantly false for the reason recorded against it: the four kind sequences the check above admits each name a kind at most once, and scopeKey embeds the kind in every key it produces. A block that never executes contributes no value, no exception and no effect to any observation, so emptying it cannot change what a caller sees. It writes nothing that the rest of validatePath reads; the only statement in it is the throw itself."
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Authority path Scopes must be unique\"",
+      "proof": "The mutated literal is the message argument of a TypeError constructed only inside the Scope uniqueness guard, and that guard's condition is constantly false because the admitted kind sequences name each kind at most once while scopeKey embeds the kind. The TypeError is therefore never constructed and the literal never read, so emptying it changes no value any caller, log or assertion can observe. This is stronger than the message-text tolerance the classifier grants a reachable throw site: the string is not merely unasserted, the program cannot produce it."
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "target.kind === \"workspace\"",
+      "proof": "This is the left conjunct of the exact-Project guard, so forcing it true leaves the right conjunct deciding alone. The kinds check above restricts the last entry to kind tenant, project or workspace. For a tenant target ScopeRef.tenant leaves projectId undefined, so the right conjunct is false and the block is skipped either way. For a project target the block now runs, but it looks for the first entry of kind project, which for a project target is the target itself, and compares that entry's projectId with the target's own \u2014 the same value, so nothing is thrown. For a workspace target the conjunct was already true. No admitted path reaches a different outcome."
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "exact.length !== path.length",
+      "proof": "exact is target.path, the target's canonical ancestry. A tenant target has one ancestor entry and only the one-entry sequence is admitted; a project target has two and only \"tenant,project\" is admitted; a workspace target carrying a projectId has three and the exact-Project guard above has already demanded a project entry with that same id, which forces the three-entry sequence. The one admitted sequence longer than its target's ancestry is \"tenant,project,workspace\" over a workspace with no projectId, and there exact[1] is that workspace while path[1] is a project entry, so the some() beside this comparison is already true. Every state making this operand true also makes its partner true, so replacing it with false cannot change the disjunction."
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "LogicalOperator",
+      "replacement": "exact.length !== path.length && exact.some((scope, index) => !scope.equals(path[index]!.scope))",
+      "mutated": "exact.length !== path.length || exact.some((scope, index) => !scope.equals(path[index]!.scope))",
+      "proof": "Disjunction and conjunction differ only where exactly one operand is true, and these two are true together or false together. The length comparison is true only for the single admitted sequence longer than its target's ancestry, \"tenant,project,workspace\" over a workspace with no projectId, and there exact[1] is that workspace against a project entry, so some() is true as well. In the other direction some() can only be true when entries disagree position by position, and the checks above pin every position once the lengths agree: the kinds sequence fixes each entry's kind, the shared-Tenant check fixes the root to the target's Tenant, and the exact-Project check fixes the project entry to the target's own projectId. So both operators select the same branch on every admitted path."
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "MethodExpression",
+      "replacement": "exact.every((scope, index) => !scope.equals(path[index]!.scope))",
+      "mutated": "exact.some((scope, index) => !scope.equals(path[index]!.scope))",
+      "proof": "some and every differ only when the predicate holds for part of an array but not all of it. The predicate is negated equality against the path entry at the same index, and exact[0] is always the target's Tenant scope while path[0] is a tenant-kind entry that the shared-Tenant check has already pinned to that same Tenant, so the predicate is false at index 0 for every path this function accepts. every() is therefore false on every input. some() is false on every input where the length comparison beside it is false, and where that comparison is true the disjunction throws regardless of which of the two the code uses. The branch taken is the same in every case."
+    },
+    {
+      "file": "src/authority/epoch.ts",
+      "symbol": "validatePath",
+      "mutator": "ArrowFunction",
+      "replacement": "() => undefined",
+      "mutated": "(scope, index) => !scope.equals(path[index]!.scope)",
+      "proof": "Replacing the predicate with one returning undefined makes some() constantly false, and some() is already constantly false on every input for which the length comparison beside it is false: index 0 compares the target's Tenant scope against a tenant entry the shared-Tenant check pinned to that Tenant, and once lengths agree the kinds sequence and the exact-Project check pin every remaining position. On the one admitted shape where the length comparison is true, the disjunction is true before the predicate's value matters. The arrow's body is therefore never the reason a path is accepted or rejected."
+    },
+    {
+      "file": "src/authority/grant.ts",
+      "symbol": "Grant.canAttenuate",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "this.scope.path.length <= child.scope.path.length",
+      "proof": "This is the last conjunct and it is reached only when the conjunct before it has found this.scope among child.scope.path. ScopeRef.path is the canonical ancestry chain from the Tenant down to the scope itself, so a scope appearing in another scope's ancestry has an ancestry that is a prefix of it: whichever index this.scope occupies in child.scope.path, this.scope.path is exactly the entries up to and including that index, and its length is therefore at most child.scope.path.length. The comparison is constantly true wherever it is evaluated, and forcing it true yields the same value on every pair of Grants that gets this far."
+    },
+    {
+      "file": "src/authority/grant.ts",
+      "symbol": "sameOriginIdentity",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "left.kind === \"direct\"",
+      "proof": "The line above returns false unless left.kind and right.kind are equal, so control reaches this disjunction only with two origins of the same kind, and GrantOrigin is a closed union over \"direct\" and \"role\". The two operands therefore state the same proposition about the same kind, and forcing the left one false leaves the right one carrying exactly the value the pair had. Both operands are spelled out because the disjunction is what narrows left and right to the role variant for the membership, ordinal and guest comparisons below; it was never two independent tests."
+    },
+    {
+      "file": "src/authority/grant.ts",
+      "symbol": "sameOriginIdentity",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "right.kind === \"direct\"",
+      "proof": "Kind equality is established on the preceding line and GrantOrigin has exactly two members, so the right operand is true precisely when the left one is. Short-circuiting means this operand is evaluated only when the left is already false \u2014 that is, only when both origins are role origins \u2014 so under the mutant the disjunction is false on exactly the inputs where it was already false, and true on exactly the inputs the left operand already decided. No pair of origins reaching this line can tell the two apart."
+    },
+    {
+      "file": "src/authority/grant.ts",
+      "symbol": "sameOriginIdentity",
+      "mutator": "LogicalOperator",
+      "replacement": "left.kind === \"direct\" && right.kind === \"direct\"",
+      "mutated": "left.kind === \"direct\" || right.kind === \"direct\"",
+      "proof": "Conjunction and disjunction differ only where the operands disagree, and these cannot disagree: the preceding line returns false unless the two kinds are equal, and GrantOrigin is closed over \"direct\" and \"role\", so both operands report the same proposition about the same kind. Every input reaching this line makes them both true or both false, and the two operators select the same branch. This is why the site needs both operands written out even though either would decide the value \u2014 it is the test that narrows left and right to the role variant for the comparisons that follow."
+    },
+    {
+      "file": "src/authority/binding.ts",
+      "symbol": "Binding.assertCanReplace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scopeKey(this.scope) !== scopeKey(next.scope)",
+      "proof": "The disjunct before this one compares this.key with next.key, and Binding.key is Binding.keyFor(scope, subject, domain, name), which hashes encodeAuthorityScope(scope) as its first component. Two Bindings whose scopes differ therefore always differ in their keys, so whenever this comparison is true the key comparison ahead of it is already true and the guard has fired. Replacing it with false cannot change the value of the disjunction for any pair of Bindings. If keyFor ever stops covering the scope this entry is reported refuted rather than quietly outliving its reason."
+    },
+    {
+      "file": "src/authority/binding.ts",
+      "symbol": "Binding.assertCanReplace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "subjectKey(this.subject) !== subjectKey(next.subject)",
+      "proof": "Binding.keyFor hashes encodeAuthoritySubject(subject) as its second component, and encodeSubjectRef writes the discriminant and every identifying field of each subject variant, so two Bindings with different subjects cannot share a key. This comparison is therefore true only where the key comparison ahead of it is already true, and forcing it false leaves the disjunction unchanged. It is registered separately from the scope operand because the two lean on different components of the same key and either could stop being covered on its own."
+    },
+    {
+      "file": "src/authority/data.ts",
+      "symbol": "requireSafeInteger",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\"",
+      "proof": "Number.isSafeInteger performs no coercion and returns false for every value that is not a number, so the negated call beside this operand is true for every input that makes this one true. Forcing this operand false therefore leaves that test rejecting exactly the same set of values, with the same TypeError and the same message. The typeof test earns its place as the reason the narrowing to number holds for the returned value, not as a test that decides anything the guard has not already decided."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.evaluate",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "backing.origin.kind !== \"role\"",
+      "proof": "GrantOrigin is a closed union whose direct variant carries only kind, and decodeOrigin enforces that with requireExact(object, [\"kind\"]) for direct origins, so a Grant read back through any store has no guest property unless its origin is a role origin. For every value of the declared type, kind !== \"role\" implies guest is undefined, which makes the disjunct beside this operand true. Forcing this operand false therefore leaves the guest-elevation disjunction with the same value on every Grant. The operand is written because it is what narrows backing.origin to the role variant for the guest read that follows it."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.evaluate.allow",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "grant.effect === \"allow\"",
+      "proof": "Control reaches this filter only after the deny set was computed from the same relevant array and found empty, because a non-empty deny set returns matchingDeny above. Every relevant Grant whose effect is \"deny\" is therefore revoked, and a revoked Grant fails the conjunct beside this one: validateLineage returns \"revokedGrant\" on its first iteration for a Grant that is not live. Forcing this test true admits exactly those revoked deny Grants and the lineage conjunct rejects every one of them, so the filtered array, the matchedAllow evidence built from it, and the membership test on the backing Grant are all unchanged."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.guestGrantIsCurrent",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "grant.origin.kind !== \"role\"",
+      "proof": "This line is reached only for a Grant whose subject is foreign, and it decides whether that Grant is a guest role materialization. GrantOrigin's direct variant is defined with kind alone, and decodeOrigin enforces exactly that key set, so a direct origin never carries a guest property and the negated guest read beside this operand is true whenever this operand is. Forcing it false hands the decision to that partner, which returns false for the same Grants. The operand is what narrows origin to the role variant for the membershipId read two lines below."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.guestGrantIsCurrent",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "membership.subject.kind !== \"foreign\"",
+      "proof": "Membership's constructor refuses a guest verification on a subject that is not foreign \u2014 \"Only foreign Memberships may carry guest verification\" \u2014 and every Membership, constructed or decoded, passes through it. A Membership whose subject is not foreign therefore has guestVerification undefined, which makes the verification disjunct beside this operand true and returns false without ever reaching the admits call this operand narrows the subject for. Forcing it false leaves the disjunction with the same value for every Membership a store can hold."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.requireWorkspace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scope.kind !== \"workspace\" || scope.workspaceId === undefined",
+      "proof": "requireWorkspace is private and has two callers. validateBinding passes request.scope, and BindingValidationRequest's constructor throws unless that scope's kind is \"workspace\"; check passes request.binding.scope, and Binding's constructor throws unless the Binding's scope is a workspace scope. ScopeRef.workspace is the only factory yielding kind \"workspace\" and it always stores a WorkspaceId. Both operands are constantly false at both call sites, so forcing the whole test false selects the branch it already selects. The complementary mutant, which would refuse every request, is killed."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.requireWorkspace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scope.kind !== \"workspace\"",
+      "proof": "Both call sites constrain the scope upstream \u2014 a BindingValidationRequest refuses a non-workspace scope in its own constructor and a Binding refuses one in its own \u2014 so this operand is constantly false where it runs. It is also subsumed by its partner: ScopeRef's factories store a workspaceId exactly when they produce kind \"workspace\", so a scope failing this test would fail the workspaceId test as well. Forcing it false cannot change which branch the guard takes for any scope the runtime is given."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.requireWorkspace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scope.workspaceId === undefined",
+      "proof": "This operand is evaluated only when the kind test before it is false, that is for a scope of kind \"workspace\". ScopeRef.workspace is the only factory producing that kind, and both of its paths resolve a WorkspaceId \u2014 through requireWorkspace, which returns an id or throws, or through the workspace argument on the branch where it is already known to be defined \u2014 so a workspace scope always carries one and this comparison is constantly false where it runs. It is written because the store lookup on the next line needs the narrowing it provides."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.requireWorkspace",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw authorityDenied(\"Authority target must be a Workspace Scope\"); }",
+      "proof": "The block is the refusal guarded by a test that is constantly false at both of requireWorkspace's call sites, for the reasons recorded against that test's operands: a BindingValidationRequest and a Binding each refuse a non-workspace scope in their own constructors, and a workspace ScopeRef always carries a workspaceId. A block that never runs contributes no value and no exception to any observation, so emptying it changes nothing a caller can see \u2014 the store lookup on the following line is reached on exactly the same inputs either way."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.requireWorkspace",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Authority target must be a Workspace Scope\"",
+      "proof": "The literal is the message of an AgentCoreError built only inside the unreachable Workspace-scope guard, so it is never constructed and never read. That is a stronger claim than the message-text tolerance the classifier grants a reachable throw: the string is not merely unasserted, no call can produce it, and a test written against it would assert on a value the program cannot reach. The refusal an operator can actually be shown here is \"Authority target does not match canonical Tenant topology\", and its own mutants are killed."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "TenantAuthorityRuntime.requireWorkspace",
+      "mutator": "LogicalOperator",
+      "replacement": "scope.kind !== \"workspace\" && scope.workspaceId === undefined",
+      "mutated": "scope.kind !== \"workspace\" || scope.workspaceId === undefined",
+      "proof": "Disjunction and conjunction differ only where the operands disagree, and these cannot: ScopeRef's factories store a workspaceId exactly when they produce kind \"workspace\", so a scope of another kind has no workspaceId and a workspace scope always has one. The two operands are the same proposition about the same scope. Both call sites additionally constrain the scope to kind \"workspace\" before it arrives, so both operands are constantly false and the guard is never asked to tell the operators apart."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "validateLineage",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "childIndex === undefined",
+      "proof": "validateLineage has three callers and each establishes that its starting Grant's scope lies on the exact path before calling. evaluate tests path.has(scopeKey(backing.scope)) above the call; the allow filter draws its Grants from relevant, which is filtered on that same path membership; validateBinding tests scopeReaches(grant.scope, workspace.scope), which is the same question asked of the same ancestry. Later iterations set child to a parent whose own index was found defined on the previous pass. childIndex is therefore never undefined where this operand is evaluated, while parentIndex genuinely can be \u2014 which is why that operand's mutant is killed and this one is not."
     }
   ]
 }
