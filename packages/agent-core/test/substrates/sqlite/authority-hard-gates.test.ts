@@ -26,6 +26,7 @@ import {
     Grant,
     GrantId,
     ScopeEpoch,
+    domainKey,
     scopeKey,
     subjectKey
 } from "../../../src/authority";
@@ -33,10 +34,13 @@ import { GuestTrust, GuestTrustId, PrincipalRef, Workspace } from "../../identit
 import { InvalidationWatermark, watermarkKey } from "../../authority/internal-fixture";
 import {
     initializeSqliteAuthoritySchema,
+    listSqliteBindings,
     listSqliteEpochs,
     listSqliteGrants,
+    loadSqliteBinding,
     loadSqliteEpoch,
     loadSqliteGrant,
+    saveSqliteBinding,
     saveSqliteEpoch,
     saveSqliteGrant
 } from "../../../src/substrates/sqlite/authority";
@@ -1429,7 +1433,7 @@ describe("SQLite authority adapter mutation gates", () => {
     });
 
     test("grant read-back rejects a same-length record substitution", { tags: "p0" }, () => {
-        const database = new SwappedRecordSqlite();
+        const database = new SwappedRecordSqlite("tenant_grants");
         initializeSqliteAuthoritySchema(database);
         const variant = new Grant(
             grant.id,
@@ -1477,6 +1481,154 @@ describe("SQLite authority adapter mutation gates", () => {
         expectExactFailure(() => loadSqliteEpoch(database, scope), "codec.invalid", corruptMessage);
     });
 
+    // The Binding half of this adapter is reached only through SqliteTenantControlStore,
+    // whose writers refuse every state these gates reject before a row is written. Driving
+    // the adapter directly is what leaves each gate as the only thing standing between a
+    // disagreeing ledger and a Binding the caller would have trusted.
+    const binding = Binding.active(
+        workspaceScope,
+        SubjectRef.principal(new PrincipalRef(tenantId, ownerId)),
+        new ProtectionDomain("backend", "gate", "no-secrets"),
+        new BindingName("gate-binding"),
+        new GrantId("gate-binding-grant"),
+        new FacetRef("core:gate")
+    );
+
+    test("holds new Bindings to generation and revision zero", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+
+        for (const [generation, revision] of [
+            [1, 0],
+            [0, 1]
+        ] as const) {
+            expectExactFailure(
+                () =>
+                    saveSqliteBinding(
+                        database,
+                        new Binding(
+                            binding.scope,
+                            binding.subject,
+                            binding.domain,
+                            binding.name,
+                            binding.grantId,
+                            binding.facet,
+                            generation,
+                            "active",
+                            new Revision(revision)
+                        )
+                    ),
+                "protocol.revision-conflict",
+                "New Bindings require generation and revision zero"
+            );
+        }
+        expect(listSqliteBindings(database)).toEqual([]);
+    });
+
+    test(
+        "binding writes that do not land fail with the exact concurrent-change conflict",
+        { tags: "p0" },
+        () => {
+            const database = new TamperedSqlite();
+            initializeSqliteAuthoritySchema(database);
+            database.dropRuns = true;
+            expectExactFailure(
+                () => saveSqliteBinding(database, binding),
+                "protocol.revision-conflict",
+                "Binding changed concurrently"
+            );
+        }
+    );
+
+    test("binding projections must match their stored columns", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        saveSqliteBinding(database, binding);
+        const sibling = Binding.active(
+            binding.scope,
+            binding.subject,
+            binding.domain,
+            new BindingName("gate-binding-sibling"),
+            binding.grantId,
+            binding.facet
+        );
+        const drifts: readonly (readonly [string, SqliteValue, SqliteValue])[] = [
+            ["record", Binding.encode(sibling), Binding.encode(binding)],
+            ["scope_key", "tampered", scopeKey(binding.scope)],
+            ["subject_key", "tampered", subjectKey(binding.subject)],
+            ["domain_key", "tampered", domainKey(binding.domain)],
+            ["name", "tampered", binding.name.value],
+            ["grant_id", "phantom", binding.grantId.value],
+            ["facet_ref", "core:phantom", binding.facet.value],
+            ["generation", 1, binding.generation],
+            ["revision", 1, binding.revision.value],
+            ["state", "inactive", binding.state]
+        ];
+        for (const [column, drifted, restored] of drifts) {
+            database.run(`UPDATE tenant_bindings SET ${column} = ? WHERE binding_key = ?`, [
+                drifted,
+                binding.key
+            ]);
+            expectExactFailure(
+                () => loadSqliteBinding(database, binding.key),
+                "codec.invalid",
+                corruptMessage
+            );
+            database.run(`UPDATE tenant_bindings SET ${column} = ? WHERE binding_key = ?`, [
+                restored,
+                binding.key
+            ]);
+        }
+        expect(loadSqliteBinding(database, binding.key)?.key).toBe(binding.key);
+    });
+
+    test("binding driver rows must belong to the queried key", { tags: "p0" }, () => {
+        const row = {
+            binding_key: binding.key,
+            scope_key: scopeKey(binding.scope),
+            subject_key: subjectKey(binding.subject),
+            domain_key: domainKey(binding.domain),
+            name: binding.name.value,
+            grant_id: binding.grantId.value,
+            facet_ref: binding.facet.value,
+            generation: binding.generation,
+            revision: binding.revision.value,
+            state: binding.state,
+            record: Binding.encode(binding)
+        } satisfies SqliteRow;
+
+        expectExactFailure(
+            () => loadSqliteBinding(new StubSqlite(row), "gate-binding-elsewhere"),
+            "codec.invalid",
+            corruptMessage
+        );
+        expectExactFailure(
+            () =>
+                loadSqliteBinding(
+                    new StubSqlite({ ...row, binding_key: "gate-binding-elsewhere" }),
+                    binding.key
+                ),
+            "codec.invalid",
+            corruptMessage
+        );
+    });
+
+    test("replaces a stored Binding only by its exact successor", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        initializeSqliteAuthoritySchema(database);
+        saveSqliteBinding(database, binding);
+        saveSqliteBinding(database, binding);
+
+        expect(() =>
+            saveSqliteBinding(database, binding.replace(binding.grantId, new FacetRef("core:next")))
+        ).not.toThrow();
+        expect(loadSqliteBinding(database, binding.key)?.facet.value).toBe("core:next");
+        expect(() =>
+            saveSqliteBinding(database, binding.replace(binding.grantId, new FacetRef("core:skip")))
+        ).toThrow(expect.objectContaining({ code: "binding.invalid" }));
+        expect(loadSqliteBinding(database, binding.key)?.facet.value).toBe("core:next");
+    });
+
     test("read and write failures carry their exact taxonomy", { tags: "p1" }, () => {
         const failingWrite = new StubSqlite();
         failingWrite.failRuns = true;
@@ -1498,10 +1650,14 @@ describe("SQLite authority adapter mutation gates", () => {
 class SwappedRecordSqlite extends TestSqlite {
     public swapped: Uint8Array | undefined;
 
+    public constructor(private readonly table: string) {
+        super();
+    }
+
     public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = super.all(statement, bindings);
         const swapped = this.swapped;
-        if (swapped === undefined || !statement.includes("FROM tenant_grants")) return rows;
+        if (swapped === undefined || !statement.includes(`FROM ${this.table}`)) return rows;
         return rows.map((row) => ({ ...row, record: swapped }));
     }
 }
