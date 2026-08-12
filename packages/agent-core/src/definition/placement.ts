@@ -334,7 +334,7 @@ function requireGlobArray(value: JsonValue | undefined, subject: string): readon
 // Nonblank, already-canonical text: a trust glob and a backing identifier are both
 // exactly that, and neither is normalized on the caller's behalf.
 function requireCanonicalString(value: JsonValue, subject: string): string {
-    if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
+    if (typeof value !== "string" || value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);
     }
     return value;

@@ -108,7 +108,7 @@ export class ProfileControlContract<Name extends string, Input extends PublicPro
         public readonly inputCodec: ProfileWireCodec<Input>,
         public readonly outputCodec: ProfileWireCodec<Output>
     ) {
-        if (name.trim().length === 0 || name !== name.trim()) {
+        if (name.length === 0 || name !== name.trim()) {
             throw new TypeError("Profile control contract name must be canonical");
         }
         input.assertSupported();

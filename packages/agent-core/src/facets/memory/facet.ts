@@ -73,8 +73,7 @@ export class MemoryEntry {
         public readonly createdAt: number,
         public readonly retainUntil?: number
     ) {
-        if (id.trim().length === 0 || id !== id.trim())
-            throw new TypeError("Memory ID must be canonical");
+        if (id.length === 0 || id !== id.trim()) throw new TypeError("Memory ID must be canonical");
         if (authority.trim().length === 0) throw new TypeError("Memory authority must be nonblank");
         if (!Number.isSafeInteger(createdAt) || createdAt < 0)
             throw new TypeError("Memory creation time is invalid");

@@ -71,7 +71,7 @@ function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } 
 }
 
 export function canonicalCompatibilityRange(value: string, subject: string): string {
-    if (value.trim().length === 0 || value !== value.trim()) {
+    if (value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical range`);
     }
     try {

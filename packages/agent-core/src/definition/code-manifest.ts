@@ -312,7 +312,7 @@ function facetKey(facet: FacetPackageId, version: SemVer): string {
 }
 
 function canonicalSpecifier(value: string, subject: string): string {
-    if (value.trim().length === 0 || value !== value.trim() || value.includes("\\")) {
+    if (value.length === 0 || value !== value.trim() || value.includes("\\")) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);
     }
     return value;

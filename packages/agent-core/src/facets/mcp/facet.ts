@@ -555,7 +555,7 @@ export class McpDiscoveryError extends DetailedProfileError<McpDiscoveryErrorCod
 }
 
 function requireUniqueName(name: string, names: Set<string>): void {
-    if (name.trim().length === 0 || name !== name.trim() || names.has(name)) {
+    if (name.length === 0 || name !== name.trim() || names.has(name)) {
         throw new McpDiscoveryError(
             "name.duplicate",
             "MCP operation names must be nonblank and unique"

@@ -727,7 +727,7 @@ function digestData(value: JsonValue): Digest {
 }
 
 function requireCanonicalName(value: string, subject: string): void {
-    if (value.trim().length === 0 || value !== value.trim()) {
+    if (value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);
     }
 }

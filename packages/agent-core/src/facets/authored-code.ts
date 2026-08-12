@@ -80,7 +80,7 @@ function canonicalModules(
     }
     const canonical = new Map<string, ContentRef>();
     for (const [name, ref] of [...modules].sort(([left], [right]) => compareText(left, right))) {
-        if (name.trim().length === 0 || name !== name.trim()) {
+        if (name.length === 0 || name !== name.trim()) {
             throw new TypeError("Agent-authored code module names must be nonblank and canonical");
         }
         if (!(ref instanceof ContentRef)) {

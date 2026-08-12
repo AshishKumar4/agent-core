@@ -108,7 +108,7 @@ function requireObject(value: JsonValue, subject: string): { readonly [key: stri
 }
 
 function requireCanonicalName(value: JsonValue | undefined, subject: string): void {
-    if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
+    if (typeof value !== "string" || value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);
     }
 }

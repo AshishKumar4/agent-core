@@ -66,7 +66,7 @@ export class EnvironmentSessionBinding {
         public readonly generation: number,
         children: readonly string[]
     ) {
-        if (session.trim().length === 0 || session !== session.trim()) {
+        if (session.length === 0 || session !== session.trim()) {
             throw new TypeError("Environment session binding ID must be canonical");
         }
         if (!Number.isSafeInteger(generation) || generation < 0) {

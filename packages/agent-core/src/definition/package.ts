@@ -310,7 +310,7 @@ export class MetadataSnapshot {
 }
 
 export function canonicalPackageRange(value: string): string {
-    if (value.trim().length === 0 || value !== value.trim()) {
+    if (value.length === 0 || value !== value.trim()) {
         throw new TypeError("Package dependency range must be a nonblank canonical string");
     }
     try {

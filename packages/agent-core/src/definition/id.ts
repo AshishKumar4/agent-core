@@ -4,7 +4,7 @@ import type { TenantId } from "../identity";
 export class PackageId extends TextId {
     public constructor(value: string) {
         super(value, "Package ID");
-        if (value.trim().length === 0 || value !== value.trim()) {
+        if (value.length === 0 || value !== value.trim()) {
             throw new TypeError("Package ID must be a nonblank canonical string");
         }
         Object.freeze(this);
@@ -24,7 +24,7 @@ export class MaterializationGenerationId extends TextId {
 export class DeploymentKey extends TextId {
     public constructor(value: string) {
         super(value, "Deployment key");
-        if (value.trim().length === 0 || value !== value.trim()) {
+        if (value.length === 0 || value !== value.trim()) {
             throw new TypeError("Deployment key must be a nonblank canonical string");
         }
         Object.freeze(this);

@@ -67,7 +67,7 @@ export class TaskEntry {
         if (!(id instanceof TaskId) || (parentId !== undefined && !(parentId instanceof TaskId))) {
             throw new TypeError("Task identifiers must use their context-owned classes");
         }
-        if (id.value.trim().length === 0 || id.value !== id.value.trim()) {
+        if (id.value.length === 0 || id.value !== id.value.trim()) {
             throw new TypeError("Task ID must be canonical");
         }
         if (parentId?.equals(id)) throw new TypeError("A task cannot be its own parent");
