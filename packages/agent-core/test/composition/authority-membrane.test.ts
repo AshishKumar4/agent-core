@@ -193,6 +193,38 @@ function routedCandidate(
     });
 }
 
+/**
+ * A Turn lease that admits its token while reporting no expiration. TurnLease is the
+ * abstract type a resolver hands back, and nothing in its contract pairs admission with
+ * an expiration: the stock lease refuses a token once its own expiration is absent, but
+ * that is one implementation's choice, not an invariant of the type the port declares.
+ */
+class UnexpiringLease extends TurnLease {
+    public constructor(turn: TurnId) {
+        super(turn, undefined, 1, undefined);
+    }
+
+    public admits(): boolean {
+        return true;
+    }
+
+    public claim(): TurnLease {
+        throw new TypeError("Unexpiring lease is resolution evidence only");
+    }
+
+    public renew(): TurnLease {
+        throw new TypeError("Unexpiring lease is resolution evidence only");
+    }
+
+    public reclaim(): TurnLease {
+        throw new TypeError("Unexpiring lease is resolution evidence only");
+    }
+
+    public fence(): TurnLease {
+        throw new TypeError("Unexpiring lease is resolution evidence only");
+    }
+}
+
 function membrane(
     candidate: OperationResolutionCandidate | undefined,
     now: () => Date = () => RESOLVED_AT
@@ -353,6 +385,36 @@ describe("Tenant operation authority membrane", () => {
             );
         }
     });
+
+    test(
+        "resolve refuses a current Turn lease that reports no expiration",
+        { tags: "p0" },
+        async () => {
+            // The expiration is screened separately from the admission because everything
+            // downstream reads it as a Date: ResolutionStamp takes it non-optional, the
+            // §3.4 deadline is the earlier of it and the revocation window, and
+            // authorizeDirect's own absence test is unreachable only while this one holds.
+            // Both policy shapes are covered, and the windowless one first: without a
+            // window nothing else reads the missing date, so admitting the resolution is
+            // silent rather than a crash, and only the denial distinguishes it.
+            for (const [reason, governing] of [
+                ["without a revocation window", [new PolicySet({})]],
+                ["with a revocation window", policies]
+            ] as const) {
+                const { authority } = membrane(
+                    leasedCandidate({
+                        originalLease: new UnexpiringLease(turn),
+                        policies: governing
+                    })
+                );
+                expectDenied(
+                    await captured(() => authority.resolve(principal, bindingName)),
+                    "Authority resolution requires the exact current Turn lease",
+                    reason
+                );
+            }
+        }
+    );
 
     test(
         "resolve denies a direct revocation deadline beyond the safe range",
