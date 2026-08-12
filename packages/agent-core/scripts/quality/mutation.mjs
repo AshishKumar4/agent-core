@@ -18,7 +18,7 @@
 //                error codes and types, not prose; killing these would pin every message
 //                string without adding behavioral confidence.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
 import {
@@ -120,6 +120,7 @@ for (const [testPath, testFile] of Object.entries(report.testFiles ?? {})) {
 const summary = { mutants: 0, killed: 0, actionable: 0, tolerated: 0, survivors: [] };
 const measuredFiles = new Map();
 const kills = new Map();
+const messageHelperCall = messageHelperPattern();
 for (const [path, file] of Object.entries(report.files)) {
     const text = readFileSync(resolve(packageRoot, path), "utf8");
     const source = text.split("\n");
@@ -273,12 +274,50 @@ function classify(mutant, source) {
     const messageContext =
         /throw new (?:TypeError|RangeError|Error)\(/.test(line) ||
         /^\s*(?:"|`)[^"`]*(?:"|`)\s*\)?;?\s*$/.test(line) ||
-        /require[A-Z]\w*\([^)]*"[^"]+"\s*\)/.test(line);
+        /require[A-Z]\w*\([^)]*"[^"]+"\s*\)/.test(line) ||
+        messageHelperCall.test(line);
     const identityContext =
         /Key\(|codec|new AgentCoreError\(\s*"[a-z]|fromData|toData|requireString\(object/.test(
             line
         );
     return messageContext && !identityContext ? "tolerated" : "actionable";
+}
+
+/**
+ * Prose reaches its throw through this codebase's own error helpers — `invalidTurn`,
+ * `corruptRecord`, `required` — far more often than through `throw new TypeError(`.
+ * Their names are read back out of the sources rather than listed here, so the set
+ * cannot drift as helpers are added or renamed.
+ *
+ * A helper qualifies only when one of its parameters is literally named `message`,
+ * which is what makes the string it receives prose. That excludes the helpers which
+ * take an identity instead — `invalidSqliteColumn(expected, column)`,
+ * `malformedProviderOutcome(kind)`, `missingPointer(pointer)` — whose literals are
+ * discriminants and must keep ratcheting. The failure to avoid is over-tolerating:
+ * counting a behavior mutant as prose hides a real gap, so anything unrecognised
+ * stays actionable.
+ */
+function messageHelperPattern() {
+    const names = new Set();
+    const declaration = /function\s+([a-z]\w*)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/gu;
+    for (const path of typescriptSources(resolve(packageRoot, "src"))) {
+        const text = readFileSync(path, "utf8");
+        for (const [, name, parameters] of text.matchAll(declaration)) {
+            if (/\bmessage\s*[?:=]/u.test(parameters)) names.add(name);
+        }
+    }
+    if (names.size === 0) return /$^/u;
+    return new RegExp(`\\b(?:${[...names].sort().join("|")})\\(`, "u");
+}
+
+function typescriptSources(root) {
+    const files = [];
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+        const path = resolve(root, entry.name);
+        if (entry.isDirectory()) files.push(...typescriptSources(path));
+        else if (entry.isFile() && entry.name.endsWith(".ts")) files.push(path);
+    }
+    return files;
 }
 
 function recordKills(path, mutant) {
@@ -297,10 +336,19 @@ function sortedObject(map) {
     return Object.fromEntries([...map].sort(([left], [right]) => left.localeCompare(right, "en")));
 }
 
+// The exact span, not just the line. One line routinely carries several mutants: a
+// short-circuiting condition yields one per operand plus one for the whole expression,
+// and those have different coverage and different verdicts. A line plus a replacement
+// cannot say which of them survived — reading `false` against
+// `current === undefined || left < current`, triage cannot tell the surviving operand
+// from the killed whole condition, and reproducing the wrong one invents a phantom.
 function survivorRecord(path, mutant, source, classification) {
     return {
         file: path,
         line: mutant.location.start.line,
+        column: mutant.location.start.column,
+        endLine: mutant.location.end.line,
+        endColumn: mutant.location.end.column,
         mutator: mutant.mutatorName,
         classification,
         replacement: (mutant.replacement ?? "").slice(0, 120),
