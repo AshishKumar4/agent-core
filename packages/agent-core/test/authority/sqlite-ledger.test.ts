@@ -202,7 +202,7 @@ describe("SQLite Tenant authority mutation storage", () => {
             Revision.initial()
         );
         expect(() => store.transaction((candidate) => candidate.putMembership(orphan))).toThrow(
-            /malformed/
+            "Membership references a missing Role"
         );
         expect(store.loadMembership(orphan.id)).toBeUndefined();
     });

@@ -14,10 +14,13 @@ export type { MemoryTenantControlSnapshot } from "./memory";
 export { AuthorityMutationService, createTenantControlBootstrapPlan } from "./service";
 export type {
     AuthorityMutationStore,
+    AuthorityReadStore,
     MembershipChangeIntent,
     TenantControlBootstrapAnchor,
     TenantControlBootstrapPlan
 } from "./service";
+export { AuthorityChangeSet, AuthorityRecordChanges, assertAuthorityClosure } from "./closure";
+export type { AuthorityRecordPresence } from "./closure";
 export { scopeKey, subjectKey } from "./reference";
 export { watermarkKey } from "./watermark-store";
 export { MemoryInvalidationWatermarkStore } from "./watermark-store";

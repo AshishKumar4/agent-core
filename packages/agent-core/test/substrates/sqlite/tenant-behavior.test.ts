@@ -59,6 +59,22 @@ const corrupt = { code: "codec.invalid", message: "Stored Tenant control state i
 
 type RoleGrantOrigin = Extract<Grant["origin"], { kind: "role" }>;
 
+/**
+ * The record closure both backings share names what it found, so the SQLite ledger reports
+ * the fault the Memory store reports rather than one message for every corruption. A record
+ * owned by another Tenant stays a boundary fault; everything else is malformed stored state.
+ */
+function closureFault(message: string): ReturnType<typeof expect.objectContaining> {
+    return expect.objectContaining({ code: "codec.invalid", message });
+}
+
+function foreignOwnerFault(subject: string): ReturnType<typeof expect.objectContaining> {
+    return expect.objectContaining({
+        code: "protocol.invalid-state",
+        message: `${subject} belongs to another Tenant`
+    });
+}
+
 function bootstrappedStore(database: TestSqlite) {
     const store = createSqliteTenantControlStore(database, anchor);
     database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
@@ -1179,7 +1195,7 @@ describe("SQLite Tenant control closure integrity", () => {
             [alienProject.id.value, foreignTenantId.value, 0, Project.encode(alienProject)]
         );
         expect(() => createSqliteTenantControlStore(projectDatabase)).toThrow(
-            expect.objectContaining(corrupt)
+            foreignOwnerFault("Project")
         );
 
         const teamDatabase = new TestSqlite();
@@ -1196,7 +1212,7 @@ describe("SQLite Tenant control closure integrity", () => {
             [alienTeam.id.value, foreignTenantId.value, 0, Team.encode(alienTeam)]
         );
         expect(() => createSqliteTenantControlStore(teamDatabase)).toThrow(
-            expect.objectContaining(corrupt)
+            foreignOwnerFault("Team")
         );
 
         const principalDatabase = new TestSqlite();
@@ -1216,7 +1232,7 @@ describe("SQLite Tenant control closure integrity", () => {
             )
         );
         expect(() => createSqliteTenantControlStore(principalDatabase)).toThrow(
-            expect.objectContaining(corrupt)
+            closureFault("Membership references a missing Principal")
         );
 
         const teamSubjectDatabase = new TestSqlite();
@@ -1234,7 +1250,7 @@ describe("SQLite Tenant control closure integrity", () => {
             )
         );
         expect(() => createSqliteTenantControlStore(teamSubjectDatabase)).toThrow(
-            expect.objectContaining(corrupt)
+            closureFault("Membership references a missing Team")
         );
 
         const workspaceDatabase = new TestSqlite();
@@ -1250,7 +1266,7 @@ describe("SQLite Tenant control closure integrity", () => {
             [orphan.id.value, tenantId.value, "ghost-project", 0, Workspace.encode(orphan)]
         );
         expect(() => createSqliteTenantControlStore(workspaceDatabase)).toThrow(
-            expect.objectContaining(corrupt)
+            closureFault("Workspace references a missing Project")
         );
 
         const trustDatabase = new TestSqlite();
@@ -1278,7 +1294,7 @@ describe("SQLite Tenant control closure integrity", () => {
             ]
         );
         expect(() => createSqliteTenantControlStore(trustDatabase)).toThrow(
-            expect.objectContaining(corrupt)
+            foreignOwnerFault("Guest trust")
         );
     });
 
@@ -1337,7 +1353,7 @@ describe("SQLite Tenant control closure integrity", () => {
             [alien.id.value, foreignTenantId.value, null, 0, Workspace.encode(alien)]
         );
         expect(() => createSqliteTenantControlStore(database)).toThrow(
-            expect.objectContaining(corrupt)
+            foreignOwnerFault("Workspace")
         );
     });
 
@@ -1443,7 +1459,7 @@ describe("SQLite Tenant control closure integrity", () => {
         for (const { reason, trust, shape } of rejected) {
             const database = guestClosureDatabase(trust, guestMembership(shape));
             expect(() => createSqliteTenantControlStore(database), reason).toThrow(
-                expect.objectContaining(corrupt)
+                closureFault("Guest Membership references invalid trust evidence")
             );
         }
 
@@ -1620,7 +1636,7 @@ describe("SQLite Tenant control closure integrity", () => {
             const capability = new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] });
             const rejects = (id: string, grant: Grant) => {
                 expect(() => store.transaction((control) => control.putGrant(grant))).toThrow(
-                    expect.objectContaining(corrupt)
+                    expect.objectContaining({ code: "codec.invalid" })
                 );
                 expect(store.grant(new GrantId(id))).toBeUndefined();
             };

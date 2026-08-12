@@ -26,10 +26,14 @@ import {
 } from "../identity";
 import { bytesEqual } from "./data";
 import { Binding } from "./binding";
+import {
+    AuthorityChangeSet,
+    assertAuthorityClosure,
+    type AuthorityRecordPresence
+} from "./closure";
 import { ScopeEpoch } from "./epoch";
 import { Grant } from "./grant";
 import type { GrantId } from "./id";
-import { RoleGrantMaterializer } from "./materializer";
 import { scopeKey, subjectKey } from "./reference";
 import {
     createTenantControlBootstrapPlan,
@@ -88,6 +92,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
     #bindings: RecordMap;
     #epochs: RecordMap;
     readonly #anchor: MemoryTenantControlAnchorSnapshot;
+    readonly #changes = new AuthorityChangeSet();
     #marker: MemoryTenantControlMarkerSnapshot | null;
     #writable = false;
     #transactionActive = false;
@@ -253,6 +258,10 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         return this.identityRecord("project", id.value, Project.decode);
     }
 
+    public projects(): readonly Project[] {
+        return this.identityRecords("project", Project.decode);
+    }
+
     public putProject(project: Project): void {
         this.requireWrite();
         if (!project.tenantId.equals(this.tenantId)) {
@@ -273,10 +282,15 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             );
         }
         this.putIdentity("project", project.id.value, Project.encode(project));
+        this.#changes.projects.record(project.id.value, project, presence(previous));
     }
 
     public workspace(id: WorkspaceId): Workspace | undefined {
         return this.identityRecord("workspace", id.value, Workspace.decode);
+    }
+
+    public workspaces(): readonly Workspace[] {
+        return this.identityRecords("workspace", Workspace.decode);
     }
 
     public putWorkspace(workspace: Workspace): void {
@@ -298,6 +312,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             );
         }
         this.putIdentity("workspace", workspace.id.value, Workspace.encode(workspace));
+        this.#changes.workspaces.record(workspace.id.value, workspace, "created");
     }
 
     public guestTrust(id: GuestTrustId): GuestTrust | undefined {
@@ -334,6 +349,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             previous.assertCanReplace(trust);
         }
         this.putIdentity("guestTrust", trust.id.value, GuestTrust.encode(trust));
+        this.#changes.guestTrusts.record(trust.id.value, trust, presence(previous));
     }
 
     public role(name: RoleName): Role | undefined {
@@ -435,11 +451,14 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             );
         }
         this.putIdentity("team", team.id.value, Team.encode(team));
+        this.#changes.teams.record(team.id.value, team, presence(previous));
     }
 
     public putRole(role: Role): void {
         this.requireWrite();
+        const previous = this.role(role.name);
         this.putIdentity("role", role.name.value, Role.encode(role));
+        this.#changes.roles.record(role.name.value, role, presence(previous));
     }
 
     public putMembership(membership: Membership): void {
@@ -474,6 +493,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             );
         }
         this.putIdentity("membership", membership.id.value, Membership.encode(membership));
+        this.#changes.memberships.record(membership.id.value, membership, presence(previous));
     }
 
     public putGrant(record: Grant): void {
@@ -492,6 +512,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             (value) => value.id.value,
             "Grant"
         );
+        this.#changes.grants.record(record.id.value, record, presence(previous));
     }
 
     public putBinding(record: Binding): void {
@@ -517,11 +538,13 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             (value) => value.key,
             "Binding"
         );
+        this.#changes.bindings.record(record.key, record, presence(previous));
     }
 
     public putEpoch(record: ScopeEpoch): void {
         this.requireWrite();
         requireCanonicalScope(this, record.scope);
+        const key = scopeKey(record.scope);
         const previous = this.epoch(record.scope);
         if (record.epoch === previous.epoch) return;
         if (record.epoch !== previous.epoch + 1) {
@@ -532,12 +555,13 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         }
         putCanonical(
             this.#epochs,
-            scopeKey(record.scope),
+            key,
             ScopeEpoch.encode(record),
             ScopeEpoch.decode,
             (value) => scopeKey(value.scope),
             "Scope epoch"
         );
+        this.#changes.epochs.record(key, record, "replaced");
     }
 
     private applyBootstrap(plan: TenantControlBootstrapPlan): void {
@@ -603,7 +627,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 );
             }
             candidate.#writable = false;
-            candidate.assertRestoredState();
+            candidate.assertRestoredState(candidate.#changes);
             this.replace(candidate);
             return result;
         } finally {
@@ -649,7 +673,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         }
     }
 
-    private assertRestoredState(): void {
+    private assertRestoredState(changed?: AuthorityChangeSet): void {
         if (this.#marker === null) {
             if (!this.isBootstrapEligible()) {
                 throw corruptMemoryTenantControl("Unmarked Tenant control snapshot is not empty");
@@ -682,150 +706,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         ) {
             throw corruptMemoryTenantControl("Bootstrapped Tenant identity closure is incomplete");
         }
-        for (const team of this.teams()) {
-            requireLocalTenant(this.tenantId, team.tenantId, "Team");
-            for (const principal of team.principals) {
-                if (this.principal(principal) === undefined) {
-                    throw corruptMemoryTenantControl("Team references a missing Principal");
-                }
-            }
-        }
-        for (const project of this.identityRecords("project", Project.decode)) {
-            requireLocalTenant(this.tenantId, project.tenantId, "Project");
-        }
-        for (const workspace of this.identityRecords("workspace", Workspace.decode)) {
-            requireLocalTenant(this.tenantId, workspace.tenantId, "Workspace");
-            if (
-                workspace.projectId !== undefined &&
-                this.project(workspace.projectId) === undefined
-            ) {
-                throw corruptMemoryTenantControl("Workspace references a missing Project");
-            }
-        }
-        for (const trust of this.guestTrusts()) {
-            requireLocalTenant(this.tenantId, trust.hostTenant, "Guest trust");
-        }
-        for (const membership of this.memberships()) {
-            requireCanonicalScope(this, membership.scope);
-            if (this.role(membership.role) === undefined) {
-                throw corruptMemoryTenantControl("Membership references a missing Role");
-            }
-            if (
-                membership.subject.kind === "principal" &&
-                this.principal(membership.subject.principal.principalId) === undefined
-            ) {
-                throw corruptMemoryTenantControl("Membership references a missing Principal");
-            }
-            if (
-                membership.subject.kind === "team" &&
-                this.team(membership.subject.teamId) === undefined
-            ) {
-                throw corruptMemoryTenantControl("Membership references a missing Team");
-            }
-            if (membership.subject.kind === "foreign") {
-                const verification = membership.guestVerification;
-                const trust =
-                    verification === undefined ? undefined : this.guestTrust(verification.trustId);
-                if (
-                    verification === undefined ||
-                    trust === undefined ||
-                    !trust.hostTenant.equals(this.tenantId) ||
-                    !trust.homeTenant.equals(membership.subject.homeTenant) ||
-                    (membership.state === "active" &&
-                        (trust.revision.value !== verification.trustRevision.value ||
-                            trust.verifier.kind !== verification.verifiedVia.value ||
-                            !trust.isActive))
-                ) {
-                    throw corruptMemoryTenantControl(
-                        "Guest Membership references invalid trust evidence"
-                    );
-                }
-            }
-        }
-        const grants = this.grants();
-        const grantsById = new Map(grants.map((grant) => [grant.id.value, grant]));
-        for (const grant of grants) {
-            requireCanonicalScope(this, grant.scope);
-            if (
-                grant.subject.kind === "principal" &&
-                this.principal(grant.subject.principal.principalId) === undefined
-            ) {
-                throw corruptMemoryTenantControl("Grant references a missing Principal");
-            }
-            if (grant.subject.kind === "team" && this.team(grant.subject.teamId) === undefined) {
-                throw corruptMemoryTenantControl("Grant references a missing Team");
-            }
-            if (grant.origin.kind === "role") {
-                const membership = this.membership(grant.origin.membershipId);
-                if (
-                    membership === undefined ||
-                    membership.role.value !== grant.origin.roleName ||
-                    subjectKey(membership.subject) !== subjectKey(grant.subject)
-                ) {
-                    throw corruptMemoryTenantControl(
-                        "Role Grant references invalid Membership evidence"
-                    );
-                }
-            }
-            if (grant.attenuationOf !== undefined) {
-                const seen = new Set([grant.id.value]);
-                let child = grant;
-                while (child.attenuationOf !== undefined) {
-                    if (seen.has(child.attenuationOf.value)) {
-                        throw corruptMemoryTenantControl(
-                            "Delegated Grant attenuation contains a cycle"
-                        );
-                    }
-                    seen.add(child.attenuationOf.value);
-                    const parent = grantsById.get(child.attenuationOf.value);
-                    if (parent === undefined || !parent.canAttenuate(child)) {
-                        throw corruptMemoryTenantControl(
-                            "Delegated Grant references invalid parent authority"
-                        );
-                    }
-                    child = parent;
-                }
-            }
-        }
-        for (const binding of this.bindings()) {
-            requireCanonicalScope(this, binding.scope);
-            const grant = grantsById.get(binding.grantId.value);
-            if (
-                grant === undefined ||
-                grant.effect !== "allow" ||
-                subjectKey(grant.subject) !== subjectKey(binding.subject) ||
-                !binding.scope.path.some((scope) => scope.equals(grant.scope))
-            ) {
-                throw corruptMemoryTenantControl("Binding references invalid Tenant authority");
-            }
-        }
-        for (const membership of this.memberships()) {
-            const role = this.role(membership.role)!;
-            const owned = grants.filter(
-                (grant) =>
-                    grant.origin.kind === "role" && grant.origin.membershipId.equals(membership.id)
-            );
-            const expected = new RoleGrantMaterializer().materialize({
-                membership,
-                role,
-                existing: owned
-            }).desiredRecords;
-            if (
-                expected.length !== owned.length ||
-                expected.some((record) => {
-                    const actual = owned.find((candidate) => candidate.id.equals(record.id));
-                    return (
-                        actual === undefined ||
-                        !bytesEqual(Grant.encode(actual), Grant.encode(record))
-                    );
-                })
-            ) {
-                throw corruptMemoryTenantControl(
-                    "Role Grant materialization does not match Membership evidence"
-                );
-            }
-        }
-        for (const epoch of this.epochs()) requireCanonicalScope(this, epoch.scope);
+        assertAuthorityClosure(this, changed);
     }
 
     private replace(candidate: MemoryTenantControlStore): void {
@@ -1054,6 +935,10 @@ function requireCanonicalScope(store: MemoryTenantControlStore, scope: ScopeEpoc
             throw corruptMemoryTenantControl("Authority Workspace Scope is not canonical");
         }
     }
+}
+
+function presence<Record>(previous: Record | undefined): AuthorityRecordPresence {
+    return previous === undefined ? "created" : "replaced";
 }
 
 function requireLocalTenant(expected: TenantId, actual: TenantId, subject: string): void {

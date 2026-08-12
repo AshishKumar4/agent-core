@@ -1398,11 +1398,17 @@ class DivergentGrantStore implements AuthorityMutationStore {
     public project(id: ProjectId): Project | undefined {
         return this.inner.project(id);
     }
+    public projects(): readonly Project[] {
+        return this.inner.projects();
+    }
     public putProject(project: Project): void {
         this.inner.putProject(project);
     }
     public workspace(id: WorkspaceId): Workspace | undefined {
         return this.inner.workspace(id);
+    }
+    public workspaces(): readonly Workspace[] {
+        return this.inner.workspaces();
     }
     public putWorkspace(workspace: Workspace): void {
         this.inner.putWorkspace(workspace);

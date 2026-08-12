@@ -111,36 +111,42 @@ export function createTenantControlBootstrapPlan(
     });
 }
 
-export interface AuthorityMutationStore {
+/** Everything a Tenant's authority records can be read through, and nothing more. */
+export interface AuthorityReadStore {
     readonly tenantId: TenantId;
-    transaction<Result>(operation: (store: AuthorityMutationStore) => Result): Result;
 
     principal(id: PrincipalId): Principal | undefined;
-    putPrincipal(principal: Principal): void;
     team(id: TeamId): Team | undefined;
     teams(): readonly Team[];
-    putTeam(team: Team): void;
     project(id: ProjectId): Project | undefined;
-    putProject(project: Project): void;
+    projects(): readonly Project[];
     workspace(id: WorkspaceId): Workspace | undefined;
-    putWorkspace(workspace: Workspace): void;
+    workspaces(): readonly Workspace[];
     guestTrust(id: GuestTrustId): GuestTrust | undefined;
     guestTrusts(): readonly GuestTrust[];
-    putGuestTrust(trust: GuestTrust): void;
     role(name: RoleName): Role | undefined;
-    putRole(role: Role): void;
     membership(id: MembershipId): Membership | undefined;
     memberships(): readonly Membership[];
-    putMembership(membership: Membership): void;
-
     grant(id: GrantId): Grant | undefined;
     grants(): readonly Grant[];
-    putGrant(grant: Grant): void;
     binding(key: string): Binding | undefined;
     bindings(): readonly Binding[];
-    putBinding(binding: Binding): void;
-    epochs(): readonly ScopeEpoch[];
     epoch(scope: ScopeEpoch["scope"]): ScopeEpoch;
+    epochs(): readonly ScopeEpoch[];
+}
+
+export interface AuthorityMutationStore extends AuthorityReadStore {
+    transaction<Result>(operation: (store: AuthorityMutationStore) => Result): Result;
+
+    putPrincipal(principal: Principal): void;
+    putTeam(team: Team): void;
+    putProject(project: Project): void;
+    putWorkspace(workspace: Workspace): void;
+    putGuestTrust(trust: GuestTrust): void;
+    putRole(role: Role): void;
+    putMembership(membership: Membership): void;
+    putGrant(grant: Grant): void;
+    putBinding(binding: Binding): void;
     putEpoch(epoch: ScopeEpoch): void;
 }
 
