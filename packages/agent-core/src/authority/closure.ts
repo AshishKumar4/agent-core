@@ -288,7 +288,7 @@ class AuthorityClosure {
 
     /** Written Memberships, plus the guest Memberships a replaced trust can invalidate. */
     #auditedMemberships(): readonly Membership[] {
-        if (this.changed === undefined) return this.store.memberships();
+        if (this.changed === undefined) return this.#memberships();
         const rotated = new Set(this.changed.guestTrusts.replaced().map((trust) => trust.id.value));
         return distinct(
             [
@@ -307,7 +307,7 @@ class AuthorityClosure {
 
     /** Written Grants, plus every Grant attenuating from a replaced one. */
     #auditedGrants(): readonly Grant[] {
-        if (this.changed === undefined) return this.store.grants();
+        if (this.changed === undefined) return this.#grants();
         const written = this.changed.grants.written();
         const replaced = this.changed.grants.replaced();
         if (replaced.length === 0) return written;
@@ -338,7 +338,7 @@ class AuthorityClosure {
 
     /** Written Bindings, plus every Binding naming a replaced Grant. */
     #auditedBindings(): readonly Binding[] {
-        if (this.changed === undefined) return this.store.bindings();
+        if (this.changed === undefined) return this.#bindings();
         const replaced = new Set(this.changed.grants.replaced().map((grant) => grant.id.value));
         return distinct(
             [
@@ -356,7 +356,7 @@ class AuthorityClosure {
      * Membership a replaced Role re-materializes.
      */
     #materializedMemberships(): readonly Membership[] {
-        if (this.changed === undefined) return this.store.memberships();
+        if (this.changed === undefined) return this.#memberships();
         const owners: Membership[] = [];
         for (const grant of this.changed.grants.written()) {
             if (grant.origin.kind !== "role") continue;
