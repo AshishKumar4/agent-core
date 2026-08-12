@@ -135,7 +135,7 @@
       "id": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
       "owner": "W3",
       "specAnchor": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
-      "specTextSha256": "sha256:a0394235f59ba4fac62b9879ff6546342e9a9105bccae88784abf30050d8ba9d",
+      "specTextSha256": "sha256:b4233cf0e0b6f0e42fa004423afe3edcdd6338c9bcde611bb0d0ee9460d567bc",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],

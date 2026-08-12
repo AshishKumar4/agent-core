@@ -261,7 +261,7 @@
       "id": "C13-PROFILE-SOURCE-EVENT-CAUSALITY",
       "owner": "W8",
       "specAnchor": "C13-PROFILE-SOURCE-EVENT-CAUSALITY",
-      "specTextSha256": "sha256:a1e9a381283bfec069a0e886ed6fffebb551d7703e9320c5c02891ffe2de62c1",
+      "specTextSha256": "sha256:5a2ccd3632fe27226cd5526508c28a78294d08fa141c0ea58dc3fe34e8b33201",
       "status": "verified",
       "prerequisites": ["P11-TASK-EVENT"],
       "sourceSymbols": ["src/facets/task/facet.ts#TaskFacet"],

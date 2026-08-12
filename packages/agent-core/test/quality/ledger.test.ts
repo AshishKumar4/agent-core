@@ -197,6 +197,28 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
             "utf8"
         );
         await expect(specRequirements(duplicatePath)).rejects.toThrow(/duplicate atomic labels/);
+
+        // A table is its own blank-line block, so an anchor in the prose beside one used
+        // to stop at the blank line and a row could be rewritten with nothing restaling —
+        // while the atoms claim exactly those rows. Both adjacencies are covered: the
+        // lifecycle table follows its paragraph, the commit-kind matrix precedes its own.
+        const rewrittenRowPath = resolve(root, "rewritten-row.md");
+        await writeFile(
+            rewrittenRowPath,
+            original
+                .replace(
+                    "| `running` | suspend | `suspended` |",
+                    "| `running` | suspend | `queued` |"
+                )
+                .replace("| `root` | `root` | atomic with Run creation |", "| `root` | `root` | |"),
+            "utf8"
+        );
+        const rewritten = await specRequirements(rewrittenRowPath);
+        for (const id of ["C13-TURN-LIFECYCLE", "C13-WRITER-MATRIX"]) {
+            expect(rewritten.find((item) => item.id === id)?.digest).not.toBe(
+                baseline.find((item) => item.id === id)?.digest
+            );
+        }
     });
 
     test("hashes authoritative normalized prose and enforces reviewed outside anchors", async () => {

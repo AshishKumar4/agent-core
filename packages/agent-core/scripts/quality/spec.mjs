@@ -80,10 +80,38 @@ function authoritativeRequirements(source, normativeMap) {
 
 function containingBlock(source, marker) {
     const at = source.indexOf(marker);
-    const start = source.lastIndexOf("\n\n", at);
     const end = source.indexOf("\n\n", at + marker.length);
     if (at < 0 || end < 0) throw new TypeError(`Malformed normative mapping ${marker}`);
-    return source.slice(start < 0 ? 0 : start + 2, end);
+    const start = source.lastIndexOf("\n\n", at);
+    return source.slice(tableBefore(source, start < 0 ? 0 : start + 2), tableAfter(source, end));
+}
+
+/**
+ * A markdown table is its own blank-line-delimited block, so an anchor could never reach
+ * one: C13-TURN-LIFECYCLE claims "the complete lifecycle table" and C13-WRITER-MATRIX
+ * "the exact CommitWriter matrix", yet editing a row restaled neither. A table is not a
+ * standalone normative unit — it is the data the prose beside it introduces or closes —
+ * so the two hash as one. Both adjacencies occur: the lifecycle table follows its
+ * paragraph, the commit-kind matrix precedes its own.
+ */
+function tableAfter(source, end) {
+    let cursor = end;
+    for (;;) {
+        const next = source.indexOf("\n\n", cursor + 2);
+        if (next < 0 || !source.startsWith("|", cursor + 2)) return cursor;
+        cursor = next;
+    }
+}
+
+function tableBefore(source, start) {
+    let cursor = start;
+    while (cursor > 0) {
+        const boundary = source.lastIndexOf("\n\n", cursor - 3);
+        const previous = boundary < 0 ? 0 : boundary + 2;
+        if (!source.startsWith("|", previous)) return cursor;
+        cursor = previous;
+    }
+    return cursor;
 }
 
 function normalizeNormativeText(text) {
