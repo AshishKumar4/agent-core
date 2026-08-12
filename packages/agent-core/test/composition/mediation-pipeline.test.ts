@@ -171,6 +171,7 @@ class RecallOperation extends Operation {
 interface Observed {
     signal: AbortSignal | undefined;
     calls: number;
+    stops: number;
 }
 
 class MemoryFacet extends Facet {
@@ -199,7 +200,9 @@ class MemoryFacet extends Facet {
 
     public async start(): Promise<void> {}
 
-    public async stop(): Promise<void> {}
+    public async stop(): Promise<void> {
+        this.observed.stops += 1;
+    }
 }
 
 class MemoryTransactions implements InvocationTransactionPort<PipelineState> {
@@ -465,7 +468,7 @@ interface Harness {
 async function harness(): Promise<Harness> {
     const transactions = new MemoryTransactions();
     const authority = new DemoAuthorityState();
-    const observed: Observed = { signal: undefined, calls: 0 };
+    const observed: Observed = { signal: undefined, calls: 0, stops: 0 };
     const observations: ReceiptObservation[] = [];
     const pipeline = await MediatedOperationPipeline.activate<
         PipelineState,
@@ -536,7 +539,8 @@ describe("the published mediation composition root", () => {
 
         const attempt = attempts[0]!;
         const receipt = receipts[0]!;
-        if (!(receipt instanceof AttemptReceipt)) throw new TypeError("expected an attempt Receipt");
+        if (!(receipt instanceof AttemptReceipt))
+            throw new TypeError("expected an attempt Receipt");
         expect(result.output).toEqual({ attempt: attempt.id.value });
         expect(receipt.attempt.equals(attempt.id)).toBe(true);
         expect(receipt.outcome).toBe("succeeded");
@@ -605,6 +609,28 @@ describe("the published mediation composition root", () => {
         await value.pipeline.dispose();
     });
 
+    it("stops its Facets when the composition root is disposed", { tags: "p0" }, async () => {
+        // The pipeline owns the Facet runtime it activated, so disposing it has to stop
+        // that runtime — a root that returned without stopping leaves activated Facets
+        // holding whatever the substrate gave them, with no owner left to release them.
+        const value = await harness();
+        expect(value.observed.stops).toBe(0);
+        await value.pipeline.dispose();
+        expect(value.observed.stops).toBe(1);
+    });
+
+    it("stops its Facets when used as an async disposable", { tags: "p0" }, async () => {
+        // `await using` is the ordinary way a caller scopes the root, so the disposal
+        // protocol has to reach the same teardown the explicit call does.
+        const value = await harness();
+        {
+            await using pipeline = value.pipeline;
+            expect(pipeline.invocations).toBeDefined();
+            expect(value.observed.stops).toBe(0);
+        }
+        expect(value.observed.stops).toBe(1);
+    });
+
     it("does not become a mediation surface when activation fails", { tags: "p1" }, async () => {
         class FailingFacet extends MemoryFacet {
             public override async start(): Promise<void> {
@@ -624,7 +650,7 @@ describe("the published mediation composition root", () => {
                 evidence: new MemoryInvocationMediationPersistence(),
                 authority: new DemoAuthorityState(),
                 manifests: [manifest()],
-                roots: [new FailingFacet({ signal: undefined, calls: 0 })],
+                roots: [new FailingFacet({ signal: undefined, calls: 0, stops: 0 })],
                 activations,
                 permits: new DemoPermits(),
                 authentication: new DemoAuthentication(),
