@@ -1481,7 +1481,8 @@ firing, a chat message, a button press, and a command invocation are all Events:
 input model, one routing mechanism, and one audit trail for everything that enters the
 system.
 
-**Trust tiers are host-derived, never facet-asserted.** A Facet supplies raw
+**Trust tiers MUST be host-derived, never facet-asserted**, which maps to
+**C13-TRUST-HOST-DERIVED**. A Facet supplies raw
 provenance — authenticated identity, channel, group, transport verification result —
 and the host derives the tier from that provenance and the Blueprint's trust-tier
 policy:
@@ -1492,12 +1493,13 @@ policy:
 - `self` — emitted by a Turn executor under a valid lease. Assignable only by the
   host for lease-fenced emissions.
 
-TrustTier is categorical, not ordered. Consumers declare an explicit accepted set;
-there is no minimum-tier comparison.
+TrustTier is categorical, not ordered. Consumers MUST declare an explicit accepted set;
+there is no minimum-tier comparison. This maps to **C13-SUBSCRIPTION-ACCEPTED-TIERS**.
 
-An Event whose tier was set by a non-host source is rejected. If a channel adapter
+An Event whose tier was set by a non-host source MUST be rejected. If a channel adapter
 could stamp its own trust tier, a compromised adapter could mark an attacker's message
-as `owner` and defeat every policy keyed on the tier.
+as `owner` and defeat every policy keyed on the tier. This maps to
+**C13-TRUST-ASSERTION-REJECTION**.
 
 **Ingress.** External input enters through `ingress` contributions:
 
@@ -1510,7 +1512,8 @@ interface IngressDeclaration {
 ```
 
 The host exposes declared endpoints, verifies per `verification`, and mints Events
-with derived provenance; unverified requests never mint Events.
+with derived provenance; unverified requests MUST NOT mint Events. This maps to
+**C13-TRUST-VERIFIED-INGRESS**.
 
 The standard source actions enter through ordinary mediated host Operations and the
 closed Receipt-to-Event causal edge; they do not create a WriteRecord-to-Event edge or
@@ -1615,10 +1618,11 @@ interface FieldMove {
 Routing is at-least-once with deduplication on the subscription's dedupe key: `event`
 dedupes on the Event id, `causation` on its cause, `payload` on its payload digest, and
 `none` assigns each delivery a distinct key. Before delivery, the Event-owning source
-Actor authenticates the Event and mapping, derives trust, validates it is in
-`acceptedTrust`, maps the payload, and appends the authoritative **RouteReservation**.
-The reservation's projection and digest are immutable; the target never remaps source
-data or accepts an unauthenticated projection.
+Actor MUST authenticate the Event and mapping, derive trust, validate it is in
+`acceptedTrust`, map the payload, and append the authoritative **RouteReservation**.
+The reservation's projection and digest MUST be immutable; the target never remaps
+source data or accepts an unauthenticated projection. These map to
+**C13-ROUTE-SOURCE-OWNED** and **C13-ROUTE-PROJECTION-DIGEST**.
 
 `initiator` uses the authenticated initiating Principal recorded by the source Actor in
 the reservation through exactly its named Binding; an Event without one cannot use that
@@ -1692,13 +1696,13 @@ interface ActionDescriptor {
 // A reconnecting client presents its last cursor to resume ViewDelta replay (§10.3).
 ```
 
-A View carries no live Facets, stubs, credentials, or hidden state — refs only.
+A View MUST carry no live Facets, stubs, credentials, or hidden state — refs only.
 Surfaces stream via **ViewDelta** events: RFC 6902 JSON Patches against a View
 revision (compatible with AG-UI's `STATE_DELTA` convention), so clients update
 without re-snapshotting. Surface actions emit Events; Subscriptions route them to
 Operations. Aggregating surfaces — dashboards — compose slot-contributed child Views
 per §4.2. Token-level model-output streaming is an executor and transport concern
-(§5.6), not Events.
+(§5.6), not Events. This maps to **C13-VIEW-NO-LIVE-STATE**.
 
 A View that presents an intent for a human decision carries the provenance of what it
 shows. A **decision View** is exactly a View whose `intentDigest` field is present — the
