@@ -510,7 +510,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
     ): ValidationAttestation | undefined {
         const bytes = transaction.attestations.get(id.value);
         if (bytes === undefined) return undefined;
-        return ValidationAttestation.decode(bytes.slice());
+        return ValidationAttestation.decode(bytes);
     }
 
     public loadDeployment(
@@ -519,7 +519,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
     ): DeploymentRecord | undefined {
         const bytes = transaction.deployments.get(id.value);
         if (bytes === undefined) return undefined;
-        return DeploymentRecord.decode(bytes.slice());
+        return DeploymentRecord.decode(bytes);
     }
 
     public compareAndSetDeployment(
@@ -570,7 +570,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
     ): MaterializationRollout | undefined {
         const bytes = transaction.rollouts.get(id.value);
         if (bytes === undefined) return undefined;
-        return MaterializationRollout.decode(bytes.slice());
+        return MaterializationRollout.decode(bytes);
     }
 
     public loadPlan(
@@ -578,7 +578,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
         id: Digest
     ): MaterializationPlan | undefined {
         for (const bytes of transaction.rollouts.values()) {
-            const plan = MaterializationRollout.decode(bytes.slice()).plan;
+            const plan = MaterializationRollout.decode(bytes).plan;
             if (plan.id.equals(id)) return plan;
         }
         return undefined;
@@ -607,7 +607,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
     ): MaterializationOutboxEntry | undefined {
         const bytes = transaction.outbox.get(id.value);
         if (bytes === undefined) return undefined;
-        return MaterializationOutboxEntry.decode(bytes.slice());
+        return MaterializationOutboxEntry.decode(bytes);
     }
 
     public listOutbox(
@@ -616,7 +616,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
     ): readonly MaterializationOutboxEntry[] {
         return Object.freeze(
             [...transaction.outbox.values()]
-                .map((bytes) => MaterializationOutboxEntry.decode(bytes.slice()))
+                .map((bytes) => MaterializationOutboxEntry.decode(bytes))
                 .filter((entry) => entry.rolloutId.equals(rolloutId))
                 .sort((left, right) => compareText(left.id.value, right.id.value))
         );
@@ -639,7 +639,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
     private validateClosure(): void {
         this.transaction((transaction) => {
             for (const bytes of transaction.rollouts.values()) {
-                const rollout = MaterializationRollout.decode(bytes.slice());
+                const rollout = MaterializationRollout.decode(bytes);
                 const deployment = this.loadDeployment(
                     transaction,
                     rollout.plan.origin.deploymentId
@@ -663,7 +663,7 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
                 }
             }
             for (const bytes of transaction.outbox.values()) {
-                const entry = MaterializationOutboxEntry.decode(bytes.slice());
+                const entry = MaterializationOutboxEntry.decode(bytes);
                 if (this.loadRollout(transaction, entry.rolloutId) === undefined) {
                     throw corruptDefinition("Stored outbox entry has no rollout");
                 }

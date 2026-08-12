@@ -1528,6 +1528,38 @@
       "proof": "requireCanonicalId is module-private and each of its eleven call sites is the body of a TextId subclass constructor, reached only after super(value, subject) has returned. TextId's constructor rejects value.length === 0 before it returns, throwing \"<subject> must contain between 1 and 256 characters\", so control cannot arrive here holding the empty string. The one indirect caller, requireFacetRef, is itself invoked from FacetRef's constructor after that same super call. Every other string this disjunct would catch is all-whitespace and nonempty, and for those value !== value.trim() is already true, so the disjunction selects the throw either way. Replacing the length test with false therefore decides identically on every value that can reach it, while the complementary mutant on the second disjunct is killed by the untrimmed cases in test/facets/id.test.ts.",
       "replacement": "false",
       "symbol": "requireCanonicalId"
+    },
+    {
+      "file": "src/definition/validator.ts",
+      "mutated": "release === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This lookup runs only after exactLockedReleases has required PackageLock.encode(resolved) to equal PackageLock.encode(lock) byte for byte, where resolved is resolvePackageLock over a MetadataSnapshot built from the same releases array being searched. PackagePin.toData emits all four identifying fields (codeDigest, id, manifestDigest, version) and PackageLock.toData emits every pin, so equal bytes mean equal pins field for field, in the same order that both constructors sort into. Every pin in resolved was built as new PackagePin(release.id, release.version, release.manifestDigest, release.codeDigest) from a release the resolver selected out of that snapshot, and matchesPin compares exactly those four fields. So for every pin here a matching release exists in snapshot.releases and find cannot return undefined. Replacing the test with false selects the same branch every time; the complementary true mutant, which would reject every lock, is killed.",
+      "replacement": "false",
+      "symbol": "exactLockedReleases"
+    },
+    {
+      "file": "src/definition/validator.ts",
+      "mutated": "{ throw invalidDefinition(`Package metadata does not match lock pin ${pin.id.value}`); }",
+      "mutator": "BlockStatement",
+      "proof": "The block is the body of the release === undefined guard, and that condition is constantly false for the reason recorded against the condition: the byte equality check above it has already forced lock.packages to be the pins resolvePackageLock built out of this very snapshot, so the find preceding this guard always returns a release. A block that never executes contributes no throw, no value and no effect to any observation a caller could make, so emptying it leaves every run of exactLockedReleases producing the identical frozen release list. The lock mismatches this function does reject are rejected earlier, by the encode comparison, and those mutants are killed.",
+      "replacement": "{}",
+      "symbol": "exactLockedReleases"
+    },
+    {
+      "file": "src/definition/validator.ts",
+      "mutated": "`Package metadata does not match lock pin ${pin.id.value}`",
+      "mutator": "StringLiteral",
+      "proof": "The template is the message argument of an invalidDefinition constructed only inside the unreachable pin-lookup guard. Because that guard's condition is constantly false, the error is never constructed and the template is never evaluated, so replacing it with the empty template changes no message, no interpolation of pin.id.value, and no value any assertion could read. This is stronger than the message-text tolerance the classifier grants reachable throw sites: the string is not merely unasserted, it cannot be produced at all, and a test written to pin it would be asserting on an error the module has no path to raise.",
+      "replacement": "``",
+      "symbol": "exactLockedReleases"
+    },
+    {
+      "file": "src/definition/validator.ts",
+      "mutated": "left.byteLength === right.byteLength",
+      "mutator": "ConditionalExpression",
+      "proof": "Dropping the length test changes the result only when left is a strict byte prefix of right: Uint8Array.every walks left's indices alone, so a longer left still meets an undefined right[i] and yields false, and equal lengths make the test vacuous. Both call sites compare canonical JSON encodings of objects. exactLockedReleases compares two PackageLock record envelopes, and validateOwnerDeclarations compares encodeCanonicalJson of a codec's canonicalization against encodeCanonicalJson of a Blueprint declaration, which Blueprint stores as a FacetDataMap. A canonical encoding of an object ends with the closing brace of its top-level value and carries nothing after it, so if the shorter run were a prefix of the longer, the longer would have to continue past its own top-level value. Nothing encodeCanonicalJson emits can. No input can therefore reach the case the mutant changes.",
+      "replacement": "true",
+      "symbol": "bytesEqual"
     }
   ]
 }

@@ -1058,6 +1058,48 @@ describe("Blueprint validation", () => {
         ]);
     });
 
+    test("canonicalizes placement order from unordered pins and manifests", { tags: "p0" }, () => {
+        // Placement order feeds the attestation's placement digest, so it has to be a
+        // property of the content rather than of the order a caller happened to supply.
+        const zeta = releaseWith(
+            "zeta.pkg",
+            [
+                facetManifest("zeta.z", "1.0.0"),
+                facetManifest("zeta.a", "2.0.0"),
+                facetManifest("zeta.a", "1.0.0")
+            ],
+            "zeta-code"
+        );
+        const alpha = releaseWith(
+            "alpha.pkg",
+            [facetManifest("alpha.only", "1.0.0")],
+            "alpha-code"
+        );
+
+        const expected = [
+            ["alpha.pkg", "alpha.only", "1.0.0"],
+            ["zeta.pkg", "zeta.a", "1.0.0"],
+            ["zeta.pkg", "zeta.a", "2.0.0"],
+            ["zeta.pkg", "zeta.z", "1.0.0"]
+        ];
+        for (const order of [
+            [zeta, alpha],
+            [alpha, zeta]
+        ]) {
+            const validated = validateBlueprint(
+                blueprint(order.map((release) => install(release.id.value, "^1"))),
+                { lock: packageLock(order), releases: order, schemaValidator }
+            );
+            expect(
+                validated.placements.map((placement) => [
+                    placement.packageId,
+                    placement.facetId,
+                    placement.facetVersion
+                ])
+            ).toEqual(expected);
+        }
+    });
+
     test("orders declarations by contributor ahead of contribution index", { tags: "p1" }, () => {
         const entries = new SlotDeclaration(
             new SlotName("shared.entries"),

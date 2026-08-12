@@ -157,9 +157,7 @@ export class MemoryMcpDiscoveryRegistrationStore extends McpDiscoveryRegistratio
     }
 
     public load(): McpDiscoveryRegistration | undefined {
-        return this.#bytes === undefined
-            ? undefined
-            : McpDiscoveryRegistration.decode(this.#bytes.slice());
+        return this.#bytes === undefined ? undefined : McpDiscoveryRegistration.decode(this.#bytes);
     }
 
     public save(registration: McpDiscoveryRegistration): void {
