@@ -78,7 +78,10 @@ export class DerivedMediationIdentities implements MediatedInvocationIdentityPor
                 },
                 requestKey: request.requestKey.value,
                 scope: this.scope,
-                shape: request.shape.kind === "single" ? { kind: "single" } : { ...request.shape }
+                shape:
+                    request.shape.kind === "single"
+                        ? { kind: "single" }
+                        : { itemCount: request.shape.itemCount, kind: "batch" }
             })
         );
     }
