@@ -1301,6 +1301,32 @@ describe("AuthorityMutationService revocation over a divergent Grant graph", () 
         expect(divergence.grants.records.get(second.id.value)?.isLive).toBe(false);
         expect(divergence.grants.reads).toBeLessThan(divergence.grants.budget);
     });
+
+    test("reads the Grant lineage only for a revocation that has roots", { tags: "p1" }, () => {
+        const { store, service } = fixture();
+        const reader = role("lineage-reader");
+        service.createRole(reader);
+        const divergence = new AuthorityDivergence();
+        const counted = new AuthorityMutationService(
+            new DivergentAuthorityStore(store, divergence)
+        );
+
+        counted.assignMembership(
+            new Membership(
+                new MembershipId("lineage-member"),
+                workspaceScope,
+                ownerSubject(),
+                reader.name,
+                "active",
+                Revision.initial()
+            )
+        );
+
+        // Materializing a Membership for the first time replaces no Grant, so the
+        // revocation closure has nothing to walk down from. Reading the lineage anyway
+        // would make every materialization pay for the whole Grant table.
+        expect(divergence.grants.reads).toBe(1);
+    });
 });
 
 function attenuating(grant: Grant, parent: GrantId): Grant {
