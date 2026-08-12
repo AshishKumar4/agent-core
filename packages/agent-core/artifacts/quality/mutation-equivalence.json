@@ -184,6 +184,62 @@
       "proof": "This disjunct is subsumed by `!Number.isSafeInteger(epoch)` two lines below it, which is true for every value that is not a number because Number.isSafeInteger coerces nothing. Any epoch the removed test would have rejected is rejected by the surviving one, and the codec.invalid error raised carries the same `${name} is malformed` text either way, so a caller sees an identical failure. Where epoch is a number the disjunct is false and contributes nothing. It is written for the narrowing: under strict typing epoch is JsonValue | undefined, and both `epoch < 0` and the epoch field of the frozen token that is returned require it to be a number, which a boolean-returning helper cannot establish. The mutant's extra evaluations are pure.",
       "replacement": "false",
       "symbol": "leaseTokenFromData"
+    },
+    {
+      "file": "src/agents/runs/store.ts",
+      "mutated": "right !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This conjunct guards the else arm, where left is known to be a ContentRef, and forcing it true leaves `left.equals(right)`. The two spellings can differ only when right is undefined, and there TextId.equals — which ContentRef inherits and does not override — answers false rather than throwing: its first test is `typeof other === \"object\"`, and typeof undefined is \"undefined\", so it returns before touching a private field. The original returns false by short circuit and the mutant returns the same false from the call, on every pair of arguments. Both operands are already-bound locals, equals is pure and total, and the function's only caller compares a commit's tree checkpoint with a checkpoint's tree inside a boolean chain, so there is nothing else for a difference to leak through. The mutants replacing the same test with its negation, and the whole conjunction with true or false, are all killed by the four tree pairings.",
+      "replacement": "true",
+      "symbol": "optionalContentRefsEqual"
+    },
+    {
+      "file": "src/agents/runs/store.ts",
+      "mutated": "commit.writer.kind === \"turn\"",
+      "mutator": "ConditionalExpression",
+      "proof": "The conjunct before this one has already established that the commit's kind is \"checkpoint\" or \"result\", and RunCommit's validateClosedShape refuses either of those without a turn writer: neither kind is handled by the root, merge, invocation, eventDelivery, undo or migration branches, so both fall through to the final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". That check runs on construction, and RunCommitCodec decodes through RunCommit.fromData, which builds through the same constructor, so every commit listCommits can yield satisfies it. The conjunct is therefore constantly true wherever it is evaluated, and it is written because the three token comparisons after it read commit.writer.token, which the checker only permits once the writer union has been narrowed. The mutant replacing the same comparison with !== is killed, as is the string mutant emptying \"turn\".",
+      "replacement": "true",
+      "symbol": "RunRepository.loadExecutionScope"
+    },
+    {
+      "file": "src/agents/runs/store.ts",
+      "mutated": "turn.status.kind !== \"running\"",
+      "mutator": "ConditionalExpression",
+      "proof": "By the time this disjunct is evaluated the Turn has already been held to the token: the second statement of the method calls turn.requireToken(token, now), which throws a lease.invalid AgentCoreError unless the status is running and the lease admits the token. The local is a frozen record read once, and nothing between the two points can change it, so the status is \"running\" here on every path that reaches the disjunct and it is constantly false. Removing it therefore selects the same branch always. It reads as the join restating one of its own preconditions rather than as an untested rule, and the complementary mutant that forces it true — which would refuse every scope — is killed by the tests that load a scope successfully.",
+      "replacement": "false",
+      "symbol": "RunRepository.loadExecutionScope"
+    },
+    {
+      "file": "src/agents/runs/store.ts",
+      "mutated": "checkpointCommit === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "checkpointCommit is bound by a conditional whose else arm is requireStored(this.loadCommit(tx, checkpoint.commit), ...), and requireStored throws a turn.invalid-state error rather than returning undefined. Its then arm yields undefined only when checkpoint is undefined, and this disjunct sits inside `checkpoint !== undefined && (...)`, so control cannot arrive here with the then arm's value. The variable is therefore always a RunCommit at this point and the test is constantly false. It is written to narrow RunCommit | undefined for the six clauses after it that read checkpointCommit's fields directly. The missing-record test proves the throw it is standing in for is the one that actually fires: deleting the checkpoint commit row is refused by requireStored with its own message, never by the scope mismatch this disjunct would raise.",
+      "replacement": "false",
+      "symbol": "RunRepository.loadExecutionScope"
+    },
+    {
+      "file": "src/agents/runs/store.ts",
+      "mutated": "checkpointCommit.subjectTurn?.equals",
+      "mutator": "OptionalChaining",
+      "proof": "The optional call can only differ from a plain one if subjectTurn is undefined here, and it cannot be. Two clauses earlier the chain short-circuits unless checkpointCommit.kind is \"checkpoint\", and a commit of that kind reaches validateClosedShape's final block, which throws unless subjectTurn is defined; RunCommitCodec decodes through RunCommit.fromData and so through that constructor, so no stored commit escapes it. Reaching this clause therefore means subjectTurn is a TurnId and both spellings call TurnId.equals with the same receiver and argument. The chain is written because the declared type stays TurnId | undefined for the whole class, not because this site can see an absent one. A test could only tell the two apart by producing a checkpoint commit without a subject Turn, which the record's own constructor makes unconstructible.",
+      "replacement": "checkpointCommit.subjectTurn.equals",
+      "symbol": "RunRepository.loadExecutionScope"
+    },
+    {
+      "file": "src/agents/runs/store.ts",
+      "mutated": "checkpointCommit.content?.equals",
+      "mutator": "OptionalChaining",
+      "proof": "Control reaches this clause only after the kind, Run, branch, subject Turn and pins clauses have all been false, and the kind clause being false means the commit's kind is \"checkpoint\". validateClosedShape sends that kind to its final block, which throws \"Turn-authored commit fields are invalid\" unless content is defined, and every stored commit passes through it because the codec decodes through the constructor. So content is a ContentRef whenever this expression is evaluated, the optional call and the plain call invoke the same ContentRef.equals, and the guard against undefined is a type-level obligation rather than a runtime possibility. The tree-checkpoint comparison one line below is the genuinely optional one, and its mutants are killed by the four pairings; this one names a field the commit's shape rules require.",
+      "replacement": "checkpointCommit.content.equals",
+      "symbol": "RunRepository.loadExecutionScope"
+    },
+    {
+      "file": "src/agents/runs/store.ts",
+      "mutated": "commit.parents[ordinal]?.value",
+      "mutator": "OptionalChaining",
+      "proof": "The index cannot be out of range. The disjunct before this one returns early unless edges.length equals commit.parents.length, and ordinal is the callback index supplied by edges.some, so it runs from zero to edges.length - 1 and every position it names exists in parents. RunCommit's constructor builds parents with Object.freeze([...init.parents]), a dense copy of a spread, so no position inside that range holds a hole either. The optional chain is written because noUncheckedIndexedAccess types an element access as possibly undefined; at runtime it never short-circuits, and both spellings read the same RunCommitId's value. The tests that prune a parent edge, tamper with its value, and shift its ordinal all exercise this comparison and pin the error it raises.",
+      "replacement": "commit.parents[ordinal].value",
+      "symbol": "RunRepository.validateParents"
     }
   ]
 }
