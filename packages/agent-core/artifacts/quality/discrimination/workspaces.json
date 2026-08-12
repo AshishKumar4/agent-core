@@ -1,16 +1,16 @@
 {
   "edition": "1.0.0",
   "area": "workspaces",
-  "measuredAt": "17d748967008c0a143a55146c939803875a08d42",
-  "fingerprint": "sha256:ab476bb6de94108283bf8eb3e7779a217a9cf3a180ca1b16063193bb1572e18a",
+  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
+  "fingerprint": "sha256:c1d2f9fc6dd113ba7778a333efcca49a1cddaf151052fd575df395403b43da8d",
   "files": {
     "src/workspaces/codec.ts": {
-      "mutants": 132,
-      "sha256": "sha256:091278fe215eae3de9da7bc273da799c54285d75f6e74b40e6de7067ee1ff50e"
+      "mutants": 124,
+      "sha256": "sha256:1d0e455a742d0f76ffbfaa9522fccd7c8c7cf40115399187bc6a5b8be2aff796"
     },
     "src/workspaces/event.ts": {
       "mutants": 227,
-      "sha256": "sha256:6b2124ce1d2d860de024ef2b633387425549d2b9017e33e6c98cb782446cacb6"
+      "sha256": "sha256:2b733ef8e10973f071a0dac71bbfac194b3ac2a449f504486182073cd9f36ade"
     },
     "src/workspaces/id.ts": {
       "mutants": 25,
@@ -38,15 +38,15 @@
     },
     "src/workspaces/policy.ts": {
       "mutants": 275,
-      "sha256": "sha256:e0aff251cd5d1077a227c1a59ecb8ffb0def6b42e9f8d008a4ec2c8c22a80e27"
+      "sha256": "sha256:27bfb418b899cef02c00b121817d76ba4c7cbbd3302713625e0a174bcf190db2"
     },
     "src/workspaces/retention.ts": {
       "mutants": 71,
-      "sha256": "sha256:fd0ea882d7977fb80bc27176068eca13bfdb7e5926c673dfe3259bc0beae5027"
+      "sha256": "sha256:df55515dcea293c583ca6198040da47fc713164977e7c9ae5d7b18cbbe0b28e2"
     },
     "src/workspaces/route.ts": {
       "mutants": 381,
-      "sha256": "sha256:222addce5724dd354673b68548243ceb532ff6582df8e8a8bd4db45e63730f96"
+      "sha256": "sha256:da2cd21465b4c7d8e5f47bc71d86302328af5f152a189f77c44f9476fc2cc01e"
     },
     "src/workspaces/source-protocol.ts": {
       "mutants": 281,
@@ -54,15 +54,15 @@
     },
     "src/workspaces/subscription.ts": {
       "mutants": 75,
-      "sha256": "sha256:96ad4784a5720203614cf92f93aeec1ec7000a706a61e6043e9baabdf4cf3036"
+      "sha256": "sha256:a5e7d386208512bfaa5270f2255de28b372f691217d716822a45dcef72625dd7"
     },
     "src/workspaces/target-protocol.ts": {
       "mutants": 102,
       "sha256": "sha256:c17aff9407adf97949112d94e531481dd1f58511d9794e0be07d1b9950291540"
     },
     "src/workspaces/value.ts": {
-      "mutants": 124,
-      "sha256": "sha256:691d5a28870af52184993f3deeb2c90a06d908fd10bddc91543dde386b4de8c3"
+      "mutants": 116,
+      "sha256": "sha256:e8202f88663af1a1727806284c1eeea57f97645738c278a7252ae982956303df"
     },
     "src/workspaces/view-replay.ts": {
       "mutants": 75,
@@ -70,194 +70,210 @@
     },
     "src/workspaces/view.ts": {
       "mutants": 134,
-      "sha256": "sha256:381169a3c0228647b6751f2a0302327e47e4339c3c059b6e01d44b0bc7c33ac7"
+      "sha256": "sha256:7320ad0b86eb8d175b1b2105e0d776c1de6451e39c295c760b75a679b53bc2b6"
     }
   },
   "killed": {
     "test/events/persistence-memory.test.ts#memory workspace persistence binds retained content to the exact durable record atomically": {
       "src/workspaces/persistence.ts": [
+        719,
         882,
         883,
         888
-      ],
-      "src/workspaces/retention.ts": [
-        82,
-        99
       ]
     },
     "test/events/persistence-memory.test.ts#memory workspace persistence enforces subscription and View compare-and-set revisions": {
       "src/workspaces/persistence.ts": [
         184,
-        868,
-        893
-      ],
-      "src/workspaces/subscription.ts": [
-        109,
-        110
+        194
       ]
     },
     "test/events/persistence-memory.test.ts#memory workspace persistence makes route projection and delivery decisions terminal": {
       "src/workspaces/persistence.ts": [
-        204,
-        312,
+        315,
+        347,
+        359,
+        376,
+        384,
         668
       ]
     },
     "test/events/persistence-memory.test.ts#memory workspace persistence restores Events, routes, Views, and deltas after restart": {
       "src/workspaces/persistence.ts": [
-        303,
-        658
+        658,
+        872
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt": {
       "src/workspaces/codec.ts": [
-        14,
-        15,
-        22,
-        28
+        32
       ],
       "src/workspaces/event.ts": [
+        80,
+        81,
+        83,
+        84,
         85,
-        97,
-        141,
-        198,
-        200,
+        86,
+        87,
+        90,
+        92,
         221,
-        231,
         234,
+        235,
         242
       ],
       "src/workspaces/persistence.ts": [
         90,
+        111,
         122,
-        123
+        123,
+        632,
+        645
       ],
       "src/workspaces/retention.ts": [
-        36,
+        16,
+        35,
         99,
-        103
+        135,
+        172
       ],
       "src/workspaces/value.ts": [
-        23,
-        77
+        24,
+        78,
+        98,
+        106,
+        164
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-TASK-EVENT] replays one mediated task source Event across profile and SQLite restart": {
       "src/workspaces/persistence.ts": [
-        88,
         90,
         92,
-        626
+        102,
+        717,
+        731
       ]
     },
     "test/operations/command-routing.test.ts#Command invocation routing routes an invocation only when the derived Subscription accepts the Event trust": {
       "src/workspaces/event.ts": [
-        191,
+        68,
+        72,
+        144,
+        157,
         231,
         232,
         233,
-        235,
         242
       ],
       "src/workspaces/memory.ts": [
-        28,
         29,
         32,
         33,
         34,
         37,
-        40,
+        46,
         47,
         50,
+        51,
         56,
-        59,
-        79,
-        108
+        108,
+        109,
+        119,
+        124,
+        141,
+        150
       ],
       "src/workspaces/origin.ts": [
-        36,
-        95,
-        111
+        35,
+        62,
+        67,
+        79
       ],
       "src/workspaces/persistence.ts": [
-        221,
-        248,
-        269
+        627,
+        863,
+        864,
+        882
+      ],
+      "src/workspaces/policy.ts": [
+        203,
+        208,
+        224,
+        229
+      ],
+      "src/workspaces/retention.ts": [
+        132,
+        171
       ],
       "src/workspaces/route.ts": [
-        110,
-        112,
-        116,
-        121,
-        129,
-        176,
-        209,
-        294,
-        541,
-        545,
+        122,
+        148,
         592
       ],
       "src/workspaces/source-protocol.ts": [
-        78,
-        162,
-        183,
+        70,
+        148,
         195,
         232,
-        245,
-        571,
-        572
+        571
       ],
       "src/workspaces/subscription.ts": [
-        119,
-        132
+        118,
+        119
       ]
     },
     "test/operations/command-routing.test.ts#Command invocation routing routes exactly one reservation per invocation and dedupes a redelivered Event": {
       "src/workspaces/event.ts": [
         106,
-        229,
         241
-      ],
-      "src/workspaces/memory.ts": [
-        80
       ],
       "src/workspaces/persistence.ts": [
         228,
-        281,
-        294,
+        264,
+        279,
         296,
-        604
+        856,
+        857
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory persistence corruption coverage covers orphan listing, sort callbacks, multi-delta ordering, and every CAS operand": {
       "src/workspaces/persistence.ts": [
         158,
         160,
+        184,
+        446,
+        473,
+        548,
         551
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory persistence corruption coverage rejects a mismatched ContentRetention codec identity during compaction": {
       "src/workspaces/persistence.ts": [
-        561,
-        563,
-        570,
+        430,
+        557,
         677,
         678,
+        682,
         683
       ],
       "src/workspaces/retention.ts": [
+        25,
         175
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory persistence corruption coverage rejects codec identity mismatches for every durable workspace record": {
       "src/workspaces/persistence.ts": [
         79,
+        80,
+        303,
         304
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory persistence corruption coverage rejects every missing authoritative index and pointer target": {
       "src/workspaces/persistence.ts": [
-        218,
+        216,
+        375,
         377,
         719,
         901,
@@ -273,7 +289,6 @@
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory View replay and retention coverage [C13-ADV-MISSING-CROSS-TENANT-BINDING] rejects retention verification, owner, tenant, binding, and exact-coverage failures": {
       "src/workspaces/persistence.ts": [
-        639,
         645,
         647,
         810,
@@ -291,8 +306,7 @@
         89,
         90,
         99,
-        101,
-        119
+        101
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory View replay and retention coverage replays restart/unknown-ack, current, ahead, and absent-surface paths": {
@@ -314,7 +328,8 @@
         100,
         104,
         117,
-        119
+        119,
+        131
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory View replay and retention coverage requires exact View and delta retention ownership across every field": {
@@ -323,35 +338,36 @@
         527
       ],
       "src/workspaces/view-replay.ts": [
-        129,
         131,
         132,
         133,
         136,
-        138,
-        141
+        138
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#memory View replay and retention coverage validates compaction floors and releases exact obsolete View and delta retentions": {
       "src/workspaces/persistence.ts": [
-        452,
+        462,
+        504,
         510,
         520,
         561,
         563,
-        576,
-        587,
-        589,
+        568,
+        681,
         686,
         692,
         693,
+        697,
         698,
-        825,
-        856
+        809,
+        819,
+        825
       ],
       "src/workspaces/retention.ts": [
+        28,
+        36,
         95,
-        175,
         176
       ],
       "src/workspaces/view-replay.ts": [
@@ -370,25 +386,30 @@
       "src/workspaces/memory.ts": [
         29,
         30,
+        40,
         128
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#workspace storage parity memory and SQLite expose the same complete record/index/pointer trace": {
       "src/workspaces/codec.ts": [
         135,
-        136
+        145
       ],
       "src/workspaces/event.ts": [
-        52,
         67,
         73,
+        97,
+        129,
         231,
         232
       ],
+      "src/workspaces/id.ts": [
+        5
+      ],
       "src/workspaces/memory.ts": [
-        32,
+        29,
+        33,
         34,
-        47,
         51,
         53,
         59,
@@ -398,12 +419,12 @@
         73,
         75,
         78,
+        79,
         80,
         83,
         86,
-        88,
+        92,
         95,
-        96,
         97,
         103,
         108,
@@ -411,14 +432,10 @@
         110,
         112,
         116,
-        119,
         120,
         123,
-        124,
-        137,
-        141,
+        138,
         143,
-        150,
         151
       ],
       "src/workspaces/persistence.ts": [
@@ -427,160 +444,197 @@
         91,
         92,
         111,
-        116,
         121,
         133,
         134,
-        141,
-        193,
+        147,
+        154,
+        177,
+        191,
         208,
         228,
         248,
         257,
-        280,
-        319,
+        270,
+        312,
         332,
-        352,
-        377,
+        347,
+        365,
+        380,
         384,
         391,
+        403,
         417,
+        418,
+        441,
+        442,
         485,
-        545,
+        528,
+        531,
         549,
         655,
         658,
         665,
+        668,
         707,
         709,
-        717,
         719,
-        731,
+        730,
         752,
         754,
         760,
         762,
         763,
+        764,
         771,
-        772,
+        797,
+        835,
         838,
         841,
         844,
         847,
         848,
         850,
+        851,
         853,
-        863,
-        864,
+        854,
+        867,
+        868,
         871,
-        872,
         884,
+        893,
         894
       ],
       "src/workspaces/retention.ts": [
         19,
         22,
-        35,
         36,
         81,
+        82,
         99,
         102,
+        103,
         104,
         105,
         106,
+        107,
         109,
-        145,
+        148,
+        160,
         173,
         174
       ],
       "src/workspaces/route.ts": [
         60,
+        61,
+        80,
         84,
+        85,
+        86,
         87,
+        88,
         89,
+        90,
+        91,
         92,
+        93,
         94,
+        95,
+        96,
         97,
+        98,
+        99,
         103,
+        104,
+        105,
         106,
-        370,
+        108,
+        110,
+        112,
+        114,
+        115,
+        118,
+        154,
         378,
-        381,
         382,
         386,
+        398,
+        439,
         458,
-        469,
-        509
+        459,
+        472,
+        531,
+        537
       ],
       "src/workspaces/subscription.ts": [
-        38,
-        56
+        119,
+        127
+      ],
+      "src/workspaces/value.ts": [
+        108,
+        109,
+        110,
+        114
       ],
       "src/workspaces/view.ts": [
-        51,
-        59,
+        50,
         85,
         86,
         95,
         97,
-        98,
         100,
         101,
+        102,
         103,
+        129,
         156,
+        157,
+        166,
         170,
-        174,
+        173,
+        175,
         176,
-        177,
         178,
-        201,
-        218,
-        224,
+        217,
         226,
         227,
-        233,
-        237,
-        247,
         251,
         253,
         254,
-        255,
         257,
         258,
-        259
+        275
       ]
     },
     "test/substrates/sqlite/events-coverage.test.ts#workspace storage parity memory reconciles a committed write after an unknown acknowledgement and restart": {
       "src/workspaces/persistence.ts": [
+        88,
         89,
         897,
         898
       ]
     },
-    "test/substrates/sqlite/events-coverage.test.ts#workspace storage parity memory rolls back every Event write boundary": {
-      "src/workspaces/persistence.ts": [
-        102
+    "test/substrates/sqlite/events-coverage.test.ts#workspace storage parity memory rolls back every View delta write boundary": {
+      "src/workspaces/view.ts": [
+        259,
+        261
       ]
     },
     "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence enforces subscription and View compare-and-set revisions": {
       "src/workspaces/persistence.ts": [
+        417,
+        441,
         442
       ]
     },
     "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence makes route projection and delivery decisions terminal": {
       "src/workspaces/persistence.ts": [
-        399
+        352,
+        398
       ]
     },
     "test/workspaces/codec-id-mutations.test.ts#ContentRetentionReference mutation coverage decode reports each tampered field with its exact subject label": {
-      "src/workspaces/codec.ts": [
-        15,
-        16,
-        135,
-        136
-      ],
       "src/workspaces/retention.ts": [
-        25,
         102,
         104,
         105,
@@ -588,22 +642,21 @@
         109,
         125,
         142,
-        148,
         151,
-        160
+        154
       ]
     },
     "test/workspaces/codec-id-mutations.test.ts#InboxEventReference mutation coverage decode reports each tampered field with its exact subject label": {
       "src/workspaces/inbox.ts": [
+        20,
         34,
+        37,
         38,
         39,
         40,
         55,
-        61,
         63,
-        64,
-        79,
+        72,
         82,
         85
       ]
@@ -612,49 +665,44 @@
       "src/workspaces/inbox.ts": [
         63,
         66,
-        69
+        67
       ]
     },
     "test/workspaces/codec-id-mutations.test.ts#Subscription mutation coverage decode reports each tampered field with its exact subject label": {
-      "src/workspaces/codec.ts": [
-        57
-      ],
       "src/workspaces/policy.ts": [
         112
       ],
       "src/workspaces/subscription.ts": [
+        38,
+        56,
+        59,
         62,
         63,
         65,
         67,
-        78
+        78,
+        82
       ]
     },
     "test/workspaces/codec-id-mutations.test.ts#workspace codec mutation coverage decodeContent reports its subject in reference and digest errors": {
       "src/workspaces/codec.ts": [
-        28,
-        86,
-        87
+        96,
+        97
       ]
     },
     "test/workspaces/codec-id-mutations.test.ts#workspace codec mutation coverage decodeOptionalPrincipalRef reports its subject in tenant and ID errors": {
       "src/workspaces/codec.ts": [
-        116,
-        117
-      ]
-    },
-    "test/workspaces/codec-id-mutations.test.ts#workspace codec mutation coverage requireInteger accepts zero and rejects non-natural encodings exactly": {
-      "src/workspaces/codec.ts": [
-        50
+        126,
+        127
       ]
     },
     "test/workspaces/codec-id-mutations.test.ts#workspace ID mutation coverage workspace ID classes report their exact subjects in constructor errors": {
       "src/workspaces/id.ts": [
+        5,
         8,
         15,
         22,
         29,
-        35,
         36
       ]
     },
@@ -665,22 +713,14 @@
         161
       ]
     },
-    "test/workspaces/conformance.test.ts#[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge": {
-      "src/workspaces/route.ts": [
-        458,
-        460
+    "test/workspaces/conformance.test.ts#[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event intent": {
+      "src/workspaces/origin.ts": [
+        50
       ]
     },
-    "test/workspaces/conformance.test.ts#[C13-ROUTE-PROJECTION-DIGEST] projection binds exact content digest": {
-      "src/workspaces/route.ts": [
-        281
-      ]
-    },
-    "test/workspaces/conformance.test.ts#[C13-ROUTE-STABLE-INVOCATION] reservation codec preserves InvocationId": {
-      "src/workspaces/route.ts": [
-        544,
-        545,
-        550
+    "test/workspaces/conformance.test.ts#duplicate route storage identity is rejected": {
+      "src/workspaces/memory.ts": [
+        88
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#inbox protocol outcomes rejects reference turn and epoch mismatches before calling the run port": {
@@ -697,89 +737,128 @@
         23
       ],
       "src/workspaces/inbox.ts": [
-        63,
-        64
+        64,
+        66,
+        88
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#policy branch coverage derives all dedupe modes and rejects unstable inputs": {
       "src/workspaces/policy.ts": [
+        71,
+        72,
         73,
+        74,
+        75,
         77,
+        78,
+        79,
         82,
-        84
+        83,
+        84,
+        85,
+        87
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#policy branch coverage derives every trust tier and rejects every partial elevation": {
       "src/workspaces/policy.ts": [
+        15,
         16,
+        17,
         20,
+        22,
+        24,
+        27,
         28,
+        29,
         33,
+        34,
         237
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#policy branch coverage distinguishes exact and wildcard kind, facet, actor, and trust matching": {
       "src/workspaces/policy.ts": [
+        42,
         44,
+        45,
+        101,
         102,
+        105,
         106
       ],
       "src/workspaces/value.ts": [
-        19,
-        75,
-        172
+        20,
+        76,
+        164,
+        175
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#policy branch coverage maps roots, objects, arrays, append, replace, escapes, and prototype names": {
       "src/workspaces/policy.ts": [
         51,
+        55,
+        57,
+        112,
+        113,
         121,
         124,
-        142,
+        126,
+        127,
+        129,
+        131,
+        147,
         150,
+        151,
         152,
         156,
         160,
-        164,
-        166,
+        167,
         170,
         178,
         179,
         182,
-        197,
+        194,
         204,
+        205,
         208,
         211,
         212,
         216,
         220,
         221,
-        228
+        228,
+        229
       ],
       "src/workspaces/value.ts": [
-        163,
-        167
+        159
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#policy branch coverage rejects overlap, malformed pointers, missing values, sparse arrays, and scalar traversal": {
       "src/workspaces/policy.ts": [
+        111,
+        113,
         114,
-        131,
+        120,
+        121,
+        129,
+        133,
         152,
         160,
         212,
         213,
         216,
-        221
+        221,
+        233
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#route records and authentication authenticates only exact envelopes and rejects source assertions, bad evidence, and forgeries": {
       "src/workspaces/codec.ts": [
-        38
+        47,
+        48
       ],
       "src/workspaces/route.ts": [
         233,
         245,
+        248,
         250,
         253,
         254,
@@ -787,39 +866,36 @@
         260,
         262,
         439,
-        458,
+        456,
+        460,
         461,
+        469,
         472,
         475,
         479,
-        480,
-        518,
         528,
         529,
-        530,
-        531
+        530
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#route records and authentication covers delivered and rejected states, reasons, equality, constructors, and codecs": {
       "src/workspaces/route.ts": [
+        319,
         323,
-        330,
         331,
         345,
         346,
         365,
-        366,
         374,
         378,
+        381,
         382,
         383,
-        385,
         386,
         389,
         391,
         394,
-        398,
-        411,
+        407,
         419,
         422
       ]
@@ -834,8 +910,8 @@
     },
     "test/workspaces/coverage-protocols.test.ts#route records and authentication rejects malformed reservation authority, tenant relation, and trust codecs": {
       "src/workspaces/codec.ts": [
-        21,
-        22
+        31,
+        32
       ],
       "src/workspaces/route.ts": [
         545,
@@ -850,35 +926,24 @@
       "src/workspaces/route.ts": [
         230,
         237,
-        274,
-        280,
         281,
         282,
-        284,
         297,
         304,
         308,
-        310
+        310,
+        314
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#route records and authentication validates reservation invariants and round-trips authority, tenant, trust, and initiator variants": {
       "src/workspaces/codec.ts": [
-        27,
-        28,
-        69,
-        77,
-        87,
-        103,
-        114
+        22,
+        23,
+        32,
+        37,
+        38
       ],
       "src/workspaces/route.ts": [
-        61,
-        86,
-        90,
-        95,
-        99,
-        105,
-        108,
         148,
         149,
         151,
@@ -886,12 +951,12 @@
         154,
         155,
         158,
-        159,
         167,
-        173,
-        179,
+        170,
+        176,
+        185,
         188,
-        197,
+        194,
         200,
         203,
         206,
@@ -901,11 +966,12 @@
         491,
         498,
         502,
-        537,
         538,
         543,
+        544,
         545,
         548,
+        550,
         554,
         555,
         556,
@@ -925,6 +991,7 @@
         580,
         586,
         587,
+        590,
         592,
         593,
         594,
@@ -933,22 +1000,22 @@
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity": {
+      "src/workspaces/event.ts": [
+        233
+      ],
       "src/workspaces/persistence.ts": [
-        264,
-        279,
-        607,
-        615
+        294
       ],
       "src/workspaces/source-protocol.ts": [
         191,
         192,
         195,
         198,
-        242,
         302,
         318,
-        324,
+        329,
         426,
+        470,
         588,
         590
       ],
@@ -959,35 +1026,28 @@
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents": {
       "src/workspaces/codec.ts": [
-        50,
-        57
-      ],
-      "src/workspaces/event.ts": [
-        157
+        59,
+        60
       ],
       "src/workspaces/origin.ts": [
-        50,
         51,
         62,
         63,
-        67,
-        79,
-        91,
         95,
-        155,
+        139,
         167
       ],
       "src/workspaces/persistence.ts": [
-        221,
-        627
+        221
       ],
       "src/workspaces/retention.ts": [
-        121
+        131,
+        172
       ],
       "src/workspaces/source-protocol.ts": [
-        148,
         152,
         153,
+        162,
         171,
         175,
         183,
@@ -999,17 +1059,16 @@
         45,
         52,
         56,
-        59,
-        60,
         61,
-        62,
-        64,
         94,
+        119,
+        125,
         126,
-        127
+        127,
+        132
       ],
       "src/workspaces/value.ts": [
-        77
+        78
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ROUTE-CROSS-TENANT-BINDING] accepts an unchanged cross-tenant route and detects every cross relation change": {
@@ -1030,44 +1089,54 @@
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage prepares only matches, uses logical keys for no-dedupe, and rejects foreign snapshots": {
       "src/workspaces/persistence.ts": [
-        639
+        248
       ],
       "src/workspaces/source-protocol.ts": [
         69,
         70,
         71,
         75,
+        78,
         192,
         195,
-        214,
         215,
+        217,
         221,
         228,
         230,
+        231,
         232,
         236,
+        242,
+        245,
         254,
+        259,
         270,
+        277,
         280,
         282,
-        289,
+        290,
         338,
         359,
         360,
+        366,
         376,
-        382,
+        380,
+        381,
         386,
+        396,
         412,
         414,
+        424,
         441,
         445,
-        447,
-        468,
-        571,
+        446,
+        469,
+        472,
         573,
         574,
         597,
-        599,
+        600,
         601,
         613,
         615,
@@ -1075,12 +1144,14 @@
         623
       ],
       "src/workspaces/subscription.ts": [
-        119,
-        130
+        119
       ],
       "src/workspaces/value.ts": [
-        95,
-        172
+        96,
+        99,
+        104,
+        105,
+        164
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage rejects an idempotency replay whose authenticated provenance changed": {
@@ -1092,13 +1163,10 @@
         590
       ],
       "src/workspaces/value.ts": [
-        83
+        84
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage rejects event and projection retention failures and ownership mismatch": {
-      "src/workspaces/persistence.ts": [
-        638
-      ],
       "src/workspaces/source-protocol.ts": [
         338,
         339,
@@ -1116,16 +1184,22 @@
         280,
         282,
         286,
+        290,
         293,
+        429,
         438,
         441,
         442,
         445,
-        458,
+        453,
+        468,
         469,
         470,
         471,
         474
+      ],
+      "src/workspaces/subscription.ts": [
+        110
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage rejects source authority, target, tenant, and operation changes": {
@@ -1136,13 +1210,11 @@
         383,
         384,
         431,
+        599,
         601
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage replays an Event safely after its retention index cache is lost": {
-      "src/workspaces/memory.ts": [
-        51
-      ],
       "src/workspaces/source-protocol.ts": [
         318,
         321
@@ -1152,25 +1224,27 @@
       "src/workspaces/target-protocol.ts": [
         148,
         156,
-        271
+        271,
+        279
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#target protocol and port outcomes rejects invocation substitution and returns exact terminal duplicates": {
       "src/workspaces/target-protocol.ts": [
         97,
         103,
-        104,
         156,
-        157,
         160,
         162,
-        254,
         256
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#target protocol and port outcomes rejects nondurable retention and every retention ownership mismatch": {
+      "src/workspaces/persistence.ts": [
+        377
+      ],
       "src/workspaces/target-protocol.ts": [
         90,
+        97,
         128,
         130,
         131,
@@ -1179,15 +1253,11 @@
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#target protocol and port outcomes rejects replay when delivery lacks a projection or projection bytes conflict": {
-      "src/workspaces/persistence.ts": [
-        312,
-        391,
-        393
-      ],
       "src/workspaces/route.ts": [
         511
       ],
       "src/workspaces/target-protocol.ts": [
+        103,
         108,
         256
       ]
@@ -1197,6 +1267,8 @@
         174
       ],
       "src/workspaces/target-protocol.ts": [
+        85,
+        88,
         90,
         91,
         169
@@ -1205,7 +1277,10 @@
     "test/workspaces/coverage-protocols.test.ts#target protocol and port outcomes uses the target tenant for cross-tenant admissions": {
       "src/workspaces/persistence.ts": [
         310,
-        312
+        319
+      ],
+      "src/workspaces/retention.ts": [
+        173
       ],
       "src/workspaces/target-protocol.ts": [
         148,
@@ -1216,22 +1291,22 @@
         159,
         270,
         271,
-        279,
-        280
+        279
       ]
     },
     "test/workspaces/coverage-records.test.ts#authenticated event intents authenticates and detaches complete and minimal intent variants": {
       "src/workspaces/id.ts": [
-        14
+        14,
+        35
       ],
       "src/workspaces/origin.ts": [
-        35,
         36,
         47,
-        50,
         62,
         72,
         79,
+        91,
+        95,
         111,
         113,
         114,
@@ -1239,19 +1314,16 @@
         139,
         141,
         142,
-        160,
-        164,
+        155,
+        165,
         167,
         168,
         169
       ],
       "src/workspaces/retention.ts": [
-        16,
-        131,
-        132,
-        135,
-        171,
-        172
+        121,
+        145,
+        157
       ]
     },
     "test/workspaces/coverage-records.test.ts#authenticated event intents detaches getter substitutions and rejects constructor and structural forgeries": {
@@ -1275,12 +1347,11 @@
     },
     "test/workspaces/coverage-records.test.ts#event values and records canonicalizes and deeply freezes JSON scalars, arrays, and objects": {
       "src/workspaces/value.ts": [
-        172
+        164
       ]
     },
     "test/workspaces/coverage-records.test.ts#event values and records enforces every Event constructor trust and identity invariant": {
       "src/workspaces/event.ts": [
-        128,
         129,
         130,
         133,
@@ -1308,18 +1379,18 @@
         213
       ],
       "src/workspaces/value.ts": [
-        77
+        78
       ]
     },
     "test/workspaces/coverage-records.test.ts#event values and records models both verification cases and canonical immutable provenance": {
       "src/workspaces/value.ts": [
-        29,
         30,
-        77,
-        172,
-        182,
-        183,
-        184
+        31,
+        155,
+        160,
+        164,
+        175,
+        176
       ]
     },
     "test/workspaces/coverage-records.test.ts#event values and records rejects malformed Event fields, types, discriminants, and envelope versions": {
@@ -1337,26 +1408,15 @@
         64,
         65,
         66,
-        68,
         69,
         70,
         71,
-        72,
         74,
         75,
         76,
-        80,
-        81,
         82,
-        83,
-        84,
-        86,
-        87,
-        90,
         94,
-        96,
         98,
-        110,
         176,
         178,
         179,
@@ -1368,6 +1428,7 @@
         196,
         198,
         199,
+        200,
         201,
         202,
         205,
@@ -1378,7 +1439,15 @@
         214,
         215,
         225,
+        229,
         231
+      ],
+      "src/workspaces/value.ts": [
+        99,
+        108,
+        109,
+        110,
+        116
       ]
     },
     "test/workspaces/coverage-records.test.ts#retention and inbox records accepts boundary inbox counters and rejects every invalid counter shape": {
@@ -1387,24 +1456,24 @@
       ],
       "src/workspaces/inbox.ts": [
         21,
+        30,
         34,
-        37,
+        38,
+        39,
         40,
+        41,
         42,
         51,
+        61,
         63,
         64,
-        65,
-        66,
-        67,
-        72,
-        76,
-        88
+        69,
+        76
       ]
     },
     "test/workspaces/coverage-records.test.ts#retention and inbox records models and round-trips every retained record kind": {
       "src/workspaces/retention.ts": [
-        28,
+        172,
         173,
         174,
         175,
@@ -1424,22 +1493,25 @@
         112
       ],
       "src/workspaces/subscription.ts": [
-        82,
+        60,
+        62,
+        63,
+        64,
+        65,
+        67,
+        69,
         102,
+        109,
         119,
-        127
+        130
       ]
     },
     "test/workspaces/coverage-records.test.ts#subscriptions rejects overlapping mappings and malformed Subscription payloads": {
       "src/workspaces/policy.ts": [
         109,
         110,
-        111,
         112,
-        113,
-        120,
-        121,
-        203
+        113
       ],
       "src/workspaces/subscription.ts": [
         119,
@@ -1453,16 +1525,19 @@
     },
     "test/workspaces/coverage-records.test.ts#views and deltas rebuilds a View document and rejects malformed or mismatched documents": {
       "src/workspaces/view.ts": [
+        224,
         227,
         229,
-        236
+        233,
+        236,
+        237
       ]
     },
     "test/workspaces/coverage-records.test.ts#views and deltas requires an immediate delta revision and deeply copies patch JSON": {
       "src/workspaces/view.ts": [
-        166,
         170,
-        173,
+        174,
+        186,
         200,
         201,
         202
@@ -1470,13 +1545,12 @@
     },
     "test/workspaces/coverage-records.test.ts#views and deltas round-trips scalar, array, and object View bodies with optional action schemas": {
       "src/workspaces/view.ts": [
-        129,
         242,
         243,
         247,
         253,
+        256,
         259,
-        261,
         270
       ]
     },
@@ -1488,7 +1562,6 @@
         21
       ],
       "src/workspaces/view.ts": [
-        50,
         51,
         54,
         59,
@@ -1505,56 +1578,59 @@
     },
     "test/workspaces/coverage-records.test.ts#workspace codec primitives accepts valid primitive values and rejects malformed JSON shapes": {
       "src/workspaces/codec.ts": [
-        15,
-        22,
         23,
-        28,
+        32,
+        33,
         38,
-        42,
-        43,
-        44,
-        49,
-        50,
-        51,
-        57,
-        58
+        39,
+        48,
+        52,
+        53,
+        54,
+        60,
+        61,
+        66,
+        67,
+        68
       ]
     },
     "test/workspaces/coverage-records.test.ts#workspace codec primitives round-trips actors, content, revisions, optional principals, scopes, and tenants": {
       "src/workspaces/codec.ts": [
-        63,
-        67,
-        69,
-        71,
-        72,
-        76,
-        83,
-        85,
+        73,
+        74,
+        77,
+        79,
+        81,
+        82,
         86,
-        88,
-        89,
-        91,
-        94,
+        87,
+        93,
+        95,
+        96,
+        97,
         98,
-        102,
-        103,
-        105,
-        111,
+        99,
+        101,
+        104,
+        108,
         112,
-        114,
-        116,
-        117,
+        113,
+        115,
         121,
-        125,
-        129,
-        133,
-        135,
-        136,
-        137,
-        138,
+        122,
+        124,
+        126,
+        127,
+        131,
         139,
-        140,
-        143
+        143,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        153
       ]
     },
     "test/workspaces/event-value-mutations.test.ts#event codec names each malformed Event payload field exactly": {
@@ -1567,10 +1643,13 @@
         92,
         94,
         95,
-        135,
+        96,
+        110,
+        128,
+        133,
         141,
+        144,
         162,
-        191,
         198,
         199,
         202,
@@ -1583,45 +1662,41 @@
       ],
       "src/workspaces/value.ts": [
         99,
-        100,
-        102,
-        105,
-        111,
-        112,
-        116,
-        117,
-        118,
-        122,
-        129,
-        134,
-        135,
-        139,
-        168
+        108,
+        109,
+        110,
+        121,
+        126,
+        127,
+        131,
+        175,
+        176
       ]
     },
     "test/workspaces/event-value-mutations.test.ts#event codec round-trips an external event without initiator or principal": {
       "src/workspaces/event.ts": [
         144,
-        148,
-        162
+        148
       ]
     },
     "test/workspaces/event-value-mutations.test.ts#event codec round-trips private visibility through the codec": {
       "src/workspaces/event.ts": [
         98,
+        176,
         242
       ],
       "src/workspaces/value.ts": [
+        109,
+        116,
         117,
-        124,
-        125,
-        127,
-        128,
-        138
+        119,
+        120,
+        130
       ]
     },
     "test/workspaces/event-value-mutations.test.ts#event construction accepts an idempotency key of exactly 512 characters and rejects 513": {
       "src/workspaces/event.ts": [
+        133,
         134,
         138
       ]
@@ -1633,37 +1708,38 @@
     },
     "test/workspaces/event-value-mutations.test.ts#event provenance decodes host verification, principal, channel, and group values": {
       "src/workspaces/value.ts": [
+        108,
+        110,
         116,
-        118,
-        124,
-        128,
-        129,
-        130
+        120,
+        121,
+        122
       ]
     },
     "test/workspaces/event-value-mutations.test.ts#event provenance rejects malformed provenance field values with exact subjects": {
       "src/workspaces/value.ts": [
-        116,
-        117,
-        118,
-        119,
-        120,
-        127
+        108,
+        109,
+        110,
+        111,
+        112,
+        119
       ]
     },
     "test/workspaces/event-value-mutations.test.ts#event provenance rejects malformed provenance payloads with the exact payload error": {
       "src/workspaces/value.ts": [
-        97,
-        107,
-        108
+        98,
+        100,
+        101
       ]
     },
     "test/workspaces/event-value-mutations.test.ts#event provenance validates provenance channel and group text exactly": {
       "src/workspaces/value.ts": [
-        81,
         82,
-        184,
-        185
+        83,
+        174,
+        176,
+        177
       ]
     },
     "test/workspaces/persistence-behavior.test.ts#workspace persistence behavior fails closed when authoritative bytes or reciprocal indexes are corrupted": {
@@ -1672,51 +1748,43 @@
         653,
         658,
         659,
-        709,
+        719,
         720
       ]
     },
     "test/workspaces/persistence-behavior.test.ts#workspace persistence behavior restarts from durable records and rejects duplicate and conflicting identities": {
       "src/workspaces/persistence.ts": [
-        730,
-        736,
-        789
-      ],
-      "src/workspaces/retention.ts": [
-        154
+        731,
+        734,
+        736
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#event persistence fails closed when the idempotency index disagrees with its event": {
-      "src/workspaces/memory.ts": [
-        123
-      ],
       "src/workspaces/persistence.ts": [
         93
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#event persistence rejects a conflicting event with an exact duplicate-identity error": {
       "src/workspaces/memory.ts": [
-        80,
-        92,
-        138
+        47,
+        80
       ],
       "src/workspaces/persistence.ts": [
         111,
         112,
+        626,
         627,
-        632,
         639,
         645,
-        734,
-        736,
+        731,
         833,
         835,
-        836,
-        882
+        836
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#event persistence rejects appends whose retention proof is not durable": {
       "src/workspaces/persistence.ts": [
+        638,
         639,
         641,
         642
@@ -1730,8 +1798,8 @@
     },
     "test/workspaces/persistence-mutations.test.ts#memory workspace records actor state snapshots mirror the public snapshot": {
       "src/workspaces/memory.ts": [
-        132,
-        151
+        109,
+        132
       ],
       "src/workspaces/persistence.ts": [
         752,
@@ -1745,6 +1813,7 @@
     },
     "test/workspaces/persistence-mutations.test.ts#memory workspace records rejects re-inserting an existing record as append-only": {
       "src/workspaces/memory.ts": [
+        59,
         60
       ],
       "src/workspaces/persistence.ts": [
@@ -1761,53 +1830,44 @@
         789
       ]
     },
+    "test/workspaces/persistence-mutations.test.ts#projection and delivery persistence [C13-ROUTE-DELIVERY-ONCE] writes at most one terminal delivery only after admission": {
+      "src/workspaces/persistence.ts": [
+        319,
+        377,
+        391,
+        393,
+        394,
+        398,
+        399,
+        409
+      ]
+    },
     "test/workspaces/persistence-mutations.test.ts#projection and delivery persistence denies projections addressed to another target actor": {
       "src/workspaces/persistence.ts": [
-        329,
         332,
         334,
         335,
         347,
         348,
-        364,
-        365
+        364
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#projection and delivery persistence fails closed when the delivery index disagrees with its reservation": {
       "src/workspaces/persistence.ts": [
-        375,
-        376,
-        377,
-        380,
         384,
-        385,
-        403,
-        847
+        385
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#projection and delivery persistence fails closed when the projection index disagrees with its reservation": {
       "src/workspaces/persistence.ts": [
         311,
-        315,
         319,
         320,
-        844,
         845
-      ]
-    },
-    "test/workspaces/persistence-mutations.test.ts#projection and delivery persistence keeps deliveries terminal exactly once": {
-      "src/workspaces/persistence.ts": [
-        319,
-        390,
-        391,
-        398,
-        408,
-        409
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#reservation persistence fails closed when the dedupe index disagrees with its reservation": {
       "src/workspaces/persistence.ts": [
-        216,
         221,
         224,
         228,
@@ -1817,8 +1877,11 @@
     "test/workspaces/persistence-mutations.test.ts#reservation persistence fails closed when the reciprocal dedupe index is missing": {
       "src/workspaces/persistence.ts": [
         201,
+        204,
         208,
         276,
+        280,
+        281,
         283,
         663,
         668,
@@ -1835,33 +1898,27 @@
     },
     "test/workspaces/persistence-mutations.test.ts#reservation persistence rejects a conflicting dedupe identity with the exact duplicate error": {
       "src/workspaces/persistence.ts": [
-        238,
         248,
         249,
         252,
         253,
-        270
-      ],
-      "src/workspaces/route.ts": [
-        85,
-        91,
-        96
+        269
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#retention listing filters retentions by record kind and key exactly": {
       "src/workspaces/persistence.ts": [
+        116,
         600,
         602,
         603,
+        604,
+        607,
         613,
         614,
         615,
-        809,
         819,
         820,
-        827,
-        856,
-        857
+        827
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#storage trust boundary kills compaction refuses kinds outside the compactable set": {
@@ -1872,7 +1929,6 @@
     },
     "test/workspaces/persistence-mutations.test.ts#storage trust boundary kills insertRecord reports non-buffer bytes as codec corruption": {
       "src/workspaces/persistence.ts": [
-        771,
         772
       ]
     },
@@ -1890,7 +1946,6 @@
     },
     "test/workspaces/persistence-mutations.test.ts#stored record decoding fails closed when storage returns a mismatched kind or key": {
       "src/workspaces/persistence.ts": [
-        80,
         731,
         732
       ]
@@ -1905,8 +1960,8 @@
     },
     "test/workspaces/persistence-mutations.test.ts#subscription persistence enforces revision compare-and-set with exact conflicts": {
       "src/workspaces/memory.ts": [
-        97,
-        109
+        96,
+        97
       ],
       "src/workspaces/persistence.ts": [
         132,
@@ -1922,7 +1977,6 @@
         186,
         187,
         188,
-        191,
         193,
         194,
         752,
@@ -1938,16 +1992,13 @@
         124
       ],
       "src/workspaces/persistence.ts": [
-        141,
         142
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#subscription persistence lists only current revisions, deduplicated and sorted by id": {
       "src/workspaces/persistence.ts": [
-        147,
         149,
         151,
-        154,
         158,
         160,
         166
@@ -1960,29 +2011,33 @@
     },
     "test/workspaces/persistence-mutations.test.ts#view persistence compacts surface-exact records and requires an available floor": {
       "src/workspaces/memory.ts": [
+        51,
         69,
-        73,
-        75
+        73
       ],
       "src/workspaces/persistence.ts": [
         429,
         430,
-        557,
         561,
+        562,
+        563,
         564,
         565,
-        568,
+        569,
         570,
         572,
         575,
         576,
         578,
+        579,
         580,
         581,
         583,
         586,
         587,
-        592
+        589,
+        592,
+        593
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#view persistence enforces view revision compare-and-set with exact conflicts": {
@@ -1990,7 +2045,6 @@
         415,
         416,
         417,
-        418,
         419,
         438,
         441,
@@ -2006,10 +2060,7 @@
         473,
         810,
         818,
-        825,
-        850,
-        851,
-        867
+        825
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#view persistence fails closed when the view pointer names another surface": {
@@ -2020,13 +2071,12 @@
     },
     "test/workspaces/persistence-mutations.test.ts#view persistence lists deltas strictly after the revision, surface-exact and ascending": {
       "src/workspaces/persistence.ts": [
+        485,
         529,
+        545,
         547,
-        548,
         551,
-        553,
-        853,
-        854
+        553
       ]
     },
     "test/workspaces/persistence-mutations.test.ts#view persistence refuses compaction when no current view pointer exists": {
@@ -2036,7 +2086,6 @@
     },
     "test/workspaces/persistence-mutations.test.ts#view persistence rejects view deltas without a matching current view": {
       "src/workspaces/persistence.ts": [
-        483,
         485,
         486
       ]
@@ -2061,7 +2110,6 @@
         750,
         762,
         763,
-        764,
         765
       ]
     },
@@ -2095,64 +2143,44 @@
       ]
     },
     "test/workspaces/policy-mutations.test.ts#event pattern matching filters on source pattern and accepted trust tiers": {
+      "src/workspaces/event.ts": [
+        135,
+        141
+      ],
       "src/workspaces/policy.ts": [
-        45,
-        105,
         106
       ]
     },
     "test/workspaces/policy-mutations.test.ts#event pattern matching matches kinds by wildcard prefix or full literal only": {
       "src/workspaces/policy.ts": [
-        42,
         44,
         45,
-        101,
         102
       ]
     },
     "test/workspaces/policy-mutations.test.ts#event trust derivation denies partial self facts and ownerless owner claims exactly": {
       "src/workspaces/policy.ts": [
-        17,
         18,
-        28,
-        29,
         236
       ]
     },
     "test/workspaces/policy-mutations.test.ts#event trust derivation derives every trust tier with exact initiator presence": {
       "src/workspaces/policy.ts": [
-        15,
-        16,
-        17,
         22,
-        24,
-        27,
-        28,
         31,
         33,
-        34,
         39
       ]
     },
     "test/workspaces/policy-mutations.test.ts#payload mapping accepts disjoint targets and rejects duplicates and overlap both ways": {
       "src/workspaces/policy.ts": [
-        55,
-        57,
-        111,
-        112,
-        113,
         121,
         140,
         142,
         147,
-        176,
         177,
         184,
-        194,
-        195,
-        204,
-        205,
-        208
+        197
       ]
     },
     "test/workspaces/policy-mutations.test.ts#payload mapping array creation a freshly created nested array admits no sparse positions": {
@@ -2162,38 +2190,36 @@
     },
     "test/workspaces/policy-mutations.test.ts#payload mapping creates arrays only for canonical index tokens": {
       "src/workspaces/policy.ts": [
-        57,
         147,
         149,
+        150,
         152,
         156,
         160,
+        164,
         166,
-        167,
         170,
         177,
         178,
         179,
+        207,
         212,
+        216,
         221
       ]
     },
     "test/workspaces/policy-mutations.test.ts#payload mapping reads pointers with strict bounds and container typing": {
       "src/workspaces/policy.ts": [
-        126,
         127,
         129,
         131,
-        133,
         208,
         229,
-        232,
-        233
+        232
       ]
     },
     "test/workspaces/policy-mutations.test.ts#payload mapping rejects sparse array writes with the exact error": {
       "src/workspaces/policy.ts": [
-        150,
         151,
         152,
         153,
@@ -2205,7 +2231,6 @@
     "test/workspaces/policy-mutations.test.ts#payload mapping rejects traversal through scalar and null values in both container branches": {
       "src/workspaces/policy.ts": [
         151,
-        156,
         160,
         161,
         170,
@@ -2215,12 +2240,7 @@
     "test/workspaces/policy-mutations.test.ts#route dedupe keys rejects unroutable dedupe requests with exact subscription errors": {
       "src/workspaces/policy.ts": [
         74,
-        75,
-        82,
         83,
-        84,
-        85,
-        87,
         240,
         241
       ]
@@ -2229,23 +2249,19 @@
       "src/workspaces/policy.ts": [
         69,
         71,
-        72,
-        73,
-        74,
-        78,
-        79,
         80,
         82,
-        83,
-        84,
         90
       ]
     },
-    "test/workspaces/protocols.test.ts#authenticated target projection protocol admits projection and invocation once, then returns the terminal delivery on replay": {
+    "test/workspaces/protocols.test.ts#authenticated target projection protocol [C13-ROUTE-DELIVERY-ONCE] admits projection and invocation once, then returns the terminal delivery on replay": {
+      "src/workspaces/persistence.ts": [
+        390
+      ],
       "src/workspaces/target-protocol.ts": [
         97,
         103,
-        256
+        104
       ]
     },
     "test/workspaces/protocols.test.ts#authenticated target projection protocol records authority and invocation rejection as terminal without invoking past denial": {
@@ -2254,71 +2270,76 @@
         394
       ],
       "src/workspaces/target-protocol.ts": [
-        279,
         285
       ]
     },
     "test/workspaces/protocols.test.ts#authenticated target projection protocol registers authenticated target admission as typed W1 command evidence": {
       "src/workspaces/persistence.ts": [
-        347,
-        359
+        329,
+        408
       ],
       "src/workspaces/route.ts": [
-        439,
-        459,
-        472,
-        479,
-        505
+        245,
+        378,
+        382,
+        438,
+        509,
+        528
       ],
       "src/workspaces/target-protocol.ts": [
-        88,
-        90,
-        97,
-        128,
-        129,
+        148,
         179,
         201,
         239,
         248,
         250,
-        278,
-        279
+        279,
+        280
       ]
     },
     "test/workspaces/protocols.test.ts#authenticated target projection protocol rejects a differently authenticated intent reusing a terminal reservation ID": {
       "src/workspaces/target-protocol.ts": [
-        256
+        110
       ]
     },
     "test/workspaces/protocols.test.ts#authenticated target projection protocol rejects invocation admission that substitutes the stable Invocation ID": {
       "src/workspaces/target-protocol.ts": [
-        264,
-        265
+        157,
+        264
       ]
     },
     "test/workspaces/protocols.test.ts#authenticated target projection protocol rejects tampering, wrong targets, and public attempts to forge the bridge": {
       "src/workspaces/route.ts": [
         439,
         440,
-        456,
-        461,
         479
+      ],
+      "src/workspaces/target-protocol.ts": [
+        90
       ]
     },
     "test/workspaces/protocols.test.ts#InboxProtocol accepts only the exact live Turn lease and preserves sequence uniqueness": {
       "src/workspaces/inbox-protocol.ts": [
+        14,
         17,
+        21,
         24,
         25,
         26
+      ],
+      "src/workspaces/inbox.ts": [
+        63,
+        65,
+        79
       ]
     },
     "test/workspaces/protocols.test.ts#SourceEventProtocol keeps payload-dedupe results stable across a second Event retry": {
       "src/workspaces/persistence.ts": [
+        218,
         296
       ],
-      "src/workspaces/subscription.ts": [
-        119
+      "src/workspaces/source-protocol.ts": [
+        242
       ]
     },
     "test/workspaces/protocols.test.ts#SourceEventProtocol prepares outside the transaction, commits source-owned reservations, and replays unknown ack": {
@@ -2328,114 +2349,122 @@
         151
       ],
       "src/workspaces/persistence.ts": [
-        614
+        238,
+        615
       ],
       "src/workspaces/policy.ts": [
-        147,
-        207,
-        229
-      ],
-      "src/workspaces/route.ts": [
-        80
+        142,
+        176,
+        195,
+        208
       ],
       "src/workspaces/source-protocol.ts": [
+        232,
         318,
-        366,
-        590
+        324,
+        327,
+        366
       ]
     },
     "test/workspaces/protocols.test.ts#SourceEventProtocol registers opaque prepared routing as typed W1 command evidence": {
+      "src/workspaces/event.ts": [
+        231,
+        232
+      ],
       "src/workspaces/memory.ts": [
+        28,
         29,
         32,
         33,
-        34,
         45,
-        46,
         47,
-        138
+        80,
+        137,
+        138,
+        151
       ],
-      "src/workspaces/policy.ts": [
-        224
-      ],
-      "src/workspaces/retention.ts": [
-        173
+      "src/workspaces/origin.ts": [
+        36,
+        50
       ],
       "src/workspaces/route.ts": [
-        88,
-        93,
-        98,
-        104
+        179,
+        197
       ],
       "src/workspaces/source-protocol.ts": [
+        183,
+        215,
         280,
+        281,
+        300,
         380,
+        382,
+        488,
+        510,
         548,
-        599,
-        600
+        557
       ],
       "src/workspaces/subscription.ts": [
-        119,
-        125,
+        56,
         127
       ],
       "src/workspaces/value.ts": [
-        97,
+        98,
         99,
-        100,
-        101,
-        103,
-        104,
-        113,
-        114
+        103
       ]
     },
     "test/workspaces/protocols.test.ts#SourceEventProtocol rejects caller-assembled preparation and trust changed during async preparation": {
       "src/workspaces/source-protocol.ts": [
-        217,
-        581
+        215,
+        280,
+        285,
+        580
+      ]
+    },
+    "test/workspaces/protocols.test.ts#SourceEventProtocol rejects wrong source ownership and a stale subscription snapshot": {
+      "src/workspaces/source-protocol.ts": [
+        152
       ]
     },
     "test/workspaces/records.test.ts#event policy maps root, arrays, escaped tokens, and literals without aliasing source data": {
       "src/workspaces/policy.ts": [
+        142,
+        166,
+        170,
         204
       ]
     },
-    "test/workspaces/records.test.ts#workspace durable records round-trips InboxEventReference through canonical codec bytes": {
-      "src/workspaces/inbox.ts": [
-        41
+    "test/workspaces/records.test.ts#workspace durable records round-trips RouteReservation through canonical codec bytes": {
+      "src/workspaces/route.ts": [
+        151
       ]
     },
     "test/workspaces/registry.test.ts#[workspace.action-descriptor] codec and ownership evidence": {
       "src/workspaces/view.ts": [
-        38
+        34,
+        67
       ]
     },
     "test/workspaces/registry.test.ts#[workspace.event-provenance] codec and ownership evidence": {
       "src/workspaces/value.ts": [
-        58,
-        62,
-        87,
-        91
-      ]
-    },
-    "test/workspaces/registry.test.ts#[workspace.inbox-reference] codec and ownership evidence": {
-      "src/workspaces/inbox.ts": [
-        20,
-        30,
-        34
+        59,
+        63,
+        88,
+        92
       ]
     },
     "test/workspaces/route-mutations.test.ts#authenticated projection provenance a prototype-forged projection lacks host authentication": {
       "src/workspaces/route.ts": [
-        458
+        458,
+        461
       ]
     },
     "test/workspaces/route-mutations.test.ts#route record mutation kills authentication isolates verifier input from caller evidence": {
       "src/workspaces/route.ts": [
-        438,
         439,
-        479
+        479,
+        505
       ]
     },
     "test/workspaces/route-mutations.test.ts#route record mutation kills projection authentication denials carry the authority code and exact reasons": {
@@ -2448,13 +2477,12 @@
         303,
         304,
         307,
-        314,
-        472,
+        308,
         474,
+        479,
         480,
+        518,
         523,
-        528,
-        590,
         592,
         593
       ]
@@ -2472,30 +2500,40 @@
     },
     "test/workspaces/route-mutations.test.ts#route record mutation kills route delivery decode enforces outcome and reason parity with an exact diagnostic": {
       "src/workspaces/route.ts": [
+        382,
         386,
         387
       ]
     },
     "test/workspaces/route-mutations.test.ts#route record mutation kills route delivery states compare by terminal kind and rejection reason": {
       "src/workspaces/route.ts": [
+        330,
         331
       ]
     },
     "test/workspaces/route-mutations.test.ts#route record mutation kills route projection and delivery codecs cite tampered identifiers exactly": {
       "src/workspaces/route.ts": [
-        237,
         241,
         248,
         254,
         256,
         270,
+        274,
+        280,
+        284,
         288,
         291,
-        319,
+        294,
+        366,
+        370,
+        378,
+        382,
+        385,
+        386,
         391,
         394,
         398,
-        407
+        411
       ]
     },
     "test/workspaces/route-mutations.test.ts#route record mutation kills route reservation codec cites each tampered field with its exact label": {
@@ -2508,20 +2546,23 @@
         112,
         114,
         115,
+        116,
         118,
         120,
         121,
-        122,
         124,
         137,
         141,
-        147,
-        170,
+        154,
+        158,
+        159,
+        173,
         182,
-        185,
         191,
-        194,
+        209,
         492,
+        541,
+        543,
         550,
         571,
         578,
@@ -2533,8 +2574,12 @@
       "src/workspaces/source-protocol.ts": [
         280,
         281,
-        283,
-        285
+        283
+      ]
+    },
+    "test/workspaces/source-protocol-mutations.test.ts#source commit trust boundary kills commit rejects cross-tenant relation drift after preparation": {
+      "src/workspaces/source-protocol.ts": [
+        602
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source commit trust boundary kills commit rejects same-tenant relation drift after preparation": {
@@ -2547,19 +2592,12 @@
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills commit accepts unchanged trust for authenticated and external tiers": {
       "src/workspaces/source-protocol.ts": [
         412,
-        469,
-        470
-      ],
-      "src/workspaces/subscription.ts": [
-        127
+        469
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills commit detects a single revised subscription among matching peers": {
       "src/workspaces/source-protocol.ts": [
         442
-      ],
-      "src/workspaces/subscription.ts": [
-        119
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills commit detects a subscription replaced by an equal-revision stranger": {
@@ -2571,8 +2609,7 @@
       "src/workspaces/source-protocol.ts": [
         441,
         450,
-        452,
-        453
+        452
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills commit refuses prepared work when the accepting actor identity drifts": {
@@ -2587,15 +2624,15 @@
         306,
         308,
         309,
-        429,
         590
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills commit rejects a tier-only trust change with an unchanged initiator": {
       "src/workspaces/source-protocol.ts": [
+        458,
         468,
         473,
-        580
+        581
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills commit reports nondurable payload retention with its exact invalid-state diagnostic": {
@@ -2610,46 +2647,34 @@
         204
       ],
       "src/workspaces/route.ts": [
-        148,
-        151
+        148
       ],
       "src/workspaces/source-protocol.ts": [
-        215,
+        214,
         221,
         222,
-        231,
-        232,
-        242,
-        259,
-        277,
-        281,
-        290,
+        289,
         300,
-        327,
-        329,
-        366,
-        381,
-        386,
-        396,
-        445,
-        446,
+        302,
+        376,
+        412,
+        447,
         468,
         469,
         470,
-        472,
+        571,
+        572,
+        590,
+        599,
         600,
         601,
         609,
         610
-      ],
-      "src/workspaces/subscription.ts": [
-        118
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills route preparation consumes logical delivery identifiers only for no-dedupe subscriptions": {
       "src/workspaces/source-protocol.ts": [
-        236,
-        424
+        236
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills snapshot keeps deduped route keys empty for no-dedupe and unreserved subscriptions": {
@@ -2663,23 +2688,14 @@
       ],
       "src/workspaces/subscription.ts": [
         56,
-        60,
-        63,
-        65,
-        67,
-        69,
-        119,
-        127
+        60
       ]
     },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills source command delegates authorization, lifecycle, and revision decisions to its port": {
       "src/workspaces/source-protocol.ts": [
-        488,
-        510,
         523,
         531,
         539,
-        557,
         559
       ]
     },
@@ -2698,12 +2714,12 @@
     "test/workspaces/target-protocol-mutations.test.ts#TargetProjectionProtocol mutation coverage non-durable target retention is rejected with the exact invalid-state error": {
       "src/workspaces/target-protocol.ts": [
         124,
-        125
+        125,
+        265
       ]
     },
     "test/workspaces/target-protocol-mutations.test.ts#TargetProjectionProtocol mutation coverage projection targeting another Actor is denied with the exact authority error": {
       "src/workspaces/target-protocol.ts": [
-        90,
         260,
         261
       ]
@@ -2714,40 +2730,38 @@
       ]
     },
     "test/workspaces/target-protocol-mutations.test.ts#TargetProjectionProtocol mutation coverage replay keeps a retention that is already listed for the stored projection": {
-      "src/workspaces/codec.ts": [
-        37
-      ],
       "src/workspaces/target-protocol.ts": [
         119,
+        254,
+        256
+      ]
+    },
+    "test/workspaces/target-protocol-mutations.test.ts#TargetProjectionProtocol mutation coverage replay with conflicting projection content of equal encoded length is rejected": {
+      "src/workspaces/target-protocol.ts": [
         256
       ]
     },
     "test/workspaces/target-protocol-mutations.test.ts#TargetProjectionProtocol mutation coverage replay without the stored projection index is an exact duplicate conflict": {
-      "src/workspaces/codec.ts": [
-        72,
-        85
-      ],
       "src/workspaces/retention.ts": [
-        172
+        132
       ],
       "src/workspaces/route.ts": [
-        148
+        147,
+        151,
+        154
       ],
       "src/workspaces/target-protocol.ts": [
-        85,
-        97,
         103,
-        110,
         111,
         124,
         128,
-        271
+        129,
+        271,
+        278,
+        279
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#Event intent mutation coverage authentication verifies detached copies so verifiers cannot corrupt evidence": {
-      "src/workspaces/codec.ts": [
-        64
-      ],
       "src/workspaces/origin.ts": [
         50,
         108,
@@ -2755,8 +2769,7 @@
         112,
         120,
         139,
-        165,
-        167
+        164
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#Event intent mutation coverage detached authenticated intent omits the causation key when absent": {
@@ -2773,17 +2786,16 @@
         81,
         83,
         91,
-        95,
         97,
         99,
-        155
+        155,
+        160
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#View record mutation coverage ActionDescriptor decode reports each tampered field with its exact subject label": {
       "src/workspaces/view.ts": [
-        34,
+        38,
         63,
-        67,
         256,
         257,
         258
@@ -2796,52 +2808,49 @@
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#View record mutation coverage View decode reports each tampered field with its exact subject label": {
-      "src/workspaces/codec.ts": [
-        29,
-        50,
-        56
-      ],
-      "src/workspaces/id.ts": [
-        5
-      ],
       "src/workspaces/view.ts": [
         97,
+        98,
         99,
         100,
-        102,
         103,
         111,
         115,
-        256
+        255
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#View record mutation coverage ViewDelta decode reports each tampered field with its exact subject label": {
       "src/workspaces/view.ts": [
-        157,
-        170,
         174,
         175,
         176,
+        177,
         178,
-        186,
         190
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#ViewReplayProtocol mutation coverage publish rejects retentions owned by another Actor with the exact error": {
       "src/workspaces/view-replay.ts": [
+        129,
         133,
-        140
+        140,
+        141
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#ViewReplayProtocol mutation coverage replay ahead of the durable View fails with the exact revision-conflict error": {
+      "src/workspaces/persistence.ts": [
+        472
+      ],
       "src/workspaces/view-replay.ts": [
-        72,
-        131
+        72
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#ViewReplayProtocol mutation coverage replay at the current revision short-circuits before consulting stored deltas": {
       "src/workspaces/view-replay.ts": [
         76
+      ],
+      "src/workspaces/view.ts": [
+        259
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#ViewReplayProtocol mutation coverage replay without a durable View fails with the exact invalid-state error": {
@@ -2850,13 +2859,18 @@
       ]
     },
     "test/workspaces/view-origin-mutations.test.ts#ViewReplayProtocol mutation coverage replayed deltas that diverge from the durable View by content fall back to a snapshot": {
+      "src/workspaces/persistence.ts": [
+        483
+      ],
       "src/workspaces/view-replay.ts": [
         99,
         102,
         119
       ],
       "src/workspaces/view.ts": [
-        217
+        218,
+        226,
+        227
       ]
     },
     "test/workspaces/view-replay.test.ts#replay divergence detection falls back to the durable snapshot when replay bytes diverge": {
@@ -2866,51 +2880,20 @@
     },
     "test/workspaces/view-replay.test.ts#ViewReplayProtocol [C13-VIEW-DELTA-REPLAY] delegates RFC 6902 and durably replays deltas": {
       "src/workspaces/persistence.ts": [
-        473,
         485,
-        528,
-        531,
-        532,
-        549,
-        709
-      ],
-      "src/workspaces/view-replay.ts": [
-        131
+        532
       ]
     },
     "test/workspaces/view-replay.test.ts#ViewReplayProtocol compaction is Surface-exact and releases obsolete retention references": {
       "src/workspaces/persistence.ts": [
-        462,
+        452,
         494,
-        504,
-        681,
-        682,
-        693
-      ],
-      "src/workspaces/retention.ts": [
-        36
-      ]
-    },
-    "test/workspaces/view-replay.test.ts#ViewReplayProtocol compacts old snapshots and deltas while preserving bounded replay": {
-      "src/workspaces/persistence.ts": [
-        562,
-        569,
-        576,
-        579,
-        581,
-        593,
-        697
+        576
       ]
     },
     "test/workspaces/view-replay.test.ts#ViewReplayProtocol rejects stale publishes and replay revisions ahead of durable state": {
       "src/workspaces/persistence.ts": [
         485
-      ]
-    },
-    "test/workspaces/view-replay.test.ts#ViewReplayProtocol requires exact durable retention for every View ContentRef": {
-      "src/workspaces/retention.ts": [
-        107,
-        157
       ]
     }
   }

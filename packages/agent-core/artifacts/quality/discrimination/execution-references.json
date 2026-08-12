@@ -1,0 +1,28 @@
+{
+  "edition": "1.0.0",
+  "area": "execution-references",
+  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
+  "fingerprint": "sha256:a9556f166d3b980db3ca2b26b43a61ba327de6f943f7b3ea1aebc98b348f5fe3",
+  "files": {
+    "src/execution-references/id.ts": {
+      "mutants": 6,
+      "sha256": "sha256:f5fd307894d1457f8a60a2b2df0072a931e39b0db8b50ad6cffd53b9de006e65"
+    }
+  },
+  "killed": {
+    "test/agents/runs/records-mutation.test.ts#nominal identifier subjects every Agent and Run scoped ID names its exact subject": {
+      "src/execution-references/id.ts": [
+        5,
+        11,
+        17
+      ]
+    },
+    "test/protocol/run-commands.test.ts#Run protocol family round-trips exact canonical payloads through command-specific codecs": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    }
+  }
+}

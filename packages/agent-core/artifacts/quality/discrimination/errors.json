@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "errors",
-  "measuredAt": "db8c35f9378cd1d4cedc7614210d4eeb00b34fe9",
-  "fingerprint": "sha256:e983d9e7e51919eed8b42f76d7feff8b0663377de072a8ed5dd842020bd4d133",
+  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
+  "fingerprint": "sha256:dc597367314c3d705c3437b169bfed6adc88a5be284d8c1071b5f61f647e53db",
   "files": {
     "src/errors.ts": {
       "mutants": 6,
@@ -11,10 +11,15 @@
   },
   "killed": {
     "test/core/errors.test.ts#AgentCoreError invariant throws the coded error exactly when its condition fails": {
-      "src/errors.ts": [43, 44]
+      "src/errors.ts": [
+        43,
+        44
+      ]
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior verifies persisted pointer bytes through the CAS read-back seam": {
-      "src/errors.ts": [35]
+      "src/errors.ts": [
+        35
+      ]
     }
   }
 }
