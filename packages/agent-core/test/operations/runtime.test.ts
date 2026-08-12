@@ -18,10 +18,12 @@ import {
 } from "../../src/invocations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
+    Automation,
     BindingName,
     Command,
     Contribution,
     Contributions,
+    EventPattern,
     FacetManifest,
     FacetPackageId,
     FieldMapping,
@@ -33,12 +35,15 @@ import {
     OperationPattern,
     OperationRef,
     OperationSelector,
+    PayloadMapping,
+    ProtectionDomain,
     SlotName,
     SlotEntry,
     SurfaceDescriptor,
     SurfaceId,
     isFacetDataMap,
-    type FacetData
+    type FacetData,
+    type FacetRef
 } from "../../src/facets";
 import {
     CommandRuntime,
@@ -75,6 +80,9 @@ import {
 } from "../../src/operations/runtime";
 
 const objectSchema = new JsonSchema({ type: "object" });
+
+// The protection domain this runtime host — and so every cut point it executes — runs in.
+const hostDomain = new ProtectionDomain("backend", "operations-host", "may-hold-secrets");
 
 describe("Facet runtime", () => {
     test("rejects correspondence failures before lifecycle code runs", { tags: "p1" }, async () => {
@@ -1541,8 +1549,164 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "single", input: {} }
                 })
-            ).rejects.toMatchObject({ code: "authority.denied" });
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message: expect.stringContaining("lacks target authority")
+            });
             await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses an out-of-domain interceptor and admits the same contributor's asynchronous Event",
+        { tags: "p0" },
+        async () => {
+            const descriptor = operationDescriptor("run", "observe", true);
+            const targetManifest = manifest("acme.target", [descriptor]);
+            const declaration = new InterceptorDeclaration(
+                new InterceptorId("confined"),
+                "operation.before",
+                new OperationSelector([
+                    new OperationPattern("run", new FacetPackageId("acme.target"))
+                ]),
+                1
+            );
+            const contributorManifest = manifest("acme.policy", [], [declaration]);
+            // The interception Grant is held throughout (`interceptionAllowed`), the
+            // Operation is interceptable, and the target matches the resolution, so the
+            // only thing that varies across these dispatches is where the contributing
+            // Facet's code runs.
+            const dispatchFrom = async (
+                contributed: ReadonlyMap<string, ProtectionDomain | undefined>,
+                manifests: readonly [FacetManifest, FacetManifest] = [
+                    targetManifest,
+                    contributorManifest
+                ]
+            ) => {
+                const calls: string[] = [];
+                const target = new TestFacet(
+                    "workspace:runtime",
+                    manifests[0],
+                    [],
+                    new Map([["run", new TestOperation(descriptor, async (input) => input)]])
+                );
+                const contributor = new TestFacet(
+                    "workspace:policy",
+                    manifests[1],
+                    [],
+                    new Map(),
+                    new Map([
+                        [
+                            "confined",
+                            new TestInterceptor(declaration, (value) => {
+                                calls.push("intercept");
+                                return {
+                                    proceed: true,
+                                    value: { ...requireObject(value), intercepted: true }
+                                };
+                            })
+                        ]
+                    ])
+                );
+                const host = new FacetRuntimeHost(manifests, [target, contributor]);
+                await host.activate();
+                const gateway = new OperationGatewayHost(
+                    { caller: "authenticated" },
+                    host,
+                    new TestAuthority(
+                        [],
+                        "direct",
+                        true,
+                        true,
+                        true,
+                        facetRef("workspace:runtime"),
+                        contributed
+                    ),
+                    new TestInvocations([])
+                );
+                const resolved = await gateway.resolve(new BindingName("runtime"));
+                try {
+                    return { calls, output: await resolved.dispatch(request), failure: undefined };
+                } catch (failure) {
+                    return { calls, output: undefined, failure };
+                } finally {
+                    resolved[Symbol.dispose]();
+                    await host.dispose();
+                }
+            };
+            const request = {
+                requestKey: new OperationRequestKey("confinement"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            } as const;
+
+            const bundled = await dispatchFrom(new Map());
+            expect(bundled.calls).toEqual(["intercept"]);
+            expect(bundled.output).toEqual({ kind: "direct", output: { intercepted: true } });
+
+            // A protection domain is named, not inferred, so a `provider` Facet behind a
+            // stub and a `dynamic` Facet in a fresh isolate are the two labels here; a
+            // contributor the host cannot place at all is the third refusal.
+            const elsewhere = [
+                [
+                    "provider",
+                    new ProtectionDomain("backend", "provider:acme.policy", "may-hold-secrets")
+                ],
+                [
+                    "dynamic",
+                    new ProtectionDomain("backend", "authored-code:isolate-1", "no-secrets")
+                ],
+                ["unplaced", undefined]
+            ] as const;
+            for (const [placement, domain] of elsewhere) {
+                const refused = await dispatchFrom(new Map([["workspace:policy", domain]]));
+                expect(refused.calls, placement).toEqual([]);
+                expect(refused.failure, placement).toMatchObject({
+                    code: "authority.denied",
+                    message: expect.stringContaining("another protection domain")
+                });
+            }
+
+            // Refusing the synchronous hook is not refusing the contributor: the same
+            // out-of-domain Facet reaches the same Operation through an Event, and that
+            // dispatch runs uneventfully because nothing is intercepting it in-process.
+            const automation = new Automation({
+                source: new EventPattern(
+                    "operation.completed",
+                    ["owner", "authenticated", "self"],
+                    "acme.target:run"
+                ),
+                target: new OperationRef("acme.target:run"),
+                binding: new BindingName("runtime"),
+                mapping: new PayloadMapping([new FieldMove("", { from: "/output" })]),
+                dedupe: "event",
+                authority: "initiator"
+            });
+            const asyncManifest = new FacetManifest({
+                id: new FacetPackageId("acme.policy"),
+                version: new SemVer("1.0.0"),
+                compat: CompatRange.any(),
+                isolation: ["dynamic"],
+                bindings: [],
+                contributions: Contributions.fromMap({ automations: [automation.toData()] })
+            });
+            const asynchronous = await dispatchFrom(
+                new Map([
+                    [
+                        "workspace:policy",
+                        new ProtectionDomain("backend", "authored-code:isolate-1", "no-secrets")
+                    ]
+                ]),
+                [targetManifest, asyncManifest]
+            );
+            expect(asynchronous.failure).toBeUndefined();
+            expect(asynchronous.calls).toEqual([]);
+            expect(asynchronous.output).toEqual({ kind: "direct", output: {} });
+            const declared = Automation.fromData(
+                asyncManifest.contributions.get(new SlotName("automations"))![0]!
+            );
+            expect(declared.target.value).toBe("acme.target:run");
+            expect(declared.source.kind).toBe("operation.completed");
         }
     );
 
@@ -2919,6 +3083,14 @@ describe("Protected Operation gateway", () => {
                     return replayBinding();
                 }
 
+                public cutPointDomain(): ProtectionDomain {
+                    return hostDomain;
+                }
+
+                public contributorDomain(): ProtectionDomain {
+                    return hostDomain;
+                }
+
                 public allowsInterception(): boolean {
                     return true;
                 }
@@ -3351,8 +3523,21 @@ class TestAuthority implements OperationAuthorityPort<
         private readonly interceptionAllowed = true,
         private readonly directAllowed = true,
         private readonly mediatedAllowed = true,
-        private readonly resolvedFacet = facetRef("workspace:runtime")
+        private readonly resolvedFacet = facetRef("workspace:runtime"),
+        // Where each contributing Facet's code runs. Anything unnamed is placed in the
+        // cut point's own domain, which is what `bundled` placement means.
+        private readonly domains: ReadonlyMap<string, ProtectionDomain | undefined> = new Map()
     ) {}
+
+    public cutPointDomain(): ProtectionDomain {
+        return hostDomain;
+    }
+
+    public contributorDomain(contributor: FacetRef): ProtectionDomain | undefined {
+        return this.domains.has(contributor.value)
+            ? this.domains.get(contributor.value)
+            : hostDomain;
+    }
 
     public async resolve(): Promise<AuthorityResolution<string>> {
         this.events.push("resolve");

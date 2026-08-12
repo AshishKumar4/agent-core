@@ -467,6 +467,21 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
         });
     }
 
+    public cutPointDomain(resolution: OperationResolutionState): ProtectionDomain {
+        return resolution.binding.domain;
+    }
+
+    public contributorDomain(contributor: FacetRef): ProtectionDomain | undefined {
+        return this.state.contributorDomain(contributor);
+    }
+
+    /**
+     * The rights half of §4.4 rule 2 only: the contributor holds a Grant over an
+     * Operation its target declared interceptable. Protection-domain confinement is
+     * rule 1, and the interceptor runner refuses a cross-domain contributor before any
+     * authority question is asked — sharing a domain confers no rights, and holding a
+     * Grant confers no domain.
+     */
     public allowsInterception(
         resolution: OperationResolutionState,
         contributor: FacetRef,
@@ -474,11 +489,8 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
         target: FacetRef,
         descriptor: OperationDescriptor
     ): boolean {
-        const domain = this.state.contributorDomain(contributor);
         return (
             target.equals(resolution.binding.facet) &&
-            domain !== undefined &&
-            sameDomain(domain, resolution.binding.domain) &&
             descriptor.interceptable &&
             this.state.admitsInterception(resolution, contributor, declaration, descriptor)
         );
@@ -559,14 +571,6 @@ function sameBinding(current: Binding | undefined, expected: Binding): boolean {
 
 function watermarkStale(watermark: InvalidationWatermark, path: PathEpochEvidence): boolean {
     return path.path.some((entry) => watermark.epoch(entry.scope) > entry.epoch);
-}
-
-function sameDomain(left: ProtectionDomain, right: ProtectionDomain): boolean {
-    return (
-        left.kind === right.kind &&
-        left.label === right.label &&
-        left.secretPolicy === right.secretPolicy
-    );
 }
 
 function denied(message: string): AgentCoreError {

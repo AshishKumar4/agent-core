@@ -809,7 +809,7 @@ describe("Tenant operation authority membrane", () => {
     });
 
     test(
-        "interception requires the exact target, contributor domain, and declaration",
+        "interception requires the exact target and declaration, and reports both domains",
         { tags: "p0" },
         async () => {
             const declaration = new InterceptorDeclaration(
@@ -838,37 +838,6 @@ describe("Tenant operation authority membrane", () => {
                 { reason: "another target Facet", target: otherFacet },
                 { reason: "an uninterceptable Operation", descriptor: observe },
                 {
-                    reason: "an uninstalled contributor",
-                    mutate: (state) => (state.contributor = undefined)
-                },
-                {
-                    reason: "a contributor domain of another kind",
-                    mutate: (state) =>
-                        (state.contributor = new ProtectionDomain(
-                            "frontend",
-                            domain.label,
-                            "no-secrets"
-                        ))
-                },
-                {
-                    reason: "a contributor domain with another label",
-                    mutate: (state) =>
-                        (state.contributor = new ProtectionDomain(
-                            "backend",
-                            "membrane-other-domain",
-                            "no-secrets"
-                        ))
-                },
-                {
-                    reason: "a contributor domain with another secret policy",
-                    mutate: (state) =>
-                        (state.contributor = new ProtectionDomain(
-                            "backend",
-                            domain.label,
-                            "may-hold-secrets"
-                        ))
-                },
-                {
                     reason: "an authority state that refuses the declaration",
                     mutate: (state) => (state.admitsInterceptor = false)
                 }
@@ -888,6 +857,23 @@ describe("Tenant operation authority membrane", () => {
                     entry.reason
                 ).toBe(false);
             }
+
+            // Confining an Interceptor to one protection domain is §4.4 rule 1 and is
+            // decided by the interceptor runner; the membrane's part is reporting the
+            // cut point's domain and each contributor's, from their separate sources.
+            expect(base.authority.cutPointDomain(base.resolution)).toEqual(domain);
+            expect(base.authority.contributorDomain(otherFacet)).toEqual(domain);
+            const isolated = await resolveOf(leasedCandidate());
+            isolated.state.contributor = new ProtectionDomain(
+                "backend",
+                "membrane-other-domain",
+                "no-secrets"
+            );
+            expect(isolated.authority.contributorDomain(otherFacet)).toEqual(
+                isolated.state.contributor
+            );
+            isolated.state.contributor = undefined;
+            expect(isolated.authority.contributorDomain(otherFacet)).toBeUndefined();
         }
     );
 

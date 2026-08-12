@@ -272,15 +272,17 @@
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-DOMAIN-CONFINEMENT",
       "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The interceptor runner has no protection-domain concept: src/operations/interception.ts never reads the placement or isolation mode of a contributing facet, so confinement is neither enforced nor representable today",
-        "Needs a negative test that an interceptor contributed from a `provider` or `dynamic` domain does not run in-process at another domain's cut point, and a positive one that the cross-domain case is expressed as an asynchronous Event"
-      ]
+      "sourceSymbols": [
+        "src/operations/interception.ts#OperationInterceptorRunner",
+        "src/composition/authority.ts#TenantOperationAuthority"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses an out-of-domain interceptor and admits the same contributor's asynchronous Event"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-INTERCEPTOR-FROZEN-RETRY",

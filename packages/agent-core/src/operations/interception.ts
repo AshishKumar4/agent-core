@@ -7,7 +7,8 @@ import {
     canonicalFacetData,
     type FacetData,
     type FacetRef,
-    type OperationPattern
+    type OperationPattern,
+    type ProtectionDomain
 } from "../facets";
 import type { FacetRuntimeHost } from "./lifecycle";
 import type { ValidatedFacet } from "./correspondence";
@@ -29,6 +30,13 @@ export interface InterceptionResult {
 }
 
 export interface InterceptorAuthorityPort<Resolution> {
+    /** The protection domain this dispatch — and so every cut point in it — runs in. */
+    cutPointDomain(resolution: Resolution): ProtectionDomain;
+    /**
+     * The protection domain the contributing Facet's code runs in, or undefined when the
+     * Facet is placed in no domain this host can name.
+     */
+    contributorDomain(contributor: FacetRef): ProtectionDomain | undefined;
     allowsInterception(
         resolution: Resolution,
         contributor: FacetRef,
@@ -115,6 +123,7 @@ export class OperationInterceptorRunner<Resolution> {
         operation: Operation
     ): readonly RuntimeInterceptor[] {
         const candidates: RuntimeInterceptor[] = [];
+        const domain = this.authority.cutPointDomain(resolution);
         for (const facet of this.host.facets()) {
             for (const value of facet.manifest.contributions.get(interceptorSlot) ?? []) {
                 const declaration = InterceptorDeclaration.fromData(value);
@@ -124,6 +133,7 @@ export class OperationInterceptorRunner<Resolution> {
                 ) {
                     continue;
                 }
+                this.requireSameDomain(domain, facet.ref, declaration);
                 const own = facet.ref.equals(target.ref);
                 if (!own) {
                     if (!operation.descriptor.interceptable) {
@@ -157,6 +167,33 @@ export class OperationInterceptorRunner<Resolution> {
                 compareText(left.facet.manifest.id.value, right.facet.manifest.id.value) ||
                 compareText(left.declaration.id.value, right.declaration.id.value)
         );
+    }
+
+    /**
+     * SPEC §4.4 rule 1: an Interceptor is a synchronous in-process hook, so it may only
+     * run where its contributing Facet's own code runs. A contributor placed in another
+     * protection domain — `provider` behind a stub, `dynamic` in a fresh isolate — has
+     * nothing in this process to call, and reaching whatever the stub exposes would run
+     * the wrong code inside the cut point's domain. The refusal is not an authority
+     * answer: rule 2 makes sharing a domain confer no interception rights, and holding
+     * a Grant confers no domain, so the two are decided separately. Crossing a domain
+     * is what asynchronous Events are for.
+     *
+     * Skipping instead of refusing would silently drop a veto the platform declared,
+     * which is the one failure this hook exists to prevent.
+     */
+    private requireSameDomain(
+        domain: ProtectionDomain,
+        contributor: FacetRef,
+        declaration: InterceptorDeclaration
+    ): void {
+        const contributed = this.authority.contributorDomain(contributor);
+        if (contributed === undefined || !contributed.equals(domain)) {
+            throw new AgentCoreError(
+                "authority.denied",
+                `Interceptor ${declaration.id.value} is contributed from another protection domain`
+            );
+        }
     }
 }
 
