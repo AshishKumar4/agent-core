@@ -32,7 +32,7 @@ describe("W4 error taxonomy", () => {
         );
         expect(taxonomy.expected).toEqual({
             agentCoreOperationalThrows: 237,
-            allowedTypeErrors: 153,
+            allowedTypeErrors: 156,
             preservedRethrows: 1,
             bareErrors: 0
         });

@@ -36,78 +36,89 @@ import { admissionFor, createLedger, prepared } from "../../../invocations/fixtu
 import { createSqliteInvocationPersistence } from "./fixture";
 
 describe("SqliteInvocationMediationPersistence", () => {
-    test("[C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract", { tags: "p1" }, () => {
-        const memoryState = createInvocationMediationMemoryState();
-        const memory = new MemoryInvocationMediationPersistence();
-        verifyMediationContract(memory, (operation) => operation(memoryState), "memory");
+    test(
+        "[C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract",
+        { tags: "p1" },
+        () => {
+            const memoryState = createInvocationMediationMemoryState();
+            const memory = new MemoryInvocationMediationPersistence();
+            verifyMediationContract(memory, (operation) => operation(memoryState), "memory");
 
-        const database = new TestSqlite();
-        const sqlite = new SqliteInvocationMediationPersistence(
-            database,
-            new SqliteProtocolPersistence(database)
-        );
-        verifyMediationContract(
-            sqlite,
-            (operation) => database.transaction(() => operation(database)),
-            "sqlite"
-        );
-    });
+            const database = new TestSqlite();
+            const sqlite = new SqliteInvocationMediationPersistence(
+                database,
+                new SqliteProtocolPersistence(database)
+            );
+            verifyMediationContract(
+                sqlite,
+                (operation) => database.transaction(() => operation(database)),
+                "sqlite"
+            );
+        }
+    );
 
-    test("[invocation.mediated-replay] [invocation.publication-outbox] persists replay revisions and durable publication acknowledgement", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const persistence = new SqliteInvocationMediationPersistence(
-            database,
-            new SqliteProtocolPersistence(database)
-        );
-        const descriptor = new OperationDescriptor(
-            new OperationName("send"),
-            "externalSend",
-            new JsonSchema({}),
-            new JsonSchema({})
-        );
-        const reserved = MediatedReplayRecord.reserve({
-            ...replayBinding(),
-            scope: "scope",
-            requestKey: "request",
-            facet: "workspace:target",
-            operation: descriptor.name.value,
-            descriptorDigest: Digest.sha256(new TextEncoder().encode("descriptor")),
-            shape: { kind: "single" },
-            rawPayloadIdentities: [Digest.sha256(new TextEncoder().encode("payload"))]
-        });
-        const prepared = reserved.prepare(
-            new InvocationId("sqlite-mediated"),
-            [{ value: 1 }],
-            [[]]
-        );
-        const publication = InvocationPublicationOutbox.pending(
-            Object.freeze({
-                invocation: new InvocationId("sqlite-mediated"),
-                receipt: new ReceiptId("sqlite-receipt"),
-                audit: new AuditRecordId("sqlite-audit")
-            })
-        );
-
-        database.transaction(() => {
-            persistence.appendReplay(database, reserved);
-            persistence.appendReplay(database, prepared);
-            persistence.appendPublication(database, publication);
-        });
-        expect(persistence.replay(database, "scope", "request")?.revision.value).toBe(1);
-        expect(persistence.pendingPublications(database)).toHaveLength(1);
-
-        database.transaction(() => {
-            const eventPublished = publication.eventPublished(new Date(10));
-            persistence.appendPublication(database, eventPublished);
-            expect(persistence.pendingPublications(database)[0]?.state).toMatchObject({
-                kind: "pending",
-                eventPublishedAt: new Date(10)
+    test(
+        "[invocation.mediated-replay] [invocation.publication-outbox] persists replay revisions and durable publication acknowledgement",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const persistence = new SqliteInvocationMediationPersistence(
+                database,
+                new SqliteProtocolPersistence(database)
+            );
+            const descriptor = new OperationDescriptor(
+                new OperationName("send"),
+                "externalSend",
+                new JsonSchema({}),
+                new JsonSchema({})
+            );
+            const reserved = MediatedReplayRecord.reserve({
+                ...replayBinding(),
+                scope: "scope",
+                requestKey: "request",
+                facet: "workspace:target",
+                operation: descriptor.name.value,
+                descriptorDigest: Digest.sha256(new TextEncoder().encode("descriptor")),
+                shape: { kind: "single" },
+                rawPayloadIdentities: [Digest.sha256(new TextEncoder().encode("payload"))]
             });
-            persistence.appendPublication(database, eventPublished.commitAppended(new Date(11)));
-        });
-        expect(persistence.pendingPublications(database)).toEqual([]);
-        expect(persistence.publication(database, publication.id)?.state.kind).toBe("published");
-    });
+            const prepared = reserved.prepare(
+                new InvocationId("sqlite-mediated"),
+                [{ value: 1 }],
+                [[]]
+            );
+            const publication = InvocationPublicationOutbox.pending(
+                Object.freeze({
+                    invocation: new InvocationId("sqlite-mediated"),
+                    receipt: new ReceiptId("sqlite-receipt"),
+                    audit: new AuditRecordId("sqlite-audit")
+                })
+            );
+
+            database.transaction(() => {
+                persistence.appendReplay(database, reserved);
+                persistence.appendReplay(database, prepared);
+                persistence.appendPublication(database, publication);
+            });
+            expect(persistence.replay(database, "scope", "request")?.revision.value).toBe(1);
+            expect(persistence.pendingPublications(database)).toHaveLength(1);
+
+            database.transaction(() => {
+                const eventPublished = publication.eventPublished(new Date(10));
+                persistence.appendPublication(database, eventPublished);
+                expect(persistence.pendingPublications(database)[0]?.state).toMatchObject({
+                    kind: "pending",
+                    eventPublishedAt: new Date(10)
+                });
+                persistence.appendPublication(
+                    database,
+                    eventPublished.commitAppended(new Date(11))
+                );
+            });
+            expect(persistence.pendingPublications(database)).toEqual([]);
+            expect(persistence.publication(database, publication.id)?.state.kind).toBe("published");
+        }
+    );
 
     test(
         "[C13-ADV-RECEIPT-INDETERMINATE] atomically persists attempt, Receipt, and supersession audit edges through the invocation evidence port",
@@ -351,137 +362,154 @@ describe("SqliteInvocationMediationPersistence", () => {
         }
     );
 
-    test("does not resend an acknowledged Event after a Commit sink crash", { tags: "p0" }, async () => {
-        const database = new TestSqlite();
-        const persistence = new SqliteInvocationMediationPersistence(
-            database,
-            new SqliteProtocolPersistence(database)
-        );
-        const publication = InvocationPublicationOutbox.pending({
-            invocation: new InvocationId("sqlite-partial-outbox"),
-            receipt: new ReceiptId("sqlite-partial-receipt"),
-            audit: new AuditRecordId("sqlite-partial-audit")
-        });
-        database.transaction(() => persistence.appendPublication(database, publication));
-        const events: string[] = [];
-        const commits: string[] = [];
-        let crash = true;
-        const drainer = new InvocationPublicationDrainer(
-            {
-                transact<Result>(operation: (transaction: TransactionalSqlite) => Result): Result {
-                    return (database.transaction as unknown as (operation: () => Result) => Result)(
-                        () => operation(database)
-                    );
-                }
-            },
-            persistence,
-            { publish: async (id) => void events.push(id.value) },
-            {
-                append: async (id) => {
-                    commits.push(id.value);
-                    if (crash) {
-                        crash = false;
-                        throw new TypeError("sqlite commit crash");
+    test(
+        "does not resend an acknowledged Event after a Commit sink crash",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const persistence = new SqliteInvocationMediationPersistence(
+                database,
+                new SqliteProtocolPersistence(database)
+            );
+            const publication = InvocationPublicationOutbox.pending({
+                invocation: new InvocationId("sqlite-partial-outbox"),
+                receipt: new ReceiptId("sqlite-partial-receipt"),
+                audit: new AuditRecordId("sqlite-partial-audit")
+            });
+            database.transaction(() => persistence.appendPublication(database, publication));
+            const events: string[] = [];
+            const commits: string[] = [];
+            let crash = true;
+            const drainer = new InvocationPublicationDrainer(
+                {
+                    transact<Result>(
+                        operation: (transaction: TransactionalSqlite) => Result
+                    ): Result {
+                        return (
+                            database.transaction as unknown as (operation: () => Result) => Result
+                        )(() => operation(database));
                     }
-                }
-            },
-            () => new Date(30)
-        );
+                },
+                persistence,
+                { publish: async (id) => void events.push(id.value) },
+                {
+                    append: async (id) => {
+                        commits.push(id.value);
+                        if (crash) {
+                            crash = false;
+                            throw new TypeError("sqlite commit crash");
+                        }
+                    }
+                },
+                () => new Date(30)
+            );
 
-        await expect(drainer.flush()).rejects.toThrow("sqlite commit crash");
-        await drainer.flush();
-        expect(events).toEqual([publication.id.value]);
-        expect(commits).toEqual([publication.id.value, publication.id.value]);
-        expect(persistence.publication(database, publication.id)?.state.kind).toBe("published");
-    });
+            await expect(drainer.flush()).rejects.toThrow("sqlite commit crash");
+            await drainer.flush();
+            expect(events).toEqual([publication.id.value]);
+            expect(commits).toEqual([publication.id.value, publication.id.value]);
+            expect(persistence.publication(database, publication.id)?.state.kind).toBe("published");
+        }
+    );
 
-    test("rejects duplicate or skipped replay and publication revisions across restart", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const audits = new SqliteProtocolPersistence(database);
-        let persistence = new SqliteInvocationMediationPersistence(database, audits);
-        const reserved = replay("sqlite-conflict");
-        const prepared = reserved.prepare(new InvocationId("sqlite-conflict"), [{}], [[]]);
-        const publication = InvocationPublicationOutbox.pending({
-            invocation: new InvocationId("sqlite-conflict"),
-            receipt: new ReceiptId("sqlite-conflict-receipt"),
-            audit: new AuditRecordId("sqlite-conflict-audit")
-        });
-        database.transaction(() => {
-            persistence.appendReplay(database, reserved);
-            persistence.appendPublication(database, publication);
-        });
+    test(
+        "rejects duplicate or skipped replay and publication revisions across restart",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const audits = new SqliteProtocolPersistence(database);
+            let persistence = new SqliteInvocationMediationPersistence(database, audits);
+            const reserved = replay("sqlite-conflict");
+            const prepared = reserved.prepare(new InvocationId("sqlite-conflict"), [{}], [[]]);
+            const publication = InvocationPublicationOutbox.pending({
+                invocation: new InvocationId("sqlite-conflict"),
+                receipt: new ReceiptId("sqlite-conflict-receipt"),
+                audit: new AuditRecordId("sqlite-conflict-audit")
+            });
+            database.transaction(() => {
+                persistence.appendReplay(database, reserved);
+                persistence.appendPublication(database, publication);
+            });
 
-        persistence = new SqliteInvocationMediationPersistence(database, audits);
-        expect(() =>
-            database.transaction(() => persistence.appendReplay(database, reserved))
-        ).toThrow(/already exists|conflicted/);
-        expect(() =>
-            database.transaction(() =>
-                persistence.appendReplay(
-                    database,
-                    new MediatedReplayRecord(
-                        prepared.scope,
-                        prepared.requestKey,
-                        prepared.facet,
-                        prepared.operation,
-                        prepared.descriptorDigest,
-                        prepared.principal,
-                        prepared.authorityIdentity,
-                        prepared.packageOperationPin,
-                        prepared.execution,
-                        prepared.shape,
-                        prepared.items,
-                        prepared.invocation,
-                        prepared.revision.next()
+            persistence = new SqliteInvocationMediationPersistence(database, audits);
+            expect(() =>
+                database.transaction(() => persistence.appendReplay(database, reserved))
+            ).toThrow(/already exists|conflicted/);
+            expect(() =>
+                database.transaction(() =>
+                    persistence.appendReplay(
+                        database,
+                        new MediatedReplayRecord(
+                            prepared.scope,
+                            prepared.requestKey,
+                            prepared.facet,
+                            prepared.operation,
+                            prepared.descriptorDigest,
+                            prepared.principal,
+                            prepared.authorityIdentity,
+                            prepared.packageOperationPin,
+                            prepared.execution,
+                            prepared.shape,
+                            prepared.items,
+                            prepared.invocation,
+                            prepared.revision.next()
+                        )
                     )
                 )
-            )
-        ).toThrow(/next reserved transition/);
-        expect(() =>
-            database.transaction(() => persistence.appendPublication(database, publication))
-        ).toThrow(/next transition/);
-        const orphanPublication = InvocationPublicationOutbox.pending({
-            invocation: new InvocationId("sqlite-orphan-publication"),
-            receipt: new ReceiptId("sqlite-orphan-publication-receipt"),
-            audit: new AuditRecordId("sqlite-orphan-publication-audit")
-        })
-            .eventPublished(new Date(20))
-            .commitAppended(new Date(21));
-        expect(() =>
-            database.transaction(() => persistence.appendPublication(database, orphanPublication))
-        ).toThrow(/next transition/);
-    });
+            ).toThrow(/next reserved transition/);
+            expect(() =>
+                database.transaction(() => persistence.appendPublication(database, publication))
+            ).toThrow(/next transition/);
+            const orphanPublication = InvocationPublicationOutbox.pending({
+                invocation: new InvocationId("sqlite-orphan-publication"),
+                receipt: new ReceiptId("sqlite-orphan-publication-receipt"),
+                audit: new AuditRecordId("sqlite-orphan-publication-audit")
+            })
+                .eventPublished(new Date(20))
+                .commitAppended(new Date(21));
+            expect(() =>
+                database.transaction(() =>
+                    persistence.appendPublication(database, orphanPublication)
+                )
+            ).toThrow(/next transition/);
+        }
+    );
 
-    test("detects substituted replay and outbox projection columns after restart", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const audits = new SqliteProtocolPersistence(database);
-        let persistence = new SqliteInvocationMediationPersistence(database, audits);
-        const reserved = replay("sqlite-corrupt");
-        const publication = InvocationPublicationOutbox.pending({
-            invocation: new InvocationId("sqlite-corrupt"),
-            receipt: new ReceiptId("sqlite-corrupt-receipt"),
-            audit: new AuditRecordId("sqlite-corrupt-audit")
-        });
-        database.transaction(() => {
-            persistence.appendReplay(database, reserved);
-            persistence.appendPublication(database, publication);
-        });
-        database.run(
-            "UPDATE invocation_mediated_replay_revisions SET revision = 1 WHERE replay_id = ?",
-            [reserved.id.value]
-        );
-        database.run("UPDATE invocation_publication_outbox SET state = 'published' WHERE id = ?", [
-            publication.id.value
-        ]);
-        persistence = new SqliteInvocationMediationPersistence(database, audits);
+    test(
+        "detects substituted replay and outbox projection columns after restart",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const audits = new SqliteProtocolPersistence(database);
+            let persistence = new SqliteInvocationMediationPersistence(database, audits);
+            const reserved = replay("sqlite-corrupt");
+            const publication = InvocationPublicationOutbox.pending({
+                invocation: new InvocationId("sqlite-corrupt"),
+                receipt: new ReceiptId("sqlite-corrupt-receipt"),
+                audit: new AuditRecordId("sqlite-corrupt-audit")
+            });
+            database.transaction(() => {
+                persistence.appendReplay(database, reserved);
+                persistence.appendPublication(database, publication);
+            });
+            database.run(
+                "UPDATE invocation_mediated_replay_revisions SET revision = 1 WHERE replay_id = ?",
+                [reserved.id.value]
+            );
+            database.run(
+                "UPDATE invocation_publication_outbox SET state = 'published' WHERE id = ?",
+                [publication.id.value]
+            );
+            persistence = new SqliteInvocationMediationPersistence(database, audits);
 
-        expect(() => persistence.replayById(database, reserved.id)).toThrow(
-            /projection is corrupt/
-        );
-        expect(() => persistence.publication(database, publication.id)).toThrow(
-            /projection is corrupt/
-        );
-    });
+            expect(() => persistence.replayById(database, reserved.id)).toThrow(
+                /projection is corrupt/
+            );
+            expect(() => persistence.publication(database, publication.id)).toThrow(
+                /projection is corrupt/
+            );
+        }
+    );
 });
 
 describe("SqliteInvocationMediationPersistence conflict and corruption taxonomy", () => {
@@ -538,7 +566,7 @@ describe("SqliteInvocationMediationPersistence conflict and corruption taxonomy"
             "SELECT record FROM invocation_mediated_replay_revisions WHERE replay_id = ?",
             [second.id.value]
         )[0];
-        const blob = row?.record;
+        const blob = row?.["record"];
         expect(blob).toBeInstanceOf(Uint8Array);
         if (!(blob instanceof Uint8Array)) return;
         database.run(
@@ -739,7 +767,7 @@ class ReplayColumnTamperSqlite extends TestSqlite {
     public revisionIdentity: SqliteValue | undefined;
     public reservationIdentity: SqliteValue | undefined;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = super.all(statement, bindings);
         const forged = statement.includes("FROM invocation_mediated_replay_revisions")
             ? this.revisionIdentity
@@ -753,7 +781,7 @@ class ReplayColumnTamperSqlite extends TestSqlite {
 class RedirectingOutboxSqlite extends TestSqlite {
     public redirect: string | undefined;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (
             this.redirect !== undefined &&
             statement.includes("FROM invocation_publication_outbox") &&
@@ -768,7 +796,7 @@ class RedirectingOutboxSqlite extends TestSqlite {
 class FaultingMediationSqlite extends TestSqlite {
     public fault: (() => never) | undefined;
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
         if (
             this.fault !== undefined &&
             statement.includes("INSERT INTO invocation_publication_outbox")

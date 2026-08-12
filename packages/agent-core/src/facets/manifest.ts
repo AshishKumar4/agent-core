@@ -1,4 +1,4 @@
-import { CompatRange, JsonSchema, SemVer } from "../core";
+import { isMember, isNonempty, CompatRange, JsonSchema, SemVer } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -13,7 +13,15 @@ import { BindingName, FacetPackageId } from "./id";
 
 export type IsolationMode = "dynamic" | "provider" | "bundled";
 
-const isolationPreference: readonly IsolationMode[] = ["dynamic", "provider", "bundled"];
+// The one fixed preference order (SPEC §9.2). IsolationMode's vocabulary and its
+// preference order both live here, next to each other, so nothing outside facets
+// redeclares either — definition/placement.ts re-exports this array rather than
+// keeping its own copy.
+export const PLACEMENT_PREFERENCE: readonly IsolationMode[] = Object.freeze([
+    "dynamic",
+    "provider",
+    "bundled"
+]);
 
 export class BindingRequirement {
     public constructor(
@@ -110,7 +118,7 @@ export class FacetManifest {
         const isolation = requireArray(object["isolation"], "Manifest isolation modes").map(
             requireIsolationMode
         );
-        if (isolation.length === 0) {
+        if (!isNonempty(isolation)) {
             throw new TypeError("Manifest isolation modes must not be empty");
         }
         const configSchema = object["configSchema"];
@@ -125,7 +133,7 @@ export class FacetManifest {
                 requireString(compat["spec"], "Manifest spec compatibility"),
                 requireString(compat["host"], "Manifest host compatibility")
             ),
-            isolation: isolation as [IsolationMode, ...IsolationMode[]],
+            isolation,
             bindings: requireArray(object["bindings"], "Manifest bindings").map(
                 BindingRequirement.fromData
             ),
@@ -177,18 +185,18 @@ const facetManifestCodec = new DataRecordCodec(
 export function canonicalIsolationModes(
     modes: readonly [IsolationMode, ...IsolationMode[]]
 ): readonly [IsolationMode, ...IsolationMode[]] {
-    if (modes.length === 0 || modes.some((mode) => !isolationPreference.includes(mode))) {
+    if (modes.length === 0 || modes.some((mode) => !PLACEMENT_PREFERENCE.includes(mode))) {
         throw new TypeError("Manifest isolation modes must contain known values");
     }
     if (new Set(modes).size !== modes.length) {
         throw new TypeError("Manifest isolation modes must be unique");
     }
-    const ordered = isolationPreference.filter((mode) => modes.includes(mode));
+    const ordered = PLACEMENT_PREFERENCE.filter((mode) => modes.includes(mode));
     return Object.freeze(ordered) as unknown as readonly [IsolationMode, ...IsolationMode[]];
 }
 
 function requireIsolationMode(value: FacetData): IsolationMode {
-    if (value === "dynamic" || value === "provider" || value === "bundled") {
+    if (isMember(PLACEMENT_PREFERENCE, value)) {
         return value;
     }
     throw new TypeError("Manifest isolation mode is invalid");

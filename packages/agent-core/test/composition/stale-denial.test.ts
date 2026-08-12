@@ -204,6 +204,7 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
             owner,
             policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 })],
             turnOwnedSession: true,
+            sessionFilesystemTarget: false,
             turnActorAuthorityLocal: true,
             directAuthority: new ResolvedOperationAuthority(facet, [
                 new CapabilitySpec({

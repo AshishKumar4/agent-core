@@ -100,14 +100,13 @@ export abstract class RecordCodec<Record> {
 }
 
 function isEnvelope(value: JsonValue): value is JsonValue & RecordEnvelope {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
+    if (!isJsonObject(value)) {
         return false;
     }
-    const object = value as { readonly [key: string]: JsonValue };
-    const version = object["version"];
+    const version = value["version"];
     return (
-        hasExactJsonKeys(object, ["kind", "payload", "version"]) &&
-        typeof object["kind"] === "string" &&
+        hasExactJsonKeys(value, ["kind", "payload", "version"]) &&
+        typeof value["kind"] === "string" &&
         isJsonObject(version) &&
         hasExactJsonKeys(version, ["major", "minor"]) &&
         Number.isSafeInteger(version["major"]) &&
@@ -116,7 +115,7 @@ function isEnvelope(value: JsonValue): value is JsonValue & RecordEnvelope {
         Number.isSafeInteger(version["minor"]) &&
         typeof version["minor"] === "number" &&
         version["minor"] >= 0 &&
-        Object.hasOwn(object, "payload")
+        Object.hasOwn(value, "payload")
     );
 }
 

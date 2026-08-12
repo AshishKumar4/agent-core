@@ -311,7 +311,7 @@ describe("SQLite Tenant authority mutation storage", () => {
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
-                    "token",
+                    GuestVerificationScheme.token,
                     Digest.sha256(Uint8Array.of(8)),
                     new Date(1_000),
                     new Date(2_000)

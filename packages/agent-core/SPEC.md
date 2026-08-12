@@ -381,7 +381,11 @@ abstract class AuthorityService {
 Authority rules:
 
 1. Missing authority denies.
-2. Child authority is always attenuated — delegation can only narrow.
+2. Delegation never widens: a delegated capability is equal to or narrower than its
+   source, at every depth of the lineage, matching the Grant rule above. Where this
+   document requires strict narrowing it says so at the site — guest-materialized
+   Grants drop `delegate` and `administer` (§3.3), and `spawn` runs its child under
+   attenuated Grants (§11.8).
 3. Raw credentials remain in Tenant custody under §3.5; delegation moves capability stubs,
    not secrets.
 4. Discovery is policy-controlled: a Turn receives a redacted view of installed Facets
@@ -772,6 +776,12 @@ restore for container-backed environments), **preview exposure** (how a port bec
 authenticated URL), and the **credential-isolation seam** (secrets injected by proxy,
 never present inside the environment).
 
+A Session is **Turn-owned** when exactly one Turn opened it, no other Turn may use it,
+and it closes when that Turn reaches a terminal status. A Turn-owned Session cannot be
+shared and cannot outlive its Turn, which is what makes its contents reachable by that
+Turn alone. §7.2 keys an enforcement floor on this property, so it is a condition a
+platform tests rather than assumes. This maps to **C13-ENVIRONMENT-TURN-OWNED**.
+
 A **device environment** (§11) is an Environment behind a reverse-connection
 transport — the user's laptop or phone. Its profile adds pairing (key exchange plus
 operator approval), transport-attached consent (per device × agent, fail-closed), and
@@ -788,12 +798,49 @@ duplicating them:
 
 - live preview *is* an Environment Session — a running process with ports — not a
   rendered View;
-- the Slate backend executes in the `dynamic` isolation mode with zero ambient
-  authority; capabilities arrive only through explicitly passed Bindings;
+- the Slate backend is agent-authored code (§4.7): it executes in the `dynamic`
+  isolation mode with zero ambient authority, and capabilities arrive only through
+  explicitly passed Bindings;
 - publishing or embedding a Slate contributes Surfaces; app-private data is owned by
   the Slate's Actor.
 
 Operations: `update`, `commit`, `fork`, `publish`, `deploy`, `rollback`.
+
+### 4.7 Agent-authored code
+
+Three consumers execute code the agent wrote. **Programmatic tool calling**: a Turn
+submits code that strings Operation calls together, the host runs it once, and the
+returned value is the tool call's result — one isolate per submission, gone when the
+submission ends. **Slate backends** (§4.6): durable, versioned application code.
+**Agent-authored facets**: ordinary Facets whose Package the agent produced, installed
+and alive as long as any install references them. The three differ in lifetime and in
+nothing else, and this section states the shared shape once so they cannot drift apart.
+
+The shape is a composition of primitives this document already has, not a seventeenth:
+placement (§9.2) puts the code in a `dynamic` domain — the trust set never hands
+agent-authored code `bundled`, and holding nothing is the point of it — which §1.5
+strips of ambient authority and ambient egress; the capability set arrives only as
+explicitly passed Bindings; every call the code makes against one is an ordinary
+Invocation, tiered by §7.2; and nothing crosses back out except the code's returned
+value and asynchronous Events. From the model's side a programmatic tool call is one
+Operation invocation — code in, value out — while every Operation the code called in
+between carries its own admission and evidence.
+
+Handing the capability set to the isolate is not transport; it is delegation. §1.5
+already says nothing else crosses a domain boundary, and the §3.4 rules bound the
+passed set exactly as they bound any other delegate: equal at most, never wider, deny
+not delegable. The isolate's Invocations present its own delegated authority — never
+the authority of the code that loaded it — so revoking a passed Grant severs the
+isolate without touching its loader. This maps to **C13-AUTH-ISOLATE-DELEGATION**.
+
+One `dynamic` semantics does not mean one hosting mechanism. A substrate profile MAY
+offer more than one backing for loaded code — §10.2 names two — and a platform
+declares which backing serves each consumer: the isolate that runs a programmatic
+tool call need not be the mechanism that hosts Slate backends. Every offered backing
+MUST preserve identical authority semantics — zero ambient authority, zero ambient
+egress, capabilities only as explicitly passed Bindings — so the choice between
+backings is operational, never an authority decision. This maps to
+**C13-PLACEMENT-AUTHORED-BACKING**.
 
 ---
 
@@ -915,6 +962,12 @@ interface SettlementAuditObligation {
         readonly receipt: ReceiptId }
     | { readonly kind: "delivery"; readonly reservation: RouteReservationId }
     | { readonly kind: "commit"; readonly id: RunCommitId };
+}
+
+interface ResourceCeiling {
+  readonly tokens?: number;
+  readonly wallClockMs?: number;
+  readonly depth?: number;
 }
 ```
 
@@ -1059,6 +1112,20 @@ possible is changed input rather than elapsed time or a counted attempt. A Run t
 cannot spin against inputs it has not moved, and one that keeps failing is visible as a
 criterion undischarged across distinct subjects. This maps to
 **C13-RUN-ACCEPTANCE-SUBJECT**.
+
+A `delegate`-impact spawn MAY attenuate resources alongside capability, by carrying an
+optional `ResourceCeiling` on the spawn's attenuation. The same rule governs it as governs
+capability (§3.4 rule 2): a child ceiling MUST NOT exceed the parent's remaining allowance
+in any declared dimension, and a dimension the child does not declare inherits the parent's
+remainder. A Run that declares no ceiling is unbounded — the platform imposes none — so
+fan-out narrows downward without anything capping work nobody chose to bound.
+
+Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
+closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded, and the
+Run's acceptance criteria still say whether the work was finished, so an exhausted Run with
+an undischarged criterion reads as exactly that. A ceiling is scheduling state, like claim
+expiry (§7.4); it never appears in authority admission and changes no admission decision.
+This maps to **C13-RUN-RESOURCE-CEILING**.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
@@ -1278,6 +1345,16 @@ to the running Turn's inbox; hosts MAY implement delivery as "the durable log is
 queue" — re-read the inbox each step. **Cancellation** is the reserved inbox Event
 `turn.cancel`: fencing a Turn (undo, takeover, timeout) delivers it, and a conforming
 executor observes the cancellation signal between steps and stops committing.
+
+An executor MAY hand the model a handle instead of a result: a mediated Invocation's
+tool position then returns its admission identity — the InvocationId, or the child
+RunRef for a `delegate`-impact spawn — and the outcome arrives later as an ordinary
+Event, delivered mid-turn through `turn.deliverEvent` or read from the inbox by a
+later Turn if this one ends first. Nothing about admission changes: the pipeline runs
+unaltered, the Receipt and audit chain attach to the identity the handle names, and a
+spawn's `delegate` Receipt carries the child RunRef, never the child's result. This
+is the non-blocking shape — a parent spawns, ends its Turn, and reads the answer as
+history instead of holding its context open to wait.
 
 The Turn lifecycle above is closed. There is no normative `retryTurn` transition and a
 failed or cancelled Turn is never resurrected. A product may request another execution
@@ -1561,7 +1638,8 @@ a tiering one.
   cross an isolate boundary.
 
 Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct;
-Turn-owned session `execute` → direct; every other `execute`, plus `mutate`,
+on a Turn-owned Session (§4.5), `execute` and `mutate` whose target is that Session's
+own filesystem → direct; every other `execute` and `mutate`, plus
 `externalSend`, `delegate`, and `administer` → mediated. Policy MAY raise a direct floor
 to mediated, and MAY add approval, which raises it too: an approval has nowhere to be
 recorded on the direct path. It MUST NOT lower a mediated floor or remove an approval
@@ -1573,6 +1651,12 @@ channel to be recorded through; and the absence of a configured
 An interceptor contributed over an `observe` operation therefore moves that read onto the
 mediated path, and a host SHOULD surface that consequence at contribution time rather than
 leave it to be discovered as latency. These tightenings are monotone.
+A write inside a Turn-owned Session crosses no seam (§7.1) and acquires no authority, so it
+can neither exfiltrate nor escalate, and the durable evidence for that filesystem is the
+tree checkpoint the writes produce (§5.4) rather than a receipt per write — which is the
+digest acceptance criteria and merges consume anyway. `mutate` against anything else — a
+platform record, another facet, a shared or longer-lived Session — keeps its mediated
+floor, and so does every `externalSend`, `delegate`, and `administer`.
 
 Every mediated effect, including an internal mutation or execution, uses the one final
 authority-admission linearization point in §3.4 rule 7. Actor-local admission performs
@@ -2213,12 +2297,16 @@ tax with no security benefit:
    resolutions are scoped to a single Turn step and re-resolved with current path
    epochs each step (§3.4 rules 7–8). Revocation drops the stub; so do platform
    lifecycle events; re-resolution is the uniform recovery for both.
-3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: agent-generated
-   facets and Slate backends. Hosts pass `globalOutbound: null` (or equivalent); this is
+3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: the agent-authored
+   code of §4.7 — programmatic tool calls, Slate backends, agent-authored facets. Hosts
+   pass `globalOutbound: null` (or equivalent); this is
    how the substrate satisfies §1.5's no-ambient-egress requirement, and capabilities
-   arrive only as explicitly passed Bindings. Worker Loader is in open beta at the time of
+   arrive only as explicitly passed Bindings — a delegation under §3.4 (§4.7), not a
+   copy of the loader's authority. Worker Loader is in open beta at the time of
    writing; Workers-for-Platforms dispatch namespaces serve as the GA fallback for
-   pre-deployed Slate backends, with identical authority semantics, including that one.
+   pre-deployed code — Slate backends, agent-authored facets — with identical authority
+   semantics, including that one. Which backing serves which §4.7 consumer is the
+   platform's declaration to make.
 
 ### 10.3 Implementation constraints
 
@@ -2379,7 +2467,8 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 - **P11-FILESYSTEM-REMOVE** Operation `remove` has `mutate` impact.
 - **P11-FILESYSTEM-MOVE** Operation `move` has `mutate` impact and is same-filesystem only.
 - **P11-FILESYSTEM-MKDIR** Operation `mkdir` has `mutate` impact.
-- **P11-FILESYSTEM-RECEIPT** Every mutating Operation returns the canonical mediated Invocation `Receipt`; the profile defines no second Receipt type.
+- **P11-FILESYSTEM-SESSION-DIRECT** A mutating Operation is direct-tier eligible only under the §7.2 floor, which requires the target to be a Turn-owned Session's own filesystem.
+- **P11-FILESYSTEM-RECEIPT** Every mediated mutating Operation records the canonical mediated Invocation `Receipt`; the profile defines no second Receipt type.
 - **P11-FILESYSTEM-PATHS** Paths are normalized and cannot traverse outside the root; escape rejects with stable `path.invalid`, never a silent clamp.
 - **P11-FILESYSTEM-RANGES** Reads are byte-ranged.
 - **P11-FILESYSTEM-ATOMIC-WRITE** Writes are atomic at path granularity.
@@ -2396,7 +2485,7 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 
 ### 11.2 Shell
 
-- **P11-SHELL-RUN** Operation `run` has `execute` impact and is direct-tier eligible only while session-scoped.
+- **P11-SHELL-RUN** Operation `run` has `execute` impact and is direct-tier eligible only under the §7.2 floor, which requires a Turn-owned Session (§4.5).
 - **P11-SHELL-CANCEL** Operation `cancel` has `mutate` impact.
 - **P11-SHELL-COMPOSITION** Shell is composed from Filesystem and Environment.
 - **P11-SHELL-PARSER** A parser tokenizes the command line.
@@ -2497,7 +2586,7 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 - **P11-SELF-AUTHORITY** Self lifecycle actions receive normal authority checks.
 - **P11-SELF-RECEIPTS** Self lifecycle actions receive canonical Receipts.
 - **P11-SELF-AUDIT** Self lifecycle actions receive audit evidence.
-- **P11-SELF-ATTENUATION** `spawn` creates a child Run under attenuated Grants.
+- **P11-SELF-ATTENUATION** `spawn` creates a child Run under attenuated Grants and, when one is declared, an attenuated `ResourceCeiling` (§5.2).
 - **P11-SELF-LEASE** Every Self Operation is lease-fenced.
 - **P11-SELF-NO-WIDENING** A spawned child's authority does not exceed its parent's authority.
 - **P11-SELF-MEDIATION** No Self Operation bypasses mediation.
@@ -2588,8 +2677,17 @@ sibling RunBranches as parallel heads; an orchestration Facet owning search stat
 Search statistics — visit counts, value estimates, preference ledgers — are the
 orchestration Facet's own records referenced from RunCommits: the commit graph records
 lineage and results, not algorithm state. Self-modifying scaffolds are a versioned
-Slate-like resource; shadow evaluation runs as child Runs; promotion is a mediated
-`administer` Invocation.
+Slate-like resource; shadow evaluation runs as child Runs spawned under attenuated
+Grants and ResourceCeilings (§5.2); promotion is a mediated `administer` Invocation.
+The primary calling convention is programmatic tool calling (§4.7): one code
+submission per tool call, capabilities passed as Bindings, in-Session writes on
+§7.2's Turn-owned floor, results returnable as handles (§5.6). One thing the real
+system does that these primitives deliberately do not capture: it amortizes admission
+across a whole code execution, performing hundreds of boundary-crossing effects with
+no per-effect admission, where here every `externalSend` and every non-Session
+`mutate` pays its own mediated pipeline and §7.3 batching amortizes only homogeneous
+items of one Operation. A rebuild on these primitives keeps per-effect evidence and
+pays that cost knowingly.
 
 **An app generator** (vibesdk-shaped). One Workspace per generated app; the generator
 Agent runs in the Workspace DO; the app is a Slate whose source history is git-shaped
@@ -2644,14 +2742,16 @@ A conforming implementation provides:
 - **C13-AUTH-MEDIATED-STALE** A mediated stale comparison atomically advances the watermark before recording pre-effect denial.
 - **C13-AUTH-MEDIATED-ADMISSION** Cross-DO permit issuance after exact claim identity is the final authority-admission linearization point.
 - **C13-AUTH-RESOLUTION-LIFETIME** A `bundled` resolution expires with its Turn and deadline; a `provider` or `dynamic` resolution lasts one Turn step and re-resolves against current path epochs.
+- **C13-AUTH-ISOLATE-DELEGATION** A capability passed into a `dynamic` isolate is a delegation bounded by the §3.4 rules, and the isolate's Invocations present its own delegated authority, never its loader's.
 - **C13-PLACEMENT-INTERSECTION** Deterministic placement by admissible-set intersection over manifest, policy, substrate, and trust sets.
 - **C13-PLACEMENT-ORDER** Placement uses the one fixed preference order.
 - **C13-PLACEMENT-EMPTY** An empty placement intersection is rejected.
 - **C13-PLACEMENT-UNTRUSTED-BUNDLED** Untrusted placement excludes `bundled`.
 - **C13-PLACEMENT-DYNAMIC-NO-EGRESS** A `dynamic` domain starts with no ambient network reach; every destination arrives as an explicitly passed Binding.
+- **C13-PLACEMENT-AUTHORED-BACKING** A platform declares which backing hosts each agent-authored code consumer, and every offered backing preserves identical `dynamic` authority semantics.
 - **C13-POLICY-DIRECT-COLOCATION** The `direct`-tier co-location requirement is enforced.
 - **C13-POLICY-DIRECT-ESCALATION** A direct call that cannot be co-located escalates to `mediated` (§7.2).
-- **C13-POLICY-MEDIATION-FLOOR** No policy can make non-session `execute`, `mutate`, `externalSend`, `delegate`, or `administer` direct.
+- **C13-POLICY-MEDIATION-FLOOR** No policy can make `externalSend`, `delegate`, `administer`, `execute` outside a Turn-owned Session, or `mutate` outside that Session's own filesystem direct.
 - **C13-POLICY-APPROVAL-FLOOR** No policy can remove mandatory approval.
 - **C13-POLICY-EPOCH-RECHECK** Every mediated effect performs the current-epoch check.
 - **C13-CONFIG-SECRET-REF** Configuration is SecretRef-only, with no raw credentials in manifests or Blueprints.
@@ -2679,6 +2779,7 @@ A conforming implementation provides:
 - **C13-ENVIRONMENT-STALE-SESSION** Environment session lifecycle rejects a stale session.
 - **C13-ENVIRONMENT-DISPOSE-CLOSE** Environment session close disposes child Facets.
 - **C13-ENVIRONMENT-ROTATION** Environment rotation does not retarget open Sessions.
+- **C13-ENVIRONMENT-TURN-OWNED** A Turn-owned Session is opened by exactly one Turn, usable under no other Turn's lease, and closes when its owning Turn reaches a terminal status.
 - **C13-TRUST-HOST-DERIVED** Trust tiers are host-derived.
 - **C13-TRUST-ASSERTION-REJECTION** Tier-asserting sources are rejected.
 - **C13-TRUST-VERIFIED-INGRESS** Verified ingress mints Events.
@@ -2765,6 +2866,7 @@ A conforming implementation provides:
 - **C13-RUN-RESERVATION-EPOCH** Remote admission validates the exact reserved identity and open Run registry epoch.
 - **C13-RUN-ACCEPTANCE-OBLIGATION** A declared acceptance criterion is a reserved Run obligation that only a succeeded verifier Receipt discharges, and declaring none changes nothing.
 - **C13-RUN-ACCEPTANCE-SUBJECT** An acceptance verdict is evidence for its exact subject digest, and a further attempt requires a subject no recorded verdict names.
+- **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds its parent's remainder, exhaustion cancels through the ordinary terminal rows, and declaring none bounds nothing.
 - **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
 - **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
 - **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
@@ -2873,12 +2975,12 @@ This section names coverage categories and trace IDs, never inferred theorem nam
 | Structural Invocation identity and View replay | `AC-STRUCTURAL-001` | ideal whole-intent identity and structural replay only; no cryptographic or RFC 6902 claim |
 | Operation-cut-point interception | `AC-INTERCEPTOR-001` | pipeline invariants over an admitted schedule the host supplies: total deterministic `(priority, facetId, interceptorId)` order with a unique schedule, last-rewriter attribution, scoped final blocks naming the exact blocker, behavior-free trace replay that refuses broken chains, `ReplayItem` assembly from completed runs, interception authority, and the §7.2 raise — no state admits a call with an applicable interceptor directly; candidate discovery, durable persistence, replay lookup, and the non-operation cut points are not modeled |
 | Grants, Bindings, path epochs, and Role materialization | `AC-AUTH-001`, `AC-AUTH-RESOLUTION-001`, `AC-MATERIALIZE-001` | designated abstract authorization, path-evidence, deadline, holder-join, guest-attenuation, and rematerialization consequences only |
-| Placement, trust, and exact-Turn leases | `AC-PLACEMENT-001`, `AC-TRUST-001`, `AC-LEASE-001` | pure four-set selection, the §7.2 tier floor including the Turn-owned session direct-execute exception, one source-tier rejection property, listed LeaseStep consequences over supplied inputs, and an executable step function proven sound and complete for the lease relation (the differential-testing oracle); no complete lifecycle claim |
+| Placement, trust, and exact-Turn leases | `AC-PLACEMENT-001`, `AC-TRUST-001`, `AC-LEASE-001` | pure four-set selection, the §7.2 tier floor including the Turn-owned session direct-execute exception (the own-filesystem `mutate` exception is not modeled; formal `mutate` is conservatively mediated), one source-tier rejection property, listed LeaseStep consequences over supplied inputs, and an executable step function proven sound and complete for the lease relation (the differential-testing oracle); no complete lifecycle claim |
 | Environment and Session | `AC-ENVIRONMENT-001`, `NC-ENVIRONMENT-LIFECYCLE` | abstract Session transitions only: Turn-owned fail-closed use, terminal close with child disposal, rotation pinning, explicit egress binding, reachable credential isolation over the proxy seam, and fail-closed preview exposure; concrete provider, container, transport, and snapshot-format behavior is not modeled |
 | Slate | `AC-SLATE-001`, `NC-SLATE-RUNTIME` | abstract record and isolate transitions only: version and publication immutability, rollback as an owned-pointer retarget without provider contact, preview as a live Environment Session, dynamic-only placement, and Binding-backed capability provenance for dynamic isolates; generated application code and concrete provider effects are not modeled |
 | Approval, batch effects, and Receipt lineage | `AC-APPROVAL-001`, `AC-EFFECT-001` | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved |
 | Event routing and typed audit | `AC-EVENT-ROUTING-001`, `AC-ROUTING-001`, `AC-AUDIT-001` | lease-backed self-Event checks, authenticated target projection without a source-audit edge, designated Actor-local audit consequences, and the Subscription routing LTS — at-most-once consumption per (Subscription, event key), declared-target firing, tenant containment, channel-derived trust admission, and fail-closed disable; no reservation uniqueness, transport, storage, or complete-instrumentation claim |
-| Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness on a graph reached from the empty graph by `GraphStep`, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, exact-Turn controlled synthesis, and undo as fenced append-only ancestor selection — no transition writes an undo onto a branch a running Turn still holds, whatever the lease expiry, and no transition removes or rewrites a stored commit; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, pending-revert durability, migration execution, or general settlement-preservation claim |
+| Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness on a graph reached from the empty graph by `GraphStep`, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, exact-Turn controlled synthesis, and undo as fenced append-only ancestor selection — no transition writes an undo onto a branch a running Turn still holds, whatever the lease expiry, and no transition removes or rewrites a stored commit; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, pending-revert durability, migration execution, resource-ceiling attenuation or exhaustion, or general settlement-preservation claim |
 | Integrated admission and settlement | `AC-COMPOSED-001` | designated direct admission, non-attempt mediated preparation, and an abstract distributed mediated-permit LTS. The target first durably records an immutable request; the Tenant issues from only its authority state and the authenticated request payload; typed messages cross a lossy/duplicating/reordering transport; and the target authenticates and consumes against the exact request, volatile authentication, fence, time, claim, reservation, lease, route, and audit state without reading issuer storage. Attempt-producing generic mediated transitions are excluded, so a reachability invariant gives every modeled EffectAttempt exact request, historical Tenant issuance, target consumption, and matching-attempt evidence. No Actor-local boolean or claimed authority admission path is modeled; a future Actor-local attempt path requires ownership that permits the canonical comparison and attempt write in one transaction. Designated consequences cover reset-authentication invalidation, expiry, changed fences, and before/after commit-unknown issuance and consumption. Live authority administration is deliberately absent until a capability-mediated administration path is modeled; raw `AuthorityStep` is not admitted as a runtime transition. The abstract permit binds the modeled PreparedInvocation, claim, reservation, binding generation, fence, actor, nonce, and time fields, not every concrete §10.3 wire field. Settlement retains its constructive exact-obligation witness; no concrete transaction or refinement claim |
 | Platform mechanism representations | `AC-REP-BROKER-001`, `AC-REP-CONSENT-001`, `AC-REP-REACTION-001`, `AC-REP-MOA-001` | proved component reductions to core modules: broker credential custody with the digest-bound approval gate, per-pair consent epochs, reaction dedup and lease-fenced injection, and aggregation-chain lineage completeness; no profile, product, UX, or implementation-refinement claim |
 | Facet manifest/runtime | `NC-FACET-MANIFEST-RUNTIME` | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled |

@@ -108,11 +108,8 @@ const declarationCodecs = new BlueprintDeclarationCodecPort(
 );
 
 const placementSource = new (class extends PlacementSourcePort {
-    public sources(_release: PackageRelease, _manifest: FacetManifest) {
-        return {
-            substrate: ["dynamic", "provider", "bundled"],
-            trust: ["dynamic", "provider", "bundled"]
-        } as const;
+    public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
+        return ["dynamic", "provider", "bundled"] as const;
     }
 })();
 
@@ -256,6 +253,7 @@ function resolutionWith(
         policies:
             policies.length === 0 ? [new PolicySet({ maxDirectRevocationWindowMs: 50 })] : policies,
         turnOwnedSession: true,
+        sessionFilesystemTarget: false,
         turnActorAuthorityLocal: true,
         directAuthority: new ResolvedOperationAuthority(facet, [
             new CapabilitySpec({ facetPattern: facet.value, impacts: ["observe"] })

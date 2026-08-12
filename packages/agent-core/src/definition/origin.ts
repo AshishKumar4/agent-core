@@ -1,4 +1,12 @@
-import { Digest, RecordCodec, hasExactJsonKeys, type JsonValue } from "../core";
+import {
+    type JsonObject,
+    type JsonFields,
+    Digest,
+    RecordCodec,
+    hasExactJsonKeys,
+    isJsonObject,
+    type JsonValue
+} from "../core";
 import { TenantId } from "../identity";
 import { DeploymentId } from "./id";
 
@@ -119,17 +127,15 @@ export class ManagedOrigin {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
-function requireFields(
-    value: { readonly [key: string]: JsonValue },
-    fields: readonly string[],
+function requireFields<Field extends string>(
+    value: JsonObject,
+    fields: readonly Field[],
     subject: string
-): void {
+): asserts value is JsonFields<Field> {
     if (!hasExactJsonKeys(value, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);
     }

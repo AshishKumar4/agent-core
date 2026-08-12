@@ -1,6 +1,6 @@
 {
   "edition": "1.0.0",
-  "sourceExtensions": ["src/actors/id.ts"],
-  "testExtensions": ["test/core/errors.test.ts"],
-  "reason": "The archived W1 request stays byte-frozen, so post-archive inventory lives here: canonical ActorId ownership moved to the required actors/id.ts dependency leaf during W9 integration, and errors.test.ts pinned the root errors module during the mutation kill campaign."
+  "sourceExtensions": ["src/actors/id.ts", "src/core/narrow.ts"],
+  "testExtensions": ["test/core/errors.test.ts", "test/core/narrow.test.ts"],
+  "reason": "The archived W1 request stays byte-frozen, so post-archive inventory lives here: canonical ActorId ownership moved to the required actors/id.ts dependency leaf during W9 integration, errors.test.ts pinned the root errors module during the mutation kill campaign, and narrow.ts carries the shared vocabulary and nonemptiness predicates the weak-type ban introduced across every context."
 }

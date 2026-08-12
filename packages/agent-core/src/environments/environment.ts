@@ -74,7 +74,7 @@ class EnvironmentRevisionCodecV1 extends RecordCodec<EnvironmentRevisionRecord> 
             ["environmentId", "generation", "provider", "revision"],
             "Environment revision"
         );
-        const provider = requireObject(object["provider"]!, "Environment provider");
+        const provider = requireObject(object["provider"], "Environment provider");
         requireExact(provider, ["configuration", "id", "version"], "Environment provider");
         return new EnvironmentRevisionRecord(
             new EnvironmentId(requireString(object["environmentId"], "Environment ID")),

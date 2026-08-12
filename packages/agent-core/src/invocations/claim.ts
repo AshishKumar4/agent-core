@@ -122,7 +122,7 @@ export class ItemClaimCodec<Lease> extends RecordCodec<ItemClaim<Lease>> {
             new InvocationId(requireString(object, "invocation")),
             requireNonnegativeInteger(object, "itemIndex"),
             requireNonnegativeInteger(object, "attemptOrdinal"),
-            decodeOwner(object["owner"]!, this.lease),
+            decodeOwner(object["owner"], this.lease),
             requireDate(object, "expiresAt")
         );
     }
@@ -157,7 +157,7 @@ function decodeOwner<Lease>(
         );
         return Object.freeze({
             kind,
-            token: lease.decode(exact["token"]!),
+            token: lease.decode(exact["token"]),
             worker: new ClaimWorkerId(requireString(exact, "worker"))
         });
     }

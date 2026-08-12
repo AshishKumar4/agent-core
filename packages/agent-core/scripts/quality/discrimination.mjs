@@ -65,7 +65,14 @@ for (const requirement of requirements.filter((item) => item.status === "verifie
     }
     if (kind !== "mutation") continue;
     const tier = await discriminationTier(requirement);
-    if (tier === undefined) {
+    if (tier === "unmeasured") {
+        issue(
+            "DISC-STALE",
+            requirement.fragment,
+            requirement.id,
+            `Verified ${requirement.id} cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination`
+        );
+    } else if (tier === undefined) {
         issue(
             "DISC-ATOM",
             requirement.fragment,
@@ -159,23 +166,41 @@ async function classify(requirement) {
 /**
  * The strongest tier any cited (symbol, test) pair supports: "symbol" when a killed
  * mutant lies inside the cited declaration of an unchanged file, "file" when the file
- * has drifted since measurement and only file-level attribution survives, undefined
- * when no cited test killed anything in the cited sources.
+ * has drifted since measurement and only file-level attribution survives, "unmeasured"
+ * when a cited source or test has no attribution to judge — the measurement predates
+ * it — and undefined when the evidence was measured and killed nothing.
+ *
+ * The unmeasured case must stay distinct from undefined. Both mean "no kill found",
+ * but only one of them is a claim about the tests: an atom whose test was added after
+ * the last measurement has not been shown to lack discrimination, it has not been
+ * asked. Reporting the two alike would put re-measurement debt into the baseline
+ * beside real defects, and the baseline is the one place a real defect must not be
+ * able to hide.
  */
 async function discriminationTier(requirement) {
     let tier;
+    let unmeasured = false;
     for (const symbol of requirement.sourceSymbols) {
         if (!symbol.startsWith("src/")) continue;
         const file = symbol.slice(0, symbol.indexOf("#"));
         const measured = attribution.files.get(file);
-        if (measured === undefined) continue;
+        if (measured === undefined) {
+            unmeasured = true;
+            continue;
+        }
         const hash = await currentHash(file);
         // A kill in a file that no longer exists is evidence about nothing current.
         if (hash === "missing") continue;
         const fresh = measured.sha256 === hash;
         for (const selector of requirement.testSelectors) {
             const lines = attribution.kills.get(selector)?.get(file);
-            if (lines === undefined) continue;
+            if (lines === undefined) {
+                // The selector carries no attribution at all: either the test post-dates
+                // the measurement or the file drifted out from under it. Either way the
+                // run never put this test to the question.
+                if (!fresh || !attribution.kills.has(selector)) unmeasured = true;
+                continue;
+            }
             if (!fresh) {
                 tier = tier ?? "file";
                 continue;
@@ -186,7 +211,7 @@ async function discriminationTier(requirement) {
             }
         }
     }
-    return tier;
+    return tier ?? (unmeasured ? "unmeasured" : undefined);
 }
 
 function symbolLines(symbol) {

@@ -5,6 +5,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import { MaterializationPlan } from "../definition";
@@ -234,7 +235,7 @@ function requireCanonicalTargetPlan(
 }
 
 function requirePayloadObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
+    if (!isJsonObject(value)) {
         throw new CommandPayloadMalformedError("Local materialization payload must be an object");
     }
     return value as { readonly [key: string]: JsonValue };

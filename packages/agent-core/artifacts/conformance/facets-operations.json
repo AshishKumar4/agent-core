@@ -126,7 +126,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "Disposal is per-invocation today: the Turn invocation port disposes each resolved Facet in a finally, but no Turn-scoped resolved-Facet registry exists, so a Facet held across Turn work has no disposal sweep on suspension or authority loss",
+        "'Authority loss' has no operational signal: no revocation or epoch-invalidation callback reaches a held ResolvedFacet, and requireActive checks host liveness, not Grant/Binding/lease validity",
+        "W3-citable implementation must live in src/operations (a ResolvedFacet scope the W5 executor consumes), since the Turn-side call sites are W5-owned; SPEC \u00a75.3 also names a resolved FacetSet no type declares"
       ]
     },
     {
@@ -134,14 +136,20 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-INSTALL-VERIFICATION",
       "specTextSha256": "sha256:88f437d400f88e53bf2aecee9b654f0a4781d91335672af4b6290058116b380c",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
-      ]
+      "sourceSymbols": [
+        "src/operations/correspondence.ts#FacetCorrespondenceValidator",
+        "src/operations/correspondence.ts#ValidatedFacet",
+        "src/operations/gateway.ts#ProtectedResolvedFacet"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] names the kind of contribution that has no runtime implementation",
+        "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position",
+        "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-FACET-MANIFEST",
@@ -222,7 +230,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
-        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-CROSS-FACET] rejects cross-workspace restore, non-Promise thenables, and duplicate draft origins"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-CROSS-FACET] denies cross-Facet interception without explicit authority"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -250,7 +258,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
-        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-ORDER] validates every committed map edge and deterministic snapshot ordering"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] orders interceptors by priority before contributor and id"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -292,7 +300,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
-        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-INTERCEPTOR-THROW-BLOCK] rejects malformed snapshots, immutable origins, and out-of-transaction access with typed errors"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-THROW-BLOCK] fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

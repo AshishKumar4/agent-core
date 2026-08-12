@@ -45,11 +45,15 @@ evidence agree where applicable.
 
 ## P1 — missing normative implementation
 
-- [x] **Implement the concrete Turn host and agent harness.** `TurnExecutorHost` now calls
-      the model, binds tools, streams ephemeral output, checkpoints, recovers, and settles
-      the exact leased Turn through canonical Run records. The integration-ledger entry
-      now cites this host and its adversarial tests instead of unrelated Run-frontier
-      evidence.
+- [~] **Implement the concrete Turn host and agent harness.** HOST DONE, HARNESS OPEN.
+  `TurnExecutorHost` binds tools, streams ephemeral output, checkpoints, recovers, and
+  settles the exact leased Turn through canonical Run records. The integration-ledger
+  entry now cites this host and its adversarial tests instead of unrelated Run-frontier
+  evidence. It does NOT call a model: `TurnModelPort` is an abstract class and no
+  implementation of it exists in `src/`, so nothing in this repo reaches a provider.
+  That is correct for the kernel — §5.6 specifies no loop — but it means the harness
+  half of this item is untouched. Binding pi's `runAgentLoop` behind the port is the
+  remaining work, and the item stays open until it exists.
 - [x] **Make the executor boundary typed and public.** `TurnBoundTool` uses the existing
       `OperationDescriptor` source of truth, and the supported Run export exposes
       lease-scoped prompt/content, inbox, invocation, commit, checkpoint, cancellation,
@@ -137,9 +141,15 @@ evidence agree where applicable.
 - [ ] **Remove duplicate identity representation.** Several records store both a
       `ContentRef` and its directly derivable digest. Retain one canonical identity unless
       the second field is independently authenticated and necessary.
-- [ ] **Unify closed vocabularies.** Placement cases/order and impact cases/order have
-      multiple owners. Establish one smart value object/source of truth for cases,
-      validation, and canonical ordering. Resolve `CapabilitySpec` ownership.
+- [x] **Unify the placement closed vocabulary.** `IsolationMode`'s cases, order, and
+      validity check now have one owner: `facets/manifest.ts` declares `PLACEMENT_PREFERENCE`
+      beside the type itself; `definition/placement.ts` re-exports it instead of keeping a
+      second copy, and every membership check (`facets/manifest.ts`, `definition/placement.ts`,
+      `agents/runs/placement.ts`) delegates to `core`'s `isMember` against that one array.
+      `invocations/operation-pin.ts` and `definition/policy.ts` already delegated correctly.
+- [ ] **Unify the impact closed vocabulary.** Impact cases/order still have multiple
+      owners. Establish one smart value object/source of truth for cases, validation, and
+      canonical ordering. Resolve `CapabilitySpec` ownership.
 - [ ] **Consolidate narrow codec mechanics.** Byte equality and canonical-JSON parsing
       helpers are repeated across contexts and already differ semantically. Centralize
       syntax mechanics while keeping domain validation local. Specify constant-time
@@ -215,24 +225,28 @@ evidence agree where applicable.
 
 ## Incomplete conformance atoms
 
-- [ ] `C13-AUDIT-TELEMETRY-EXCLUDED`
-- [ ] `C13-AUTH-GUEST-VERIFICATION`
+- [x] `C13-AUDIT-TELEMETRY-EXCLUDED`
+- [x] `C13-AUTH-GUEST-VERIFICATION`
+- [ ] `C13-AUTH-ISOLATE-DELEGATION`
 - [ ] `C13-AUTH-RESOLUTION-LIFETIME`
 - [ ] `C13-CONFIG-SECRET-CUSTODY`
 - [ ] `C13-CONTENT-CUSTODY`
 - [ ] `C13-FACET-DISPOSAL`
-- [ ] `C13-FACET-INSTALL-VERIFICATION`
+- [x] `C13-FACET-INSTALL-VERIFICATION`
 - [ ] `C13-OWNERSHIP-SINGLE-OWNER`
+- [ ] `C13-PLACEMENT-AUTHORED-BACKING`
 - [ ] `C13-PLACEMENT-DYNAMIC-NO-EGRESS`
 - [ ] `C13-POLICY-IMPACT-BOUNDARY`
-- [ ] `C13-RECEIPT-IMMUTABLE`
-- [ ] `C13-ROUTE-DELIVERY-ONCE`
-- [ ] `C13-RUN-CHECKPOINT-KINDS`
-- [ ] `C13-RUN-PIN-IDENTITY-TYPES`
+- [x] `C13-RECEIPT-IMMUTABLE`
+- [x] `C13-ROUTE-DELIVERY-ONCE`
+- [x] `C13-RUN-CHECKPOINT-KINDS`
+- [x] `C13-RUN-PIN-IDENTITY-TYPES`
+- [ ] `C13-RUN-RESOURCE-CEILING`
 - [ ] `C13-RUN-TREE-CONFLICT-EXPLICIT`
 - [x] `C13-TURN-MODEL-CALL`
 - [ ] `C13-VIEW-APPROVAL-PROVENANCE`
 - [ ] `P11-ENVIRONMENT-NO-AMBIENT-EGRESS`
+- [x] `P11-FILESYSTEM-SESSION-DIRECT`
 
 ## Required execution order
 

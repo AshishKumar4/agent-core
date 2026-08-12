@@ -1,4 +1,4 @@
-import type { JsonValue } from "../../core";
+import { isMember, type JsonValue } from "../../core";
 import type { PrincipalRef } from "../../identity";
 import { Command } from "../command";
 import {
@@ -711,10 +711,7 @@ function requireBoolean(value: JsonValue | undefined, subject: string): boolean 
 }
 
 function requireLiveOperation(value: JsonValue | undefined): LiveDeviceOperation {
-    if (
-        typeof value === "string" &&
-        LIVE_DEVICE_OPERATIONS.includes(value as LiveDeviceOperation)
-    ) {
+    if (isMember(LIVE_DEVICE_OPERATIONS, value)) {
         return value as LiveDeviceOperation;
     }
     throw new TypeError("Device command operation is invalid");

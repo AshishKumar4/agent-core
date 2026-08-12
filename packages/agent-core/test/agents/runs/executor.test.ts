@@ -17,8 +17,8 @@ import {
     RunId,
     RunRuntime,
     PlacementPin,
-    OperationGatewayTurnInvocationPort,
-    TurnBoundTool,
+    GatewayTurnInvocationPort,
+    TurnBoundOperation,
     TurnExecutor,
     TurnExecutorHost,
     TurnId,
@@ -43,9 +43,9 @@ import { content, harness, ids, refs, seedRunningTurn } from "./fixture";
 
 class HostedExecutor extends TurnExecutor {
     public async execute(turn: TurnContext): Promise<TurnOutcome> {
-        if (turn.tools[0] !== undefined) {
+        if (turn.operations[0] !== undefined) {
             await turn.invocation.invoke(
-                turn.tools[0],
+                turn.operations[0],
                 new OperationRequestKey("executor-tool-call"),
                 { key: "value" }
             );
@@ -93,7 +93,7 @@ describe("TurnExecutor seam", () => {
             new JsonSchema({ type: "object" }),
             "Read the canonical value."
         );
-        const tool = new TurnBoundTool(
+        const tool = new TurnBoundOperation(
             new BindingName("memory"),
             new FacetRef("memory:primary"),
             new OperationRef("memory:read"),
@@ -109,7 +109,7 @@ describe("TurnExecutor seam", () => {
         expect(tool.descriptor.input.document).toEqual({ type: "object" });
         expect(
             () =>
-                new TurnBoundTool(
+                new TurnBoundOperation(
                     tool.binding,
                     tool.facet,
                     new OperationRef("memory:write"),
@@ -178,74 +178,79 @@ describe("TurnExecutor seam", () => {
         ]).toEqual([true, false, false, false, false, false, false, false]);
     });
 
-    it("[C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output", async () => {
-        const placement = new PlacementPin({
-            facet: new FacetRef("memory:primary"),
-            manifest: ["dynamic"],
-            policy: ["dynamic"],
-            substrate: ["dynamic"],
-            trust: ["dynamic"],
-            selected: "dynamic"
-        });
-        const seeded = seedRunningTurn(undefined, {}, [placement]);
-        const contentStore = new MemoryContentStore();
-        const prompt = (await contentStore.put(new TextEncoder().encode("prompt"))).ref;
-        const output = (await contentStore.put(new TextEncoder().encode("complete output"))).ref;
-        const read = boundTool("read", "memory.read", "observe", "Read memory.");
-        const write = boundTool("write", "memory.write", "mutate", "Write memory.");
-        const modelCalls: ReturnType<typeof content>[] = [];
-        const invocationCalls: TurnBoundTool[] = [];
-        const stream: Uint8Array[] = [];
-        const host = new TurnExecutorHost({
-            runtime: seeded.runtime,
-            executor: new HostedExecutor(),
-            content: contentStore,
-            tools: { resolve: async () => [write, read] },
-            prompt: { assemble: async () => prompt },
-            invocations: {
-                invoke: async (request) => {
-                    invocationCalls.push(request.tool);
-                    expect(request.token).toEqual(seeded.token);
-                    expect(request.input).toEqual({ key: "value" });
-                    return { output: { stored: true }, evidence: { receipt: "receipt-1" } };
-                }
-            },
-            model: {
-                call: async (request) => {
-                    modelCalls.push(request.prompt);
-                    expect(request.tools).toEqual([write, read]);
-                    return {
-                        output,
-                        usage: { inputTokens: 2, outputTokens: 3 }
-                    };
-                }
-            },
-            stream: {
-                publish: async (publication) => {
-                    if (publication.event.kind === "content") {
-                        stream.push(publication.event.bytes);
+    it(
+        "[C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
+        { tags: "p1" },
+        async () => {
+            const placement = new PlacementPin({
+                facet: new FacetRef("memory:primary"),
+                manifest: ["dynamic"],
+                policy: ["dynamic"],
+                substrate: ["dynamic"],
+                trust: ["dynamic"],
+                selected: "dynamic"
+            });
+            const seeded = seedRunningTurn(undefined, {}, [placement]);
+            const contentStore = new MemoryContentStore();
+            const prompt = (await contentStore.put(new TextEncoder().encode("prompt"))).ref;
+            const output = (await contentStore.put(new TextEncoder().encode("complete output")))
+                .ref;
+            const read = boundTool("read", "memory.read", "observe", "Read memory.");
+            const write = boundTool("write", "memory.write", "mutate", "Write memory.");
+            const modelCalls: ReturnType<typeof content>[] = [];
+            const invocationCalls: TurnBoundOperation[] = [];
+            const stream: Uint8Array[] = [];
+            const host = new TurnExecutorHost({
+                runtime: seeded.runtime,
+                executor: new HostedExecutor(),
+                content: contentStore,
+                operations: { resolve: async () => [write, read] },
+                prompt: { assemble: async () => prompt },
+                invocations: {
+                    invoke: async (request) => {
+                        invocationCalls.push(request.operation);
+                        expect(request.token).toEqual(seeded.token);
+                        expect(request.input).toEqual({ key: "value" });
+                        return { output: { stored: true }, evidence: { receipt: "receipt-1" } };
                     }
-                }
-            },
-            now: () => new Date(2_000)
-        });
+                },
+                model: {
+                    call: async (request) => {
+                        modelCalls.push(request.prompt);
+                        expect(request.operations).toEqual([write, read]);
+                        return {
+                            output,
+                            usage: { inputTokens: 2, outputTokens: 3 }
+                        };
+                    }
+                },
+                stream: {
+                    publish: async (publication) => {
+                        if (publication.event.kind === "content") {
+                            stream.push(publication.event.bytes);
+                        }
+                    }
+                },
+                now: () => new Date(2_000)
+            });
 
-        await expect(host.execute(seeded.token)).resolves.toEqual({
-            kind: "succeeded",
-            result: output,
-            commit: new RunCommitId("executor-result")
-        });
-        expect(modelCalls).toEqual([prompt]);
-        expect(invocationCalls).toEqual([write]);
-        expect(stream.map((bytes) => new TextDecoder().decode(bytes))).toEqual(["ephemeral"]);
-        const persisted = seeded.repository.transaction((transaction) => ({
-            turn: seeded.repository.loadTurn(transaction, ids.turn),
-            branch: seeded.repository.loadBranch(transaction, ids.branch)
-        }));
-        expect(persisted.turn?.status.kind).toBe("succeeded");
-        expect(persisted.turn?.result).toEqual(output);
-        expect(persisted.branch?.head).toEqual(new RunCommitId("executor-result"));
-    });
+            await expect(host.execute(seeded.token)).resolves.toEqual({
+                kind: "succeeded",
+                result: output,
+                commit: new RunCommitId("executor-result")
+            });
+            expect(modelCalls).toEqual([prompt]);
+            expect(invocationCalls).toEqual([write]);
+            expect(stream.map((bytes) => new TextDecoder().decode(bytes))).toEqual(["ephemeral"]);
+            const persisted = seeded.repository.transaction((transaction) => ({
+                turn: seeded.repository.loadTurn(transaction, ids.turn),
+                branch: seeded.repository.loadBranch(transaction, ids.branch)
+            }));
+            expect(persisted.turn?.status.kind).toBe("succeeded");
+            expect(persisted.turn?.result).toEqual(output);
+            expect(persisted.branch?.head).toEqual(new RunCommitId("executor-result"));
+        }
+    );
 
     it("adapts one exact bound tool to the existing mediated OperationGateway and disposes it", async () => {
         const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
@@ -256,7 +261,7 @@ describe("TurnExecutor seam", () => {
             evidence: { receipt: "receipt-1" }
         });
         const gateway = new TestOperationGateway(resolved);
-        const adapter = new OperationGatewayTurnInvocationPort({
+        const adapter = new GatewayTurnInvocationPort({
             open: async (scope) => {
                 expect(scope.token).toEqual(seeded.token);
                 return gateway;
@@ -267,7 +272,7 @@ describe("TurnExecutor seam", () => {
             adapter.invoke({
                 turn: seeded.running,
                 token: seeded.token,
-                tool,
+                operation: tool,
                 requestKey: new OperationRequestKey("gateway-call"),
                 input: { key: "value" },
                 signal: new AbortController().signal
@@ -342,28 +347,32 @@ describe("TurnExecutor seam", () => {
         expect(cancelled.disposed).toBe(true);
     });
 
-    it("rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code", async () => {
-        const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
-        const executor = new FunctionExecutor(async () => {
-            throw new TypeError("executor must not run");
-        });
-        const host = boundaries.host(seeded, executor);
-        const tokens = [
-            { ...seeded.token, turn: new TurnId("wrong-turn") },
-            {
-                ...seeded.token,
-                holder: new PrincipalRef(ids.holder.tenantId, new PrincipalId("wrong-holder"))
-            },
-            { ...seeded.token, epoch: seeded.token.epoch + 1 }
-        ];
+    it(
+        "rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn();
+            const boundaries = await TestBoundaries.create();
+            const executor = new FunctionExecutor(async () => {
+                throw new TypeError("executor must not run");
+            });
+            const host = boundaries.host(seeded, executor);
+            const tokens = [
+                { ...seeded.token, turn: new TurnId("wrong-turn") },
+                {
+                    ...seeded.token,
+                    holder: new PrincipalRef(ids.holder.tenantId, new PrincipalId("wrong-holder"))
+                },
+                { ...seeded.token, epoch: seeded.token.epoch + 1 }
+            ];
 
-        for (const token of tokens) {
-            await expect(host.execute(token)).rejects.toBeInstanceOf(AgentCoreError);
+            for (const token of tokens) {
+                await expect(host.execute(token)).rejects.toBeInstanceOf(AgentCoreError);
+            }
+            expect(executor.calls).toBe(0);
+            expect(boundaries.modelCalls).toHaveLength(0);
         }
-        expect(executor.calls).toBe(0);
-        expect(boundaries.modelCalls).toHaveLength(0);
-    });
+    );
 
     it("fails closed before execution for duplicate bindings or tools absent from placement", async () => {
         const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
@@ -409,7 +418,7 @@ describe("TurnExecutor seam", () => {
                         expect(request.effectiveCommit.id).toEqual(ids.root);
                         expect(request.placement.placements).toEqual([placement]);
                         expect(request.resumeCheckpoint).toBeUndefined();
-                        expect(request.tools).toEqual([tool]);
+                        expect(request.operations).toEqual([tool]);
                         return boundaries.prompt;
                     }
                 }
@@ -421,7 +430,7 @@ describe("TurnExecutor seam", () => {
     it("rejects a structural tool substitute from the tool source", async () => {
         const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
         const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-        const structuralTool: TurnBoundTool = Object.freeze({
+        const structuralTool: TurnBoundOperation = Object.freeze({
             binding: tool.binding,
             facet: tool.facet,
             operation: tool.operation,
@@ -434,7 +443,7 @@ describe("TurnExecutor seam", () => {
 
         await expect(
             boundaries
-                .host(seeded, executor, { tools: { resolve: async () => [structuralTool] } })
+                .host(seeded, executor, { operations: { resolve: async () => [structuralTool] } })
                 .execute(seeded.token)
         ).rejects.toBeInstanceOf(TypeError);
         expect(executor.calls).toBe(0);
@@ -482,97 +491,104 @@ describe("TurnExecutor seam", () => {
         }
     });
 
-    it("observes exact takeover cancellation and fences every effectful handle", async () => {
-        const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-        const placement = memoryPlacement();
-        const seeded = seedRunningTurn(undefined, {}, [placement]);
-        const boundaries = await TestBoundaries.create([tool]);
-        const newHolder = new PrincipalRef(ids.holder.tenantId, new PrincipalId("takeover-holder"));
-        const errors: string[] = [];
-        let modelSignal: AbortSignal | undefined;
-        let observedInbox: readonly TurnInboxEntry[] | undefined;
-        let observedCancellation = false;
-        let observedCancelledOutcome: unknown;
-        const executor = new FunctionExecutor(async (context) => {
-            const cancellation = cancellationEntry(
-                "takeover-cancellation",
-                seeded.token,
-                boundaries.cancellationPayload,
-                0
+    it(
+        "observes exact takeover cancellation and fences every effectful handle",
+        { tags: "p0" },
+        async () => {
+            const tool = boundTool("read", "memory.read", "observe", "Read memory.");
+            const placement = memoryPlacement();
+            const seeded = seedRunningTurn(undefined, {}, [placement]);
+            const boundaries = await TestBoundaries.create([tool]);
+            const newHolder = new PrincipalRef(
+                ids.holder.tenantId,
+                new PrincipalId("takeover-holder")
             );
-            seeded.runtime.reclaimTurn(
-                ids.turn,
-                seeded.running.revision,
-                newHolder,
-                new Date(6_000),
-                new Date(10_000),
-                cancellation
-            );
-            const calls: readonly (() => Promise<unknown>)[] = [
-                () => context.content.get(boundaries.prompt),
-                async () => {
-                    const call = context.model.call({ prompt: boundaries.prompt });
-                    modelSignal = boundaries.lastModelSignal;
-                    return call;
-                },
-                () => context.stream.publish({ kind: "content", bytes: new Uint8Array([1]) }),
-                () =>
-                    context.invocation.invoke(
-                        tool,
-                        new OperationRequestKey("stale-invocation"),
-                        {}
-                    ),
-                () =>
-                    context.commit.append(
-                        messageCommit(context, "stale-message", boundaries.output, ids.root)
-                    ),
-                () => context.checkpoint.current(),
-                () =>
-                    context.outcome.succeed(
-                        resultCommit(context, "stale-result", boundaries.output, ids.root)
-                    )
-            ];
-            for (const [index, call] of calls.entries()) {
-                try {
-                    await call();
-                } catch (error) {
-                    errors.push(errorCode(error));
+            const errors: string[] = [];
+            let modelSignal: AbortSignal | undefined;
+            let observedInbox: readonly TurnInboxEntry[] | undefined;
+            let observedCancellation = false;
+            let observedCancelledOutcome: unknown;
+            const executor = new FunctionExecutor(async (context) => {
+                const cancellation = cancellationEntry(
+                    "takeover-cancellation",
+                    seeded.token,
+                    boundaries.cancellationPayload,
+                    0
+                );
+                seeded.runtime.reclaimTurn(
+                    ids.turn,
+                    seeded.running.revision,
+                    newHolder,
+                    new Date(6_000),
+                    new Date(10_000),
+                    cancellation
+                );
+                const calls: readonly (() => Promise<unknown>)[] = [
+                    () => context.content.get(boundaries.prompt),
+                    async () => {
+                        const call = context.model.call({ prompt: boundaries.prompt });
+                        modelSignal = boundaries.lastModelSignal;
+                        return call;
+                    },
+                    () => context.stream.publish({ kind: "content", bytes: new Uint8Array([1]) }),
+                    () =>
+                        context.invocation.invoke(
+                            tool,
+                            new OperationRequestKey("stale-invocation"),
+                            {}
+                        ),
+                    () =>
+                        context.commit.append(
+                            messageCommit(context, "stale-message", boundaries.output, ids.root)
+                        ),
+                    () => context.checkpoint.current(),
+                    () =>
+                        context.outcome.succeed(
+                            resultCommit(context, "stale-result", boundaries.output, ids.root)
+                        )
+                ];
+                for (const [index, call] of calls.entries()) {
+                    try {
+                        await call();
+                    } catch (error) {
+                        errors.push(errorCode(error));
+                    }
+                    if (index === 0) expect(context.cancellation.aborted).toBe(true);
                 }
-                if (index === 0) expect(context.cancellation.aborted).toBe(true);
-            }
-            observedInbox = await context.inbox.read(0);
-            observedCancellation = context.cancellation.aborted;
-            const outcome = await context.outcome.cancelled();
-            observedCancelledOutcome = outcome;
-            return outcome;
-        });
+                observedInbox = await context.inbox.read(0);
+                observedCancellation = context.cancellation.aborted;
+                const outcome = await context.outcome.cancelled();
+                observedCancelledOutcome = outcome;
+                return outcome;
+            });
 
-        await expect(boundaries.host(seeded, executor).execute(seeded.token)).resolves.toEqual({
-            kind: "cancelled"
-        });
-        expect(errors).toEqual(Array.from({ length: 7 }, () => "lease.invalid"));
-        expect(modelSignal?.aborted ?? true).toBe(true);
-        expect(boundaries.modelCalls).toHaveLength(0);
-        expect(boundaries.invocationCalls).toHaveLength(0);
-        expect(boundaries.streamEvents).toHaveLength(0);
-        expect(observedInbox).toEqual([
-            cancellationEntry(
-                "takeover-cancellation",
-                seeded.token,
-                boundaries.cancellationPayload,
-                0
-            )
-        ]);
-        expect(observedCancellation).toBe(true);
-        expect(observedCancelledOutcome).toEqual({ kind: "cancelled" });
-        const persisted = seeded.repository.transaction((transaction) => ({
-            turn: seeded.repository.loadTurn(transaction, ids.turn),
-            branch: seeded.repository.loadBranch(transaction, ids.branch)
-        }));
-        expect(persisted.turn?.status.kind).toBe("running");
-        expect(persisted.turn?.lease.holder).toEqual(newHolder);
-        expect(persisted.branch?.head).toEqual(ids.root);
-    });
+            await expect(boundaries.host(seeded, executor).execute(seeded.token)).resolves.toEqual({
+                kind: "cancelled"
+            });
+            expect(errors).toEqual(Array.from({ length: 7 }, () => "lease.invalid"));
+            expect(modelSignal?.aborted ?? true).toBe(true);
+            expect(boundaries.modelCalls).toHaveLength(0);
+            expect(boundaries.invocationCalls).toHaveLength(0);
+            expect(boundaries.streamEvents).toHaveLength(0);
+            expect(observedInbox).toEqual([
+                cancellationEntry(
+                    "takeover-cancellation",
+                    seeded.token,
+                    boundaries.cancellationPayload,
+                    0
+                )
+            ]);
+            expect(observedCancellation).toBe(true);
+            expect(observedCancelledOutcome).toEqual({ kind: "cancelled" });
+            const persisted = seeded.repository.transaction((transaction) => ({
+                turn: seeded.repository.loadTurn(transaction, ids.turn),
+                branch: seeded.repository.loadBranch(transaction, ids.branch)
+            }));
+            expect(persisted.turn?.status.kind).toBe("running");
+            expect(persisted.turn?.lease.holder).toEqual(newHolder);
+            expect(persisted.branch?.head).toEqual(ids.root);
+        }
+    );
 
     it("atomically suspends with the canonical checkpoint and recovers it after restart", async () => {
         const seeded = seedRunningTurn();
@@ -1515,7 +1531,7 @@ describe("TurnExecutor seam", () => {
 
 class TestBoundaries {
     public readonly modelCalls: TurnModelCall[] = [];
-    public readonly invocationCalls: TurnBoundTool[] = [];
+    public readonly invocationCalls: TurnBoundOperation[] = [];
     public readonly streamEvents: Uint8Array[] = [];
     public lastModelSignal: AbortSignal | undefined;
 
@@ -1525,10 +1541,10 @@ class TestBoundaries {
         public readonly output: ContentRef,
         public readonly checkpointState: ContentRef,
         public readonly cancellationPayload: ContentRef,
-        public readonly tools: readonly TurnBoundTool[]
+        public readonly tools: readonly TurnBoundOperation[]
     ) {}
 
-    public static async create(tools: readonly TurnBoundTool[] = []): Promise<TestBoundaries> {
+    public static async create(tools: readonly TurnBoundOperation[] = []): Promise<TestBoundaries> {
         const contentStore = new MemoryContentStore();
         const put = async (value: string) =>
             (await contentStore.put(new TextEncoder().encode(value))).ref;
@@ -1551,11 +1567,11 @@ class TestBoundaries {
             runtime: seeded.runtime,
             executor,
             content: this.content,
-            tools: { resolve: async () => this.tools },
+            operations: { resolve: async () => this.tools },
             prompt: { assemble: async () => this.prompt },
             invocations: {
                 invoke: async (request) => {
-                    this.invocationCalls.push(request.tool);
+                    this.invocationCalls.push(request.operation);
                     return { output: {}, evidence: { receipt: "test" } };
                 }
             },
@@ -1599,7 +1615,7 @@ class TestResolvedFacet extends ResolvedFacet {
     public disposed = false;
 
     public constructor(
-        private readonly tool: TurnBoundTool,
+        private readonly tool: TurnBoundOperation,
         private readonly result: OperationDispatchResult,
         private readonly options: {
             readonly facet?: FacetRef;
@@ -1816,21 +1832,21 @@ function errorCode(error: unknown): string {
     return error instanceof AgentCoreError ? error.code : String(error);
 }
 
-function invocationAdapter(resolved: ResolvedFacet): OperationGatewayTurnInvocationPort {
-    return new OperationGatewayTurnInvocationPort({
+function invocationAdapter(resolved: ResolvedFacet): GatewayTurnInvocationPort {
+    return new GatewayTurnInvocationPort({
         open: async () => new TestOperationGateway(resolved)
     });
 }
 
 function invocationRequest(
     seeded: ReturnType<typeof seedRunningTurn>,
-    tool: TurnBoundTool,
+    tool: TurnBoundOperation,
     signal: AbortSignal = new AbortController().signal
 ) {
     return {
         turn: seeded.running,
         token: seeded.token,
-        tool,
+        operation: tool,
         requestKey: new OperationRequestKey("gateway-adversarial-call"),
         input: { key: "value" },
         signal
@@ -1842,7 +1858,7 @@ function boundTool(
     binding: string,
     impact: "observe" | "mutate",
     help: string
-): TurnBoundTool {
+): TurnBoundOperation {
     const descriptor = new OperationDescriptor(
         new OperationName(name),
         impact,
@@ -1850,7 +1866,7 @@ function boundTool(
         new JsonSchema({ type: "object" }),
         help
     );
-    return new TurnBoundTool(
+    return new TurnBoundOperation(
         new BindingName(binding),
         new FacetRef("memory:primary"),
         new OperationRef(`memory:${name}`),

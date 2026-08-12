@@ -41,7 +41,7 @@ class DurableSchedule implements ReconciliationSchedulePort {
                 "reconciliation"
             ])
         );
-        const at = rows[0]?.fire_at;
+        const at = rows[0]?.["fire_at"];
         return typeof at === "number" ? new Date(at) : undefined;
     }
 

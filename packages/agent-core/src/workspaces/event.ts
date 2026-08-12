@@ -77,13 +77,13 @@ class EventCodecV1 extends RecordCodec<Event> {
             ],
             "Event payload"
         );
-        const content = decodeContent(object["content"]!, "Event content");
+        const content = decodeContent(object["content"], "Event content");
         const causation = requireNullableString(object["causation"], "Event causation");
         const initiator = decodeOptionalPrincipalRef(object["initiator"], "Event initiator");
         return new Event({
             id: new EventId(requireString(object["id"], "Event ID")),
-            scope: decodeScope(object["scope"]!),
-            source: decodeSource(object["source"]!),
+            scope: decodeScope(object["scope"]),
+            source: decodeSource(object["source"]),
             kind: new EventKind(requireString(object["category"], "Event category")),
             payload: content.ref,
             payloadDigest: content.digest,
@@ -92,7 +92,7 @@ class EventCodecV1 extends RecordCodec<Event> {
                 requireString(object["correlation"], "Event correlation")
             ),
             ...(causation === undefined ? {} : { causation: new EventId(causation) }),
-            provenance: decodeProvenance(object["provenance"]!),
+            provenance: decodeProvenance(object["provenance"]),
             trust: decodeTrust(object["trust"]),
             visibility: decodeVisibility(object["visibility"]),
             ...(initiator === undefined ? {} : { initiator })
@@ -204,7 +204,7 @@ function decodeSource(value: JsonValue): EventSource {
     }
     if (object["kind"] === "actor") {
         requireFields(object, ["actor", "kind"], "Actor Event source");
-        return { kind: "actor", actor: decodeActor(object["actor"]!, "Event source Actor") };
+        return { kind: "actor", actor: decodeActor(object["actor"], "Event source Actor") };
     }
     throw new TypeError("Event source kind is invalid");
 }

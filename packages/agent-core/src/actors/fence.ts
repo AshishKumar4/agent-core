@@ -1,4 +1,4 @@
-import { RecordCodec, hasExactJsonKeys, type JsonValue } from "../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import { ActorId } from "./id";
 import { ActorFence, ActorRef, type ActorKind } from "./types";
@@ -92,16 +92,15 @@ export class ActorRecoveryState {
 function isActorRecoveryStatePayload(
     payload: JsonValue
 ): payload is JsonValue & ActorRecoveryStatePayload {
-    if (payload === null || Array.isArray(payload) || typeof payload !== "object") {
+    if (!isJsonObject(payload)) {
         return false;
     }
 
-    const object = payload as { readonly [key: string]: JsonValue };
-    const actor = object["actor"];
-    const epoch = object["epoch"];
-    const recoveries = object["recoveries"];
+    const actor = payload["actor"];
+    const epoch = payload["epoch"];
+    const recoveries = payload["recoveries"];
     return (
-        hasExactJsonKeys(object, ["actor", "epoch", "recoveries"]) &&
+        hasExactJsonKeys(payload, ["actor", "epoch", "recoveries"]) &&
         isActor(actor) &&
         typeof epoch === "number" &&
         Number.isSafeInteger(epoch) &&
@@ -115,12 +114,11 @@ function isActorRecoveryStatePayload(
 function isActor(
     value: JsonValue | undefined
 ): value is JsonValue & ActorRecoveryStatePayload["actor"] {
-    if (value === null || Array.isArray(value) || typeof value !== "object") return false;
-    const object = value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) return false;
     return (
-        hasExactJsonKeys(object, ["kind", "id"]) &&
-        isActorKind(object["kind"]) &&
-        typeof object["id"] === "string"
+        hasExactJsonKeys(value, ["kind", "id"]) &&
+        isActorKind(value["kind"]) &&
+        typeof value["id"] === "string"
     );
 }
 

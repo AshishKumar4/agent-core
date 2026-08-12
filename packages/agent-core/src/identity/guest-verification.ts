@@ -8,9 +8,7 @@ import {
 } from "./codec";
 import { GuestTrustId, PrincipalId, TenantId } from "./id";
 import { PrincipalRef } from "./principal-ref";
-import type { ForeignPrincipalRef } from "./subject";
-
-export type GuestVerificationMethod = "token" | "callback";
+import { GuestVerificationScheme, type ForeignPrincipalRef } from "./subject";
 
 class GuestVerificationCodec extends RecordCodec<GuestVerification> {
     public constructor() {
@@ -40,7 +38,7 @@ export class GuestVerification {
         public readonly principal: PrincipalRef,
         public readonly trustId: GuestTrustId,
         public readonly trustRevision: Revision,
-        public readonly method: GuestVerificationMethod,
+        public readonly verifiedVia: GuestVerificationScheme,
         public readonly evidenceDigest: Digest,
         verifiedAt: Date,
         expiresAt: Date,
@@ -49,7 +47,9 @@ export class GuestVerification {
         if (token !== constructionToken) {
             throw new TypeError("Guest verification must be minted or restored by the host");
         }
-        requireVerificationMethod(method);
+        if (verifiedVia.equals(GuestVerificationScheme.handshake)) {
+            throw new TypeError("Guest verification is never minted via the handshake scheme");
+        }
         this.#verifiedAt = validDate(verifiedAt, "Guest verification time");
         this.#expiresAt = validDate(expiresAt, "Guest verification expiry");
         if (this.#expiresAt <= this.#verifiedAt) {
@@ -88,7 +88,7 @@ export class GuestVerification {
         return (
             this.principal.tenantId.equals(subject.homeTenant) &&
             this.principal.principalId.equals(subject.principalId) &&
-            this.method === subject.verifiedVia.value &&
+            this.verifiedVia.equals(subject.verifiedVia) &&
             this.#verifiedAt <= checkedAt &&
             checkedAt < this.#expiresAt
         );
@@ -98,14 +98,14 @@ export class GuestVerification {
         return {
             evidenceDigest: this.evidenceDigest.value,
             expiresAt: this.#expiresAt,
-            method: this.method,
             principal: {
                 principal: this.principal.principalId.value,
                 tenant: this.principal.tenantId.value
             },
             trust: this.trustId.value,
             trustRevision: this.trustRevision.value,
-            verifiedAt: this.#verifiedAt
+            verifiedAt: this.#verifiedAt,
+            verifiedVia: this.verifiedVia.value
         };
     }
 }
@@ -114,7 +114,7 @@ export function mintGuestVerification(
     principal: PrincipalRef,
     trustId: GuestTrustId,
     trustRevision: Revision,
-    method: GuestVerificationMethod,
+    verifiedVia: GuestVerificationScheme,
     evidenceDigest: Digest,
     verifiedAt: Date,
     expiresAt: Date
@@ -123,7 +123,7 @@ export function mintGuestVerification(
         principal,
         trustId,
         trustRevision,
-        method,
+        verifiedVia,
         evidenceDigest,
         verifiedAt,
         expiresAt,
@@ -140,11 +140,11 @@ export function restoreGuestVerification(payload: JsonValue): GuestVerification 
         [
             "evidenceDigest",
             "expiresAt",
-            "method",
             "principal",
             "trust",
             "trustRevision",
-            "verifiedAt"
+            "verifiedAt",
+            "verifiedVia"
         ],
         "Guest verification"
     );
@@ -157,7 +157,7 @@ export function restoreGuestVerification(payload: JsonValue): GuestVerification 
         ),
         new GuestTrustId(requireIdentityString(object["trust"], "Guest trust ID")),
         requireIdentityRevision(object["trustRevision"], "Guest trust revision"),
-        requireVerificationMethod(object["method"]),
+        requireMintedScheme(object["verifiedVia"]),
         new Digest(requireIdentityString(object["evidenceDigest"], "Guest evidence digest")),
         requireDate(object["verifiedAt"], "Guest verification time"),
         requireDate(object["expiresAt"], "Guest verification expiry"),
@@ -175,9 +175,9 @@ export function isRestoredGuestVerification(verification: GuestVerification): bo
     return restoredVerifications.has(verification);
 }
 
-function requireVerificationMethod(value: JsonValue | undefined): GuestVerificationMethod {
-    if (value === "token" || value === "callback") return value;
-    throw new TypeError("Guest verification method is invalid");
+function requireMintedScheme(value: JsonValue | undefined): GuestVerificationScheme {
+    if (value === "token" || value === "callback") return GuestVerificationScheme.from(value);
+    throw new TypeError("Guest verification is only minted via the token or callback scheme");
 }
 
 function requireDate(value: JsonValue | undefined, subject: string): Date {

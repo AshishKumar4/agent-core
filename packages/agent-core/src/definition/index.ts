@@ -73,6 +73,7 @@ export {
     PlacementPolicy,
     PlacementSelection,
     PlacementUnavailableError,
+    preferredPlacement,
     selectPlacement,
     trustPlacementModes
 } from "./placement";

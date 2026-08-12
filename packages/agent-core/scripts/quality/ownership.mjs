@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import {
     artifactRoot,
     globMatches,
+    parseCanonicalJson,
     readCanonicalJson,
     repositoryRoot,
     sha256,
@@ -617,7 +618,10 @@ export async function validateStageTransition(base) {
         { cwd: repositoryRoot, encoding: "utf8" }
     );
     if (previous.status !== 0) return;
-    const priorStage = JSON.parse(previous.stdout).stage;
+    const priorStage = parseCanonicalJson(
+        previous.stdout,
+        `${base}:packages/agent-core/artifacts/conformance/stage.json`
+    ).stage;
     if (priorStage === "final" && current.stage !== "final") {
         throw new TypeError("Conformance stage cannot move from final back to building");
     }

@@ -1,4 +1,12 @@
-import { Digest, TextId, encodeCanonicalJson, hasExactJsonKeys, type JsonValue } from "../core";
+import {
+    type JsonFields,
+    Digest,
+    TextId,
+    encodeCanonicalJson,
+    hasExactJsonKeys,
+    isJsonObject,
+    type JsonValue
+} from "../core";
 
 export interface StructuralCodec<Value> {
     encode(value: Value): JsonValue;
@@ -9,22 +17,15 @@ export function requireObject(
     value: JsonValue | undefined,
     subject: string
 ): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
-export function requireExactObject(
+export function requireExactObject<Field extends string>(
     value: JsonValue | undefined,
-    fields: readonly string[],
+    fields: readonly Field[],
     subject: string
-): { readonly [key: string]: JsonValue } {
+): JsonFields<Field> {
     const object = requireObject(value, subject);
     if (!hasExactJsonKeys(object, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);

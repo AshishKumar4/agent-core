@@ -3,7 +3,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
-    type JsonValue,
+    isJsonObject,
     type Revision
 } from "../core";
 import { InvocationId } from "../interaction-references";
@@ -185,20 +185,19 @@ class InvocationProtocolCommand<Transaction, Read, Reply, Observation> implement
 class InvocationPayloadCodec implements CommandPayloadCodec {
     public decode(bytes: Uint8Array): InvocationCommandPayloadValue {
         const value = decodeCanonicalJson(bytes);
-        if (value === null || Array.isArray(value) || typeof value !== "object") {
+        if (!isJsonObject(value)) {
             throw new TypeError("Invocation command payload is malformed");
         }
-        const object = value as { readonly [key: string]: JsonValue };
         if (
-            !hasExactJsonKeys(object, ["body", "invocation"]) ||
-            typeof object["invocation"] !== "string" ||
-            !isFacetDataMap(object["body"])
+            !hasExactJsonKeys(value, ["body", "invocation"]) ||
+            typeof value["invocation"] !== "string" ||
+            !isFacetDataMap(value["body"])
         ) {
             throw new TypeError("Invocation command payload is malformed");
         }
         return Object.freeze({
-            invocation: new InvocationId(object["invocation"]),
-            body: canonicalFacetDataMap(object["body"])
+            invocation: new InvocationId(value["invocation"]),
+            body: canonicalFacetDataMap(value["body"])
         });
     }
 }

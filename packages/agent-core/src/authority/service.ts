@@ -364,7 +364,7 @@ export class AuthorityMutationService {
                 !trust.hostTenant.equals(store.tenantId) ||
                 !trust.homeTenant.equals(membership.subject.homeTenant) ||
                 trust.revision.value !== verification.trustRevision.value ||
-                trust.verifier.kind !== verification.method ||
+                trust.verifier.kind !== verification.verifiedVia.value ||
                 !verification.admits(membership.subject, now)
             ) {
                 throw new AgentCoreError(
@@ -670,9 +670,12 @@ function requireGrantSubject(store: AuthorityMutationStore, grant: Grant): void 
     } else if (grant.subject.kind === "team") {
         requireRecord(store.team(grant.subject.teamId), "Team");
     } else {
+        // SPEC §3.3: sharing is Membership issuance — there is no second mechanism.
+        // A direct-origin Grant carries no guest provenance, so it denies; guest
+        // Grants exist only as role materializations of a verified guest Membership.
         throw new AgentCoreError(
-            "protocol.invalid-state",
-            "Guest Grant verification is not implemented"
+            "authority.denied",
+            "Guest Grants materialize only through verified guest Memberships"
         );
     }
 }

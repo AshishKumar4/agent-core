@@ -41,7 +41,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "Rule 1 is mechanically enforced: the records registry gives every durable record exactly one owning Actor and authoritative store, ACQ-OWNER rejects duplicates, and the W0 checker tests cover it \u2014 but those tests run outside the ledger's executed-test lanes, so no citable selector exists yet",
+        "The never-dual-write and rebuildable-index clauses have declaration-level enforcement only: no checker or test proves an index can be dropped and rebuilt from the authoritative store, and no mechanical guard catches a second writer for a declared kind",
+        "No cache abstraction exists, so rule 3 is vacuous in the current tree and should be evidenced as such explicitly rather than silently"
       ]
     }
   ]

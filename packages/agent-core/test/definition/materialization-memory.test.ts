@@ -135,36 +135,36 @@ describe("MemoryMaterializationStore persistence", () => {
         installGeneration(store, third);
         expect(
             [planAlpha, planBeta].map((fixture) => fixture.plan.id.value).sort()
-        ).toEqual([planBeta.plan.id.value, planAlpha.plan.id.value]);
+        ).toEqual([planAlpha.plan.id.value, planBeta.plan.id.value]);
         expect(
             [first, second, third]
                 .map((fixture) => fixture.materialization.generation.id.value)
                 .sort()
         ).toEqual([
+            third.materialization.generation.id.value,
             second.materialization.generation.id.value,
-            first.materialization.generation.id.value,
-            third.materialization.generation.id.value
+            first.materialization.generation.id.value
         ]);
 
         const detached = store.snapshot();
         expect(detached.plans.map((row) => row.id)).toEqual([
-            planBeta.plan.id.value,
-            planAlpha.plan.id.value
+            planAlpha.plan.id.value,
+            planBeta.plan.id.value
         ]);
         expect(detached.generations.map((row) => row.id.value)).toEqual([
+            third.materialization.generation.id.value,
             second.materialization.generation.id.value,
-            first.materialization.generation.id.value,
-            third.materialization.generation.id.value
+            first.materialization.generation.id.value
         ]);
         expect(detached.managedState.map((row) => row.generationId.value)).toEqual([
+            third.materialization.generation.id.value,
             second.materialization.generation.id.value,
-            first.materialization.generation.id.value,
-            third.materialization.generation.id.value
+            first.materialization.generation.id.value
         ]);
         expect(detached.managedState.map((row) => row.logicalKey)).toEqual([
+            "slot:pp",
             "slot:mm",
-            "slot:kk",
-            "slot:pp"
+            "slot:kk"
         ]);
     });
 

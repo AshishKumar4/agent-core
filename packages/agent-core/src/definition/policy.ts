@@ -1,4 +1,4 @@
-import { RecordCodec, hasExactJsonKeys, type JsonValue } from "../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
 import type { Impact, IsolationMode } from "../facets";
 import { PLACEMENT_PREFERENCE, PlacementPolicy } from "./placement";
 
@@ -80,7 +80,7 @@ export class PolicySet {
             tiers: requireTiers(object["tiers"]),
             approvals: requireImpactArray(object["approvals"], "Policy approvals"),
             ...decodeOptionalDirectRevocationWindow(object["maxDirectRevocationWindowMs"]),
-            placement: PlacementPolicy.fromData(object["placement"]!)
+            placement: PlacementPolicy.fromData(object["placement"])
         });
     }
 
@@ -105,6 +105,12 @@ export class PolicySet {
 export interface PolicyEvaluationInput {
     readonly impact: Impact;
     readonly turnOwnedSession: boolean;
+    /**
+     * True only when the operation's target is the Turn-owned Session's own
+     * filesystem (SPEC §7.2). Required so a caller that cannot attest the fact
+     * states false explicitly; a mutate outside that filesystem stays mediated.
+     */
+    readonly sessionFilesystemTarget: boolean;
     readonly placement: IsolationMode;
     readonly policies?: readonly PolicySet[];
 }
@@ -114,9 +120,17 @@ export interface PolicyDecision {
     readonly approvalRequired: boolean;
 }
 
-export function enforcementFloor(impact: Impact, turnOwnedSession: boolean): EnforcementTier {
+export function enforcementFloor(
+    impact: Impact,
+    turnOwnedSession: boolean,
+    sessionFilesystemTarget: boolean
+): EnforcementTier {
     requireImpact(impact, "Policy impact");
-    if (impact === "observe" || (impact === "execute" && turnOwnedSession)) {
+    if (
+        impact === "observe" ||
+        (impact === "execute" && turnOwnedSession) ||
+        (impact === "mutate" && turnOwnedSession && sessionFilesystemTarget)
+    ) {
         return "direct";
     }
     return "mediated";
@@ -126,7 +140,11 @@ export function evaluatePolicy(input: PolicyEvaluationInput): PolicyDecision {
     requireMode(input.placement);
     const policy = mergePolicySets(input.policies ?? []);
     const approvalRequired = policy.requiresApproval(input.impact);
-    const floor = enforcementFloor(input.impact, input.turnOwnedSession);
+    const floor = enforcementFloor(
+        input.impact,
+        input.turnOwnedSession,
+        input.sessionFilesystemTarget
+    );
     const requested = policy.tierFor(input.impact) ?? "direct";
     const tier =
         floor === "mediated" ||
@@ -194,7 +212,7 @@ function decodeOptionalDirectRevocationWindow(
 
 function canonicalTiers(tiers: EnforcementTierOverrides): EnforcementTierOverrides {
     const keys = Object.keys(tiers);
-    if (keys.some((key) => !POLICY_IMPACTS.includes(key as Impact))) {
+    if (keys.some((key) => !isMember(POLICY_IMPACTS, key))) {
         throw new TypeError("Policy tiers contain an unknown impact");
     }
     const canonical: Partial<Record<Impact, EnforcementTier>> = {};
@@ -235,8 +253,8 @@ function requireImpactArray(value: JsonValue | undefined, subject: string): read
 }
 
 function requireImpact(value: unknown, subject: string): Impact {
-    if (typeof value === "string" && POLICY_IMPACTS.includes(value as Impact)) {
-        return value as Impact;
+    if (isMember(POLICY_IMPACTS, value)) {
+        return value;
     }
     throw new TypeError(`${subject} is invalid`);
 }
@@ -249,8 +267,8 @@ function requireTier(value: unknown): EnforcementTier {
 }
 
 function requireMode(value: unknown): IsolationMode {
-    if (typeof value === "string" && PLACEMENT_PREFERENCE.includes(value as IsolationMode)) {
-        return value as IsolationMode;
+    if (isMember(PLACEMENT_PREFERENCE, value)) {
+        return value;
     }
     throw new TypeError("Policy placement is invalid");
 }
@@ -259,15 +277,8 @@ function requireObject(
     value: JsonValue | undefined,
     subject: string
 ): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 const emptyPolicySet = new PolicySet();

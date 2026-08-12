@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
     artifactRoot,
+    assertUniqueIds,
     packageRoot,
     readCanonicalJson,
     reportRoot,
@@ -13,6 +14,7 @@ import { requireCitedText } from "./citations.mjs";
 
 const vocabulary = await readCanonicalJson(resolve(artifactRoot, "quality/rules.json"));
 const compliance = await readCanonicalJson(resolve(artifactRoot, "quality/agents-compliance.json"));
+assertUniqueIds(vocabulary.rules, (rule) => rule.id, "quality/rules.json rules");
 const expected = new Set(vocabulary.rules.map((rule) => rule.id));
 const actual = new Set();
 // Compliance rules cite quality-harness tests, which execute in their own

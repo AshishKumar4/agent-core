@@ -197,8 +197,8 @@ export class Binding {
             "Binding"
         );
         return new Binding(
-            decodeAuthorityScope(object["scope"]!),
-            decodeAuthoritySubject(object["subject"]!),
+            decodeAuthorityScope(object["scope"]),
+            decodeAuthoritySubject(object["subject"]),
             decodeDomain(object["domain"]),
             new BindingName(requireString(object, "name", "Binding name")),
             new GrantId(requireString(object, "grantId", "Grant ID")),

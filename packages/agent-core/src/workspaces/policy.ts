@@ -127,7 +127,7 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
         if (Array.isArray(current)) {
             const index = parseArrayIndex(token);
             if (index >= current.length) throw missingPointer(pointer);
-            current = current[index]!;
+            current = current[index];
         } else if (isObject(current) && Object.hasOwn(current, token)) {
             current = current[token]!;
         } else {

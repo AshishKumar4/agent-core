@@ -10,7 +10,14 @@ import {
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import { MemoryTenantControlStore } from "../../src/authority/memory";
 import { createTenantControlBootstrapPlan } from "../../src/authority/service";
-import { Digest, Revision, decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
+import {
+    Digest,
+    Revision,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    type JsonValue
+} from "../../src/core";
+import { corrupt } from "../helpers/corrupt";
 import { AgentCoreError } from "../../src/errors";
 import {
     GuestTrust,
@@ -678,7 +685,7 @@ describe("MemoryTenantControlStore", () => {
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,
-                "callback",
+                GuestVerificationScheme.callback,
                 Digest.sha256(Uint8Array.of(7)),
                 new Date(1),
                 new Date(100)
@@ -879,21 +886,14 @@ describe("MemoryTenantControlStore", () => {
         const roleGrant = bootstrappedStore()
             .grants()
             .find((grant) => grant.origin.kind === "role")!;
-        const encoded = decodeCanonicalJson(Grant.encode(roleGrant)) as any;
-        const variants = [
-            (value: any) => {
-                value.payload = null;
-            },
-            (value: any) => {
-                value.payload.id = 9;
-            },
-            (value: any) => {
-                value.payload.origin.guest = "yes";
-            }
+        const encoded = decodeCanonicalJson(Grant.encode(roleGrant));
+        const variants: readonly [readonly string[], string, JsonValue][] = [
+            [[], "payload", null],
+            [["payload"], "id", 9],
+            [["payload", "origin"], "guest", "yes"]
         ];
-        for (const mutate of variants) {
-            const malformed = structuredClone(encoded);
-            mutate(malformed);
+        for (const [parentPath, field, value] of variants) {
+            const malformed = corrupt(encoded, parentPath, field, value);
             expect(() => Grant.decode(encodeCanonicalJson(malformed))).toThrow();
         }
         expect(() => PathEpochEvidence.fromData({ path: null } as never)).toThrow(/array/);

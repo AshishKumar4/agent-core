@@ -1,4 +1,4 @@
-import { JsonSchema } from "../core";
+import { isNonempty, JsonSchema } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -136,12 +136,12 @@ const commandCodec = new DataRecordCodec(
     (payload) => Command.fromData(payload)
 );
 
-function decodeTrustTiers(value: FacetData): [TrustTier, ...TrustTier[]] {
+function decodeTrustTiers(value: FacetData): readonly [TrustTier, ...TrustTier[]] {
     const values = requireArray(value, "Command accepted trust").map(requireTrustTier);
-    if (values.length === 0) {
+    if (!isNonempty(values)) {
         throw new TypeError("Command accepted trust must not be empty");
     }
-    return values as [TrustTier, ...TrustTier[]];
+    return values;
 }
 
 function requireTrustTier(value: FacetData): TrustTier {

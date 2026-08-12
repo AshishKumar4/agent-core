@@ -1,9 +1,12 @@
 import type { ActorRef } from "../actors";
 import { RunBranchId, RunCommitId, RunId, TurnId } from "../agents";
 import {
+    type JsonObject,
+    type JsonFields,
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     TextId,
     type JsonValue,
     type Revision
@@ -548,13 +551,14 @@ function requireRunProtocolOwner(owner: ActorRef): ActorRef {
 }
 
 function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Run command payload must be an object");
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError("Run command payload must be an object");
+    return value;
 }
 
-function requireKeys(value: { readonly [key: string]: JsonValue }, keys: readonly string[]): void {
+function requireKeys<Field extends string>(
+    value: JsonObject,
+    keys: readonly Field[]
+): asserts value is JsonFields<Field> {
     if (!hasExactJsonKeys(value, keys))
         throw new TypeError("Run command payload fields are invalid");
 }

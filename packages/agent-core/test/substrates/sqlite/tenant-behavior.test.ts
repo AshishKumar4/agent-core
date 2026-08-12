@@ -157,7 +157,7 @@ function guestMembership(shape: GuestMembershipShape): Membership {
                     ? {
                           evidenceDigest: guestEvidenceDigest,
                           expiresAt: guestExpiresAt,
-                          method: shape.scheme.value,
+                          verifiedVia: shape.scheme.value,
                           principal: {
                               principal: guestPrincipalId.value,
                               tenant: shape.homeTenant.value
@@ -212,7 +212,7 @@ function hex(bytes: Uint8Array): string {
 }
 
 class SchemaFaultSqlite extends TestSqlite {
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
         if (statement.includes("CREATE TABLE IF NOT EXISTS tenant_bootstrap_marker")) {
             throw new Error("injected schema fault");
         }
@@ -223,7 +223,7 @@ class SchemaFaultSqlite extends TestSqlite {
 class ReadFaultSqlite extends TestSqlite {
     public fault: Error | undefined;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (this.fault !== undefined && statement.includes("tenant_bootstrap_marker")) {
             throw this.fault;
         }
@@ -234,7 +234,7 @@ class ReadFaultSqlite extends TestSqlite {
 class MarkerRowTamperSqlite extends TestSqlite {
     public tamper: ((row: SqliteRow) => SqliteRow) | undefined;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = super.all(statement, bindings);
         const tamper = this.tamper;
         if (tamper === undefined || !statement.includes("FROM tenant_bootstrap_marker")) {
@@ -1430,7 +1430,7 @@ describe("SQLite Tenant control closure integrity", () => {
                 shape: { ...verified, trustRevision: 1 }
             },
             {
-                reason: "verification method drift",
+                reason: "verification scheme drift",
                 trust: activeTrust,
                 shape: { ...verified, scheme: GuestVerificationScheme.token }
             },

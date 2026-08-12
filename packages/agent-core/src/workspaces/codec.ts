@@ -1,5 +1,13 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { ContentRef, Digest, Revision, hasExactJsonKeys, type JsonValue } from "../core";
+import {
+    type JsonFields,
+    ContentRef,
+    Digest,
+    Revision,
+    hasExactJsonKeys,
+    isJsonObject,
+    type JsonValue
+} from "../core";
 import {
     PrincipalId,
     PrincipalRef,
@@ -12,13 +20,15 @@ import {
 export type JsonObject = { readonly [key: string]: JsonValue };
 
 export function requireObject(value: JsonValue, subject: string): JsonObject {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as JsonObject;
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
-export function requireFields(value: JsonObject, fields: readonly string[], subject: string): void {
+export function requireFields<Field extends string>(
+    value: JsonObject,
+    fields: readonly Field[],
+    subject: string
+): asserts value is JsonFields<Field> {
     if (!hasExactJsonKeys(value, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);
     }

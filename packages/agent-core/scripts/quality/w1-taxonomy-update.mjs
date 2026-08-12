@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { parseCanonicalJson, portablePath } from "./project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const artifactPath = resolve(packageRoot, "artifacts/quality/w1-error-taxonomy.json");
@@ -31,7 +32,7 @@ writeFileSync(scannerPath, transpiled);
 const { anchorKey, scanSource } = await import(scannerPath);
 rmSync(scannerDir, { recursive: true, force: true });
 
-const taxonomy = JSON.parse(readFileSync(artifactPath, "utf8"));
+const taxonomy = parseCanonicalJson(readFileSync(artifactPath, "utf8"), portablePath(artifactPath));
 const previous = new Map(taxonomy.entries.map((entry) => [anchorKey(entry), entry]));
 const byExpression = new Map();
 for (const entry of taxonomy.entries) {

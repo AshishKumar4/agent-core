@@ -21,7 +21,7 @@ import type { RunBranch } from "./run";
 import { RunRuntime } from "./runtime";
 import { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
 
-export class TurnBoundTool {
+export class TurnBoundOperation {
     public constructor(
         public readonly binding: BindingName,
         public readonly facet: FacetRef,
@@ -32,7 +32,7 @@ export class TurnBoundTool {
         const facetPackage = new FacetPackageId(facet.value.slice(0, separator));
         if (!operation.facet.equals(facetPackage) || !operation.operation.equals(descriptor.name)) {
             throw new TypeError(
-                "Bound tool Facet, Operation reference, and descriptor must identify one operation"
+                "A bound Operation Facet, reference, and descriptor must identify one operation"
             );
         }
         Object.freeze(this);
@@ -47,12 +47,12 @@ export interface TurnExecutionScope {
     readonly resumeCheckpoint: RunCheckpoint | undefined;
 }
 
-export abstract class TurnToolSource {
-    public abstract resolve(scope: TurnExecutionScope): Promise<readonly TurnBoundTool[]>;
+export abstract class TurnOperationSource {
+    public abstract resolve(scope: TurnExecutionScope): Promise<readonly TurnBoundOperation[]>;
 }
 
 export interface TurnPromptAssembly extends TurnExecutionScope {
-    readonly tools: readonly TurnBoundTool[];
+    readonly operations: readonly TurnBoundOperation[];
 }
 
 export abstract class TurnPromptAssembler {
@@ -62,7 +62,7 @@ export abstract class TurnPromptAssembler {
 export interface TurnMediatedInvocationRequest {
     readonly turn: Turn;
     readonly token: LeaseToken;
-    readonly tool: TurnBoundTool;
+    readonly operation: TurnBoundOperation;
     readonly requestKey: OperationRequestKey;
     readonly input: FacetData;
     readonly signal: AbortSignal;
@@ -79,18 +79,18 @@ export abstract class TurnMediatedInvocationPort {
     ): Promise<TurnMediatedInvocationResult>;
 }
 
-export interface TurnOperationGatewayScope {
+export interface TurnGatewayScope {
     readonly turn: Turn;
     readonly token: LeaseToken;
     readonly signal: AbortSignal;
 }
 
-export abstract class TurnOperationGatewayFactory {
-    public abstract open(scope: TurnOperationGatewayScope): Promise<OperationGateway>;
+export abstract class TurnGatewaySource {
+    public abstract open(scope: TurnGatewayScope): Promise<OperationGateway>;
 }
 
-export class OperationGatewayTurnInvocationPort extends TurnMediatedInvocationPort {
-    public constructor(private readonly gateways: TurnOperationGatewayFactory) {
+export class GatewayTurnInvocationPort extends TurnMediatedInvocationPort {
+    public constructor(private readonly gateways: TurnGatewaySource) {
         super();
     }
 
@@ -106,21 +106,21 @@ export class OperationGatewayTurnInvocationPort extends TurnMediatedInvocationPo
             })
         );
         requireNotCancelled(request.signal);
-        const resolved = await gateway.resolve(request.tool.binding);
+        const resolved = await gateway.resolve(request.operation.binding);
         try {
-            const descriptor = resolved.descriptor(request.tool.descriptor.name);
+            const descriptor = resolved.descriptor(request.operation.descriptor.name);
             if (
-                !resolved.facet.equals(request.tool.facet) ||
-                !resolved.package.equals(request.tool.operation.facet) ||
+                !resolved.facet.equals(request.operation.facet) ||
+                !resolved.package.equals(request.operation.operation.facet) ||
                 descriptor === undefined ||
                 !bytesEqual(
                     OperationDescriptor.encode(descriptor),
-                    OperationDescriptor.encode(request.tool.descriptor)
+                    OperationDescriptor.encode(request.operation.descriptor)
                 )
             ) {
                 throw new AgentCoreError(
                     "binding.invalid",
-                    "Resolved operation does not match the exact bound Turn tool"
+                    "Resolved operation does not match the exact bound Turn Operation"
                 );
             }
             requireNotCancelled(request.signal);
@@ -133,7 +133,7 @@ export class OperationGatewayTurnInvocationPort extends TurnMediatedInvocationPo
             if (result.kind !== "mediated") {
                 throw new AgentCoreError(
                     "authority.denied",
-                    "Turn tools require the mediated invocation path"
+                    "Turn Operations require the mediated invocation path"
                 );
             }
             return Object.freeze({
@@ -160,7 +160,7 @@ export interface TurnModelRequest {
 export interface TurnModelCall extends TurnModelRequest {
     readonly turn: Turn;
     readonly token: LeaseToken;
-    readonly tools: readonly TurnBoundTool[];
+    readonly operations: readonly TurnBoundOperation[];
     readonly signal: AbortSignal;
 }
 
@@ -230,7 +230,7 @@ export abstract class TurnCheckpointHandle {
 
 export abstract class TurnInvocationHandle {
     public abstract invoke(
-        tool: TurnBoundTool,
+        operation: TurnBoundOperation,
         requestKey: OperationRequestKey,
         input: FacetData
     ): Promise<TurnMediatedInvocationResult>;
@@ -248,7 +248,7 @@ export abstract class TurnOutcomeHandle {
 }
 
 export interface TurnContext extends TurnExecutionScope {
-    readonly tools: readonly TurnBoundTool[];
+    readonly operations: readonly TurnBoundOperation[];
     readonly prompt: ContentRef;
     readonly content: TurnContentHandle;
     readonly inbox: TurnInboxHandle;
@@ -269,7 +269,7 @@ export interface TurnExecutorHostInit<Transaction> {
     readonly runtime: RunRuntime<Transaction>;
     readonly executor: TurnExecutor;
     readonly content: ContentStore;
-    readonly tools: TurnToolSource;
+    readonly operations: TurnOperationSource;
     readonly prompt: TurnPromptAssembler;
     readonly invocations: TurnMediatedInvocationPort;
     readonly model: TurnModelPort;
@@ -285,18 +285,18 @@ export class TurnExecutorHost<Transaction> {
         const recovered = scope.recover();
         if (recovered !== undefined) return recovered;
         const initial = scope.active();
-        const tools = await scope.resolveTools(initial);
-        const prompt = await scope.assemblePrompt({ ...initial.scope, tools });
+        const operations = await scope.resolveOperations(initial);
+        const prompt = await scope.assemblePrompt({ ...initial.scope, operations });
         const context = Object.freeze<TurnContext>({
             ...initial.scope,
-            tools,
+            operations,
             prompt,
             content: new ScopedContentHandle(scope),
             inbox: new ScopedInboxHandle(scope),
             commit: new ScopedCommitHandle(scope),
             checkpoint: new ScopedCheckpointHandle(scope),
-            invocation: new ScopedInvocationHandle(scope, tools),
-            model: new ScopedModelHandle(scope, tools),
+            invocation: new ScopedInvocationHandle(scope, operations),
+            model: new ScopedModelHandle(scope, operations),
             stream: new ScopedStreamHandle(scope),
             outcome: new ScopedOutcomeHandle(scope),
             cancellation: scope.signal
@@ -360,10 +360,10 @@ class LeaseScopedTurn<Transaction> {
         });
     }
 
-    public async resolveTools(snapshot: ActiveTurnSnapshot): Promise<readonly TurnBoundTool[]> {
-        const resolved = await this.init.tools.resolve(snapshot.scope);
+    public async resolveOperations(snapshot: ActiveTurnSnapshot): Promise<readonly TurnBoundOperation[]> {
+        const resolved = await this.init.operations.resolve(snapshot.scope);
         this.active();
-        return validateTools(snapshot.scope.placement, resolved);
+        return validateOperations(snapshot.scope.placement, resolved);
     }
 
     public async assemblePrompt(request: TurnPromptAssembly): Promise<ContentRef> {
@@ -500,7 +500,7 @@ class ScopedContentHandle<Transaction> extends TurnContentHandle {
 class ScopedModelHandle<Transaction> extends TurnModelHandle {
     public constructor(
         private readonly scope: LeaseScopedTurn<Transaction>,
-        private readonly tools: readonly TurnBoundTool[]
+        private readonly operations: readonly TurnBoundOperation[]
     ) {
         super();
     }
@@ -514,7 +514,7 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
                     turn: snapshot.scope.turn,
                     token: this.scope.token,
                     prompt: request.prompt,
-                    tools: this.tools,
+                    operations: this.operations,
                     signal: this.scope.signal
                 })
             )
@@ -544,20 +544,20 @@ class ScopedStreamHandle<Transaction> extends TurnStreamHandle {
 class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
     public constructor(
         private readonly scope: LeaseScopedTurn<Transaction>,
-        private readonly tools: readonly TurnBoundTool[]
+        private readonly operations: readonly TurnBoundOperation[]
     ) {
         super();
     }
 
     public async invoke(
-        requested: TurnBoundTool,
+        requested: TurnBoundOperation,
         requestKey: OperationRequestKey,
         input: FacetData
     ): Promise<TurnMediatedInvocationResult> {
-        if (!this.tools.includes(requested)) {
+        if (!this.operations.includes(requested)) {
             throw new AgentCoreError(
                 "operation.missing",
-                "Turn invocation requires one exact bound tool"
+                "Turn invocation requires one exact bound Operation"
             );
         }
         const turn = this.scope.active().scope.turn;
@@ -566,7 +566,7 @@ class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
                 Object.freeze({
                     turn,
                     token: this.scope.token,
-                    tool: requested,
+                    operation: requested,
                     requestKey,
                     input: canonicalFacetData(input),
                     signal: this.scope.signal
@@ -692,23 +692,23 @@ class ScopedOutcomeHandle<Transaction> extends TurnOutcomeHandle {
     }
 }
 
-function validateTools(
+function validateOperations(
     placement: TurnPlacementSnapshot,
-    tools: readonly TurnBoundTool[]
-): readonly TurnBoundTool[] {
+    operations: readonly TurnBoundOperation[]
+): readonly TurnBoundOperation[] {
     const bindings = new Set<string>();
-    const canonical = tools.map((tool) => {
-        if (!(tool instanceof TurnBoundTool)) {
-            throw new TypeError("Turn tools must use the canonical bound tool contract");
+    const canonical = operations.map((operation) => {
+        if (!(operation instanceof TurnBoundOperation)) {
+            throw new TypeError("Turn Operations must use the canonical bound Operation contract");
         }
-        if (bindings.has(tool.binding.value)) {
-            throw new TypeError("Turn tool bindings must be unique");
+        if (bindings.has(operation.binding.value)) {
+            throw new TypeError("Turn Operation bindings must be unique");
         }
-        if (!placement.placements.some((pin) => pin.facet.equals(tool.facet))) {
-            throw invalidTurn("Turn tool is absent from the immutable placement snapshot");
+        if (!placement.placements.some((pin) => pin.facet.equals(operation.facet))) {
+            throw invalidTurn("Turn Operation is absent from the immutable placement snapshot");
         }
-        bindings.add(tool.binding.value);
-        return tool;
+        bindings.add(operation.binding.value);
+        return operation;
     });
     return Object.freeze(canonical);
 }

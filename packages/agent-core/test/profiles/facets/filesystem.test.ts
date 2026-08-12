@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { CompatRange, SemVer } from "../../../src/core";
 import { MemoryContentStore } from "../../../src/content";
+import { evaluatePolicy } from "../../../src/definition";
 import { InvocationId } from "../../../src/invocations";
 import {
     FILESYSTEM_ERROR_CODES,
@@ -74,6 +75,52 @@ mutableFilesystemBackendEvidence(
 );
 
 describe("Filesystem protected facade", () => {
+    test(
+        "[P11-FILESYSTEM-SESSION-DIRECT] selects direct for a mutating Operation only on the Turn-owned Session's own filesystem",
+        { tags: "p0" },
+        () => {
+            const mutating = [
+                FILESYSTEM_OPERATION_CONTRACTS.write,
+                FILESYSTEM_OPERATION_CONTRACTS.remove,
+                FILESYSTEM_OPERATION_CONTRACTS.move,
+                FILESYSTEM_OPERATION_CONTRACTS.mkdir
+            ];
+            for (const contract of mutating) {
+                expect(contract.descriptor.impact).toBe("mutate");
+                expect(
+                    evaluatePolicy({
+                        impact: contract.descriptor.impact,
+                        turnOwnedSession: true,
+                        sessionFilesystemTarget: true,
+                        placement: "bundled"
+                    })
+                ).toEqual({ approvalRequired: false, tier: "direct" });
+                for (const decision of [
+                    evaluatePolicy({
+                        impact: contract.descriptor.impact,
+                        turnOwnedSession: true,
+                        sessionFilesystemTarget: false,
+                        placement: "bundled"
+                    }),
+                    evaluatePolicy({
+                        impact: contract.descriptor.impact,
+                        turnOwnedSession: false,
+                        sessionFilesystemTarget: true,
+                        placement: "bundled"
+                    }),
+                    evaluatePolicy({
+                        impact: contract.descriptor.impact,
+                        turnOwnedSession: true,
+                        sessionFilesystemTarget: true,
+                        placement: "dynamic"
+                    })
+                ]) {
+                    expect(decision.tier).toBe("mediated");
+                }
+            }
+        }
+    );
+
     test(
         "[P11-FILESYSTEM-RECEIPT] routes all seven Operations and delegates mutation receipts to the host port",
         { tags: "p1" },

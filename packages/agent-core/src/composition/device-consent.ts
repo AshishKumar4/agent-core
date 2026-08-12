@@ -1,3 +1,4 @@
+import { isMember } from "../core";
 import {
     DeviceError,
     DeviceId,
@@ -56,7 +57,7 @@ export class DeviceConsentFinalAdmissionPort<
         }
         if (
             request.request.descriptor.impact !== "externalSend" ||
-            !LIVE_DEVICE_OPERATIONS.includes(operation as never)
+            !isMember(LIVE_DEVICE_OPERATIONS, operation)
         ) {
             return denied("Device consent admission rejected an unknown live Operation");
         }

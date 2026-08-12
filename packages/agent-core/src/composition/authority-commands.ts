@@ -25,10 +25,10 @@ import {
     type CommandEnvelope,
     type CommandIngressResult,
     type CurrentLease,
-    type ProtocolCommand,
     type ProtocolCommandExecution,
     type ProtocolCommandRegistration,
-    type ProtocolValueCodec
+    type ProtocolValueCodec,
+    type RegisteredProtocolCommand
 } from "../protocol";
 import {
     createClosedCommandDispatcher,
@@ -152,12 +152,12 @@ function createTenantAuthorityCommands<Transaction, Read>(
     backend: TenantAuthorityCommandBackend<Transaction, Read>,
     tenantActor: ActorRef,
     tenant: TenantId
-): readonly ProtocolCommand<Transaction, Read>[] {
+): readonly RegisteredProtocolCommand<Transaction, Read>[] {
     return Object.freeze([
         new BindingValidationCommand(backend, tenantActor, tenant),
         new AuthorityCheckCommand(backend, tenantActor, tenant),
         new AuthorityPermitIssuanceCommand(backend, tenantActor, tenant)
-    ]) as unknown as readonly ProtocolCommand<Transaction, Read>[];
+    ]);
 }
 
 class BindingValidationCommand<Transaction, Read> implements ProtocolCommandRegistration<

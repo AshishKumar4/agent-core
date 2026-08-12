@@ -549,23 +549,36 @@ describe("projection and delivery persistence", () => {
         }
     );
 
-    test("keeps deliveries terminal exactly once", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = persistenceWith(targetActor);
-        const reservation = reservationFixture("dl");
-        persistence.appendProjection(
-            records,
-            authenticatedProjectionFixture(reservation),
-            projectionRetention(projectionFixture(reservation))
-        );
-        persistence.appendDelivery(records, deliveryFixture(reservation));
-        expect(() => persistence.appendDelivery(records, deliveryFixture(reservation))).toThrow(
-            expect.objectContaining({
-                code: "protocol.duplicate",
-                message: "Route delivery is already terminal"
-            })
-        );
-    });
+    test(
+        "[C13-ROUTE-DELIVERY-ONCE] writes at most one terminal delivery only after admission",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = persistenceWith(targetActor);
+            const reservation = reservationFixture("dl");
+            expect(() => persistence.appendDelivery(records, deliveryFixture(reservation))).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "Terminal delivery requires the target-local authenticated projection"
+                })
+            );
+            persistence.appendProjection(
+                records,
+                authenticatedProjectionFixture(reservation),
+                projectionRetention(projectionFixture(reservation))
+            );
+            expect(persistence.findDelivery(records, reservation.id)).toBeUndefined();
+            const delivery = deliveryFixture(reservation);
+            persistence.appendDelivery(records, delivery);
+            expect(() => persistence.appendDelivery(records, deliveryFixture(reservation))).toThrow(
+                expect.objectContaining({
+                    code: "protocol.duplicate",
+                    message: "Route delivery is already terminal"
+                })
+            );
+            expect(persistence.findDelivery(records, reservation.id)).toEqual(delivery);
+        }
+    );
 
     test(
         "fails closed when the delivery index disagrees with its reservation",

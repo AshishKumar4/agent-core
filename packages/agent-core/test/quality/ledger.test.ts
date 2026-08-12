@@ -405,7 +405,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const fixture = await ledgerFixture();
         const seed = JSON.parse(await readFile(resolve(fixture, "conformance/seed.json"), "utf8"));
         const requirement = seed.requirements.find(
-            (item: Record<string, unknown>) => item.id === "C13-AUTH-PRINCIPAL-REF"
+            (item: Record<string, unknown>) => item["id"] === "C13-AUTH-PRINCIPAL-REF"
         );
         const selector =
             "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-PRINCIPAL-REF] rejects an exact cross-Tenant NUL collision without consulting or poisoning the local cache";
@@ -432,7 +432,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const seedPath = resolve(fixture, "conformance/seed.json");
         const seed = JSON.parse(await readFile(seedPath, "utf8"));
         const requirement = seed.requirements.find(
-            (item: Record<string, unknown>) => item.owner === "W1"
+            (item: Record<string, unknown>) => item["owner"] === "W1"
         );
         markVerified(
             requirement,
@@ -653,9 +653,9 @@ function markVerified(
     source: string,
     testSelector: string
 ): void {
-    requirement.status = "verified";
-    requirement.sourceSymbols = [source];
-    requirement.testSelectors = [testSelector];
-    requirement.checkerInvariants = ["ACQ-ID"];
-    requirement.remainingEvidence = [];
+    requirement["status"] = "verified";
+    requirement["sourceSymbols"] = [source];
+    requirement["testSelectors"] = [testSelector];
+    requirement["checkerInvariants"] = ["ACQ-ID"];
+    requirement["remainingEvidence"] = [];
 }

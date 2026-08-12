@@ -87,7 +87,7 @@ class GuestTrustRecordCodec extends RecordCodec<GuestTrust> {
             new GuestTrustId(requireIdentityString(object["id"], "Guest trust ID")),
             new TenantId(requireIdentityString(object["hostTenant"], "Guest host Tenant")),
             new TenantId(requireIdentityString(object["homeTenant"], "Guest home Tenant")),
-            decodeVerifier(object["verifier"]!),
+            decodeVerifier(object["verifier"]),
             requireTrustState(object["state"]),
             requireIdentityRevision(object["revision"], "Guest trust revision"),
             handshakeDigest === null ? undefined : new Digest(handshakeDigest)
@@ -221,7 +221,7 @@ function decodeVerifier(value: JsonValue): GuestTrustVerifier {
     const object = requireIdentityObject(value, "Guest trust verifier");
     if (object["kind"] === "token") {
         requireIdentityFields(object, ["issuer", "key", "kind"], "Token guest trust verifier");
-        const key = requireIdentityObject(object["key"]!, "Guest trust key");
+        const key = requireIdentityObject(object["key"], "Guest trust key");
         requireIdentityFields(key, ["id", "provider", "source"], "Guest trust key");
         return copyVerifier({
             kind: "token",

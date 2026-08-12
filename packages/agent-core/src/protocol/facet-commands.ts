@@ -7,6 +7,7 @@ import {
     encodeBase64,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import {
@@ -321,7 +322,7 @@ class SlotContributionPayloadCodec implements CommandPayloadCodec {
         return Object.freeze({
             slot: new SlotName(requireString(payload["slot"], "Slot contribution slot")),
             ordinal,
-            value: canonicalFacetData(payload["value"]!)
+            value: canonicalFacetData(payload["value"])
         });
     }
 }
@@ -392,10 +393,8 @@ function requestMatchesEntry(request: SlotContributionRequest, entry: SlotEntry)
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {

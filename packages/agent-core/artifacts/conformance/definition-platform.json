@@ -69,7 +69,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "No secret resolution runtime exists: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) are abstract with no implementation; nothing ever turns a ref into a value",
+        "No custody record ties a SecretRef to the recorded Binding and target endpoint, SecretRef.source is an unconstrained string rather than a Tenant identity, and no repoint-invalidation exists",
+        "SPEC \u00a73.5 states the invariant without a mechanism: no custody record shape, no acceptance operation, no denial vocabulary; the only concrete carrier (credential-injecting seams) is a SHOULD \u2014 needs spec-owner elaboration before honest evidence exists"
       ]
     },
     {
@@ -87,6 +89,22 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-PLACEMENT-AUTHORED-BACKING",
+      "owner": "W4",
+      "specAnchor": "C13-PLACEMENT-AUTHORED-BACKING",
+      "specTextSha256": "sha256:85ca064ca6037ec48a4ca984a6895c4b1ebafa2ecf0d145340a5184d5f1f186b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "No backing concept exists in the definition plane: no consumer vocabulary for the three \u00a74.7 consumers, no backing identifiers, and no declaration record mapping consumer to backing",
+        "SPEC \u00a74.7/\u00a710.2 never say where the platform's declaration lives (Blueprint, PolicySet, or profile config), what identifies a backing, or how identical authority semantics are demonstrated \u2014 spec-owner decisions before W4 can model it",
+        "No agent-authored marker distinguishes \u00a74.7 code, so 'the trust set never hands agent-authored code bundled' cannot key on anything"
+      ]
+    },
+    {
       "id": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
@@ -97,7 +115,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "The rule is enforced at the substrate (SPEC \u00a71.5: an outbound policy code can reach around is advice), but W4's definition plane holds only the dynamic mode token; the sole enforcement point is globalOutbound: null in the W8 Cloudflare loader, which W4 cannot cite",
+        "Needs a substrate-neutral domain-construction seam in the definition plane whose contract is no-ambient-egress with destinations only as passed Bindings, implemented by the Cloudflare loader and a local reference, before W4-citable evidence exists",
+        "Adversarial evidence: loaded code attempting an outbound connection with no Binding must be denied by the substrate, not by a policy check inside the domain"
       ]
     },
     {
@@ -149,9 +169,14 @@
       "specTextSha256": "sha256:71d0eb2975f6052ab5af869a9d303bb6b6799da8cd172e352ff6039f78f060de",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "sourceSymbols": [
+        "src/definition/placement.ts#PlacementPolicy.trustedModes",
+        "src/definition/validator.ts#validatePlacements"
+      ],
       "testSelectors": [
-        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages"
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages",
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] a Blueprint's placement policy derives trust from its own glob patterns",
+        "test/definition/validation.test.ts#Blueprint validation [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust from the Blueprint's own policy, not the substrate port"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -223,14 +248,16 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "The general enforcement path trusts callee-declared impact end to end: composition feeds descriptor.impact straight into evaluatePolicy, and only the MCP facet derives impact from its seam (remote locality) with a floor guard",
+        "SPEC \u00a77.1 requires deriving impact from 'the seam the call leaves through' but never defines a seam record, and \u00a74.2 places impact on the manifest-declared OperationDescriptor while annotating it host-derived \u2014 a structural contradiction only the spec owner can resolve",
+        "Needed: a trust-boundary predicate over destinations, a derivation the host applies at mediation time generalizing the MCP floor-guard rule, and adversarial evidence that a descriptor declaring observe for an external seam is still mediated"
       ]
     },
     {
       "id": "C13-POLICY-MEDIATION-FLOOR",
       "owner": "W4",
       "specAnchor": "C13-POLICY-MEDIATION-FLOOR",
-      "specTextSha256": "sha256:4764175261848895fe9dcbc11b9656f1aa7fb7ae9357420ebfd4f982f5dd6184",
+      "specTextSha256": "sha256:0f22eaff6a8edfffe7b917dffe0ec2ebe202b880ad9e0c777e15cf8a50478175",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],

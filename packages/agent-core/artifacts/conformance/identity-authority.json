@@ -256,20 +256,43 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-GUEST-VERIFICATION",
       "specTextSha256": "sha256:52a60e060b1592a09943e54e31d8ec5cd477642d19988fbfc1755ce91a3ea117",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/authority/materializer.ts#RoleGrantMaterializer",
+        "src/authority/service.ts#AuthorityMutationService",
+        "src/identity/guest-verification.ts#GuestVerification"
+      ],
+      "testSelectors": [
+        "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] denies a direct Grant to a foreign subject",
+        "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] never materializes a subject still stamped handshake",
+        "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] verifies provenance before materializing any guest Grant and a failure denies"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-AUTH-ISOLATE-DELEGATION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-ISOLATE-DELEGATION",
+      "specTextSha256": "sha256:494305452be6488c1df5f410dbe32e877232187478ff9e118ff38210efdb8f5e",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "No dynamic isolate exists: src/ contains no loader, no capability-passing boundary, and no isolate-scoped Invocation identity, so the delegation the atom bounds has no subject yet",
+        "The delegation primitives (Grant.attenuationOf, validateLineage, revokeGrantClosure) are built; the loader that must consume them is unwritten and its home (src/definition or src/operations) is outside W2's citable evidence",
+        "SPEC \u00a74.7/\u00a73.4 leave the passed capability set's record shape, the isolate's subject identity, and its Grant Scope unspecified; those choices are load-bearing for lineage validation and need spec-owner resolution",
+        "Undeclared prerequisites: C13-PLACEMENT-AUTHORED-BACKING and C13-PLACEMENT-DYNAMIC-NO-EGRESS cover the sibling \u00a74.7 clauses and are still planned"
       ]
     },
     {
       "id": "C13-AUTH-MEDIATED-ADMISSION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",
-      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
+      "specTextSha256": "sha256:e89133aed593793b38ffd7c416dfcfe47a6f5009f9f3c9c4c41ce9ad6de9d65d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
@@ -283,7 +306,7 @@
       "id": "C13-AUTH-MEDIATED-STALE",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-STALE",
-      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
+      "specTextSha256": "sha256:e89133aed593793b38ffd7c416dfcfe47a6f5009f9f3c9c4c41ce9ad6de9d65d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -298,7 +321,7 @@
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence",
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (\u00a73.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
+        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -379,14 +402,16 @@
       "id": "C13-AUTH-RESOLUTION-LIFETIME",
       "owner": "W2",
       "specAnchor": "C13-AUTH-RESOLUTION-LIFETIME",
-      "specTextSha256": "sha256:062b26398047731452faad37874144905a782394c4ab6bf45773b372f006ffdd",
+      "specTextSha256": "sha256:e89133aed593793b38ffd7c416dfcfe47a6f5009f9f3c9c4c41ce9ad6de9d65d",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The owning implementation wave must provide runtime and adversarial evidence"
+        "\u00a73.4 rule 8's provider/dynamic clause is stated in units of a Turn step, which the SPEC never defines: \u00a75.3 has no step identity or boundary, so 'lasts one Turn step' is unverifiable as written and needs a spec-owner definition or restatement",
+        "The bundled clause is implementable now: ActorAuthorityState caches resolutions keyed by principal and binding only, so a bundled resolution outlives its Turn and is only caught later by authorizeDirect/authorizeMediated lease rechecks; the cache key or matches() must bind the exact Turn lease",
+        "Adversarial evidence needed: reuse of a bundled resolution after its Turn ends, and proof that each provider/dynamic mediation re-reads current path epochs rather than replaying cached ones"
       ]
     },
     {

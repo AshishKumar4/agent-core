@@ -175,6 +175,7 @@ function leasedCandidate(
         owner,
         policies,
         turnOwnedSession: true,
+        sessionFilesystemTarget: false,
         turnActorAuthorityLocal: true,
         directAuthority,
         ...overrides

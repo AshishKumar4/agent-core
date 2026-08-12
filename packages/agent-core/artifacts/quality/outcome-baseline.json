@@ -1,0 +1,332 @@
+{
+  "edition": "1.0.0",
+  "outcomes": [
+    {
+      "source": "artifacts/requests/W8/normative-clarifications.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "7bee5fa3c5a6acd9e5a97106e07032917384f5c3c103dcc4d21e7898f7525188",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "artifacts/requests/W8/shared-integration.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "67b0ac14a8372924f1cca9a87e54ee76acc7b420247e5dc586e623030ab311f4",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/coverage.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "5f653f001c44444be1c5868eafbb552d0f5cbb36ef19cb80b5271f8faffdcccb",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/error-taxonomy.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "d2363c5c3be871318c0a31f5ed49db4ed179ceaafb42d032d8656cb18272ae49",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/exports.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "214202f25b336ea09297ba02ef07e123c1c19381cbbb78f3274794a172c479d7",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/ownership.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "64a0f304452f09bc6c09f76bd17304cc58b044d02a5828a28a1963ca00ad30ef",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/shared-integration.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "cff17b469d0bc7cc4bdaa4385139ae40fd86c1838be034badc4240571029b540",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/verification-manifest.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "807b4ec9f6231f4ed3702041bc2278b023e0ac8353a15f8b7056f81c4193cb84",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/verification.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "d15b30b7059378e808aa0d5f1f1e444081653c4ef589bf84c32f68ae68b7e729",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W1/vitest.config.mjs",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "d5fa2bdabe34a0b0f33f81fbb98dc0347031107bfebc01f6a54aa1e26fd8b83c",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/check-changed-coverage.mjs",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "51fb328b5fd87ac584a46b0a2b5e3b3bb5a716d23c2c9db4c59225d06dcda92c",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/conformance.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "75e30ab2712abff17ac94abc0a3e4f1f19b5f96538e0fff44903134d25df0f54",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/coverage-manifest.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "e1f14a2d1df235adc82935127953eb2ee748a27e4b3352d46b8eb80db729341f",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/cross-wave.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "76d2b230165b06e66217ddfd079099c93289a53ab839fb5698e3406a8fa24f1e",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/exports.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "290859704043a3b96149b67218ce249cad4ba9a3deaaa2bb000d8d41e54418d8",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/ownership.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "214fc295f8f7a657cdf347180700f265b090bf459f528da7f6ec5bb119e77f69",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/shared-seams.json",
+      "commit": "8e09abda1b45b615e18c31b606774b1d5140982d",
+      "sha256": "2cac38429c7b955023ccce52eb6dbab59606b465c70542ca886aa1227bf7ffe7",
+      "ratification": "commit"
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/typeerror-classification.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "e550d44d88fddc3776e46d8656f2ce50ccb0feea1f903d2c4b5c4ce0e63ce9ac",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W2/vitest.config.mjs",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "879b218fd2d963b5f932d6e1e7719440215f839a8a197d66a5879f8bd2ef37f3",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W3/README.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "480aa5c11d581a18be989d0ac35b6cd46089aa172aff7669cfbb7a06428a2cab",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W3/W0-aggregate-exports.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "00460bed39efd133e9121604543d10b819c81e64013647ed69ec2c18d4f41c83",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W3/W2-authority-port.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "e2fe844824b9bf9aef8ed74f9013ebb679504bf9d816729496b8626a851ea189",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W3/W4-package-loader.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "2abe759af359c0941aeab9d54d14e7be5ac27c20880104e4e45f0f06ecb75636",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W3/W5-interceptor-context.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "40fd130c98a15713225b21dfc52867a991d1cb05aa8002cdd30753af1122b380",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W3/W6-invocation-port.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "40a7a2b4beb16f6adde3b2d15c891d2f0c616e9926c1990f345fd47fa736358e",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W3/W7-command-surface-runtime.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "c275f3d088133e7e4bb3844be15d0de99d43770cbc20269d1fb25d7c59fd087f",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/check-coverage.mjs",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "d25cb3dc20915d75476a6f6bd6d1a95b25fca683392bb6f18b662091951612cb",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/check-error-taxonomy.mjs",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "aa97de2b138dc8570372b46e28fa45c4fe7c44a57e66e6f995f8c47a22dffb73",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/coverage.manifest",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "d9c135cb744681ed4b617ad1ffaef384afeec474d49264e832df250e2fd949fe",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/dependencies.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "91587332c3e13d0c89362533fd6457bbaa5c24b71bac31d60f23645c3c934d78",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/error-taxonomy.manifest",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "2d28ce6a6d24336ba07245fa6b26a04b21afd26d934a9cb5cc8c3165ab1e7df9",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/errors.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "32ae0d27e8b3e7570d5cfbf437cd35536da15e2e49c6037c2dda9e1d03b84327",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/exports.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "b3af2a48b96db9181b0855d2eccf27c2f9c265281cbd605a92e23416dc047328",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W4/vitest.config.mjs",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "4f372bff2b6ea20d0002fa65d9b0a55aaf8f5434a81d88407e249f532fe960db",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W5/clarifications.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "6dda7263b28dd232c7fd8daaaa914c885154a3184d45a1640468166e0c75b9e4",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W5/coverage.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "99d29f50af43cbc72e44fc40ffa22a8af1ef0ad44ce3cd3f496d814b63f207e3",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W5/exports.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "5cd4dc5719c740d5bde5ce35c21effd10b39176131c619ea2dceabae53b93e51",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W5/ownership.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "7d67e24dafd960bb9f588d34fd317aecd8cfc1c26ac06adad03c7ffb4464a7a0",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W5/ports.json",
+      "commit": "5bc6add22be97733ce67b76c999483eeee42c6d9",
+      "sha256": "0d3467837de7f0f30a3ed3dc8a77fd00e9d5453fca5321e165e952537beef133",
+      "ratification": "commit"
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W5/quality.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "c82ca4adfc4c89a01ca920384e6051fe5333aeeb565ccdfbab72a173eb1ee5f4",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W5/README.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "aa50f6cd5c7a8fe9789f9601d87eedc192f2fe1f764417b9139bf86482b502a2",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W6/coverage.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "8776246ca703d5ad7bdc9a892315bf94bb18b087124e9dd689abc06a7bf0a806",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W6/dependencies.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "de49abe5d056cdc90051244840e70184d82c60610ca7dbeab24a721dfc50b8bf",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W6/exports.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "25731f337de9fb95b7cb87e6e2b9791ba451d52fb382c502e006121f57561c3b",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W6/README.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "90a5361f8b74fd7a4fa6ea1e77f39982445cbe828982754b7e38e8466298cef8",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W6/verification.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "0435ad644bd5eec8b974506e710ba60c4a4cca7eee96bb60df6d3fd817ae267d",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
+      "source": "packages/agent-core/artifacts/requests/W7/dependencies.json",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "ddcf442ef334a68a86721500763872f7202e7774290d3286b411fd159686e3fa",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    }
+  ]
+}

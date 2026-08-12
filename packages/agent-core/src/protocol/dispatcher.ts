@@ -679,7 +679,13 @@ class DecisionBeforePreparation {
     ) {}
 }
 
-type RegisteredProtocolCommand<Transaction, Read> = ProtocolCommand<
+/**
+ * A command as the dispatcher holds it. The dispatcher routes payloads and replies
+ * through each command's own codecs without ever naming their types, so a registry
+ * mixes commands whose request, reply, and observation types differ; the defaults on
+ * ProtocolCommand describe one command, never a heterogeneous family.
+ */
+export type RegisteredProtocolCommand<Transaction, Read> = ProtocolCommand<
     Transaction,
     Read,
     unknown,

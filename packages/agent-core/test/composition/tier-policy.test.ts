@@ -105,6 +105,7 @@ function resolution(init: {
         owner,
         policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 }), ...init.policies],
         turnOwnedSession: init.sessionOwned ?? init.turnOwned,
+        sessionFilesystemTarget: false,
         turnActorAuthorityLocal: init.turnOwned,
         directAuthority: init.turnOwned
             ? new ResolvedOperationAuthority(facet, [
@@ -153,6 +154,7 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
                 const decision = evaluatePolicy({
                     impact,
                     turnOwnedSession: true,
+                    sessionFilesystemTarget: false,
                     placement: "bundled",
                     policies
                 });
@@ -216,6 +218,7 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
                             const decision = evaluatePolicy({
                                 impact,
                                 turnOwnedSession: sessionOwned,
+                                sessionFilesystemTarget: false,
                                 placement,
                                 policies
                             });

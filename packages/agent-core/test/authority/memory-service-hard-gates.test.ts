@@ -434,7 +434,7 @@ describe("AuthorityMutationService hard gates", () => {
             new PrincipalRef(home, guest),
             trust.id,
             trust.revision,
-            "callback",
+            GuestVerificationScheme.callback,
             Digest.sha256(Uint8Array.of(7)),
             new Date(100),
             new Date(200)
@@ -546,7 +546,7 @@ describe("AuthorityMutationService hard gates", () => {
                             { kind: "direct" }
                         )
                     ),
-                "protocol.invalid-state"
+                "authority.denied"
             );
             const parent = grant(
                 "parent",

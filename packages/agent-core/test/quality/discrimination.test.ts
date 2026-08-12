@@ -17,6 +17,11 @@ const citedFile = "src/errors.ts";
 const citedSymbol = `${citedFile}#AgentCoreError`;
 const citedTest = "test/actors/actor.test.ts#fixture discrimination probe";
 
+async function citedFileHash(): Promise<string> {
+    const source = await readFile(resolve(packageRoot, citedFile), "utf8");
+    return `sha256:${createHash("sha256").update(source).digest("hex")}`;
+}
+
 afterEach(async () => {
     await Promise.all(
         temporary.splice(0).map((path) => rm(path, { recursive: true, force: true }))
@@ -195,11 +200,44 @@ describe("discrimination gate", subprocessTestOptions, () => {
         expect(result.stdout).toContain("0 symbol + 1 file tier of 1 mutation-kind atoms");
     });
 
+    test("separates evidence never measured from evidence measured and silent", async () => {
+        // Both mean "no kill found", and only one is a claim about the tests. An atom
+        // whose test post-dates the measurement has not been shown to lack
+        // discrimination; it has not been asked. Conflating them would file
+        // re-measurement debt in the baseline beside real defects.
+        const unmeasured = await fixtureRoot([verifiedAtom()], []);
+        const stale = runChecker(unmeasured);
+
+        expect(stale.status).toBe(1);
+        expect(stale.stderr).toContain("DISC-STALE");
+        expect(stale.stderr).not.toContain("DISC-ATOM");
+
+        // Measured, unchanged, and the cited test is on record — but it killed nothing
+        // inside the cited declaration. That is a real claim about the evidence.
+        const measured = await fixtureRoot(
+            [verifiedAtom()],
+            [
+                {
+                    area: "errors",
+                    files: { [citedFile]: { mutants: 6, sha256: await citedFileHash() } },
+                    killed: { [citedTest]: { [citedFile]: [9999] } }
+                }
+            ]
+        );
+        const undiscriminated = runChecker(measured);
+
+        expect(undiscriminated.status).toBe(1);
+        expect(undiscriminated.stderr).toContain("DISC-ATOM");
+        expect(undiscriminated.stderr).not.toContain("DISC-STALE");
+    });
+
     test("ratchets debt: baselined findings pass, retained resolved findings fail", async () => {
+        // No attribution at all is the unmeasured case, so the ratchet is exercised
+        // through DISC-STALE; the mechanism is shared with DISC-ATOM.
         const undiscriminated = await fixtureRoot([verifiedAtom()], []);
         const failing = runChecker(undiscriminated);
         expect(failing.status).toBe(1);
-        const fingerprint = /DISC-ATOM:\S+/u.exec(failing.stderr)?.[0];
+        const fingerprint = /DISC-STALE:\S+/u.exec(failing.stderr)?.[0];
         expect(fingerprint).toBeDefined();
 
         const baselineIssue = {

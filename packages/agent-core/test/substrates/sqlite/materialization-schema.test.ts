@@ -37,159 +37,209 @@ const tenantId = new TenantId("tenant");
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 describe("SQLite materialization schema", () => {
-    test("creates the exact marked schema with a closed managed-state kind constraint", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        new SqliteMaterializationStore(database, actorRef("schema"));
+    test(
+        "creates the exact marked schema with a closed managed-state kind constraint",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            new SqliteMaterializationStore(database, actorRef("schema"));
 
-        const tables = database.all(
-            `SELECT name, sql FROM sqlite_master
+            const tables = database.all(
+                `SELECT name, sql FROM sqlite_master
              WHERE type = 'table' AND name LIKE 'definition_%' ORDER BY name`,
-            []
-        );
-        expect(tables.map((row) => row["name"])).toEqual(MATERIALIZATION_TABLES);
-        expect(tables.map((row) => row["sql"])).toEqual(
-            tables.map(() => expect.stringMatching(/STRICT$/))
-        );
-        expect(
-            database
-                .all(
-                    `SELECT name FROM sqlite_master
+                []
+            );
+            expect(tables.map((row) => row["name"])).toEqual(MATERIALIZATION_TABLES);
+            expect(tables.map((row) => row["sql"])).toEqual(
+                tables.map(() => expect.stringMatching(/STRICT$/))
+            );
+            expect(
+                database
+                    .all(
+                        `SELECT name FROM sqlite_master
              WHERE type = 'index' AND sql IS NOT NULL ORDER BY name`,
+                        []
+                    )
+                    .map((row) => row["name"])
+            ).toEqual([
+                "definition_managed_state_generation",
+                "definition_materialization_generations_actor"
+            ]);
+            expect(
+                database.all(
+                    `SELECT version, owner_kind, owner_id
+             FROM definition_materialization_schema`,
                     []
                 )
-                .map((row) => row["name"])
-        ).toEqual([
-            "definition_managed_state_generation",
-            "definition_materialization_generations_actor"
-        ]);
-        expect(
-            database.all(
-                `SELECT version, owner_kind, owner_id
-             FROM definition_materialization_schema`,
-                []
-            )
-        ).toEqual([{ owner_id: "schema", owner_kind: "tenant", version: 2 }]);
+            ).toEqual([{ owner_id: "schema", owner_kind: "tenant", version: 2 }]);
 
-        const schemaSql = normalizedSql(tables, "definition_materialization_schema");
-        expect(schemaSql).toContain("version INTEGER PRIMARY KEY CHECK (version = 2)");
-        expect(schemaSql).toContain(
-            "owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')"
-        );
-        expect(schemaSql).toContain("owner_id TEXT NOT NULL CHECK (length(owner_id) > 0)");
-        const stateSql = normalizedSql(tables, "definition_managed_state");
-        expect(stateSql).toContain(
-            "record_kind TEXT NOT NULL CHECK (record_kind IN ('agent-profile', 'environment', 'facet-install', 'facet-placement', 'policy-set', 'scope-scaffold', 'slot-entry', 'subscription', 'surface-layout'))"
-        );
-        expect(stateSql).not.toContain("CHECK (length(record_kind) > 0)");
-        expect(stateSql).toContain("UNIQUE (generation_id, logical_key)");
-    });
+            const schemaSql = normalizedSql(tables, "definition_materialization_schema");
+            expect(schemaSql).toContain("version INTEGER PRIMARY KEY CHECK (version = 2)");
+            expect(schemaSql).toContain(
+                "owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')"
+            );
+            expect(schemaSql).toContain("owner_id TEXT NOT NULL CHECK (length(owner_id) > 0)");
+            const stateSql = normalizedSql(tables, "definition_managed_state");
+            expect(stateSql).toContain(
+                "record_kind TEXT NOT NULL CHECK (record_kind IN ('agent-profile', 'environment', 'facet-install', 'facet-placement', 'policy-set', 'scope-scaffold', 'slot-entry', 'subscription', 'surface-layout'))"
+            );
+            expect(stateSql).not.toContain("CHECK (length(record_kind) > 0)");
+            expect(stateSql).toContain("UNIQUE (generation_id, logical_key)");
+        }
+    );
 
-    test("rejects unsupported managed-state inserts and loads even if SQLite checks are bypassed", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("unsupported-row");
-        const store = new SqliteMaterializationStore(database, actor);
-        const closure = installSupportedClosure(store, actor, "unsupported-row");
+    test(
+        "rejects unsupported managed-state inserts and loads even if SQLite checks are bypassed",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("unsupported-row");
+            const store = new SqliteMaterializationStore(database, actor);
+            const closure = installSupportedClosure(store, actor, "unsupported-row");
 
-        expect(() =>
+            expect(() =>
+                database.run(
+                    "UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?",
+                    [closure.record.id.value]
+                )
+            ).toThrow();
+            database.run("PRAGMA ignore_check_constraints = ON", []);
             database.run(
                 "UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?",
                 [closure.record.id.value]
-            )
-        ).toThrow();
-        database.run("PRAGMA ignore_check_constraints = ON", []);
-        database.run("UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?", [
-            closure.record.id.value
-        ]);
-        database.run("PRAGMA ignore_check_constraints = OFF", []);
+            );
+            database.run("PRAGMA ignore_check_constraints = OFF", []);
 
-        expect(() => store.getManagedState(closure.record.id)).toThrow(/reset.required/i);
-        expect(() => store.getGeneration(closure.generation.id)).toThrow(/reset.required/i);
-        expect(() => store.getGenerationPointer(actor, deploymentId)).toThrow(/reset.required/i);
-        expect(() => new SqliteMaterializationStore(database, actor)).toThrow(/reset.required/i);
-        expect(
-            database.all("SELECT record_kind FROM definition_managed_state WHERE id = ?", [
+            expect(() => store.getManagedState(closure.record.id)).toThrow(/reset.required/i);
+            expect(() => store.getGeneration(closure.generation.id)).toThrow(/reset.required/i);
+            expect(() => store.getGenerationPointer(actor, deploymentId)).toThrow(
+                /reset.required/i
+            );
+            expect(() => new SqliteMaterializationStore(database, actor)).toThrow(
+                /reset.required/i
+            );
+            expect(
+                database.all("SELECT record_kind FROM definition_managed_state WHERE id = ?", [
+                    closure.record.id.value
+                ])
+            ).toEqual([{ record_kind: "binding" }]);
+        }
+    );
+
+    test(
+        "requires reset through decoded managed-state, generation, and pointer closure",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("unsupported-closure");
+            const store = new SqliteMaterializationStore(database, actor);
+            const closure = installSupportedClosure(store, actor, "unsupported-closure");
+            const legacyBytes = withLegacyManagedStateKind(
+                ManagedStateRecord.encode(closure.record)
+            );
+            database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
+                legacyBytes,
                 closure.record.id.value
-            ])
-        ).toEqual([{ record_kind: "binding" }]);
-    });
+            ]);
 
-    test("requires reset through decoded managed-state, generation, and pointer closure", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("unsupported-closure");
-        const store = new SqliteMaterializationStore(database, actor);
-        const closure = installSupportedClosure(store, actor, "unsupported-closure");
-        const legacyBytes = withLegacyManagedStateKind(ManagedStateRecord.encode(closure.record));
-        database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
-            legacyBytes,
-            closure.record.id.value
-        ]);
+            expect(() => store.getManagedState(closure.record.id)).toThrow(/reset.required/i);
+            expect(() => store.getGeneration(closure.generation.id)).toThrow(/reset.required/i);
+            expect(() => store.getGenerationPointer(actor, deploymentId)).toThrow(
+                /reset.required/i
+            );
+            expect(() => new SqliteMaterializationStore(database, actor)).toThrow(
+                /reset.required/i
+            );
+            expect(
+                database.all("SELECT record FROM definition_managed_state WHERE id = ?", [
+                    closure.record.id.value
+                ])[0]?.["record"]
+            ).toEqual(legacyBytes);
+        }
+    );
 
-        expect(() => store.getManagedState(closure.record.id)).toThrow(/reset.required/i);
-        expect(() => store.getGeneration(closure.generation.id)).toThrow(/reset.required/i);
-        expect(() => store.getGenerationPointer(actor, deploymentId)).toThrow(/reset.required/i);
-        expect(() => new SqliteMaterializationStore(database, actor)).toThrow(/reset.required/i);
-        expect(
-            database.all("SELECT record FROM definition_managed_state WHERE id = ?", [
-                closure.record.id.value
-            ])[0]?.["record"]
-        ).toEqual(legacyBytes);
-    });
+    test(
+        "requires reset when stored plan bytes contain an unsupported closure",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("unsupported-plan");
+            const store = new SqliteMaterializationStore(database, actor);
+            const plan = supportedPlan(actor, "unsupported-plan");
+            store.addPlan(plan);
+            const legacyBytes = withLegacyPlanKind(MaterializationPlan.encode(plan));
+            database.run("UPDATE definition_materialization_plans SET record = ?", [legacyBytes]);
 
-    test("requires reset when stored plan bytes contain an unsupported closure", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("unsupported-plan");
-        const store = new SqliteMaterializationStore(database, actor);
-        const plan = supportedPlan(actor, "unsupported-plan");
-        store.addPlan(plan);
-        const legacyBytes = withLegacyPlanKind(MaterializationPlan.encode(plan));
-        database.run("UPDATE definition_materialization_plans SET record = ?", [legacyBytes]);
+            expect(() => store.getPlan(plan.id)).toThrow(/reset.required/i);
+            expect(() => new SqliteMaterializationStore(database, actor)).toThrow(
+                /reset.required/i
+            );
+            expect(
+                database.all("SELECT record FROM definition_materialization_plans", [])[0]?.[
+                    "record"
+                ]
+            ).toEqual(legacyBytes);
+        }
+    );
 
-        expect(() => store.getPlan(plan.id)).toThrow(/reset.required/i);
-        expect(() => new SqliteMaterializationStore(database, actor)).toThrow(/reset.required/i);
-        expect(
-            database.all("SELECT record FROM definition_materialization_plans", [])[0]?.["record"]
-        ).toEqual(legacyBytes);
-    });
+    test(
+        "requires reset for an unsupported marker version without rewriting it",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("future-schema");
+            new SqliteMaterializationStore(database, actor);
+            database.run("PRAGMA ignore_check_constraints = ON", []);
+            database.run("UPDATE definition_materialization_schema SET version = 3", []);
+            database.run("PRAGMA ignore_check_constraints = OFF", []);
 
-    test("requires reset for an unsupported marker version without rewriting it", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("future-schema");
-        new SqliteMaterializationStore(database, actor);
-        database.run("PRAGMA ignore_check_constraints = ON", []);
-        database.run("UPDATE definition_materialization_schema SET version = 3", []);
-        database.run("PRAGMA ignore_check_constraints = OFF", []);
+            expect(() => new SqliteMaterializationStore(database, actor)).toThrow(
+                /reset.required/i
+            );
+            expect(
+                database.all("SELECT version FROM definition_materialization_schema", [])
+            ).toEqual([{ version: 3 }]);
+        }
+    );
 
-        expect(() => new SqliteMaterializationStore(database, actor)).toThrow(/reset.required/i);
-        expect(database.all("SELECT version FROM definition_materialization_schema", [])).toEqual([
-            { version: 3 }
-        ]);
-    });
+    test(
+        "binds the marked schema to one owning Tenant without rewriting it",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            new SqliteMaterializationStore(database, actorRef("tenant-a"));
 
-    test("binds the marked schema to one owning Tenant without rewriting it", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        new SqliteMaterializationStore(database, actorRef("tenant-a"));
+            expect(() => new SqliteMaterializationStore(database, actorRef("tenant-b"))).toThrow(
+                /reset.required/i
+            );
+            expect(
+                database.all(
+                    "SELECT owner_kind, owner_id FROM definition_materialization_schema",
+                    []
+                )
+            ).toEqual([{ owner_id: "tenant-a", owner_kind: "tenant" }]);
+        }
+    );
 
-        expect(() => new SqliteMaterializationStore(database, actorRef("tenant-b"))).toThrow(
-            /reset.required/i
-        );
-        expect(
-            database.all("SELECT owner_kind, owner_id FROM definition_materialization_schema", [])
-        ).toEqual([{ owner_id: "tenant-a", owner_kind: "tenant" }]);
-    });
+    test(
+        "requires reset for a malformed marked table without replacing its data",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("malformed-table");
+            new SqliteMaterializationStore(database, actor);
+            database.run("DROP TABLE definition_blueprints", []);
+            database.run("CREATE TABLE definition_blueprints (sentinel TEXT) STRICT", []);
+            database.run("INSERT INTO definition_blueprints VALUES ('keep')", []);
 
-    test("requires reset for a malformed marked table without replacing its data", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("malformed-table");
-        new SqliteMaterializationStore(database, actor);
-        database.run("DROP TABLE definition_blueprints", []);
-        database.run("CREATE TABLE definition_blueprints (sentinel TEXT) STRICT", []);
-        database.run("INSERT INTO definition_blueprints VALUES ('keep')", []);
-
-        expect(() => new SqliteMaterializationStore(database, actor)).toThrow(/reset.required/i);
-        expect(database.all("SELECT sentinel FROM definition_blueprints", [])).toEqual([
-            { sentinel: "keep" }
-        ]);
-    });
+            expect(() => new SqliteMaterializationStore(database, actor)).toThrow(
+                /reset.required/i
+            );
+            expect(database.all("SELECT sentinel FROM definition_blueprints", [])).toEqual([
+                { sentinel: "keep" }
+            ]);
+        }
+    );
 
     test("requires reset for a malformed marked index without replacing it", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -255,18 +305,22 @@ describe("SQLite materialization schema", () => {
         ).toEqual([{ name: "hostile_materialization_trigger" }]);
     });
 
-    test("requires reset when definition materialization tables predate the marker", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        database.run("CREATE TABLE definition_blueprints (sentinel TEXT)", []);
-        database.run("INSERT INTO definition_blueprints VALUES ('keep')", []);
+    test(
+        "requires reset when definition materialization tables predate the marker",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            database.run("CREATE TABLE definition_blueprints (sentinel TEXT)", []);
+            database.run("INSERT INTO definition_blueprints VALUES ('keep')", []);
 
-        expect(() => new SqliteMaterializationStore(database, actorRef("unmarked"))).toThrow(
-            /reset.required/i
-        );
-        expect(database.all("SELECT sentinel FROM definition_blueprints", [])).toEqual([
-            { sentinel: "keep" }
-        ]);
-    });
+            expect(() => new SqliteMaterializationStore(database, actorRef("unmarked"))).toThrow(
+                /reset.required/i
+            );
+            expect(database.all("SELECT sentinel FROM definition_blueprints", [])).toEqual([
+                { sentinel: "keep" }
+            ]);
+        }
+    );
 
     test.each(["Definition_Blueprints", "DEFINITION_MATERIALIZATION_PLANS"])(
         "requires reset for case-variant unmarked %s without replacing it",
@@ -301,36 +355,42 @@ describe("SQLite materialization schema", () => {
         expect(database.all(`SELECT sentinel FROM ${table}`, [])).toEqual([{ sentinel: "keep" }]);
     });
 
-    test("requires reset for a legacy Slot shadow without touching the shadow row", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("legacy-shadow");
-        const record = supportedRecord("legacy-shadow");
-        const legacyBytes = withLegacyManagedStateKind(ManagedStateRecord.encode(record));
-        database.run(
-            `CREATE TABLE definition_managed_state (
+    test(
+        "requires reset for a legacy Slot shadow without touching the shadow row",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("legacy-shadow");
+            const record = supportedRecord("legacy-shadow");
+            const legacyBytes = withLegacyManagedStateKind(ManagedStateRecord.encode(record));
+            database.run(
+                `CREATE TABLE definition_managed_state (
             id TEXT PRIMARY KEY,
             record_kind TEXT NOT NULL,
             record BLOB NOT NULL
         ) STRICT`,
-            []
-        );
-        database.run(
-            `INSERT INTO definition_managed_state (id, record_kind, record)
+                []
+            );
+            database.run(
+                `INSERT INTO definition_managed_state (id, record_kind, record)
              VALUES (?, 'binding', ?)`,
-            [record.id.value, legacyBytes]
-        );
+                [record.id.value, legacyBytes]
+            );
 
-        expect(() => new SqliteMaterializationStore(database, actor)).toThrow(/reset.required/i);
-        expect(
-            database.all("SELECT id, record_kind, record FROM definition_managed_state", [])
-        ).toEqual([
-            {
-                id: record.id.value,
-                record_kind: "binding",
-                record: legacyBytes
-            }
-        ]);
-    });
+            expect(() => new SqliteMaterializationStore(database, actor)).toThrow(
+                /reset.required/i
+            );
+            expect(
+                database.all("SELECT id, record_kind, record FROM definition_managed_state", [])
+            ).toEqual([
+                {
+                    id: record.id.value,
+                    record_kind: "binding",
+                    record: legacyBytes
+                }
+            ]);
+        }
+    );
 
     test("requires reset for orphan managed state without deleting it", { tags: "p0" }, () => {
         const database = new TestSqlite();
@@ -362,17 +422,21 @@ describe("SQLite materialization schema", () => {
         ]);
     });
 
-    test("rolls back standalone managed state that has no stored generation", { tags: "p0" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("standalone-orphan");
-        const store = new SqliteMaterializationStore(database, actor);
+    test(
+        "rolls back standalone managed state that has no stored generation",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("standalone-orphan");
+            const store = new SqliteMaterializationStore(database, actor);
 
-        expect(() => store.addManagedState(supportedRecord("standalone-orphan"))).toThrow(
-            /stored generation/
-        );
-        expect(database.all("SELECT id FROM definition_managed_state", [])).toEqual([]);
-        expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
-    });
+            expect(() => store.addManagedState(supportedRecord("standalone-orphan"))).toThrow(
+                /stored generation/
+            );
+            expect(database.all("SELECT id FROM definition_managed_state", [])).toEqual([]);
+            expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
+        }
+    );
 
     test("names the exact legacy and unmarked schema reset reasons", { tags: "p1" }, () => {
         const legacy = new TestSqlite();
@@ -408,26 +472,30 @@ describe("SQLite materialization schema", () => {
         ).toThrowError(unmarked);
     });
 
-    test("names the exact incomplete-schema reset reason for missing tables and indexes", { tags: "p1" }, () => {
-        const incomplete = expect.objectContaining({
-            code: "codec.invalid",
-            message:
-                "Materialization reset required (reset-required): the marked definition materialization schema is incomplete"
-        });
-        const missingTable = new TestSqlite();
-        new SqliteMaterializationStore(missingTable, actorRef("missing-table"));
-        missingTable.run("DROP TABLE definition_blueprints", []);
-        expect(
-            () => new SqliteMaterializationStore(missingTable, actorRef("missing-table"))
-        ).toThrowError(incomplete);
+    test(
+        "names the exact incomplete-schema reset reason for missing tables and indexes",
+        { tags: "p1" },
+        () => {
+            const incomplete = expect.objectContaining({
+                code: "codec.invalid",
+                message:
+                    "Materialization reset required (reset-required): the marked definition materialization schema is incomplete"
+            });
+            const missingTable = new TestSqlite();
+            new SqliteMaterializationStore(missingTable, actorRef("missing-table"));
+            missingTable.run("DROP TABLE definition_blueprints", []);
+            expect(
+                () => new SqliteMaterializationStore(missingTable, actorRef("missing-table"))
+            ).toThrowError(incomplete);
 
-        const missingIndex = new TestSqlite();
-        new SqliteMaterializationStore(missingIndex, actorRef("missing-index"));
-        missingIndex.run("DROP INDEX definition_managed_state_generation", []);
-        expect(
-            () => new SqliteMaterializationStore(missingIndex, actorRef("missing-index"))
-        ).toThrowError(incomplete);
-    });
+            const missingIndex = new TestSqlite();
+            new SqliteMaterializationStore(missingIndex, actorRef("missing-index"));
+            missingIndex.run("DROP INDEX definition_managed_state_generation", []);
+            expect(
+                () => new SqliteMaterializationStore(missingIndex, actorRef("missing-index"))
+            ).toThrowError(incomplete);
+        }
+    );
 
     test("names the exact malformed marked object reset reasons", { tags: "p1" }, () => {
         const malformedTable = new TestSqlite();
@@ -463,20 +531,24 @@ describe("SQLite materialization schema", () => {
         );
     });
 
-    test("tolerates triggers and indexes on tables outside the materialization schema", { tags: "p2" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("bystander-trigger");
-        new SqliteMaterializationStore(database, actor);
-        database.run("CREATE TABLE bystander (sentinel TEXT)", []);
-        database.run(
-            `CREATE TRIGGER bystander_trigger AFTER INSERT ON bystander
+    test(
+        "tolerates triggers and indexes on tables outside the materialization schema",
+        { tags: "p2" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("bystander-trigger");
+            new SqliteMaterializationStore(database, actor);
+            database.run("CREATE TABLE bystander (sentinel TEXT)", []);
+            database.run(
+                `CREATE TRIGGER bystander_trigger AFTER INSERT ON bystander
              BEGIN SELECT 1; END`,
-            []
-        );
-        database.run("CREATE INDEX bystander_index ON bystander (sentinel)", []);
+                []
+            );
+            database.run("CREATE INDEX bystander_index ON bystander (sentinel)", []);
 
-        expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
-    });
+            expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
+        }
+    );
 
     test("accepts a stored table whose IF NOT EXISTS uses wider whitespace", { tags: "p2" }, () => {
         const database = new TestSqlite();
@@ -513,52 +585,57 @@ describe("SQLite materialization schema", () => {
         ).toThrowError(unsupported);
     });
 
-    test("names exact unsupported managed-state reset reasons and keeps plain codec failures", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("exact-unsupported");
-        const store = new SqliteMaterializationStore(database, actor);
-        const closure = installSupportedClosure(store, actor, "exact-unsupported");
+    test(
+        "names exact unsupported managed-state reset reasons and keeps plain codec failures",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("exact-unsupported");
+            const store = new SqliteMaterializationStore(database, actor);
+            const closure = installSupportedClosure(store, actor, "exact-unsupported");
 
-        database.run("PRAGMA ignore_check_constraints = ON", []);
-        database.run("UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?", [
-            closure.record.id.value
-        ]);
-        database.run("PRAGMA ignore_check_constraints = OFF", []);
-        expect(() => store.getManagedState(closure.record.id)).toThrowError(
-            expect.objectContaining({
-                code: "codec.invalid",
-                message:
-                    "Materialization reset required (reset-required): unsupported managed-state kind binding"
-            })
-        );
+            database.run("PRAGMA ignore_check_constraints = ON", []);
+            database.run(
+                "UPDATE definition_managed_state SET record_kind = 'binding' WHERE id = ?",
+                [closure.record.id.value]
+            );
+            database.run("PRAGMA ignore_check_constraints = OFF", []);
+            expect(() => store.getManagedState(closure.record.id)).toThrowError(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message:
+                        "Materialization reset required (reset-required): unsupported managed-state kind binding"
+                })
+            );
 
-        database.run("UPDATE definition_managed_state SET record_kind = ? WHERE id = ?", [
-            closure.record.recordKind,
-            closure.record.id.value
-        ]);
-        database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
-            withLegacyManagedStateKind(ManagedStateRecord.encode(closure.record)),
-            closure.record.id.value
-        ]);
-        expect(() => store.getManagedState(closure.record.id)).toThrowError(
-            expect.objectContaining({
-                code: "codec.invalid",
-                message:
-                    "Materialization reset required (reset-required): stored codec bytes contain an unsupported materialization closure"
-            })
-        );
+            database.run("UPDATE definition_managed_state SET record_kind = ? WHERE id = ?", [
+                closure.record.recordKind,
+                closure.record.id.value
+            ]);
+            database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
+                withLegacyManagedStateKind(ManagedStateRecord.encode(closure.record)),
+                closure.record.id.value
+            ]);
+            expect(() => store.getManagedState(closure.record.id)).toThrowError(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message:
+                        "Materialization reset required (reset-required): stored codec bytes contain an unsupported materialization closure"
+                })
+            );
 
-        database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
-            Uint8Array.of(1, 2, 3),
-            closure.record.id.value
-        ]);
-        expect(() => store.getManagedState(closure.record.id)).toThrowError(
-            expect.objectContaining({
-                code: "codec.invalid",
-                message: expect.not.stringContaining("reset-required")
-            })
-        );
-    });
+            database.run("UPDATE definition_managed_state SET record = ? WHERE id = ?", [
+                Uint8Array.of(1, 2, 3),
+                closure.record.id.value
+            ]);
+            expect(() => store.getManagedState(closure.record.id)).toThrowError(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: expect.not.stringContaining("reset-required")
+                })
+            );
+        }
+    );
 
     test("compares marked schema SQL under exact whitespace normalization", { tags: "p1" }, () => {
         const padded = new TestSqlite();
@@ -587,33 +664,37 @@ describe("SQLite materialization schema", () => {
         );
     });
 
-    test("requires exactly one schema marker row without rewriting the extra one", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        const actor = actorRef("marker-duplicate");
-        new SqliteMaterializationStore(database, actor);
-        database.run("PRAGMA ignore_check_constraints = ON", []);
-        database.run(
-            `INSERT INTO definition_materialization_schema (version, owner_kind, owner_id)
+    test(
+        "requires exactly one schema marker row without rewriting the extra one",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            const actor = actorRef("marker-duplicate");
+            new SqliteMaterializationStore(database, actor);
+            database.run("PRAGMA ignore_check_constraints = ON", []);
+            database.run(
+                `INSERT INTO definition_materialization_schema (version, owner_kind, owner_id)
              VALUES (?, ?, ?)`,
-            [3, actor.kind, actor.id.value]
-        );
-        database.run("PRAGMA ignore_check_constraints = OFF", []);
+                [3, actor.kind, actor.id.value]
+            );
+            database.run("PRAGMA ignore_check_constraints = OFF", []);
 
-        expect(() => new SqliteMaterializationStore(database, actor)).toThrowError(
-            expect.objectContaining({
-                name: "AgentCoreError",
-                code: "codec.invalid",
-                message:
-                    "Materialization reset required (reset-required): the definition materialization schema version is unsupported"
-            })
-        );
-        expect(
-            database.all(
-                "SELECT version FROM definition_materialization_schema ORDER BY version",
-                []
-            )
-        ).toEqual([{ version: 2 }, { version: 3 }]);
-    });
+            expect(() => new SqliteMaterializationStore(database, actor)).toThrowError(
+                expect.objectContaining({
+                    name: "AgentCoreError",
+                    code: "codec.invalid",
+                    message:
+                        "Materialization reset required (reset-required): the definition materialization schema version is unsupported"
+                })
+            );
+            expect(
+                database.all(
+                    "SELECT version FROM definition_materialization_schema ORDER BY version",
+                    []
+                )
+            ).toEqual([{ version: 2 }, { version: 3 }]);
+        }
+    );
 
     test("names the marker as malformed when its row cannot be read", { tags: "p1" }, () => {
         const database = new MarkerReadFaultSqlite();
@@ -671,7 +752,7 @@ describe("SQLite materialization schema", () => {
 class MarkerReadFaultSqlite extends TestSqlite {
     public fault = false;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (
             this.fault &&
             /FROM definition_materialization_schema ORDER BY version/u.test(statement)
@@ -685,18 +766,14 @@ class MarkerReadFaultSqlite extends TestSqlite {
 class SchemaRowFaultSqlite extends TestSqlite {
     public rows: readonly SqliteRow[] | undefined;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         return this.rows !== undefined && /FROM sqlite_master/u.test(statement)
             ? this.rows
             : super.all(statement, bindings);
     }
 }
 
-function recreateTable(
-    database: TestSqlite,
-    table: string,
-    edit: (sql: string) => string
-): void {
+function recreateTable(database: TestSqlite, table: string, edit: (sql: string) => string): void {
     const sql = database.all("SELECT sql FROM sqlite_master WHERE name = ?", [table])[0]?.["sql"];
     if (typeof sql !== "string") throw new TypeError(`Missing SQL for ${table}`);
     database.run(`DROP TABLE ${table}`, []);

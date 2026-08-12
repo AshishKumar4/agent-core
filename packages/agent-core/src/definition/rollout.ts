@@ -5,11 +5,14 @@ import {
     type TransactionOperation
 } from "../actors";
 import {
+    type JsonObject,
+    type JsonFields,
     Digest,
     RecordCodec,
     Revision,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import { TenantId } from "../identity";
@@ -256,7 +259,7 @@ export class MaterializationRollout {
         const compensates = optionalDigest(object["compensates"], "Compensated rollout ID");
         return new MaterializationRollout({
             id: digestValue(object["id"], "Materialization rollout ID"),
-            plan: MaterializationPlan.fromData(object["plan"]!),
+            plan: MaterializationPlan.fromData(object["plan"]),
             ...(previousPlanId === undefined ? {} : { previousPlanId }),
             ...(compensates === undefined ? {} : { compensates })
         });
@@ -420,7 +423,7 @@ export class MaterializationOutboxEntry {
         }
         return new MaterializationOutboxEntry(
             digestValue(object["rolloutId"], "Materialization outbox rollout ID"),
-            requireActor(object["target"]!),
+            requireActor(object["target"]),
             digestValue(object["actorPlanId"], "Materialization outbox Actor plan ID"),
             status,
             requireInteger(object["attempts"], "Materialization outbox attempts"),
@@ -866,17 +869,15 @@ function actorKey(actor: ActorRef): string {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
-function requireFields(
-    object: { readonly [key: string]: JsonValue },
-    fields: readonly string[],
+function requireFields<Field extends string>(
+    object: JsonObject,
+    fields: readonly Field[],
     subject: string
-): void {
+): asserts object is JsonFields<Field> {
     if (!hasExactJsonKeys(object, fields)) {
         throw new TypeError(`${subject} contains missing or unknown fields`);
     }

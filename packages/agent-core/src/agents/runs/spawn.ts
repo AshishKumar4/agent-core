@@ -99,7 +99,7 @@ export class SpawnReservation extends CodecRecord {
             new RunId(requireString(object["parentRun"], "Spawn parent Run")),
             new TurnId(requireString(object["parentTurn"], "Spawn parent Turn")),
             new RunId(requireString(object["childRun"], "Spawn child Run")),
-            leaseTokenFromData(object["token"]!, "Spawn token"),
+            leaseTokenFromData(object["token"], "Spawn token"),
             digestFromData(object["configuration"], "Spawn configuration"),
             new ContentRef(requireString(object["rootContent"], "Spawn root content")),
             new InvocationId(requireString(object["invocation"], "Spawn Invocation")),

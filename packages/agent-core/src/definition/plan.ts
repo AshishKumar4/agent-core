@@ -5,6 +5,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue
 } from "../core";
 import { Command, SlotDeclaration, type FacetManifest, type IsolationMode } from "../facets";
@@ -732,10 +733,8 @@ function requireCanonicalName(value: string, subject: string): void {
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${subject} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
 }
 
 function requireFields(

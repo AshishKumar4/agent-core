@@ -98,7 +98,7 @@ class ViewCodecV1 extends RecordCodec<View> {
         return new View({
             surface: new SurfaceId(requireString(object["surface"], "View Surface ID")),
             revision: decodeRevision(object["revision"], "View revision"),
-            body: canonicalJson(object["body"]!),
+            body: canonicalJson(object["body"]),
             actions: requireArray(object["actions"], "View actions").map(decodeAction),
             cursor: new EventCursor(requireString(object["cursor"], "View cursor"))
         });
@@ -233,7 +233,7 @@ export function viewFromDocument(previous: View, delta: ViewDelta, document: Jso
     return new View({
         surface: previous.surface,
         revision: delta.revision,
-        body: canonicalJson(object["body"]!),
+        body: canonicalJson(object["body"]),
         actions: requireArray(object["actions"], "Patched View actions").map(decodeAction),
         cursor: delta.cursor
     });

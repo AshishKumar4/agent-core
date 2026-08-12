@@ -67,8 +67,8 @@ export {
 export type { RunOutcome, SettlementAuditObligation, SettlementObligationInit } from "./settlement";
 export { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
 export {
-    OperationGatewayTurnInvocationPort,
-    TurnBoundTool,
+    GatewayTurnInvocationPort,
+    TurnBoundOperation,
     TurnCheckpointHandle,
     TurnCommitHandle,
     TurnContentHandle,
@@ -80,11 +80,11 @@ export {
     TurnModelHandle,
     TurnModelPort,
     TurnOutcomeHandle,
-    TurnOperationGatewayFactory,
+    TurnGatewaySource,
     TurnPromptAssembler,
     TurnStreamHandle,
     TurnStreamPort,
-    TurnToolSource
+    TurnOperationSource
 } from "./executor";
 export type {
     TurnContext,
@@ -96,7 +96,7 @@ export type {
     TurnModelRequest,
     TurnModelResult,
     TurnModelUsage,
-    TurnOperationGatewayScope,
+    TurnGatewayScope,
     TurnOutcome,
     TurnPromptAssembly,
     TurnStreamEvent,

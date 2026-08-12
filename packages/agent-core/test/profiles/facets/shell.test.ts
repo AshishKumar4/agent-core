@@ -106,6 +106,7 @@ describe("Shell protected facade", () => {
                 evaluatePolicy({
                     impact: descriptor.impact,
                     turnOwnedSession: true,
+                    sessionFilesystemTarget: false,
                     placement: "bundled"
                 })
             ).toEqual({ approvalRequired: false, tier: "direct" });
@@ -113,11 +114,13 @@ describe("Shell protected facade", () => {
                 evaluatePolicy({
                     impact: descriptor.impact,
                     turnOwnedSession: false,
+                    sessionFilesystemTarget: false,
                     placement: "bundled"
                 }),
                 evaluatePolicy({
                     impact: descriptor.impact,
                     turnOwnedSession: true,
+                    sessionFilesystemTarget: false,
                     placement: "dynamic"
                 })
             ]) {
@@ -650,12 +653,10 @@ describe("Shell backends", () => {
 
             expect(internal.manifest).toBe(manifest);
             await expect(
-                internal
-                    .operation(new OperationName("run"))
-                    ?.execute(operationContext(), {
-                        executionId: "internal-run",
-                        commandLine: "ok"
-                    })
+                internal.operation(new OperationName("run"))?.execute(operationContext(), {
+                    executionId: "internal-run",
+                    commandLine: "ok"
+                })
             ).resolves.toBe(7);
             await expect(
                 internal

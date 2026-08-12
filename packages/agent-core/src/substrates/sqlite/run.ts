@@ -1,5 +1,6 @@
 import type { ActorRef, SynchronousResultGuard } from "../../actors";
 import type { RunStoragePort } from "../../agents";
+import { isMember } from "../../core";
 import { AgentCoreError } from "../../errors";
 import { TransactionalSqlite, type SqliteRow } from "./sqlite";
 
@@ -296,7 +297,7 @@ function validateRecord(record: SqliteStoredRunRecord): void {
 }
 
 function validateKind(kind: string): asserts kind is SqliteRunRecordKind {
-    if (!RECORD_KINDS.includes(kind as SqliteRunRecordKind)) {
+    if (!isMember(RECORD_KINDS, kind)) {
         throw corrupt("Stored Run record kind is invalid");
     }
 }

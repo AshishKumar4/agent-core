@@ -75,7 +75,7 @@ describe("guest trust and verification", () => {
             new PrincipalRef(home, principal),
             trust.id,
             trust.revision,
-            "token",
+            GuestVerificationScheme.token,
             Digest.sha256(Uint8Array.of(9)),
             new Date(1_000),
             new Date(2_000)

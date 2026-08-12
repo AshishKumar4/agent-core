@@ -6,6 +6,7 @@ import {
     encodeBase64,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     type JsonValue,
     type Revision
 } from "../core";
@@ -41,12 +42,11 @@ class TenantBootstrapAnchorCodec extends RecordCodec<TenantBootstrapAnchorRecord
     }
 
     protected decodePayload(payload: JsonValue): TenantBootstrapAnchorRecord {
-        if (payload === null || Array.isArray(payload) || typeof payload !== "object") {
+        if (!isJsonObject(payload)) {
             throw new TypeError("Tenant bootstrap anchor payload is malformed");
         }
-        const object = payload as { readonly [key: string]: JsonValue };
         if (
-            !hasExactJsonKeys(object, [
+            !hasExactJsonKeys(payload, [
                 "actorId",
                 "principalId",
                 "tenantId",
@@ -56,11 +56,11 @@ class TenantBootstrapAnchorCodec extends RecordCodec<TenantBootstrapAnchorRecord
         ) {
             throw new TypeError("Tenant bootstrap anchor payload is malformed");
         }
-        const actorId = object["actorId"];
-        const principalId = object["principalId"];
-        const tenantId = object["tenantId"];
-        const tenantKind = object["tenantKind"];
-        const trustAnchor = object["trustAnchor"];
+        const actorId = payload["actorId"];
+        const principalId = payload["principalId"];
+        const tenantId = payload["tenantId"];
+        const tenantKind = payload["tenantKind"];
+        const trustAnchor = payload["trustAnchor"];
         if (
             typeof actorId !== "string" ||
             typeof principalId !== "string" ||
@@ -252,7 +252,7 @@ export function tenantBootstrapPayload(): Uint8Array {
 class EmptyBootstrapPayloadCodec implements CommandPayloadCodec<EmptyBootstrapPayload> {
     public decode(bytes: Uint8Array): EmptyBootstrapPayload {
         const value = decodeCanonicalJson(bytes);
-        if (value === null || Array.isArray(value) || typeof value !== "object") {
+        if (!isJsonObject(value)) {
             throw new CommandPayloadMalformedError(
                 "Tenant bootstrap payload must be an empty object"
             );
@@ -356,15 +356,8 @@ function requireObject(
     value: JsonValue | undefined,
     name: string
 ): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${name} must be an object`);
-    }
-    return value as { readonly [key: string]: JsonValue };
+    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
+    return value;
 }
 
 function requireString(value: JsonValue | undefined, name: string): string {

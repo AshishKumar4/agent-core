@@ -16,7 +16,8 @@ export type {
     LeaseTokenPolicy,
     ProtocolCommand,
     ProtocolIdFactory,
-    ProtocolPersistence
+    ProtocolPersistence,
+    RegisteredProtocolCommand
 } from "./dispatcher";
 export { CommandAuthenticator } from "./authentication";
 export { CommandIngress } from "./ingress";
