@@ -18,10 +18,12 @@ import {
 } from "../../src/invocations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
+    Automation,
     BindingName,
     Command,
     Contribution,
     Contributions,
+    EventPattern,
     FacetManifest,
     FacetPackageId,
     FieldMapping,
@@ -33,12 +35,15 @@ import {
     OperationPattern,
     OperationRef,
     OperationSelector,
+    PayloadMapping,
+    ProtectionDomain,
     SlotName,
     SlotEntry,
     SurfaceDescriptor,
     SurfaceId,
     isFacetDataMap,
-    type FacetData
+    type FacetData,
+    type FacetRef
 } from "../../src/facets";
 import {
     CommandRuntime,
@@ -75,6 +80,9 @@ import {
 } from "../../src/operations/runtime";
 
 const objectSchema = new JsonSchema({ type: "object" });
+
+// The protection domain this runtime host — and so every cut point it executes — runs in.
+const hostDomain = new ProtectionDomain("backend", "operations-host", "may-hold-secrets");
 
 describe("Facet runtime", () => {
     test("rejects correspondence failures before lifecycle code runs", { tags: "p1" }, async () => {
@@ -1072,6 +1080,169 @@ describe("Protected Operation gateway", () => {
         }
     );
 
+    test(
+        "[C13-INTERCEPTOR-POST-PREPARATION] refuses a post-preparation rewrite instead of dropping it",
+        { tags: "p0" },
+        async () => {
+            const descriptor = operationDescriptor("run", "mutate", true);
+            const executed: FacetData[] = [];
+            const beforeDeclaration = new InterceptorDeclaration(
+                new InterceptorId("prepare"),
+                "operation.before",
+                OperationSelector.own("run"),
+                10
+            );
+            const afterDeclaration = new InterceptorDeclaration(
+                new InterceptorId("present"),
+                "operation.after",
+                OperationSelector.own("run"),
+                20
+            );
+            // Everything the contributing Facet still holds once `operation.before` has
+            // completed and preparation has frozen the intent (§4.4 rules 6 and 7): the
+            // value it was handed, the value it returned, and the context it ran under.
+            const held: {
+                received?: FacetData;
+                returned?: { [key: string]: FacetData };
+                context?: InterceptContext;
+            } = {};
+            const rewrite = (target: object, key: string, value: FacetData): void => {
+                Object.defineProperty(target, key, {
+                    configurable: true,
+                    enumerable: true,
+                    value,
+                    writable: true
+                });
+            };
+            class PostPreparationInterceptor extends Interceptor {
+                public readonly outcomes: string[] = [];
+
+                public constructor(
+                    public readonly declaration: InterceptorDeclaration,
+                    private readonly surviveRefusal: boolean
+                ) {
+                    super();
+                }
+
+                public intercept(context: InterceptContext, value: FacetData): InterceptResult {
+                    if (context.cutPoint === "operation.before") {
+                        held.received = value;
+                        held.returned = { ...requireObject(value), prepared: true };
+                        return { proceed: true, value: held.returned };
+                    }
+                    for (const [subject, attempt] of [
+                        ["own pre-preparation rewrite", () => rewrite(held.returned!, "prepared", false)],
+                        [
+                            "value seen before preparation",
+                            () => rewrite(requireObject(held.received!), "value", 2)
+                        ],
+                        ["intercept context", () => rewrite(context, "cutPoint", "operation.before")],
+                        ["value in flight", () => rewrite(requireObject(value), "produced", false)]
+                    ] as const) {
+                        if (!this.surviveRefusal) {
+                            attempt();
+                            continue;
+                        }
+                        try {
+                            attempt();
+                            this.outcomes.push(`${subject}: applied`);
+                        } catch (error) {
+                            this.outcomes.push(
+                                `${subject}: ${error instanceof TypeError ? "refused" : "unknown"}`
+                            );
+                        }
+                    }
+                    return { proceed: true, value: { ...requireObject(value), presented: true } };
+                }
+            }
+            const dispatchWith = async (surviveRefusal: boolean) => {
+                const facetManifest = manifest(
+                    "acme.runtime",
+                    [descriptor],
+                    [beforeDeclaration, afterDeclaration]
+                );
+                const after = new PostPreparationInterceptor(afterDeclaration, surviveRefusal);
+                const facet = new TestFacet(
+                    "workspace:runtime",
+                    facetManifest,
+                    [],
+                    new Map([
+                        [
+                            "run",
+                            new TestOperation(descriptor, async (input) => {
+                                executed.push(input);
+                                return { produced: true };
+                            })
+                        ]
+                    ]),
+                    new Map([
+                        ["prepare", new PostPreparationInterceptor(beforeDeclaration, true)],
+                        ["present", after]
+                    ])
+                );
+                const host = new FacetRuntimeHost([facetManifest], [facet]);
+                await host.activate();
+                const invocations = new TestInvocations([]);
+                const gateway = new OperationGatewayHost(
+                    { caller: "authenticated" },
+                    host,
+                    new TestAuthority([], "mediated"),
+                    invocations
+                );
+                const resolved = await gateway.resolve(new BindingName("runtime"));
+                try {
+                    return {
+                        after,
+                        invocations,
+                        result: await resolved.dispatch({
+                            requestKey: new OperationRequestKey(`post-preparation-${surviveRefusal}`),
+                            operation: new OperationName("run"),
+                            payload: { kind: "single", input: { value: 1 } }
+                        }),
+                        failure: undefined
+                    };
+                } catch (failure) {
+                    return { after, invocations, result: undefined, failure };
+                } finally {
+                    resolved[Symbol.dispose]();
+                    await host.dispose();
+                }
+            };
+
+            const survived = await dispatchWith(true);
+            // Everything preparation handed out is a frozen canonical copy, so the three
+            // rewrites of runtime-owned state raise rather than take effect. The Facet's
+            // own object stays writable and rewriting it reaches nothing, because the
+            // PreparedInvocation froze a copy no contributor holds.
+            expect(survived.after.outcomes).toEqual([
+                "own pre-preparation rewrite: applied",
+                "value seen before preparation: refused",
+                "intercept context: refused",
+                "value in flight: refused"
+            ]);
+            expect(held.returned).toEqual({ prepared: false, value: 1 });
+            expect(survived.invocations.lastRequest?.inputs).toEqual([{ prepared: true, value: 1 }]);
+            expect(survived.invocations.lastRequest?.inputs[0]).not.toBe(held.returned);
+            expect(Object.isFrozen(survived.invocations.lastRequest?.inputs)).toBe(true);
+            expect(Object.isFrozen(survived.invocations.lastRequest?.interceptions)).toBe(true);
+            expect(executed).toEqual([{ prepared: true, value: 1 }]);
+            expect(survived.result).toEqual({
+                kind: "mediated",
+                output: { presented: true, produced: true },
+                evidence: { receipt: "recorded" }
+            });
+
+            // And the refusal is a refusal: an interceptor that lets it propagate blocks
+            // the operation rather than having its post-preparation rewrite dropped.
+            const blocked = await dispatchWith(false);
+            expect(blocked.failure).toMatchObject({
+                code: "authority.denied",
+                message: expect.stringContaining("blocked the operation")
+            });
+            expect(blocked.invocations.lastRequest?.inputs).toEqual([{ prepared: true, value: 1 }]);
+        }
+    );
+
     test("rejects invalid command arguments and missing mapping sources", { tags: "p1" }, () => {
         const passthrough = new Command({
             name: "run",
@@ -1343,6 +1514,95 @@ describe("Protected Operation gateway", () => {
     );
 
     test(
+        "[C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation",
+        { tags: "p0" },
+        async () => {
+            const descriptor = mappedOperationDescriptor();
+            const runtime = new CommandRuntime();
+            const command = mappedCommand();
+            const installed = runtime.install({
+                contributor: facetRef("workspace:commands"),
+                command,
+                target: { package: command.operation.facet, descriptor }
+            });
+            const events = new TestCommandEvents();
+
+            // Invoked from a conversation, the correlation carries the Surface it came
+            // from and the Run and branch it belongs to, unaltered.
+            await runtime.invoke(
+                installed,
+                { amount: 3 },
+                {
+                    surface: new SurfaceId("palette"),
+                    run: Object.freeze({ run: "run-7", branch: "topic" })
+                },
+                events
+            );
+            expect(events.records[0]?.origin).toEqual({
+                surface: new SurfaceId("palette"),
+                run: { run: "run-7", branch: "topic" }
+            });
+
+            // A Surface the Command was never installed on cannot be the origin, and the
+            // refusal emits nothing rather than an Event correlated to a foreign Surface.
+            await expect(
+                runtime.invoke(installed, { amount: 3 }, { surface: new SurfaceId("cli") }, events)
+            ).rejects.toMatchObject({
+                code: "operation.invalid-input",
+                message: expect.stringContaining("not installed for surface")
+            });
+            expect(events.records).toHaveLength(1);
+
+            // No inferred compatibility relation: an omitted mapping is identity, never a
+            // bridge derived from the two schemas, so arguments the Operation input does
+            // not accept are refused instead of being related to it.
+            const unmapped = new Command({
+                name: "unmapped",
+                title: "Unmapped",
+                arguments: command.arguments,
+                operation: command.operation,
+                binding: command.binding,
+                surfaces: [new SlotName("palette")]
+            });
+            const installedUnmapped = runtime.install({
+                contributor: facetRef("workspace:unmapped"),
+                command: unmapped,
+                target: { package: unmapped.operation.facet, descriptor }
+            });
+            await expect(
+                runtime.invoke(
+                    installedUnmapped,
+                    { amount: 3 },
+                    { surface: new SurfaceId("palette") },
+                    events
+                )
+            ).rejects.toMatchObject({
+                code: "operation.invalid-input",
+                message: expect.stringContaining("does not match the installed Operation schema")
+            });
+            expect(events.records).toHaveLength(1);
+            expect(installedUnmapped.subscription.mapping?.toData()).toEqual(
+                installed.subscription.mapping?.toData()
+            );
+
+            // No alternate authority source: the Command record admits no field through
+            // which a contribution could name the derived Subscription's authority,
+            // dedupe, or Event source, so §4.3's fixed defaults are the only ones there are.
+            const declared = requireObject(command.toData());
+            for (const [field, value] of [
+                ["authority", "delegated"],
+                ["dedupe", "none"],
+                ["source", "other.runtime:run"]
+            ] as const) {
+                expect(() => Command.fromData({ ...declared, [field]: value }), field).toThrow(
+                    /unknown fields/u
+                );
+            }
+            expect(installed.subscription.authority).toBe("initiator");
+        }
+    );
+
+    test(
         "submits one homogeneous mediated batch and invalidates resolutions on host disposal",
         { tags: "p1" },
         async () => {
@@ -1541,8 +1801,164 @@ describe("Protected Operation gateway", () => {
                     operation: new OperationName("run"),
                     payload: { kind: "single", input: {} }
                 })
-            ).rejects.toMatchObject({ code: "authority.denied" });
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message: expect.stringContaining("lacks target authority")
+            });
             await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses an out-of-domain interceptor and admits the same contributor's asynchronous Event",
+        { tags: "p0" },
+        async () => {
+            const descriptor = operationDescriptor("run", "observe", true);
+            const targetManifest = manifest("acme.target", [descriptor]);
+            const declaration = new InterceptorDeclaration(
+                new InterceptorId("confined"),
+                "operation.before",
+                new OperationSelector([
+                    new OperationPattern("run", new FacetPackageId("acme.target"))
+                ]),
+                1
+            );
+            const contributorManifest = manifest("acme.policy", [], [declaration]);
+            // The interception Grant is held throughout (`interceptionAllowed`), the
+            // Operation is interceptable, and the target matches the resolution, so the
+            // only thing that varies across these dispatches is where the contributing
+            // Facet's code runs.
+            const dispatchFrom = async (
+                contributed: ReadonlyMap<string, ProtectionDomain | undefined>,
+                manifests: readonly [FacetManifest, FacetManifest] = [
+                    targetManifest,
+                    contributorManifest
+                ]
+            ) => {
+                const calls: string[] = [];
+                const target = new TestFacet(
+                    "workspace:runtime",
+                    manifests[0],
+                    [],
+                    new Map([["run", new TestOperation(descriptor, async (input) => input)]])
+                );
+                const contributor = new TestFacet(
+                    "workspace:policy",
+                    manifests[1],
+                    [],
+                    new Map(),
+                    new Map([
+                        [
+                            "confined",
+                            new TestInterceptor(declaration, (value) => {
+                                calls.push("intercept");
+                                return {
+                                    proceed: true,
+                                    value: { ...requireObject(value), intercepted: true }
+                                };
+                            })
+                        ]
+                    ])
+                );
+                const host = new FacetRuntimeHost(manifests, [target, contributor]);
+                await host.activate();
+                const gateway = new OperationGatewayHost(
+                    { caller: "authenticated" },
+                    host,
+                    new TestAuthority(
+                        [],
+                        "direct",
+                        true,
+                        true,
+                        true,
+                        facetRef("workspace:runtime"),
+                        contributed
+                    ),
+                    new TestInvocations([])
+                );
+                const resolved = await gateway.resolve(new BindingName("runtime"));
+                try {
+                    return { calls, output: await resolved.dispatch(request), failure: undefined };
+                } catch (failure) {
+                    return { calls, output: undefined, failure };
+                } finally {
+                    resolved[Symbol.dispose]();
+                    await host.dispose();
+                }
+            };
+            const request = {
+                requestKey: new OperationRequestKey("confinement"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            } as const;
+
+            const bundled = await dispatchFrom(new Map());
+            expect(bundled.calls).toEqual(["intercept"]);
+            expect(bundled.output).toEqual({ kind: "direct", output: { intercepted: true } });
+
+            // A protection domain is named, not inferred, so a `provider` Facet behind a
+            // stub and a `dynamic` Facet in a fresh isolate are the two labels here; a
+            // contributor the host cannot place at all is the third refusal.
+            const elsewhere = [
+                [
+                    "provider",
+                    new ProtectionDomain("backend", "provider:acme.policy", "may-hold-secrets")
+                ],
+                [
+                    "dynamic",
+                    new ProtectionDomain("backend", "authored-code:isolate-1", "no-secrets")
+                ],
+                ["unplaced", undefined]
+            ] as const;
+            for (const [placement, domain] of elsewhere) {
+                const refused = await dispatchFrom(new Map([["workspace:policy", domain]]));
+                expect(refused.calls, placement).toEqual([]);
+                expect(refused.failure, placement).toMatchObject({
+                    code: "authority.denied",
+                    message: expect.stringContaining("another protection domain")
+                });
+            }
+
+            // Refusing the synchronous hook is not refusing the contributor: the same
+            // out-of-domain Facet reaches the same Operation through an Event, and that
+            // dispatch runs uneventfully because nothing is intercepting it in-process.
+            const automation = new Automation({
+                source: new EventPattern(
+                    "operation.completed",
+                    ["owner", "authenticated", "self"],
+                    "acme.target:run"
+                ),
+                target: new OperationRef("acme.target:run"),
+                binding: new BindingName("runtime"),
+                mapping: new PayloadMapping([new FieldMove("", { from: "/output" })]),
+                dedupe: "event",
+                authority: "initiator"
+            });
+            const asyncManifest = new FacetManifest({
+                id: new FacetPackageId("acme.policy"),
+                version: new SemVer("1.0.0"),
+                compat: CompatRange.any(),
+                isolation: ["dynamic"],
+                bindings: [],
+                contributions: Contributions.fromMap({ automations: [automation.toData()] })
+            });
+            const asynchronous = await dispatchFrom(
+                new Map([
+                    [
+                        "workspace:policy",
+                        new ProtectionDomain("backend", "authored-code:isolate-1", "no-secrets")
+                    ]
+                ]),
+                [targetManifest, asyncManifest]
+            );
+            expect(asynchronous.failure).toBeUndefined();
+            expect(asynchronous.calls).toEqual([]);
+            expect(asynchronous.output).toEqual({ kind: "direct", output: {} });
+            const declared = Automation.fromData(
+                asyncManifest.contributions.get(new SlotName("automations"))![0]!
+            );
+            expect(declared.target.value).toBe("acme.target:run");
+            expect(declared.source.kind).toBe("operation.completed");
         }
     );
 
@@ -2919,6 +3335,14 @@ describe("Protected Operation gateway", () => {
                     return replayBinding();
                 }
 
+                public cutPointDomain(): ProtectionDomain {
+                    return hostDomain;
+                }
+
+                public contributorDomain(): ProtectionDomain {
+                    return hostDomain;
+                }
+
                 public allowsInterception(): boolean {
                     return true;
                 }
@@ -3351,8 +3775,21 @@ class TestAuthority implements OperationAuthorityPort<
         private readonly interceptionAllowed = true,
         private readonly directAllowed = true,
         private readonly mediatedAllowed = true,
-        private readonly resolvedFacet = facetRef("workspace:runtime")
+        private readonly resolvedFacet = facetRef("workspace:runtime"),
+        // Where each contributing Facet's code runs. Anything unnamed is placed in the
+        // cut point's own domain, which is what `bundled` placement means.
+        private readonly domains: ReadonlyMap<string, ProtectionDomain | undefined> = new Map()
     ) {}
+
+    public cutPointDomain(): ProtectionDomain {
+        return hostDomain;
+    }
+
+    public contributorDomain(contributor: FacetRef): ProtectionDomain | undefined {
+        return this.domains.has(contributor.value)
+            ? this.domains.get(contributor.value)
+            : hostDomain;
+    }
 
     public async resolve(): Promise<AuthorityResolution<string>> {
         this.events.push("resolve");

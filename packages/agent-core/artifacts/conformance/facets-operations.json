@@ -95,15 +95,17 @@
       "owner": "W3",
       "specAnchor": "C13-COMMAND-INVOCATION-CORRELATION",
       "specTextSha256": "sha256:58044e1ec3f13b5b254206d27aa5689b1f96440bd61524f79b1146aa46b83c15",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The correlation payload is exercised only by the test C13-COMMAND-RESULT cites; this atom needs evidence of its own that `command.invoked` carries the originating SurfaceId and, from a conversation, the RunRef and branch",
-        "The prohibition half — no inferred compatibility relation and no alternate authority source in the derived Subscription — has no negative test at all"
-      ]
+      "sourceSymbols": [
+        "src/facets/command.ts#Command",
+        "src/operations/command-runtime.ts#CommandRuntime"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-COMMAND-RESULT",
@@ -289,15 +291,17 @@
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-DOMAIN-CONFINEMENT",
       "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The interceptor runner has no protection-domain concept: src/operations/interception.ts never reads the placement or isolation mode of a contributing facet, so confinement is neither enforced nor representable today",
-        "Needs a negative test that an interceptor contributed from a `provider` or `dynamic` domain does not run in-process at another domain's cut point, and a positive one that the cross-domain case is expressed as an asynchronous Event"
-      ]
+      "sourceSymbols": [
+        "src/operations/interception.ts#OperationInterceptorRunner",
+        "src/composition/authority.ts#TenantOperationAuthority"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses an out-of-domain interceptor and admits the same contributor's asynchronous Event"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-INTERCEPTOR-FROZEN-RETRY",
@@ -332,15 +336,17 @@
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-POST-PREPARATION",
       "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The adversarial counterpart C13-ADV-POST-PREPARATION-INTERCEPTOR is verified, but its test asserts that mediated effects route through the invocation port with frozen traces — it never attempts a post-preparation rewrite, so it is not evidence for this prohibition",
-        "Needs a test that an interceptor reached after preparation cannot alter the PreparedInvocation, Approval, EffectAttempt, or effect arguments, and that the attempt is refused rather than silently dropped"
-      ]
+      "sourceSymbols": [
+        "src/operations/gateway.ts#ProtectedResolvedFacet",
+        "src/operations/interception.ts#OperationInterceptorRunner"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-POST-PREPARATION] refuses a post-preparation rewrite instead of dropping it"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-INTERCEPTOR-REPLAY",

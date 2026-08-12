@@ -163,7 +163,7 @@ describe("W9 internal typed composition", () => {
     );
 
     test(
-        "fails closed on substituted resolution evidence and only admits same-domain interception",
+        "fails closed on substituted resolution evidence and exposes both interception domains",
         { tags: "p0" },
         async () => {
             const state = new AuthorityState();
@@ -235,28 +235,17 @@ describe("W9 internal typed composition", () => {
                     interceptable
                 )
             ).toBe(false);
+            // Protection-domain confinement is §4.4 rule 1 and belongs to the interceptor
+            // runner; what this membrane owes it is the two domains, each read from its
+            // own source rather than assumed equal.
+            expect(authority.cutPointDomain(resolved.resolution)).toEqual(domain);
+            expect(authority.contributorDomain(facet)).toEqual(domain);
+            const substitutedDomain = new ProtectionDomain("frontend", "substituted", "no-secrets");
             expect(
                 operationAuthority(state, {
-                    contributorDomain: () => undefined
-                }).allowsInterception(resolved.resolution, facet, {} as never, facet, interceptable)
-            ).toBe(false);
-            for (const substitutedDomain of [
-                new ProtectionDomain("frontend", domain.label, "no-secrets"),
-                new ProtectionDomain(domain.kind, "other-label", domain.secretPolicy),
-                new ProtectionDomain(domain.kind, domain.label, "no-secrets")
-            ]) {
-                expect(
-                    operationAuthority(state, {
-                        contributorDomain: () => substitutedDomain
-                    }).allowsInterception(
-                        resolved.resolution,
-                        facet,
-                        {} as never,
-                        facet,
-                        interceptable
-                    )
-                ).toBe(false);
-            }
+                    contributorDomain: () => substitutedDomain
+                }).contributorDomain(facet)
+            ).toEqual(substitutedDomain);
             expect(
                 operationAuthority(state, { admitsInterception: () => false }).allowsInterception(
                     resolved.resolution,
