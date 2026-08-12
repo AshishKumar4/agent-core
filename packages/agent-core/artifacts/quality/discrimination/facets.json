@@ -1,28 +1,28 @@
 {
   "edition": "1.0.0",
   "area": "facets",
-  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-  "fingerprint": "sha256:c6012547ff885ec8fc5d2a365db6cc2cdfc1a7e8c5fe2baacc3e4a34002bb215",
+  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+  "fingerprint": "sha256:c00d277a501be424446e7d0614aa0f26a96274a706b689f97ccce6eceac298f6",
   "files": {
     "src/facets/approval-gateway/facet.ts": {
-      "mutants": 50,
-      "sha256": "sha256:1252daa5046a2c2bf67c2c136ac04c25570a8dddd342f845d1d0a34969789678"
+      "mutants": 49,
+      "sha256": "sha256:d1fc7d667a1672bfe2e6f5f9702f3232f1aaeeebdf74856953d699ffc74c95a8"
     },
     "src/facets/approval-gateway/manifest.ts": {
       "mutants": 2,
       "sha256": "sha256:aeeeb6cb74e8f0fe1a8615e3c2e37a44f89c6eab7a90ae56e272f299d1cd93bf"
     },
     "src/facets/authored-code.ts": {
-      "mutants": 54,
-      "sha256": "sha256:4ef3fb208eca4e0e1029296cca91633e98d95dc5262012c48ceb4003ae270599"
+      "mutants": 53,
+      "sha256": "sha256:40dba090dfb22b733cb332961254f8cdd79a39d2432bee1198a65f061040f523"
     },
     "src/facets/automation.ts": {
       "mutants": 88,
       "sha256": "sha256:d77d0fe21cda9ced1dd81ff67274d1122f99a690fc032f719a85113a237a5de9"
     },
     "src/facets/capability.ts": {
-      "mutants": 261,
-      "sha256": "sha256:55f9283edab6112810c8815987e85c17f952dd0fc37051100330aa9d737511bb"
+      "mutants": 217,
+      "sha256": "sha256:d995f38e35a65999a91edb20b0776473b19d57ac6f19a8c8dd869bd08ce11768"
     },
     "src/facets/command.ts": {
       "mutants": 154,
@@ -33,12 +33,12 @@
       "sha256": "sha256:d21f47992928afcc3c79a94a0224120fc07b2a9bdb920d26459a3cb2695fde6b"
     },
     "src/facets/data.ts": {
-      "mutants": 110,
-      "sha256": "sha256:8f5dcd441320b4217abd59b5d4c1d35de8d951df9062a0cb652295e06ddf014f"
+      "mutants": 109,
+      "sha256": "sha256:68d402f3c92ddb42e237001e53952362bd63ecf3e96417f2d1aaf9c5012c08c6"
     },
     "src/facets/device/facet.ts": {
-      "mutants": 243,
-      "sha256": "sha256:f7187fdef5cc22a3eea152ac7f633016d72c163f7d33b64aa418362e6f8b0e57"
+      "mutants": 242,
+      "sha256": "sha256:bad76a76103681b4ba7c04a2a291fdb43979ba619de09b110e4bb5efb8d32c73"
     },
     "src/facets/device/id.ts": {
       "mutants": 14,
@@ -49,8 +49,8 @@
       "sha256": "sha256:b129524ac5c26002d89053cc9194eee5f082b6c5764707c1ac8fc8c70e69c0a0"
     },
     "src/facets/environment/facet.ts": {
-      "mutants": 151,
-      "sha256": "sha256:4b4c24051027b71183a997fb4c682f1d6d3da373a2ea8f7fae8c73330e879b62"
+      "mutants": 150,
+      "sha256": "sha256:b3fe49e815321bb411e8e87ccdc6ae52112bc5787355455b9db8ca8b7387763d"
     },
     "src/facets/environment/manifest.ts": {
       "mutants": 3,
@@ -93,8 +93,8 @@
       "sha256": "sha256:80035b7fb8c5a1d19f3bd6b2046bb9d0836737145f6d60e0ab3192a7523c930e"
     },
     "src/facets/id.ts": {
-      "mutants": 102,
-      "sha256": "sha256:6b6cc6850fa1b430a3b17c7619ca87ef6c079dbd8b1a4a68e84d5099bd9d574c"
+      "mutants": 86,
+      "sha256": "sha256:631ac94280b54830cd2a5cd1bb9705867754f42ad1daebec5555f005a57c0401"
     },
     "src/facets/installation.ts": {
       "mutants": 8,
@@ -113,16 +113,16 @@
       "sha256": "sha256:a132d020369722099ddceb87e73a9aa4e9fb38abfc2ca99960d862f33136d970"
     },
     "src/facets/mcp/facet.ts": {
-      "mutants": 399,
-      "sha256": "sha256:06192b4a31faf070c92f7de348b9deab677154662a5d76eba514013a913d4575"
+      "mutants": 397,
+      "sha256": "sha256:5bb9a788c3a8ebb7417c11a12c1a9c20b2a0a57e098e20a471233e8869903d3f"
     },
     "src/facets/mcp/manifest.ts": {
       "mutants": 3,
       "sha256": "sha256:8e117f8b24894e12526f09e18f9320f7eeb1a31734100625fca85c45c0ca9209"
     },
     "src/facets/memory/facet.ts": {
-      "mutants": 266,
-      "sha256": "sha256:fd58d646c9fdbd13193bfd3c9f6f59df853b3710df29124551f5960652d68e85"
+      "mutants": 265,
+      "sha256": "sha256:db21fbf350f254746eaf2093e40af29c55c3fb1a14315980295a8a617008718a"
     },
     "src/facets/memory/manifest.ts": {
       "mutants": 2,
@@ -133,8 +133,8 @@
       "sha256": "sha256:f983bdc4d1493483c9e38b5d09457a17a94f89c3d128889058ced2c0fd15f40d"
     },
     "src/facets/profile-runtime/contract.ts": {
-      "mutants": 35,
-      "sha256": "sha256:e775ce153a9bf1543dbfc3c612233374d18570b035b433c7d404aeea0ed90dac"
+      "mutants": 34,
+      "sha256": "sha256:aa05be74efa664039229826ea82a7a6651fccdb7c1b3e932e8f62d0f292cb32b"
     },
     "src/facets/profile-runtime/error.ts": {
       "mutants": 2,
@@ -149,8 +149,8 @@
       "sha256": "sha256:f4bc94e90a4a488bf4c60a5c0fac7956fedcbeade0e44694055388a05c8311d3"
     },
     "src/facets/profile-runtime/runtime.ts": {
-      "mutants": 231,
-      "sha256": "sha256:4212bf30e54c8e5a34f53afa5f63c5bfa19e0832df0ef9d6dc9e2d9a1702c0e4"
+      "mutants": 229,
+      "sha256": "sha256:d95c1dc1cd93055d138cbd4ec745bbff5f7d93795bb95f0d6a7fcd2ac115e76a"
     },
     "src/facets/profile-runtime/schema.ts": {
       "mutants": 1,
@@ -205,8 +205,8 @@
       "sha256": "sha256:299bf243ef554b5c0b26b9d4564937d4602951085cdf2ac4179462307a665b31"
     },
     "src/facets/slot-memory.ts": {
-      "mutants": 249,
-      "sha256": "sha256:2723b454a02f7784fde3f92328032a0a85aa045f33016e0fb8ea4e2f5e38e103"
+      "mutants": 243,
+      "sha256": "sha256:1d8d95dbb8de5b8d4bba42643d7f149e2bd1145cd4764235cd62baef49b9fdcb"
     },
     "src/facets/slot-store.ts": {
       "mutants": 81,
@@ -217,8 +217,8 @@
       "sha256": "sha256:deb3b5cd7b301aadb0c706fb2176d8d4aa5664757474d69db6cbf7df8cd9c319"
     },
     "src/facets/task/facet.ts": {
-      "mutants": 191,
-      "sha256": "sha256:4410d014202a51d8442148b83b12d5ff6e4c33037bd9db81fd5c9dbd83a8f166"
+      "mutants": 190,
+      "sha256": "sha256:3c7b794cf65a191bf1497b63efa9ee99f69efa3cb3a4c05fce8ace63dd50e4aa"
     },
     "src/facets/task/id.ts": {
       "mutants": 2,
@@ -229,8 +229,8 @@
       "sha256": "sha256:7bf675b3e06ade0c44d09b291eb89062f3767c5b14cb0b2a6ffd1ad424f74b45"
     },
     "src/facets/web/facet.ts": {
-      "mutants": 313,
-      "sha256": "sha256:9b19faecfd8b9bb784634540947caaa7d6188fa07f23f0abeda89da72221fd55"
+      "mutants": 312,
+      "sha256": "sha256:c034e934e99208a73c159d7f686793a10bc4723bfe453053e820b78bff2ddf0b"
     },
     "src/facets/web/manifest.ts": {
       "mutants": 2,
@@ -240,12 +240,22 @@
   "killed": {
     "test/agents/runs/executor.test.ts#TurnExecutor seam adapts one exact bound tool to the existing mediated OperationGateway and disposes it": {
       "src/facets/contribution.ts": [
-        113
+        105
       ]
     },
     "test/agents/runs/record-contract.test.ts#constituent shape validation rejects malformed placement sets": {
       "src/facets/id.ts": [
         13
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins selects the first preference shared by every source set": {
+      "src/facets/id.ts": [
+        111
+      ]
+    },
+    "test/authority/binding-mutation-gates.test.ts#authority key identity [C13-AUTH-BINDING-RESOLUTION] pins exact binding, domain, scope, and subject key formats": {
+      "src/facets/id.ts": [
+        121
       ]
     },
     "test/authority/binding-mutation-gates.test.ts#Binding codec field gates [C13-AUTH-BINDING-RESOLUTION] strictly decodes protection domains": {
@@ -259,46 +269,27 @@
         57,
         78,
         82,
-        86,
         88,
         89,
         91,
         93,
-        102,
-        103,
-        224,
-        236,
-        239,
-        243,
-        244,
-        249,
-        254
-      ],
-      "src/facets/data.ts": [
-        21,
-        116
+        111
       ]
     },
-    "test/authority/hard-gates.test.ts#canonical capability hard gates strictly rejects malformed capability shapes": {
+    "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates returns defensive copies of anchor and record bytes to callers": {
       "src/facets/capability.ts": [
-        174,
-        188,
-        236
+        179,
+        183
       ]
     },
-    "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates defensively freezes caller-provided subject references": {
-      "src/facets/protection.ts": [
-        16
-      ]
-    },
-    "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates validates deterministic role Grant identifiers": {
+    "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates ties bootstrap eligibility to every empty collection": {
       "src/facets/id.ts": [
-        123
+        121
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates validates Grant reference closure precisely on restore": {
       "src/facets/capability.ts": [
-        101
+        107
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates verifies role Grant materialization byte-for-byte on restore": {
@@ -308,69 +299,58 @@
     },
     "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors": {
       "src/facets/capability.ts": [
-        100,
-        106
+        109
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore enforces narrowing and recursively revokes delegated Grant chains": {
       "src/facets/capability.ts": [
-        100
+        109
       ]
     },
     "test/authority/model.test.ts#authority value records [authority.grant] [authority.scope-epoch] round-trips retained authority records through canonical codecs": {
-      "src/facets/capability.ts": [
-        253
+      "src/facets/data.ts": [
+        50,
+        51
       ]
     },
     "test/authority/model.test.ts#authority value records canonicalizes capability sets and enforces argument constraints": {
       "src/facets/capability.ts": [
-        166,
-        191,
-        192
+        175
+      ]
+    },
+    "test/authority/model.test.ts#authority value records rejects malformed and unknown-major capability bytes": {
+      "src/facets/capability.ts": [
+        199
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService record-existence taxonomy names the record in every already-exists rejection": {
       "src/facets/capability.ts": [
-        173,
-        174,
-        190
+        183,
+        189,
+        201,
+        250,
+        251
+      ]
+    },
+    "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny": {
+      "src/facets/capability.ts": [
+        210
       ]
     },
     "test/authority/runtime-foundation.test.ts#verified guest lifecycle materializes attenuated guest Grants and revokes them when trust is revoked": {
       "src/facets/capability.ts": [
-        88,
-        115
-      ]
-    },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates [C13-AUTH-GUEST-ELEVATION] enforces guest proof, current trust, and elevation": {
-      "src/facets/capability.ts": [
-        115
+        88
       ]
     },
     "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates rejects every guest-origin and trust mismatch branch": {
       "src/facets/capability.ts": [
-        114,
-        115
-      ]
-    },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates rejects request Binding bytes that differ from the canonical Tenant record": {
-      "src/facets/capability.ts": [
-        91,
-        198
-      ]
-    },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates returns closed denial reasons for local principal and Binding failures": {
-      "src/facets/capability.ts": [
-        201
+        124
       ]
     },
     "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime mutation kill gates admits valid attenuation chains across and within Scopes": {
       "src/facets/capability.ts": [
-        98,
-        100,
-        101,
-        107,
-        206
+        110,
+        116
       ]
     },
     "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime mutation kill gates denies deny-backed and revoked-backed Bindings with exact reasons and decision": {
@@ -380,72 +360,86 @@
     },
     "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime mutation kill gates fails closed on each malformed backing lineage with the exact reason": {
       "src/facets/capability.ts": [
-        100,
-        215
+        109
       ]
     },
     "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] denies a same-PrincipalId Principal from another Tenant at mediated admission": {
       "src/facets/capability.ts": [
-        88,
+        86,
         89,
-        202
+        91,
+        209
+      ]
+    },
+    "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] fails a restored Tenant control snapshot closed on an unqualified stored subject": {
+      "src/facets/capability.ts": [
+        132,
+        143,
+        146
+      ]
+    },
+    "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] refuses a record whose Principal subject belongs to another Tenant": {
+      "src/facets/capability.ts": [
+        29,
+        30
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] admits an equal or narrower passed set": {
       "src/facets/capability.ts": [
-        215
+        72
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] binds the passed set to attenuations in the isolate's own domain": {
       "src/facets/capability.ts": [
-        29,
-        30,
-        102,
-        122,
-        132,
-        135,
-        148
-      ],
-      "src/facets/protection.ts": [
-        34,
-        36
+        69,
+        140,
+        143,
+        147,
+        154,
+        155,
+        157,
+        162
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] gives two submissions two unshared isolate domains": {
       "src/facets/protection.ts": [
-        28,
         29,
         34
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
       "src/facets/id.ts": [
-        120
-      ],
-      "src/facets/protection.ts": [
-        15,
-        23
+        121
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it": {
+      "src/facets/capability.ts": [
+        246
       ]
     },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root produces the whole §7 evidence chain for one mediated call": {
       "src/facets/contribution.ts": [
-        100,
-        288
+        100
       ]
     },
-    "test/core/context-values.test.ts#retained context values enforces protection-domain invariants": {
-      "src/facets/protection.ts": [
-        16
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root serves a direct-tier Turn call from memory and writes no durable evidence": {
+      "src/facets/capability.ts": [
+        72,
+        141,
+        144,
+        153,
+        154,
+        156
+      ]
+    },
+    "test/conformance/profile-base.test.ts#Profile base conformance [P11-BASE-EVIDENCE] keeps implementation status out of executable profile contracts": {
+      "src/facets/contribution.ts": [
+        211
       ]
     },
     "test/definition/code-manifest.test.ts#PackageCodeManifest [definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure": {
       "src/facets/id.ts": [
         111
-      ]
-    },
-    "test/definition/codec-edges.test.ts#definition codec adversarial edges rejects malformed Package locks releases and snapshots": {
-      "src/facets/data.ts": [
-        18
       ]
     },
     "test/definition/installation-provenance.test.ts#Package installation contribution provenance derives the contributor from authenticated materialization state": {
@@ -462,8 +456,10 @@
     "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization projects every Blueprint construct to a record under its owning Actor": {
       "src/facets/automation.ts": [
         58,
-        63,
+        65,
         68,
+        69,
+        81,
         86,
         87,
         88,
@@ -474,20 +470,35 @@
         78
       ],
       "src/facets/contribution.ts": [
-        169
+        93,
+        101,
+        140,
+        169,
+        225,
+        229
       ],
       "src/facets/data.ts": [
-        17,
-        18,
-        25
+        25,
+        86
       ],
       "src/facets/event.ts": [
+        67,
+        91,
+        95,
+        96,
         108,
         109,
-        225,
         226,
-        238,
-        239
+        249
+      ],
+      "src/facets/mapping.ts": [
+        41,
+        42
+      ]
+    },
+    "test/definition/package.test.ts#package releases [definition.package-release] canonicalizes immutable metadata and round-trips its strict codec": {
+      "src/facets/data.ts": [
+        124
       ]
     },
     "test/definition/policy.test.ts#pure policy floors implements the exact impact and Turn-owned session floor": {
@@ -501,38 +512,30 @@
         51,
         52
       ],
+      "src/facets/data.ts": [
+        134
+      ],
       "src/facets/event.ts": [
-        45,
-        49,
-        64,
-        67,
+        31,
+        138,
         158,
         188,
         190,
         193,
-        238,
+        209,
         249,
         256,
         271
       ],
-      "src/facets/interceptor.ts": [
-        48,
-        69,
-        86
-      ],
       "src/facets/mapping.ts": [
-        41,
-        42,
-        44,
-        47,
-        49,
-        61,
-        62,
-        64,
-        185
+        161,
+        167
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation uses strict production validation by default, including uri formats": {
+      "src/facets/data.ts": [
+        134
+      ],
       "src/facets/manifest.ts": [
         161
       ]
@@ -540,111 +543,140 @@
     "test/definition/validation.test.ts#Blueprint validation validates malformed core contributions for every executable slot kind": {
       "src/facets/automation.ts": [
         47
+      ],
+      "src/facets/data.ts": [
+        64
+      ],
+      "src/facets/event.ts": [
+        186
+      ]
+    },
+    "test/facets/authored-code.test.ts#Agent-authored code source carries its modules in canonical name order": {
+      "src/facets/authored-code.ts": [
+        69,
+        77,
+        82,
+        83,
+        86
+      ]
+    },
+    "test/facets/authored-code.test.ts#Agent-authored code source names the empty module set apart from an unresolvable entry": {
+      "src/facets/authored-code.ts": [
+        45,
+        78,
+        79
+      ]
+    },
+    "test/facets/authored-code.test.ts#Agent-authored code source names the offending field when decoded source is not string-shaped": {
+      "src/facets/authored-code.ts": [
+        52,
+        55,
+        57,
+        59
+      ]
+    },
+    "test/facets/authored-code.test.ts#Agent-authored code source rejects blank and noncanonical module names": {
+      "src/facets/authored-code.ts": [
+        83,
+        84
+      ]
+    },
+    "test/facets/authored-code.test.ts#Agent-authored code source rejects modules that are not content-addressed": {
+      "src/facets/authored-code.ts": [
+        86,
+        87
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics constraint paths never traverse into arrays or string properties": {
       "src/facets/capability.ts": [
-        224
+        221
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics covers requires facet pattern containment": {
       "src/facets/capability.ts": [
-        69,
-        74,
-        160,
-        170,
-        173,
-        174,
-        180,
-        190,
+        115,
+        178,
+        179,
+        182,
+        199,
+        200,
         207,
-        208,
-        209,
         210,
-        211,
-        212,
-        213,
-        214,
-        215
+        212
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics covers requires operation and constraint containment": {
       "src/facets/capability.ts": [
-        101,
-        102,
-        103,
-        107,
-        109,
-        162,
-        166,
-        182,
-        235,
+        110,
+        111,
+        112,
+        116,
+        118,
+        171,
+        175,
+        191,
+        232,
+        233,
         236,
-        243,
-        244
+        240,
+        241
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics equals compares canonical data": {
       "src/facets/capability.ts": [
-        118,
-        119,
-        244
+        127,
+        128,
+        241
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics fromData enforces the exact capability payload shape": {
       "src/facets/capability.ts": [
-        131,
-        134,
-        136,
-        140,
-        141,
         143,
-        144,
         145,
-        147,
         149,
-        153,
-        248,
-        249,
-        254,
-        255
-      ],
-      "src/facets/data.ts": [
-        51,
-        134
+        150,
+        154,
+        156,
+        158,
+        245,
+        246,
+        251,
+        252
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics grantsElevation follows delegate and administer impacts": {
       "src/facets/capability.ts": [
-        115
+        123,
+        124
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics matches escapes pattern literals and evaluates constraint paths": {
       "src/facets/capability.ts": [
-        200,
-        201,
-        203,
-        223,
-        224,
-        243
+        93,
+        220,
+        221,
+        226,
+        233,
+        240
       ]
     },
     "test/facets/capability.test.ts#CapabilitySpec authority semantics rejects noncanonical construction inputs": {
       "src/facets/capability.ts": [
         72,
-        161,
-        162,
-        163,
         170,
         171,
-        174,
-        181,
-        182,
+        172,
+        179,
+        180,
         183,
         190,
-        193,
-        194,
-        236
+        191,
+        192,
+        197,
+        199,
+        202,
+        203,
+        233
       ]
     },
     "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-MANIFEST] canonicalizes manifests without changing ordered mapping semantics": {
@@ -657,16 +689,19 @@
         96,
         113,
         114,
+        116,
+        117,
         124,
         126,
-        133,
-        134,
-        137,
+        131,
         140,
         141,
+        145,
         149,
+        153,
         154,
-        155
+        155,
+        156
       ],
       "src/facets/prompt.ts": [
         60,
@@ -717,15 +752,12 @@
         199,
         203,
         207,
-        211,
         212,
-        225,
         226,
         229,
         240,
         244,
         248,
-        251,
         260,
         262,
         276,
@@ -733,27 +765,32 @@
       ],
       "src/facets/event.ts": [
         31,
+        55,
         59,
         150,
         154,
         238,
         239,
-        256
+        256,
+        263
       ],
       "src/facets/manifest.ts": [
         35,
         37,
+        38,
+        39,
+        41,
+        42,
         50,
         54
       ],
       "src/facets/mapping.ts": [
         53,
-        57,
         92,
         96,
         113,
+        117,
         134,
-        138,
         175,
         179,
         215,
@@ -764,6 +801,7 @@
         59,
         69,
         73,
+        77,
         78
       ],
       "src/facets/slot.ts": [
@@ -780,7 +818,6 @@
     },
     "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.bound-operation-ref] [facet.operation-ref] covers strict W3 declaration constructor and codec branches": {
       "src/facets/automation.ts": [
-        69,
         87,
         100,
         103,
@@ -796,6 +833,7 @@
         68,
         83,
         88,
+        105,
         125,
         126,
         127,
@@ -814,9 +852,13 @@
       "src/facets/contribution.ts": [
         81,
         98,
+        138,
         187,
         188,
         288,
+        289,
+        291,
+        293,
         297,
         304,
         308,
@@ -837,11 +879,11 @@
         112
       ],
       "src/facets/id.ts": [
+        110,
         111,
         112,
-        123,
-        124,
-        126
+        121,
+        123
       ],
       "src/facets/manifest.ts": [
         96,
@@ -910,8 +952,8 @@
         182,
         190,
         226,
-        227,
         238,
+        240,
         249,
         276,
         277
@@ -947,6 +989,7 @@
     "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.operation-descriptor] [facet.surface-descriptor] defaults interceptable to false and keeps help in canonical data": {
       "src/facets/contribution.ts": [
         79,
+        81,
         96,
         120,
         140,
@@ -992,11 +1035,11 @@
         134
       ],
       "src/facets/id.ts": [
-        103
+        103,
+        121
       ],
       "src/facets/slot-entry.ts": [
-        19,
-        40,
+        23,
         41,
         46,
         62,
@@ -1009,6 +1052,7 @@
         77,
         78,
         82,
+        83,
         98,
         100,
         107
@@ -1017,10 +1061,10 @@
     "test/facets/declarations.test.ts#Declarative facet vocabulary accepts only canonical JSON facet data and freezes canonical copies": {
       "src/facets/data.ts": [
         13,
+        116,
         117,
         118,
         123,
-        124,
         132,
         134
       ]
@@ -1038,11 +1082,10 @@
     },
     "test/facets/declarations.test.ts#Declarative facet vocabulary models commands, automations, ingress, and interceptors as codec data": {
       "src/facets/automation.ts": [
-        69,
         73,
         77,
-        81,
-        100,
+        82,
+        106,
         107
       ],
       "src/facets/command.ts": [
@@ -1072,9 +1115,10 @@
         103,
         104,
         105,
-        109,
+        113,
         117,
         118,
+        123,
         126,
         128,
         139,
@@ -1099,12 +1143,13 @@
         41,
         42,
         45,
+        49,
         51,
         63,
+        64,
         130,
         135,
         137,
-        138,
         139,
         141,
         143,
@@ -1112,13 +1157,12 @@
         145,
         159,
         161,
-        186,
         188,
         191,
         200,
         204,
         208,
-        209,
+        226,
         229,
         232,
         236,
@@ -1130,6 +1174,7 @@
         263
       ],
       "src/facets/id.ts": [
+        51,
         95
       ],
       "src/facets/interceptor.ts": [
@@ -1140,34 +1185,35 @@
         43,
         44,
         47,
+        48,
         49,
         50,
-        60,
         64,
         68,
         84,
-        86
+        86,
+        91
       ],
       "src/facets/mapping.ts": [
+        22,
         25,
         28,
         39,
+        41,
+        44,
+        47,
         49,
+        61,
         62,
+        64,
         77,
         82,
-        108,
+        87,
         129,
-        161,
-        165,
         167,
-        168,
         170,
         171,
-        183,
-        184,
-        186,
-        199,
+        185,
         200,
         203,
         223,
@@ -1182,15 +1228,12 @@
     "test/facets/declarations.test.ts#Declarative facet vocabulary models operation, surface, event, prompt, and slot declarations": {
       "src/facets/contribution.ts": [
         80,
-        93,
-        97,
+        92,
+        96,
+        98,
         99,
-        105,
-        109,
+        113,
         114,
-        147,
-        149,
-        151,
         152,
         153,
         157,
@@ -1199,16 +1242,14 @@
         166,
         286,
         288,
+        290,
         308,
         309,
         311
       ],
       "src/facets/data.ts": [
-        41,
         45,
-        64,
         65,
-        71,
         72,
         81,
         82,
@@ -1221,11 +1262,10 @@
         111
       ],
       "src/facets/event.ts": [
+        89,
         91,
         93,
         94,
-        95,
-        96,
         100,
         104,
         248,
@@ -1233,6 +1273,10 @@
         276,
         277,
         279
+      ],
+      "src/facets/id.ts": [
+        40,
+        87
       ],
       "src/facets/prompt.ts": [
         21,
@@ -1242,23 +1286,20 @@
         32,
         33,
         37,
-        41
+        41,
+        45,
+        46
       ],
       "src/facets/slot.ts": [
         18,
-        26,
-        31,
         37,
         45,
         46,
         65,
-        67,
         83,
-        84,
         98,
         99,
         114,
-        119,
         120,
         122
       ]
@@ -1317,7 +1358,7 @@
         94
       ],
       "src/facets/mapping.ts": [
-        32,
+        41,
         43,
         44,
         45,
@@ -1335,7 +1376,6 @@
       ],
       "src/facets/slot.ts": [
         99,
-        100,
         106,
         107,
         115,
@@ -1351,14 +1391,18 @@
         65
       ]
     },
+    "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied": {
+      "src/facets/contribution.ts": [
+        37,
+        38,
+        39,
+        66
+      ]
+    },
     "test/facets/id.test.ts#Facet identifier vocabulary accepts multi-character dotted facet reference segments": {
       "src/facets/id.ts": [
-        116,
-        118,
-        120,
-        121,
-        122,
-        123
+        119,
+        121
       ]
     },
     "test/facets/id.test.ts#Facet identifier vocabulary names each identifier subject in empty-value errors": {
@@ -1366,21 +1410,30 @@
         5,
         21,
         41,
-        51,
         52,
         71,
         72,
-        79,
         80,
         88,
         96,
         104
       ]
     },
+    "test/facets/id.test.ts#Facet identifier vocabulary names the agent-authored code backing subject in its own errors": {
+      "src/facets/id.ts": [
+        32,
+        33,
+        34
+      ]
+    },
     "test/facets/id.test.ts#Facet identifier vocabulary rejects noncanonical identifier values": {
       "src/facets/id.ts": [
-        110,
         111
+      ]
+    },
+    "test/facets/id.test.ts#Facet identifier vocabulary requires exactly one interior facet reference separator": {
+      "src/facets/id.ts": [
+        120
       ]
     },
     "test/facets/id.test.ts#Facet identifier vocabulary requires exactly one interior operation reference separator": {
@@ -1415,7 +1468,9 @@
     "test/facets/profile-runtime.test.ts#W3 effect dispatch identity derives dispatch identity from the effect context": {
       "src/facets/profile-runtime/runtime.ts": [
         71,
-        129
+        127,
+        129,
+        130
       ]
     },
     "test/facets/profile-runtime.test.ts#W3 effect dispatch identity rejects an empty effect idempotency key": {
@@ -1441,7 +1496,8 @@
         55,
         58,
         76,
-        94
+        94,
+        98
       ]
     },
     "test/facets/profile-runtime.test.ts#W3 internal profile facet runtime is active only while both started and runtime-admitted": {
@@ -1487,14 +1543,21 @@
     },
     "test/facets/profile-runtime.test.ts#W3 profile runtime adapts descriptors to distinct runtime Operations and Surfaces": {
       "src/facets/contribution.ts": [
-        120,
-        140
+        169
+      ],
+      "src/facets/data.ts": [
+        62
       ],
       "src/facets/profile-runtime/facet.ts": [
-        54,
+        50,
+        58,
+        61,
         62,
+        64,
+        69,
         71,
-        90,
+        82,
+        86,
         110,
         112,
         113,
@@ -1510,13 +1573,21 @@
       ]
     },
     "test/facets/profile-runtime.test.ts#W3 profile runtime coalesces lifecycle transitions, honors abort, and rejects duplicate runtime declarations": {
+      "src/facets/contribution.ts": [
+        236
+      ],
       "src/facets/profile-runtime/facet.ts": [
+        61,
         63,
+        68,
+        70,
         83,
+        102,
         103,
+        104,
         105,
         111,
-        118,
+        119,
         121,
         123,
         124,
@@ -1529,13 +1600,16 @@
       ]
     },
     "test/facets/profile-runtime.test.ts#W3 profile runtime composes standard profile manifests without exporting profile implementations": {
+      "src/facets/data.ts": [
+        100
+      ],
       "src/facets/profile-runtime/manifest.ts": [
+        43,
         45,
-        52,
         53,
-        75,
-        77,
-        85
+        76,
+        85,
+        110
       ]
     },
     "test/facets/profile-runtime.test.ts#W3 profile runtime fails closed on protected result substitution and wire codec failures": {
@@ -1543,11 +1617,10 @@
         358,
         392,
         393,
+        394,
         395,
         407,
-        408,
         409,
-        421,
         422,
         423,
         424,
@@ -1569,14 +1642,13 @@
         106,
         115,
         179,
-        404,
         406,
         407,
-        419,
+        418,
+        428,
         429
       ],
       "src/facets/profile-runtime/wire.ts": [
-        17,
         87
       ]
     },
@@ -1593,7 +1665,6 @@
         106,
         107,
         120,
-        121,
         122
       ]
     },
@@ -1626,7 +1697,6 @@
         44,
         45,
         47,
-        48,
         49,
         52,
         54,
@@ -1649,25 +1719,21 @@
     },
     "test/facets/profile-runtime.test.ts#W3 standard profile manifest composition composes constraint and supplied config schemas": {
       "src/facets/profile-runtime/manifest.ts": [
-        60,
         68,
-        69,
-        70
+        69
       ]
     },
     "test/facets/profile-runtime.test.ts#W3 standard profile manifest composition rejects contributions to undeclared slots with manifest detail": {
       "src/facets/profile-runtime/manifest.ts": [
+        85,
         87,
-        89,
         129,
         130
       ]
     },
     "test/facets/profile-runtime.test.ts#W3 standard profile manifest composition validates core contribution schemas before admission": {
-      "src/facets/command.ts": [
-        47
-      ],
       "src/facets/profile-runtime/manifest.ts": [
+        73,
         104,
         107,
         110
@@ -1687,6 +1753,7 @@
       "src/facets/protection.ts": [
         23,
         24,
+        28,
         29
       ]
     },
@@ -1710,15 +1777,13 @@
       ]
     },
     "test/facets/slot-declaration.test.ts#Slot declaration vocabulary names each malformed declaration and entry field": {
-      "src/facets/data.ts": [
-        134
-      ],
       "src/facets/slot-entry.ts": [
         74,
         75,
         78
       ],
       "src/facets/slot.ts": [
+        67,
         69
       ]
     },
@@ -1726,15 +1791,13 @@
       "src/facets/slot.ts": [
         19,
         20,
+        99,
+        100,
         102,
         103
       ]
     },
     "test/facets/slot-memory.test.ts#Memory [workspace-slot-store] Workspace Slot store persists codec records with deterministic ordering and idempotent replay": {
-      "src/facets/slot-entry.ts": [
-        23,
-        72
-      ],
       "src/facets/slot-memory.ts": [
         28,
         73,
@@ -1798,8 +1861,6 @@
         28,
         31,
         67,
-        69,
-        70,
         71,
         75,
         79
@@ -2028,33 +2089,26 @@
     },
     "test/identity/hard-gates.test.ts#identity shape and codec hard gates strictly validates Role capability declarations": {
       "src/facets/capability.ts": [
-        162,
-        170,
-        236
+        171,
+        179,
+        233
       ]
     },
     "test/identity/mutation-gates.test.ts#identity record vocabularies rejects malformed Team, Workspace, and Role payloads exactly": {
       "src/facets/capability.ts": [
         30,
+        162,
         169
       ]
     },
     "test/integration/blueprint-live-composition.test.ts#a declared Blueprint is what executes a policy tightening declared in the Blueprint flips live admission to mediated": {
       "src/facets/automation.ts": [
+        63,
         64,
-        65,
         66,
         68,
-        69,
-        82,
-        88,
         100,
         107
-      ],
-      "src/facets/contribution.ts": [
-        37,
-        92,
-        98
       ]
     },
     "test/integration/blueprint-live-composition.test.ts#a declared Blueprint is what executes the derived Subscription record targets exactly the declared Operation": {
@@ -2069,8 +2123,7 @@
         86,
         87,
         88,
-        99,
-        106
+        99
       ]
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition delegates installation provenance and creates a protected profile runtime": {
@@ -2078,73 +2131,75 @@
         173
       ]
     },
-    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects stale authority and preserves an opaque no-write direct stamp": {
-      "src/facets/capability.ts": [
-        72,
-        134,
-        138,
-        146
-      ]
-    },
     "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-LIVE] rejects exact-pair consent at its expiration boundary": {
       "src/facets/device/facet.ts": [
         665
       ]
     },
+    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt": {
+      "src/facets/profile-runtime/runtime.ts": [
+        262
+      ],
+      "src/facets/task/facet.ts": [
+        67
+      ]
+    },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart": {
       "src/facets/approval-gateway/facet.ts": [
         42,
+        43,
+        50,
         52
       ],
       "src/facets/profile-runtime/runtime.ts": [
-        41,
-        46,
-        68,
-        71
+        68
+      ]
+    },
+    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-APPROVAL-GATEWAY-MATCH] rejects an action not matching the approved PreparedInvocation and continuation": {
+      "src/facets/approval-gateway/facet.ts": [
+        52
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-BASE-NAMES] executes a platform alias without changing impact or invariants": {
       "src/facets/filesystem/memory.ts": [
-        90
+        37
       ],
       "src/facets/profile-runtime/contract.ts": [
         36,
         59
-      ],
-      "src/facets/profile-runtime/runtime.ts": [
-        215,
-        388
+      ]
+    },
+    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-DEVICE-COMMAND-EVENTS] persists invoked and completed Events with the command Receipt cause": {
+      "src/facets/device/facet.ts": [
+        208,
+        249,
+        440
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-DEVICE-TYPED-SURFACE] validates and executes the Surface command's typed Operation": {
       "src/facets/profile-runtime/runtime.ts": [
-        325,
         407
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-RECEIPTS] persists and replays the canonical Self Operation Receipt": {
       "src/facets/self/facet.ts": [
-        133
+        63,
+        132
       ]
     },
     "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECEIPTS] persists and replays the canonical W6 Receipt across restart": {
       "src/facets/approval-gateway/facet.ts": [
-        43,
-        187
+        183
       ]
     },
-    "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation": {
-      "src/facets/filesystem/facet.ts": [
-        429,
-        437
-      ],
-      "src/facets/filesystem/memory.ts": [
-        37
+    "test/integration/record-decode-contract.test.ts#registered record decode contract src/facets/mapping.ts#FieldMove.encode refuses a structurally mutated envelope with a typed error": {
+      "src/facets/mapping.ts": [
+        57
       ]
     },
-    "test/integration/record-decode-contract.test.ts#registered record decode contract src/facets/command.ts#Command.encode refuses a structurally mutated envelope with a typed error": {
-      "src/facets/command.ts": [
-        113
+    "test/integration/record-decode-contract.test.ts#registered record decode contract src/facets/mapping.ts#ProvenanceMapping.encode refuses a structurally mutated envelope with a typed error": {
+      "src/facets/mapping.ts": [
+        138
       ]
     },
     "test/operations/authored-code.test.ts#running one submission of agent-authored code declares programmatic tool calling as a delegate Operation": {
@@ -2160,6 +2215,11 @@
         69
       ]
     },
+    "test/operations/authored-code.test.ts#running one submission of agent-authored code reads a submission only from the shape §4.7 defines": {
+      "src/facets/data.ts": [
+        18
+      ]
+    },
     "test/operations/authored-code.test.ts#running one submission of agent-authored code rejects a submission that is not a §4.7 consumer's": {
       "src/facets/authored-code.ts": [
         23,
@@ -2171,118 +2231,125 @@
         44
       ]
     },
-    "test/operations/authored-code.test.ts#selecting the backing that serves a §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] refuses a declaration naming a backing the profile does not offer": {
-      "src/facets/id.ts": [
-        32
-      ]
-    },
     "test/operations/authored-code.test.ts#selecting the backing that serves a §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from its declared backing": {
       "src/facets/authored-code.ts": [
         42,
         44,
-        77,
         78,
-        82,
-        83,
-        86
+        82
       ]
     },
     "test/operations/authored-code.test.ts#the one channel out of a §4.7 isolate [C13-AUTH-ISOLATE-DELEGATION] carries a call the passed set names": {
       "src/facets/contribution.ts": [
-        257,
-        262
-      ]
-    },
-    "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation invokes on every surface the Command declares": {
-      "src/facets/command.ts": [
-        53,
-        56
+        109,
+        288
+      ],
+      "src/facets/data.ts": [
+        17,
+        18
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COMPLETION-IMPACT] admits a completion only at the impact that floors to direct": {
       "src/facets/contribution.ts": [
         35,
-        37,
         38,
+        40,
+        41,
         43
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime installation returns the identical installed Command for an equal reinstallation and rejects a divergent one": {
       "src/facets/command.ts": [
-        50,
-        68,
-        123,
-        125,
-        127
+        109
+      ],
+      "src/facets/contribution.ts": [
+        120
+      ],
+      "src/facets/data.ts": [
+        41
       ],
       "src/facets/id.ts": [
-        121,
-        123
+        121
       ],
       "src/facets/mapping.ts": [
         25,
+        108,
         259
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime mapping validation rejects a mapping that writes the same destination twice": {
       "src/facets/mapping.ts": [
-        22,
+        25,
         28,
         78
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway binds immutable resolution authority and call stamps to descriptor and canonical input": {
       "src/facets/capability.ts": [
-        89,
-        93,
-        243,
-        244
+        89
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
       "src/facets/capability.ts": [
         93,
-        162,
+        191,
+        218,
         221,
-        223,
-        224,
-        229,
-        236,
-        244,
-        249
+        240,
+        241,
+        246
       ],
       "src/facets/contribution.ts": [
         37,
-        92,
-        101
+        88
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position": {
+      "src/facets/contribution.ts": [
+        120
       ]
     },
     "test/operations/runtime.test.ts#Facet runtime refuses interceptor declarations at unhosted cut points instead of leaving them inert": {
       "src/facets/interceptor.ts": [
-        88,
         89,
         90
-      ]
-    },
-    "test/operations/runtime.test.ts#Facet runtime rejects correspondence failures before lifecycle code runs": {
-      "src/facets/id.ts": [
-        4
-      ],
-      "src/facets/slot-entry.ts": [
-        46
       ]
     },
     "test/operations/runtime.test.ts#Facet runtime rejects cycles, duplicate references, and descriptor mismatch": {
       "src/facets/interceptor.ts": [
         25,
-        28,
         40,
         42,
-        86,
-        91
+        44,
+        60,
+        69,
+        86
       ],
       "src/facets/mapping.ts": [
-        167
+        165,
+        167,
+        171,
+        183,
+        184,
+        199,
+        203,
+        211
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime rejects every malformed runtime forest and duplicate declaration shape": {
+      "src/facets/interceptor.ts": [
+        28
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime starts parent before child once and disposes child before parent": {
+      "src/facets/manifest.ts": [
+        113
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime validates Surface declarations against runtime implementations": {
+      "src/facets/contribution.ts": [
+        147,
+        149
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-ADV-POST-PREPARATION-INTERCEPTOR] routes mediated effects through the invocation port with frozen interceptor traces": {
@@ -2291,35 +2358,37 @@
         87
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked": {
-      "src/facets/event.ts": [
-        226,
-        229
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation": {
+      "src/facets/data.ts": [
+        64
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults": {
       "src/facets/event.ts": [
-        67
+        67,
+        225
+      ],
+      "src/facets/mapping.ts": [
+        81
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-CROSS-FACET] denies cross-Facet interception without explicit authority": {
       "src/facets/mapping.ts": [
-        155
+        155,
+        167,
+        168,
+        171,
+        186
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway applies root, literal, nested, and array command mappings strictly": {
       "src/facets/mapping.ts": [
-        25
-      ]
-    },
-    "test/operations/runtime.test.ts#Protected Operation gateway rejects invalid command arguments and missing mapping sources": {
-      "src/facets/mapping.ts": [
-        87
+        25,
+        32
       ]
     },
     "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-OBSERVE] mediates observe at externalSend impact and returns the authorized resource": {
       "src/facets/approval-gateway/facet.ts": [
-        43,
         86,
         87,
         89,
@@ -2329,12 +2398,11 @@
     },
     "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-PROVIDER] accesses the provider resource only inside admitted execution": {
       "src/facets/approval-gateway/facet.ts": [
-        50,
         52,
         53,
         54,
         55,
-        183
+        187
       ]
     },
     "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile internal runtime mediates observe and applyAction with the bound approval": {
@@ -2349,6 +2417,9 @@
       "src/facets/approval-gateway/manifest.ts": [
         8,
         9
+      ],
+      "src/facets/contribution.ts": [
+        92
       ]
     },
     "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile rejects each single divergence from the admitted intent": {
@@ -2370,50 +2441,48 @@
         44
       ]
     },
+    "test/profiles/facets/conformance-ledger.test.ts#[P11-FILESYSTEM-ERROR-BRANCHING] exact profile manifest or runtime contract": {
+      "src/facets/filesystem/error.ts": [
+        21
+      ]
+    },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-IMPACT-UNKNOWN] exact profile manifest or runtime contract": {
       "src/facets/mcp/facet.ts": [
-        569
+        567
       ]
     },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-MALFORMED-SCHEMA] exact profile manifest or runtime contract": {
       "src/facets/mcp/facet.ts": [
-        339
+        337
       ]
     },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPT-BYTES] exact profile manifest or runtime contract": {
       "src/facets/mcp/facet.ts": [
-        193,
-        196
+        194
       ]
     },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPT-COUNT] exact profile manifest or runtime contract": {
       "src/facets/mcp/facet.ts": [
-        187
+        185
       ]
     },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPTS] exact profile manifest or runtime contract": {
       "src/facets/mcp/facet.ts": [
-        304
+        302,
+        311
       ]
     },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-RESOURCES] exact profile manifest or runtime contract": {
       "src/facets/mcp/facet.ts": [
-        294
+        292
       ]
     },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-TOOLS] exact profile manifest or runtime contract": {
       "src/facets/mcp/facet.ts": [
-        581
-      ]
-    },
-    "test/profiles/facets/conformance-ledger.test.ts#[P11-MEMORY-INDEXES] exact profile manifest or runtime contract": {
-      "src/facets/memory/facet.ts": [
-        79
-      ]
-    },
-    "test/profiles/facets/conformance-ledger.test.ts#[P11-MEMORY-PRUNE-WITHIN] exact profile manifest or runtime contract": {
-      "src/facets/memory/facet.ts": [
-        291
+        191,
+        235,
+        313,
+        656
       ]
     },
     "test/profiles/facets/device.test.ts#Device consent boundaries and error identity admits a consent clock at the epoch boundary and sequences admissions": {
@@ -2461,20 +2530,15 @@
       "src/facets/device/facet.ts": [
         189,
         190,
-        703,
         704
       ]
     },
     "test/profiles/facets/device.test.ts#Device effect identity to reverse transport [P11-DEVICE-DISPATCH] delivers the canonical effect identity derived from the context": {
       "src/facets/profile-runtime/runtime.ts": [
-        127,
         131
       ]
     },
     "test/profiles/facets/device.test.ts#Device internal runtime and typed command flow asInternalRuntime registers the six declared operations and command surface": {
-      "src/facets/command.ts": [
-        105
-      ],
       "src/facets/device/facet.ts": [
         491,
         492,
@@ -2500,8 +2564,9 @@
         91,
         249
       ],
-      "src/facets/profile-runtime/runtime.ts": [
-        202
+      "src/facets/id.ts": [
+        4,
+        79
       ]
     },
     "test/profiles/facets/device.test.ts#Device internal runtime and typed command flow command() routes every typed operation and emits invoked/completed evidence": {
@@ -2526,8 +2591,7 @@
         632
       ],
       "src/facets/profile-runtime/runtime.ts": [
-        242,
-        262
+        244
       ]
     },
     "test/profiles/facets/device.test.ts#Device protected Environment profile [P11-DEVICE-LIVE-IMPACT] routes live and cached Operations through mediation": {
@@ -2543,7 +2607,6 @@
         210,
         218,
         248,
-        249,
         308,
         309,
         312,
@@ -2585,16 +2648,6 @@
       "src/facets/device/id.ts": [
         4,
         6
-      ],
-      "src/facets/id.ts": [
-        12,
-        20
-      ],
-      "src/facets/profile-runtime/runtime.ts": [
-        187,
-        188,
-        198,
-        217
       ]
     },
     "test/profiles/facets/device.test.ts#Device protected Environment profile [P11-DEVICE-PAIRING] passes the admitted device key and operator approval to reverse transport": {
@@ -2607,9 +2660,6 @@
         319,
         520,
         560
-      ],
-      "src/facets/id.ts": [
-        123
       ]
     },
     "test/profiles/facets/device.test.ts#Device transport admission and declarations [P11-DEVICE-CACHED-READ] remains observe and requires no live admission": {
@@ -2646,7 +2696,7 @@
     },
     "test/profiles/facets/device.test.ts#Device transport admission and declarations [P11-DEVICE-SCHEMA-VERSION] all six input codecs reject unknown major versions": {
       "src/facets/profile-runtime/wire.ts": [
-        45
+        48
       ]
     },
     "test/profiles/facets/device.test.ts#Device transport admission and declarations validates command identities, pairing, operation membership, and consent clocks": {
@@ -2668,9 +2718,15 @@
     "test/profiles/facets/device.test.ts#Device wire codecs decodes live, cached, and pairing inputs into typed identities": {
       "src/facets/device/facet.ts": [
         319
+      ],
+      "src/facets/profile-runtime/contract.ts": [
+        53
       ]
     },
     "test/profiles/facets/device.test.ts#Device wire codecs names decode subjects in wire errors": {
+      "src/facets/data.ts": [
+        51
+      ],
       "src/facets/device/facet.ts": [
         250,
         312,
@@ -2703,7 +2759,6 @@
         429,
         430,
         431,
-        440,
         443,
         445,
         448,
@@ -2813,14 +2868,11 @@
         497
       ],
       "src/facets/environment/manifest.ts": [
-        11,
         12
       ],
       "src/facets/manifest.ts": [
-        92
-      ],
-      "src/facets/profile-runtime/facet.ts": [
-        61
+        92,
+        96
       ]
     },
     "test/profiles/facets/environment.test.ts#Environment protected control profile round-trips control wire inputs and labels malformed fields precisely": {
@@ -2981,9 +3033,6 @@
         449,
         451,
         458
-      ],
-      "src/facets/profile-runtime/contract.ts": [
-        50
       ]
     },
     "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants translates non-root mounts, records all effects, and rejects invalid mount topology": {
@@ -3033,11 +3082,8 @@
         10,
         11
       ],
-      "src/facets/profile-runtime/facet.ts": [
-        58,
-        64,
-        68,
-        70
+      "src/facets/manifest.ts": [
+        96
       ]
     },
     "test/profiles/facets/filesystem.test.ts#Filesystem memory backend boundaries accepts a zero byte limit and enforces it exactly": {
@@ -3172,6 +3218,7 @@
         424,
         427,
         428,
+        429,
         430,
         436,
         437,
@@ -3199,15 +3246,21 @@
         214,
         215
       ],
+      "src/facets/id.ts": [
+        12
+      ],
       "src/facets/profile-runtime/runtime.ts": [
         217,
-        218
+        218,
+        223,
+        301,
+        327,
+        406
       ]
     },
     "test/profiles/facets/filesystem.test.ts#Filesystem protected facade [P11-FILESYSTEM-SESSION-DIRECT] selects direct for a mutating Operation only on the Turn-owned Session's own filesystem": {
       "src/facets/contribution.ts": [
-        39,
-        40
+        39
       ]
     },
     "test/profiles/facets/filesystem.test.ts#Filesystem wire codecs keeps optional wire fields absent and decodes strict values": {
@@ -3420,11 +3473,6 @@
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'device' manifest round-trips with exact closed contributions": {
-      "src/facets/command.ts": [
-        78,
-        83,
-        88
-      ],
       "src/facets/profile-runtime/manifest.ts": [
         104
       ]
@@ -3434,6 +3482,11 @@
         15
       ]
     },
+    "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'environment' manifest round-trips with exact closed contributions": {
+      "src/facets/environment/manifest.ts": [
+        11
+      ]
+    },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'environment' refuses a manifest missing its required composition binding": {
       "src/facets/environment/manifest.ts": [
         15
@@ -3441,6 +3494,7 @@
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'filesystem' manifest round-trips with exact closed contributions": {
       "src/facets/contribution.ts": [
+        251,
         288,
         289,
         294,
@@ -3448,21 +3502,18 @@
         308
       ],
       "src/facets/manifest.ts": [
-        96,
         109,
         113,
-        116,
+        114,
         117,
         118,
         121,
         126,
         129,
         130,
-        131,
-        141,
-        145,
-        153,
-        156,
+        133,
+        134,
+        137,
         161,
         168,
         169,
@@ -3477,15 +3528,19 @@
         209
       ],
       "src/facets/profile-runtime/manifest.ts": [
-        43,
+        45,
         68,
         75,
         76,
+        77,
         85,
         110
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'mcp' manifest round-trips with exact closed contributions": {
+      "src/facets/contribution.ts": [
+        257
+      ],
       "src/facets/mcp/manifest.ts": [
         22,
         23
@@ -3496,6 +3551,15 @@
         77,
         87,
         92
+      ],
+      "src/facets/slot.ts": [
+        26,
+        28,
+        67,
+        69,
+        70,
+        99,
+        119
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'mcp' refuses a manifest missing its required composition binding": {
@@ -3504,9 +3568,6 @@
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'memory' manifest round-trips with exact closed contributions": {
-      "src/facets/memory/manifest.ts": [
-        11
-      ],
       "src/facets/profile-runtime/manifest.ts": [
         116,
         117
@@ -3519,9 +3580,6 @@
       "src/facets/contribution.ts": [
         292,
         293
-      ],
-      "src/facets/self/manifest.ts": [
-        11
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'shell' manifest round-trips with exact closed contributions": {
@@ -3530,10 +3588,7 @@
       ],
       "src/facets/manifest.ts": [
         37,
-        38,
         39,
-        41,
-        42,
         44,
         45,
         58,
@@ -3570,7 +3625,6 @@
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'task' manifest round-trips with exact closed contributions": {
       "src/facets/event.ts": [
-        89,
         249
       ],
       "src/facets/profile-runtime/manifest.ts": [
@@ -3580,29 +3634,28 @@
         10
       ]
     },
-    "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'web' manifest round-trips with exact closed contributions": {
-      "src/facets/contribution.ts": [
-        290
-      ]
-    },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence coalesces concurrent lifecycle start/stop and gates the shared runtime": {
-      "src/facets/id.ts": [
-        123
+      "src/facets/contribution.ts": [
+        149,
+        151
       ],
       "src/facets/profile-runtime/facet.ts": [
         37,
-        49,
+        68,
         71,
-        82,
         83,
-        102,
-        104,
-        119,
+        112,
+        118,
+        121,
         129,
         145
       ],
       "src/facets/profile-runtime/runtime.ts": [
-        183
+        183,
+        187,
+        188,
+        198,
+        202
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence fixes provider-only Approval placement and dynamic zero-ambient Slate constraints": {
@@ -3612,43 +3665,52 @@
       "src/facets/profile-runtime/manifest.ts": [
         60,
         67,
-        68
+        70
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence preserves caller identity/config/bindings but rejects undeclared contributions": {
       "src/facets/profile-runtime/manifest.ts": [
-        73,
         82,
         83,
         85,
-        87
+        87,
+        89
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence provides internal lookup/surface/lifecycle/children without claiming the external Facet base": {
       "src/facets/profile-runtime/facet.ts": [
-        50,
         58,
         79,
-        86,
-        98,
+        90,
         156,
+        159,
         160
       ],
       "src/facets/profile-runtime/runtime.ts": [
+        106,
         191,
         192,
+        215,
         217,
         223,
-        300,
         301,
-        303
+        356,
+        390,
+        404,
+        406,
+        419
+      ],
+      "src/facets/profile-runtime/wire.ts": [
+        13,
+        17
+      ],
+      "src/facets/task/facet.ts": [
+        289
       ]
     },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence validates optional config composition, prompt shape, and declared custom entries": {
-      "src/facets/contribution.ts": [
-        236
-      ],
       "src/facets/profile-runtime/manifest.ts": [
+        52,
         69,
         92,
         94,
@@ -3656,12 +3718,13 @@
         116,
         117,
         118
+      ],
+      "src/facets/slot.ts": [
+        84
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-IMPACT-ANNOTATION] [P11-MCP-IMPACT-DEFAULT-REMOTE] [P11-MCP-IMPACT-DEFAULT-LOCAL] maps only exact impact metadata and defaults unannotated remote/local tools": {
       "src/facets/contribution.ts": [
-        38,
-        41,
         62,
         63,
         64,
@@ -3669,95 +3732,95 @@
         66
       ],
       "src/facets/mcp/facet.ts": [
-        567,
-        568,
-        581,
-        582,
+        565,
+        566,
+        579,
+        580,
+        584,
+        585,
         586,
-        587,
-        588,
-        600
+        598
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-IMPACT-UNKNOWN] rejects malformed or unknown impact metadata": {
       "src/facets/mcp/facet.ts": [
-        568,
-        569,
+        566,
+        567,
+        572,
         574,
-        576,
-        582,
-        583,
-        587,
-        589
+        580,
+        581,
+        585,
+        587
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-MALFORMED-SCHEMA] [P11-MCP-NO-LATE-SCHEMA] rejects malformed discovery metadata and schemas before registration": {
       "src/facets/mcp/facet.ts": [
+        201,
         203,
-        205,
-        603,
+        601,
+        602,
         604,
-        606,
-        607,
-        611,
+        605,
+        609,
+        612,
         614,
-        616,
-        622,
+        620,
+        624,
         626,
-        628,
-        633,
-        652,
-        653,
-        654
+        631,
+        650,
+        651,
+        652
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-POSITIVE-BOUNDS] [P11-MCP-PROMPT-COUNT] [P11-MCP-PROMPT-BYTES] enforces positive finite normative prompt item and canonical byte bounds": {
       "src/facets/mcp/facet.ts": [
+        176,
         178,
+        179,
         180,
-        181,
         182,
+        183,
         184,
-        185,
-        186,
+        191,
         193,
-        195,
-        678,
-        680
+        676,
+        678
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision": {
       "src/facets/mcp/facet.ts": [
-        263,
-        265
+        261,
+        263
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-SCHEMA-BOUNDARY] validates discovered schemas before projecting Operations": {
       "src/facets/mcp/facet.ts": [
-        254,
-        335,
+        252,
+        333,
+        334,
         336,
-        338,
-        339,
-        547
+        337,
+        545
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery accepts prompt sets exactly at the declared item and byte bounds": {
       "src/facets/mcp/facet.ts": [
-        193
+        191
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery defaults unannotated metadata-bearing tools by locality and rejects malformed impact metadata": {
       "src/facets/mcp/facet.ts": [
-        577,
-        583,
-        588,
-        589
+        575,
+        581,
+        586,
+        587
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery freezes registration documents deeply including null-bearing metadata": {
       "src/facets/mcp/facet.ts": [
-        671
+        669
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery names the persisted digest when decoding a corrupt registration record": {
@@ -3767,66 +3830,61 @@
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery projects resources behind a closed empty input schema and omits empty prompt contributions": {
       "src/facets/mcp/facet.ts": [
-        295,
-        312
+        293,
+        310
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery rejects array and primitive tool metadata as invalid impact evidence": {
       "src/facets/mcp/facet.ts": [
-        582
+        580
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery rejects calls that have no persisted discovery registration": {
       "src/facets/mcp/facet.ts": [
-        498,
-        500
+        496,
+        498
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery rejects duplicate operation names and invalid persisted digests": {
       "src/facets/mcp/facet.ts": [
         105,
         106,
+        324,
         326,
-        328,
-        557,
-        558,
-        560
+        555,
+        556,
+        558
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery rejects empty operation names with the typed discovery error": {
       "src/facets/mcp/facet.ts": [
-        558
+        556
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery rejects non-integer discovery prompt bounds with the backend's own error": {
       "src/facets/mcp/facet.ts": [
+        237,
+        238,
         239,
-        240,
         241,
+        242,
         243,
-        244,
-        245,
-        246
-      ]
-    },
-    "test/profiles/facets/mcp.test.ts#MCP normative discovery rejects untrimmed discovered operation names": {
-      "src/facets/mcp/facet.ts": [
-        558
+        244
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP normative discovery wraps malformed member primitives as the canonical malformed-document error": {
       "src/facets/mcp/facet.ts": [
-        553,
-        616,
-        619,
-        628,
-        631,
+        551,
+        614,
+        617,
+        626,
+        629,
+        635,
         637,
-        639,
+        640,
+        641,
         642,
-        643,
-        644,
-        654
+        652
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP protected lifecycle and durable operation registration [P11-MCP-ADAPTER] [P11-MCP-TOOLS] [facet.mcp-discovery-registration] restores validated immutable operation registration without rediscovery": {
@@ -3841,21 +3899,20 @@
         141,
         159,
         160,
-        165,
-        169,
-        170,
+        163,
+        167,
+        168,
+        322,
         324,
-        326,
+        466,
         468,
-        470,
-        671
+        669
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP protected lifecycle and durable operation registration [P11-MCP-INVOCATION] mediates lifecycle, discovery, and discovered calls": {
       "src/facets/contribution.ts": [
-        88,
         92,
-        96
+        97
       ],
       "src/facets/mcp/facet.ts": [
         102,
@@ -3864,100 +3921,97 @@
         154,
         156,
         160,
+        178,
+        179,
         180,
         181,
         182,
         183,
-        184,
-        185,
-        192,
-        193,
+        190,
+        191,
+        197,
         199,
-        201,
         237,
+        238,
         239,
         240,
         241,
         242,
-        243,
-        244,
+        259,
         261,
-        263,
-        272,
-        273,
-        286,
-        294,
+        270,
+        271,
+        284,
+        292,
+        299,
         301,
-        303,
-        304,
-        307,
-        308,
-        312,
-        313,
-        315,
-        321,
+        302,
+        305,
+        306,
+        310,
+        311,
+        319,
+        393,
+        394,
         395,
-        396,
-        397,
-        470,
-        473,
-        474,
-        477,
-        478,
-        483,
-        487,
-        488,
+        468,
+        471,
+        472,
+        475,
+        476,
+        481,
+        485,
+        486,
+        494,
         496,
-        498,
-        504,
+        502,
+        507,
         509,
-        511,
-        558,
-        573,
-        574,
-        581,
+        556,
+        571,
+        572,
+        579,
+        604,
+        605,
         606,
         607,
         608,
-        609,
-        610,
+        612,
         614,
         616,
+        617,
         618,
         619,
-        620,
-        621,
+        624,
         626,
         628,
+        629,
         630,
-        631,
-        632,
+        635,
         637,
         639,
+        640,
         641,
-        642,
-        643,
-        648,
-        658,
-        662,
-        666,
-        667,
-        671,
-        680,
-        684,
-        687,
-        690,
-        691,
+        646,
+        660,
+        664,
+        665,
+        669,
+        678,
+        682,
+        685,
+        688,
+        689,
+        693,
         695,
-        697,
-        701,
-        708,
-        709,
-        711
+        699,
+        706,
+        707,
+        709
       ],
       "src/facets/profile-runtime/runtime.ts": [
         25,
-        106
+        99
       ],
       "src/facets/profile-runtime/wire.ts": [
         77,
@@ -3965,28 +4019,26 @@
         80
       ],
       "src/facets/prompt.ts": [
-        45,
-        46,
-        77
+        21
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP protected lifecycle and durable operation registration seeds and snapshots the registration store with defensive byte copies": {
       "src/facets/mcp/facet.ts": [
         156,
-        170
+        168
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP protected lifecycle and durable operation registration stop() reaches the server backend through mediation": {
       "src/facets/mcp/facet.ts": [
-        484
+        482
       ]
     },
     "test/profiles/facets/mcp.test.ts#MCP wire codecs and error identity decodes empty control inputs strictly and round-trips discovery results": {
       "src/facets/mcp/facet.ts": [
-        348,
-        349,
-        687,
-        689
+        346,
+        347,
+        685,
+        687
       ],
       "src/facets/profile-runtime/contract.ts": [
         122,
@@ -3996,7 +4048,7 @@
     },
     "test/profiles/facets/mcp.test.ts#MCP wire codecs and error identity maps missing-operation errors to operation.missing and the rest to invalid input": {
       "src/facets/mcp/facet.ts": [
-        549
+        547
       ],
       "src/facets/profile-runtime/error.ts": [
         13
@@ -4004,250 +4056,251 @@
     },
     "test/profiles/facets/mcp.test.ts#MCP wire codecs and error identity names discovery result members in decode errors": {
       "src/facets/mcp/facet.ts": [
-        697,
-        711
+        695,
+        709
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends [P11-MEMORY-FORGET] validates entries, duplicate IDs, limits, time, and forget authority": {
       "src/facets/memory/facet.ts": [
         75,
         76,
+        77,
         78,
-        79,
+        81,
         82,
         83,
-        84,
-        112,
-        139,
-        147,
-        149,
-        151,
+        111,
+        138,
+        146,
+        148,
+        150,
+        263,
         264,
-        265,
-        281,
-        283,
-        287,
-        299,
+        280,
+        282,
+        286,
+        298,
+        306,
         307,
-        308,
-        459,
-        473,
-        479,
-        481,
-        496,
-        498
+        458,
+        472,
+        478,
+        480,
+        495,
+        497
       ],
       "src/facets/profile-runtime/contract.ts": [
         44,
         47,
-        53
+        50
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends [P11-MEMORY-REBUILD] prunes only elapsed retention and keeps derived index rebuild invisible": {
       "src/facets/memory/facet.ts": [
-        83,
+        82,
+        305,
         306,
-        307,
+        310,
         311,
         312,
-        313,
-        318,
-        323,
-        430,
-        431
+        317,
+        322,
+        429,
+        430
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends accepts boundary entry times and rejects non-canonical IDs": {
       "src/facets/memory/facet.ts": [
         76,
-        77,
-        79,
-        83
+        78,
+        82
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends AND-matches every query term with sorted, limited, readable results": {
       "src/facets/memory/facet.ts": [
-        292,
+        291,
+        431,
         432,
-        433,
-        435,
-        466
+        434,
+        465
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends bounds prompt construction and validates every configured integer": {
       "src/facets/memory/facet.ts": [
-        347,
+        346,
+        348,
         349,
-        350,
-        352,
-        354,
-        406
+        351,
+        353,
+        405
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends clamps prompt recall to bounds and spends the exact character budget": {
       "src/facets/memory/facet.ts": [
-        352,
-        397,
-        406,
-        408
+        351,
+        396,
+        405,
+        407
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends exposes an executable internal runtime for remember, recall, and forget": {
       "src/facets/memory/facet.ts": [
+        358,
         359,
-        360,
+        362,
         363,
-        364,
-        367,
-        370
+        366,
+        369
       ],
       "src/facets/memory/manifest.ts": [
-        10
+        10,
+        11
       ],
       "src/facets/profile-runtime/facet.ts": [
         45,
         49,
-        54,
-        61,
-        64,
-        68,
-        69
+        54
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends matches queries case-insensitively through lowercase folding": {
       "src/facets/memory/facet.ts": [
-        466
+        465
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends names each malformed wire field and decodes forget output strictly": {
       "src/facets/memory/facet.ts": [
+        143,
         144,
-        145,
-        196,
-        239,
-        478,
+        195,
+        238,
+        477,
+        491,
         492,
-        493,
-        494
+        493
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends prunes elapsed retention in sorted order and keeps unbounded entries": {
       "src/facets/memory/facet.ts": [
-        319
+        318
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends raises MemoryError with the shared invalid-input code and exact detail": {
       "src/facets/memory/facet.ts": [
-        265,
+        264,
+        306,
         307,
-        308,
-        460,
-        461
+        459,
+        460
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends rebuilds the derived index only on entry changes or explicit rebuild": {
       "src/facets/memory/facet.ts": [
-        318,
-        322
+        317,
+        321
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory backends skips index hits without a backing entry": {
       "src/facets/memory/facet.ts": [
-        291
+        290
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory protected facade [P11-MEMORY-DISCOVERY] routes all Operations, filters through host-bound access, and bounds prompt contribution": {
       "src/facets/memory/facet.ts": [
-        107,
-        112,
-        135,
-        139,
-        141,
+        106,
+        111,
+        134,
+        138,
+        140,
+        142,
         143,
         144,
         145,
         146,
-        147,
-        174,
+        173,
+        188,
         189,
         190,
-        191,
-        196,
-        280,
+        195,
+        279,
+        290,
         291,
-        292,
-        297,
-        299,
-        303,
+        296,
+        298,
+        302,
+        376,
         377,
-        378,
+        382,
         383,
-        384,
+        388,
         389,
-        390,
-        482,
-        489,
+        481,
+        488,
+        491,
         492,
         493,
         494,
-        495,
-        496
+        495
       ]
     },
     "test/profiles/facets/memory.test.ts#Memory protected facade [P11-MEMORY-PROMPT] materializes the relevant authorized recall result into the prompt": {
       "src/facets/memory/facet.ts": [
         76,
+        77,
         78,
-        79,
-        82,
-        259,
+        81,
+        258,
+        262,
         263,
-        264,
-        279,
-        281,
+        278,
+        280,
+        286,
         287,
         288,
-        289,
-        291,
-        326,
-        330,
-        332,
+        290,
+        325,
+        329,
+        331,
+        348,
         349,
         350,
         351,
         352,
-        353,
+        394,
         395,
-        396,
-        398,
-        401,
+        397,
+        400,
+        402,
         403,
-        404,
+        405,
         406,
-        407,
+        421,
         422,
-        423,
-        427,
-        430,
+        426,
+        429,
+        431,
         432,
-        433,
-        441,
-        444,
+        440,
+        443,
+        445,
         446,
-        447,
+        464,
         465,
-        466,
-        471,
-        473,
-        475,
+        470,
+        472,
+        474,
+        476,
         477,
-        478,
-        479
+        478
+      ],
+      "src/facets/profile-runtime/runtime.ts": [
+        284
       ]
     },
     "test/profiles/facets/profile-runtime.test.ts#Protected profile runtime port blocks inactive execution before encoding or admission": {
       "src/facets/profile-runtime/runtime.ts": [
+        300,
         301,
+        303,
         304,
         305
       ]
@@ -4257,17 +4310,13 @@
         123,
         134
       ],
+      "src/facets/id.ts": [
+        20
+      ],
       "src/facets/profile-runtime/runtime.ts": [
         301,
         319,
-        327,
-        356,
-        390,
-        406,
-        418
-      ],
-      "src/facets/profile-runtime/wire.ts": [
-        13
+        388
       ]
     },
     "test/profiles/facets/profile-runtime.test.ts#Protected profile runtime port rejects protected results lacking source receipt evidence": {
@@ -4286,11 +4335,9 @@
         277,
         279,
         282,
-        284,
         285,
         286,
-        393,
-        394,
+        421,
         422
       ]
     },
@@ -4302,31 +4349,27 @@
     },
     "test/profiles/facets/profile-runtime.test.ts#Protected profile runtime port returns receipt evidence alongside decoded output": {
       "src/facets/profile-runtime/runtime.ts": [
+        242,
         244,
         252
       ]
     },
     "test/profiles/facets/profile-runtime.test.ts#Protected profile runtime port validates rewritten operation admissions before decoding": {
       "src/facets/profile-runtime/runtime.ts": [
-        357
+        357,
+        408
       ]
     },
     "test/profiles/facets/profile-runtime.test.ts#Protected profile runtime port validates wire input before the protected port and output before release": {
       "src/facets/profile-runtime/runtime.ts": [
-        406,
-        407,
-        428,
-        429
+        325,
+        429,
+        433
       ]
     },
     "test/profiles/facets/self.contract.test.ts#Self protected Run contract [P11-SELF-COMPOSITION] composes mediated Facet Operations over the typed Run dependency": {
-      "src/facets/data.ts": [
-        50,
-        51
-      ],
       "src/facets/self/facet.ts": [
-        63,
-        132
+        133
       ]
     },
     "test/profiles/facets/self.contract.test.ts#Self protected Run contract [P11-SELF-FINISH-MEMBRANE] invokes finish through mediation before the Run dependency": {
@@ -4350,12 +4393,6 @@
       ]
     },
     "test/profiles/facets/self.contract.test.ts#Self protected Run contract internal runtime routes all five Operations to the typed Run dependency": {
-      "src/facets/contribution.ts": [
-        81
-      ],
-      "src/facets/data.ts": [
-        72
-      ],
       "src/facets/self/facet.ts": [
         108,
         109,
@@ -4367,7 +4404,8 @@
         125
       ],
       "src/facets/self/manifest.ts": [
-        10
+        10,
+        11
       ]
     },
     "test/profiles/facets/shell.test.ts#Shell backends [P11-SHELL-PARSER] tokenizes explicitly and rejects duplicate or malformed commands": {
@@ -4396,12 +4434,6 @@
       ]
     },
     "test/profiles/facets/shell.test.ts#Shell backends executes run and cancel through the manifest-validated internal runtime": {
-      "src/facets/data.ts": [
-        62
-      ],
-      "src/facets/id.ts": [
-        87
-      ],
       "src/facets/shell/facet.ts": [
         329,
         330,
@@ -4492,7 +4524,7 @@
       ]
     },
     "test/profiles/facets/shell.test.ts#Shell protected facade [P11-SHELL-BOUNDARY] preserves the Filesystem path.invalid code for command escape": {
-      "src/facets/filesystem/error.ts": [
+      "src/facets/data.ts": [
         21
       ],
       "src/facets/shell/facet.ts": [
@@ -4551,6 +4583,12 @@
         132,
         133,
         137
+      ]
+    },
+    "test/profiles/facets/shell.test.ts#Shell protected facade [P11-SHELL-COMPOSITION] executes a declared command against the Session Filesystem profile": {
+      "src/facets/filesystem/facet.ts": [
+        211,
+        430
       ]
     },
     "test/profiles/facets/shell.test.ts#Shell protected facade [P11-SHELL-FILESYSTEM] routes run/cancel, injects IO privately, and binds commands to exact env.fs": {
@@ -4624,10 +4662,7 @@
     },
     "test/profiles/facets/slate.declaration.test.ts#Slate protected profile internal runtime routes all six Operations and both Surfaces": {
       "src/facets/contribution.ts": [
-        138
-      ],
-      "src/facets/data.ts": [
-        82
+        81
       ],
       "src/facets/slate/facet.ts": [
         296,
@@ -4731,7 +4766,6 @@
       "src/facets/task/facet.ts": [
         67,
         68,
-        70,
         71
       ]
     },
@@ -4814,7 +4848,6 @@
         272,
         279,
         281,
-        289,
         291,
         298,
         331,
@@ -4846,6 +4879,9 @@
       ]
     },
     "test/profiles/facets/task.test.ts#Task protected facade internal runtime routes create, update, and list to the backend": {
+      "src/facets/profile-runtime/runtime.ts": [
+        121
+      ],
       "src/facets/task/facet.ts": [
         83,
         314,
@@ -4872,13 +4908,12 @@
       ]
     },
     "test/profiles/facets/web.test.ts#Web internal runtime executes fetch, search, and readCached through the manifest-validated runtime": {
-      "src/facets/contribution.ts": [
-        81
-      ],
       "src/facets/data.ts": [
-        64
+        64,
+        82
       ],
       "src/facets/profile-runtime/runtime.ts": [
+        71,
         129
       ],
       "src/facets/web/facet.ts": [
@@ -5096,12 +5131,12 @@
         412
       ]
     },
-    "test/profiles/facets/web.test.ts#Web protected facade [P11-WEB-DISPATCH] delivers the canonical effect identity derived from the mediated context to transport": {
-      "src/facets/profile-runtime/runtime.ts": [
-        130
-      ]
-    },
     "test/profiles/facets/web.test.ts#Web protected facade [P11-WEB-FETCH] routes fetch and search through invoke": {
+      "src/facets/data.ts": [
+        51,
+        71,
+        72
+      ],
       "src/facets/web/facet.ts": [
         145,
         147,
@@ -5161,18 +5196,24 @@
         500
       ]
     },
+    "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher": {
+      "src/facets/slot-entry.ts": [
+        72
+      ]
+    },
     "test/protocol/facet-commands.test.ts#Facet Slot protocol commands prepared contributions to an undeclared slot fail lifecycle closed": {
       "src/facets/installation.ts": [
         8
       ],
       "src/facets/slot-entry.ts": [
-        41
+        19,
+        40
       ]
     },
-    "test/sqlite/slot.test.ts#SQLite [workspace-slot-store] Workspace Slot store persists codec records with deterministic ordering and idempotent replay": {
-      "src/facets/slot-entry.ts": [
-        72,
-        83
+    "test/substrates/sqlite/bootstrap.test.ts#SQLite Tenant bootstrap exact failure and identity behavior stamps every protocol ID with its record-kind prefix": {
+      "src/facets/capability.ts": [
+        30,
+        131
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
@@ -5181,34 +5222,33 @@
         56
       ]
     },
+    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity reports a replaced Grant as replaced, so its children are audited": {
+      "src/facets/capability.ts": [
+        109,
+        110,
+        211
+      ]
+    },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating rejects nested Tenant control transactions": {
       "src/facets/capability.ts": [
         30,
-        123,
-        134,
-        137
+        143,
+        152
+      ]
+    },
+    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards requires an owned transaction for record writes": {
+      "src/facets/capability.ts": [
+        74
       ]
     },
     "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reconstruction rejects an attenuation the parent cannot cover": {
       "src/facets/capability.ts": [
-        106
+        115
       ]
     },
-    "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact": {
-      "src/facets/capability.ts": [
-        30,
-        72
-      ]
-    },
-    "test/workspaces/coverage-protocols.test.ts#policy branch coverage distinguishes exact and wildcard kind, facet, actor, and trust matching": {
+    "test/workspaces/conformance.test.ts#[C13-ADV-OMITTED-TRUST-SET] accepted trust set cannot be empty": {
       "src/facets/event.ts": [
-        263
-      ]
-    },
-    "test/workspaces/coverage-protocols.test.ts#policy branch coverage maps roots, objects, arrays, append, replace, escapes, and prototype names": {
-      "src/facets/mapping.ts": [
-        41,
-        81
+        227
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity": {
@@ -5216,22 +5256,9 @@
         240
       ]
     },
-    "test/workspaces/protocols.test.ts#SourceEventProtocol registers opaque prepared routing as typed W1 command evidence": {
-      "src/facets/mapping.ts": [
-        117
-      ]
-    },
     "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills commit accepts unchanged trust for authenticated and external tiers": {
       "src/facets/event.ts": [
         240
-      ]
-    },
-    "test/workspaces/source-protocol-mutations.test.ts#source protocol mutation kills snapshot keeps deduped route keys empty for no-dedupe and unreserved subscriptions": {
-      "src/facets/event.ts": [
-        55
-      ],
-      "src/facets/id.ts": [
-        40
       ]
     }
   }

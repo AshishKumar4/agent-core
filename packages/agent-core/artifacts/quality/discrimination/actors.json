@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "actors",
-  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-  "fingerprint": "sha256:bd705217991fad6b9a0bf244434b18825cffb2833baa87a5c6b49cd0d11b7137",
+  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+  "fingerprint": "sha256:2cd1ec83dc75009acd934f3f66a486449ed686718eb6d01ab40ac81d0cf3c9ef",
   "files": {
     "src/actors/actor.ts": {
       "mutants": 114,
@@ -72,13 +72,11 @@
         70,
         72,
         125,
+        179,
         186,
         206,
         207,
         218
-      ],
-      "src/actors/fence.ts": [
-        75
       ],
       "src/actors/store.ts": [
         56,
@@ -125,7 +123,6 @@
     "test/actors/actor.test.ts#Memory ActorStore contract fails closed after an unknown commit and recovers on a new incarnation": {
       "src/actors/actor.ts": [
         25,
-        177,
         186,
         199,
         200,
@@ -185,26 +182,39 @@
         122,
         123,
         125,
+        130,
+        137,
         139,
         155,
-        170,
+        161,
+        172,
         175,
         194,
         200
       ],
       "src/actors/context.ts": [
-        11,
-        12
-      ],
-      "src/actors/fence.ts": [
         12,
         20,
+        27,
+        30
+      ],
+      "src/actors/fence.ts": [
+        11,
+        12,
+        13,
+        20,
+        24,
         50,
         95,
-        100
+        100,
+        101,
+        103
       ],
       "src/actors/id.ts": [
-        8
+        6,
+        8,
+        13,
+        14
       ],
       "src/actors/store.ts": [
         50,
@@ -234,16 +244,17 @@
         287,
         302,
         305,
+        314,
         315,
         325,
         326,
         330,
         333,
         381,
+        677,
         680,
         690,
         703,
-        720,
         725,
         729,
         743,
@@ -254,16 +265,22 @@
         763
       ],
       "src/actors/types.ts": [
+        10,
         18,
         19,
-        38,
-        44,
-        45
+        25,
+        27,
+        38
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation accepts detached extensible TextIds and protects their read metadata": {
       "src/actors/store.ts": [
         428
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation certifies only exact Revision instances as immutable leaves": {
+      "src/actors/store.ts": [
+        768
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation detaches clone-owned custom class data from immutable reads": {
@@ -292,6 +309,11 @@
         786
       ]
     },
+    "test/actors/actor.test.ts#MemoryActorStore isolation does not exempt extensible TextId subclass state from clone ownership": {
+      "src/actors/store.ts": [
+        767
+      ]
+    },
     "test/actors/actor.test.ts#MemoryActorStore isolation expires every reflective transaction capability after commit": {
       "src/actors/store.ts": [
         195,
@@ -311,7 +333,6 @@
         376,
         377,
         388,
-        400,
         401,
         403,
         404,
@@ -321,11 +342,10 @@
         408,
         409,
         413,
+        442,
         459,
         460,
-        463,
         465,
-        524,
         525,
         526,
         531,
@@ -341,12 +361,12 @@
         340,
         345,
         349,
-        666,
         667
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation fails closed when an existing Actor identity has no recovery state": {
       "src/actors/store.ts": [
+        110,
         113,
         121,
         154,
@@ -374,7 +394,6 @@
     "test/actors/actor.test.ts#MemoryActorStore isolation makes cyclic collections, dates, and typed views immutable during reads": {
       "src/actors/store.ts": [
         403,
-        472,
         473,
         476,
         477,
@@ -388,9 +407,13 @@
         577,
         579,
         604,
+        619,
+        622,
+        649,
         650,
         749,
         766,
+        769,
         770,
         771,
         772
@@ -407,7 +430,8 @@
         593,
         624,
         626,
-        631
+        631,
+        713
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation preserves sparse, symbolic, and non-enumerable read state": {
@@ -415,13 +439,15 @@
         453,
         454,
         465,
-        526
+        526,
+        764
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation preserves typed view offsets and shared backing in immutable reads": {
       "src/actors/store.ts": [
         408,
         622,
+        641,
         643,
         650
       ]
@@ -706,6 +732,7 @@
         372
       ],
       "src/actors/types.ts": [
+        25,
         29
       ]
     },
@@ -732,10 +759,8 @@
         94,
         95,
         99,
-        101,
         103,
         105,
-        107,
         108,
         110,
         116,
@@ -743,6 +768,8 @@
         119,
         120,
         121,
+        125,
+        127,
         129
       ],
       "src/actors/types.ts": [
@@ -760,8 +787,8 @@
       "src/actors/fence.ts": [
         50,
         53,
+        75,
         83,
-        139,
         140,
         141
       ],
@@ -798,6 +825,7 @@
     },
     "test/actors/fence.test.ts#ActorRecoveryState codec round-trips recovery state for every Actor kind": {
       "src/actors/fence.ts": [
+        71,
         127,
         128,
         130,
@@ -806,76 +834,65 @@
       "src/actors/types.ts": [
         26,
         28,
+        44,
         45
       ]
     },
     "test/actors/fence.test.ts#ActorRef accepts only its closed kinds and exact ActorId instances": {
       "src/actors/id.ts": [
-        6,
         8,
-        13,
         14
       ],
       "src/actors/types.ts": [
+        9,
         10,
         23,
         25,
         26,
-        27,
         28
       ]
     },
-    "test/composition/authority-commands.test.ts#closed Tenant authority command gates substituted Binding validation evidence fails closed": {
-      "src/actors/actor.ts": [
-        224
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
+      "src/actors/fence.ts": [
+        127
       ]
     },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
-      "src/actors/actor.ts": [
-        125
-      ],
+    "test/definition/materialization-sqlite.test.ts#SqliteMaterializationStore persistence joins W1 Actor activation and W4 initialization in one SQLite transaction": {
       "src/actors/fence.ts": [
-        53,
-        127
+        59
       ],
       "src/actors/store.ts": [
-        50,
-        139
+        50
       ]
     },
-    "test/definition/materialization-memory.test.ts#memory MaterializationStore contract opens Actor-local materialization persistence for slate owners": {
-      "src/actors/types.ts": [
-        29
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) validates a Binding, checks the intent, and issues the permit as linked evidence": {
+      "src/actors/fence.ts": [
+        107
       ]
     },
-    "test/definition/materialization-memory.test.ts#memory MaterializationStore contract returns undefined for every absent immutable record and deployment pointer": {
-      "src/actors/types.ts": [
-        10
+    "test/protocol/bootstrap.test.ts#memory bootstrap names every snapshot rejection exactly": {
+      "src/actors/store.ts": [
+        666
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
       "src/actors/store.ts": [
-        121,
         368,
-        381,
+        400,
         401,
+        415,
+        463,
+        524,
         616,
-        619,
         620,
         622,
         624,
-        641,
-        649,
         690,
         703,
         706,
+        720,
         753,
         763
-      ]
-    },
-    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions memory bootstrap rejects malformed snapshot envelopes and Actor state": {
-      "src/actors/store.ts": [
-        114
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) accepts an absent caller cause with a host-created Invocation root": {
@@ -886,68 +903,61 @@
         50,
         57,
         125,
-        130,
-        137,
+        139,
         149,
-        161,
-        172,
+        170,
         174
       ],
       "src/actors/context.ts": [
+        11,
         12,
         18,
-        20,
         27,
         30
       ],
       "src/actors/fence.ts": [
-        11,
-        13,
         19,
-        24,
-        50,
-        59,
-        71,
-        103,
-        107,
         110,
-        125,
-        127
+        117,
+        127,
+        129
       ],
       "src/actors/store.ts": [
-        50,
         189,
-        442,
-        677,
-        690,
+        535,
         753,
-        763,
-        764,
-        767,
-        768
+        757,
+        763
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) registration callbacks cannot mutate authenticated envelope state": {
       "src/actors/store.ts": [
-        427
+        472
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a wrong-Actor caller cause before content and replays its identity": {
+      "src/actors/types.ts": [
+        19
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) requires a same-key retry after an unknown commit acknowledgement": {
       "src/actors/actor.ts": [
+        177,
         185,
         187
       ],
       "src/actors/fence.ts": [
+        139,
         143
       ],
       "src/actors/store.ts": [
-        56,
-        110
+        368,
+        370
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back a typed execution missing its reply codec": {
-      "src/actors/actor.ts": [
-        179
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back an asynchronous gate instead of treating its Promise as approval": {
+      "src/actors/store.ts": [
+        325
       ]
     },
     "test/protocol/dispatcher.test.ts#SQLite restart fences a callback prepared by the prior dispatcher": {
@@ -955,41 +965,23 @@
         139
       ]
     },
+    "test/protocol/dispatcher.test.ts#supports the default clock and rolls back an invalid injected timestamp": {
+      "src/actors/actor.ts": [
+        224
+      ]
+    },
     "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher": {
+      "src/actors/fence.ts": [
+        128
+      ],
       "src/actors/store.ts": [
         548,
         579
       ]
     },
-    "test/protocol/ingress.test.ts#CommandIngress owns the raw envelope before asynchronous preparation": {
-      "src/actors/store.ts": [
-        713
-      ]
-    },
-    "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) resolves one durable actor-owned audit evidence relation across restart": {
-      "src/actors/store.ts": [
-        113
-      ]
-    },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) stores codec-backed records and resolves them synchronously": {
       "src/actors/store.ts": [
-        314
-      ]
-    },
-    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
-      "src/actors/store.ts": [
-        325
-      ]
-    },
-    "test/workspaces/protocols.test.ts#SourceEventProtocol registers opaque prepared routing as typed W1 command evidence": {
-      "src/actors/id.ts": [
-        14
-      ],
-      "src/actors/store.ts": [
-        769
-      ],
-      "src/actors/types.ts": [
-        9
+        680
       ]
     }
   }

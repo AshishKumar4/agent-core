@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "core",
-  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-  "fingerprint": "sha256:e35f068951b8878ed7fff5587ec7ca2c1b0b1058035fce84e645b9f41cdbba2d",
+  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+  "fingerprint": "sha256:684d8cdb2ff158550e8a37b9d388319f41906b01b5b6d1f7b5d8947d01a059f4",
   "files": {
     "src/core/base64.ts": {
       "mutants": 103,
@@ -72,21 +72,23 @@
         11
       ]
     },
+    "test/actors/fence.test.ts#ActorRecoveryState codec [actor.recovery-state] round-trips recovery state through its versioned codec": {
+      "src/core/json.ts": [
+        31
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec rejects malformed payloads with a typed codec error": {
+      "src/core/json.ts": [
+        31
+      ]
+    },
     "test/agents/runs/executor.test.ts#TurnExecutor seam exposes one exact typed bound tool contract through the supported Run export": {
       "src/core/schema.ts": [
         90,
         91,
-        177
-      ]
-    },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam identifies exact Turn authorship by commit kind and complete lease token": {
-      "src/core/json.ts": [
-        84,
-        87
-      ],
-      "src/core/semver.ts": [
-        48,
-        51
+        148,
+        157,
+        163
       ]
     },
     "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a returned checkpoint that differs from the durable checkpoint record": {
@@ -100,28 +102,30 @@
       ]
     },
     "test/agents/runs/lease.test.ts#TurnLease [turn-lease-verifier] memory and repository implementations enforce the exact durable lease": {
+      "src/core/canonical.ts": [
+        26,
+        43,
+        44,
+        47
+      ],
       "src/core/json.ts": [
-        31
+        49
       ]
     },
     "test/agents/runs/lease.test.ts#TurnLease rejects malformed, future-major, and invalid lease values": {
       "src/core/codec.ts": [
-        67,
-        69,
-        70
+        67
       ]
     },
     "test/agents/runs/records-mutation.test.ts#nominal identifier subjects every Agent and Run scoped ID names its exact subject": {
       "src/core/id.ts": [
-        13,
         14
       ]
     },
     "test/agents/runs/records-mutation.test.ts#placement pins canonicalizes snapshot placements by facet order": {
       "src/core/canonical.ts": [
-        26,
-        37,
-        54,
+        34,
+        53,
         57
       ]
     },
@@ -132,27 +136,24 @@
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane denies verifier method drift": {
       "src/core/secret-ref.ts": [
-        10
+        10,
+        30
       ]
     },
-    "test/authority/runtime-epoch-mutation-gates.test.ts#memory invalidation watermark store mutation gates enforces owner identity, initialization, and revision continuity with exact codes": {
-      "src/core/canonical.ts": [
-        57
+    "test/authority/permit.test.ts#AuthorityPermit [authority.permit] codec preserves every normative field and immutable dates": {
+      "src/core/codec.ts": [
+        92
       ]
     },
-    "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates distinguishes epochs by Scope and reports exhaustion for the exact Scope": {
-      "src/core/canonical.ts": [
-        54
+    "test/authority/permit.test.ts#AuthorityPermit rejects malformed codec variants fail closed": {
+      "src/core/codec.ts": [
+        89
       ]
     },
-    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage [C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes": {
-      "src/core/canonical.ts": [
-        26
-      ]
-    },
-    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage rejects malformed orphan identity rows before serving after restart": {
-      "src/core/canonical.ts": [
-        32
+    "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] binds the passed set to attenuations in the isolate's own domain": {
+      "src/core/base64.ts": [
+        3,
+        4
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
@@ -183,38 +184,25 @@
     },
     "test/composition/behavior-branches.test.ts#W9 composition behavior branches treats slot installation and contribution as byte-stable append-only provenance": {
       "src/core/schema.ts": [
-        37,
-        44
+        41,
+        115,
+        116,
+        117
       ]
     },
     "test/composition/mediation-execution.test.ts#the direct tier's Operation context carries no EffectAttempt and no target admission": {
-      "src/core/id.ts": [
-        21
-      ]
-    },
-    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them pins the derived identifiers of a stable evidence set": {
       "src/core/canonical.ts": [
-        44,
-        53,
-        62
+        44
       ]
     },
-    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them recomputes every identifier from the same evidence": {
-      "src/core/canonical.ts": [
-        44,
-        47,
-        53,
-        57,
-        74
-      ]
-    },
-    "test/composition/mediation-identity.test.ts#mediation identifiers derive from the evidence that determines them separates the items of one direct Invocation": {
+    "test/composition/mediation-execution.test.ts#the direct tier's Operation context gives every item of a batch its own context": {
       "src/core/canonical.ts": [
         47
       ]
     },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root produces the whole §7 evidence chain for one mediated call": {
       "src/core/codec.ts": [
+        132,
         142,
         143,
         144,
@@ -226,46 +214,46 @@
         158,
         159,
         163,
-        166,
-        168
+        166
       ]
     },
     "test/composition/slate-profile.test.ts#Slate profile composition maps profile wire DTOs to typed SlateRuntime arguments": {
-      "src/core/content-ref.ts": [
-        9,
-        12
-      ],
       "src/core/digest.ts": [
-        9
+        9,
+        11,
+        14
       ],
       "src/core/id.ts": [
         9,
         11,
-        12
+        12,
+        21
+      ],
+      "src/core/revision.ts": [
+        8,
+        9
       ]
     },
-    "test/content/memory.test.ts#memory content-retention contract retains idempotently and starts the tombstone on final release": {
+    "test/content/records.test.ts#content record codecs [content.stat] [content.owner-edge] [content.transient-lease] round-trips actual fixtures with their RecordCodec kinds": {
       "src/core/canonical.ts": [
-        34,
-        44,
-        48
-      ]
-    },
-    "test/content/memory.test.ts#MemoryContentStore records [C13-CODEC-VERSIONING] round-trips stat and owner-edge records through versioned codecs": {
-      "src/core/codec.ts": [
-        85
-      ]
-    },
-    "test/content/memory.test.ts#MemoryContentStore records [content.owner-edge] [content.transient-lease] restores content, owner, tombstone, and lease state": {
-      "src/core/canonical.ts": [
-        32
+        56,
+        61
       ]
     },
     "test/content/records.test.ts#content record codecs content stat rejects every malformed envelope and version class": {
       "src/core/codec.ts": [
-        61,
-        62,
-        65
+        103,
+        104
+      ]
+    },
+    "test/content/records.test.ts#content record codecs owner edge rejects every malformed field and invalid value": {
+      "src/core/id.ts": [
+        13
+      ]
+    },
+    "test/content/records.test.ts#content record codecs transient lease rejects every malformed field and invalid value": {
+      "src/core/digest.ts": [
+        14
       ]
     },
     "test/core/codec.test.ts#Canonical codecs accepts repeated acyclic plain values": {
@@ -273,19 +261,17 @@
         61
       ]
     },
-    "test/core/codec.test.ts#Canonical codecs checks exact fields by own property rather than the prototype chain": {
-      "src/core/json.ts": [
-        47,
-        49
-      ]
-    },
     "test/core/codec.test.ts#Canonical codecs decodes and upcasts an older minor in the same major": {
       "src/core/canonical.ts": [
+        34,
         44,
+        74,
         75
       ],
       "src/core/codec.ts": [
-        49,
+        48,
+        51,
+        61,
         64,
         67,
         73,
@@ -301,13 +287,10 @@
         113,
         114,
         115,
-        117,
-        124,
         126
       ],
       "src/core/json.ts": [
-        53,
-        54
+        53
       ]
     },
     "test/core/codec.test.ts#Canonical codecs detaches and freezes codec metadata": {
@@ -328,6 +311,7 @@
         135,
         139,
         140,
+        142,
         154,
         155,
         156,
@@ -347,17 +331,18 @@
         44,
         47,
         48,
+        53,
         56,
         57,
         60,
-        61
+        61,
+        62
       ],
       "src/core/json.ts": [
         22,
-        52,
         59,
         62,
-        65,
+        102,
         106,
         111,
         112,
@@ -366,7 +351,6 @@
         119
       ],
       "src/core/unicode.ts": [
-        4,
         9,
         13
       ]
@@ -408,11 +392,7 @@
     "test/core/codec.test.ts#Canonical codecs rejects future minor versions and unknown envelope fields": {
       "src/core/codec.ts": [
         73,
-        75,
         108
-      ],
-      "src/core/json.ts": [
-        49
       ]
     },
     "test/core/codec.test.ts#Canonical codecs rejects hostile, cyclic, and non-plain runtime values before encoding": {
@@ -423,7 +403,6 @@
       "src/core/json.ts": [
         53,
         56,
-        63,
         79,
         80,
         81,
@@ -434,7 +413,7 @@
         106,
         107,
         111,
-        115
+        116
       ]
     },
     "test/core/codec.test.ts#Canonical codecs rejects invalid codec metadata at construction": {
@@ -455,10 +434,10 @@
     },
     "test/core/codec.test.ts#Canonical codecs rejects JSON bytes that are valid but not canonical": {
       "src/core/canonical.ts": [
+        32,
         35,
         37,
         38,
-        76,
         78,
         79,
         80
@@ -472,7 +451,6 @@
         56
       ],
       "src/core/unicode.ts": [
-        2,
         4,
         5,
         6,
@@ -485,10 +463,10 @@
       "src/core/codec.ts": [
         61,
         64,
+        65,
+        85,
         103,
-        104,
-        108,
-        126
+        108
       ]
     },
     "test/core/codec.test.ts#Canonical codecs rejects negative decoded versions as malformed": {
@@ -498,7 +476,8 @@
     },
     "test/core/codec.test.ts#Canonical codecs rejects noncanonical and malformed base64 without coercion": {
       "src/core/base64.ts": [
-        4
+        4,
+        51
       ]
     },
     "test/core/codec.test.ts#Canonical codecs rejects throwing proxies and accessor-backed array entries as JSON": {
@@ -522,9 +501,12 @@
     "test/core/codec.test.ts#Canonical codecs reports base64 rejections verbatim": {
       "src/core/base64.ts": [
         5,
+        27,
         28,
         37,
-        38
+        38,
+        52,
+        59
       ]
     },
     "test/core/codec.test.ts#Canonical codecs reports canonical encoding and decoding failures verbatim": {
@@ -534,6 +516,7 @@
         26,
         27,
         31,
+        32,
         34,
         35,
         38,
@@ -545,6 +528,7 @@
       "src/core/codec.ts": [
         62,
         65,
+        70,
         76,
         109
       ]
@@ -556,7 +540,6 @@
     },
     "test/core/codec.test.ts#Canonical codecs uses canonical padded RFC 4648 base64": {
       "src/core/base64.ts": [
-        9,
         24,
         25,
         26,
@@ -566,17 +549,18 @@
         36,
         37,
         38,
-        41,
         42,
-        44
+        44,
+        46,
+        48,
+        51,
+        57,
+        59
       ]
     },
     "test/core/codec.test.ts#Canonical codecs wraps expected payload TypeErrors as codec failures": {
-      "src/core/codec.ts": [
-        86
-      ],
-      "src/core/json.ts": [
-        53
+      "src/core/canonical.ts": [
+        44
       ]
     },
     "test/core/codec.test.ts#Canonical value properties rejects non-string base64 input verbatim, without coercing it": {
@@ -593,7 +577,7 @@
     },
     "test/core/codec.test.ts#Canonical value properties serializes every value exactly as an independent canonical serializer does": {
       "src/core/canonical.ts": [
-        53
+        54
       ]
     },
     "test/core/codec.test.ts#JSON value classification accepts and rejects Unicode scalar boundaries in values and keys": {
@@ -606,7 +590,6 @@
     "test/core/codec.test.ts#JSON value classification rejects containers whose entries are not plain enumerable data": {
       "src/core/json.ts": [
         24,
-        77,
         79,
         87,
         111
@@ -650,6 +633,10 @@
         62,
         63,
         65
+      ],
+      "src/core/unicode.ts": [
+        4,
+        5
       ]
     },
     "test/core/compat-range.test.ts#CompatRange reports range validation and payload failures verbatim": {
@@ -664,7 +651,7 @@
         71
       ],
       "src/core/json.ts": [
-        79
+        80
       ]
     },
     "test/core/content-ref.test.ts#ContentRef rejects noncanonical addresses and counterfeit digests": {
@@ -680,11 +667,13 @@
         13
       ],
       "src/core/id.ts": [
+        9,
         10
       ]
     },
     "test/core/content-ref.test.ts#ContentRef round-trips a SHA-256 content address through a detached digest": {
       "src/core/content-ref.ts": [
+        9,
         12,
         19,
         21,
@@ -695,6 +684,7 @@
         11
       ],
       "src/core/id.ts": [
+        7,
         9,
         10
       ]
@@ -704,22 +694,14 @@
         10,
         14,
         15
-      ],
-      "src/core/id.ts": [
-        9
       ]
     },
     "test/core/digest.test.ts#Digest matches the SHA-256 abc vector": {
       "src/core/digest.ts": [
         11,
         14,
-        21,
         23,
         28
-      ],
-      "src/core/id.ts": [
-        7,
-        9
       ]
     },
     "test/core/digest.test.ts#Digest rejects malformed values, unsupported algorithms, and non-byte input": {
@@ -746,6 +728,7 @@
         9
       ],
       "src/core/unicode.ts": [
+        2,
         9
       ]
     },
@@ -755,11 +738,14 @@
         28,
         30,
         31
+      ],
+      "src/core/unicode.ts": [
+        4,
+        9
       ]
     },
     "test/core/narrow.test.ts#shared narrowing primitives admits a vocabulary member and rejects everything else": {
       "src/core/narrow.ts": [
-        13,
         15
       ]
     },
@@ -789,6 +775,9 @@
     },
     "test/core/revision.test.ts#Revision increments without mutating the prior value": {
       "src/core/revision.ts": [
+        30,
+        36,
+        39,
         41,
         42,
         44
@@ -841,15 +830,13 @@
     "test/core/schema.test.ts#JSON Schema values [json-schema-validator] strict memory reference enforces the shared validation contract": {
       "src/core/canonical.ts": [
         7,
-        22
+        8,
+        22,
+        25
       ],
       "src/core/schema.ts": [
-        41,
-        148,
         152,
         156,
-        157,
-        163,
         177,
         185,
         189,
@@ -859,7 +846,8 @@
         220,
         225,
         256,
-        264
+        264,
+        307
       ]
     },
     "test/core/schema.test.ts#JSON Schema values asserts structural support without compiling the schema": {
@@ -876,6 +864,7 @@
     },
     "test/core/schema.test.ts#JSON Schema values checks unsupported behavior in every schema-bearing keyword shape": {
       "src/core/schema.ts": [
+        46,
         48,
         215,
         218,
@@ -897,6 +886,7 @@
     "test/core/schema.test.ts#JSON Schema values does not let an injected validator loosen strict production validation": {
       "src/core/schema.ts": [
         182,
+        187,
         198,
         211,
         212,
@@ -930,7 +920,7 @@
       "src/core/json.ts": [
         66,
         106,
-        116
+        115
       ],
       "src/core/schema.ts": [
         91,
@@ -939,10 +929,11 @@
       ]
     },
     "test/core/schema.test.ts#JSON Schema values rejects noncanonical input before calling the validator seam": {
+      "src/core/json.ts": [
+        102
+      ],
       "src/core/schema.ts": [
-        100,
-        116,
-        117
+        100
       ]
     },
     "test/core/schema.test.ts#JSON Schema values rejects remote references and non-2020 dialects deterministically": {
@@ -969,7 +960,6 @@
     },
     "test/core/schema.test.ts#JSON Schema values stores a deeply frozen canonical copy": {
       "src/core/schema.ts": [
-        91,
         157,
         163,
         164,
@@ -981,12 +971,10 @@
     },
     "test/core/schema.test.ts#JSON Schema values supports boolean schemas and an injectable validator seam": {
       "src/core/schema.ts": [
-        115,
         116,
         119,
         123,
         173,
-        286,
         287,
         291,
         294,
@@ -999,7 +987,8 @@
         200,
         201,
         202,
-        314
+        314,
+        317
       ]
     },
     "test/core/schema.test.ts#JSON Schema values validates draft 2020-12 synchronously without coercion or defaults": {
@@ -1034,8 +1023,6 @@
         33
       ],
       "src/core/unicode.ts": [
-        2,
-        4,
         5
       ]
     },
@@ -1047,16 +1034,17 @@
         22,
         27,
         29,
-        30,
         31,
         32
       ],
       "src/core/unicode.ts": [
-        4,
         9
       ]
     },
     "test/core/semver.test.ts#SemVer [core.semver] reports malformed payloads verbatim": {
+      "src/core/canonical.ts": [
+        44
+      ],
       "src/core/semver.ts": [
         21,
         23,
@@ -1064,6 +1052,9 @@
       ]
     },
     "test/core/semver.test.ts#SemVer [core.semver] round-trips deterministically through its strict codec": {
+      "src/core/canonical.ts": [
+        11
+      ],
       "src/core/semver.ts": [
         13,
         14,
@@ -1112,6 +1103,7 @@
         79,
         81,
         84,
+        115,
         116,
         163,
         166,
@@ -1136,8 +1128,9 @@
         51,
         87,
         88,
-        92,
         93,
+        115,
+        116,
         126,
         127,
         135,
@@ -1180,56 +1173,55 @@
         19
       ]
     },
-    "test/definition/package-memory.test.ts#memory PackageStore contract adds and gets an exact package release synchronously": {
-      "src/core/canonical.ts": [
-        34
-      ],
-      "src/core/semver.ts": [
-        116
+    "test/definition/config.test.ts#Blueprint config composes base, release, manifest, and settings contribution schemas": {
+      "src/core/schema.ts": [
+        309
       ]
     },
     "test/definition/package-memory.test.ts#memory PackageStore contract lists all or one package in canonical key order": {
       "src/core/semver.ts": [
-        60,
         93
-      ]
-    },
-    "test/definition/package-memory.test.ts#memory PackageStore contract misses absent snapshots and orders them by revision then digest": {
-      "src/core/canonical.ts": [
-        61
       ]
     },
     "test/definition/package.test.ts#metadata snapshots [definition.metadata-snapshot] copies, sorts, freezes, and round-trips one immutable metadata revision": {
       "src/core/id.ts": [
         35
+      ],
+      "src/core/revision.ts": [
+        9
       ]
     },
     "test/definition/package.test.ts#package releases [definition.package-release] canonicalizes immutable metadata and round-trips its strict codec": {
       "src/core/canonical.ts": [
         8,
-        44
+        37
+      ],
+      "src/core/semver.ts": [
+        92,
+        93
+      ]
+    },
+    "test/definition/package.test.ts#package releases rejects malformed, duplicate, empty, and noncanonical release metadata": {
+      "src/core/narrow.ts": [
+        19
       ]
     },
     "test/definition/plan.test.ts#materialization planning normalizes reordered inputs into byte-identical Actor-local plans": {
       "src/core/schema.ts": [
         286,
         291,
-        295,
-        301
+        295
       ]
     },
     "test/definition/resolver.test.ts#deterministic package resolution backtracks globally instead of accepting a greedy local maximum": {
       "src/core/semver.ts": [
         108,
-        111,
-        115,
-        116,
-        156
+        111
       ]
     },
     "test/definition/resolver.test.ts#deterministic package resolution breaks equal-precedence build ties by ascending full canonical version": {
       "src/core/semver.ts": [
-        93,
+        60,
         116,
         163
       ]
@@ -1237,8 +1229,12 @@
     "test/definition/resolver.test.ts#deterministic package resolution excludes prereleases unless every accumulated range admits the same base": {
       "src/core/semver.ts": [
         59,
-        92,
-        115
+        92
+      ]
+    },
+    "test/definition/resolver.test.ts#deterministic package resolution selects unresolved packages in lexicographic order independent of root order": {
+      "src/core/semver.ts": [
+        162
       ]
     },
     "test/definition/rollout.test.ts#materialization rollout and outbox [definition.materialization-rollout] [definition.materialization-outbox] round-trips rollout and outbox codecs and rejects malformed states": {
@@ -1248,17 +1244,18 @@
     },
     "test/definition/rollout.test.ts#materialization rollout and outbox memory [materialization-control-store] persists union-target outbox and completes only after every acknowledgement": {
       "src/core/json.ts": [
-        79
-      ]
-    },
-    "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code": {
-      "src/core/canonical.ts": [
-        44
+        53,
+        56,
+        59,
+        62,
+        77
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation honors the supplied schema validator as the config authority": {
       "src/core/schema.ts": [
-        283
+        283,
+        286,
+        287
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation re-resolves exact snapshot metadata to reject cycles and prerelease bypasses": {
@@ -1268,7 +1265,6 @@
     },
     "test/definition/validation.test.ts#Blueprint validation rejects a lock whose bytes differ from deterministic resolution": {
       "src/core/semver.ts": [
-        162,
         163
       ]
     },
@@ -1279,23 +1275,26 @@
     },
     "test/definition/validation.test.ts#Blueprint validation rejects remote package schema references before materialization": {
       "src/core/schema.ts": [
-        187,
         223,
         225,
         234,
         235,
-        255
+        255,
+        256
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation uses strict production validation by default, including uri formats": {
-      "src/core/canonical.ts": [
-        44,
-        47
-      ],
       "src/core/schema.ts": [
         32,
+        37,
         41,
-        225
+        225,
+        264
+      ]
+    },
+    "test/definition/validation.test.ts#Blueprint validation validates config against exact locked metadata before loading code": {
+      "src/core/secret-ref.ts": [
+        29
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation validates slot declarations, contribution schemas, and declaration targets": {
@@ -1303,46 +1302,57 @@
         306
       ]
     },
+    "test/facets/profile-runtime.test.ts#W3 profile runtime keeps profile host adapters private and uses canonical Operation execution": {
+      "src/core/schema.ts": [
+        44,
+        301
+      ]
+    },
     "test/facets/profile-runtime.test.ts#W3 standard profile manifest composition validates core contribution schemas before admission": {
       "src/core/schema.ts": [
+        24,
         133
+      ]
+    },
+    "test/integration/record-decode-contract.test.ts#registered record decode contract src/definition/attestation.ts#ValidationAttestation.codec answers a well-formed envelope carrying a hostile payload without escaping its taxonomy": {
+      "src/core/codec.ts": [
+        86
       ]
     },
     "test/integration/record-decode-contract.test.ts#registered record decode contract src/definition/attestation.ts#ValidationAttestation.codec refuses a structurally mutated envelope with a typed error": {
       "src/core/codec.ts": [
+        62,
+        69,
+        75,
         116,
         117,
         118,
+        124,
         126
       ],
       "src/core/json.ts": [
-        21
+        21,
+        49,
+        53
       ]
     },
     "test/integration/record-decode-contract.test.ts#registered record decode contract src/facets/mcp/facet.ts#McpDiscoveryRegistration.encode refuses a structurally mutated envelope with a typed error": {
       "src/core/canonical.ts": [
+        76,
         78,
         79
       ],
       "src/core/codec.ts": [
+        64,
         117
-      ]
-    },
-    "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-POLICY] admits the initial Tenant and denies creating a second Tenant": {
-      "src/core/base64.ts": [
-        3,
-        4
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.approval] [invocation.continuation] consumes one exact Approval with the first admitted attempt": {
       "src/core/revision.ts": [
-        8,
-        9,
         21,
         25,
         29,
-        30,
-        36
+        30
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.prepared] persists preparation and derives stable shape-sensitive identities": {
@@ -1352,28 +1362,43 @@
         83
       ],
       "src/core/codec.ts": [
-        48,
-        51,
+        49,
         59,
-        61,
-        64
+        61
+      ],
+      "src/core/digest.ts": [
+        21,
+        23,
+        28
       ],
       "src/core/id.ts": [
         25,
         27
       ],
       "src/core/json.ts": [
+        47,
+        49,
+        52,
+        53,
+        54,
+        56,
+        59,
         62,
-        84,
+        65,
+        79,
         87,
         88,
         89,
         90,
         95,
-        101,
-        102
+        101
+      ],
+      "src/core/narrow.ts": [
+        13,
+        15
       ],
       "src/core/semver.ts": [
+        48,
         51,
         91,
         92,
@@ -1391,7 +1416,8 @@
     },
     "test/operations/command-runtime.test.ts#CommandRuntime installation returns the identical installed Command for an equal reinstallation and rejects a divergent one": {
       "src/core/canonical.ts": [
-        25
+        26,
+        48
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime mapping validation compares argument and destination schemas by type, const, and enum": {
@@ -1399,9 +1425,9 @@
         312
       ]
     },
-    "test/profiles/facets/conformance-ledger.test.ts#[P11-DEVICE-CAMERA] exact profile manifest or runtime contract": {
-      "src/core/schema.ts": [
-        309
+    "test/operations/command-runtime.test.ts#CommandRuntime mapping validation covers a boolean Operation input document only when it admits values": {
+      "src/core/canonical.ts": [
+        44
       ]
     },
     "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-TOOLS] exact profile manifest or runtime contract": {
@@ -1410,33 +1436,27 @@
         41
       ]
     },
+    "test/profiles/facets/manifest.test.ts#Facet manifest data validation accepts boolean config schemas and rejects other documents": {
+      "src/core/json.ts": [
+        53
+      ]
+    },
     "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'filesystem' manifest round-trips with exact closed contributions": {
-      "src/core/canonical.ts": [
-        8
-      ],
       "src/core/compat-range.ts": [
         34
       ],
+      "src/core/json.ts": [
+        84,
+        87
+      ],
       "src/core/schema.ts": [
-        185,
-        307
-      ]
-    },
-    "test/profiles/facets/manifest.test.ts#W8 internal profile manifest/runtime correspondence 'web' manifest round-trips with exact closed contributions": {
-      "src/core/schema.ts": [
-        317
-      ]
-    },
-    "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-SCHEMA-BOUNDARY] validates discovered schemas before projecting Operations": {
-      "src/core/schema.ts": [
-        24,
-        46
+        256
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
       "src/core/json.ts": [
         49,
-        80
+        84
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) accepts an absent caller cause with a host-created Invocation root": {
@@ -1444,33 +1464,23 @@
         26,
         31,
         34,
-        37,
-        42,
-        46,
-        48,
-        51,
-        57,
-        59
+        38,
+        41,
+        42
       ],
       "src/core/revision.ts": [
         13,
-        18,
-        39,
-        41
+        18
       ],
       "src/core/unicode.ts": [
         1
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) evaluates post-payload gates in deterministic order": {
-      "src/core/revision.ts": [
-        41
-      ]
-    },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a missing caller cause before content and replays its identity": {
       "src/core/base64.ts": [
         16,
-        38
+        26,
+        37
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back attempted gate read mutation": {
@@ -1486,30 +1496,16 @@
     "test/protocol/dispatcher.test.ts#rejects invalid padding in persisted reply base64": {
       "src/core/base64.ts": [
         24,
-        26,
-        27
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#rejects non-canonical trailing bits in persisted reply base64": {
-      "src/core/base64.ts": [
-        51,
-        52,
-        59
+        26
+      ],
+      "src/core/codec.ts": [
+        171
       ]
     },
     "test/protocol/ingress.test.ts#CommandIngress owns the raw envelope before asynchronous preparation": {
-      "src/core/canonical.ts": [
-        43,
-        47
-      ],
       "src/core/revision.ts": [
         17,
         18
-      ]
-    },
-    "test/protocol/materialization-commands.test.ts#materialization payload codec names each malformed shape exactly": {
-      "src/core/digest.ts": [
-        14
       ]
     },
     "test/substrates/sqlite/run.test.ts#SQLite Run storage [MIGRATE-RUN-PINS] survives SQLite close and reopen with old and new Turn pins": {
@@ -1524,10 +1520,7 @@
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant bootstrap marker projection and read faults surfaces malformed marker payloads with exact codec diagnoses": {
       "src/core/codec.ts": [
-        89,
-        91,
-        92,
-        171
+        91
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity fails closed on non-canonical stored Principal and Role keys": {
@@ -1535,10 +1528,16 @@
         11
       ]
     },
-    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating fails closed on identity rows without a marker and anchors eligibility": {
+    "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior requires the exact next revision on watermark updates": {
       "src/core/canonical.ts": [
-        11,
-        37
+        53,
+        54,
+        57
+      ]
+    },
+    "test/workspaces/conformance.test.ts#[C13-VIEW-NO-LIVE-STATE] View rejects live non-JSON state": {
+      "src/core/json.ts": [
+        63
       ]
     }
   }

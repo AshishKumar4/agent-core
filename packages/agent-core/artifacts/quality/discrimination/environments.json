@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "environments",
-  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-  "fingerprint": "sha256:4b9e0ac9626dd9b2d698e5bd683d9ab3bb0779a68300f4fbad4cf5a4ac22c523",
+  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+  "fingerprint": "sha256:de0ab9eefa31d38cc0bbfbb92e5df7f0de06b40f4831e57022606d0401d54e40",
   "files": {
     "src/environments/data.ts": {
       "mutants": 56,
@@ -54,42 +54,42 @@
         45
       ],
       "src/environments/environment.ts": [
-        20,
         33,
         37,
         74,
         80,
-        159
+        110
       ],
       "src/environments/exposure.ts": [
+        117,
+        138,
+        143,
         151,
         152,
         153,
-        156,
-        157,
-        158,
-        214,
         271
       ],
       "src/environments/session.ts": [
         25,
         185,
         198,
+        200,
         202,
         203,
         204,
-        207,
         363
       ],
       "src/environments/snapshot.ts": [
+        74,
         83,
-        94,
-        98,
-        105,
+        93,
+        95,
+        99,
+        100,
         107,
         108,
         109,
-        113,
+        162,
         206
       ]
     },
@@ -98,16 +98,19 @@
         49,
         50,
         51,
-        56,
-        57
+        57,
+        58
       ],
       "src/environments/exposure.ts": [
         242,
         253
       ],
       "src/environments/session.ts": [
+        22,
         302,
         305,
+        309,
+        311,
         320,
         332,
         341
@@ -117,37 +120,33 @@
       "src/environments/exposure.ts": [
         197,
         198,
-        275,
+        206,
         283,
         284,
         285,
-        288,
         289
       ]
     },
     "test/environments/records-mutation.test.ts#Environment record mutation kills invalid lifecycle transitions carry exact state names": {
-      "src/environments/data.ts": [
-        11
-      ],
       "src/environments/exposure.ts": [
+        25,
         37,
         40,
+        45,
         46,
         51,
         52,
-        194,
         197,
         201,
         202,
-        206,
-        231,
         283,
         284,
-        286
+        286,
+        287
       ],
       "src/environments/session.ts": [
-        42,
         43,
+        45,
         46,
         48,
         49,
@@ -156,27 +155,28 @@
         57,
         58,
         61,
-        64,
         66,
         67,
-        252
+        252,
+        256,
+        261,
+        290,
+        324
       ],
       "src/environments/snapshot.ts": [
         29,
         31,
         32,
-        35,
         37,
-        38,
-        174
+        38
       ]
     },
     "test/environments/records-mutation.test.ts#Environment record mutation kills names every Environment identifier subject exactly": {
       "src/environments/id.ts": [
         5,
         11,
+        16,
         17,
-        22,
         23,
         29
       ]
@@ -212,24 +212,18 @@
       ],
       "src/environments/exposure.ts": [
         22,
-        117,
-        118,
         127,
+        137,
         139,
-        140,
         141,
-        142,
-        143,
-        151,
+        146,
         152,
         154,
         181,
         188,
         191,
-        202,
-        258,
+        194,
         262,
-        277,
         283,
         284,
         285,
@@ -240,24 +234,19 @@
         4,
         10
       ],
-      "src/environments/provider.ts": [
-        25,
-        27
-      ],
       "src/environments/session.ts": [
-        200,
-        208,
         247,
         261,
-        267,
+        346,
         352
       ],
       "src/environments/snapshot.ts": [
+        20,
+        96,
         136,
+        146,
         151,
-        156,
-        197,
-        201
+        156
       ]
     },
     "test/environments/records.test.ts#Environment records [P11-ENVIRONMENT-CREDENTIAL-SEAM] credential isolation passes only a bound capability and content references": {
@@ -265,30 +254,26 @@
         119
       ],
       "src/environments/session.ts": [
-        226,
-        275
+        226
       ]
     },
     "test/environments/records.test.ts#Environment records carries lifecycle behavior and rejects illegal transitions": {
       "src/environments/exposure.ts": [
-        45,
         49,
-        71,
-        237
+        71
       ],
       "src/environments/session.ts": [
-        19,
-        287,
-        294,
-        296,
-        311,
-        327
+        42,
+        64,
+        123
+      ],
+      "src/environments/snapshot.ts": [
+        35
       ]
     },
     "test/environments/records.test.ts#Environment records codes operational transition failures without changing constructor validation": {
       "src/environments/environment.ts": [
         122,
-        123,
         124,
         125,
         127,
@@ -317,28 +302,25 @@
     },
     "test/environments/records.test.ts#Environment records keeps snapshot and exposure identifiers nominally distinct": {
       "src/environments/id.ts": [
-        16,
+        22,
         28
       ]
     },
     "test/environments/records.test.ts#Environment records makes every terminal lifecycle transition idempotent and every illegal transition fail": {
       "src/environments/exposure.ts": [
         19,
-        25,
-        28,
+        31,
         36,
         39,
         59,
-        62,
         80,
+        89,
         98,
         101,
         206,
-        220,
-        234
+        242
       ],
       "src/environments/session.ts": [
-        45,
         60,
         98,
         101,
@@ -351,13 +333,12 @@
         332
       ],
       "src/environments/snapshot.ts": [
+        23,
         28,
         54,
         60,
         142,
         156,
-        170,
-        181,
         182
       ]
     },
@@ -365,13 +346,13 @@
       "src/environments/exposure.ts": [
         283,
         286,
-        287
+        287,
+        288
       ]
     },
     "test/environments/records.test.ts#Environment records rejects exhausted counters and invalid record invariants": {
       "src/environments/environment.ts": [
         104,
-        118,
         120,
         153
       ],
@@ -379,7 +360,7 @@
         201,
         202,
         203,
-        206
+        275
       ],
       "src/environments/provider.ts": [
         26,
@@ -397,7 +378,6 @@
     },
     "test/environments/records.test.ts#Environment records rejects malformed codec payloads instead of constructing impossible durable states": {
       "src/environments/provider.ts": [
-        25,
         26,
         28
       ]
@@ -429,55 +409,61 @@
       "src/environments/exposure.ts": [
         188,
         191,
+        260,
         264,
         266,
         268
       ],
       "src/environments/session.ts": [
         261,
-        348,
         354,
-        358
+        356,
+        358,
+        360
       ],
       "src/environments/snapshot.ts": [
-        146,
-        203
+        83,
+        146
       ]
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore [environment.head] [environment.revision] [environment.port-exposure] [environment.session] [environment.snapshot] uses codec bytes for equal replay and exact record-revision CAS": {
       "src/environments/store.ts": [
         60,
-        102,
-        136,
+        82,
+        84,
+        86,
+        103,
+        143,
+        161,
         186,
         187,
         203,
+        204,
         206,
+        215,
         306,
         308,
         311,
         312,
         313,
         316,
-        320,
         325,
         335,
         402,
         455,
         456,
         468,
-        475,
-        501,
         530,
         572,
         580,
-        588
+        589,
+        596,
+        615
       ]
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore codes CAS progression and immutable revision violations as invalid state": {
       "src/environments/store.ts": [
         123,
-        125,
         154,
         155,
         156,
@@ -492,9 +478,11 @@
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore codes invalid restore, snapshot, and exposure pins": {
       "src/environments/store.ts": [
+        230,
+        241,
         335,
         338,
-        343,
+        345,
         351,
         360,
         365,
@@ -503,7 +491,6 @@
         373,
         382,
         387,
-        389,
         390
       ]
     },
@@ -529,20 +516,23 @@
         417,
         446,
         448,
-        456
+        456,
+        605
       ]
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore rejects records that do not pin the exact stored generation": {
       "src/environments/store.ts": [
+        181,
         328,
         333,
         400,
         402,
         404,
         405,
+        453,
         463,
         465,
-        468
+        627
       ]
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore restores the prior image when the head hook throws a typed store error": {
@@ -552,58 +542,64 @@
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore rolls back a revision when atomic head persistence fails": {
       "src/environments/store.ts": [
-        191,
         194,
         195,
         455,
+        460,
         463,
-        464,
-        465,
+        622,
         623
       ]
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore validates every durable row key and resource projection after restart": {
       "src/environments/store.ts": [
         229,
-        232,
+        244,
+        258,
         382,
         383,
         384,
         385,
         386,
+        402,
         432,
         435,
-        549
+        550
       ]
     },
     "test/environments/records.test.ts#MemoryEnvironmentStore validates stored projections against their codec bytes on restore": {
       "src/environments/store.ts": [
         67,
-        71,
+        73,
         411,
         412,
         414,
         423,
         429,
         572,
-        574
+        575,
+        589
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills [C13-ENVIRONMENT-ROTATION] provision replay after rotation is a conflict": {
+      "src/environments/environment.ts": [
+        123
+      ],
       "src/environments/runtime.ts": [
         68,
+        73,
         95,
-        558,
         560,
         836,
         837
+      ],
+      "src/environments/store.ts": [
+        150
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills a restarted close disposes the inspected provider handle before closing": {
       "src/environments/runtime.ts": [
-        417,
-        739,
-        740
+        417
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills admits boundary ports 1 and 65535 and rejects 65536": {
@@ -613,23 +609,26 @@
       "src/environments/runtime.ts": [
         279,
         493,
-        671,
         672
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills close replay is fenced to exactly one epoch of drift": {
       "src/environments/runtime.ts": [
-        203,
-        426,
+        174,
+        175,
+        201,
+        402,
+        434,
         446,
-        453,
+        455,
         545,
+        549,
+        736,
         833
-      ]
-    },
-    "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills close replay while still closing returns without an error": {
+      ],
       "src/environments/session.ts": [
-        138
+        141,
+        296
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills codes a missing pinned revision during provider resolution": {
@@ -646,9 +645,10 @@
       "src/environments/runtime.ts": [
         96,
         495,
-        685,
         686,
+        692,
         693,
+        699,
         700
       ]
     },
@@ -661,18 +661,29 @@
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills fences snapshot and exposure IDs to their exact session": {
       "src/environments/exposure.ts": [
-        138
+        194,
+        197,
+        201,
+        202,
+        277
       ],
       "src/environments/runtime.ts": [
+        233,
         302,
         305,
         699,
         813,
-        823
+        823,
+        864
+      ],
+      "src/environments/store.ts": [
+        256,
+        258
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills missing environments and exposures carry exact messages": {
       "src/environments/runtime.ts": [
+        560,
         561,
         591
       ]
@@ -691,47 +702,36 @@
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills reconciling a reserved session performs no provider work": {
       "src/environments/runtime.ts": [
-        154,
         157,
         175
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills reconciling an absent revoking exposure needs no second provider revoke": {
-      "src/environments/exposure.ts": [
-        92
-      ],
       "src/environments/runtime.ts": [
         322,
         345,
         496,
-        519,
-        697,
+        524,
+        525,
         698,
-        699,
-        758
+        756
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills reconciling an open session keeps the cached live handle": {
       "src/environments/runtime.ts": [
+        183,
         730
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills rejects nonzero initial revisions and generations independently": {
       "src/environments/environment.ts": [
-        33,
-        39,
-        43,
-        55,
-        70,
-        74,
-        78
+        37
       ],
       "src/environments/runtime.ts": [
-        49,
-        780
+        49
       ],
       "src/environments/store.ts": [
-        510
+        502
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills rejects provider action outcomes whose keys cannot be enumerated": {
@@ -739,47 +739,63 @@
         220
       ]
     },
+    "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills rejects ready session outcomes with null or primitive values": {
+      "src/environments/runtime.ts": [
+        845
+      ]
+    },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills reservation replay pins the restore snapshot in both directions": {
       "src/environments/runtime.ts": [
+        106,
         119,
         121,
+        124,
+        135,
         138,
+        143,
+        146,
         231,
+        244,
         370,
         372,
-        373,
         377,
-        464,
-        470,
-        549,
-        624,
+        466,
+        626,
         633,
         642,
         649,
+        660,
         661,
+        683,
         684,
         685,
+        690,
+        691,
         692,
         713,
-        715,
-        796,
         797,
-        798,
+        840,
         845,
-        846
+        849
       ],
       "src/environments/session.ts": [
         86,
-        179,
-        193,
-        202,
-        205,
+        184,
+        194,
         208,
-        346
+        271,
+        275
+      ],
+      "src/environments/store.ts": [
+        202,
+        206,
+        232,
+        544
       ]
     },
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills restore fails closed when the pinned snapshot is not ready": {
       "src/environments/runtime.ts": [
+        649,
         651,
         653,
         654
@@ -788,17 +804,11 @@
     "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills rotation surfaces exhausted revision and generation counters": {
       "src/environments/data.ts": [
         51,
-        58
+        57
       ],
       "src/environments/runtime.ts": [
         90,
         91
-      ]
-    },
-    "test/environments/runtime-mutation.test.ts#EnvironmentController mutation kills settles an absent open outcome as a failed session": {
-      "src/environments/runtime.ts": [
-        372,
-        391
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-DISPOSE-CLOSE] fences close before child disposal and rejects stale capabilities": {
@@ -809,13 +819,13 @@
         74
       ],
       "src/environments/runtime.ts": [
-        201,
         204,
         400,
         402,
         403,
         405,
         414,
+        420,
         421,
         424,
         426,
@@ -830,11 +840,12 @@
         549,
         550,
         552,
+        739,
         740,
         742,
         743,
         749,
-        756,
+        758,
         832,
         851,
         852,
@@ -845,19 +856,16 @@
         34,
         37,
         107,
-        141,
         153,
         154,
-        309,
         311,
-        324,
+        327,
         350,
-        358,
         360
       ],
       "src/environments/store.ts": [
         70,
-        267
+        71
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-ROTATION] rotates future sessions without retargeting an open session": {
@@ -865,7 +873,9 @@
         53
       ],
       "src/environments/environment.ts": [
-        122
+        118,
+        122,
+        124
       ],
       "src/environments/provider.ts": [
         38,
@@ -874,27 +884,21 @@
       "src/environments/runtime.ts": [
         85,
         95,
-        135,
-        143,
+        138,
         192,
         372,
         373,
-        377,
         381,
         596,
+        624,
         643,
-        683,
-        684,
         715
-      ],
-      "src/environments/session.ts": [
-        332
       ],
       "src/environments/store.ts": [
         152,
         197,
-        460,
-        465
+        308,
+        593
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-STALE-SESSION] detects provider loss despite a cached handle and releases it fail-closed": {
@@ -921,8 +925,7 @@
       "src/environments/runtime.ts": [
         174,
         417,
-        421,
-        736
+        421
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-DISPOSE] cleans up an open callback that arrives after close": {
@@ -951,25 +954,26 @@
         95
       ],
       "src/environments/runtime.ts": [
+        154,
         157,
         158,
         162,
         165,
+        372,
         391
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-ROTATION] surfaces rotation and resource CAS loss without reporting provider success": {
       "src/environments/runtime.ts": [
         95,
-        692,
-        699
+        685
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-USE] rehydrates open provider handles after restart without reopening": {
       "src/environments/runtime.ts": [
-        157,
         179,
         183,
+        453,
         455
       ],
       "src/environments/session.ts": [
@@ -977,7 +981,7 @@
         104,
         120,
         122,
-        123,
+        294,
         296,
         354
       ]
@@ -1000,9 +1004,6 @@
     "test/environments/runtime.test.ts#EnvironmentController a ready open settling on a failed session cleans up without transitioning": {
       "src/environments/runtime.ts": [
         381
-      ],
-      "src/environments/session.ts": [
-        356
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController close keeps the live handle until every exposure is revoked": {
@@ -1018,6 +1019,7 @@
         684
       ],
       "src/environments/session.ts": [
+        138,
         311
       ]
     },
@@ -1053,16 +1055,21 @@
         30,
         34,
         35,
+        56,
         57
       ],
       "src/environments/environment.ts": [
+        20,
         21,
         29,
         33,
-        37,
+        39,
         41,
+        43,
         54,
+        55,
         59,
+        70,
         74,
         77,
         78,
@@ -1073,9 +1080,9 @@
         85,
         86,
         104,
-        110,
         114,
-        153
+        153,
+        159
       ],
       "src/environments/provider.ts": [
         36,
@@ -1110,9 +1117,7 @@
         51,
         52,
         61,
-        106,
         119,
-        146,
         277,
         279,
         281,
@@ -1121,48 +1126,48 @@
         547,
         548,
         549,
+        558,
         560,
         566,
         568,
         626,
         633,
         649,
-        685,
         769,
         771,
         780,
         844,
         845,
-        849,
+        846,
         850,
         856
       ],
       "src/environments/session.ts": [
-        22,
+        19,
         74,
         171,
         172,
         179,
-        184,
         188,
         189,
         190,
         191,
         192,
-        194,
+        193,
         195,
         196,
+        202,
         203,
         204,
+        205,
         206,
+        207,
         208,
         210,
-        226,
         252,
-        256,
-        261,
-        271,
+        267,
         284,
+        287,
         331,
         350,
         352
@@ -1171,29 +1176,26 @@
         58,
         60,
         83,
-        86,
-        103,
+        102,
         105,
-        115,
+        121,
         122,
+        133,
         139,
         143,
-        150,
-        152,
         154,
+        155,
         161,
-        181,
-        202,
-        206,
-        215,
-        299,
-        306,
-        310,
+        186,
+        204,
         311,
         312,
-        455,
-        468,
-        502,
+        320,
+        335,
+        501,
+        522,
+        573,
+        582,
         614,
         615
       ]
@@ -1210,6 +1212,7 @@
         590
       ],
       "src/environments/store.ts": [
+        84,
         204
       ]
     },
@@ -1247,29 +1250,36 @@
         45
       ],
       "src/environments/exposure.ts": [
-        31,
+        28,
         74,
-        89,
+        92,
+        118,
         132,
         136,
-        137,
+        140,
+        142,
         144,
         145,
-        146,
+        151,
         153,
         155,
+        156,
+        157,
+        158,
         159,
         161,
-        188,
         191,
         194,
         202,
         210,
+        214,
         218,
+        234,
+        237,
         241,
         242,
+        258,
         260,
-        262,
         266,
         268
       ],
@@ -1283,25 +1293,31 @@
         436,
         517,
         519,
-        524,
         525,
         528,
         530,
         531,
+        588,
         590,
         612,
+        671,
+        697,
         698,
         699,
         863,
         864
       ],
       "src/environments/store.ts": [
-        254,
-        258,
-        267
+        267,
+        549
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController keeps provider failures recoverable without inventing successful resources": {
+      "src/environments/exposure.ts": [
+        62,
+        231,
+        264
+      ],
       "src/environments/provider.ts": [
         94
       ],
@@ -1319,12 +1335,11 @@
       "src/environments/session.ts": [
         31,
         89,
-        290,
         356
       ],
       "src/environments/snapshot.ts": [
-        23,
         48,
+        174,
         203
       ]
     },
@@ -1342,10 +1357,10 @@
         60,
         62,
         169,
-        402,
         441,
         445,
-        446
+        446,
+        601
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController reconcile resolves to closed when close completes during inspection": {
@@ -1360,7 +1375,6 @@
       "src/environments/runtime.ts": [
         215,
         231,
-        244,
         253,
         256,
         260,
@@ -1373,6 +1387,7 @@
         342,
         355,
         359,
+        464,
         466,
         467,
         470,
@@ -1385,56 +1400,47 @@
         577,
         579,
         604,
-        649,
         651,
         657,
-        660,
-        690,
         691,
-        692,
-        840
+        692
+      ],
+      "src/environments/session.ts": [
+        208
       ],
       "src/environments/snapshot.ts": [
         17,
-        20,
         45,
-        74,
-        75,
-        83,
         88,
         92,
-        93,
-        95,
-        96,
-        97,
-        99,
-        100,
+        94,
+        98,
         101,
-        107,
-        108,
+        105,
+        109,
         110,
-        111,
         112,
+        113,
         114,
         116,
         146,
         151,
         156,
-        162,
         166,
+        170,
+        181,
         182,
+        197,
         199,
         201
       ],
       "src/environments/store.ts": [
-        232,
-        338,
+        230,
         339,
         340,
         341,
         342,
         360,
-        535,
         536
       ]
     },
@@ -1487,7 +1493,6 @@
         240
       ],
       "src/environments/runtime.ts": [
-        174,
         175,
         864
       ]
@@ -1508,11 +1513,10 @@
         61,
         68,
         72,
-        73,
         74,
+        119,
         121,
         123,
-        124,
         231,
         233,
         235,
@@ -1533,8 +1537,7 @@
         828
       ],
       "src/environments/store.ts": [
-        150,
-        311
+        150
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController requires an exact ProviderDescriptor for provision replay": {
@@ -1549,6 +1552,7 @@
       ],
       "src/environments/runtime.ts": [
         165,
+        203,
         263,
         266,
         332,
@@ -1587,9 +1591,6 @@
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController revoke replay while revoking persists nothing new": {
-      "src/environments/exposure.ts": [
-        242
-      ],
       "src/environments/runtime.ts": [
         698
       ]
@@ -1627,8 +1628,7 @@
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills deletes rolled-back rows after an initial head commit failure": {
       "src/environments/store.ts": [
-        84,
-        622,
+        191,
         623
       ]
     },
@@ -1636,22 +1636,21 @@
       "src/environments/store.ts": [
         73,
         74,
-        204,
         218,
-        241,
-        244,
         278,
         281,
+        299,
+        306,
+        310,
         311,
+        312,
+        313,
         477,
-        522,
         523,
-        550,
+        535,
         581,
         592,
-        593,
-        600,
-        601
+        600
       ]
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills lists exposures for the exact session sorted by ID": {
@@ -1672,11 +1671,11 @@
         206,
         207,
         228,
-        230,
+        232,
         233,
+        254,
         255,
         256,
-        258,
         259,
         414,
         423,
@@ -1689,42 +1688,42 @@
       "src/environments/store.ts": [
         530,
         544,
-        559,
-        605
+        559
       ]
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills rejects duplicate image keys exactly": {
       "src/environments/store.ts": [
-        62,
         63
       ]
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills rejects images whose revision chain has a gap": {
       "src/environments/store.ts": [
-        67,
         103,
         152,
-        423,
-        453,
+        417,
         457,
         463,
+        464,
+        465,
+        468,
         469
       ]
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills rejects non-ready restore snapshots and future exposure epochs exactly": {
       "src/environments/store.ts": [
         232,
-        338,
         339,
-        345,
+        343,
         346,
-        386
+        382,
+        386,
+        389
       ]
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills rejects rows whose record revision drifts from their projection": {
       "src/environments/store.ts": [
         572,
-        575
+        574
       ]
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills rejects tampered and truncated stored projections": {
@@ -1734,18 +1733,15 @@
     },
     "test/environments/store-mutation.test.ts#MemoryEnvironmentStore mutation kills replays an identical environment CAS regardless of the expected revision": {
       "src/environments/store.ts": [
-        82,
         84,
-        86,
         100,
         103,
         105,
+        115,
         121,
         123,
         128,
-        133,
         136,
-        139,
         143,
         144,
         147,
@@ -1753,17 +1749,19 @@
         150,
         152,
         154,
-        155,
         456,
+        468,
+        475,
         491,
         492,
+        496,
+        510,
         511,
         568,
         572,
-        573,
         582,
+        588,
         589,
-        596,
         597,
         610,
         615
@@ -1773,7 +1771,7 @@
       "src/environments/store.ts": [
         121,
         124,
-        627,
+        125,
         628
       ]
     },
@@ -1781,19 +1779,18 @@
       "src/environments/data.ts": [
         24
       ],
-      "src/environments/runtime.ts": [
-        420,
-        588,
-        626
+      "src/environments/session.ts": [
+        348,
+        358
+      ],
+      "src/environments/snapshot.ts": [
+        75,
+        97,
+        108,
+        111
       ],
       "src/environments/store.ts": [
-        496,
-        544
-      ]
-    },
-    "test/slates/runtime.test.ts#SlateRuntime persists validated exact preview capability and exposure references": {
-      "src/environments/session.ts": [
-        226
+        338
       ]
     }
   }

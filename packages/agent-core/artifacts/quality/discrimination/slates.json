@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "slates",
-  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-  "fingerprint": "sha256:1edf85de3a9e72a228e017c5b02882b97ff0a8ae3c41d2d07195ca53fe06d289",
+  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+  "fingerprint": "sha256:62293602fdb0121eed5fc8a3ce63a33eba0beb564d83aadf11bbd4edd86277d3",
   "files": {
     "src/slates/codec.ts": {
       "mutants": 75,
@@ -57,37 +57,34 @@
     "test/slates/records-mutation.test.ts#Slate record mutation kills canonical intents carry every field for every operation": {
       "src/slates/intent.ts": [
         186,
-        209,
+        205,
+        208,
         211,
         212,
         213,
         216,
         221,
-        225,
+        224,
         226,
         237,
-        244,
-        250,
+        245,
+        248,
         260,
-        267,
         270,
-        271,
-        273,
+        274,
         285,
-        293,
         294,
         296,
         298,
         306,
         312,
-        313,
         315,
-        316,
         317,
         321,
-        327,
-        332,
+        328,
+        330,
         333,
+        336,
         349,
         375,
         385,
@@ -95,11 +92,11 @@
         413,
         424,
         441,
-        450,
         458,
         471,
-        487,
         495,
+        510,
+        518,
         522
       ]
     },
@@ -108,53 +105,44 @@
         42,
         52,
         53,
+        86,
         99,
         103,
         107
       ],
       "src/slates/deployment.ts": [
         61,
-        65,
         69,
-        82,
-        85,
+        70,
+        87,
         88,
-        90,
-        91,
+        89,
         98,
-        100,
-        101,
+        99,
         103,
+        110,
         111
       ],
       "src/slates/preview.ts": [
-        29,
         33,
-        51,
         54,
         55,
         56,
         60,
         85,
         89,
-        94,
+        93,
         108,
         112,
         113,
-        114,
         115,
         116,
-        117,
         118,
         119,
         120,
-        121,
         125,
         127,
-        128,
         129,
-        131,
-        132,
         135,
         136,
         139,
@@ -167,7 +155,7 @@
         38,
         49,
         53,
-        58,
+        57,
         67,
         70,
         74,
@@ -180,16 +168,19 @@
         28,
         64,
         68,
-        72,
+        73,
+        86,
         89,
         90,
         91,
         92,
         93,
-        94,
+        95,
+        96,
         97,
         98,
         103,
+        105,
         106,
         107,
         108,
@@ -197,64 +188,63 @@
       ],
       "src/slates/slate.ts": [
         38,
+        42,
         67,
         72,
+        78,
         83,
         97,
         151,
         155,
-        159,
         163,
+        178,
+        182,
         183,
-        188,
-        195,
+        187,
+        189,
         198,
-        200,
         201,
         203,
-        205,
         206,
         207
       ],
       "src/slates/store.ts": [
         178,
         188,
-        192,
         198,
         227,
         228,
+        240,
         243,
         244,
         245,
         246,
         247,
         248,
+        249,
         250,
         251,
         255,
         256,
         257,
         258,
+        259,
         261,
         264,
         265
       ],
       "src/slates/version.ts": [
         46,
-        50,
         54,
-        64,
+        60,
         81,
         84,
-        87,
-        88,
         89
       ]
     },
     "test/slates/records-mutation.test.ts#Slate record mutation kills compares invocation requests by their canonical bytes": {
       "src/slates/intent.ts": [
         182,
-        197,
         527,
         528
       ]
@@ -266,12 +256,9 @@
     },
     "test/slates/records-mutation.test.ts#Slate record mutation kills effect contexts discriminate their item identity": {
       "src/slates/seams.ts": [
-        34,
-        37,
-        40,
         44,
-        45,
         48,
+        53,
         55,
         56,
         57
@@ -281,26 +268,28 @@
       "src/slates/intent.ts": [
         233,
         372,
-        440,
         469,
         487,
         488,
         489,
-        490,
+        509,
+        510,
         517,
         518,
+        521,
         522,
+        523,
+        531,
         532
       ]
     },
     "test/slates/records-mutation.test.ts#Slate record mutation kills names every Slate identifier subject exactly": {
       "src/slates/id.ts": [
-        4,
         5,
         10,
         11,
+        16,
         17,
-        22,
         23,
         28,
         29,
@@ -318,11 +307,10 @@
         45,
         47,
         48,
-        49,
         50,
         51,
+        52,
         53,
-        54,
         55
       ],
       "src/slates/publication.ts": [
@@ -330,12 +318,11 @@
         38,
         39,
         40,
-        41,
         42,
-        43,
         44
       ],
       "src/slates/resource.ts": [
+        47,
         49,
         50,
         51,
@@ -344,6 +331,7 @@
         54,
         55,
         56,
+        57,
         58
       ],
       "src/slates/slate.ts": [
@@ -359,6 +347,7 @@
         77,
         83,
         84,
+        85,
         87,
         88
       ],
@@ -369,6 +358,7 @@
         48,
         49,
         50,
+        51,
         52
       ]
     },
@@ -376,17 +366,17 @@
       "src/slates/store.ts": [
         71,
         73,
-        74,
         75,
-        77,
+        78,
         79,
+        80,
         81,
         82,
         198,
-        199,
         200,
+        201,
         202,
-        203,
+        204,
         205,
         206
       ]
@@ -414,8 +404,8 @@
       "src/slates/codec.ts": [
         58,
         62,
-        66,
-        70
+        74,
+        90
       ],
       "src/slates/slate.ts": [
         84,
@@ -425,39 +415,31 @@
         112,
         161,
         163,
-        165,
-        169,
         197,
+        207,
         208,
         209,
         211,
-        212,
-        213,
         217,
-        221,
         232,
         233,
-        235,
-        239,
         240,
         241,
         242,
-        248,
         249
       ],
       "src/slates/store.ts": [
-        49,
-        63,
         105,
         106,
+        107,
         119,
         122,
         123,
         124,
         125,
+        126,
         127,
         128,
-        129,
         130,
         131,
         139,
@@ -473,17 +455,15 @@
     },
     "test/slates/records-mutation.test.ts#Slate record mutation kills static codec entry points and the preview capability round-trip": {
       "src/slates/codec.ts": [
-        78
+        82
       ],
       "src/slates/preview.ts": [
         76,
         103,
         143
       ],
-      "src/slates/publication.ts": [
-        78
-      ],
       "src/slates/resource.ts": [
+        109,
         110,
         111
       ]
@@ -494,7 +474,6 @@
         116
       ],
       "src/slates/deployment.ts": [
-        47,
         57
       ],
       "src/slates/resource.ts": [
@@ -502,23 +481,30 @@
         60
       ],
       "src/slates/store.ts": [
-        73,
         79,
         90
       ]
     },
-    "test/slates/records.test.ts#Slate records '[slate.preview]' round-trips a strict codec 1.0 record": {
-      "src/slates/preview.ts": [
-        93,
-        111
+    "test/slates/records.test.ts#Slate records '[slate.deployment]' round-trips a strict codec 1.0 record": {
+      "src/slates/deployment.ts": [
+        47
       ]
     },
-    "test/slates/records.test.ts#Slate records '[slate.resource]' round-trips a strict codec 1.0 record": {
-      "src/slates/resource.ts": [
-        73,
-        96,
-        104,
-        109
+    "test/slates/records.test.ts#Slate records '[slate.preview]' round-trips a strict codec 1.0 record": {
+      "src/slates/preview.ts": [
+        29,
+        94,
+        114,
+        121,
+        131,
+        142
+      ]
+    },
+    "test/slates/records.test.ts#Slate records '[slate.publication]' round-trips a strict codec 1.0 record": {
+      "src/slates/publication.ts": [
+        58,
+        70,
+        77
       ]
     },
     "test/slates/records.test.ts#Slate records '[slate.version]' round-trips a strict codec 1.0 record": {
@@ -527,52 +513,47 @@
       ]
     },
     "test/slates/records.test.ts#Slate records '[slate]' round-trips a strict codec 1.0 record": {
-      "src/slates/codec.ts": [
-        52
-      ],
       "src/slates/slate.ts": [
+        159,
         160,
         161,
-        163,
         169,
         171,
-        178,
         181,
-        182,
         184,
         186,
-        187,
-        189,
+        188,
         193,
         195,
         198,
         203,
-        208,
         212
       ]
     },
     "test/slates/records.test.ts#Slate records canonical intents reject unknown fields and unbranded identifiers": {
       "src/slates/intent.ts": [
         205,
+        334,
+        337,
         424,
         425,
+        440,
+        450,
         457,
         458,
         459,
         484,
         487,
+        488,
+        490,
         494,
         495,
         496,
         500,
         501,
-        509,
         510,
         518,
-        521,
-        522,
-        523,
-        531
+        522
       ]
     },
     "test/slates/records.test.ts#Slate records codes Slate operation failures while constructors remain TypeError": {
@@ -580,11 +561,11 @@
         112,
         114,
         115,
-        121,
         122,
         124,
         125,
         128,
+        131,
         132,
         133,
         135,
@@ -593,16 +574,17 @@
         142,
         145,
         146,
+        240,
         249,
         250
       ]
     },
     "test/slates/records.test.ts#Slate records rejects malformed identities for every Slate durable record": {
       "src/slates/deployment.ts": [
-        47
+        54
       ],
-      "src/slates/resource.ts": [
-        57
+      "src/slates/publication.ts": [
+        43
       ],
       "src/slates/slate.ts": [
         67,
@@ -610,9 +592,16 @@
         73,
         77,
         79
-      ],
-      "src/slates/version.ts": [
-        51
+      ]
+    },
+    "test/slates/records.test.ts#Slate records rejects non-string deployment targets in codec data": {
+      "src/slates/deployment.ts": [
+        65
+      ]
+    },
+    "test/slates/records.test.ts#Slate records rejects primitive, mistyped, negative, and malformed Slate codec states": {
+      "src/slates/slate.ts": [
+        195
       ]
     },
     "test/slates/records.test.ts#Slate records rejects unknown payload fields and invalid cross-field shapes": {
@@ -632,7 +621,7 @@
         148
       ],
       "src/slates/version.ts": [
-        60
+        64
       ]
     },
     "test/slates/records.test.ts#Slate records validates and freezes Slate effect context identity": {
@@ -641,15 +630,15 @@
         37,
         40,
         44,
+        45,
         46,
         47,
-        53
+        55
       ]
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills allocates prefixed IDs for every kind in sequence": {
       "src/slates/runtime.ts": [
         58,
-        64,
         67,
         70,
         73,
@@ -661,7 +650,6 @@
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills commit refuses a head that vanished inside the transaction": {
       "src/slates/runtime.ts": [
-        205,
         881
       ]
     },
@@ -674,24 +662,28 @@
       "src/slates/runtime.ts": [
         191,
         193,
+        884,
         886
       ]
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills fork revalidates the exact source graph inside the transaction": {
       "src/slates/runtime.ts": [
+        213,
         216,
+        222,
+        232,
         240,
         244
       ]
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills preview links pin the exact revision even when the source is unchanged": {
       "src/slates/intent.ts": [
-        336,
-        337
+        335
       ],
       "src/slates/runtime.ts": [
         467,
         468,
+        481,
         640
       ]
     },
@@ -703,7 +695,8 @@
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills reconcile reports activation only for the active deployment": {
       "src/slates/deployment.ts": [
-        105
+        104,
+        111
       ],
       "src/slates/intent.ts": [
         385,
@@ -712,9 +705,9 @@
       "src/slates/runtime.ts": [
         322,
         332,
-        344,
         364,
         372,
+        373,
         378,
         380,
         657,
@@ -722,9 +715,12 @@
         748,
         772,
         821,
+        822,
         823,
+        824,
         838,
         839,
+        840,
         851,
         854,
         862,
@@ -734,6 +730,9 @@
         34,
         37,
         40
+      ],
+      "src/slates/slate.ts": [
+        212
       ]
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills reconciled completed deployments report inactive slates without activation": {
@@ -743,49 +742,42 @@
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills rejects function-shaped and value-less invocation results": {
       "src/slates/runtime.ts": [
+        851,
         852,
         857,
-        858,
         865
       ]
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills rejects malformed provider materializations exactly": {
       "src/slates/runtime.ts": [
+        406,
         408,
         410,
-        420,
         422,
+        423,
         600,
-        666,
+        668,
+        819,
         821,
-        822,
-        825,
-        827
+        822
       ]
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills rejects non-canonical external keys before reserving": {
-      "src/slates/intent.ts": [
-        172,
-        174,
-        204,
-        205,
-        208,
-        221,
-        222
-      ],
       "src/slates/publication.ts": [
-        77
+        78
       ],
       "src/slates/runtime.ts": [
-        83,
+        60,
+        63,
+        82,
         124,
-        127,
+        126,
         132,
         134,
-        192,
+        174,
+        176,
         205,
-        270,
-        274,
+        292,
         293,
         320,
         322,
@@ -794,12 +786,23 @@
         325,
         327,
         328,
-        621,
+        630,
         632,
-        638,
         640,
-        646,
+        644,
+        880,
         881
+      ],
+      "src/slates/slate.ts": [
+        121,
+        209,
+        249
+      ],
+      "src/slates/store.ts": [
+        709
+      ],
+      "src/slates/version.ts": [
+        50
       ]
     },
     "test/slates/runtime-mutation.test.ts#SlateRuntime mutation kills rejects succeeded invocation results with extra keys": {
@@ -819,8 +822,6 @@
         378
       ],
       "src/slates/runtime.ts": [
-        505,
-        517,
         874
       ]
     },
@@ -854,31 +855,30 @@
         511,
         512,
         513,
+        517,
         520,
         527,
         534,
         874
-      ],
-      "src/slates/store.ts": [
-        80
       ]
     },
     "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-SOURCE] preserves content-addressed source and immutable version lineage": {
       "src/slates/runtime.ts": [
         60,
+        205,
         257,
         437,
         438,
         881
       ],
       "src/slates/slate.ts": [
-        122,
-        195,
+        208,
+        213,
         215,
-        239
+        239,
+        242
       ],
       "src/slates/store.ts": [
-        461,
         785,
         872
       ]
@@ -894,39 +894,46 @@
         47,
         51,
         52,
-        86,
+        66,
+        70,
         110
       ],
       "src/slates/id.ts": [
-        16
+        4
       ],
       "src/slates/intent.ts": [
+        172,
+        174,
+        204,
         205,
         208,
         209,
+        212,
         213,
-        224,
+        221,
+        222,
+        225,
         227,
         240,
         244,
-        245,
         247,
-        248,
         249,
+        250,
         267,
         268,
+        271,
         272,
-        274,
-        488
+        273,
+        487,
+        510
       ],
       "src/slates/runtime.ts": [
         60,
-        63,
         66,
         69,
-        82,
+        83,
         125,
-        126,
+        127,
         134,
         148,
         150,
@@ -936,21 +943,17 @@
         158,
         165,
         172,
-        174,
         175,
-        176,
         182,
         184,
         191,
+        192,
         205,
-        213,
         216,
         218,
         219,
-        222,
         223,
         224,
-        232,
         240,
         241,
         242,
@@ -958,7 +961,9 @@
         247,
         251,
         257,
+        270,
         273,
+        274,
         275,
         284,
         292,
@@ -966,70 +971,70 @@
         620,
         621,
         627,
-        630,
         632,
+        638,
         640,
-        644,
         646,
-        880,
         881
       ],
       "src/slates/slate.ts": [
-        42,
-        78,
-        85,
         107,
         108,
         122,
-        131,
         132,
+        165,
+        171,
         185,
+        195,
         197,
+        200,
         204,
-        207,
+        205,
         208,
         209,
         212,
         213,
         216,
         218,
+        221,
         230,
-        238
+        235,
+        238,
+        248
       ],
       "src/slates/store.ts": [
         357,
         378,
         385,
         387,
-        426,
         430,
-        432,
-        484,
+        458,
+        657,
         688,
         695,
-        709,
+        698,
         710,
         711,
-        716,
-        767,
         768,
         769,
         778,
-        784,
-        889,
-        911,
-        959,
-        1018,
-        1061,
-        1063,
-        1069
+        794,
+        870,
+        970,
+        987,
+        1022,
+        1126
       ],
       "src/slates/version.ts": [
-        54
+        54,
+        71,
+        81,
+        90
       ]
     },
     "test/slates/runtime.test.ts#SlateRuntime codes colliding runtime allocations as duplicates": {
       "src/slates/runtime.ts": [
+        64,
         134,
         136,
         137
@@ -1061,8 +1066,7 @@
       "src/slates/runtime.ts": [
         467,
         468,
-        480,
-        481
+        480
       ]
     },
     "test/slates/runtime.test.ts#SlateRuntime guards delayed deployment activation with the frozen expected pointer": {
@@ -1078,7 +1082,6 @@
         874
       ],
       "src/slates/slate.ts": [
-        212,
         231,
         241
       ],
@@ -1088,20 +1091,23 @@
     },
     "test/slates/runtime.test.ts#SlateRuntime persists validated exact preview capability and exposure references": {
       "src/slates/codec.ts": [
-        82,
         98,
         102,
         106
       ],
       "src/slates/intent.ts": [
         327,
-        328,
-        330,
         331,
-        334,
-        335,
+        332,
         338,
         495
+      ],
+      "src/slates/preview.ts": [
+        51,
+        111,
+        117,
+        128,
+        139
       ],
       "src/slates/runtime.ts": [
         464,
@@ -1113,15 +1119,17 @@
         799
       ],
       "src/slates/store.ts": [
-        553,
-        554,
         846,
+        848,
         849,
         850,
         851
       ]
     },
     "test/slates/runtime.test.ts#SlateRuntime reconciles an indeterminate resource from its original reservation": {
+      "src/slates/codec.ts": [
+        78
+      ],
       "src/slates/intent.ts": [
         312,
         313,
@@ -1131,9 +1139,8 @@
       ],
       "src/slates/runtime.ts": [
         75,
-        406,
         409,
-        423,
+        420,
         426,
         427,
         435,
@@ -1149,6 +1156,7 @@
         609,
         610,
         611,
+        666,
         668,
         699,
         700,
@@ -1163,12 +1171,13 @@
       "src/slates/store.ts": [
         174,
         196,
+        265,
         266,
         616,
         827,
         831,
         837,
-        838
+        1051
       ]
     },
     "test/slates/runtime.test.ts#SlateRuntime rejects colliding fork IDs and all malformed invocation result shapes": {
@@ -1207,7 +1216,6 @@
     },
     "test/slates/runtime.test.ts#SlateRuntime rejects stale mutations and preserves only the concurrent winner": {
       "src/slates/runtime.ts": [
-        884,
         887
       ],
       "src/slates/slate.ts": [
@@ -1223,44 +1231,47 @@
         443,
         444,
         554,
-        819,
         821,
         823,
+        825,
+        827,
         828,
         849,
         851,
         858,
-        865,
-        866
+        865
       ]
     },
     "test/slates/runtime.test.ts#SlateRuntime replays a reused external effect identity instead of deploying twice": {
       "src/slates/codec.ts": [
-        74,
-        90,
-        94
+        94,
+        115
       ],
       "src/slates/deployment.ts": [
         23,
         27,
-        47,
-        52,
-        70,
+        49,
+        82,
+        85,
         86,
-        87,
-        89,
+        90,
+        91,
         92,
         93,
-        99,
+        100,
+        101,
         102,
         103,
-        104,
-        110,
+        105,
         111
+      ],
+      "src/slates/id.ts": [
+        22
       ],
       "src/slates/intent.ts": [
         180,
         190,
+        197,
         293,
         294,
         297,
@@ -1268,6 +1279,8 @@
         384,
         385,
         423,
+        424,
+        522,
         528
       ],
       "src/slates/runtime.ts": [
@@ -1278,6 +1291,7 @@
         335,
         336,
         343,
+        344,
         345,
         355,
         357,
@@ -1285,7 +1299,6 @@
         361,
         370,
         372,
-        373,
         374,
         545,
         547,
@@ -1298,10 +1311,8 @@
         657,
         681,
         750,
-        821,
         822,
-        824,
-        840,
+        838,
         851,
         852,
         853,
@@ -1311,27 +1322,29 @@
         865
       ],
       "src/slates/seams.ts": [
-        33
+        33,
+        34,
+        37,
+        40
       ],
       "src/slates/store.ts": [
+        49,
         53,
-        76,
+        73,
+        74,
+        77,
+        79,
         107,
-        126,
+        129,
         136,
         143,
         149,
         151,
-        500,
-        573,
-        577,
         600,
         601,
         607,
         719,
-        720,
-        721,
-        937
+        1037
       ]
     },
     "test/slates/runtime.test.ts#SlateRuntime reports every Slate head CAS loser without replacing the concurrent winner": {
@@ -1350,8 +1363,8 @@
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills CAS and closure violations carry exact messages": {
       "src/slates/store.ts": [
         432,
-        434,
-        440,
+        433,
+        435,
         441,
         688,
         689,
@@ -1375,26 +1388,24 @@
         699,
         700,
         701,
-        768,
-        769,
-        774,
+        766,
+        767,
         778,
         859,
         861,
-        863,
         864,
         865,
-        870,
         872,
-        987,
+        1061,
         1062,
-        1068
+        1063,
+        1068,
+        1069
       ]
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills deployments must match every reserved field exactly": {
       "src/slates/store.ts": [
         503,
-        504,
         1033
       ]
     },
@@ -1410,61 +1421,55 @@
       ]
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills lists records in ID order scoped to their exact owner": {
-      "src/slates/codec.ts": [
-        114,
-        115
-      ],
-      "src/slates/preview.ts": [
-        103,
-        142
-      ],
-      "src/slates/publication.ts": [
-        57,
-        70
-      ],
       "src/slates/store.ts": [
         387,
+        390,
         392,
         393,
         394,
         396,
         401,
         403,
-        422,
+        424,
         425,
+        426,
         450,
-        453,
         458,
         476,
-        481,
+        484,
         495,
+        500,
         503,
-        509,
-        513,
         514,
+        519,
         522,
-        525,
+        535,
         536,
+        541,
         543,
-        544,
         568,
-        612,
-        617,
+        573,
+        578,
+        616,
         686,
-        688,
         706,
+        716,
         877,
         878,
-        888,
+        889,
         890,
+        891,
         908,
+        911,
         918,
+        937,
         940,
-        948,
-        1037,
+        959,
+        961,
+        972,
+        1031,
         1045,
         1047,
-        1051,
         1087,
         1088,
         1096,
@@ -1473,12 +1478,6 @@
         1106,
         1115,
         1125
-      ],
-      "src/slates/version.ts": [
-        26,
-        71,
-        81,
-        86
       ]
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills lists records sorted by ID regardless of insertion order": {
@@ -1510,8 +1509,6 @@
         825,
         827,
         828,
-        961,
-        997,
         1033,
         1037,
         1047,
@@ -1535,7 +1532,6 @@
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills refuses replays that change the stored record bytes": {
       "src/slates/store.ts": [
-        918,
         1119,
         1120
       ]
@@ -1548,11 +1544,11 @@
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills rejects histories with gaps or a missing first revision": {
       "src/slates/store.ts": [
+        409,
         414,
         766,
         769,
-        771,
-        1129
+        771
       ]
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills rejects projection drift on workspace and slate columns": {
@@ -1565,8 +1561,7 @@
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills rejects slate rows whose key column drifts from their bytes": {
       "src/slates/store.ts": [
         886,
-        888,
-        892
+        888
       ]
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills resources must match every reserved field exactly": {
@@ -1579,10 +1574,8 @@
       "src/slates/store.ts": [
         424,
         430,
-        433,
-        437,
-        869,
-        871,
+        440,
+        870,
         1075,
         1077,
         1079,
@@ -1592,15 +1585,18 @@
     },
     "test/slates/store-mutation.test.ts#MemorySlateStore mutation kills snapshots reorder scrambled slate history rows by revision": {
       "src/slates/store.ts": [
+        411,
         413,
         1081
       ]
     },
     "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes": {
       "src/slates/store.ts": [
-        409,
+        403,
         412,
+        422,
         424,
+        425,
         426,
         430,
         432,
@@ -1608,8 +1604,8 @@
         437,
         440,
         450,
+        453,
         456,
-        458,
         471,
         634,
         635,
@@ -1618,25 +1614,25 @@
         742,
         745,
         748,
-        766,
         778,
         784,
         861,
         862,
-        870,
+        863,
+        869,
+        871,
         888,
-        891,
+        918,
         961,
-        970,
         974,
+        987,
         1018,
         1019,
         1020,
-        1021,
-        1022,
-        1126
+        1021
       ],
       "src/slates/version.ts": [
+        26,
         30,
         68,
         69,
@@ -1644,14 +1640,19 @@
         78,
         81,
         84,
+        86,
+        87,
+        88,
         89,
         90
       ]
     },
     "test/slates/store.test.ts#MemorySlateStore [slate.deployment-reservation] [slate.resource-reservation] validates reservation constructors and immutable reservation replay": {
       "src/slates/store.ts": [
+        63,
         67,
         73,
+        192,
         198,
         948,
         1120
@@ -1659,14 +1660,14 @@
     },
     "test/slates/store.test.ts#MemorySlateStore commits synchronous transactions atomically and rolls back failed or async drafts": {
       "src/slates/store.ts": [
-        657
+        961
       ]
     },
     "test/slates/store.test.ts#MemorySlateStore enforces CAS and immutable record replay": {
       "src/slates/store.ts": [
-        425,
         429,
         430,
+        918,
         919,
         1120,
         1121,
@@ -1675,68 +1676,71 @@
       ]
     },
     "test/slates/store.test.ts#MemorySlateStore lists and clones a complete owned Slate graph without leaking mutable storage": {
+      "src/slates/codec.ts": [
+        114,
+        115
+      ],
       "src/slates/preview.ts": [
         60,
+        103,
+        132,
         143
       ],
+      "src/slates/publication.ts": [
+        41
+      ],
       "src/slates/resource.ts": [
-        47,
-        86,
-        95,
-        105
+        72,
+        94,
+        104
       ],
       "src/slates/store.ts": [
-        78,
-        79,
-        198,
-        201,
-        204,
-        240,
-        249,
-        259,
-        265,
-        390,
+        73,
+        76,
+        199,
+        203,
         392,
         396,
         475,
         476,
+        481,
         484,
         490,
         494,
         495,
         503,
-        514,
-        519,
+        509,
+        513,
         522,
-        535,
-        541,
+        525,
+        536,
         543,
         544,
         563,
         567,
         568,
         577,
-        578,
         579,
         594,
-        616,
+        612,
+        617,
         618,
         630,
         653,
+        720,
+        721,
         729,
         730,
         731,
+        794,
         795,
-        801,
-        837,
+        838,
         846,
         848,
         948,
-        972,
         997,
         1003,
         1004,
-        1031,
         1033
       ]
     },
@@ -1747,6 +1751,7 @@
         719,
         722,
         723,
+        774,
         776,
         985,
         986,
@@ -1773,10 +1778,13 @@
       "src/slates/store.ts": [
         403,
         440,
+        461,
         462,
         463,
         522,
-        872
+        870,
+        872,
+        1047
       ]
     },
     "test/slates/store.test.ts#MemorySlateStore rejects missing replay roots and dangling owned graph records": {
@@ -1806,19 +1814,22 @@
         753,
         888,
         891,
+        892,
         893,
+        1129,
         1133,
         1134
       ]
     },
     "test/slates/store.test.ts#MemorySlateStore restores unordered history and rejects dangling parent, deployment, resource, and preview graphs": {
       "src/slates/store.ts": [
-        411,
-        413,
+        553,
+        554,
         555,
         748,
         781,
         784,
+        785,
         786,
         787,
         831,
@@ -1840,11 +1851,11 @@
       "src/slates/store.ts": [
         412,
         432,
-        433,
-        435,
+        434,
         484,
         485,
         503,
+        504,
         543,
         544,
         546,

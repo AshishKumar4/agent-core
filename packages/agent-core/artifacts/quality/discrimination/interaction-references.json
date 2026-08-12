@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "interaction-references",
-  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-  "fingerprint": "sha256:21856ae363b9d7752c7098d28fc2094e39a394cb08e4bb3fcef4abb41817b037",
+  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+  "fingerprint": "sha256:00311199768b94b9ac3804eb7c5a3d7ee67b0a3dbf251c25c01cb2193fc133c1",
   "files": {
     "src/interaction-references/id.ts": {
       "mutants": 14,
@@ -10,11 +10,6 @@
     }
   },
   "killed": {
-    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects preexisting forced cancellation records": {
-      "src/interaction-references/id.ts": [
-        4
-      ]
-    },
     "test/interaction-references/identity.test.ts#canonical interaction identities every interaction and invocation reference ID names its exact subject": {
       "src/interaction-references/id.ts": [
         5,
@@ -26,6 +21,18 @@
         47
       ]
     },
+    "test/operations/command-routing.test.ts#Command invocation routing routes an invocation only when the derived Subscription accepts the Event trust": {
+      "src/interaction-references/id.ts": [
+        11,
+        32,
+        39
+      ]
+    },
+    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) rejects a codec-representable unsupported causal path without persistence": {
+      "src/interaction-references/id.ts": [
+        4
+      ]
+    },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] prepareWithAudit persists a local preparation with its root AuditRecord": {
       "src/interaction-references/id.ts": [
         25
@@ -35,13 +42,6 @@
       "src/interaction-references/id.ts": [
         18,
         46
-      ]
-    },
-    "test/workspaces/coverage-protocols.test.ts#route records and authentication validates reservation invariants and round-trips authority, tenant, trust, and initiator variants": {
-      "src/interaction-references/id.ts": [
-        11,
-        32,
-        39
       ]
     }
   }

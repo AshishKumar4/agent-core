@@ -11,35 +11,35 @@
       "tolerated": 133
     },
     "composition": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:360535094023ef193dc457f8c5fcaeaf1be1fc26771417b6b6ce0ed5620629ed",
-      "mutants": 1466,
-      "killed": 1412,
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:d91b3eaf95193a7684bd88b1acc2240990ebbd72f6296c65fe5816f836b4fb57",
+      "mutants": 1450,
+      "killed": 1396,
       "score": 96.3,
       "actionable": 0,
       "tolerated": 14
     },
     "operations": {
-      "measuredAt": "fb4293fb2c0a48c227e0be7cc303e77f314b6b21",
-      "fingerprint": "sha256:869425c47c1050abedfe9b1ddb70524762d1aafde153a620853fb85cb9c1636f",
-      "mutants": 1130,
-      "killed": 1072,
-      "score": 94.9,
-      "actionable": 43,
-      "tolerated": 15
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:62ad4c3f3dc569b747036d40c6b7f5d9c2c51023b8674caafc2bbad3ef04ef39",
+      "mutants": 1291,
+      "killed": 1226,
+      "score": 95,
+      "actionable": 41,
+      "tolerated": 19
     },
     "agents": {
-      "measuredAt": "fb4293fb2c0a48c227e0be7cc303e77f314b6b21",
-      "fingerprint": "sha256:c5192b9bbbf97c45c7c80b5600190a7401a25846e57359dc2928762fe39af23d",
-      "mutants": 4572,
-      "killed": 4379,
-      "score": 95.8,
-      "actionable": 95,
-      "tolerated": 98
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:a5582081bf570c690d160f9040c3a042b7386935413f1880c835ac88ac8605bb",
+      "mutants": 5382,
+      "killed": 5194,
+      "score": 96.5,
+      "actionable": 2,
+      "tolerated": 127
     },
     "invocations": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:44f8b789584e9bc8678a844f6d33d300b4d811cecd2375b924290544fdd49c2d",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:4f34fc52c02a6da60c0c7699d6096fded79e0d08ecfa6dc15ad728cf7c4848f2",
       "mutants": 5457,
       "killed": 5204,
       "score": 95.4,
@@ -47,17 +47,17 @@
       "tolerated": 85
     },
     "substrates": {
-      "measuredAt": "fb4293fb2c0a48c227e0be7cc303e77f314b6b21",
-      "fingerprint": "sha256:b3a439d9bda80f60c8f2ef0a668d75043252d7ede459820a69fbeb646fd2d67f",
-      "mutants": 6220,
-      "killed": 5965,
-      "score": 95.9,
-      "actionable": 219,
-      "tolerated": 36
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:4a13746a16c62c9aed35ceb20592b3a50abf5194ceab15c9925ab8f75772e5f9",
+      "mutants": 5977,
+      "killed": 5754,
+      "score": 96.3,
+      "actionable": 188,
+      "tolerated": 35
     },
     "protocol": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:963d9fde25e938c77c164877c985356279ee531da214a639cc1f7894782b335f",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:d6f6152fde0bba2d11612638ce0505ee46e5585cdf2d524520bdf0d1c0c4188e",
       "mutants": 3184,
       "killed": 2994,
       "score": 94,
@@ -65,8 +65,8 @@
       "tolerated": 28
     },
     "workspaces": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:85f95515e9d8c8f23f3edecd96ab635479962edce99253d874a7ce3b1be5d754",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:e2fd8a39e3cbf4b20b06637b0425252c9f5f9fabddd38450f57b084def1fe8e9",
       "mutants": 2748,
       "killed": 2648,
       "score": 96.4,
@@ -74,8 +74,8 @@
       "tolerated": 53
     },
     "environments": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:4b9e0ac9626dd9b2d698e5bd683d9ab3bb0779a68300f4fbad4cf5a4ac22c523",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:de0ab9eefa31d38cc0bbfbb92e5df7f0de06b40f4831e57022606d0401d54e40",
       "mutants": 1873,
       "killed": 1702,
       "score": 90.9,
@@ -83,8 +83,8 @@
       "tolerated": 82
     },
     "slates": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:1edf85de3a9e72a228e017c5b02882b97ff0a8ae3c41d2d07195ca53fe06d289",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:62293602fdb0121eed5fc8a3ce63a33eba0beb564d83aadf11bbd4edd86277d3",
       "mutants": 2027,
       "killed": 1895,
       "score": 93.5,
@@ -92,17 +92,17 @@
       "tolerated": 81
     },
     "definition": {
-      "measuredAt": "fb4293fb2c0a48c227e0be7cc303e77f314b6b21",
-      "fingerprint": "sha256:b96de96a9092f1a7b11662028da6631085b29e086ab7da50cb81a21fa35b7b0b",
-      "mutants": 5641,
-      "killed": 5332,
-      "score": 94.5,
-      "actionable": 148,
-      "tolerated": 161
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:328380f1255ac9dfb6d8a01ba3d4f793a26d4d2fd2333a612a9dfdea2dba7927",
+      "mutants": 5542,
+      "killed": 5256,
+      "score": 94.8,
+      "actionable": 116,
+      "tolerated": 164
     },
     "actors": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:bd705217991fad6b9a0bf244434b18825cffb2833baa87a5c6b49cd0d11b7137",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:2cd1ec83dc75009acd934f3f66a486449ed686718eb6d01ab40ac81d0cf3c9ef",
       "mutants": 1011,
       "killed": 953,
       "score": 94.3,
@@ -110,8 +110,8 @@
       "tolerated": 5
     },
     "content": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:33e4f54ebc512f6cfd9753273edd020b219852080b6535bda98fb61b1994be98",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:e79cd4bbb50bbf7dd5f49065feaf84327a1063b504b6fbc9a33cd7ee8fda8d4a",
       "mutants": 1090,
       "killed": 993,
       "score": 91.1,
@@ -119,8 +119,8 @@
       "tolerated": 27
     },
     "identity": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:8c13c7917e363681014eae62467fd1a92e221ae00ac56bc64a47405524c9eef0",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:4e718bb237e15d8cfc44d8313374eefee3108a8ef05ca8b9b3847e1c746a5b64",
       "mutants": 1475,
       "killed": 1362,
       "score": 92.3,
@@ -128,8 +128,8 @@
       "tolerated": 85
     },
     "interaction-references": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:21856ae363b9d7752c7098d28fc2094e39a394cb08e4bb3fcef4abb41817b037",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:00311199768b94b9ac3804eb7c5a3d7ee67b0a3dbf251c25c01cb2193fc133c1",
       "mutants": 14,
       "killed": 14,
       "score": 100,
@@ -137,8 +137,8 @@
       "tolerated": 0
     },
     "authority-public": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:c6890aa3dd71de49241f22c07185a248dd2706dd5d99fbeb655e3e3e1862cb68",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:442a7170fab0d85f557a07430f940ec4d56cf3c596050ad219f3d8c2b6dd91ed",
       "mutants": 0,
       "killed": 0,
       "score": 100,
@@ -146,8 +146,8 @@
       "tolerated": 0
     },
     "facets-public": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:4f63b2d008eab7e9d0757427cd0c447db9f0b51cf75c2f65553251b3cb901d7d",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:c35ece86e3f99a822499707f9bd3bbc90f3d839c634222f6b19b6af6347e5538",
       "mutants": 0,
       "killed": 0,
       "score": 100,
@@ -155,8 +155,8 @@
       "tolerated": 0
     },
     "index": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:2f3802509a19e3d22fd052e7394445f1d1eddcfb6edfc7bae27fe09386ac01e7",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:b11c7a3761abe50c2a36a95db97c909b5d54ba5f2a256fbb1e1119c694c51468",
       "mutants": 0,
       "killed": 0,
       "score": 100,
@@ -164,17 +164,17 @@
       "tolerated": 0
     },
     "facets": {
-      "measuredAt": "fb4293fb2c0a48c227e0be7cc303e77f314b6b21",
-      "fingerprint": "sha256:c7730dd8ec525f45a911e39bc3a1757d1dee1e74e8af35372205d49071947ace",
-      "mutants": 5178,
-      "killed": 4796,
-      "score": 92.6,
-      "actionable": 146,
-      "tolerated": 236
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:c00d277a501be424446e7d0614aa0f26a96274a706b689f97ccce6eceac298f6",
+      "mutants": 5159,
+      "killed": 4818,
+      "score": 93.4,
+      "actionable": 100,
+      "tolerated": 239
     },
     "errors": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:8bc8d1512864e1dd8adf3426d5639036488f2971995c98e54e6216b34379ba85",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:d36b14676a5cbc1582ae42158fce5da34af31908701e8a011bfed03424b794c5",
       "mutants": 6,
       "killed": 6,
       "score": 100,
@@ -182,8 +182,8 @@
       "tolerated": 0
     },
     "invocation-references": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:fb11a204451ac42382bf5f1df1261b26733c075823456110c6088b2dad5dee83",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:607ac4fa6d37a4131fe196e10017b191229bc73537e249c26d940343d3d04531",
       "mutants": 12,
       "killed": 12,
       "score": 100,
@@ -191,8 +191,8 @@
       "tolerated": 0
     },
     "execution-references": {
-      "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-      "fingerprint": "sha256:46d158b6efa40898544df5619e001266479bd3faa0772aed2c3d573eb6885b1d",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:52b4ca2e4bb48df03977fc0ae2ff0bb2c914fda3eab62a917b837c4514a632ee",
       "mutants": 6,
       "killed": 6,
       "score": 100,
@@ -209,8 +209,8 @@
       "tolerated": 12
     },
     "mediation-public": {
-      "measuredAt": "08890fb2a8a67fb80ded20198f64b21a01de83da",
-      "fingerprint": "sha256:98180eb6b7d1530cf6c89dccd243441814e5daabf6b1cdd39ce2f686db1bc645",
+      "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+      "fingerprint": "sha256:1fcf516492c29f8155e305199f2e33dcfcbb2d614a17b841c43308e7bf48db2d",
       "mutants": 0,
       "killed": 0,
       "score": 100,

@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "content",
-  "measuredAt": "e80b114b61fc48c2f7c2799be4db525284bd2833",
-  "fingerprint": "sha256:33e4f54ebc512f6cfd9753273edd020b219852080b6535bda98fb61b1994be98",
+  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
+  "fingerprint": "sha256:e79cd4bbb50bbf7dd5f49065feaf84327a1063b504b6fbc9a33cd7ee8fda8d4a",
   "files": {
     "src/content/media.ts": {
       "mutants": 12,
@@ -35,12 +35,15 @@
         196,
         198,
         496,
-        508,
         555,
         560,
         564,
+        569,
         812,
         823
+      ],
+      "src/content/stat.ts": [
+        67
       ]
     },
     "test/agents/runs/executor.test.ts#TurnExecutor seam requires optional checkpoint tree content before suspension": {
@@ -52,7 +55,7 @@
       "src/content/memory.ts": [
         91,
         94,
-        98
+        106
       ]
     },
     "test/content/memory-corruption.test.ts#MemoryContentStore snapshot validation names every restored-state validation diagnostic exactly": {
@@ -89,28 +92,28 @@
     },
     "test/content/memory-corruption.test.ts#MemoryContentStore snapshot validation rejects duplicate, malformed, and cryptographically inconsistent content rows": {
       "src/content/memory.ts": [
+        98,
         127,
+        136,
         144,
         145,
-        150,
         159,
-        165,
+        162,
         172,
         229,
-        448,
-        455,
-        458,
+        367,
+        515,
         520,
         526,
         527,
+        531,
+        538,
         546,
-        577,
-        581,
+        579,
         587,
-        636,
         641,
         643,
-        648,
+        649,
         661,
         668,
         671,
@@ -122,28 +125,34 @@
         719,
         722,
         734,
-        735,
+        736,
         820,
         823,
         826
       ],
-      "src/content/retention.ts": [
-        32
+      "src/content/transient.ts": [
+        67,
+        69,
+        75,
+        82
       ]
     },
     "test/content/memory-corruption.test.ts#MemoryContentStore snapshot validation rejects malformed snapshot roots and bindings": {
       "src/content/memory.ts": [
-        123,
+        120,
         181,
+        508,
         572,
+        574,
         577,
         615,
         616,
         617,
         619,
-        620,
+        621,
         622,
         626,
+        628,
         682,
         688
       ]
@@ -151,13 +160,13 @@
     "test/content/memory-corruption.test.ts#MemoryContentStore snapshot validation rejects malformed, duplicate, foreign, and disconnected lease records": {
       "src/content/memory.ts": [
         375,
+        667,
         671,
         701,
         705,
         706,
         707,
         708,
-        730,
         734,
         737
       ]
@@ -177,13 +186,12 @@
     "test/content/memory-corruption.test.ts#MemoryContentStore snapshot validation rejects unbound snapshots that carry retention relations": {
       "src/content/memory.ts": [
         185,
-        537,
         538,
-        561,
-        569,
         590,
-        643,
-        660,
+        594,
+        638,
+        641,
+        657,
         661,
         682,
         687,
@@ -195,15 +203,22 @@
     },
     "test/content/memory-corruption.test.ts#MemoryContentStore transaction and lease isolation handles missing bytes, immutable lease-key collision, collection, and stale handles": {
       "src/content/memory.ts": [
-        263,
+        266,
+        271,
+        279,
         357,
         358,
+        389,
+        403,
+        406,
+        417,
         426,
-        474,
-        747,
-        767,
-        862,
+        475,
         864
+      ],
+      "src/content/transient.ts": [
+        64,
+        154
       ]
     },
     "test/content/memory-corruption.test.ts#MemoryContentStore transaction and lease isolation names every transaction and retention diagnostic exactly": {
@@ -220,7 +235,7 @@
         518,
         521,
         547,
-        758,
+        851,
         852,
         856,
         883
@@ -239,13 +254,11 @@
     },
     "test/content/memory-corruption.test.ts#MemoryContentStore transaction and lease isolation uses the default observation clock for transient acquisition": {
       "src/content/memory.ts": [
-        309,
-        393
+        309
       ]
     },
     "test/content/memory.test.ts#memory content-retention contract blocks GC through active lease and opens at close or exact expiry": {
       "src/content/memory.ts": [
-        136,
         319,
         321,
         332,
@@ -255,9 +268,7 @@
         365,
         367,
         375,
-        389,
         393,
-        403,
         406,
         413,
         417,
@@ -266,18 +277,19 @@
         433,
         435,
         444,
+        448,
         455,
         458,
-        475,
+        474,
         480,
         481,
         486,
         487,
         607,
-        667,
         668,
+        730,
         734,
-        736,
+        735,
         745,
         747,
         749,
@@ -292,23 +304,15 @@
         789,
         790,
         799,
+        862,
         869,
         870
       ],
       "src/content/transient.ts": [
-        48,
-        64,
-        66,
-        68,
-        77,
-        82,
+        29,
+        33,
         112,
-        118,
-        121,
-        139,
-        154,
-        159,
-        208
+        143
       ]
     },
     "test/content/memory.test.ts#memory content-retention contract deduplicates content until every owner releases in either order": {
@@ -342,9 +346,7 @@
     "test/content/memory.test.ts#memory content-retention contract rejects foreign Actor and Tenant edges before mutation": {
       "src/content/retention.ts": [
         133,
-        134,
-        140,
-        142
+        134
       ]
     },
     "test/content/memory.test.ts#memory content-retention contract rejects foreign or mismatched lease acquisition without partial insertion": {
@@ -358,15 +360,12 @@
     "test/content/memory.test.ts#memory content-retention contract rejects missing content and immutable owner-key collisions": {
       "src/content/memory.ts": [
         223,
+        225,
         229,
         246,
-        851,
         874,
         878,
         879
-      ],
-      "src/content/retention.ts": [
-        86
       ]
     },
     "test/content/memory.test.ts#memory content-retention contract replaces closed or expired same-envelope leases but rejects active conflicts": {
@@ -386,9 +385,9 @@
         91,
         92,
         93,
-        98,
         102,
-        162,
+        150,
+        165,
         218,
         223,
         225,
@@ -398,8 +397,8 @@
         246,
         248,
         258,
+        263,
         264,
-        266,
         267,
         271,
         272,
@@ -408,15 +407,12 @@
         282,
         286,
         297,
-        515,
         517,
         520,
-        527,
-        531,
-        538,
+        537,
         546,
-        574,
-        579,
+        577,
+        581,
         589,
         594,
         599,
@@ -427,16 +423,16 @@
         615,
         616,
         618,
-        621,
+        620,
         626,
-        628,
-        638,
+        636,
         641,
+        643,
+        648,
         649,
         653,
-        657,
+        660,
         661,
-        706,
         707,
         743,
         776,
@@ -448,12 +444,18 @@
       ],
       "src/content/retention.ts": [
         20,
+        21,
         29,
+        30,
         68,
-        134,
+        86,
+        88,
         140,
-        163,
-        170
+        149,
+        161
+      ],
+      "src/content/stat.ts": [
+        73
       ]
     },
     "test/content/memory.test.ts#memory ContentStore contract deduplicates equal bytes by content address": {
@@ -471,6 +473,8 @@
       ],
       "src/content/range.ts": [
         20,
+        24,
+        32,
         40,
         41,
         48
@@ -478,37 +482,48 @@
     },
     "test/content/memory.test.ts#memory ContentStore contract distinguishes an unresolved store-produced reference": {
       "src/content/memory.ts": [
-        882,
-        883
+        882
       ]
     },
     "test/content/memory.test.ts#memory ContentStore contract puts, resolves, and stats content-addressed bytes": {
       "src/content/memory.ts": [
+        191,
+        506,
         508,
         560,
+        561,
         564
       ],
       "src/content/range.ts": [
         16,
         32,
-        33
+        33,
+        54
+      ],
+      "src/content/stat.ts": [
+        66,
+        67,
+        70
       ]
     },
     "test/content/memory.test.ts#memory ContentStore contract rejects ranges outside the content bounds": {
       "src/content/range.ts": [
-        27,
         32,
         33,
         41,
         47,
         48,
         53,
-        54
+        54,
+        55
       ]
     },
     "test/content/memory.test.ts#MemoryContentStore canonical state accepts a tombstone recorded at the epoch instant": {
       "src/content/memory.ts": [
         838
+      ],
+      "src/content/retention.ts": [
+        155
       ]
     },
     "test/content/memory.test.ts#MemoryContentStore canonical state constructs a frozen retention state bound to its owner": {
@@ -517,7 +532,7 @@
         76,
         77,
         79,
-        106
+        98
       ]
     },
     "test/content/memory.test.ts#MemoryContentStore canonical state detaches every snapshot copy from the stored backend": {
@@ -601,23 +616,21 @@
       ]
     },
     "test/content/memory.test.ts#MemoryContentStore records [C13-CODEC-VERSIONING] round-trips stat and owner-edge records through versioned codecs": {
+      "src/content/retention.ts": [
+        67
+      ],
       "src/content/stat.ts": [
         20,
         29,
         30,
         31,
         32,
-        33,
-        34,
-        40,
-        46,
-        86,
-        87
+        77
       ]
     },
     "test/content/memory.test.ts#MemoryContentStore records [content.owner-edge] [content.transient-lease] restores content, owner, tombstone, and lease state": {
       "src/content/memory.ts": [
-        120,
+        123,
         341,
         342,
         419,
@@ -643,9 +656,7 @@
         5
       ],
       "src/content/retention.ts": [
-        21,
         22,
-        30,
         32,
         33,
         34,
@@ -665,7 +676,6 @@
         80,
         153,
         155,
-        161,
         163,
         167,
         169,
@@ -684,23 +694,21 @@
         33,
         34,
         35,
+        40,
         41,
         43,
         44,
         46,
-        66,
         67,
         70,
         73,
-        77,
         81,
+        86,
         87
       ],
       "src/content/transient.ts": [
-        29,
         30,
         32,
-        33,
         45,
         46,
         48,
@@ -724,8 +732,8 @@
         67,
         68,
         69,
-        73,
         76,
+        77,
         78,
         79,
         80,
@@ -739,6 +747,7 @@
         127,
         131,
         135,
+        139,
         144,
         200,
         202,
@@ -761,8 +770,7 @@
         48,
         50,
         67,
-        70,
-        73
+        70
       ]
     },
     "test/content/records.test.ts#content record codecs owner edge rejects every malformed field and invalid value": {
@@ -770,7 +778,6 @@
         32,
         41,
         51,
-        67,
         68,
         169,
         171,
@@ -789,7 +796,6 @@
         70,
         82,
         84,
-        112,
         115,
         118,
         121,
@@ -855,11 +861,11 @@
     "test/content/records.test.ts#content value contracts models active, released, expired, and idempotently closed lease orders": {
       "src/content/transient.ts": [
         118,
-        143,
         144,
         147,
         148,
         149,
+        152,
         154,
         159,
         164,
@@ -883,40 +889,45 @@
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract blocks GC through active lease and opens at close or exact expiry": {
       "src/content/transient.ts": [
-        164
+        64,
+        68,
+        73,
+        82,
+        118,
+        154,
+        157
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract rejects foreign Actor and Tenant edges before mutation": {
       "src/content/retention.ts": [
         134,
-        136
+        136,
+        140,
+        142
       ]
     },
     "test/content/sqlite.test.ts#SQLite content-retention contract retains idempotently and starts the tombstone on final release": {
       "src/content/retention.ts": [
-        149
+        163
       ]
     },
     "test/content/sqlite.test.ts#SQLite ContentStore contract detaches input and every returned byte range": {
       "src/content/range.ts": [
-        24,
-        32,
         34
       ]
     },
     "test/content/sqlite.test.ts#SQLite ContentStore contract puts, resolves, and stats content-addressed bytes": {
       "src/content/range.ts": [
         32,
-        54
+        33
       ]
     },
     "test/content/sqlite.test.ts#SQLite ContentStore contract rejects ranges outside the content bounds": {
       "src/content/range.ts": [
-        33,
+        27,
         41,
         48,
-        54,
-        55
+        54
       ]
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition replays per-item mediation and retries the durable outbox after crashes": {
@@ -927,25 +938,23 @@
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart": {
       "src/content/range.ts": [
-        31,
-        33,
         54
       ]
     },
-    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-BASE-NAMES] executes a platform alias without changing impact or invariants": {
+    "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation": {
+      "src/content/range.ts": [
+        31,
+        33
+      ]
+    },
+    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] restart and redelivery never regenerate existing audit identifiers": {
       "src/content/memory.ts": [
         497
       ]
     },
-    "test/operations/authored-code.test.ts#selecting the backing that serves a §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from its declared backing": {
+    "test/invocations/reconciliation.test.ts#InvocationReconciler rejects a persisted attempt audit substituted onto an unrelated invocation root": {
       "src/content/memory.ts": [
-        191,
-        506
-      ]
-    },
-    "test/substrates/sqlite/content-retention.test.ts#SQLite content retention boundaries clamps reacquisition to the persisted unowned maximum": {
-      "src/content/transient.ts": [
-        64
+        120
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention boundaries leaves the persisted boundary untouched on reclose": {
@@ -955,27 +964,18 @@
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention collection gating consults policy only for unprotected content and deletes exactly the approved rows": {
       "src/content/transient.ts": [
-        152,
         154
       ]
     },
-    "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation accepts zero-timestamp retention boundaries": {
+    "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation rejects owned-relation drift with the exact diagnostic": {
       "src/content/retention.ts": [
-        155
+        134,
+        140
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite content retention state validation rejects unowned-relation drift with the exact diagnostic": {
       "src/content/transient.ts": [
-        67,
-        68,
-        75,
-        76,
-        82
-      ]
-    },
-    "test/substrates/sqlite/content-retention.test.ts#SQLite transient lease contract rejects binding digests that do not match the reference or bytes": {
-      "src/content/transient.ts": [
-        157
+        118
       ]
     },
     "test/substrates/sqlite/content-retention.test.ts#SQLite transient lease contract reports exact owner, lease, and missing-content collision messages": {
