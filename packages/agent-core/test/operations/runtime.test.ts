@@ -1080,6 +1080,169 @@ describe("Protected Operation gateway", () => {
         }
     );
 
+    test(
+        "[C13-INTERCEPTOR-POST-PREPARATION] refuses a post-preparation rewrite instead of dropping it",
+        { tags: "p0" },
+        async () => {
+            const descriptor = operationDescriptor("run", "mutate", true);
+            const executed: FacetData[] = [];
+            const beforeDeclaration = new InterceptorDeclaration(
+                new InterceptorId("prepare"),
+                "operation.before",
+                OperationSelector.own("run"),
+                10
+            );
+            const afterDeclaration = new InterceptorDeclaration(
+                new InterceptorId("present"),
+                "operation.after",
+                OperationSelector.own("run"),
+                20
+            );
+            // Everything the contributing Facet still holds once `operation.before` has
+            // completed and preparation has frozen the intent (§4.4 rules 6 and 7): the
+            // value it was handed, the value it returned, and the context it ran under.
+            const held: {
+                received?: FacetData;
+                returned?: { [key: string]: FacetData };
+                context?: InterceptContext;
+            } = {};
+            const rewrite = (target: object, key: string, value: FacetData): void => {
+                Object.defineProperty(target, key, {
+                    configurable: true,
+                    enumerable: true,
+                    value,
+                    writable: true
+                });
+            };
+            class PostPreparationInterceptor extends Interceptor {
+                public readonly outcomes: string[] = [];
+
+                public constructor(
+                    public readonly declaration: InterceptorDeclaration,
+                    private readonly surviveRefusal: boolean
+                ) {
+                    super();
+                }
+
+                public intercept(context: InterceptContext, value: FacetData): InterceptResult {
+                    if (context.cutPoint === "operation.before") {
+                        held.received = value;
+                        held.returned = { ...requireObject(value), prepared: true };
+                        return { proceed: true, value: held.returned };
+                    }
+                    for (const [subject, attempt] of [
+                        ["own pre-preparation rewrite", () => rewrite(held.returned!, "prepared", false)],
+                        [
+                            "value seen before preparation",
+                            () => rewrite(requireObject(held.received!), "value", 2)
+                        ],
+                        ["intercept context", () => rewrite(context, "cutPoint", "operation.before")],
+                        ["value in flight", () => rewrite(requireObject(value), "produced", false)]
+                    ] as const) {
+                        if (!this.surviveRefusal) {
+                            attempt();
+                            continue;
+                        }
+                        try {
+                            attempt();
+                            this.outcomes.push(`${subject}: applied`);
+                        } catch (error) {
+                            this.outcomes.push(
+                                `${subject}: ${error instanceof TypeError ? "refused" : "unknown"}`
+                            );
+                        }
+                    }
+                    return { proceed: true, value: { ...requireObject(value), presented: true } };
+                }
+            }
+            const dispatchWith = async (surviveRefusal: boolean) => {
+                const facetManifest = manifest(
+                    "acme.runtime",
+                    [descriptor],
+                    [beforeDeclaration, afterDeclaration]
+                );
+                const after = new PostPreparationInterceptor(afterDeclaration, surviveRefusal);
+                const facet = new TestFacet(
+                    "workspace:runtime",
+                    facetManifest,
+                    [],
+                    new Map([
+                        [
+                            "run",
+                            new TestOperation(descriptor, async (input) => {
+                                executed.push(input);
+                                return { produced: true };
+                            })
+                        ]
+                    ]),
+                    new Map([
+                        ["prepare", new PostPreparationInterceptor(beforeDeclaration, true)],
+                        ["present", after]
+                    ])
+                );
+                const host = new FacetRuntimeHost([facetManifest], [facet]);
+                await host.activate();
+                const invocations = new TestInvocations([]);
+                const gateway = new OperationGatewayHost(
+                    { caller: "authenticated" },
+                    host,
+                    new TestAuthority([], "mediated"),
+                    invocations
+                );
+                const resolved = await gateway.resolve(new BindingName("runtime"));
+                try {
+                    return {
+                        after,
+                        invocations,
+                        result: await resolved.dispatch({
+                            requestKey: new OperationRequestKey(`post-preparation-${surviveRefusal}`),
+                            operation: new OperationName("run"),
+                            payload: { kind: "single", input: { value: 1 } }
+                        }),
+                        failure: undefined
+                    };
+                } catch (failure) {
+                    return { after, invocations, result: undefined, failure };
+                } finally {
+                    resolved[Symbol.dispose]();
+                    await host.dispose();
+                }
+            };
+
+            const survived = await dispatchWith(true);
+            // Everything preparation handed out is a frozen canonical copy, so the three
+            // rewrites of runtime-owned state raise rather than take effect. The Facet's
+            // own object stays writable and rewriting it reaches nothing, because the
+            // PreparedInvocation froze a copy no contributor holds.
+            expect(survived.after.outcomes).toEqual([
+                "own pre-preparation rewrite: applied",
+                "value seen before preparation: refused",
+                "intercept context: refused",
+                "value in flight: refused"
+            ]);
+            expect(held.returned).toEqual({ prepared: false, value: 1 });
+            expect(survived.invocations.lastRequest?.inputs).toEqual([{ prepared: true, value: 1 }]);
+            expect(survived.invocations.lastRequest?.inputs[0]).not.toBe(held.returned);
+            expect(Object.isFrozen(survived.invocations.lastRequest?.inputs)).toBe(true);
+            expect(Object.isFrozen(survived.invocations.lastRequest?.interceptions)).toBe(true);
+            expect(executed).toEqual([{ prepared: true, value: 1 }]);
+            expect(survived.result).toEqual({
+                kind: "mediated",
+                output: { presented: true, produced: true },
+                evidence: { receipt: "recorded" }
+            });
+
+            // And the refusal is a refusal: an interceptor that lets it propagate blocks
+            // the operation rather than having its post-preparation rewrite dropped.
+            const blocked = await dispatchWith(false);
+            expect(blocked.failure).toMatchObject({
+                code: "authority.denied",
+                message: expect.stringContaining("blocked the operation")
+            });
+            expect(blocked.invocations.lastRequest?.inputs).toEqual([{ prepared: true, value: 1 }]);
+        }
+    );
+
     test("rejects invalid command arguments and missing mapping sources", { tags: "p1" }, () => {
         const passthrough = new Command({
             name: "run",

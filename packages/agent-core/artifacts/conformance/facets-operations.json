@@ -317,15 +317,17 @@
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-POST-PREPARATION",
       "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The adversarial counterpart C13-ADV-POST-PREPARATION-INTERCEPTOR is verified, but its test asserts that mediated effects route through the invocation port with frozen traces — it never attempts a post-preparation rewrite, so it is not evidence for this prohibition",
-        "Needs a test that an interceptor reached after preparation cannot alter the PreparedInvocation, Approval, EffectAttempt, or effect arguments, and that the attempt is refused rather than silently dropped"
-      ]
+      "sourceSymbols": [
+        "src/operations/gateway.ts#ProtectedResolvedFacet",
+        "src/operations/interception.ts#OperationInterceptorRunner"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-POST-PREPARATION] refuses a post-preparation rewrite instead of dropping it"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-INTERCEPTOR-REPLAY",
