@@ -31,12 +31,14 @@ import {
     Workspace
 } from "../identity/internal-fixture";
 import { Binding } from "../../src/authority/binding";
+import { ScopeEpoch } from "../../src/authority/epoch";
 import { Grant } from "../../src/authority/grant";
 import { GrantId } from "../../src/authority/id";
 import { MemoryTenantControlStore } from "../../src/authority/memory";
 import {
     AuthorityMutationService,
-    createTenantControlBootstrapPlan
+    createTenantControlBootstrapPlan,
+    type AuthorityMutationStore
 } from "../../src/authority/service";
 
 const tenantId = new TenantId("mutation-gate-tenant");
@@ -1237,6 +1239,217 @@ describe("AuthorityMutationService Binding authority gate", () => {
         expect(store.binding(binding.key)?.grantId.value).toBe(backing.id.value);
     });
 });
+
+// Two properties of the revocation closure that only a store answering with a Grant graph
+// it was never given can show. The Memory store re-derives the attenuation closure at the
+// end of every transaction and on every restore, so neither state survives a commit there;
+// src/substrates/sqlite/authority.ts checks a row against its own record bytes and derives
+// no cross-record invariant, so both are states a durable ledger can hold. The service is
+// the layer both backends share, which is why it has to hold on the weaker one.
+describe("AuthorityMutationService revocation over a divergent Grant graph", () => {
+    test("leaves a Grant the store reports as already revoked untouched", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const parent = grant("divergent-parent", ownerSubject(), { kind: "direct" }, tenantScope);
+        service.createGrant(parent);
+        const child = new Grant(
+            new GrantId("divergent-child"),
+            workspaceScope,
+            ownerSubject(),
+            "allow",
+            observeCapability(),
+            { kind: "direct" },
+            parent.id
+        );
+        service.createGrant(child);
+        // The store now answers with the parent revoked while its child stays live — the
+        // combination revokeGrant's own closure is what normally prevents.
+        const divergent = new AuthorityMutationService(
+            new DivergentGrantStore(
+                store,
+                new GrantDivergence(new Map([[parent.id.value, parent.revoke()]]))
+            )
+        );
+        const workspaceEpoch = store.epoch(workspaceScope).epoch;
+        const tenantEpoch = store.epoch(tenantScope).epoch;
+
+        expect(divergent.revokeGrant(parent.id).isLive).toBe(false);
+
+        // Revocation is idempotent, and idempotent means no writes and no epoch: a Scope
+        // epoch is the invalidation signal every holder re-resolves against, so a repeated
+        // revoke that advanced one would invalidate the whole Scope for no change.
+        expect(store.grant(child.id)?.isLive).toBe(true);
+        expect(store.epoch(workspaceScope).epoch).toBe(workspaceEpoch);
+        expect(store.epoch(tenantScope).epoch).toBe(tenantEpoch);
+    });
+
+    test("terminates on a Grant graph that attenuates in a cycle", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const first = grant("cyclic-first", ownerSubject(), { kind: "direct" }, tenantScope);
+        const second = grant("cyclic-second", ownerSubject(), { kind: "direct" }, tenantScope);
+        service.createGrant(first);
+        service.createGrant(second);
+        // Each names the other as its attenuation parent. No sequence of createGrant calls
+        // builds this — the parent has to exist before the child — so only the store can
+        // present it, and the walk has to finish anyway rather than following the loop.
+        const divergence = new GrantDivergence(
+            new Map([
+                [first.id.value, attenuating(first, second.id)],
+                [second.id.value, attenuating(second, first.id)]
+            ])
+        );
+        const divergent = new AuthorityMutationService(new DivergentGrantStore(store, divergence));
+
+        expect(divergent.revokeGrant(first.id).isLive).toBe(false);
+
+        expect(divergence.records.get(second.id.value)?.isLive).toBe(false);
+        expect(divergence.reads).toBeLessThan(divergence.budget);
+    });
+});
+
+function attenuating(grant: Grant, parent: GrantId): Grant {
+    return new Grant(
+        grant.id,
+        grant.scope,
+        grant.subject,
+        grant.effect,
+        grant.capability,
+        grant.origin,
+        parent,
+        grant.state
+    );
+}
+
+/**
+ * The diverged Grant records, plus the budget of Grant-table reads the store will answer.
+ * A walk that does not terminate blocks the event loop, so no test timeout can catch it;
+ * refusing the read is what turns non-termination into an observable failure. The budget
+ * is loose — a two-Grant closure reads the table twice — so only a walk that has stopped
+ * making progress can exhaust it.
+ */
+class GrantDivergence {
+    public reads = 0;
+    public readonly budget = 64;
+    public constructor(public readonly records: Map<string, Grant>) {}
+
+    public spend(): void {
+        this.reads += 1;
+        if (this.reads > this.budget) {
+            throw new Error(`Grant walk read the table more than ${this.budget} times`);
+        }
+    }
+}
+
+/**
+ * A store that accepts every write and then answers a later read with something else. Grant
+ * records the divergence names are served from it and written back to it; everything else
+ * passes through to the store underneath, so the records the service does not diverge on
+ * stay consistent and the transaction commits.
+ */
+class DivergentGrantStore implements AuthorityMutationStore {
+    public constructor(
+        private readonly inner: AuthorityMutationStore,
+        private readonly divergence: GrantDivergence
+    ) {}
+
+    public get tenantId(): TenantId {
+        return this.inner.tenantId;
+    }
+
+    public transaction<Result>(operation: (store: AuthorityMutationStore) => Result): Result {
+        return this.inner.transaction((candidate) =>
+            operation(new DivergentGrantStore(candidate, this.divergence))
+        );
+    }
+
+    public grant(id: GrantId): Grant | undefined {
+        return this.divergence.records.get(id.value) ?? this.inner.grant(id);
+    }
+
+    public grants(): readonly Grant[] {
+        this.divergence.spend();
+        return this.inner
+            .grants()
+            .map((grant) => this.divergence.records.get(grant.id.value) ?? grant);
+    }
+
+    public putGrant(grant: Grant): void {
+        if (this.divergence.records.has(grant.id.value)) {
+            this.divergence.records.set(grant.id.value, grant);
+        } else {
+            this.inner.putGrant(grant);
+        }
+    }
+
+    public principal(id: PrincipalId): Principal | undefined {
+        return this.inner.principal(id);
+    }
+    public putPrincipal(principal: Principal): void {
+        this.inner.putPrincipal(principal);
+    }
+    public team(id: TeamId): Team | undefined {
+        return this.inner.team(id);
+    }
+    public teams(): readonly Team[] {
+        return this.inner.teams();
+    }
+    public putTeam(team: Team): void {
+        this.inner.putTeam(team);
+    }
+    public project(id: ProjectId): Project | undefined {
+        return this.inner.project(id);
+    }
+    public putProject(project: Project): void {
+        this.inner.putProject(project);
+    }
+    public workspace(id: WorkspaceId): Workspace | undefined {
+        return this.inner.workspace(id);
+    }
+    public putWorkspace(workspace: Workspace): void {
+        this.inner.putWorkspace(workspace);
+    }
+    public guestTrust(id: GuestTrustId): GuestTrust | undefined {
+        return this.inner.guestTrust(id);
+    }
+    public guestTrusts(): readonly GuestTrust[] {
+        return this.inner.guestTrusts();
+    }
+    public putGuestTrust(trust: GuestTrust): void {
+        this.inner.putGuestTrust(trust);
+    }
+    public role(name: RoleName): Role | undefined {
+        return this.inner.role(name);
+    }
+    public putRole(role: Role): void {
+        this.inner.putRole(role);
+    }
+    public membership(id: MembershipId): Membership | undefined {
+        return this.inner.membership(id);
+    }
+    public memberships(): readonly Membership[] {
+        return this.inner.memberships();
+    }
+    public putMembership(membership: Membership): void {
+        this.inner.putMembership(membership);
+    }
+    public binding(key: string): Binding | undefined {
+        return this.inner.binding(key);
+    }
+    public bindings(): readonly Binding[] {
+        return this.inner.bindings();
+    }
+    public putBinding(binding: Binding): void {
+        this.inner.putBinding(binding);
+    }
+    public epochs(): readonly ScopeEpoch[] {
+        return this.inner.epochs();
+    }
+    public epoch(scope: ScopeEpoch["scope"]): ScopeEpoch {
+        return this.inner.epoch(scope);
+    }
+    public putEpoch(epoch: ScopeEpoch): void {
+        this.inner.putEpoch(epoch);
+    }
+}
 
 function fixture(): { store: MemoryTenantControlStore; service: AuthorityMutationService } {
     const store = MemoryTenantControlStore.create(anchor);

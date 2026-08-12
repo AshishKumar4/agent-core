@@ -1240,6 +1240,76 @@
       "proof": "Flipping this operator turns two disjuncts into a conjunction, and both are implied by disjuncts later in the same chain, so the chain's value is unchanged. TurnInboxEntry's constructor makes carrying a cancellation token and being a turn.cancel entry one fact, so where the event test was the true one the token test below still fires; and it requires the token to name the entry's own Turn, so where the Turn test was the true one the leaseTokensEqual test below still fires against a token naming a different Turn. Every operand is a pure comparison, so evaluating more of them changes nothing but the order.",
       "replacement": "entry.event !== \"turn.cancel\" && !entry.turn.equals(turn.id)",
       "symbol": "RunRuntime.appendCancellation"
+    },
+    {
+      "file": "src/authority/grant.ts",
+      "symbol": "sameOriginIdentity",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"direct\"",
+      "occurrence": 1,
+      "sites": 2,
+      "proof": "Emptying this literal makes the left comparison read left.kind === \"\", and GrantOrigin's kind is either \"direct\" or \"role\", so that comparison is constantly false and the disjunction falls through to its right operand. The line above returns false unless the two kinds are equal, so the right operand reports exactly the value the pair reported. What the mutant costs is the short circuit, not the answer, and the right operand is a property read on a frozen origin object, so evaluating it where it used to be skipped has no effect of its own. The identical literal in the right operand is registered separately: emptying that one leaves this operand deciding instead, and the short-circuit argument runs the other way."
+    },
+    {
+      "file": "src/authority/grant.ts",
+      "symbol": "sameOriginIdentity",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"direct\"",
+      "occurrence": 2,
+      "sites": 2,
+      "proof": "Emptying this literal makes the right comparison read right.kind === \"\", false for both members of GrantOrigin, so the disjunction is decided by its left operand alone \u2014 which already holds the pair's value, because the line above returns false unless the two kinds are equal. This operand is also reached only when the left one is false, that is only when both origins are role origins, so the mutation edits a comparison the function has already decided not to act on. That asymmetry is what separates this entry from the left literal's: there the mutant removes a short circuit, here it changes a value that is read only after the short circuit has failed."
+    },
+    {
+      "file": "src/authority/runtime.ts",
+      "symbol": "validateLineage",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"revokedGrant\"",
+      "occurrence": 3,
+      "sites": 4,
+      "proof": "This is the top-of-loop return, and its value never reaches an observation. validateLineage has three callers. evaluate tests backing.isLive and returns revokedGrant itself before calling, and each later iteration sets child to a parent whose liveness the guard further down has just checked, so this return never fires on the one path that would surface the string as a decision reason. validateBinding puts !grant.isLive ahead of the call in the same disjunction and then compares the result only against undefined. The allow filter does reach this return, for a revoked allow Grant, and compares the result only against undefined as well. The two earlier sites are the same text in the return type annotation; the fourth, the parent-liveness return that evaluate can actually surface, is killed."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.revokeGrant",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Grant\"",
+      "occurrence": 2,
+      "sites": 2,
+      "proof": "This label is read only if requireRecord finds nothing, and the second lookup cannot. The same id was resolved by the first requireRecord at the top of the same transaction, and nothing between them removes a Grant: revokeGrantClosure writes revoked records through putGrant and no store operation deletes one. The first occurrence of this literal is the reachable one \u2014 a caller can name a Grant that does not exist \u2014 and its mutant is killed by the assertion on \"Grant does not exist\". Same text, same symbol, one reachable and one not, which is exactly what the ordinal is here to record."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "verification === undefined",
+      "occurrence": 2,
+      "sites": 2,
+      "proof": "Whenever this operand is true, the ternary on the line above it has already taken its undefined branch, so trust is undefined and the next operand of this same disjunction is true. Forcing this one false therefore cannot change the disjunction's value: a foreign Membership with no verification is still refused, with the same code and the same message. The first occurrence is the ternary's own test, and its mutants are killed, because its two branches assign different values to trust and that difference reaches this guard. This one only restates what that assignment already implies."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "anchorsEqual",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"personal\"",
+      "occurrence": 1,
+      "sites": 2,
+      "proof": "This is the default for the left operand, and the left operand is always this store's own bootstrapAnchor(), whose Tenant kind was filled in by anchorSnapshot before the store was constructed and then re-checked by copyAnchorSnapshot, which requires a valid TenantKind rather than supplying one. left.tenantKind is therefore never null or undefined, the coalesce never takes its right side, and the literal is never read. The right default is the reachable one \u2014 bootstrapTenant is handed a caller-supplied anchor whose tenantKind is optional \u2014 and its identical literal is killed."
+    },
+    {
+      "file": "src/authority/permit.ts",
+      "symbol": "requireNonblank",
+      "mutator": "MethodExpression",
+      "replacement": "value",
+      "mutated": "value.trim()",
+      "occurrence": 1,
+      "sites": 2,
+      "proof": "Dropping the trim here makes the test read value.length === 0, which differs from the original only for a string that is non-empty but trims to empty \u2014 one made of nothing but whitespace. For exactly those strings the operand beside it is true, because a whitespace-only string is never equal to its own trim, so the refusal fires for the same inputs with the same message. The second occurrence is the canonicality test itself and cannot be dropped: without its trim the comparison becomes value !== value, constantly false, and a padded string would be accepted. Its mutant is killed."
     }
   ]
 }
