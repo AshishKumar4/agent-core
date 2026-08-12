@@ -100,7 +100,7 @@
       "checkerInvariants": [],
       "remainingEvidence": [
         "\u00a74.7/\u00a710.2 now name the declaration site (policies.placement, \u00a79.2 \u2014 one more consumer \u2192 backing id mapping alongside the isolation-mode admissibility PlacementPolicy already declares, not a new artifact), the closed consumer set (the three \u00a74.7-named consumers, which is also now the agent-authored-code marker: membership in that closed set, not a runtime flag), canonical backing ids for the Cloudflare profile (workerLoader, dispatchNamespace), and the equivalence procedure (each backing independently satisfies the \u00a71.5 dynamic-mode invariants under C13-PLACEMENT-DYNAMIC-NO-EGRESS; never a comparison between backings)",
-        "PlacementPolicy (src/definition/placement.ts) still has no backings field: adding consumer \u2192 backing id is a scoped, closed-key codec-major-2 change to one existing W4 record, now that the spec fixes its shape",
+        "PlacementPolicy (src/definition/placement.ts) still has no backings field. quality/unify-placement (merged into main after this atom's SPEC amendment) already spent PlacementPolicy's major-2 bump on an unrelated field (`trusted`, for C13-PLACEMENT-UNTRUSTED-BUNDLED); adding consumer \u2192 backing id is now a closed-key codec-major-3 change to that record, not major-2 as first scoped",
         "Verifying this atom needs that field plus a selector reading it (a TurnPlacementSnapshot/composition consumer choosing a backing id per \u00a74.7 consumer) and adversarial evidence that an unmapped consumer falls back to the profile default rather than an arbitrary backing"
       ]
     },

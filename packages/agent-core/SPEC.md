@@ -2294,9 +2294,13 @@ For each Facet, compute exactly `manifest ∩ policy ∩ substrate ∩ trust`, w
 is an independently derived admissible-mode set. One preference order applies
 everywhere: `dynamic`, then `provider`, then `bundled`. Placement is the first member of
 the intersection in that order. An empty intersection rejects the Blueprint; no
-fallback is inferred. The trust set excludes `bundled` for untrusted Packages. If
-the chosen mode cannot admit a policy-selected direct call, that call escalates to
-mediated (§7.2); placement itself does not change.
+fallback is inferred. `policies.placement.trusted` names the Packages the trust set
+admits to `bundled`, as a nonempty list of globs matched against the whole `PackageId`:
+`*` matches any sequence of characters, including none, everywhere it appears in the
+pattern; every other character matches itself; a pattern with no `*` matches only that
+exact id. The trust set excludes `bundled` for every Package no glob matches. If the
+chosen mode cannot admit a policy-selected direct call, that call escalates to mediated
+(§7.2); placement itself does not change.
 
 The composed platform config schema is the spec's base schema plus every installed
 package's `settings` fragments, and a Blueprint MUST validate against it **before any
@@ -2315,7 +2319,7 @@ A skeleton:
   "policies": {
     "placement": {
       "trusted": ["core.*"],
-      "defaultAllowed": ["provider", "dynamic"]
+      "allowed": ["provider", "dynamic"]
     },
     "tiers": { "acme.deploy:deploy.run": "mediated" }
   }
