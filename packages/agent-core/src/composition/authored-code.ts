@@ -173,7 +173,7 @@ class MintedAuthoredCodeDelegation extends AuthoredCodeDelegation {
 export function isolateDomain(isolate: string): ProtectionDomain {
     return new ProtectionDomain(
         "backend",
-        `authored-code:${Digest.sha256(encodeCanonicalJson(isolate)).value.slice(0, 32)}`,
+        `authored-code:${Digest.sha256(encodeCanonicalJson(isolate)).value}`,
         "no-secrets"
     );
 }
