@@ -458,7 +458,13 @@ function survivorRecord(path, mutant, source, classification, proof) {
         endColumn: mutant.location.end.column,
         mutator: mutant.mutatorName,
         classification,
-        replacement: (mutant.replacement ?? "").slice(0, 120),
+        // Whole, never truncated. The replacement is what a reader applies to reproduce
+        // the mutant and what an equivalence entry anchors on, so a clipped one is worse
+        // than absent twice over: applying a cut LogicalOperator chain is a syntax error,
+        // which fails the run for a reason that is not a kill and reads as one, and an
+        // entry written from the clipped text can never match a real mutant, leaving a
+        // proof permanently stale. `source` is a reading aid and stays bounded.
+        replacement: mutant.replacement ?? "",
         source: (source[mutant.location.start.line - 1] ?? "").trim().slice(0, 160),
         ...(proof === undefined ? {} : { proof })
     };
