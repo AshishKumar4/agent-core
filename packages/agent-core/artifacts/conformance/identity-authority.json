@@ -517,7 +517,7 @@
       "id": "C13-AUTH-ROLE-MATERIALIZATION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-ROLE-MATERIALIZATION",
-      "specTextSha256": "sha256:a96ce4aede1ace7002d66731b6e843bdfe2e8765fda79fd0b8d80bd2af4b0745",
+      "specTextSha256": "sha256:fbe4983dc3741e73ff3b410fd9e1edb32bb4c5ca7be99aae8646a1f981a2aa6c",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [

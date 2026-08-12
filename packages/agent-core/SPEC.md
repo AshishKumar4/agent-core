@@ -268,8 +268,8 @@ three built-in roles every platform provides — `owner` (all capabilities at th
 including `administer`), `editor` (everything except `administer`), and `reader`
 (`observe`-impact capabilities only) — each as allow rules, and platforms MAY declare
 more rules including denies. A Role is a template; it becomes authority only when a
-Membership assigns it. The stable rule order and the allow/deny rule shape are what the
-next paragraph materializes, and map to **C13-AUTH-ROLE-MATERIALIZATION**.
+Membership assigns it. This stable rule order and allow/deny rule shape are what a
+Membership materializes into Grants, and map to **C13-AUTH-ROLE-MATERIALIZATION**.
 
 **Roles materialize Grants.** A Membership is not itself callable authority. Assigning
 a Role at a Scope materializes — idempotently, exactly as a Blueprint materializes
