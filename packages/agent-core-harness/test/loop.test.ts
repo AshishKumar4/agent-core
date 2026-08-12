@@ -75,25 +75,32 @@ function reply(text: string, calls: readonly ToolCall[] = []): ModelCompletion {
     };
 }
 
+/** A stop request against the live lease, delivered the way §5.6 says it arrives. */
 function deliverCancellation(fixture: RunFixture): void {
-    // The runtime inserts turn.cancel only from its own cancellation paths, so the
-    // fixture writes the same entry the runtime's appendCancellation would.
-    fixture.repository.transaction((transaction) => {
-        fixture.repository.insertInbox(
-            transaction,
-            new TurnInboxEntry(
-                new TurnInboxEntryId("cancel-1"),
-                ids.turn,
-                0,
-                "turn.cancel",
-                fixture.input,
-                fixture.inputDigest,
-                "cancel-key",
-                fixture.token,
-                new Date(1_500)
-            )
-        );
-    });
+    const turn = fixture.repository.transaction((transaction) =>
+        fixture.repository.loadTurn(transaction, ids.turn)
+    );
+    if (turn === undefined) throw new TypeError("Turn must exist");
+    const sequence = fixture.repository.transaction(
+        (transaction) => fixture.repository.listInbox(transaction, ids.turn).length
+    );
+    fixture.runtime.deliverEvent(
+        ids.turn,
+        turn.revision,
+        fixture.token,
+        new TurnInboxEntry(
+            new TurnInboxEntryId(`cancel-${sequence}`),
+            ids.turn,
+            sequence,
+            "turn.cancel",
+            fixture.input,
+            fixture.inputDigest,
+            `cancel-key-${sequence}`,
+            fixture.token,
+            new Date(1_500)
+        ),
+        new Date(1_500)
+    );
 }
 
 async function runLoop(
@@ -365,6 +372,21 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
 
             expect(outcome.kind).toBe("cancelled");
             expect(provider.requests).toHaveLength(0);
+
+            // The holder performed the transition itself: the Turn is durably cancelled
+            // and its result commit is the transcript the loop had reached (§5.3, §5.6).
+            const turn = fixture.repository.transaction((transaction) =>
+                fixture.repository.loadTurn(transaction, ids.turn)
+            );
+            expect(turn?.status.kind).toBe("cancelled");
+            expect(turn?.lease.holder).toBeUndefined();
+            if (outcome.kind !== "cancelled" || outcome.result === undefined) {
+                throw new TypeError("expected a cancelled result");
+            }
+            expect(turn?.result?.equals(outcome.result)).toBe(true);
+            expect(
+                TranscriptCodec.decode(await fixture.content.get(outcome.result)).messages
+            ).toEqual([new UserMessage("Where did I park?")]);
         }
     );
 

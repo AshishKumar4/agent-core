@@ -1,5 +1,10 @@
 import { RunCommit, TurnExecutor } from "@agent-core/core/agents/runs";
-import type { TurnBoundOperation, TurnContext, TurnOutcome } from "@agent-core/core/agents/runs";
+import type {
+    TurnBoundOperation,
+    TurnContext,
+    TurnInboxEntry,
+    TurnOutcome
+} from "@agent-core/core/agents/runs";
 import { RunCommitId } from "@agent-core/core/agents/runs";
 import type { ContentRef } from "@agent-core/core/core";
 import { OperationRequestKey } from "@agent-core/core/operations";
@@ -53,32 +58,43 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
             head = commit.id;
         };
 
-        for (let step = 0; step < this.options.maximumSteps; step += 1) {
-            const cancellation = await this.observedCancellation(turn, cursor);
-            cursor = cancellation.cursor;
-            if (cancellation.cancelled) return turn.outcome.cancelled();
+        try {
+            for (let step = 0; step < this.options.maximumSteps; step += 1) {
+                const cancellation = await this.observedCancellation(turn, cursor);
+                cursor = cancellation.cursor;
+                if (cancellation.entry !== undefined) {
+                    return await this.settle(turn, cancellation.entry, transcript, head);
+                }
 
-            const promptRef = (await turn.content.put(TranscriptCodec.encode(transcript))).ref;
-            const reply = await turn.model.call({ prompt: promptRef });
-            const message = AssistantMessageCodec.decode(await turn.content.get(reply.output));
-            transcript = transcript.append(message);
-            await turn.stream.publish({ kind: "usage", usage: reply.usage });
+                const promptRef = (await turn.content.put(TranscriptCodec.encode(transcript))).ref;
+                const reply = await turn.model.call({ prompt: promptRef });
+                const message = AssistantMessageCodec.decode(await turn.content.get(reply.output));
+                transcript = transcript.append(message);
+                await turn.stream.publish({ kind: "usage", usage: reply.usage });
 
-            if (message.toolCalls.length === 0) {
-                return turn.outcome.succeed(
-                    resultCommit(turn, `${turn.turn.id.value}-result`, head, reply.output)
-                );
+                if (message.toolCalls.length === 0) {
+                    return await turn.outcome.succeed(
+                        resultCommit(turn, `${turn.turn.id.value}-result`, head, reply.output)
+                    );
+                }
+                await append(`${turn.turn.id.value}-assistant-${step}`, reply.output);
+
+                const results = await this.runTools(turn, message, step);
+                transcript = transcript.append(...results);
+                const resultsRef = (
+                    await turn.content.put(
+                        TranscriptCodec.encode(new Transcript(transcript.instructions, results))
+                    )
+                ).ref;
+                await append(`${turn.turn.id.value}-tools-${step}`, resultsRef);
             }
-            await append(`${turn.turn.id.value}-assistant-${step}`, reply.output);
-
-            const results = await this.runTools(turn, message, step);
-            transcript = transcript.append(...results);
-            const resultsRef = (
-                await turn.content.put(
-                    TranscriptCodec.encode(new Transcript(transcript.instructions, results))
-                )
-            ).ref;
-            await append(`${turn.turn.id.value}-tools-${step}`, resultsRef);
+        } catch (error) {
+            if (!turn.cancellation.aborted) throw error;
+            const entry = (await turn.inbox.read(0)).find(
+                (candidate) => candidate.event === "turn.cancel"
+            );
+            if (entry === undefined) throw error;
+            return this.settle(turn, entry, transcript, head);
         }
 
         const exhausted = (
@@ -94,6 +110,25 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
         ).ref;
         return turn.outcome.fail(
             resultCommit(turn, `${turn.turn.id.value}-result`, head, exhausted)
+        );
+    }
+
+    /**
+     * The running -> cancelled transition (§5.3): commit the transcript the loop had
+     * reached as the Turn result and name the exact cancellation entry that requested it.
+     * A lease already fenced by takeover or timeout rejects this, and the host settles
+     * from the cancellation it recovers instead.
+     */
+    private async settle(
+        turn: TurnContext,
+        cancellation: TurnInboxEntry,
+        transcript: Transcript,
+        head: RunCommitId
+    ): Promise<TurnOutcome> {
+        const partial = (await turn.content.put(TranscriptCodec.encode(transcript))).ref;
+        return turn.outcome.cancel(
+            resultCommit(turn, `${turn.turn.id.value}-result`, head, partial),
+            cancellation
         );
     }
 
@@ -129,13 +164,15 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
 
     /**
      * The durable inbox is the queue: each step re-reads it and stops committing as
-     * soon as a cancellation for this exact lease is present (§5.6). The cancellation
-     * transition itself is the runtime's — the executor only reports the evidence.
+     * soon as a cancellation for this exact lease is present (§5.6). The loop then
+     * performs the running -> cancelled transition itself, committing the transcript it
+     * had reached; a lease already fenced by takeover or timeout rejects that commit and
+     * the host settles from the cancellation it recovers instead.
      */
     private async observedCancellation(
         turn: TurnContext,
         cursor: number
-    ): Promise<{ readonly cursor: number; readonly cancelled: boolean }> {
+    ): Promise<{ readonly cursor: number; readonly entry: TurnInboxEntry | undefined }> {
         const entries = await turn.inbox.read(cursor);
         const next = entries.reduce(
             (highest, entry) => Math.max(highest, entry.sequence + 1),
@@ -143,7 +180,7 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
         );
         return {
             cursor: next,
-            cancelled: entries.some((entry) => entry.event === "turn.cancel")
+            entry: entries.find((entry) => entry.event === "turn.cancel")
         };
     }
 }

@@ -282,21 +282,143 @@ describe("W5 adversarial invariants", () => {
         }
     );
 
-    it("rejects reserved cancellation through generic delivery", { tags: "p1" }, () => {
-        const value = runningHarness();
-        expect(() =>
+    it(
+        "delivers reserved cancellation to the exact live lease without fencing it",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            const entry = cancellation(value.running);
             value.runtime.deliverEvent(
                 ids.turn,
                 value.running.revision,
                 value.token,
-                cancellation(value.running),
+                entry,
                 new Date(1500)
-            )
-        ).toThrow(/sequence/);
-        expect(
-            value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
-        ).toEqual([]);
-    });
+            );
+            const turn = value.repository.transaction((tx) =>
+                value.repository.loadTurn(tx, ids.turn)
+            )!;
+            expect(
+                value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
+            ).toEqual([entry]);
+            // Still the holder's Turn: §5.3 leaves running -> cancelled to the lease holder.
+            expect(turn.status.kind).toBe("running");
+            expect(turn.lease.epoch).toBe(1);
+            expect(turn.lease.holder?.equals(ids.holder)).toBe(true);
+        }
+    );
+
+    it(
+        "rejects delivered cancellation that names a lease other than the caller's",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            const forged = new TurnInboxEntry(
+                new TurnInboxEntryId("forged-cancel"),
+                ids.turn,
+                0,
+                "turn.cancel",
+                content("b"),
+                digest("b"),
+                "forged-cancel-key",
+                { turn: ids.turn, holder: ids.holder, epoch: 2 },
+                new Date(1500)
+            );
+            expect(() =>
+                value.runtime.deliverEvent(
+                    ids.turn,
+                    value.running.revision,
+                    value.token,
+                    forged,
+                    new Date(1500)
+                )
+            ).toThrow(/displaced token/);
+            // A stale caller cannot deliver a cancellation for the live lease either.
+            expect(() =>
+                value.runtime.deliverEvent(
+                    ids.turn,
+                    value.running.revision,
+                    { turn: ids.turn, holder: ids.holder, epoch: 0 },
+                    cancellation(value.running),
+                    new Date(1500)
+                )
+            ).toThrow(/lease/);
+            expect(
+                value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
+            ).toEqual([]);
+        }
+    );
+
+    it(
+        "records one cancellation per lease and settles the delivered request",
+        { tags: "p0" },
+        () => {
+            const value = runningHarness();
+            const entry = cancellation(value.running);
+            value.runtime.deliverEvent(
+                ids.turn,
+                value.running.revision,
+                value.token,
+                entry,
+                new Date(1500)
+            );
+            const delivered = value.repository.transaction((tx) =>
+                value.repository.loadTurn(tx, ids.turn)
+            )!;
+            const second = new TurnInboxEntry(
+                new TurnInboxEntryId("second-cancel"),
+                ids.turn,
+                1,
+                "turn.cancel",
+                content("b"),
+                digest("b"),
+                "second-cancel-key",
+                value.token,
+                new Date(1600)
+            );
+            expect(() =>
+                value.runtime.deliverEvent(
+                    ids.turn,
+                    delivered.revision,
+                    value.token,
+                    second,
+                    new Date(1600)
+                )
+            ).toThrow(/already recorded/);
+
+            const result = new RunCommit({
+                id: new RunCommitId("requested-cancel-result"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "result",
+                parents: [ids.root],
+                pins: pins(),
+                writer: { kind: "turn", token: value.token },
+                subjectTurn: ids.turn,
+                content: content("7")
+            });
+            value.runtime.cancelHeldTurn(
+                {
+                    turn: ids.turn,
+                    expectedTurnRevision: delivered.revision,
+                    expectedBranchRevision: new Revision(0),
+                    token: value.token,
+                    outcome: "cancelled",
+                    commit: result,
+                    now: new Date(1700)
+                },
+                entry
+            );
+            const cancelled = value.repository.transaction((tx) =>
+                value.repository.loadTurn(tx, ids.turn)
+            )!;
+            expect(cancelled.status.kind).toBe("cancelled");
+            expect(cancelled.lease.holder).toBeUndefined();
+            expect(
+                value.repository.transaction((tx) => value.repository.listInbox(tx, ids.turn))
+            ).toEqual([entry]);
+        }
+    );
 
     it("delivers an ordinary event at the next durable inbox sequence", { tags: "p1" }, () => {
         const value = runningHarness();
