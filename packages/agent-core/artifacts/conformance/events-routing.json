@@ -9,16 +9,11 @@
       "specTextSha256": "sha256:64dbf182a186666601b3195d26848ea26ca8c3955b83aae43a2b20a0a1335dc7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -28,16 +23,11 @@
       "specTextSha256": "sha256:b727a7963e31af899969f37ac35a97d63b3a5732e1476cbca60bf2ba08b1c2a2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ADV-FORGED-INITIATOR] provenance Principal cannot be forged"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -47,16 +37,11 @@
       "specTextSha256": "sha256:6da27759c9a4dba3fe5bf2da3e066677fea64efe74452343579593fe1f4ddbee",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -66,16 +51,11 @@
       "specTextSha256": "sha256:40a3e3e0940e3881d577df8ab458d8f2cc3a0eea1a96259e1d759b2400ddbbf2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/substrates/sqlite/events-coverage.test.ts#memory View replay and retention coverage [C13-ADV-MISSING-CROSS-TENANT-BINDING] rejects retention verification, owner, tenant, binding, and exact-coverage failures"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -85,16 +65,11 @@
       "specTextSha256": "sha256:0d8e7cb2462b89d560544a1e5fac4c2d713d8a73bc948f8512e827b303c62a68",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/policy.ts#deriveEventTrust"
-      ],
+      "sourceSymbols": ["src/workspaces/policy.ts#deriveEventTrust"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ADV-OMITTED-TRUST-SET] accepted trust set cannot be empty"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -104,16 +79,11 @@
       "specTextSha256": "sha256:603ee6c666728a649a7c3d34e0ced7868e43071c9f3494cf946c874788ec7001",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ADV-SUBSTITUTED-INITIATOR] routed initiator remains exact"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -123,16 +93,11 @@
       "specTextSha256": "sha256:d7dd07bf0249b204347ce7a7c32985944464d6b282142064d2a34f0f0db496ae",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteProjection"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteProjection"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -149,10 +114,7 @@
       "testSelectors": [
         "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ROUTE-AUDIT-CAUSE] committed reservation cites its preexisting source Event audit"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -162,16 +124,11 @@
       "specTextSha256": "sha256:8eae0e22fe229968e3fa99039ec9aeee884c77a5c672dd218eca07df9d27f308",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ROUTE-CROSS-TENANT-BINDING] accepts an unchanged cross-tenant route and detects every cross relation change"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -190,10 +147,7 @@
         "test/workspaces/persistence-mutations.test.ts#projection and delivery persistence [C13-ROUTE-DELIVERY-ONCE] writes at most one terminal delivery only after admission",
         "test/workspaces/protocols.test.ts#authenticated target projection protocol [C13-ROUTE-DELIVERY-ONCE] admits projection and invocation once, then returns the terminal delivery on replay"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -203,16 +157,11 @@
       "specTextSha256": "sha256:4cff6ebed5175dc925b8cfdef950a5a5b46ae993809df414e86b4d77db463a42",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteProjection"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteProjection"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ROUTE-PROJECTION-DIGEST] projection binds exact content digest"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -229,10 +178,7 @@
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ROUTE-SOURCE-EVENT] reservation identifies its exact Event"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -242,16 +188,11 @@
       "specTextSha256": "sha256:2457696afb8b24a5f9c3780a0a12db0d74520057a6633013fb4ffd2fa3491b95",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/source-protocol.ts#SourceEventProtocol"
-      ],
+      "sourceSymbols": ["src/workspaces/source-protocol.ts#SourceEventProtocol"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ROUTE-SOURCE-OWNED] reservation preserves source ownership"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -261,16 +202,11 @@
       "specTextSha256": "sha256:1b432dff9fcf9d371a582f676a88849a3e193735de4ac29edda1caff83170d11",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ROUTE-STABLE-INVOCATION] reservation codec preserves InvocationId"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -280,16 +216,11 @@
       "specTextSha256": "sha256:fd7175b8e0a052bd1cb0337c96b64ab15cb1cb7214e762ae60e7cd94ff5b014f",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/route.ts#RouteReservation"
-      ],
+      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-ROUTE-TENANT-RELATION] reservation preserves tenant relation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -299,16 +230,11 @@
       "specTextSha256": "sha256:5a1d8853f0cdcf18486142e9a5dfb194d7785a7d65ead579daaea4afcd0fedfd",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/subscription.ts#Subscription"
-      ],
+      "sourceSymbols": ["src/workspaces/subscription.ts#Subscription"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-SUBSCRIPTION-ACCEPTED-TIERS] matching is categorical"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -318,16 +244,11 @@
       "specTextSha256": "sha256:8eae0e22fe229968e3fa99039ec9aeee884c77a5c672dd218eca07df9d27f308",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/subscription.ts#Subscription"
-      ],
+      "sourceSymbols": ["src/workspaces/subscription.ts#Subscription"],
       "testSelectors": [
         "test/workspaces/coverage-records.test.ts#subscriptions [C13-SUBSCRIPTION-AUTHORITY] copies values, revises immutably, and supports both authority cases"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -337,16 +258,11 @@
       "specTextSha256": "sha256:a1ae2cacaf3348673421e7d62735a8e7e905b22da8dd9ab71a6bf05e51afb620",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/policy.ts#deriveEventTrust"
-      ],
+      "sourceSymbols": ["src/workspaces/policy.ts#deriveEventTrust"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-TRUST-ASSERTION-REJECTION] trust derives from host facts only"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -356,16 +272,11 @@
       "specTextSha256": "sha256:331e06c2ef4f693b1cba0c9a12f35f1201f627994bff109d4097f6ab802101f3",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/policy.ts#deriveEventTrust"
-      ],
+      "sourceSymbols": ["src/workspaces/policy.ts#deriveEventTrust"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-TRUST-HOST-DERIVED] exact lease-backed host emission derives self"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -375,16 +286,11 @@
       "specTextSha256": "sha256:005827b4de4d51778fc9d44ce6ceceaf2c37cba49e3be80dde1fa84f94c0fec2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/policy.ts#deriveEventTrust"
-      ],
+      "sourceSymbols": ["src/workspaces/policy.ts#deriveEventTrust"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event intent"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -410,16 +316,11 @@
       "specTextSha256": "sha256:9ae9249caec2b7dd9d12bc6dc553e5ebcd684e10aba9f0423146beff72f94662",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/view-replay.ts#ViewReplayProtocol"
-      ],
+      "sourceSymbols": ["src/workspaces/view-replay.ts#ViewReplayProtocol"],
       "testSelectors": [
         "test/workspaces/view-replay.test.ts#ViewReplayProtocol [C13-VIEW-DELTA-REPLAY] delegates RFC 6902 and durably replays deltas"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -429,16 +330,11 @@
       "specTextSha256": "sha256:c944307a967cb2540ad2ca8c77efb1e13396dc14fe36b3f42ae586ae16fe6cf7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/workspaces/view.ts#View"
-      ],
+      "sourceSymbols": ["src/workspaces/view.ts#View"],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-VIEW-NO-LIVE-STATE] View rejects live non-JSON state"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     }
   ]

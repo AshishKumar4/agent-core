@@ -1,3 +1,5 @@
+export { TenantAuthoredCodeDelegationPort, isolateDomain } from "./authored-code";
+export type { IsolateGatewayFactory, TenantAuthoredCodeDelegationInit } from "./authored-code";
 export {
     MediatedAuthorityIntent,
     ResolvedOperationAuthority,

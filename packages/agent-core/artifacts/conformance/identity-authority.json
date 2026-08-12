@@ -19,10 +19,7 @@
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-DELAYED-WATERMARK] a relevant epoch advance with delayed delivery keeps direct calls inside the bounded window and denies mediated calls",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-DELAYED-WATERMARK] a relevant epoch advance with delayed delivery keeps direct calls inside the bounded window and denies mediated calls"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -42,10 +39,7 @@
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-IMMUTABLE-DEADLINE] lease renewal cannot extend an existing resolution deadline",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-IMMUTABLE-DEADLINE] lease renewal cannot extend an existing resolution deadline"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -65,10 +59,7 @@
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -78,16 +69,11 @@
       "specTextSha256": "sha256:558477eb8b76365a7cd819d9dfc5726f4960a27389845d1ff265d5e8b9721bcb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime.check"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime.check"],
       "testSelectors": [
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -97,16 +83,11 @@
       "specTextSha256": "sha256:a27f5ac9d75c778642d216536562839dbfd04c672d97eaeeeaadf9635578beac",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime.check"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime.check"],
       "testSelectors": [
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-REVOKED-ALLOW] rejects a revoked backing allow Grant"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -116,16 +97,11 @@
       "specTextSha256": "sha256:1ee55df596a4468da771593d1f1a2a4b1de75487dc2372f632a9aa2e9c7e77f8",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/canonical-facet-transition.test.ts#coordinated FacetRef and CapabilitySpec transition [C13-AUTH-BINDING-RESOLUTION] retains the exact W3 FacetRef through Binding runtime records"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -135,16 +111,11 @@
       "specTextSha256": "sha256:3ffe3609d306e3ae6605911e972e9f422589eab302fad5795af189be20aaf236",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/grant.ts#Grant"
-      ],
+      "sourceSymbols": ["src/authority/grant.ts#Grant"],
       "testSelectors": [
         "test/authority/hard-gates.test.ts#canonical capability hard gates [C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -154,16 +125,11 @@
       "specTextSha256": "sha256:483a8027d6bb1b9084e0cdcfa0317eb41c08fe5ea9fbc07820528062d9423cfd",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime.check"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime.check"],
       "testSelectors": [
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -183,10 +149,7 @@
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -206,10 +169,7 @@
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-LEASE] rejects direct admission for a wrong Turn, holder, or epoch",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-LEASE] rejects direct admission for a wrong Turn, holder, or epoch"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -219,16 +179,11 @@
       "specTextSha256": "sha256:d684c31ef21318fe3d60fb3d5a5c6a0c2672e40aa7947753dd95c9d60dfb9ff6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-DIRECT-SUBJECT] unions direct and Team subjects without allowing unrelated principals"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -250,10 +205,7 @@
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -263,17 +215,12 @@
       "specTextSha256": "sha256:f301377ed6476de98a2613ea30f3d645d6e53a59376110eb751e9d96d2a8cba0",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/epoch.ts#InvalidationWatermark"
-      ],
+      "sourceSymbols": ["src/authority/epoch.ts#InvalidationWatermark"],
       "testSelectors": [
         "test/authority/memory.test.ts#MemoryTenantControlStore [C13-AUTH-EPOCH-ADVANCEMENT] memory advances durable path epochs for allow and deny changes",
         "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage [C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -283,16 +230,11 @@
       "specTextSha256": "sha256:7717d48dc16b77c72ad877726738502f630780ad33b2da13834ec33b5f379e8f",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates [C13-AUTH-GUEST-ELEVATION] enforces guest proof, current trust, and elevation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -302,16 +244,11 @@
       "specTextSha256": "sha256:65ce465c8bf7ea4152916c87170b1c2326537196590cb8c5fd7d4ca729407329",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/materializer.test.ts#RoleGrantMaterializer [C13-AUTH-GUEST-SUBJECT] materializes verified guest allows and denies while removing elevated allows"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -331,10 +268,7 @@
         "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] never materializes a subject still stamped handshake",
         "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] verifies provenance before materializing any guest Grant and a failure denies"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -342,17 +276,26 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-ISOLATE-DELEGATION",
       "specTextSha256": "sha256:494305452be6488c1df5f410dbe32e877232187478ff9e118ff38210efdb8f5e",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "No dynamic isolate exists: src/ contains no loader, no capability-passing boundary, and no isolate-scoped Invocation identity, so the delegation the atom bounds has no subject yet",
-        "The delegation primitives (Grant.attenuationOf, validateLineage, revokeGrantClosure) are built; the loader that must consume them is unwritten and its home (src/definition or src/operations) is outside W2's citable evidence",
-        "SPEC §4.7/§3.4 leave the passed capability set's record shape, the isolate's subject identity, and its Grant Scope unspecified; those choices are load-bearing for lineage validation and need spec-owner resolution",
-        "Undeclared prerequisites: C13-PLACEMENT-AUTHORED-BACKING and C13-PLACEMENT-DYNAMIC-NO-EGRESS cover the sibling §4.7 clauses and are still planned"
-      ]
+      "sourceSymbols": [
+        "src/authority/binding.ts#Binding",
+        "src/authority/grant.ts#Grant",
+        "src/authority/service.ts#AuthorityMutationService",
+        "src/composition/authored-code.ts#TenantAuthoredCodeDelegationPort",
+        "src/composition/authored-code.ts#isolateDomain"
+      ],
+      "testSelectors": [
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] binds the passed set to attenuations in the isolate's own domain",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] revoking a passed Grant severs the isolate and leaves its loader whole",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] ends the delegation when the submission ends",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] refuses a passed set wider than the delegator holds",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] admits an equal or narrower passed set",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] refuses a capability the delegator does not hold at all",
+        "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] gives two submissions two unshared isolate domains"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-AUTH-MEDIATED-ADMISSION",
@@ -361,16 +304,11 @@
       "specTextSha256": "sha256:b96c2188d9cf58292de59d29740554bc75a754833daa5f628b6db96c3437ec8e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -394,10 +332,7 @@
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
         "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -407,16 +342,11 @@
       "specTextSha256": "sha256:c69e2b8de81c63d42bb2fce158ebf55d5e3fd5fa5674cb4c1853930abcb76f60",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/hard-gates.test.ts#typed authority evidence hard gates [C13-AUTH-PATH-EVIDENCE] enforces evidence issuer, time, path, and grant matrices"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -426,16 +356,11 @@
       "specTextSha256": "sha256:149400fd03440427b2925005e6ec980281acce02d306676a13fbd8ae8e1322e7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/protocol/authority-evidence.test.ts#authority protocol evidence [C13-AUTH-PATH-ORDER] rejects evidence with inconsistent issuer, path, reason, or matched Grants"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -445,16 +370,11 @@
       "specTextSha256": "sha256:e6003dccb470010a11df76cacc7be09cef3edfffcc88f0283f520052c22a229f",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/grant.ts#Grant"
-      ],
+      "sourceSymbols": ["src/authority/grant.ts#Grant"],
       "testSelectors": [
         "test/authority/model.test.ts#Grant model [C13-AUTH-PLANE] prohibits deny attenuation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -484,10 +404,7 @@
         "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] denies a same-PrincipalId Principal from another Tenant at mediated admission",
         "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity [C13-AUTH-PRINCIPAL-REF] fails closed on a stored subject that names a Principal without its Tenant"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -507,10 +424,7 @@
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
         "test/composition/authority-membrane.test.ts#Tenant operation authority membrane the direct tier gate requires a lease, local authority, granted capability, and a window"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -520,16 +434,11 @@
       "specTextSha256": "sha256:fbe4983dc3741e73ff3b410fd9e1edb32bb4c5ca7be99aae8646a1f981a2aa6c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/materializer.ts#RoleGrantMaterializer"
-      ],
+      "sourceSymbols": ["src/authority/materializer.ts#RoleGrantMaterializer"],
       "testSelectors": [
         "test/authority/canonical-facet-transition.test.ts#coordinated FacetRef and CapabilitySpec transition [C13-AUTH-ROLE-MATERIALIZATION] retains the exact W3 CapabilitySpec through Role and Grant runtime records"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -539,16 +448,11 @@
       "specTextSha256": "sha256:6eb053f7a61a552245702f1a9ac26ffea1a1d4039425bd0c3e9f0b966b030fa4",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/authority/runtime.ts#TenantAuthorityRuntime"
-      ],
+      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -570,10 +474,7 @@
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     }
   ]

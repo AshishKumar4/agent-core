@@ -47,7 +47,7 @@ export class DataRecordCodec<Record> extends RecordCodec<Record> {
     }
 }
 
-export function requireDataObject(value: FacetData, subject: string): FacetDataMap {
+export function requireDataObject(value: FacetData | undefined, subject: string): FacetDataMap {
     if (!isDataObject(value)) {
         throw new TypeError(`${subject} must be an object`);
     }
@@ -129,6 +129,8 @@ function freezeFacetData(value: FacetData): FacetData {
     return value;
 }
 
-function isDataObject(value: FacetData): value is FacetDataMap {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
+function isDataObject(value: FacetData | undefined): value is FacetDataMap {
+    return (
+        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
+    );
 }

@@ -1,4 +1,11 @@
 import { AgentCoreError, ContentRef, Digest, RouteReservationId, TenantId } from "@agent-core/core";
+import { BindingName, FacetRef, type FacetData } from "@agent-core/core/facets";
+import {
+    AuthoredCodeCapability,
+    AuthoredCodeCapabilitySet,
+    AuthoredCodeInvocationPort,
+    type AuthoredCodeInvocationRequest
+} from "@agent-core/core/operations";
 import { ActorId, ActorRef } from "@agent-core/core/actors";
 import { ProviderDescriptor, ProviderId } from "@agent-core/core/environment-provider";
 import {
@@ -7,7 +14,7 @@ import {
     SqliteContentStore
 } from "@agent-core/core/substrates/sqlite";
 import { AuthorityPermit, AuthorityPermitExpectation } from "@agent-core/core/authority";
-import { DurableObject } from "cloudflare:workers";
+import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import {
     AlarmOutboxReconciler,
     AtLeastOnceQueueAdapter,
@@ -18,6 +25,11 @@ import {
     DurableObjectSlateProvider,
     PermitIssuerDurableObjectHost,
     DynamicWorkerLoaderAdapter,
+    PassedCapabilityRegistry,
+    passedCapabilities,
+    type AuthoredCodeEntrypointLike,
+    type PassedCapabilityLike,
+    type PassedCapabilityProps,
     SqliteApplicationMigrator,
     SqlitePlacementRegistry,
     SqliteReconciliationOutbox,
@@ -37,12 +49,78 @@ import { queueCodecs } from "../queue-codecs.js";
 
 export type TestEnvironment = Env;
 
+const loaderCapabilities = new AuthoredCodeCapabilitySet([
+    new AuthoredCodeCapability(new BindingName("CAPABILITY"), new FacetRef("mail:instance"))
+]);
+
+// A stand-in for the isolate's gateway port: the point of this scenario is that a
+// delegated capability crosses the real Worker Loader boundary and calls back into the
+// host, not what the host does with the call.
+const loaderInvocations = new (class extends AuthoredCodeInvocationPort {
+    public async invoke(request: AuthoredCodeInvocationRequest): Promise<FacetData> {
+        return {
+            binding: request.binding.value,
+            operation: request.operation.value,
+            input: request.input
+        };
+    }
+})();
+
+function requireAuthoredCodeEntrypoint(entrypoint: unknown): AuthoredCodeEntrypointLike {
+    if (
+        (typeof entrypoint !== "object" || entrypoint === null) &&
+        typeof entrypoint !== "function"
+    ) {
+        throw new AgentCoreError("operation.invalid-output", "Loaded code has no entry point");
+    }
+    const run = Reflect.get(entrypoint, "run");
+    if (typeof run !== "function") {
+        throw new AgentCoreError("operation.invalid-output", "Loaded code declares no run");
+    }
+    return { run: (call) => Reflect.apply(run, entrypoint, [call]) };
+}
+
 const errors: CloudflareErrorPort = {
     raise(code, message): never {
         throw new AgentCoreError(code, message);
     }
 };
 const delivered = new Map<string, number>();
+
+const LOADER_ISOLATE = "invocation:loader-1";
+const loaderRegistry = new PassedCapabilityRegistry(errors);
+
+// The host's capability entry point, exactly as cloudflare-os exports GatekeeperLoopback:
+// a WorkerEntrypoint whose props carry only the routing identity, so the stub the loader
+// serializes into `env` holds data and the live port is resolved here on every call.
+export class TestPassedCapabilityEntrypoint extends WorkerEntrypoint<
+    TestEnvironment,
+    PassedCapabilityProps
+> {
+    public invoke(operation: string, input: FacetData): Promise<FacetData> {
+        return loaderRegistry.invoke(this.ctx.props, operation, input);
+    }
+}
+
+// Only the one export this route builds stubs from. Declaring that much locally keeps
+// the full Cloudflare.Exports RPC types — which instantiate too deeply for the checker
+// on a call like this — out of the test.
+interface CapabilityExports {
+    TestPassedCapabilityEntrypoint(options: {
+        readonly props: PassedCapabilityProps;
+    }): PassedCapabilityLike;
+}
+
+function requireCapabilityExports(context: unknown): CapabilityExports {
+    if (typeof context !== "object" || context === null) {
+        throw new AgentCoreError("protocol.invalid-state", "Worker context is not an object");
+    }
+    const exports = Reflect.get(context, "exports");
+    if (typeof exports !== "object" || exports === null) {
+        throw new AgentCoreError("protocol.invalid-state", "Worker context exposes no exports");
+    }
+    return exports as CapabilityExports;
+}
 
 const TestActorDelegate = createCloudflareDurableObjectClass<TestEnvironment>({
     errors,
@@ -365,7 +443,7 @@ export class SlateProviderDurableObject extends DurableObject<TestEnvironment> {
 
 export default createCloudflareWorker<TestEnvironment, RouteReservationId, unknown>({
     router: {
-        async fetch(request, environment): Promise<Response> {
+        async fetch(request, environment, context): Promise<Response> {
             const url = new URL(request.url);
             if (url.pathname === "/delivery-count") {
                 return Response.json({
@@ -375,29 +453,36 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
             if (url.pathname === "/loader") {
                 const adapter = new DynamicWorkerLoaderAdapter(
                     environment.LOADER satisfies WorkerLoaderBindingLike,
-                    ["CAPABILITY"],
                     errors
                 );
+                using registered = loaderRegistry.open(LOADER_ISOLATE, loaderInvocations);
+                void registered;
                 const scope = adapter.load(
                     {
                         compatibilityDate: "2026-07-10",
+                        // The same flag WorkerLoaderAuthoredCodeBacking sets, exercised
+                        // here so real workerd validates it rather than only a fake.
+                        compatibilityFlags: ["disallow_importable_env"],
                         mainModule: "index.js",
                         modules: {
-                            "index.js": `export default {
-                            fetch(_request, env) {
-                                return Response.json({
-                                    capability: env.CAPABILITY,
-                                    keys: Object.keys(env).sort()
-                                });
-                            }
-                        }`
+                            "index.js": `import { WorkerEntrypoint } from "cloudflare:workers";
+                            export default class extends WorkerEntrypoint {
+                                async run(input) {
+                                    return {
+                                        names: Object.keys(this.env).sort(),
+                                        result: await this.env.CAPABILITY.invoke("read", input)
+                                    };
+                                }
+                            }`
                         }
                     },
-                    { CAPABILITY: "allowed" },
-                    requireFetchService
+                    passedCapabilities(loaderCapabilities, LOADER_ISOLATE, (props) =>
+                        requireCapabilityExports(context).TestPassedCapabilityEntrypoint({ props })
+                    ),
+                    requireAuthoredCodeEntrypoint
                 );
                 try {
-                    return await scope.entrypoint.fetch(request);
+                    return Response.json(await scope.entrypoint.run({ path: "/a" }));
                 } finally {
                     scope[Symbol.dispose]();
                 }
@@ -405,7 +490,6 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
             if (url.pathname === "/loader-outbound") {
                 const adapter = new DynamicWorkerLoaderAdapter(
                     environment.LOADER satisfies WorkerLoaderBindingLike,
-                    [],
                     errors
                 );
                 const scope = adapter.load(

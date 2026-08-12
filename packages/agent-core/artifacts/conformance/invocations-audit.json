@@ -9,16 +9,11 @@
       "specTextSha256": "sha256:267526fd33ceaf1250e7efef5b4ec52957ffde0b6874472128c1d3b28f15f2fc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/approval.ts#Approval"
-      ],
+      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-APPROVAL-REPLAY] rejects noncanonical replay scopes, attempted direct contexts, and unprepared invocation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -28,16 +23,11 @@
       "specTextSha256": "sha256:4a7e1a5137ed5ce2bbb4bd8a1ee8ed2cc26c640249693e2bf007809fc40305aa",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-ADV-CHANGED-ITEM-KEY] rejects a changed derived item key"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -47,17 +37,12 @@
       "specTextSha256": "sha256:f2bf224f42d3ddd3b369c10cd82bcf22b5a81db00bc06f318c6d8f0a6965c732",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-COMPETING-CLAIMS] admits only one current item claim",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-COMPETING-CLAIMS] admits only one current item claim"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -67,16 +52,11 @@
       "specTextSha256": "sha256:ae9d14a81a383458756e12dbee3757c4030552120c7b585684a7f4fd6d256ed6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/outcome.ts#deriveBatchOutcome"
-      ],
+      "sourceSymbols": ["src/invocations/outcome.ts#deriveBatchOutcome"],
       "testSelectors": [
         "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-EARLY-AGGREGATE] pins the executor/system lease matrix and forbids aggregate revisions"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -86,16 +66,11 @@
       "specTextSha256": "sha256:68aa08a4ec7e32d1b84571d2177ee1c05e51ea4a6d42d098d79b69aef9b9dea4",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-ADV-EMPTY-BATCH] rejects an empty batch"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -105,17 +80,12 @@
       "specTextSha256": "sha256:deeed303ae8a6e8e9f091fbe7b6b36a2cabdc698e6492b6556e8ca82d64f272b",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-NONFUTURE-CLAIM] rejects equal and past claim expiries",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-NONFUTURE-CLAIM] rejects equal and past claim expiries"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -125,16 +95,11 @@
       "specTextSha256": "sha256:d9b2d686e7fbd1966149914d125326861addcb5d2cf5d67a8744e1088a848e6e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-NONHOMOGENEOUS-BATCH] enforces replay phase immutability and nonempty exact batch shape"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -144,16 +109,11 @@
       "specTextSha256": "sha256:7c01745f3f320cb00bfc225e79c1af2da55441bd5e18f19f04c88e47bbb39d77",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-ADV-NONPREEXISTING-AUDIT] rejects an audit edge whose cause has not been appended"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -163,17 +123,12 @@
       "specTextSha256": "sha256:60993ae2dd81e5b6d2e9cd72c7f88951fba9a7fd5a422db7358aa6d3c9427da6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-POST-ATTEMPT-RECOVERY] rejects recovery after an attempt was admitted",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-POST-ATTEMPT-RECOVERY] rejects recovery after an attempt was admitted"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -183,17 +138,12 @@
       "specTextSha256": "sha256:c99f40b90e446dc2ac326910b3236859754bf58dcd855980cd86e67c86a8466d",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-PREMATURE-RECOVERY] rejects recovery before the current claim expires",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-PREMATURE-RECOVERY] rejects recovery before the current claim expires"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -203,16 +153,11 @@
       "specTextSha256": "sha256:029c9361d1ea5786346e88021c3ed217e197dfb64f21cddc63c6877f1c4a886a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/receipt.ts#Receipt"
-      ],
+      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-ADV-RECEIPT-AGGREGATE] rejects root admission on a caused record"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -222,16 +167,11 @@
       "specTextSha256": "sha256:3314c35cc95c3904d2f8018294093a18355772cc5f7590c5ca7ac671daf1ddbe",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/receipt.ts#Receipt"
-      ],
+      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -241,17 +181,12 @@
       "specTextSha256": "sha256:2a20460f480ae79a2fe2fb3ddde78c3b96ca4a025005055e10529ccefee537f6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/receipt.ts#Receipt"
-      ],
+      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -261,16 +196,11 @@
       "specTextSha256": "sha256:5ca83704eeee381fd77036ed49c516b7bf2b133e52249e3d25ebc837b72258a3",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/receipt.ts#Receipt"
-      ],
+      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[C13-ADV-RECEIPT-FAILED] [invocation-persistence] memory fails closed on substituted durable record identities"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -289,10 +219,7 @@
       "testSelectors": [
         "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-ADV-RECEIPT-INDETERMINATE] atomically persists attempt, Receipt, and supersession audit edges through the invocation evidence port"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -310,10 +237,7 @@
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUCCEEDED] [invocation.receipt] rejects succeeded attempted Receipts without the exact initial attempt lineage",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-SUCCEEDED] [invocation.receipt] rejects succeeded attempted Receipts without the exact initial attempt lineage"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -331,10 +255,7 @@
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -344,17 +265,12 @@
       "specTextSha256": "sha256:9253ee9f91bba3ae001088562ec90e3508d6ac2969306b35e439aa9ec2a0d731",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/ledger.ts#InvocationLedger.recoverClaim"
-      ],
+      "sourceSymbols": ["src/invocations/ledger.ts#InvocationLedger.recoverClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECOVERY-ORDINAL] rejects recovery that advances an unattempted ordinal",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECOVERY-ORDINAL] rejects recovery that advances an unattempted ordinal"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -364,16 +280,11 @@
       "specTextSha256": "sha256:fa82de08a72e3d123cc86b582361256724f1eea7338be6fa1c815607773b3b27",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -383,16 +294,11 @@
       "specTextSha256": "sha256:aabb47ba0a85fa4056f1baf2704341f488cebc007da760c31e206e0daf91255f",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/error.test.ts#invocation operational error taxonomy [C13-ADV-STALE-RECOVERY-OWNER] uses AgentCoreError for append conflicts and missing persisted evidence"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -402,16 +308,11 @@
       "specTextSha256": "sha256:7dbbdf31c2615ea7511b6fe9b9d4e6f30adacc0490eac2373726499a3fc99837",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-ADV-STRUCTURAL-INTENT-CHANGE] rejects changed prepared arguments under the original identity"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -421,16 +322,11 @@
       "specTextSha256": "sha256:508894d3e2123b738beaf917b20bd62b537b16d99dad7a06a645d7b30defe489",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/substrates/sqlite/invocations/persistence.test.ts#SqliteInvocationPersistence transaction scope [C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -440,16 +336,11 @@
       "specTextSha256": "sha256:b12ca4d5f4bbee2081c45363178c325c10235df6c1e2704df076a4afeb8d29d0",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT] rejects a direct cross-Actor audit cause"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -459,16 +350,11 @@
       "specTextSha256": "sha256:7ea7d179a075011017aad9b4ebcfdd50fc079527b058662c4520a9ba097ade07",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[C13-ADV-UNCHANGED-RECOVERY-OWNER] [invocation-persistence] memory rejects duplicate durable identities"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -478,16 +364,11 @@
       "specTextSha256": "sha256:4af054163d16aa021f81fca34463d0923ee3026381cd381215655231e6de9c61",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[C13-ATTEMPT-ORDINAL-AFTER-FAILURE] [invocation-persistence] memory rejects valid-byte index substitution"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -497,16 +378,11 @@
       "specTextSha256": "sha256:6af0e810ad8fd6775a1a7c7114ddeb07850ec0e7659ab3f136579ec4f88480a2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-AUDIT-APPEND-ONLY] admits ordinary invocation roots"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -516,16 +392,11 @@
       "specTextSha256": "sha256:6af0e810ad8fd6775a1a7c7114ddeb07850ec0e7659ab3f136579ec4f88480a2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -535,16 +406,11 @@
       "specTextSha256": "sha256:6af0e810ad8fd6775a1a7c7114ddeb07850ec0e7659ab3f136579ec4f88480a2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-AUDIT-PREEXISTING-CAUSE] requires a preexisting cause"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -561,10 +427,7 @@
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-RECEIPT-OUTCOMES] admits the exact routed approval, effect, Receipt, Event, route, and commit graph"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -574,16 +437,11 @@
       "specTextSha256": "sha256:ebc3289cded46516d1a61a7f857c3e8a29f21cd5adf307d5f00ca88261e81c46",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-ROUTE-BRIDGE] rejects Invocation roots nested below the route projection bridge"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -593,16 +451,11 @@
       "specTextSha256": "sha256:da4ad8edc4634a444aaad53f34f1c4551566e3b0acd47371153ea511ac3e9dc7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SETTLED-OBLIGATION] admits only evidence-backed route projection roots"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -612,16 +465,11 @@
       "specTextSha256": "sha256:143fdd0a5965a0ad27c6b9d25efa5d3582de1e34c5c614de084ab465f5f8ecfd",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SYSTEM-WRITER] admits direct, denied, expired, and Receipt-caused local edges"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -640,10 +488,7 @@
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge",
         "test/invocations/audit.test.ts#AuditRecord codec [C13-AUDIT-TELEMETRY-EXCLUDED] refuses diagnostic evidence kinds outside the closed durable taxonomy"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -653,16 +498,11 @@
       "specTextSha256": "sha256:b7584f7422ce3c58a8de7c5370cdc63adda0f508fd25aa39e48fa4c2e786ed21",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/outcome.ts#deriveBatchOutcome"
-      ],
+      "sourceSymbols": ["src/invocations/outcome.ts#deriveBatchOutcome"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-BATCH-OUTCOME-COMPLETE] maps profile receipt mode and terminal outcomes without leaking batch shapes"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -672,16 +512,11 @@
       "specTextSha256": "sha256:5d8f5314a5a7b30dafbda3da1b37d62688e82f6c23b6de3adeac13a24af176fa",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/outcome.ts#deriveBatchOutcome"
-      ],
+      "sourceSymbols": ["src/invocations/outcome.ts#deriveBatchOutcome"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-BATCH-OUTCOME-TERMINAL] persists terminal batch evidence and fails closed on every replay"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -691,17 +526,12 @@
       "specTextSha256": "sha256:6cfb8687c4a904f23aa50c77c864a6c8eaf125a31610c67842d444aea66b1798",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-CLAIM-FUTURE-EXPIRY] durably admits a claim only with future expiry",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-CLAIM-FUTURE-EXPIRY] durably admits a claim only with future expiry"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -711,16 +541,11 @@
       "specTextSha256": "sha256:6cfb8687c4a904f23aa50c77c864a6c8eaf125a31610c67842d444aea66b1798",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-CLAIM-INITIAL-ATOMIC] claims before async permit issuance and returns one output only for success"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -730,17 +555,12 @@
       "specTextSha256": "sha256:0afe3c11d68399eba6a46006b370b117d83dc29269d892f67cffdf5333f1d21c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-CLAIM-RECOVERY-FUTURE-EXPIRY] requires a recovered claim to expire in the future",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-CLAIM-RECOVERY-FUTURE-EXPIRY] requires a recovered claim to expire in the future"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -750,16 +570,11 @@
       "specTextSha256": "sha256:0afe3c11d68399eba6a46006b370b117d83dc29269d892f67cffdf5333f1d21c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-CLAIM-RECOVERY-NEW-OWNER] rejects empty, inexact, and substituted canonical batch preparation before claiming"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -769,17 +584,12 @@
       "specTextSha256": "sha256:0afe3c11d68399eba6a46006b370b117d83dc29269d892f67cffdf5333f1d21c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-CLAIM-RECOVERY-NO-ATTEMPT] recovers only claims with no admitted attempt",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-CLAIM-RECOVERY-NO-ATTEMPT] recovers only claims with no admitted attempt"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -789,16 +599,11 @@
       "specTextSha256": "sha256:0afe3c11d68399eba6a46006b370b117d83dc29269d892f67cffdf5333f1d21c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/claim.ts#ItemClaim"
-      ],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-CLAIM-RECOVERY-SAME-ORDINAL] recovers an expired permit-stage claim under a new worker at the same ordinal"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -808,17 +613,12 @@
       "specTextSha256": "sha256:40d2e7d13e77fcd1d7d5a726fe4010ad96db8d45d0f214cd075e2218bea0cb28",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/attempt.ts#EffectAttempt"
-      ],
+      "sourceSymbols": ["src/invocations/attempt.ts#EffectAttempt"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-EFFECT-ATTEMPT-IMMUTABLE] preserves the first EffectAttempt append",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-EFFECT-ATTEMPT-IMMUTABLE] preserves the first EffectAttempt append"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -828,16 +628,11 @@
       "specTextSha256": "sha256:0a3091c0031caa93e771f0b302c2f26c7844c18d66dfc13e84e8384a2702922e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/attempt.ts#EffectAttempt"
-      ],
+      "sourceSymbols": ["src/invocations/attempt.ts#EffectAttempt"],
       "testSelectors": [
         "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECONCILIATION] reconciles one indeterminate W6 attempt after restart without repeating the effect"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -847,16 +642,11 @@
       "specTextSha256": "sha256:7dbbb2c4d9c52c76cfe7efbf37885d9f65a1e38ac5d1a60b996fa208d7dc7201",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/reconciliation.ts#InvocationReconciler"
-      ],
+      "sourceSymbols": ["src/invocations/reconciliation.ts#InvocationReconciler"],
       "testSelectors": [
         "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECONCILIATION] reconciles one indeterminate W6 attempt after restart without repeating the effect"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -875,10 +665,7 @@
         "test/invocations/reconciliation-driver.test.ts#reconciliation driver [C13-EFFECT-RECONCILIATION-DRIVER] direct reconciler calls never establish scheduling",
         "test/invocations/reconciliation-driver.test.ts#reconciliation driver [C13-EFFECT-RECONCILIATION-DRIVER] the armed durable schedule survives restart and the sweep delivers reconciliation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -896,10 +683,7 @@
         "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] restart and redelivery never regenerate existing audit identifiers",
         "test/invocations/reconciliation.test.ts#InvocationReconciler concurrent reconciliation records one authoritative final lineage"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -909,16 +693,11 @@
       "specTextSha256": "sha256:54a6cb91c73957733f39c0b585dca3fc398dbcf24395ae0d464aed926e8bf074",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/attempt.ts#EffectAttempt"
-      ],
+      "sourceSymbols": ["src/invocations/attempt.ts#EffectAttempt"],
       "testSelectors": [
         "test/invocations/reconciliation.test.ts#InvocationReconciler persists the exact attempt before the provider and atomically finalizes complete reconciliation evidence"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -928,16 +707,11 @@
       "specTextSha256": "sha256:74cb61d0368381a14955a71dee6726dc894cd1f7258fbcabd0779839a340668a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/approval.ts#Approval"
-      ],
+      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-APPROVAL-BINDING] binds presentation to exact invocation evidence, item count, and persisted outputs"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -954,10 +728,7 @@
       "testSelectors": [
         "test/substrates/sqlite/invocations/persistence.test.ts#SqliteInvocationPersistence transaction scope [C13-PREPARED-APPROVAL-CONTINUATION] fails closed on orphaned Approval and continuation indexes after restart"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -967,16 +738,11 @@
       "specTextSha256": "sha256:306d0e189ffc72180a931e223468287fb0f47732c9927c660a730b8419489a88",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/approval.ts#Approval"
-      ],
+      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
       "testSelectors": [
         "test/invocations/immutability.test.ts#invocation record immutability [C13-PREPARED-APPROVAL-FIRST-ATTEMPT] freezes claim, attempt, admission, and Approval state aliases"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -986,17 +752,12 @@
       "specTextSha256": "sha256:42b24d7cd50498d0ad292c19aa649b3b908d3d37123d450f8c316b4dd1f346c6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/approval.ts#Approval"
-      ],
+      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-PREPARED-APPROVAL-SINGLE-USE] consumes one Approval only on the first admitted attempt",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-APPROVAL-SINGLE-USE] consumes one Approval only on the first admitted attempt"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1006,17 +767,12 @@
       "specTextSha256": "sha256:306d0e189ffc72180a931e223468287fb0f47732c9927c660a730b8419489a88",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/approval.ts#Approval"
-      ],
+      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1026,17 +782,12 @@
       "specTextSha256": "sha256:306d0e189ffc72180a931e223468287fb0f47732c9927c660a730b8419489a88",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-PREPARED-CONTINUATION-ABSENT] rejects consumed Approval admission without its continuation",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-CONTINUATION-ABSENT] rejects consumed Approval admission without its continuation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1046,16 +797,11 @@
       "specTextSha256": "sha256:95a50b737c99b6dc2f8c2dea626a0d81c992807a6f08fc98aaf58a683e226b49",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-PREPARED-ITEM-KEYS] rejects supplied key or digest substitution during decode"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1065,16 +811,11 @@
       "specTextSha256": "sha256:507871f90d4db47014b647e1ccae20f1318c935951ee06719d70191c01b1269a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/audit.ts#AuditRecord"
-      ],
+      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-PREPARED-NO-TURN-AUDIT] requires exact Write evidence when an evidence resolver is supplied"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1084,16 +825,11 @@
       "specTextSha256": "sha256:507871f90d4db47014b647e1ccae20f1318c935951ee06719d70191c01b1269a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-NO-TURN-OWNER] rejects substituted continuation identifiers, owner kinds, actor kinds, and indexes"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1103,17 +839,12 @@
       "specTextSha256": "sha256:2ddbfda964c109d6c4408c819bab8d1626c32180243de825e1f0d9dbb6aa18c3",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-PREPARED-OPTIONAL-LEASE] admits exact leased and lease-free ownership modes",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-OPTIONAL-LEASE] admits exact leased and lease-free ownership modes"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1123,16 +854,11 @@
       "specTextSha256": "sha256:9433de5133dadd00ac8e754d003a6d6d46470a53f053b9bde9aae03a15504cfb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-PREPARED-PAYLOAD-SHAPE] validates routed evidence, indexes, actors, and payload variants"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1150,10 +876,7 @@
         "test/invocations/mediation.test.ts#W6 mediation memory persistence [C13-PREPARED-REPLAY-IDENTITY] keeps NUL-bearing replay scope and request-key tuples distinct",
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-PREPARED-REPLAY-IDENTITY] distinguishes single, one-item batch, batch order, lease, authority, domain, seed, and pin"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1163,16 +886,11 @@
       "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-REPLAY-POST] [invocation.mediated-replay] [invocation-replay-persistence] reserves before interception and reuses durable before/after presentation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1182,16 +900,11 @@
       "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-REPLAY-PRE] commits raw replay identity before mutating interception and rejects conflicts first"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1201,16 +914,11 @@
       "specTextSha256": "sha256:6f630da71bf1855fac8f276ee23a2cf7a49e2a545120e039da0c06dd60d384b1",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/records.test.ts#Invocation evidence records [C13-PREPARED-ROUTED-PROJECTION] covers every BatchOutcome precedence and terminal projection"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1220,16 +928,11 @@
       "specTextSha256": "sha256:1c7b5665fe623ad3c1fc70960abe34f7f9628a202cb53d7c9c0eab8319138444",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1239,16 +942,11 @@
       "specTextSha256": "sha256:486b059133044b8fc7299879332b798423c909cfd3866c1d6b8129fac5066da3",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/prepared.ts#PreparedInvocation"
-      ],
+      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/invocations/immutability.test.ts#invocation record immutability [C13-PREPARED-WHOLE-DIGEST] detaches PreparedInvocation structural references before digesting"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1258,16 +956,11 @@
       "specTextSha256": "sha256:1870163fa985dcff15aa89ad3c48ac2b7a0e67c27272ea1a923f322735abc363",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/receipt.ts#Receipt"
-      ],
+      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
       "testSelectors": [
         "test/substrates/sqlite/invocations/persistence.test.ts#SqliteInvocationPersistence transaction scope [C13-RECEIPT-ATTEMPT-CHAIN] fails closed when an Attempt Receipt loses or changes its source attempt projection"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1277,16 +970,11 @@
       "specTextSha256": "sha256:5dfe162317e3a13b1277bfdfad3834d86d5952407558c6a8972a8719271d44a3",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/receipt.ts#Receipt"
-      ],
+      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
       "testSelectors": [
         "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-RECEIPT-ID-NAMESPACE] turns an operation failure into one final failed Receipt"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1305,10 +993,7 @@
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-IMMUTABLE] preserves the first Receipt append behind an update-free persistence surface",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-IMMUTABLE] preserves the first Receipt append behind an update-free persistence surface"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1318,17 +1003,12 @@
       "specTextSha256": "sha256:e2613711d22689a33fa3e97c13b4e6d0a7876bd71675a9d21c3c2613d85c6945",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/invocations/receipt.ts#Receipt"
-      ],
+      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-INDETERMINATE-SUPERSESSION] persists one final supersession exactly once",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-INDETERMINATE-SUPERSESSION] persists one final supersession exactly once"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -1345,10 +1025,7 @@
       "testSelectors": [
         "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-RECEIPT-PRE-EFFECT] persists the exact Invocation-to-deniedPreEffect Receipt edge"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     }
   ]

@@ -31,25 +31,20 @@ const source = Object.freeze({
 });
 
 describe("Cloudflare hosting adapters", () => {
-    test("forces one-time Dynamic Worker load with null outbound and allowlisted env", () => {
+    test("forces one-time Dynamic Worker load with null outbound and only passed Bindings", () => {
         const loader = new FakeWorkerLoader();
-        const adapter = new DynamicWorkerLoaderAdapter(loader, ["VIEW"], fakeErrors);
-        const capability = Object.freeze({ fetch: () => undefined });
+        const adapter = new DynamicWorkerLoaderAdapter(loader, fakeErrors);
 
-        const scope = adapter.load(source, { VIEW: capability }, requireFetchService);
+        const scope = adapter.load(source, {}, requireFetchService);
         expect(scope.entrypoint).toBe(loader.service);
         expect(loader.calls).toEqual([
             {
                 ...source,
                 modules: { ...source.modules },
-                env: { VIEW: capability },
+                env: {},
                 globalOutbound: null
             }
         ]);
-        expectOperationalFailure(
-            () => adapter.load(source, { SECRET: "ambient" }, requireFetchService),
-            "authority.denied"
-        );
         scope[Symbol.dispose]();
         expect(loader.disposals).toBe(1);
     });
@@ -58,15 +53,12 @@ describe("Cloudflare hosting adapters", () => {
         const loader = new FakeWorkerLoader();
         const namespace = new FakeDispatchNamespace();
         const deployments = new ExplicitCloudflareDeploymentAdapter(
-            new DynamicWorkerLoaderAdapter(loader, [], fakeErrors),
+            new DynamicWorkerLoaderAdapter(loader, fakeErrors),
             new DispatchNamespaceAdapter(namespace, fakeErrors),
             fakeErrors
         );
 
-        await deployments.fetch(
-            { mode: "dynamic", source, capabilities: {} },
-            new Request("https://dynamic")
-        );
+        await deployments.fetch({ mode: "dynamic", source }, new Request("https://dynamic"));
         expect(loader.calls).toHaveLength(1);
         expect(namespace.calls).toEqual([]);
         await deployments.fetch(
@@ -110,7 +102,6 @@ describe("Cloudflare hosting adapters", () => {
                     };
                 }
             },
-            [],
             fakeErrors
         );
 
@@ -142,7 +133,6 @@ describe("Cloudflare hosting adapters", () => {
                     }
                 })
             },
-            [],
             fakeErrors
         );
         const scope = adapter.load(source, {}, () => ({ fetch: () => new Response("loaded") }));

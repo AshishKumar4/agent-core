@@ -1,3 +1,23 @@
+export {
+    AuthoredCodeBacking,
+    AuthoredCodeBackingSet,
+    AuthoredCodeCapability,
+    AuthoredCodeCapabilitySet,
+    AuthoredCodeDelegation,
+    AuthoredCodeDelegationPort,
+    AuthoredCodeHost,
+    AuthoredCodeInvocationPort,
+    AuthoredCodeOperation,
+    GatewayAuthoredCodeInvocationPort,
+    decodeSubmission
+} from "./authored-code";
+export type {
+    AuthoredCodeDelegationRequest,
+    AuthoredCodeHostInit,
+    AuthoredCodeInvocationRequest,
+    AuthoredCodeRunRequest,
+    AuthoredCodeSubmission
+} from "./authored-code";
 export { CommandRuntime } from "./command-runtime";
 export type {
     CommandEventPort,

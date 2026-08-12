@@ -17,7 +17,6 @@ export type CloudflareDeployment =
     | {
           readonly mode: "dynamic";
           readonly source: DynamicWorkerSource;
-          readonly capabilities: Readonly<Record<string, unknown>>;
       }
     | {
           readonly mode: "dispatch";
@@ -35,7 +34,10 @@ export class ExplicitCloudflareDeploymentAdapter {
     public resolve(deployment: CloudflareDeployment): ScopedFetchServiceLike {
         if (deployment.mode === "dynamic") {
             return new DynamicFetchServiceScope(
-                this.dynamic.load(deployment.source, deployment.capabilities, (entrypoint) =>
+                // A deployment resolved here is a fetch surface — a Slate preview or a
+                // published version — not a §4.7 submission, so it is passed no
+                // capabilities at all.
+                this.dynamic.load(deployment.source, {}, (entrypoint) =>
                     this.requireService(entrypoint)
                 )
             );

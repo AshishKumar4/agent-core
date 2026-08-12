@@ -68,19 +68,18 @@ export type {
     ValidatedPlacement
 } from "./validator";
 export {
-    AUTHORED_CODE_CONSUMERS,
+    AuthoredCodeBackingId,
+    AuthoredCodeBackingPolicy,
     PLACEMENT_PREFERENCE,
     PlacementInput,
     PlacementPolicy,
     PlacementSelection,
     PlacementUnavailableError,
     preferredPlacement,
-    isAuthoredCodeConsumer,
     selectPlacement,
     trustPlacementModes
 } from "./placement";
 export type {
-    AuthoredCodeBackings,
     AuthoredCodeConsumer,
     NonemptyIsolationModes,
     PlacementErrorCode,
