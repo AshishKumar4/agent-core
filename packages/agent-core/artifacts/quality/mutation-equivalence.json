@@ -800,6 +800,14 @@
       "replacement": "prepared.invocation.header.projectionDigest.equals",
       "mutated": "prepared.invocation.header.projectionDigest?.equals",
       "proof": "Removing the optional call changes behaviour only when projectionDigest is undefined, where the original yields undefined and the mutant throws. That state cannot reach this operand twice over. PreparedInvocationHeader's constructor refuses `(route === undefined) !== (projectionDigest === undefined)`, and every PreparedInvocation is built or decoded through it, so a header carrying a route always carries a digest. And this operand is only evaluated when the disjunct above it was false, which required `header.route?.equals(input.reservation.id)` to be true \u2014 impossible unless route is defined. So by the time control reaches this call the digest is present, the optional check never short-circuits, and the two forms compute the same value on every admission this port can be handed."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "revokeGrantClosure",
+      "mutator": "OptionalChaining",
+      "replacement": "grant.isLive",
+      "mutated": "grant?.isLive",
+      "proof": "Dropping the optional chain dereferences an absent Grant, and none is absent here. A root that reaches this line came from revokeGrant, which found the record through requireRecord on the line above the closure call, and nothing removes a Grant from a store \u2014 revocation writes a revoked record in place. reconcile's roots are all in its skip set and never reach the lookup. The store therefore always answers with a record, and the chain never short-circuits."
     }
   ]
 }
