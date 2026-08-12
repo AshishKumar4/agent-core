@@ -80,7 +80,6 @@ export interface TenantControlBootstrapMarker {
 }
 
 type RecordMap = Map<string, Uint8Array>;
-type WriteMode = "bootstrap" | "mutation";
 
 /** Actor-local reference store. It is intentionally absent from the authority package surface. */
 export class MemoryTenantControlStore implements AuthorityMutationStore {
@@ -90,7 +89,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
     #epochs: RecordMap;
     readonly #anchor: MemoryTenantControlAnchorSnapshot;
     #marker: MemoryTenantControlMarkerSnapshot | null;
-    #writeMode: WriteMode | undefined;
+    #writable = false;
     #transactionActive = false;
     public readonly tenantId: TenantId;
 
@@ -184,7 +183,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 "Tenant control is not bootstrap eligible"
             );
         }
-        this.commit("bootstrap", (candidate) => candidate.applyBootstrap(plan));
+        this.commit((candidate) => candidate.applyBootstrap(plan));
     }
 
     public bootstrapTenant(anchor: TenantControlBootstrapAnchor, expectedRevision: Revision): void {
@@ -204,7 +203,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 "Tenant authority mutations require completed bootstrap"
             );
         }
-        return this.commit("mutation", operation);
+        return this.commit(operation);
     }
 
     public snapshot(): MemoryTenantControlSnapshot {
@@ -456,7 +455,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             }
         } else if (
             !previous.scope.equals(membership.scope) ||
-            !sameSubject(previous, membership) ||
+            subjectKey(previous.subject) !== subjectKey(membership.subject) ||
             membership.revision.value !== previous.revision.value + 1
         ) {
             throw new AgentCoreError(
@@ -583,10 +582,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         });
     }
 
-    private commit<Result>(
-        mode: WriteMode,
-        operation: (store: MemoryTenantControlStore) => Result
-    ): Result {
+    private commit<Result>(operation: (store: MemoryTenantControlStore) => Result): Result {
         if (this.#transactionActive) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
@@ -597,7 +593,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         let candidate: MemoryTenantControlStore | undefined;
         try {
             candidate = MemoryTenantControlStore.restore(this.snapshot());
-            candidate.#writeMode = mode;
+            candidate.#writable = true;
             const result = operation(candidate);
             if (isPromiseLike(result)) {
                 if (result instanceof Promise) void result.catch(() => undefined);
@@ -606,12 +602,12 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                     "Memory Tenant control transactions must be synchronous"
                 );
             }
-            candidate.#writeMode = undefined;
+            candidate.#writable = false;
             candidate.assertRestoredState();
             this.replace(candidate);
             return result;
         } finally {
-            if (candidate !== undefined) candidate.#writeMode = undefined;
+            if (candidate !== undefined) candidate.#writable = false;
             this.#transactionActive = false;
         }
     }
@@ -645,7 +641,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
     }
 
     private requireWrite(): void {
-        if (this.#writeMode === undefined) {
+        if (!this.#writable) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
                 "Tenant control records can only change inside an owned transaction"
@@ -764,17 +760,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 if (
                     membership === undefined ||
                     membership.role.value !== grant.origin.roleName ||
-                    !sameSubject(
-                        membership,
-                        new Membership(
-                            membership.id,
-                            membership.scope,
-                            grant.subject,
-                            membership.role,
-                            membership.state,
-                            membership.revision
-                        )
-                    )
+                    subjectKey(membership.subject) !== subjectKey(grant.subject)
                 ) {
                     throw corruptMemoryTenantControl(
                         "Role Grant references invalid Membership evidence"
@@ -1074,23 +1060,6 @@ function requireLocalTenant(expected: TenantId, actual: TenantId, subject: strin
     if (!actual.equals(expected)) {
         throw new AgentCoreError("protocol.invalid-state", `${subject} belongs to another Tenant`);
     }
-}
-
-function sameSubject(left: Membership, right: Membership): boolean {
-    if (left.subject.kind !== right.subject.kind) return false;
-    if (left.subject.kind === "principal" && right.subject.kind === "principal") {
-        return left.subject.principal.equals(right.subject.principal);
-    }
-    if (left.subject.kind === "team" && right.subject.kind === "team") {
-        return left.subject.teamId.equals(right.subject.teamId);
-    }
-    return (
-        left.subject.kind === "foreign" &&
-        right.subject.kind === "foreign" &&
-        left.subject.homeTenant.equals(right.subject.homeTenant) &&
-        left.subject.principalId.equals(right.subject.principalId) &&
-        left.subject.verifiedVia.equals(right.subject.verifiedVia)
-    );
 }
 
 function anchorsEqual(

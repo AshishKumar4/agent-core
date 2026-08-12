@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ActorId } from "../../src/actors";
 import { Digest, Revision, SecretRef } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
-import { CapabilitySpec } from "../../src/facets";
+import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
     Membership,
     MembershipId,
@@ -30,6 +30,7 @@ import {
     PrincipalRef,
     Workspace
 } from "../identity/internal-fixture";
+import { Binding } from "../../src/authority/binding";
 import { Grant } from "../../src/authority/grant";
 import { GrantId } from "../../src/authority/id";
 import { MemoryTenantControlStore } from "../../src/authority/memory";
@@ -1101,6 +1102,142 @@ describe("AuthorityMutationService closure and epoch effects", () => {
     });
 });
 
+// requireBindingAuthority is the only place a Binding is weighed against the Grant it
+// names. The Memory store re-derives the same closure in assertRestoredState, but that is
+// Memory's own bookkeeping: the SQLite ledger validates a row against its own record
+// bytes and nothing more, so for a durable Tenant this function is the whole enforcement.
+// Each case therefore asserts the denial code and message, which is what tells the
+// service's refusal apart from a store noticing afterwards — and the revoked case is
+// stronger still, because that closure never reads Grant state, so with the service check
+// gone nothing behind it refuses the write at all.
+describe("AuthorityMutationService Binding authority gate", () => {
+    test("refuses a Binding naming a Grant that does not exist", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const binding = bindingFor("absent-grant-binding", new GrantId("absent-grant"));
+
+        expectAgentError(
+            () => service.createBinding(binding),
+            "protocol.invalid-state",
+            "Binding Grant does not exist"
+        );
+        expect(store.binding(binding.key)).toBeUndefined();
+    });
+
+    test("refuses a Binding naming a revoked Grant", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const backing = grant("revoked-binding-grant", ownerSubject(), { kind: "direct" });
+        service.createGrant(backing);
+        service.revokeGrant(backing.id);
+        const binding = bindingFor("revoked-grant-binding", backing.id);
+
+        expectAgentError(
+            () => service.createBinding(binding),
+            "authority.denied",
+            "Binding requires a live allow Grant for its subject and Workspace path"
+        );
+        expect(store.binding(binding.key)).toBeUndefined();
+    });
+
+    test("refuses a Binding naming a deny Grant", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const backing = new Grant(
+            new GrantId("deny-binding-grant"),
+            workspaceScope,
+            ownerSubject(),
+            "deny",
+            observeCapability(),
+            { kind: "direct" }
+        );
+        service.createGrant(backing);
+        const binding = bindingFor("deny-grant-binding", backing.id);
+
+        expectAgentError(
+            () => service.createBinding(binding),
+            "authority.denied",
+            "Binding requires a live allow Grant for its subject and Workspace path"
+        );
+        expect(store.binding(binding.key)).toBeUndefined();
+    });
+
+    test("refuses a Binding held by a subject the Grant does not name", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const otherId = new PrincipalId("binding-gate-other");
+        service.createPrincipal(new Principal(otherId, "user", "active"));
+        const backing = grant("subject-binding-grant", ownerSubject(), { kind: "direct" });
+        service.createGrant(backing);
+        const binding = bindingFor(
+            "subject-grant-binding",
+            backing.id,
+            SubjectRef.principal(new PrincipalRef(tenantId, otherId))
+        );
+
+        expectAgentError(
+            () => service.createBinding(binding),
+            "authority.denied",
+            "Binding requires a live allow Grant for its subject and Workspace path"
+        );
+        expect(store.binding(binding.key)).toBeUndefined();
+    });
+
+    test("refuses a Binding whose Workspace path never reaches the Grant", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const siblingId = new WorkspaceId("binding-gate-sibling");
+        service.createWorkspace(new Workspace(siblingId, tenantId, undefined, Revision.initial()));
+        const backing = grant(
+            "sibling-binding-grant",
+            ownerSubject(),
+            { kind: "direct" },
+            ScopeRef.workspace(tenantId, siblingId)
+        );
+        service.createGrant(backing);
+        const binding = bindingFor("sibling-grant-binding", backing.id);
+
+        expectAgentError(
+            () => service.createBinding(binding),
+            "authority.denied",
+            "Binding requires a live allow Grant for its subject and Workspace path"
+        );
+        expect(store.binding(binding.key)).toBeUndefined();
+    });
+
+    test("names the Binding in duplicate creation and absent replacement", { tags: "p1" }, () => {
+        const { service } = fixture();
+        const backing = grant("duplicate-binding-grant", ownerSubject(), { kind: "direct" });
+        service.createGrant(backing);
+        const binding = bindingFor("duplicate-binding", backing.id);
+        service.createBinding(binding);
+
+        expectAgentError(
+            () => service.createBinding(binding),
+            "protocol.invalid-state",
+            "Binding already exists"
+        );
+        expectAgentError(
+            () => service.replaceBinding("missing-binding-key", backing.id, binding.facet),
+            "protocol.invalid-state",
+            "Binding does not exist"
+        );
+    });
+
+    test("refuses to re-point a live Binding at a revoked Grant", { tags: "p0" }, () => {
+        const { store, service } = fixture();
+        const backing = grant("replace-binding-grant", ownerSubject(), { kind: "direct" });
+        const successor = grant("replace-binding-successor", ownerSubject(), { kind: "direct" });
+        service.createGrant(backing);
+        service.createGrant(successor);
+        service.revokeGrant(successor.id);
+        const binding = bindingFor("replace-binding", backing.id);
+        service.createBinding(binding);
+
+        expectAgentError(
+            () => service.replaceBinding(binding.key, successor.id, binding.facet),
+            "authority.denied",
+            "Binding requires a live allow Grant for its subject and Workspace path"
+        );
+        expect(store.binding(binding.key)?.grantId.value).toBe(backing.id.value);
+    });
+});
+
 function fixture(): { store: MemoryTenantControlStore; service: AuthorityMutationService } {
     const store = MemoryTenantControlStore.create(anchor);
     store.bootstrapTenant(anchor, Revision.initial());
@@ -1193,6 +1330,26 @@ function grant(
     scope = workspaceScope
 ): Grant {
     return new Grant(new GrantId(id), scope, subject, "allow", observeCapability(), origin);
+}
+
+function ownerSubject(): SubjectReference {
+    return SubjectRef.principal(new PrincipalRef(tenantId, ownerId));
+}
+
+function bindingFor(
+    name: string,
+    grantId: GrantId,
+    subject: SubjectReference = ownerSubject(),
+    scope = workspaceScope
+): Binding {
+    return Binding.active(
+        scope,
+        subject,
+        new ProtectionDomain("backend", "binding-gate", "no-secrets"),
+        new BindingName(name),
+        grantId,
+        new FacetRef("workspace:binding.gate")
+    );
 }
 
 function expectAgentError(action: () => unknown, code: AgentCoreErrorCode, message: string): void {

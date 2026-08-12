@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "vitest";
 import { ActorId } from "../../src/actors";
-import { AuthorityMutationService, Grant, GrantId } from "../../src/authority";
-import { CapabilitySpec } from "../../src/facets";
+import { AuthorityMutationService, Binding, Grant, GrantId } from "../../src/authority";
+import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import { requireSynchronousResult, type SynchronousResultGuard } from "../../src/actors";
 import { Digest, Revision, SecretRef } from "../../src/core";
 import {
@@ -349,6 +349,56 @@ describe("SQLite Tenant authority mutation storage", () => {
             );
 
             expect(() => createSqliteTenantControlStore(database)).toThrow(/malformed|canonical/);
+        }
+    );
+
+    // The Memory store re-derives the Binding-to-Grant closure whenever a transaction
+    // commits, so a Memory-backed test can pass on that check rather than on the service
+    // gate that is supposed to refuse first. The SQLite ledger derives nothing: it weighs
+    // a row against its own record bytes, and revocation leaves a Binding's own row
+    // untouched. So the service gate is the entire enforcement here, and this asserts the
+    // durable consequence — no row, not merely a thrown error.
+    test(
+        "refuses a durable Binding on a revoked Grant, which the ledger alone would keep",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = createSqliteTenantControlStore(database, anchor);
+            database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
+            const service = new AuthorityMutationService(store);
+            const workspace = new Workspace(
+                new WorkspaceId("sqlite-binding-workspace"),
+                tenantId,
+                undefined,
+                Revision.initial()
+            );
+            service.createWorkspace(workspace);
+            const subject = SubjectRef.principal(new PrincipalRef(tenantId, principalId));
+            const backing = new Grant(
+                new GrantId("sqlite-binding-grant"),
+                workspace.scope,
+                subject,
+                "allow",
+                new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+                { kind: "direct" }
+            );
+            service.createGrant(backing);
+            service.revokeGrant(backing.id);
+            const binding = Binding.active(
+                workspace.scope,
+                subject,
+                new ProtectionDomain("backend", "sqlite-binding", "no-secrets"),
+                new BindingName("sqlite-binding"),
+                backing.id,
+                new FacetRef("workspace:sqlite.binding")
+            );
+
+            expect(() => service.createBinding(binding)).toThrow(
+                "Binding requires a live allow Grant for its subject and Workspace path"
+            );
+            expect(store.binding(binding.key)).toBeUndefined();
+            expect(database.all("SELECT binding_key FROM tenant_bindings", [])).toEqual([]);
+            expect(createSqliteTenantControlStore(database).binding(binding.key)).toBeUndefined();
         }
     );
 });

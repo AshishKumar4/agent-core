@@ -133,6 +133,20 @@ describe("authority value records", () => {
         ).toThrow(/canonical ancestry/);
     });
 
+    // The nonempty tuple type keeps this out of reach of the plane's own callers, and
+    // fromData refuses an empty array before it constructs. Nothing else in validatePath
+    // reports it as an arity fault: without the length test the empty path reads as a
+    // Scope chain that is not Tenant-to-target, and the last entry it goes on to read
+    // does not exist.
+    test("rejects an empty authority path as an arity fault", { tags: "p0" }, () => {
+        expect(() => new PathEpochEvidence([] as never)).toThrow(
+            "Authority path must contain one to three Scopes"
+        );
+        expect(() => PathEpochEvidence.fromData({ path: [] })).toThrow(
+            "Path epoch evidence must not be empty"
+        );
+    });
+
     test(
         "[authority.path-epoch-evidence] round-trips exact path evidence and reports changed Scopes",
         { tags: "p0" },
@@ -365,6 +379,14 @@ describe("Grant model", () => {
                 }
             })
         ).toThrow(new TypeError("Role name must be a string"));
+
+        // The Grant constructor refuses a bad effect under this same message, so asserting
+        // it on its own would prove nothing about where the refusal came from. Pairing it
+        // with a capability that is also malformed says which field the decoder reports:
+        // the effect is screened before the rest of the record is interpreted.
+        expect(() => Grant.fromData({ ...data, effect: "sideways", capability: null })).toThrow(
+            new TypeError("Grant effect is invalid")
+        );
     });
 
     test("round-trips role Grant origins through the canonical codec", { tags: "p0" }, () => {

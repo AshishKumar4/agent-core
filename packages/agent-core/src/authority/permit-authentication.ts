@@ -1,6 +1,7 @@
 import { type ActorRef } from "../actors";
 import { Digest } from "../core";
 import { AgentCoreError } from "../errors";
+import { bytesEqual } from "./data";
 import { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
 
 const authenticationIssuer = Symbol("authority-permit-authentication-issuer");
@@ -27,7 +28,7 @@ export class AuthenticatedAuthorityPermit {
     }
 
     public matches(permit: AuthorityPermit): boolean {
-        return sameBytes(AuthorityPermit.encode(this.#permit), AuthorityPermit.encode(permit));
+        return bytesEqual(AuthorityPermit.encode(this.#permit), AuthorityPermit.encode(permit));
     }
 }
 
@@ -57,7 +58,7 @@ export class AuthorityPermitAuthenticator {
         }
         if (
             !canonical.expectation.equals(expected) ||
-            !sameBytes(AuthorityPermit.encode(canonical), AuthorityPermit.encode(candidate))
+            !bytesEqual(AuthorityPermit.encode(canonical), AuthorityPermit.encode(candidate))
         ) {
             throw denied("Authority permit differs from its authenticated issuer record");
         }
@@ -75,12 +76,6 @@ export function requireAuthenticatedAuthorityPermit(
     ) {
         throw denied("Authority permit lacks authenticated issuer evidence");
     }
-}
-
-function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
-    return (
-        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
-    );
 }
 
 function denied(message: string): AgentCoreError {

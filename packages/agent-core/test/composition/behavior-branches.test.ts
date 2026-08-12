@@ -1,17 +1,22 @@
 import { describe, expect, test, vi } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import {
+    AcceptanceId,
+    RunId,
     RunRuntime,
+    SpawnReservation,
     SpawnAttenuation,
     TurnId,
     TurnInboxEntry,
-    TurnInboxEntryId
+    TurnInboxEntryId,
+    type AcceptanceReceiptEvidence
 } from "../../src/agents";
 import {
     CanonicalRunEvidencePort,
     CanonicalRunMergePort,
     CanonicalRunSourceRevisionPort,
     CanonicalRunSpawnPort,
+    CanonicalSettlementEvidencePort,
     InvocationInteractionAuditPort,
     PackageFacetRuntime,
     ProvenanceFacetSlotBackend,
@@ -19,7 +24,8 @@ import {
     RuntimeRunInboxPort,
     type RoutedInvocationProjection
 } from "../../src/composition";
-import { CompatRange, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
+import { SpawnReservationId } from "../../src/agents/runs/id";
+import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
 import {
     PackageId,
     type Blueprint,
@@ -57,6 +63,7 @@ import {
     InvocationPlacementPin,
     OperationPin,
     PreparedInvocation,
+    ReceiptId,
     type InvocationLedger,
     type InvocationPersistence
 } from "../../src/invocations";
@@ -662,6 +669,97 @@ describe("W9 composition behavior branches", () => {
                 "source",
                 "closure"
             ]);
+        }
+    );
+
+    test(
+        "treats an unimplemented evidence source as absent evidence, never as satisfied",
+        { tags: "p0" },
+        () => {
+            // Four of these source methods are optional, which means two different things
+            // have to hold and only one of them is about not faulting.
+            //
+            // The evidence readers report *no evidence*: a source that cannot say whether
+            // an acceptance Receipt exists must return undefined, and the reader that
+            // dropped its optional call would fault on a source that is within contract.
+            //
+            // acceptanceSatisfied is the one that decides something. It answers a boolean,
+            // so an absent source has to answer `false` — "this acceptance is not shown
+            // satisfied" — and never `true`. Defaulting the other way would discharge every
+            // acceptance criterion on a deployment whose source simply does not implement
+            // the check, which is the settlement gate of §9 passing because nobody wired it.
+            const receipt = new ReceiptId("acceptance-receipt");
+            const acceptance = new AcceptanceId("acceptance-1");
+            const evidence: AcceptanceReceiptEvidence = {
+                kind: "acceptanceReceipt",
+                receipt,
+                outcome: "succeeded",
+                operation: new OperationRef("memory:recall")
+            };
+
+            const absent = new CanonicalRunEvidencePort<object>({
+                receipt: () => undefined,
+                delivery: () => undefined,
+                control: () => undefined,
+                synthesis: () => undefined
+            });
+            expect(absent.acceptance({}, receipt)).toBeUndefined();
+
+            const present = new CanonicalRunEvidencePort<object>({
+                receipt: () => undefined,
+                delivery: () => undefined,
+                control: () => undefined,
+                synthesis: () => undefined,
+                acceptance: () => evidence
+            });
+            expect(present.acceptance({}, receipt)).toBe(evidence);
+
+            const settlement = (
+                acceptanceSatisfied?: (transaction: object, id: AcceptanceId) => boolean
+            ) =>
+                new CanonicalSettlementEvidencePort<object>({
+                    approvalResolved: () => true,
+                    invocationItemTerminal: () => true,
+                    routeTerminal: () => true,
+                    reconciliationSuperseded: () => true,
+                    commitExists: () => true,
+                    auditSatisfied: () => true,
+                    ...(acceptanceSatisfied === undefined ? {} : { acceptanceSatisfied })
+                });
+            expect(settlement().acceptanceSatisfied({}, acceptance)).toBe(false);
+            expect(settlement(() => false).acceptanceSatisfied({}, acceptance)).toBe(false);
+            expect(settlement(() => true).acceptanceSatisfied({}, acceptance)).toBe(true);
+
+            // The spawn port hands back the source's own attenuation. Returning nothing
+            // would leave a delegated Run with no recorded narrowing at all.
+            const attenuation = new SpawnAttenuation();
+            const spawn = new CanonicalRunSpawnPort<object>({
+                successfulDelegateReceipt: () => true,
+                durableAttenuation: () => true,
+                attenuation: () => attenuation
+            });
+            const parentTurn = new TurnId("spawn-turn");
+            const reservation = new SpawnReservation(
+                new SpawnReservationId("spawn-1"),
+                new RunId("parent-run"),
+                parentTurn,
+                new RunId("child-run"),
+                {
+                    turn: parentTurn,
+                    holder: new PrincipalRef(
+                        new TenantId("spawn-tenant"),
+                        new PrincipalId("spawn-principal")
+                    ),
+                    epoch: 0
+                },
+                new Digest("1".repeat(64)),
+                new ContentRef(`sha256:${"2".repeat(64)}`),
+                new InvocationId("spawn-invocation"),
+                new ReceiptId("spawn-receipt"),
+                new Digest("3".repeat(64)),
+                new Date(1_000)
+            );
+            expect(spawn.attenuation({}, reservation)).toBe(attenuation);
         }
     );
 });

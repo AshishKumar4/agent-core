@@ -46,7 +46,7 @@ const IDENTITY_DOMAIN = Object.freeze({
 
 export class DerivedMediationIdentities implements MediatedInvocationIdentityPort {
     public constructor(private readonly scope: string) {
-        if (scope.trim().length === 0 || scope !== scope.trim()) {
+        if (scope.length === 0 || scope !== scope.trim()) {
             throw new TypeError("Mediation identity scope must be canonical");
         }
     }
@@ -78,7 +78,10 @@ export class DerivedMediationIdentities implements MediatedInvocationIdentityPor
                 },
                 requestKey: request.requestKey.value,
                 scope: this.scope,
-                shape: request.shape.kind === "single" ? { kind: "single" } : { ...request.shape }
+                shape:
+                    request.shape.kind === "single"
+                        ? { kind: "single" }
+                        : { itemCount: request.shape.itemCount, kind: "batch" }
             })
         );
     }

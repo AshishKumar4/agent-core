@@ -1154,6 +1154,64 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             );
         }
     );
+
+    // Both stores refuse to hold these two records: the Memory store re-derives the
+    // Binding-to-Grant closure on every commit, and createBinding refuses them before that.
+    // The runtime nonetheless reads its Grants and Bindings through an injected store and
+    // does not trust what comes back, which is why missingGrant is in the decision
+    // taxonomy at all. Planting the record at that seam is the only way to reach either
+    // branch, and both are decisions an operator has to be able to tell apart.
+    test("reports a Binding whose backing Grant is absent from the store", { tags: "p0" }, () => {
+        const store = new PlantedBindingStore();
+        store.principalRecord = new Principal(principalId, "user", "active");
+        const present = directGrant("planted-present");
+        store.grantRecords.push(present);
+        const planted = activeBinding(present, { grantId: new GrantId("planted-absent") });
+        store.bindingRecords.push(planted);
+        const runtime = new TenantAuthorityRuntime(store, issuer);
+
+        const evidence = runtime.check(checkRequest(planted, fixedPath()), new Date(10));
+
+        expect(evidence.reason).toBe("missingGrant");
+        expect(evidence.decision).toBe("deny");
+        expect(evidence.matchedAllow).toEqual([]);
+    });
+
+    test(
+        "refuses a Binding held by a subject its backing Grant does not name",
+        { tags: "p0" },
+        () => {
+            const store = new PlantedBindingStore();
+            store.principalRecord = new Principal(principalId, "user", "active");
+            const teamId = new TeamId("planted-team");
+            store.teamRecords.push(
+                new Team(teamId, tenantId, "Planted", [principalId], Revision.initial())
+            );
+            const teamGrant = new Grant(
+                new GrantId("planted-team-grant"),
+                workspaceScope,
+                SubjectRef.team(teamId),
+                "allow",
+                capability,
+                { kind: "direct" }
+            );
+            store.grantRecords.push(teamGrant);
+            // The Team Grant is within the principal's effective subjects, so it survives the
+            // relevance filter and would carry the decision on its own. Only the comparison
+            // against the Binding's own subject separates the two.
+            const planted = activeBinding(teamGrant, {
+                subject: SubjectRef.principal(new PrincipalRef(tenantId, principalId))
+            });
+            store.bindingRecords.push(planted);
+            const runtime = new TenantAuthorityRuntime(store, issuer);
+
+            const evidence = runtime.check(checkRequest(planted, fixedPath()), new Date(10));
+
+            expect(evidence.reason).toBe("noMatchingAllow");
+            expect(evidence.decision).toBe("deny");
+            expect(evidence.matchedAllow).toEqual([]);
+        }
+    );
 });
 
 class FakeAuthorityStore implements TenantAuthorityReadStore {
@@ -1198,6 +1256,15 @@ class FakeAuthorityStore implements TenantAuthorityReadStore {
 class DetachedGrantStore extends FakeAuthorityStore {
     public override grants(): readonly Grant[] {
         return [];
+    }
+}
+
+/** Serves Binding records that no store would accept, so the runtime meets them anyway. */
+class PlantedBindingStore extends FakeAuthorityStore {
+    public readonly bindingRecords: Binding[] = [];
+
+    public override binding(key: string): Binding | undefined {
+        return this.bindingRecords.find((record) => record.key === key) ?? super.binding(key);
     }
 }
 
