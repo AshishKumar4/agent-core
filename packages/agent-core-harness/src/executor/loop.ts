@@ -24,8 +24,14 @@ export interface AgentLoopOptions {
  *
  * Every model reply becomes a message RunCommit before any tool runs, and every tool
  * call goes through `TurnInvocationHandle`, so nothing this loop does reaches a Facet
- * outside mediation. Request keys are derived from the Turn, step, and tool-call id so
- * a re-executed Turn replays the same mediated Invocation instead of repeating it.
+ * outside mediation.
+ *
+ * Request keys are derived from the Turn, the step, and the tool-call id rather than
+ * generated, so a re-executed Turn replays a mediated Invocation it already made. That
+ * holds only while the model reproduces the same tool-call ids: the seam gives the
+ * executor no way to read back the commits it appended earlier in the same Turn, so
+ * there is no durable record of prior steps to resume from, and persisting a step
+ * boundary means suspending the Turn, which ends this execution.
  */
 export class AgentLoopTurnExecutor extends TurnExecutor {
     public constructor(private readonly options: AgentLoopOptions) {
