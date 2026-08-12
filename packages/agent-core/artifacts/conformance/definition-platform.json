@@ -168,7 +168,7 @@
       "id": "C13-PLACEMENT-UNTRUSTED-BUNDLED",
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-UNTRUSTED-BUNDLED",
-      "specTextSha256": "sha256:71d0eb2975f6052ab5af869a9d303bb6b6799da8cd172e352ff6039f78f060de",
+      "specTextSha256": "sha256:c53a1fde6c5ecb77490c48d7afc9ecddf96c10de6801c31c2c1e207a9251321c",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [

@@ -94,7 +94,7 @@
       "id": "C13-AUTH-BINDING-RESOLUTION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-BINDING-RESOLUTION",
-      "specTextSha256": "sha256:1ee55df596a4468da771593d1f1a2a4b1de75487dc2372f632a9aa2e9c7e77f8",
+      "specTextSha256": "sha256:a35bba26018b5635c5f04f84dd6fa7a0b6da967ca292984fe7b0e589c4202637",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
@@ -122,7 +122,7 @@
       "id": "C13-AUTH-DENY-PRECEDENCE",
       "owner": "W2",
       "specAnchor": "C13-AUTH-DENY-PRECEDENCE",
-      "specTextSha256": "sha256:483a8027d6bb1b9084e0cdcfa0317eb41c08fe5ea9fbc07820528062d9423cfd",
+      "specTextSha256": "sha256:2fc41aab34309dfd7bf2f105c78c681e7852d8c1e788e45539f16862bde66bd6",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime.check"],
@@ -236,6 +236,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP",
+      "specTextSha256": "sha256:da165f06c9b56e09f3aa054fb2254420df210139e2bfaa195aaf6917a0a1076a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "src/authority/materializer.ts#RoleGrantMaterializer already refuses to materialize Grants for a `handshake`-stamped foreign subject, and src/identity/guest-verification.ts#GuestVerification refuses to mint a handshake verification; W2 must cite those symbols and add a test titled with [C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP] before this atom leaves planned"
+      ]
     },
     {
       "id": "C13-AUTH-GUEST-SUBJECT",
@@ -367,7 +381,7 @@
       "id": "C13-AUTH-PLANE",
       "owner": "W2",
       "specAnchor": "C13-AUTH-PLANE",
-      "specTextSha256": "sha256:e6003dccb470010a11df76cacc7be09cef3edfffcc88f0283f520052c22a229f",
+      "specTextSha256": "sha256:1a40ff2029690cd891e948abd8809f705da5bcaadfcdd12c5d9096b322047a61",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/grant.ts#Grant"],
