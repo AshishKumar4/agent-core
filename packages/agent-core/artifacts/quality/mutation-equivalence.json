@@ -1560,6 +1560,30 @@
       "proof": "Dropping the length test changes the result only when left is a strict byte prefix of right: Uint8Array.every walks left's indices alone, so a longer left still meets an undefined right[i] and yields false, and equal lengths make the test vacuous. Both call sites compare canonical JSON encodings of objects. exactLockedReleases compares two PackageLock record envelopes, and validateOwnerDeclarations compares encodeCanonicalJson of a codec's canonicalization against encodeCanonicalJson of a Blueprint declaration, which Blueprint stores as a FacetDataMap. A canonical encoding of an object ends with the closing brace of its top-level value and carries nothing after it, so if the shorter run were a prefix of the longer, the longer would have to continue past its own top-level value. Nothing encodeCanonicalJson emits can. No input can therefore reach the case the mutant changes.",
       "replacement": "true",
       "symbol": "bytesEqual"
+    },
+    {
+      "file": "src/definition/memory.ts",
+      "mutated": "bytes.slice()",
+      "mutator": "MethodExpression",
+      "proof": "installControlRows has one caller, the MemoryMaterializationControlStore constructor, which assigns the four maps it builds straight into #state and then calls validateClosure. validateClosure runs this.transaction, and transaction opens with cloneControlState(this.#state) and closes by assigning that draft back to #state; cloneControlState copies every row through copyByteMap's own slice. So the store replaces each row with a private copy before the constructor returns, one statement after this copy was taken, and no caller can observe the state in between. Whether the row the map holds for those few statements is the caller's array or a copy of it changes nothing any later read can reach. Confirmed by probe: with the copy removed, a store built from rows the caller then fills with zeroes still loads its attestation intact.",
+      "replacement": "bytes",
+      "symbol": "installControlRows"
+    },
+    {
+      "file": "src/definition/memory.ts",
+      "mutated": "bytes.slice()",
+      "mutator": "MethodExpression",
+      "proof": "insertControlImmutable is module-private with exactly three callers -- insertAttestation, insertRollout and insertOutbox -- and each passes a freshly built encoding as the bytes argument: ValidationAttestation.encode(attestation), MaterializationRollout.encode(rollout), MaterializationOutboxEntry.encode(entry). Each of those returns a Uint8Array that encodeCanonicalJson has just allocated, and the expression is written inline at the call so no caller holds a second reference to it. Storing that array itself rather than a copy of it therefore hands the map an array nothing else can reach or mutate, which is exactly the property the copy was there to buy. The immutability comparison above this line reads the previously stored row and the new one, and is unaffected either way.",
+      "replacement": "bytes",
+      "symbol": "insertControlImmutable"
+    },
+    {
+      "file": "src/facets/slot-memory.ts",
+      "mutated": "bytes.slice()",
+      "mutator": "MethodExpression",
+      "proof": "insertImmutable is reached three ways. insertSlot and insertEntry build the bytes inline as SlotDeclaration.encode(declaration) and SlotEntry.encode(entry), so the array has no other holder and copying it buys nothing. MemoryWorkspaceSlotStore.restore is the one path that passes a caller's snapshot array, and it inserts into a local state object which it never installs: its last act is store.#state = cloneState(state), and cloneState rebuilds both maps with a slice of every row. The rows this line wrote are discarded with that local state, so the store's own bytes are copies regardless. No sequence of public calls can therefore reach a stored row that the caller still aliases.",
+      "replacement": "bytes",
+      "symbol": "insertImmutable"
     }
   ]
 }
