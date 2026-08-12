@@ -1574,7 +1574,7 @@
       "id": "C13-CONFIG-SECRET-CUSTODY",
       "owner": "W4",
       "specAnchor": "C13-CONFIG-SECRET-CUSTODY",
-      "specTextSha256": "sha256:2967ee1a6b476d8d2654a0370dc38fb8576f10253de8cb59e08e4bd37239928c",
+      "specTextSha256": "sha256:646f399f2a4a7c0a9d99fc7a3b3e627f3a8f38123e302bbcb0adeabf2da12392",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

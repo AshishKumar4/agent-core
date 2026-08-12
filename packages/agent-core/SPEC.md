@@ -465,7 +465,7 @@ Binding and target endpoint that Tenant recorded when it accepted the credential
 repointing an integration at a new endpoint invalidates the old resolution rather than
 presenting the old credential to the new place. `source` MUST equal the exact canonical
 value of that Tenant's `TenantId` — never a free-form label — checked by whatever records
-custody; `SecretRef` itself stays a dependency-free core value type (§1.4) and does not
+custody; `SecretRef` itself stays a self-contained core value type (§1.4) and does not
 import the identity types it names. Acceptance is recorded custody: whichever Tenant-owned
 consumer accepts a SecretRef for use (a Binding, an Environment, an ingress declaration's
 `verification.secret`, or any other consumer this document or a profile names) durably
