@@ -700,8 +700,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The lease-fenced half exists — InboxProtocol rejects delivery without the exact current Turn lease — but no reserved `turn.cancel` Event kind exists anywhere in src, so the cancellation contract is unimplemented",
-        "The executor obligation has no seam to test against: nothing observes a cancellation signal between Turn steps or stops committing on it, so both the delivery-on-fence and the stop-committing halves are outstanding"
+        "Implemented, contrary to the note this replaces. runtime.ts#deliverEventInTransaction requires the exact live lease before any append and routes the reserved `turn.cancel` Event to appendCancellation instead of the sequence-checked inbox path; TurnInboxEntry's constructor ties event and cancellation token together as a biconditional so neither can appear without the other; and the executor observes cancellation between steps at findCancellation's three call sites in executor.ts. The superseded note claimed no `turn.cancel` kind existed anywhere in src, which was true when it was written and false once the mediation work landed",
+        "Tested too, but unlabelled, so the rule is uncited rather than unverified. Two p0 cases in test/agents/runs/adversarial.test.ts already prove the delivery halves - 'delivers reserved cancellation to the exact live lease without fencing it' asserts the inbox append leaves the Turn running under its holder, and 'rejects delivered cancellation that names a lease other than the caller's' asserts the fencing. The executor half is proved by 'fences a boundary result when cancellation arrives during the operation' in executor.test.ts",
+        "Flipping this atom therefore needs no new test, only citation: label the two adversarial cases with the atom id, and label the executor case after giving it a priority tag - it is currently untagged, and the ledger refuses p2-only evidence for a conformance atom, so it must be raised to at least p1 first. Deferred only to avoid moving the priority lane counts while a kill-campaign agent holds the tree"
       ]
     },
     {
