@@ -238,6 +238,12 @@ function anchors(entry, mutant, source, text) {
  * Every node inside `declarations` whose normalized text is exactly `mutated`, in source
  * order. Nodes rather than substring matches: a mutant replaces an expression, so text
  * that happens to appear inside a larger one is not a site a mutant could occupy.
+ *
+ * The enumeration is syntactic, not type-aware, so a string-literal type annotation
+ * counts — `validateLineage` holds four `"revokedGrant"` sites where a reader sees three,
+ * the extra pair coming from its return type. That is deliberate: the count exists to
+ * detect drift, and an edit to the annotation is drift worth staling a proof over. It
+ * does mean an ordinal cannot be counted by eye; derive it from this resolver.
  */
 function anchoredNodes(source, declarations, mutated) {
     const found = [];

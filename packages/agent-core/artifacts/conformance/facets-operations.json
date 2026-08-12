@@ -64,15 +64,17 @@
       "owner": "W3",
       "specAnchor": "C13-COMMAND-COMPLETION-IMPACT",
       "specTextSha256": "sha256:df81ba396ab32f074f69adac7ec7512056bbfa045fb16676bcdc7ba708e1fd21",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "Install-time enforcement exists — command-runtime.ts refuses a completion target whose descriptor impact is not `observe` — but no test names this atom, so the rule is implemented and uncited rather than verified",
-        "The tiering consequence the rule exists for is untested: nothing asserts that a host-issued completion call stays on the direct tier, which is what the `observe` impact buys"
-      ]
+      "sourceSymbols": [
+        "src/facets/contribution.ts#enforcementFloor",
+        "src/operations/command-runtime.ts#CommandRuntime"
+      ],
+      "testSelectors": [
+        "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COMPLETION-IMPACT] admits a completion only at the impact that floors to direct"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-COMMAND-INSTALL-MAPPING",

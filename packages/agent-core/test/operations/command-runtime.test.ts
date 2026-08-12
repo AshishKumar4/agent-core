@@ -11,6 +11,7 @@ import {
     OperationName,
     OperationRef,
     SlotName,
+    enforcementFloor,
     type FacetData,
     type Impact
 } from "../../src/facets";
@@ -266,6 +267,44 @@ describe("CommandRuntime installation", () => {
             )
         ).not.toThrow();
     });
+
+    test(
+        "[C13-COMMAND-COMPLETION-IMPACT] admits a completion only at the impact that floors to direct",
+        { tags: "p1" },
+        () => {
+            const completion = new OperationRef(`${PACKAGE}:${COMPLETION}`);
+            // Every impact but `observe` is refused, named one at a time: a completion
+            // admitted at any of them is a completion that leaves the direct tier.
+            for (const impact of ["execute", "mutate", "externalSend", "delegate"] as const) {
+                expectInstallError(
+                    installation({
+                        completion,
+                        completionTarget: target(numberArguments, COMPLETION, impact)
+                    }),
+                    "operation.invalid-input",
+                    /exact observe Operation/u
+                );
+            }
+            const admitted = new CommandRuntime().install(
+                installation({
+                    completion,
+                    completionTarget: target(numberArguments, COMPLETION, "observe")
+                })
+            );
+            expect(admitted.command.completion?.operation.value).toBe(COMPLETION);
+
+            // The refusal above and this floor are the two halves of one rule, and the
+            // rule is the composition: install-time screening is only worth anything
+            // because `observe` is the impact §7.2 floors to `direct`. Argument
+            // completion runs per keystroke, so an impact that floored to `mediated`
+            // would put a durable Invocation behind every one of them.
+            for (const impact of ["observe", "execute", "mutate", "externalSend"] as const) {
+                expect(enforcementFloor(impact, false, false)).toBe(
+                    impact === "observe" ? "direct" : "mediated"
+                );
+            }
+        }
+    );
 });
 
 describe("CommandRuntime mapping validation", () => {
