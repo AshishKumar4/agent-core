@@ -431,8 +431,17 @@ Authority rules:
    the exact permit under `C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION`. This rule maps
    to **C13-AUTH-MEDIATED-ADMISSION** and **C13-AUTH-MEDIATED-STALE**.
 8. Resolved-facet lifetime follows the isolation mode: `bundled` resolutions last no
-   longer than their exact Turn and deadline; `provider`/`dynamic` resolutions last one
-   Turn step and are mediated with current path epochs (§10.2). This maps to
+   longer than their exact Turn and deadline — a held or cached resolution admits only
+   while it still names the exact current LeaseToken for that Turn, so fencing,
+   reclaiming, or completing the Turn ends it at once rather than at the next unrelated
+   check. A **Turn step** is one iteration of the Turn's execution loop, the interval
+   between two successive firings of the `turn.step` interceptor cut point (§4.4); the
+   executor seam (§5.6) fixes what one iteration comprises and this document places no
+   further structure on it. `provider`/`dynamic` resolutions last one Turn step: the
+   capability stub they wrap MUST NOT be held or reused past the step in which it was
+   obtained, and every mediated use of it — inside that step or any later one —
+   independently re-authorizes against current path epochs regardless of how recently the
+   resolution was obtained (§10.2, rule 7 above). This maps to
    **C13-AUTH-RESOLUTION-LIFETIME**.
 
 *Why bounded-window rather than instantaneous:* no distributed substrate can update
@@ -454,11 +463,26 @@ Custody is about who may present a credential, not only about where the bytes li
 SecretRef resolves only inside the Tenant named by its `source`, and only for the exact
 Binding and target endpoint that Tenant recorded when it accepted the credential:
 repointing an integration at a new endpoint invalidates the old resolution rather than
-presenting the old credential to the new place. A delegation, a guest Membership, and a
-cross-tenant reservation each carry the ref and never the value, and a resolution attempted
-outside that custody denies rather than degrading to the raw value. §3.4 rule 3 and §3.3's
-guest prohibition are consequences of this clause, which is the only place it is stated.
-This maps to **C13-CONFIG-SECRET-CUSTODY**.
+presenting the old credential to the new place. `source` MUST equal the exact canonical
+value of that Tenant's `TenantId` — never a free-form label — checked by whatever records
+custody; `SecretRef` itself stays a self-contained core value type (§1.4) and does not
+import the identity types it names. Acceptance is recorded custody: whichever Tenant-owned
+consumer accepts a SecretRef for use (a Binding, an Environment, an ingress declaration's
+`verification.secret`, or any other consumer this document or a profile names) durably
+pairs it with the exact consumer identity and target endpoint the Tenant authorized — that
+`(SecretRef, consumer, endpoint)` triple is the **custody record**. This document does not
+fix where a substrate stores it beyond that it is Tenant-owned data under the one-owner
+rule every durable record already follows (§8.4); it is a fact a consumer's own record
+carries, not a new durable record kind. A resolution seam — the credential-isolation seam
+of §4.5 is the one this document names, and a profile MAY name others — MUST check the
+presenting consumer and target endpoint against the custody record before returning a
+value, and MUST fail the resolution attempt, never degrade to the raw value, for a
+mismatched or unrecorded pair. For a mediated `externalSend` effect that failure is an
+ordinary failed AttemptReceipt (§7.4); custody denial needs no separate record kind or
+vocabulary of its own. A delegation, a guest Membership, and a cross-tenant reservation
+each carry the ref and never the value. §3.4 rule 3 and §3.3's guest prohibition are
+consequences of this clause, which is the only place it is stated. This maps to
+**C13-CONFIG-SECRET-CUSTODY**.
 
 ---
 
@@ -834,13 +858,20 @@ the authority of the code that loaded it — so revoking a passed Grant severs t
 isolate without touching its loader. This maps to **C13-AUTH-ISOLATE-DELEGATION**.
 
 One `dynamic` semantics does not mean one hosting mechanism. A substrate profile MAY
-offer more than one backing for loaded code — §10.2 names two — and a platform
-declares which backing serves each consumer: the isolate that runs a programmatic
-tool call need not be the mechanism that hosts Slate backends. Every offered backing
-MUST preserve identical authority semantics — zero ambient authority, zero ambient
-egress, capabilities only as explicitly passed Bindings — so the choice between
-backings is operational, never an authority decision. This maps to
-**C13-PLACEMENT-AUTHORED-BACKING**.
+offer more than one backing for loaded code — §10.2 names two, `workerLoader` and
+`dispatchNamespace` — identified by a substrate-defined, opaque, nonempty id; this
+document fixes no enum of them. A platform declares which backing serves each of the
+three consumers this section names — programmatic tool calling, Slate backends,
+agent-authored facets, a closed set, since nothing else is agent-authored code under
+this section — as part of `policies.placement` (§9.2): one more mapping,
+consumer → backing id, alongside the isolation-mode admissibility that record already
+declares, not a new artifact. A consumer the Blueprint does not map uses the profile's
+declared default backing. Every offered backing MUST preserve identical authority
+semantics — zero ambient authority, zero ambient egress, capabilities only as explicitly
+passed Bindings — so the choice between backings is operational, never an authority
+decision; each backing demonstrates this independently, the same way any `dynamic`-mode
+implementation does (§1.5's no-ambient-egress requirement), never by comparison
+against another backing. This maps to **C13-PLACEMENT-AUTHORED-BACKING**.
 
 ---
 
@@ -901,7 +932,8 @@ interface PlacementPin {
 type RunLifecycle =
   | { readonly kind: "active" }
   | { readonly kind: "terminal"; readonly outcome: "succeeded" | "failed" | "cancelled";
-      readonly terminalCommit: RunCommitId; readonly obligation: SettlementObligation };
+      readonly terminalCommit: RunCommitId; readonly obligation: SettlementObligation;
+      readonly exhausted?: "tokens" | "wallClockMs" | "depth" }; // cancelled by ceiling only
 
 type RunObligation =
   | { readonly kind: "approval"; readonly approval: ApprovalId }
@@ -1114,18 +1146,31 @@ criterion undischarged across distinct subjects. This maps to
 **C13-RUN-ACCEPTANCE-SUBJECT**.
 
 A `delegate`-impact spawn MAY attenuate resources alongside capability, by carrying an
-optional `ResourceCeiling` on the spawn's attenuation. The same rule governs it as governs
-capability (§3.4 rule 2): a child ceiling MUST NOT exceed the parent's remaining allowance
-in any declared dimension, and a dimension the child does not declare inherits the parent's
-remainder. A Run that declares no ceiling is unbounded — the platform imposes none — so
-fan-out narrows downward without anything capping work nobody chose to bound.
+optional `ResourceCeiling` on the spawn's attenuation — the same content-addressed
+attenuation `SpawnReservation.attenuation`'s digest already commits (§5.2), not a new
+record. The same rule governs it as governs capability (§3.4 rule 2): a child ceiling MUST
+NOT exceed the parent's remaining allowance in any declared dimension, and a dimension the
+child does not declare inherits the parent's remainder. A Run that declares no ceiling is
+unbounded — the platform imposes none — so fan-out narrows downward without anything
+capping work nobody chose to bound.
+
+The three dimensions differ in how their remainder is known. `depth` and `wallClockMs` are
+derived, never separately accounted: depth is the length of the spawn lineage from the Run
+back to the ancestor that declared the ceiling, and wall-clock consumption is the current
+time minus the Run's root RunCommit timestamp — both computable from records this document
+already requires, with no running total to maintain. `tokens` has no such derivation:
+consuming it needs a durable running total per Run, accumulated at the same point a model
+call commits (§5.1, C13-TURN-MODEL-CALL) — a counter this document requires without
+further shaping its storage, left to the executor seam (§5.6) like every other model-call
+detail.
 
 Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
-closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded, and the
-Run's acceptance criteria still say whether the work was finished, so an exhausted Run with
-an undischarged criterion reads as exactly that. A ceiling is scheduling state, like claim
-expiry (§7.4); it never appears in authority admission and changes no admission decision.
-This maps to **C13-RUN-RESOURCE-CEILING**.
+closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded in
+`RunLifecycle`'s terminal `exhausted` field, and the Run's acceptance criteria still say
+whether the work was finished, so an exhausted Run with an undischarged criterion reads as
+exactly that. A ceiling is scheduling state, like claim expiry (§7.4); it never appears in
+authority admission and changes no admission decision. This maps to
+**C13-RUN-RESOURCE-CEILING**.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
@@ -1152,15 +1197,21 @@ its parents without re-running anything. `synthesize` is the mixture-of-agents c
 **Tree conflicts.** Tree merge is defined only for the same binary parent pair, over
 the same Environment and one common-ancestor tree. The platform MUST resolve the tree
 separately and record the outcome on the merge commit's `treeCheckpoint`. A merge with
-more than two tree inputs is invalid rather than implementation-defined. The
-`policies.treeMerge` policy has three settings and MUST NOT pick silently:
+more than two tree inputs is invalid rather than implementation-defined.
+`policies.treeMerge` is a field of `PolicySet` (§9.2) alongside `tiers`, `approvals`, and
+`placement` — one more declared policy, not a new artifact — naming three settings and
+never picking silently:
 
 - `ours` / `theirs` — take one side's tree wholesale (the resolution records which);
 - `perPath` — take, per path, the side that changed it relative to the common ancestor;
   paths changed on **both** sides are conflicts and are surfaced, not guessed. No merge
-  commit is appended while any conflict is unresolved. The operator or an
-  `administer`-impact Operation supplies an explicit side for every conflict; the final
-  merge records those path resolutions. This maps to **C13-RUN-TREE-CONFLICT-EXPLICIT**.
+  commit is appended while any conflict is unresolved. **The operator** is the
+  authenticated Principal who invokes the `administer`-impact merge-resolution Operation
+  for this Run's Scope — the term names who that Operation's caller is, not a second
+  resolution path: there is exactly one mechanism, an `administer`-impact Operation, and
+  "the operator" is how this document refers to whoever legitimately calls it. That
+  Operation supplies an explicit side for every conflict; the final merge records those
+  path resolutions. This maps to **C13-RUN-TREE-CONFLICT-EXPLICIT**.
 
 A platform that never merges over a shared tree (each branch owns a disjoint Environment,
 the Cognition read/write-split pattern) never encounters tree conflicts and MAY omit
@@ -1208,9 +1259,14 @@ type MergeResolution =
       readonly receipt: ReceiptId };
 
 type TreeMergeResolution =
-  | { readonly policy: "ours" | "theirs"; readonly side: RunCommitId }
-  | { readonly policy: "perPath"; readonly resolutions: readonly PathResolution[] };
+  | { readonly policy: "ours" | "theirs"; readonly side: RunCommitId;
+      readonly base: ContentRef; readonly environment: EnvironmentId }
+  | { readonly policy: "perPath"; readonly resolutions: readonly PathResolution[];
+      readonly base: ContentRef; readonly environment: EnvironmentId };
 
+// `base` and `environment` name the exact common-ancestor tree and the Environment the
+// merge resolved over — the two facts "the same Environment and one common-ancestor
+// tree" (below) requires a reader be able to check without re-deriving them.
 interface PathResolution {
   readonly path: string;
   readonly side: RunCommitId;
@@ -1559,6 +1615,16 @@ interface View {
   readonly body: ViewBody;                   // JSON data only — no live handles
   readonly actions: readonly ActionDescriptor[];
   readonly cursor: EventCursor;              // opaque resume position in the Event log
+  readonly intentDigest?: Digest;            // present exactly on a decision View (§7.3)
+  readonly marks?: readonly ViewMark[];      // provenance of values the host did not originate
+}
+
+// A ViewMark attributes one sub-value of `body` to the TrustTier of the Event or
+// Operation input it came from (§6.1). `path` uses the same JSON Pointer vocabulary
+// FieldMapping and PayloadMapping already use (§6.2) — no new pointer syntax.
+interface ViewMark {
+  readonly path: string;                     // JSON Pointer into `body`
+  readonly tier: TrustTier;
 }
 
 // ViewBody is arbitrary JSON: the rendered, data-only snapshot a client displays.
@@ -1589,12 +1655,18 @@ per §4.2. Token-level model-output streaming is an executor and transport conce
 (§5.6), not Events.
 
 A View that presents an intent for a human decision carries the provenance of what it
-shows. Every body value the host did not originate MUST be marked with the TrustTier of the
-Event or Operation input it came from (§6.1), and the View MUST name the exact
-`intentDigest` (§7.3) the decision authorizes. A Surface MUST render a marked value as
-data and never as platform voice. Without this the last step of the chain — a person
-reading rendered text — is the one step decided on unattributed input. This maps to
-**C13-VIEW-APPROVAL-PROVENANCE**.
+shows. A **decision View** is exactly a View whose `intentDigest` field is present — the
+field's presence is the discriminator, naming the exact intent (§7.3) the decision
+authorizes; an ordinary View omits it. Every body value the host did not originate MUST be
+marked with the TrustTier of the Event or Operation input it came from (§6.1) in that
+View's `marks` list. A Surface MUST render a marked value as data and never as **platform
+voice** — platform voice is any rendered position a viewer would attribute to the platform
+itself rather than to the marked value's own source: unquoted body copy, a headline, a
+button label synthesized from the value. Rendering as data means a position and treatment —
+a quoted or clearly labeled field, never host-authored prose — that a reasonable viewer
+reads as showing someone else's input, not the platform speaking. Without this the last
+step of the chain — a person reading rendered text — is the one step decided on
+unattributed input. This maps to **C13-VIEW-APPROVAL-PROVENANCE**.
 
 ---
 
@@ -1610,10 +1682,23 @@ platform does not own.
 Boundary rule: an operation whose request crosses the trust boundary is `externalSend`
 regardless of data direction, and reading the response is `observe`. A web fetch is
 `externalSend`; listing its cached result is `observe`. The host derives this from the
-seam the call leaves through, and never from what the callee declares about itself. A
-declared impact is a claim by the party whose reach is in question, so a host that
-accepted one would let any remote name its own enforcement tier. This maps to
-**C13-POLICY-IMPACT-BOUNDARY**.
+**seam** the call leaves through — never from what the callee declares about itself — and a
+seam is fixed by whoever controls the destination, never by the destination itself.
+For an Operation whose destination is the platform's own first-party code, `bundled`
+placement (§9.2) already is that control: a Blueprint that trusts a Package enough to run
+it in-process has already trusted every claim in its manifest, impact included, so the
+manifest's declared impact stands as the seam. For an Operation whose destination is
+externally configurable — an integration reaching an endpoint the Tenant chose — the seam
+is the Tenant's own install-time configuration (the `configSchema`-validated vocabulary
+§4.1 already has, not a new one): a boundary fact the Blueprint or Package config records
+when the integration is installed, never a value the configured endpoint returns at call
+time. A declared impact is a claim by the party whose reach is in question, so a host that
+accepted one uncritically would let any remote name its own enforcement tier — such a claim
+MAY raise the §7.2 floor the seam derives, never lower it: it is refused whenever it would
+admit `direct` under any condition where the derived impact requires `mediated`. §11's MCP
+profile is one instance of this rule, not an exception to it: its `remote` install
+configuration is the seam, and a tool's own impact annotation may only raise the floor
+`remote` derives. This maps to **C13-POLICY-IMPACT-BOUNDARY**.
 
 ### 7.2 Enforcement tiers
 
@@ -2049,10 +2134,19 @@ checkpoints, instructions, results, slate sources. A ContentStore belongs to exa
 Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller whose authority
 reaches that Tenant; there is no cross-Tenant content read without a Grant that says so.
 
-A reference alone keeps nothing alive. Every durable record that names a `ContentRef` is a
-retained owner of that content; collection offers only content no record owns, and removing
-a record releases its ownership. Retention and GC follow Tenant policy over unowned content
-alone, so a record cannot outlive the bytes it names. This maps to
+A reference alone keeps nothing alive. Every durable record type that names a `ContentRef`
+is a retained owner of that content for as long as the record exists, and the §8.4 rule 6
+ownership map — record type → owning Actor, already required — is where that fact is
+declared: which field names the reference and which retention owner holds it, one more
+column on a map that already exists, not a new artifact. Collection offers only content no
+declared retainer owns. For a record kind whose lifecycle defines removal — a compacted
+View or ViewDelta revision, for instance — removing the record releases its ownership. For
+a record kind this document declares append-only and undeletable — a Receipt, an
+AuditRecord, a RunCommit (§5.2, §7.4, §8.3) — removal never occurs, so release never fires
+for it either: such a record retains its named content for its own full durable lifetime,
+bounded only by Tenant-level retention policy (export, legal deletion, Tenant closure), not
+by a per-record release step. Either way, retention and GC follow Tenant policy over content
+no declared retainer owns, so a record cannot outlive the bytes it names. This maps to
 **C13-CONTENT-CUSTODY**.
 
 ### 8.3 Records and codecs
@@ -2200,9 +2294,13 @@ For each Facet, compute exactly `manifest ∩ policy ∩ substrate ∩ trust`, w
 is an independently derived admissible-mode set. One preference order applies
 everywhere: `dynamic`, then `provider`, then `bundled`. Placement is the first member of
 the intersection in that order. An empty intersection rejects the Blueprint; no
-fallback is inferred. The trust set excludes `bundled` for untrusted Packages. If
-the chosen mode cannot admit a policy-selected direct call, that call escalates to
-mediated (§7.2); placement itself does not change.
+fallback is inferred. `policies.placement.trusted` names the Packages the trust set
+admits to `bundled`, as a nonempty list of globs matched against the whole `PackageId`:
+`*` matches any sequence of characters, including none, everywhere it appears in the
+pattern; every other character matches itself; a pattern with no `*` matches only that
+exact id. The trust set excludes `bundled` for every Package no glob matches. If the
+chosen mode cannot admit a policy-selected direct call, that call escalates to mediated
+(§7.2); placement itself does not change.
 
 The composed platform config schema is the spec's base schema plus every installed
 package's `settings` fragments, and a Blueprint MUST validate against it **before any
@@ -2221,7 +2319,7 @@ A skeleton:
   "policies": {
     "placement": {
       "trusted": ["core.*"],
-      "defaultAllowed": ["provider", "dynamic"]
+      "allowed": ["provider", "dynamic"]
     },
     "tiers": { "acme.deploy:deploy.run": "mediated" }
   }
@@ -2297,16 +2395,17 @@ tax with no security benefit:
    resolutions are scoped to a single Turn step and re-resolved with current path
    epochs each step (§3.4 rules 7–8). Revocation drops the stub; so do platform
    lifecycle events; re-resolution is the uniform recovery for both.
-3. **Dynamic** — code loaded via Worker Loader into a fresh isolate: the agent-authored
-   code of §4.7 — programmatic tool calls, Slate backends, agent-authored facets. Hosts
-   pass `globalOutbound: null` (or equivalent); this is
-   how the substrate satisfies §1.5's no-ambient-egress requirement, and capabilities
-   arrive only as explicitly passed Bindings — a delegation under §3.4 (§4.7), not a
-   copy of the loader's authority. Worker Loader is in open beta at the time of
-   writing; Workers-for-Platforms dispatch namespaces serve as the GA fallback for
-   pre-deployed code — Slate backends, agent-authored facets — with identical authority
-   semantics, including that one. Which backing serves which §4.7 consumer is the
-   platform's declaration to make.
+3. **Dynamic** — two named backings (§4.7), both loading code into a fresh isolate:
+   `workerLoader`, code loaded via Worker Loader, and `dispatchNamespace`, pre-deployed
+   code loaded via a Workers-for-Platforms dispatch namespace — the agent-authored code
+   of §4.7 (programmatic tool calls, Slate backends, agent-authored facets) runs under
+   either. Hosts pass `globalOutbound: null` (or equivalent); this is how the substrate
+   satisfies §1.5's no-ambient-egress requirement, and capabilities arrive only as
+   explicitly passed Bindings — a delegation under §3.4 (§4.7), not a copy of the
+   loader's authority. Worker Loader is in open beta at the time of writing;
+   `dispatchNamespace` serves as the GA fallback for pre-deployed code — Slate backends,
+   agent-authored facets — with identical authority semantics, including that one.
+   Which backing serves which §4.7 consumer is the platform's declaration to make.
 
 ### 10.3 Implementation constraints
 

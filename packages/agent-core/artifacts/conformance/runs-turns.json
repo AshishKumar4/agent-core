@@ -533,16 +533,16 @@
       "id": "C13-RUN-RESOURCE-CEILING",
       "owner": "W5",
       "specAnchor": "C13-RUN-RESOURCE-CEILING",
-      "specTextSha256": "sha256:377b8a6e56b1f3f7e24eca6c9ef7695c172814c23a31b172ecad112172b65c8e",
+      "specTextSha256": "sha256:3a4ad6c31dc4c048cb7573eb514dc37cfd2b0162d3d3c1433c8a390d26c3ad32",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "ResourceCeiling exists only in the SPEC: no value type, no field on SpawnReservation (a codec-major change), and no consumption ledger \u2014 TurnModelUsage is ephemeral and wall-clock/depth have no accounting, so 'the parent's remainder' is uncomputable",
-        "SPEC gaps the spec owner must close: no durable home for the ceiling, no accounting point for token/wall-clock consumption, no field anywhere for 'the exhausted dimension recorded', and the exhaustion path cites the \u00a75.3 Turn rows for a Run-level cancellation",
-        "The formal boundary explicitly excludes resource-ceiling attenuation and exhaustion (AC-RUN-001 remaining evidence)"
+        "\u00a75.2 now specifies every previously-missing piece by composition: the ceiling's durable home is the same content-addressed attenuation SpawnReservation.attenuation already digests (no new record); depth and wallClockMs are derived from existing structure (spawn lineage length and root RunCommit timestamp) rather than accounted, so only tokens needs a genuine running total; and the exhausted dimension is a new optional field on RunLifecycle's terminal variant",
+        "None of this exists in code yet: SpawnReservation's attenuation content has no ResourceCeiling shape, no token-usage counter is durable (TurnModelUsage is ephemeral), and RunLifecycle has no exhausted field \u2014 implementing the atom is a RunLifecycle codec-major change plus a new durable per-Run token counter",
+        "The formal boundary still explicitly excludes resource-ceiling attenuation and exhaustion (AC-RUN-001 remaining evidence); closing that is real W5 implementation scope now that the spec fixes where each piece lives, not a remaining ambiguity"
       ]
     },
     {
@@ -594,16 +594,16 @@
       "id": "C13-RUN-TREE-CONFLICT-EXPLICIT",
       "owner": "W5",
       "specAnchor": "C13-RUN-TREE-CONFLICT-EXPLICIT",
-      "specTextSha256": "sha256:85325f46d0e0866d5a28c3275f34524a427c7ebe674394b14f0a2babe5630cbc",
+      "specTextSha256": "sha256:029db6c76e9c09677816b4e7d97814755a6a50cf267fb345fa701ff2ccc7e24d",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The resolution record shape and merge validation exist (TreeMergeResolution, validateMerge, verifyTree seam), but conflict detection does not: no per-path tree model exists over the single opaque tree checkpoint digest, so 'paths changed on both sides' cannot be computed, and no unresolved-conflict state blocks a merge commit",
-        "policies.treeMerge has no declaration site \u2014 PolicySet is a closed-key codec-major-2 record owned by W4 \u2014 and nothing binds each PathResolution.side to operator or administer-impact provenance",
-        "SPEC gaps: 'the operator' is not a defined primitive, treeMerge is absent from the Blueprint policy enumeration, and the implementation's base/environment fields on TreeMergeResolution exceed the \u00a75.2 record shape"
+        "\u00a75.2.1 now closes every named spec gap by composition: 'the operator' is defined as the authenticated Principal invoking the administer-impact merge-resolution Operation \u2014 there was never a second resolution path, just one mechanism the prose named twice; policies.treeMerge is specified as one more field of PolicySet (\u00a79.2) alongside tiers/approvals/placement, not a new artifact; and the SPEC's TreeMergeResolution type now carries the base/environment fields the implementation already has, closing that mismatch",
+        "PolicySet (src/definition/policy.ts) still has no treeMerge field \u2014 a closed-key codec-major-3 change to one existing W4 record, now scoped precisely \u2014 and commit.ts's environment field is a bare string rather than EnvironmentId, a small typing fix bundled with whatever implementation lands the field",
+        "Conflict detection itself remains entirely unimplemented: no per-path tree model exists over the single opaque tree checkpoint digest, so 'paths changed on both sides' cannot be computed and no unresolved-conflict state blocks a merge commit. This is the substantial remaining piece \u2014 a real diff engine over ContentStore-addressed trees \u2014 genuine W5 implementation scope, not a spec ambiguity"
       ]
     },
     {

@@ -34,16 +34,16 @@
       "id": "C13-CONTENT-CUSTODY",
       "owner": "W1",
       "specAnchor": "C13-CONTENT-CUSTODY",
-      "specTextSha256": "sha256:5a28b06b98da8174b5c06871745a467ec1ef556b825bc40f915f78b7465f9711",
+      "specTextSha256": "sha256:0ab7b1459bc0c1f3d25c9e96083572952084e14d187e107307d4ccadb07ef9bf",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The custody mechanism is built and tested (ContentOwnerEdge, ContentRetention.retain/release/collect, tenant-bound stores) but the atom quantifies over every record naming a ContentRef, and only W7's five workspace record kinds retain: Turn results, checkpoints, receipts, slate sources, and environment snapshots name refs and never retain them",
-        "Closing the quantifier needs either retention wiring in each owning record family (W5/W6/W8 surfaces W1 cannot cite) or a registry field plus checker making every ContentRef-bearing record declare its retention owner \u2014 a W0 artifact change",
-        "SPEC \u00a78.2's release trigger ('removing a record releases its ownership') never fires for append-only evidence records, which the spec does not reconcile with 'a record cannot outlive the bytes it names'"
+        "\u00a78.2 now reconciles the release trigger deliberately rather than leaving it unaddressed: an append-only, undeletable record kind (Receipt, AuditRecord, RunCommit) never has a removal event, so it retains its named content for its own full durable lifetime by construction \u2014 release simply never fires for it, which is consistent, not a gap in the rule. The universal quantifier over every ContentRef-bearing record type is kept, not narrowed to W7's five kinds: narrowing it would drop exactly the record kinds (Turn results, receipts) most likely to hold evidence that must not dangle, defeating the guarantee's point",
+        "The declaration site is now named \u2014 the existing \u00a78.4 rule 6 ownership map (artifacts/records/*.json, record type \u2192 owning Actor) gains a retention column, not a new artifact \u2014 but the mechanism is still built and tested only for W7's five kinds (ContentOwnerEdge, ContentRetention.retain/release/collect); Turn results, checkpoints, receipts, slate sources, and environment snapshots still name ContentRefs and never retain them",
+        "Closing the quantifier needs the registry's closed key set (scripts/quality/records.mjs) extended with a retention field across all 136 currently-registered records, spanning W1/W5/W6/W8-owned record families \u2014 real, bounded, but cross-wave implementation work, not a remaining spec ambiguity"
       ]
     },
     {

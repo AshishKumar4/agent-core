@@ -62,16 +62,16 @@
       "id": "C13-CONFIG-SECRET-CUSTODY",
       "owner": "W4",
       "specAnchor": "C13-CONFIG-SECRET-CUSTODY",
-      "specTextSha256": "sha256:a07db11cfab584b266cfe8459474789abba52d5cbacb7f9bdc1b01f48318afa0",
+      "specTextSha256": "sha256:646f399f2a4a7c0a9d99fc7a3b3e627f3a8f38123e302bbcb0adeabf2da12392",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "No secret resolution runtime exists: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) are abstract with no implementation; nothing ever turns a ref into a value",
-        "No custody record ties a SecretRef to the recorded Binding and target endpoint, SecretRef.source is an unconstrained string rather than a Tenant identity, and no repoint-invalidation exists",
-        "SPEC \u00a73.5 states the invariant without a mechanism: no custody record shape, no acceptance operation, no denial vocabulary; the only concrete carrier (credential-injecting seams) is a SHOULD \u2014 needs spec-owner elaboration before honest evidence exists"
+        "\u00a73.5 now defines the custody record as a (SecretRef, consumer, endpoint) triple recorded by whichever Tenant-owned consumer accepts the credential, names the credential-isolation seam (\u00a74.5) as the resolution seam the custody check binds, and ties denial to the existing failed-AttemptReceipt vocabulary (\u00a77.4) rather than a new record kind \u2014 the three gaps the prior evidence named (custody record shape, acceptance operation, denial vocabulary) are now specified by composition, not new machinery",
+        "No secret resolution runtime exists to evidence against: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) remain abstract with no implementation \u2014 the credential-isolation seam is a \u00a74.5 SHOULD, so no substrate is required to implement one at all, and none currently does",
+        "Building the custody check needs an implementation of at least one resolution seam (a substrate's EnvironmentCredentialPort or EnvironmentCredentialIsolationProxy) that records acceptance against a consumer and endpoint and denies a presented mismatch \u2014 genuine W4/W8 implementation scope now that the shape is specified, not a remaining spec ambiguity"
       ]
     },
     {
@@ -92,16 +92,16 @@
       "id": "C13-PLACEMENT-AUTHORED-BACKING",
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-AUTHORED-BACKING",
-      "specTextSha256": "sha256:85ca064ca6037ec48a4ca984a6895c4b1ebafa2ecf0d145340a5184d5f1f186b",
+      "specTextSha256": "sha256:ed466b5774deae1cc7f2dbccf15a9f3fbd578e87e8a83dff397b79819a28aefd",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "No backing concept exists in the definition plane: no consumer vocabulary for the three \u00a74.7 consumers, no backing identifiers, and no declaration record mapping consumer to backing",
-        "SPEC \u00a74.7/\u00a710.2 never say where the platform's declaration lives (Blueprint, PolicySet, or profile config), what identifies a backing, or how identical authority semantics are demonstrated \u2014 spec-owner decisions before W4 can model it",
-        "No agent-authored marker distinguishes \u00a74.7 code, so 'the trust set never hands agent-authored code bundled' cannot key on anything"
+        "\u00a74.7/\u00a710.2 now name the declaration site (policies.placement, \u00a79.2 \u2014 one more consumer \u2192 backing id mapping alongside the isolation-mode admissibility PlacementPolicy already declares, not a new artifact), the closed consumer set (the three \u00a74.7-named consumers, which is also now the agent-authored-code marker: membership in that closed set, not a runtime flag), canonical backing ids for the Cloudflare profile (workerLoader, dispatchNamespace), and the equivalence procedure (each backing independently satisfies the \u00a71.5 dynamic-mode invariants under C13-PLACEMENT-DYNAMIC-NO-EGRESS; never a comparison between backings)",
+        "PlacementPolicy (src/definition/placement.ts) still has no backings field. quality/unify-placement (merged into main after this atom's SPEC amendment) already spent PlacementPolicy's major-2 bump on an unrelated field (`trusted`, for C13-PLACEMENT-UNTRUSTED-BUNDLED); adding consumer \u2192 backing id is now a closed-key codec-major-3 change to that record, not major-2 as first scoped",
+        "Verifying this atom needs that field plus a selector reading it (a TurnPlacementSnapshot/composition consumer choosing a backing id per \u00a74.7 consumer) and adversarial evidence that an unmapped consumer falls back to the profile default rather than an arbitrary backing"
       ]
     },
     {
@@ -241,16 +241,16 @@
       "id": "C13-POLICY-IMPACT-BOUNDARY",
       "owner": "W4",
       "specAnchor": "C13-POLICY-IMPACT-BOUNDARY",
-      "specTextSha256": "sha256:b9559a38f36b1326bc29900bebf43e3e06c1ebecf8d590bbb0059b87b82354bd",
+      "specTextSha256": "sha256:641ee7769bb9e2a7bbd78bcbfc4f160291b6bafbb84d0f3f02309034d4c88145",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The general enforcement path trusts callee-declared impact end to end: composition feeds descriptor.impact straight into evaluatePolicy, and only the MCP facet derives impact from its seam (remote locality) with a floor guard",
-        "SPEC \u00a77.1 requires deriving impact from 'the seam the call leaves through' but never defines a seam record, and \u00a74.2 places impact on the manifest-declared OperationDescriptor while annotating it host-derived \u2014 a structural contradiction only the spec owner can resolve",
-        "Needed: a trust-boundary predicate over destinations, a derivation the host applies at mediation time generalizing the MCP floor-guard rule, and adversarial evidence that a descriptor declaring observe for an external seam is still mediated"
+        "\u00a77.1 now defines the seam precisely \u2014 bundled placement's already-trusted manifest for first-party destinations, or the Tenant's own install-time config for externally configurable ones \u2014 and the floor-preserving comparison (facets/contribution.ts#enforcementFloor, #claimHonorsEnforcementFloor) is no longer duplicated inside the MCP facet: it is one shared, general implementation MCP is now the sole consumer of. An audit of every current OperationDescriptor construction site confirms every non-MCP facet declares a static, first-party impact literal (trivially seam-compliant under bundled placement) and MCP is the only facet deriving impact from anything install-configurable, so the rule holds across the present codebase",
+        "What remains is ownership and architecture, not ambiguity: the atom is filed under W4 (definition/policy), but the actual derivation this rule constrains happens in each facet's own manifest-construction code (W3's shared utility, consumed by W8's MCP facet) \u2014 W4's evaluatePolicy only ever sees an already-derived impact, so no W4-owned source or test can evidence the derivation step itself under this ledger's single-owner evidence rule",
+        "Verifying this atom needs the owner to decide the shape: either a composition-layer gate that re-derives/checks impact against a Binding's own boundary declaration at mediation time for every facet (a new central enforcement point, generalizing today's per-facet pattern), or an explicit acceptance that per-facet seam derivation is the intended architecture and evidence for this atom must be sourced across waves rather than from one owner"
       ]
     },
     {

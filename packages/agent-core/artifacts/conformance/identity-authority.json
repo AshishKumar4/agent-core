@@ -292,7 +292,7 @@
       "id": "C13-AUTH-MEDIATED-ADMISSION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",
-      "specTextSha256": "sha256:e89133aed593793b38ffd7c416dfcfe47a6f5009f9f3c9c4c41ce9ad6de9d65d",
+      "specTextSha256": "sha256:b96c2188d9cf58292de59d29740554bc75a754833daa5f628b6db96c3437ec8e",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
@@ -306,7 +306,7 @@
       "id": "C13-AUTH-MEDIATED-STALE",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-STALE",
-      "specTextSha256": "sha256:e89133aed593793b38ffd7c416dfcfe47a6f5009f9f3c9c4c41ce9ad6de9d65d",
+      "specTextSha256": "sha256:b96c2188d9cf58292de59d29740554bc75a754833daa5f628b6db96c3437ec8e",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -402,17 +402,21 @@
       "id": "C13-AUTH-RESOLUTION-LIFETIME",
       "owner": "W2",
       "specAnchor": "C13-AUTH-RESOLUTION-LIFETIME",
-      "specTextSha256": "sha256:e89133aed593793b38ffd7c416dfcfe47a6f5009f9f3c9c4c41ce9ad6de9d65d",
-      "status": "planned",
+      "specTextSha256": "sha256:b96c2188d9cf58292de59d29740554bc75a754833daa5f628b6db96c3437ec8e",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "\u00a73.4 rule 8's provider/dynamic clause is stated in units of a Turn step, which the SPEC never defines: \u00a75.3 has no step identity or boundary, so 'lasts one Turn step' is unverifiable as written and needs a spec-owner definition or restatement",
-        "The bundled clause is implementable now: ActorAuthorityState caches resolutions keyed by principal and binding only, so a bundled resolution outlives its Turn and is only caught later by authorizeDirect/authorizeMediated lease rechecks; the cache key or matches() must bind the exact Turn lease",
-        "Adversarial evidence needed: reuse of a bundled resolution after its Turn ends, and proof that each provider/dynamic mediation re-reads current path epochs rather than replaying cached ones"
-      ]
+      "sourceSymbols": [
+        "src/composition/authority-state.ts#ActorAuthorityState",
+        "src/composition/authority.ts#TenantOperationAuthority"
+      ],
+      "testSelectors": [
+        "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-RESOLUTION-LIFETIME] a bundled resolution cannot outlive its Turn without an explicit release",
+        "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+        "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+        "test/composition/authority-membrane.test.ts#Tenant operation authority membrane the direct tier gate requires a lease, local authority, granted capability, and a window"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-AUTH-ROLE-MATERIALIZATION",
