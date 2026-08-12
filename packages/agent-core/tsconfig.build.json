@@ -19,6 +19,7 @@
     "src/facets-public.ts",
     "src/identity/index.ts",
     "src/invocations/index.ts",
+    "src/mediation-public.ts",
     "src/operations/index.ts",
     "src/protocol/public.ts",
     "src/slates/public.ts",

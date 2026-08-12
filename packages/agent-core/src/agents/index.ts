@@ -51,6 +51,7 @@ export {
     RepositoryTurnLeaseVerifier
 } from "./runs";
 export { RunCheckpointId } from "./runs/id";
+export { leaseTokensEqual } from "./runs/lease";
 export { RunPins } from "./runs/pins";
 export type { LeaseToken, RunStoragePort, TurnLeaseVerifier } from "./runs";
 export type {

@@ -79,3 +79,34 @@ export type {
     SingleTenantPolicyAssemblyInit,
     SingleTenantPolicyBinding
 } from "./single-tenant";
+export { DerivedMediationIdentities } from "./mediation-identity";
+export {
+    DerivedDirectOperationContext,
+    ScopedMediationResources
+} from "./mediation-execution";
+export type {
+    OperationExecutionResourcePort,
+    OperationExecutionResources
+} from "./mediation-execution";
+export {
+    CanonicalMediationPreparation,
+    DerivedPreparationAdmission,
+    MediatedInvocationAuthority,
+    leaseTokenCodec,
+    mediatedInvocationAuthorityCodec,
+    mediationInvocationCodecs,
+    mediationPreparedCodecs,
+    pathEpochEvidenceCodec,
+    protectionDomainCodec
+} from "./mediation-preparation";
+export type {
+    FacetActivationPin,
+    FacetActivationPinPort,
+    MediationPersistence,
+    MediationPreparedInvocation
+} from "./mediation-preparation";
+export { CanonicalMediationRecords } from "./mediation-records";
+export type { MediationRecordIdentity } from "./mediation-records";
+export { MediationClaimOwnerAdmission } from "./mediation-records";
+export { MediatedOperationPipeline } from "./mediation";
+export type { MediatedOperationPipelineInit, MediatedTurnCaller } from "./mediation";
