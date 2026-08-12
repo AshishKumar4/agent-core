@@ -441,6 +441,42 @@ describe("mutation equivalence register", () => {
         expect(collision.ambiguous.map((item) => item.matches.length)).toEqual([2]);
     });
 
+    test("anchors a mutant nested inside a local declaration to the symbol naming it", () => {
+        // The auditor searches inside the named declaration while reconciliation used to
+        // demand the mutant's innermost declaration path equal it. A mutant inside a
+        // `const` therefore passed the audit and reconciled as stale forever, because the
+        // path carries the variable: `encode` never matched `encode.unpaired`. Naming the
+        // enclosing function is what an author writes, and scoping is all the symbol is for.
+        const nested = guardModule.replace(
+            "    if (ref.id === undefined) {",
+            "    const unpaired = [ref].some((item) => item.id === undefined);\n    if (!unpaired && ref.id === undefined) {"
+        );
+        const entry = {
+            ...guardEntry("encode", "the nested guard"),
+            mutated: "item.id === undefined"
+        };
+        const entries = readEquivalenceRegister({ edition: "1.0.0", entries: [entry] });
+
+        expect(
+            auditEquivalenceAnchors(entries, ["identity"], (file) =>
+                file === registeredFile ? nested : undefined
+            )
+        ).toEqual([]);
+        const resolved = reconcileEquivalence(
+            reportFor(nested, [
+                {
+                    text: "item.id === undefined",
+                    mutator: "ConditionalExpression",
+                    replacement: "false",
+                    status: "Survived"
+                }
+            ]),
+            entries
+        );
+        expect(resolved.stale).toEqual([]);
+        expect([...resolved.equivalent.values()]).toEqual(entries);
+    });
+
     test("selects one of two identical sites by its position, and only at that count", () => {
         // Two copies of the same guard inside one symbol. Their anchors are byte-identical
         // — same file, symbol, mutator, replacement and text — so position is the only
