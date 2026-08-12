@@ -34,7 +34,7 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../../src/substrates";
-import { DivergentGrantStore, GrantDivergence } from "./divergent-store";
+import { AuthorityDivergence, DivergentAuthorityStore } from "./divergent-store";
 
 const tenantId = new TenantId("closure-tenant");
 const ownerId = new PrincipalId("closure-owner");
@@ -112,7 +112,7 @@ describe.each([
                 message: "Delegated Grant attenuation contains a cycle"
             })
         );
-        expect(divergence.reads).toBeLessThan(divergence.budget);
+        expect(divergence.grants.reads).toBeLessThan(divergence.grants.budget);
     });
 
     test("refuses a Binding whose Grant later denies", { tags: "p0" }, () => {
@@ -121,19 +121,12 @@ describe.each([
         service.createGrant(allow);
         const binding = bindingOn("closure-flip-binding", allow.id, ownerSubject);
         service.createBinding(binding);
-        const divergent = new DivergentGrantStore(
-            store,
-            new GrantDivergence(
-                new Map([
-                    [
-                        allow.id.value,
-                        new Grant(allow.id, workspaceScope, ownerSubject, "deny", observe, {
-                            kind: "direct"
-                        })
-                    ]
-                ])
-            )
+        const divergence = new AuthorityDivergence();
+        divergence.grants.answer(
+            allow.id.value,
+            new Grant(allow.id, workspaceScope, ownerSubject, "deny", observe, { kind: "direct" })
         );
+        const divergent = new DivergentAuthorityStore(store, divergence);
 
         expect(() => assertAuthorityClosure(divergent)).toThrow(
             expect.objectContaining({
@@ -173,10 +166,9 @@ describe.each([
             observeAndMutate,
             live.origin
         );
-        const divergent = new DivergentGrantStore(
-            store,
-            new GrantDivergence(new Map([[live.id.value, widened]]))
-        );
+        const divergence = new AuthorityDivergence();
+        divergence.grants.answer(live.id.value, widened);
+        const divergent = new DivergentAuthorityStore(store, divergence);
 
         expect(() => assertAuthorityClosure(divergent)).toThrow(
             expect.objectContaining({
@@ -208,10 +200,9 @@ describe.each([
             // Only the parent is revoked, and only the parent is named as changed: the
             // audit has to walk down to the child whose attenuation the revocation broke.
             const revokedParent = parent.revoke();
-            const divergent = new DivergentGrantStore(
-                store,
-                new GrantDivergence(new Map([[parent.id.value, revokedParent]]))
-            );
+            const divergence = new AuthorityDivergence();
+            divergence.grants.answer(parent.id.value, revokedParent);
+            const divergent = new DivergentAuthorityStore(store, divergence);
             const changed = new AuthorityChangeSet();
             changed.grants.record(parent.id.value, revokedParent, "replaced");
             const fault = expect.objectContaining({
@@ -244,21 +235,19 @@ describe.each([
  * was never given can present it.
  */
 function cyclicGrants(store: AuthorityMutationStore): {
-    divergent: DivergentGrantStore;
-    divergence: GrantDivergence;
+    divergent: DivergentAuthorityStore;
+    divergence: AuthorityDivergence;
 } {
     const service = new AuthorityMutationService(store);
     const first = directGrant("closure-cyclic-first", tenantScope, ownerSubject);
     const second = directGrant("closure-cyclic-second", tenantScope, ownerSubject);
     service.createGrant(first);
     service.createGrant(second);
-    const divergence = new GrantDivergence(
-        new Map([
-            [first.id.value, attenuating(first, second.id)],
-            [second.id.value, attenuating(second, first.id)]
-        ])
-    );
-    return { divergent: new DivergentGrantStore(store, divergence), divergence };
+    const divergence = new AuthorityDivergence();
+    divergence.grants
+        .answer(first.id.value, attenuating(first, second.id))
+        .answer(second.id.value, attenuating(second, first.id));
+    return { divergent: new DivergentAuthorityStore(store, divergence), divergence };
 }
 
 function attenuating(grant: Grant, parent: GrantId): Grant {

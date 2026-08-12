@@ -1,6 +1,6 @@
 import { AgentCoreError } from "../errors";
 import { decodeCanonicalJson, encodeCanonicalJson } from "./canonical";
-import { hasExactJsonKeys, type JsonValue } from "./json";
+import { hasExactJsonKeys, isJsonObject, type JsonValue } from "./json";
 import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 export interface RecordVersion {
@@ -116,14 +116,6 @@ function isEnvelope(value: JsonValue): value is JsonValue & RecordEnvelope {
         typeof version["minor"] === "number" &&
         version["minor"] >= 0 &&
         Object.hasOwn(value, "payload")
-    );
-}
-
-function isJsonObject(
-    value: JsonValue | undefined
-): value is { readonly [key: string]: JsonValue } {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
     );
 }
 

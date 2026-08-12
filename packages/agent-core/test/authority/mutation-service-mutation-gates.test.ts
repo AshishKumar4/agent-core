@@ -38,7 +38,7 @@ import {
     AuthorityMutationService,
     createTenantControlBootstrapPlan
 } from "../../src/authority/service";
-import { DivergentGrantStore, GrantDivergence } from "./divergent-store";
+import { AuthorityDivergence, DivergentAuthorityStore } from "./divergent-store";
 
 const tenantId = new TenantId("mutation-gate-tenant");
 const ownerId = new PrincipalId("mutation-gate-owner");
@@ -1261,11 +1261,10 @@ describe("AuthorityMutationService revocation over a divergent Grant graph", () 
         service.createGrant(child);
         // The store now answers with the parent revoked while its child stays live — the
         // combination revokeGrant's own closure is what normally prevents.
+        const divergence = new AuthorityDivergence();
+        divergence.grants.answer(parent.id.value, parent.revoke());
         const divergent = new AuthorityMutationService(
-            new DivergentGrantStore(
-                store,
-                new GrantDivergence(new Map([[parent.id.value, parent.revoke()]]))
-            )
+            new DivergentAuthorityStore(store, divergence)
         );
         const workspaceEpoch = store.epoch(workspaceScope).epoch;
         const tenantEpoch = store.epoch(tenantScope).epoch;
@@ -1289,18 +1288,44 @@ describe("AuthorityMutationService revocation over a divergent Grant graph", () 
         // Each names the other as its attenuation parent. No sequence of createGrant calls
         // builds this — the parent has to exist before the child — so only the store can
         // present it, and the walk has to finish anyway rather than following the loop.
-        const divergence = new GrantDivergence(
-            new Map([
-                [first.id.value, attenuating(first, second.id)],
-                [second.id.value, attenuating(second, first.id)]
-            ])
+        const divergence = new AuthorityDivergence();
+        divergence.grants
+            .answer(first.id.value, attenuating(first, second.id))
+            .answer(second.id.value, attenuating(second, first.id));
+        const divergent = new AuthorityMutationService(
+            new DivergentAuthorityStore(store, divergence)
         );
-        const divergent = new AuthorityMutationService(new DivergentGrantStore(store, divergence));
 
         expect(divergent.revokeGrant(first.id).isLive).toBe(false);
 
-        expect(divergence.records.get(second.id.value)?.isLive).toBe(false);
-        expect(divergence.reads).toBeLessThan(divergence.budget);
+        expect(divergence.grants.records.get(second.id.value)?.isLive).toBe(false);
+        expect(divergence.grants.reads).toBeLessThan(divergence.grants.budget);
+    });
+
+    test("reads the Grant lineage only for a revocation that has roots", { tags: "p1" }, () => {
+        const { store, service } = fixture();
+        const reader = role("lineage-reader");
+        service.createRole(reader);
+        const divergence = new AuthorityDivergence();
+        const counted = new AuthorityMutationService(
+            new DivergentAuthorityStore(store, divergence)
+        );
+
+        counted.assignMembership(
+            new Membership(
+                new MembershipId("lineage-member"),
+                workspaceScope,
+                ownerSubject(),
+                reader.name,
+                "active",
+                Revision.initial()
+            )
+        );
+
+        // Materializing a Membership for the first time replaces no Grant, so the
+        // revocation closure has nothing to walk down from. Reading the lineage anyway
+        // would make every materialization pay for the whole Grant table.
+        expect(divergence.grants.reads).toBe(1);
     });
 });
 

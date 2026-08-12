@@ -299,14 +299,6 @@
     },
     {
       "file": "src/authority/service.ts",
-      "symbol": "AuthorityMutationService.reconcile.replaced",
-      "mutator": "MethodExpression",
-      "replacement": "materialization.changedRecords",
-      "mutated": "materialization.changedRecords .filter((grant) => previous.has(grant.id.value))",
-      "proof": "Dropping the filter widens replaced from the changed records that already existed to every changed record, and the widened list is passed to revokeGrantClosure as roots together with a skip set built from that same list. The roots loop skips every id in skip, so the extra entries can only matter through the descendant walk \u2014 and a record that did not exist before this materialization has no descendants, because attenuationOf can only name a Grant createGrant found present when the child was created. The closure revokes the same Grants and returns the same affected Scopes either way."
-    },
-    {
-      "file": "src/authority/service.ts",
       "symbol": "AuthorityMutationService.revokeGuestMemberships",
       "mutator": "ConditionalExpression",
       "replacement": "false",
@@ -1274,6 +1266,14 @@
       "proof": "This label is read only if requireRecord finds nothing, and the second lookup cannot. The same id was resolved by the first requireRecord at the top of the same transaction, and nothing between them removes a Grant: revokeGrantClosure writes revoked records through putGrant and no store operation deletes one. The first occurrence of this literal is the reachable one \u2014 a caller can name a Grant that does not exist \u2014 and its mutant is killed by the assertion on \"Grant does not exist\". Same text, same symbol, one reachable and one not, which is exactly what the ordinal is here to record."
     },
     {
+      "file": "src/authority/service.ts",
+      "symbol": "revokeGrantClosure",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "parent === undefined",
+      "proof": "Forcing this test false does not admit a Grant that has no attenuation parent into the walk; it files that Grant in the children map under the key undefined. The map is read in exactly one place, children.get(parent) inside the walk, and the value reaching it is popped from pending, which is seeded from roots.map((id) => id.value) and extended with grant.id.value. GrantId extends TextId, whose constructor refuses anything that is not a string of one to 256 characters, so no lookup can ever present the key undefined and the bucket this mutant creates is unreachable. The revoked records, the writes to the store and the returned array are therefore identical for every store and every root list."
+    },
+    {
       "file": "src/authority/closure.ts",
       "symbol": "AuthorityClosure.#assertMembership",
       "mutator": "ConditionalExpression",
@@ -1292,6 +1292,40 @@
       "occurrence": 1,
       "sites": 2,
       "proof": "This is the default for the left operand, and the left operand is always this store's own bootstrapAnchor(), whose Tenant kind was filled in by anchorSnapshot before the store was constructed and then re-checked by copyAnchorSnapshot, which requires a valid TenantKind rather than supplying one. left.tenantKind is therefore never null or undefined, the coalesce never takes its right side, and the literal is never read. The right default is the reachable one \u2014 bootstrapTenant is handed a caller-supplied anchor whose tenantKind is optional \u2014 and its identical literal is killed."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.putWorkspace",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"created\"",
+      "proof": "This literal is the presence argument of AuthorityRecordChanges.record, and record reads that argument in exactly one place: presence === \"replaced\". Every value other than \"replaced\" takes the same branch there, so \"created\" and \"\" record the key identically: the written map gets the record and the replaced set does not get the key. A presence value is read nowhere else in the tree; it is not stored, not returned, and not compared again. Workspace topology is the strongest case for that, because putWorkspace refuses a second write to an id it already holds, so this key can only ever be recorded once and only ever as a record the transaction created."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.putEpoch",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"replaced\"",
+      "proof": "Emptying this literal does change what AuthorityRecordChanges.record does with the key: \"\" === \"replaced\" is false, so the Scope epoch key is left out of the replaced set instead of added to it. Nothing reads that set. Across the whole tree replaced() is called on the guest trust, Grant and Role tables only, and isCreated() on the Membership table only; the epoch changes are read solely through written(), by the closure's audited epoch list. That is why every store records every epoch write as a replacement in the first place: nothing points at a Scope epoch, so no invariant has to be re-derived when one moves, and no reader has ever needed the distinction this argument would carry."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.commit",
+      "mutator": "BooleanLiteral",
+      "replacement": "true",
+      "mutated": "false",
+      "occurrence": 1,
+      "sites": 3,
+      "proof": "This assignment closes the candidate's write window before the closure re-derives the transaction's invariants. Between it and the finally clause that assigns the same field false again, exactly two things run: assertRestoredState, which reads records and hands the store to assertAuthorityClosure over the read surface, and replace, which assigns the outer store's own maps directly rather than through any put method. The field is read only by requireWrite, and requireWrite is called only from the put methods and putIdentity, none of which is reached in that window. Leaving the candidate writable across it therefore changes no value any caller can observe on any input, because the finally clause restores the field before the candidate can escape and transactions are refused unless they are synchronous. The three false literals this method holds are this one, the finally clause's, and the transaction-active reset beside it."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "presence",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"created\"",
+      "proof": "presence answers AuthorityRecordChanges.record's third argument and has no other caller. record compares that argument against \"replaced\" and against nothing else, so the two values this ternary can return only have to differ from one another in that single comparison: the replacement arm must be \"replaced\", and the other arm must be anything at all that is not. \"\" satisfies that as exactly as \"created\" does, so a record the store found absent is still recorded as written and still kept out of the replaced set, and every audit downstream sees the same change set. The sibling mutant on the \"replaced\" arm is killed, because that arm is the one the comparison names."
     },
     {
       "file": "src/authority/permit.ts",

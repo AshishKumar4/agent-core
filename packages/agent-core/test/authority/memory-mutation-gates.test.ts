@@ -1190,6 +1190,42 @@ describe("MemoryTenantControlStore mutation gates", () => {
         expect(store.membership(terminal.id)?.state).toBe("revoked");
     });
 
+    test("records whether it found each written record already there", { tags: "p0" }, () => {
+        const { store, service } = bootstrapped();
+        const reader = observeRole("memory-gate-presence-role");
+        service.createRole(reader);
+        const member = new Membership(
+            new MembershipId("memory-gate-presence-member"),
+            workspaceScope,
+            SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+            reader.name,
+            "active",
+            Revision.initial()
+        );
+        service.assignMembership(member);
+        const owned = (): readonly Grant[] =>
+            store
+                .grants()
+                .filter(
+                    (grant) =>
+                        grant.origin.kind === "role" && grant.origin.membershipId.equals(member.id)
+                );
+        expect(owned()).toHaveLength(1);
+
+        // Restating the same Role and state rewrites the Membership and no Grant at all.
+        // The closure reads a created Membership's Role Grants out of the transaction's
+        // own writes and a replaced one's out of the table, so a write recorded as a
+        // creation when the record was already there would leave this Membership owning
+        // nothing and fault its own materialization.
+        const revised = service.changeMembership(member.id, {
+            role: reader.name,
+            state: "active"
+        });
+
+        expect(revised.revision.value).toBe(1);
+        expect(owned()).toHaveLength(1);
+    });
+
     test("direct Grant replacement respects revocation terminality", { tags: "p0" }, () => {
         const { store, service } = bootstrapped();
         const grant = allowGrant("memory-gate-terminal-grant");
