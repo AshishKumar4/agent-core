@@ -58,12 +58,15 @@ export class OpenAiCompatibleModelProvider extends ModelProvider {
     }
 
     private async send(body: JsonValue, signal: AbortSignal): Promise<Response> {
+        // Resolved before the request so a credential failure is not reported as an
+        // unreachable endpoint.
+        const credential = await this.options.credential();
         try {
             return await this.options.fetch(this.options.endpoint, {
                 method: "POST",
                 signal,
                 headers: {
-                    authorization: `Bearer ${await this.options.credential()}`,
+                    authorization: `Bearer ${credential}`,
                     "content-type": "application/json"
                 },
                 body: JSON.stringify(body)
