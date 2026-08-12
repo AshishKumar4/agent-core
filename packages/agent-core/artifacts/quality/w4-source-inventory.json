@@ -1,9 +1,6 @@
 {
   "edition": "1.0.0",
-  "owners": [
-    "W0",
-    "W9"
-  ],
+  "owners": ["W0", "W9"],
   "wave": "W4",
   "description": "Current integrated W4 production source, including authenticated package installation provenance.",
   "sources": [
@@ -41,5 +38,5 @@
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "0961bbfe0b2f4f23b05f5558a297e71ca9ff7795ab4364d3e8eff2145aaf55cc"
+  "sourceSha256": "a953c042f48604b18d57e5bcb66b180908c40675df29d49f1e87e9d33e9da371"
 }

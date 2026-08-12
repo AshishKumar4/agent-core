@@ -257,7 +257,7 @@ describe("policy declaration codec", () => {
                 PolicySet.fromData({
                     approvals: [],
                     maxDirectRevocationWindowMs: "250",
-                    placement: { allowed: ["bundled"] },
+                    placement: { allowed: ["bundled"], backings: {}, trusted: ["*"] },
                     tiers: {}
                 })
             ).toThrow(/revocation window is invalid/);
@@ -297,7 +297,11 @@ describe("policy declaration codec", () => {
         const payload = {
             approvals: [],
             maxDirectRevocationWindowMs: null,
-            placement: { allowed: ["dynamic", "provider", "bundled"] },
+            placement: {
+                allowed: ["dynamic", "provider", "bundled"],
+                backings: {},
+                trusted: ["*"]
+            },
             tiers: {}
         };
 

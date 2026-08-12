@@ -33,7 +33,9 @@ import {
     AgentRevisionRecordCodec,
     ModelPolicyRevisionRecordCodec
 } from "../../../src/agents/source";
+import { SpawnAttenuation } from "../../../src/agents/runs/ceiling";
 import {
+    attenuationDigest,
     configuration,
     content,
     digest,
@@ -661,7 +663,7 @@ describe("memory Run runtime", () => {
                 childRoot.content!,
                 refs.invocation,
                 refs.receipt,
-                digest("6"),
+                attenuationDigest(new SpawnAttenuation()),
                 new Date(1500)
             );
             expect(SpawnReservationCodec.decode(SpawnReservationCodec.encode(reservation))).toEqual(

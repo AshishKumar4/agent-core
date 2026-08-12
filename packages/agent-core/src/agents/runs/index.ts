@@ -25,6 +25,21 @@ export type {
     RunObligation,
     RunObligationReservation
 } from "./admission";
+export {
+    RESOURCE_DIMENSIONS,
+    ResourceCeiling,
+    SpawnAttenuation,
+    SpawnAttenuationCodec,
+    exhaustedResource,
+    narrowResources,
+    widensResourceCeiling
+} from "./ceiling";
+export type {
+    ResourceDimension,
+    ResourceLimits,
+    ResourceUsage,
+    SpawnAttenuationInit
+} from "./ceiling";
 export { TurnLease } from "./lease";
 export type { LeaseToken, TurnLeaseVerifier } from "./lease";
 export { MemoryTurnLeaseVerifier, RepositoryTurnLeaseVerifier } from "./lease-verifier";

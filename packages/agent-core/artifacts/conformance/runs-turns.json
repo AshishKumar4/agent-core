@@ -534,16 +534,27 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-RESOURCE-CEILING",
       "specTextSha256": "sha256:3a4ad6c31dc4c048cb7573eb514dc37cfd2b0162d3d3c1433c8a390d26c3ad32",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "\u00a75.2 now specifies every previously-missing piece by composition: the ceiling's durable home is the same content-addressed attenuation SpawnReservation.attenuation already digests (no new record); depth and wallClockMs are derived from existing structure (spawn lineage length and root RunCommit timestamp) rather than accounted, so only tokens needs a genuine running total; and the exhausted dimension is a new optional field on RunLifecycle's terminal variant",
-        "None of this exists in code yet: SpawnReservation's attenuation content has no ResourceCeiling shape, no token-usage counter is durable (TurnModelUsage is ephemeral), and RunLifecycle has no exhausted field \u2014 implementing the atom is a RunLifecycle codec-major change plus a new durable per-Run token counter",
-        "The formal boundary still explicitly excludes resource-ceiling attenuation and exhaustion (AC-RUN-001 remaining evidence); closing that is real W5 implementation scope now that the spec fixes where each piece lives, not a remaining ambiguity"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/ceiling.ts#ResourceCeiling",
+        "src/agents/runs/ceiling.ts#SpawnAttenuation",
+        "src/agents/runs/executor.ts#ScopedModelHandle",
+        "src/agents/runs/run.ts#RunLifecycle",
+        "src/agents/runs/runtime.ts#RunRuntime.requireNarrowingCeiling",
+        "src/agents/runs/runtime.ts#RunRuntime.terminalizeRunInTransaction",
+        "src/agents/runs/settlement.ts#TerminalSnapshot"
+      ],
+      "testSelectors": [
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] admits a spawned ceiling only at or below the parent's remaining allowance",
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] inherits an undeclared dimension from the parent's remainder and bounds nothing without a declaration",
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] spends wall clock from the spawn that started the Run",
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left",
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-SETTLED-DERIVED",

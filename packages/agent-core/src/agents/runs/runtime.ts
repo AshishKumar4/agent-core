@@ -1,4 +1,4 @@
-import { Revision, type Digest } from "../../core";
+import { Digest, Revision } from "../../core";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
 import type { PrincipalRef } from "../../identity";
@@ -14,6 +14,14 @@ import {
     type RunAdmissionReservation,
     type RunObligation
 } from "./admission";
+import {
+    SpawnAttenuation,
+    exhaustedResource,
+    narrowResources,
+    widensResourceCeiling,
+    type ResourceCeiling,
+    type ResourceDimension
+} from "./ceiling";
 import type { RunEvidencePort, RunMergePort } from "./evidence";
 import { ForcedTurnCancellation } from "./forced-cancellation";
 import type { AcceptanceId, RunBranchId, RunId } from "./id";
@@ -76,6 +84,8 @@ export interface TerminalizeRunRequest {
     readonly commit: RunCommit;
     readonly forcedCancellationControl?: ForcedCancellationControl;
     readonly siblingCancellations: ReadonlyMap<string, SiblingCancellationEvidence>;
+    // SPEC §5.2: set only when the Run is cancelled because this dimension ran out.
+    readonly exhausted?: ResourceDimension;
     readonly now: Date;
 }
 
@@ -148,6 +158,7 @@ export class RunRuntime<Transaction> {
                 "Spawn reservation is not an exact attenuated child genesis"
             );
         }
+        this.requireNarrowingCeiling(tx, reservation, parent, now);
         this.repository.insertSpawn(tx, reservation);
         this.createRunInTransaction(tx, genesis);
     }
@@ -885,6 +896,12 @@ export class RunRuntime<Transaction> {
         ) {
             throw invalidRun("Terminal result does not match the finishing Turn");
         }
+        if (
+            request.exhausted !== undefined &&
+            this.remainingInTransaction(tx, run, request.now)?.limit(request.exhausted) !== 0
+        ) {
+            throw invalidRun("Terminal exhaustion names a dimension with allowance left");
+        }
         const forcedSiblings = this.forceCancelSiblings(tx, request, run, turn);
         const branch = requireValue(
             this.repository.loadBranch(tx, turn.branch),
@@ -917,7 +934,8 @@ export class RunRuntime<Transaction> {
             request.commit.id,
             request.outcome,
             obligation,
-            request.now
+            request.now,
+            request.exhausted
         );
         const currentRun = requireValue(
             this.repository.loadRun(tx, run.id),
@@ -925,6 +943,40 @@ export class RunRuntime<Transaction> {
         );
         this.repository.replaceRun(tx, currentRun.revision, currentRun.terminalize(snapshot));
         return snapshot;
+    }
+
+    // Accumulated where a model call commits (SPEC §5.1, §5.2); the only ceiling
+    // dimension with no derivation from records the Run already keeps.
+    public recordModelTokens(runId: RunId, tokens: number): Run {
+        return this.repository.transaction((tx) =>
+            this.recordModelTokensInTransaction(tx, runId, tokens)
+        );
+    }
+
+    public recordModelTokensInTransaction(tx: Transaction, runId: RunId, tokens: number): Run {
+        const run = this.requireActiveRun(tx, runId);
+        const updated = run.recordTokens(tokens);
+        this.repository.replaceRun(tx, run.revision, updated);
+        return updated;
+    }
+
+    public remainingResources(runId: RunId, now: Date): ResourceCeiling | undefined {
+        return this.repository.transaction((tx) =>
+            this.remainingResourcesInTransaction(tx, runId, now)
+        );
+    }
+
+    public remainingResourcesInTransaction(
+        tx: Transaction,
+        runId: RunId,
+        now: Date
+    ): ResourceCeiling | undefined {
+        const run = requireValue(this.repository.loadRun(tx, runId), "Run does not exist");
+        return this.remainingInTransaction(tx, run, now);
+    }
+
+    public exhaustedResource(runId: RunId, now: Date): ResourceDimension | undefined {
+        return exhaustedResource(this.remainingResources(runId, now));
     }
 
     public settled(runId: RunId): boolean {
@@ -1344,6 +1396,77 @@ export class RunRuntime<Transaction> {
         );
         requireRevision(branch.revision, branchRevision);
         return turn;
+    }
+
+    private requireAttenuation(tx: Transaction, reservation: SpawnReservation): SpawnAttenuation {
+        const attenuation = this.spawn.attenuation(tx, reservation);
+        if (
+            !Digest.sha256(SpawnAttenuation.codec.encode(attenuation)).equals(
+                reservation.attenuation
+            )
+        ) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Spawn attenuation does not match the digest the reservation commits"
+            );
+        }
+        return attenuation;
+    }
+
+    // Folds each Run's own declaration into the remainder it inherited, walking the spawn
+    // lineage from the root down to this Run (SPEC §5.2).
+    private remainingInTransaction(
+        tx: Transaction,
+        run: Run,
+        now: Date
+    ): ResourceCeiling | undefined {
+        const parent =
+            run.parent === undefined ? undefined : this.repository.loadRun(tx, run.parent);
+        const inherited =
+            parent === undefined ? undefined : this.remainingInTransaction(tx, parent, now);
+        const reservation = this.repository.loadSpawnForChild(tx, run.id);
+        return narrowResources(
+            inherited,
+            reservation === undefined
+                ? undefined
+                : this.requireAttenuation(tx, reservation).ceiling,
+            {
+                tokens: run.tokensConsumed,
+                // A Run's wall clock runs from the transaction that created it: a spawned
+                // Run's reservation timestamp is written alongside its root RunCommit, and
+                // only spawned Runs are ever under a ceiling.
+                wallClockMs:
+                    reservation === undefined
+                        ? 0
+                        : Math.max(0, now.getTime() - reservation.recordedAt.getTime())
+            }
+        );
+    }
+
+    private requireNarrowingCeiling(
+        tx: Transaction,
+        reservation: SpawnReservation,
+        parent: Run,
+        now: Date
+    ): void {
+        const declared = this.requireAttenuation(tx, reservation).ceiling;
+        const parentRemainder = this.remainingInTransaction(tx, parent, now);
+        if (declared !== undefined && widensResourceCeiling(parentRemainder, declared)) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Spawned ceiling exceeds the parent Run's remaining allowance"
+            );
+        }
+        // Fan-out narrows downward: a parent with nothing left in some dimension has no
+        // allowance to hand a child, so the lineage stops rather than growing a Run that
+        // is born exhausted.
+        const exhausted = exhaustedResource(parentRemainder);
+        if (exhausted !== undefined) {
+            throw new AgentCoreError(
+                "authority.denied",
+                `Spawn exhausts the parent Run's ${exhausted} allowance`
+            );
+        }
     }
 
     private headTreeDigestInTransaction(tx: Transaction, run: Run): Digest | undefined {

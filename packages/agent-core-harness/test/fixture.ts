@@ -31,6 +31,7 @@ import {
     RunRuntime,
     RunSourceRevisionPort,
     RunSpawnPort,
+    SpawnAttenuation,
     SettlementEvidencePort,
     Turn,
     TurnBoundOperation,
@@ -130,6 +131,11 @@ class EmptySettlementPort extends SettlementEvidencePort<object> {
 class RejectingSpawnPort extends RunSpawnPort<object> {
     public verify(): boolean {
         return false;
+    }
+    // Never reached: verify() rejects first, so the runtime never asks for the
+    // attenuation this would commit to.
+    public attenuation(): SpawnAttenuation {
+        return new SpawnAttenuation();
     }
 }
 

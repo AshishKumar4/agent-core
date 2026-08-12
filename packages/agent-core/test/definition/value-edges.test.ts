@@ -221,20 +221,20 @@ describe("definition value boundaries", () => {
             expect(() => new PlacementSelection(input, "provider")).toThrow(/every admissible/);
             expect(() => PlacementPolicy.fromData(null)).toThrow(/object/);
             expect(() =>
-                PlacementPolicy.fromData({ allowed: "dynamic", trusted: ["*"] })
+                PlacementPolicy.fromData({ allowed: "dynamic", backings: {}, trusted: ["*"] })
             ).toThrow(/array/);
             expect(
-                PlacementPolicy.fromData({ allowed: ["provider"], trusted: ["*"] }).allowed
+                PlacementPolicy.fromData({ allowed: ["provider"], backings: {}, trusted: ["*"] }).allowed
             ).toEqual(["provider"]);
             expect(
-                PlacementPolicy.fromData({ allowed: ["bundled"], trusted: ["*"] }).allowed
+                PlacementPolicy.fromData({ allowed: ["bundled"], backings: {}, trusted: ["*"] }).allowed
             ).toEqual(["bundled"]);
             expect(() => new PlacementPolicy(["invalid" as never])).toThrow(/unknown/);
             expect(() =>
                 PolicySet.fromData({
                     approvals: [],
                     maxDirectRevocationWindowMs: null,
-                    placement: { allowed: ["dynamic"], trusted: ["*"] },
+                    placement: { allowed: ["dynamic"], backings: {}, trusted: ["*"] },
                     tiers: {
                         execute: "invalid"
                     }
@@ -244,7 +244,7 @@ describe("definition value boundaries", () => {
                 PolicySet.fromData({
                     approvals: "execute",
                     maxDirectRevocationWindowMs: null,
-                    placement: { allowed: ["dynamic"], trusted: ["*"] },
+                    placement: { allowed: ["dynamic"], backings: {}, trusted: ["*"] },
                     tiers: {}
                 })
             ).toThrow(/array/);

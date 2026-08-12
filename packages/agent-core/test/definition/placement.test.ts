@@ -4,11 +4,13 @@ import { AgentCoreError } from "../../src/errors";
 import type { IsolationMode } from "../../src/facets";
 import { PackageId } from "../../src/definition/id";
 import {
+    AUTHORED_CODE_CONSUMERS,
     PLACEMENT_PREFERENCE,
     PlacementInput,
     PlacementPolicy,
     PlacementSelection,
     PlacementUnavailableError,
+    isAuthoredCodeConsumer,
     selectPlacement,
     trustPlacementModes
 } from "../../src/definition/placement";
@@ -147,10 +149,10 @@ describe("placement policy trust patterns", () => {
             /nonblank canonical string/
         );
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["dynamic"], trusted: "core.*" as never })
+            PlacementPolicy.fromData({ allowed: ["dynamic"], backings: {}, trusted: "core.*" as never })
         ).toThrow(/array/);
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["dynamic"], trusted: [1 as never] })
+            PlacementPolicy.fromData({ allowed: ["dynamic"], backings: {}, trusted: [1 as never] })
         ).toThrow(/nonblank canonical string/);
     });
 
@@ -159,6 +161,96 @@ describe("placement policy trust patterns", () => {
             /missing or unknown fields/
         );
     });
+});
+
+describe("agent-authored backing declaration", () => {
+    test(
+        "[C13-PLACEMENT-AUTHORED-BACKING] serves each declared consumer from its declared backing and every other from the profile default",
+        { tags: "p0" },
+        () => {
+            const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, ["*"], {
+                programmaticToolCall: "workerLoader",
+                slateBackend: "dispatchNamespace"
+            });
+
+            expect(policy.backing("programmaticToolCall", "dispatchNamespace")).toBe(
+                "workerLoader"
+            );
+            expect(policy.backing("slateBackend", "workerLoader")).toBe("dispatchNamespace");
+            // Unmapped: the profile default, never another offered backing.
+            expect(policy.backing("agentAuthoredFacet", "dispatchNamespace")).toBe(
+                "dispatchNamespace"
+            );
+            expect(policy.backing("agentAuthoredFacet", "workerLoader")).toBe("workerLoader");
+            // A platform that maps nothing takes the default for every consumer.
+            const undeclared = new PlacementPolicy(PLACEMENT_PREFERENCE);
+            expect(
+                AUTHORED_CODE_CONSUMERS.map((consumer) =>
+                    undeclared.backing(consumer, "dispatchNamespace")
+                )
+            ).toEqual(["dispatchNamespace", "dispatchNamespace", "dispatchNamespace"]);
+        }
+    );
+
+    test(
+        "[C13-PLACEMENT-AUTHORED-BACKING] closes the agent-authored consumer set and keeps backing ids opaque but canonical",
+        { tags: "p1" },
+        () => {
+            expect([...AUTHORED_CODE_CONSUMERS]).toEqual([
+                "agentAuthoredFacet",
+                "programmaticToolCall",
+                "slateBackend"
+            ]);
+            expect(isAuthoredCodeConsumer("slateBackend")).toBe(true);
+            expect(isAuthoredCodeConsumer("chatSurface")).toBe(false);
+            expect(
+                () => new PlacementPolicy(PLACEMENT_PREFERENCE, ["*"], { chatSurface: "x" } as never)
+            ).toThrow(/unknown agent-authored consumer/);
+            expect(
+                () =>
+                    new PlacementPolicy(PLACEMENT_PREFERENCE, ["*"], { slateBackend: " padded" })
+            ).toThrow(/nonblank canonical string/);
+            expect(
+                () => new PlacementPolicy(PLACEMENT_PREFERENCE, ["*"], { slateBackend: "" })
+            ).toThrow(/nonblank canonical string/);
+            expect(() =>
+                new PlacementPolicy(PLACEMENT_PREFERENCE).backing("slateBackend", "")
+            ).toThrow(/nonblank canonical string/);
+        }
+    );
+
+    test(
+        "[definition.placement-policy] round-trips declared backings and requires the field explicitly",
+        { tags: "p1" },
+        () => {
+            const policy = new PlacementPolicy(PLACEMENT_PREFERENCE, ["core.*"], {
+                agentAuthoredFacet: "dispatchNamespace"
+            });
+            const encoded = PlacementPolicy.encode(policy);
+            expect(PlacementPolicy.decode(encoded).backings).toEqual({
+                agentAuthoredFacet: "dispatchNamespace"
+            });
+            expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
+            expect(Object.isFrozen(policy.backings)).toBe(true);
+            expect(() =>
+                PlacementPolicy.fromData({ allowed: ["dynamic"], trusted: ["*"] })
+            ).toThrow(/missing or unknown fields/);
+            expect(() =>
+                PlacementPolicy.fromData({
+                    allowed: ["dynamic"],
+                    backings: { chatSurface: "x" },
+                    trusted: ["*"]
+                })
+            ).toThrow(/unknown agent-authored consumer/);
+            expect(() =>
+                PlacementPolicy.fromData({
+                    allowed: ["dynamic"],
+                    backings: ["workerLoader"] as never,
+                    trusted: ["*"]
+                })
+            ).toThrow(/must be an object/);
+        }
+    );
 });
 
 describe("placement policy declaration", () => {
@@ -278,7 +370,7 @@ describe("placement adversarial boundaries", () => {
 
     test("rejects unknown declared modes with the modes subject", { tags: "p1" }, () => {
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["martian"], trusted: ["*"] })
+            PlacementPolicy.fromData({ allowed: ["martian"], backings: {}, trusted: ["*"] })
         ).toThrow(/Placement policy modes contains an unknown isolation mode/);
     });
 });

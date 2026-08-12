@@ -1,6 +1,12 @@
 import { describe, expect, test, vi } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { RunRuntime, TurnId, TurnInboxEntry, TurnInboxEntryId } from "../../src/agents";
+import {
+    RunRuntime,
+    SpawnAttenuation,
+    TurnId,
+    TurnInboxEntry,
+    TurnInboxEntryId
+} from "../../src/agents";
 import {
     CanonicalRunEvidencePort,
     CanonicalRunMergePort,
@@ -625,7 +631,8 @@ describe("W9 composition behavior branches", () => {
             const attenuation = vi.fn(() => true);
             const spawn = new CanonicalRunSpawnPort({
                 successfulDelegateReceipt: delegate,
-                durableAttenuation: attenuation
+                durableAttenuation: attenuation,
+                attenuation: () => new SpawnAttenuation()
             });
             expect(spawn.verify({}, {} as never)).toBe(true);
             delegate.mockReturnValue(false);

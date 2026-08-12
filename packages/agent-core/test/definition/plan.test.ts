@@ -158,7 +158,7 @@ describe("materialization planning", () => {
         expect(projection.desired).toEqual({
             approvals: ["execute"],
             maxDirectRevocationWindowMs: null,
-            placement: { allowed: ["dynamic", "provider", "bundled"], trusted: ["*"] },
+            placement: { allowed: ["dynamic", "provider", "bundled"], backings: {}, trusted: ["*"] },
             tiers: {}
         });
         expect(Object.isFrozen(projection.desired)).toBe(true);
@@ -368,7 +368,7 @@ describe("materialization planning", () => {
             desired: {
                 approvals: ["mutate", "execute"],
                 maxDirectRevocationWindowMs: null,
-                placement: { allowed: ["bundled", "dynamic", "provider"], trusted: ["*"] },
+                placement: { allowed: ["bundled", "dynamic", "provider"], backings: {}, trusted: ["*"] },
                 tiers: {}
             }
         });
@@ -462,7 +462,7 @@ describe("materialization planning", () => {
                     desired: {
                         approvals: [],
                         maxDirectRevocationWindowMs: null,
-                        placement: { allowed: [], trusted: ["*"] },
+                        placement: { allowed: [], backings: {}, trusted: ["*"] },
                         tiers: {}
                     }
                 })
