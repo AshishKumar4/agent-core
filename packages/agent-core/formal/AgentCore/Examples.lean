@@ -1,4 +1,6 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
+import AgentCore.Capability
+import AgentCore.Keys
 import AgentCore.Slates
 import AgentCore.Subscriptions
 import AgentCore.Commands
@@ -5494,5 +5496,139 @@ theorem nonvacuous_materialize_then_reconcile_never_duplicates :
   ⟨materializeStep, MaterializeStep.reconcile rfl,
     fun _ _ => already_materialized_template_cannot_rematerialize
       (existing := materializerSubId) rfl⟩
+
+/-! ## Capability matching and attenuation (SPEC §3.4 rule 2) -/
+
+private def anyFacetObserve : Capability := ⟨"*".data, [], [.observe, .mutate], []⟩
+private def acmeObserve : Capability := ⟨"acme.*".data, [], [.observe], []⟩
+private def acmeMailSend : Capability := ⟨"acme.mail".data, ["send"], [.observe], []⟩
+private def acmeMailSendMutate : Capability := ⟨"acme.mail".data, ["send"], [.observe, .mutate], []⟩
+private def prefixSuffixParent : Capability := ⟨"a*a".data, [], [.observe], []⟩
+private def literalChild : Capability := ⟨"a".data, [], [.observe], []⟩
+
+private def mailObserveIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .observe, []⟩
+private def mailMutateIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .mutate, []⟩
+private def literalIntent : CapabilityIntent := ⟨"a".data, "send", .observe, []⟩
+
+/-- The pattern decision separates Facet names for real, in both directions. -/
+theorem nonvacuous_glob_match_discriminates :
+    globMatch "acme.*".data "acme.mail".data = true ∧
+      globMatch "acme.*".data "other.mail".data = false := by decide
+
+/-- **The escalation a prefix/suffix approximation admits.** Parent `a*a` must not cover
+child `a`: the Facet name `a` is admitted by the child and refused by the parent, so
+approving that delegation would widen authority. The decision refuses it, and the
+containment it is deciding genuinely fails. -/
+theorem nonvacuous_glob_covering_refuses_widening :
+    globMatch "a*a".data "a".data = false ∧
+      GlobMatches "a".data "a".data ∧ ¬ GlobMatches "a*a".data "a".data :=
+  ⟨by decide, globMatch_sound (by decide),
+    fun matched => absurd (globMatch_complete matched) (by decide)⟩
+
+/-- Covering is not merely refusal: a genuinely narrower pattern is admitted, and the
+containment it stands for holds over every Facet name. -/
+theorem nonvacuous_glob_covering_admits_narrowing :
+    globMatch "a*z".data "ab*yz".data = true ∧
+      ∀ value, GlobMatches "ab*yz".data value → GlobMatches "a*z".data value :=
+  ⟨by decide, glob_covering_is_sound (globMatch_sound (by decide))⟩
+
+/-- Pattern validation, the side condition the completeness direction rests on, is itself
+discriminating. -/
+theorem nonvacuous_pattern_validity_discriminates :
+    PatternValid "acme.*".data ∧ ¬ PatternValid "acme.#".data := by decide
+
+/-- Admission separates intents: the same capability admits one and refuses another. -/
+theorem nonvacuous_capability_matches_discriminates :
+    acmeObserve.matchesBool mailObserveIntent = true ∧
+      acmeObserve.matchesBool mailMutateIntent = false ∧
+      acmeObserve.Matches mailObserveIntent :=
+  ⟨by decide, by decide, capability_matches_iff.mp (by decide)⟩
+
+/-- Attenuation admits a strictly narrower child and yields real containment. -/
+theorem nonvacuous_capability_admits_narrowing :
+    acmeObserve.coversBool acmeMailSend = true ∧ acmeObserve.Covers acmeMailSend :=
+  ⟨by decide, capability_covering_is_sound (by decide)⟩
+
+/-- **Attenuation is falsifiable.** A child that adds `mutate` is refused, and the
+containment really fails: the exhibited intent is admitted by the child and refused by the
+parent. -/
+theorem nonvacuous_capability_refuses_impact_widening :
+    acmeObserve.coversBool acmeMailSendMutate = false ∧
+      ¬ acmeObserve.Covers acmeMailSendMutate := by
+  refine ⟨by decide, fun covers => ?_⟩
+  exact absurd (capability_matches_iff.mpr
+    (covers mailMutateIntent (capability_matches_iff.mp (by decide)))) (by decide)
+
+/-- The same falsification at the pattern layer: `a*a` over `a` is a widening, and both
+the decision and the semantics say so. -/
+theorem nonvacuous_capability_refuses_pattern_escalation :
+    prefixSuffixParent.coversBool literalChild = false ∧
+      ¬ prefixSuffixParent.Covers literalChild := by
+  refine ⟨by decide, fun covers => ?_⟩
+  exact absurd (capability_matches_iff.mpr
+    (covers literalIntent (capability_matches_iff.mp (by decide)))) (by decide)
+
+/-- Both capabilities of an admitted attenuation satisfy the validation the completeness
+direction assumes, so that direction is not vacuously satisfied. -/
+theorem nonvacuous_capability_validity_holds :
+    CapabilityValid acmeObserve ∧ CapabilityValid acmeMailSend :=
+  ⟨⟨by decide, by decide, by decide⟩, ⟨by decide, by decide, by decide⟩⟩
+
+/-- A three-deep attenuation chain whose adjacent pairs all pass, with a leaf strictly
+narrower than the root at both the pattern and impact layers. -/
+theorem nonvacuous_covering_chain_reaches_leaf :
+    CoveringChain [anyFacetObserve, acmeObserve, acmeMailSend] ∧
+      acmeMailSend ∈ [anyFacetObserve, acmeObserve, acmeMailSend] ∧
+      anyFacetObserve.coversBool acmeMailSend = true :=
+  ⟨⟨by decide, by decide, trivial⟩, by simp, by decide⟩
+
+/-! ## Composite key representation (SPEC §3.4, §8.1)
+
+The delimiter every record store joins with is U+0000, and `TextId` admits it: the only
+constraints are one to 256 characters and no lone surrogates. So the witnesses below are
+about identifiers the implementation actually accepts, not hypothetical ones.
+-/
+
+private def nul : Char := Char.ofNat 0
+
+/-- The delimiter-free test discriminates, at the delimiter the stores actually use. -/
+theorem nonvacuous_delimiter_free_discriminates :
+    delimiterFree nul ['a'] = true ∧ delimiterFree nul ['a', nul, 'b'] = false := by decide
+
+/-- With a delimiter-free left component the key separates distinct identifiers: two
+identifiers that differ cannot share a key, whatever revision each carries. -/
+theorem nonvacuous_free_left_keys_separate :
+    DelimiterFree nul ['a'] ∧ DelimiterFree nul ['b'] ∧
+      pairKey nul ['a'] ['1'] ≠ pairKey nul ['b'] ['1'] := by
+  refine ⟨by decide, by decide, fun equal => ?_⟩
+  exact absurd (pair_key_injective_of_free_left (by decide) (by decide) equal).1 (by decide)
+
+/-- The same separation from the other side, which is what a key whose right component is a
+decimal revision relies on. -/
+theorem nonvacuous_free_right_keys_separate :
+    DelimiterFree nul ['1'] ∧ DelimiterFree nul ['2'] ∧
+      pairKey nul ['a', nul, 'b'] ['1'] ≠ pairKey nul ['a'] ['2'] := by
+  refine ⟨by decide, by decide, fun equal => ?_⟩
+  exact absurd (pair_key_injective_of_free_right (by decide) (by decide) equal).2 (by decide)
+
+/-- **Two identifiers the implementation accepts, sharing one key.** `TextId` admits
+U+0000, so this collision is reachable wherever both components of a stored key are
+free-form identifiers. -/
+theorem nonvacuous_nul_key_collision :
+    (['a'], ['b', nul, 'c']) ≠ ((['a', nul, 'b'], ['c']) : List Char × List Char) ∧
+      pairKey nul ['a'] ['b', nul, 'c'] = pairKey nul ['a', nul, 'b'] ['c'] := by
+  refine ⟨by decide, rfl⟩
+
+/-- **A record scan for one identifier selecting another identifier's record.** The scanned
+prefix belongs to `a`; the key belongs to the distinct identifier `a\0b`, whose own join was
+unambiguous. The scan still admits it. A delimiter-free identifier domain is the only thing
+that excludes this. -/
+theorem nonvacuous_nul_prefix_scan_admits_foreign :
+    (['a'] : List Char) ≠ ['a', nul, 'b'] ∧
+      HasPrefix (keyPrefix nul ['a']) (pairKey nul ['a', nul, 'b'] ['1']) ∧
+      ¬ HasPrefix (keyPrefix nul ['a']) (pairKey nul ['b'] ['1']) := by
+  refine ⟨by decide, ⟨['b', nul, '1'], rfl⟩, ?_⟩
+  rintro ⟨rest, shape⟩
+  simp [keyPrefix, pairKey] at shape
 
 end AgentCore.Examples

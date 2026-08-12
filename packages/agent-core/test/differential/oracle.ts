@@ -16,6 +16,13 @@ const buildLock = resolve(
  * A line-oriented JSON client for the verified Lean oracle. The oracle process is
  * spawned once per suite; requests are answered strictly in order, so responses are
  * matched to callers by queue position.
+ *
+ * What every suite built on this client establishes runs one way. A disagreement is a
+ * genuine semantic divergence between the implementation and a model definition proved
+ * sound and complete for its relation. Agreement is empirical evidence over the inputs
+ * actually exercised and bounds nothing outside them — it is not a proof that the
+ * implementation refines the model. The ledger records that labelling as
+ * `NC-DIFFERENTIAL-EMPIRICAL`; no designated theorem depends on any run of this oracle.
  */
 export class LeanOracle {
     readonly #child: ChildProcess;

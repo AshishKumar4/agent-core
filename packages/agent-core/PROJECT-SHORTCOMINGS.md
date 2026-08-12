@@ -8,12 +8,27 @@ evidence agree where applicable.
 
 ## P0 — security and assurance blockers
 
-- [ ] **Fix authority-cache identity confusion.** `ActorAuthorityState` uses raw
-      NUL-delimited tenant/principal/binding keys even though IDs allow U+0000. Distinct
-      cross-tenant identities can collide and retrieve the wrong cached authority
-      candidate. Use an injective typed encoding, revalidate tenant/caller/candidate
-      identity at the trust boundary, sweep all composite keys, and add Unicode/NUL
-      adversarial tests. A similar key in definition planning also requires review.
+- [~] **Fix authority-cache identity confusion.** The authority cache itself is done and
+      this entry was stale: `resolutionCacheKey` and `authorityKey` now encode their
+      component tuple as canonical JSON rather than joining it with NUL, and
+      `ActorAuthorityState.matches` revalidates tenant, caller, and candidate identity on
+      both a cache hit and a miss. `AC-KEY-001` states the obligation every remaining
+      composite key must discharge and proves which shapes discharge it. Surveyed against
+      it, all nine remaining NUL-joined record-store keys are injective: four join a closed
+      record-kind vocabulary on the left, five a decimal revision or ordinal on the right.
+      What is not injective is the prefix scan built on one of them. `approvalEntries` in
+      `src/invocations/memory.ts` selects an Approval's revisions by testing whether a key
+      starts with the id followed by NUL, and `TextId` accepts U+0000 — so an Approval
+      whose id itself contains NUL is selected by a scan for the id's prefix.
+      `prefix_scan_admits_foreign_identifier` is that hazard exactly: a scan needs a
+      delimiter-free identifier domain, which the join it is built on does not.
+      Revalidation at line 111 stops it becoming a wrong-record read, so the reachable
+      effect is a legitimate Approval reported as store corruption and a revision order
+      sorted on `NaN`, not an authority escalation. Remaining: give the scan an exact parse
+      or exclude the delimiter from the identifier domain, record the discharged side per
+      key, and add the Unicode/NUL adversarial tests. Canonical-JSON keys rest on
+      `ASM-CANONICAL-KEY-INJECTIVE`, which is assumed and not proved. A similar key in
+      definition planning still requires review.
 - [ ] **Connect formal claims to production behavior.** The current Lean package proves
       properties of an abstract model only. It does not prove that TypeScript, Cloudflare
       adapters, Memory/SQLite storage, provider calls, codecs, bundles, configuration, or
@@ -207,12 +222,39 @@ evidence agree where applicable.
 
 ## Formal completion program
 
-- [ ] Give security-critical pure decisions executable Lean definitions with
-      soundness and completeness proofs.
-- [ ] Define concrete representation relations for typed IDs, time, integers,
-      canonical JSON, codecs, digests, errors, and validated inputs.
-- [ ] Generate or run the small verified decision kernel where practical; otherwise
-      label differential/property/mutation evidence as empirical, not proof.
+- [~] Give security-critical pure decisions executable Lean definitions with
+      soundness and completeness proofs. DONE for the exact Turn lease
+      (`AC-LEASE-001`), the §7.2 tier floor and placement order (`AC-PLACEMENT-001`),
+      and capability admission and attenuation (`AC-CAPABILITY-001`). The attenuation
+      decision is stated as SPEC §3.4 rule 2 itself — containment of admitted intents
+      over the whole intent domain — proved sound unconditionally, with the pattern
+      layer proved exactly equivalent to glob language containment in both directions;
+      `covering_chain_never_widens` lifts the resolver's pairwise check to the whole
+      lineage. That work found and fixed a live escalation: `CapabilitySpec.covers`
+      approximated containment by prefix and suffix and admitted `a*a` over `a`.
+      Completeness at the capability level is relative to argument paths being treated
+      as independent, which soundness does not rely on. Remaining: deny precedence and
+      the rest of Grant resolution (`AuthorityRuntime.evaluate`) have no executable
+      definition — `deny_overrides` is proved over the abstract ledger only.
+- [~] Define concrete representation relations for typed IDs, time, integers,
+      canonical JSON, codecs, digests, errors, and validated inputs. STARTED. Typed IDs
+      have one: `AC-KEY-001` proves when a stored delimiter-joined key determines the
+      identity it was built from, proves it does not when neither component side
+      excludes the delimiter, and proves the prefix scan built from it admits a foreign
+      identifier under that condition. Validated inputs have one where the capability
+      decision needs it (`PatternValid`, `CapabilityValid`), and constraint values are
+      represented by the canonical encoding the implementation actually compares.
+      Remaining: time, integers, canonical JSON itself (assumed injective as
+      `ASM-CANONICAL-KEY-INJECTIVE`), codecs, digests, and errors have none, and no
+      stored key has yet discharged its per-key obligation.
+- [~] Generate or run the small verified decision kernel where practical; otherwise
+      label differential/property/mutation evidence as empirical, not proof. LABELLED.
+      `NC-DIFFERENTIAL-EMPIRICAL` records that oracle agreement, property runs, and
+      mutation measurement bound only the inputs exercised and earn no proved status;
+      the oracle and its client say the same where a passing run is read. No decision
+      kernel is generated: the executable definitions are written in Lean and extracted
+      by no tool, so the oracle binary and the TypeScript remain two implementations
+      whose agreement is sampled, not one artifact derived from the other.
 - [ ] Prove Actor-local persistence refinement over transaction, uniqueness,
       rollback, restart, and commit-unknown states. Keep SQLite itself in the documented
       trusted base unless it is independently verified.
