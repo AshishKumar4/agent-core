@@ -278,9 +278,11 @@ export class MediatedAuthorityIntent {
         /**
          * Carried through because preparation freezes the §7.2 approval requirement into
          * the OperationPin, and resolution is the only place the governing policy sets
-         * are known. Preparation must read that requirement, never assume one.
+         * are known. Required for the same reason the evidence field is: a default would
+         * make "no applicable policies" indistinguishable from policies never threaded,
+         * and the second silently drops every tightening and approval the chain declared.
          */
-        policies: readonly PolicySet[] = []
+        policies: readonly PolicySet[]
     ) {
         this.policies = Object.freeze([...policies]);
         Object.freeze(this);
