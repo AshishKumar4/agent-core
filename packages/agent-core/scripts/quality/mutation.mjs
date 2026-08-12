@@ -299,8 +299,7 @@ function classify(mutant, source) {
  */
 function messageHelperPattern() {
     const names = new Set();
-    const declaration =
-        /function\s+([a-z]\w*)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/gu;
+    const declaration = /function\s+([a-z]\w*)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/gu;
     for (const path of typescriptSources(resolve(packageRoot, "src"))) {
         const text = readFileSync(path, "utf8");
         for (const [, name, parameters] of text.matchAll(declaration)) {

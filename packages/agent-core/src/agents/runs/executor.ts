@@ -360,7 +360,9 @@ class LeaseScopedTurn<Transaction> {
         });
     }
 
-    public async resolveOperations(snapshot: ActiveTurnSnapshot): Promise<readonly TurnBoundOperation[]> {
+    public async resolveOperations(
+        snapshot: ActiveTurnSnapshot
+    ): Promise<readonly TurnBoundOperation[]> {
         const resolved = await this.init.operations.resolve(snapshot.scope);
         this.active();
         return validateOperations(snapshot.scope.placement, resolved);
@@ -763,12 +765,16 @@ function findCancellation(
     entries: readonly TurnInboxEntry[],
     token: LeaseToken
 ): TurnInboxEntry | undefined {
+    // Carrying a cancellation token and being a turn.cancel entry are the same fact:
+    // TurnInboxEntry's constructor rejects either without the other, and its codec
+    // decodes through that constructor, so a matched entry cannot have another event.
+    // Only duplication is left to reject.
     const matches = entries.filter(
         (entry) =>
             entry.cancellationToken !== undefined &&
             leaseTokensEqual(entry.cancellationToken, token)
     );
-    if (matches.some((entry) => entry.event !== "turn.cancel") || matches.length > 1) {
+    if (matches.length > 1) {
         throw invalidTurn("Turn executor cancellation evidence is not canonical");
     }
     return matches[0];

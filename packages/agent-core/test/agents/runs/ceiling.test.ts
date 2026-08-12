@@ -5,7 +5,8 @@ import { RunCommitId, TurnId } from "../../../src/execution-references";
 import {
     ResourceCeiling,
     SpawnAttenuation,
-    SpawnAttenuationCodec
+    SpawnAttenuationCodec,
+    widensResourceCeiling
 } from "../../../src/agents/runs/ceiling";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import { RunBranchId, RunId, SpawnReservationId } from "../../../src/agents/runs/id";
@@ -371,4 +372,72 @@ describe("Run resource ceilings", () => {
             /missing or unknown fields/
         );
     });
+
+    it("[C13-RUN-RESOURCE-CEILING] compares ceilings across every declared dimension", () => {
+        const base = new ResourceCeiling({ tokens: 5, depth: 2 });
+        expect(base.equals(new ResourceCeiling({ tokens: 5, depth: 2 }))).toBe(true);
+        // Agreeing on one dimension while disagreeing on another is not equality: a
+        // comparison satisfied by any single matching dimension would call these equal.
+        expect(base.equals(new ResourceCeiling({ tokens: 5, depth: 3 }))).toBe(false);
+        expect(base.equals(new ResourceCeiling({ tokens: 4, depth: 2 }))).toBe(false);
+        // A dimension declared on one side only differs from its absence, which is
+        // unbounded rather than equal.
+        expect(base.equals(new ResourceCeiling({ tokens: 5 }))).toBe(false);
+    });
+
+    it("[C13-RUN-RESOURCE-CEILING] refuses a child that widens any one dimension", () => {
+        const remainder = new ResourceCeiling({ tokens: 100, depth: 5 });
+        // Widening tokens alone, while depth stays well inside the allowance. A rule
+        // that demanded every dimension widen would admit this and let the child
+        // escape the parent's token bound.
+        expect(
+            widensResourceCeiling(remainder, new ResourceCeiling({ tokens: 101, depth: 1 }))
+        ).toBe(true);
+        expect(
+            widensResourceCeiling(remainder, new ResourceCeiling({ tokens: 100, depth: 5 }))
+        ).toBe(false);
+        // A dimension the parent never declared bounds nothing, so declaring it is not
+        // widening.
+        expect(widensResourceCeiling(remainder, new ResourceCeiling({ wallClockMs: 1_000 }))).toBe(
+            false
+        );
+        expect(widensResourceCeiling(undefined, new ResourceCeiling({ tokens: 1 }))).toBe(false);
+    });
+
+    it(
+        "[C13-RUN-RESOURCE-CEILING] narrows a child when the parent spends after the spawn",
+        { tags: "p0" },
+        () => {
+            const root = seedRunningTurn();
+            const parent = spawnChild(
+                root,
+                "spender",
+                ids.run,
+                root.token,
+                ceiling({ tokens: 100 })
+            );
+            root.runtime.recordModelTokens(parent.run, 40);
+
+            // Declared at exactly the parent's remainder, so the child's own declaration
+            // is what bounds it for now.
+            const child = spawnChild(
+                root,
+                "at-remainder",
+                parent.run,
+                parent.token,
+                ceiling({ tokens: 60 })
+            );
+            expect(
+                root.runtime.remainingResources(child.run, new Date(1_600))?.limit("tokens")
+            ).toBe(60);
+
+            // The parent keeps spending. Its remainder is now tighter than what the child
+            // declared, and the tighter of the two has to win or the child outlives the
+            // bound it was spawned under.
+            root.runtime.recordModelTokens(parent.run, 30);
+            expect(
+                root.runtime.remainingResources(child.run, new Date(1_600))?.limit("tokens")
+            ).toBe(30);
+        }
+    );
 });
