@@ -585,3 +585,27 @@ import AgentCore
 -- Executable lease semantics: the differential oracle's answers carry the relation.
 #print axioms AgentCore.leaseStepExec_sound
 #print axioms AgentCore.leaseStepExec_complete
+
+-- Executable capability admission and attenuation (SPEC §3.3, §3.4 rule 2): the
+-- decision the resolver runs, proved to be exactly the containment SPEC demands.
+#print axioms AgentCore.globMatch_sound
+#print axioms AgentCore.globMatch_complete
+#print axioms AgentCore.glob_covering_is_sound
+#print axioms AgentCore.glob_covering_is_complete
+#print axioms AgentCore.glob_covering_iff_containment
+#print axioms AgentCore.capability_matches_iff
+#print axioms AgentCore.capability_covering_is_sound
+#print axioms AgentCore.capability_covering_is_complete
+#print axioms AgentCore.covering_chain_never_widens
+
+-- Capability nonvacuity witnesses.
+#print axioms AgentCore.Examples.nonvacuous_glob_match_discriminates
+#print axioms AgentCore.Examples.nonvacuous_glob_covering_refuses_widening
+#print axioms AgentCore.Examples.nonvacuous_glob_covering_admits_narrowing
+#print axioms AgentCore.Examples.nonvacuous_pattern_validity_discriminates
+#print axioms AgentCore.Examples.nonvacuous_capability_matches_discriminates
+#print axioms AgentCore.Examples.nonvacuous_capability_admits_narrowing
+#print axioms AgentCore.Examples.nonvacuous_capability_refuses_impact_widening
+#print axioms AgentCore.Examples.nonvacuous_capability_refuses_pattern_escalation
+#print axioms AgentCore.Examples.nonvacuous_capability_validity_holds
+#print axioms AgentCore.Examples.nonvacuous_covering_chain_reaches_leaf

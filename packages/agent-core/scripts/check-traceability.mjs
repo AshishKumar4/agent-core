@@ -31,6 +31,7 @@ const requiredRequirementIds = [
     "AC-INTERCEPTOR-001",
     "AC-AUTH-001",
     "AC-AUTH-RESOLUTION-001",
+    "AC-CAPABILITY-001",
     "AC-SECRET-001",
     "AC-MATERIALIZE-001",
     "AC-PLACEMENT-001",

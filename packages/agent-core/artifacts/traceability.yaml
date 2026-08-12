@@ -247,6 +247,99 @@
       ]
     },
     {
+      "id": "AC-CAPABILITY-001",
+      "summary": "Executable capability admission and the delegation-never-widens attenuation decision",
+      "status": "proved-safety",
+      "boundary": "The attenuation decision is proved sound against SPEC §3.4 rule 2 stated semantically: whenever it approves a delegation, the child admits no intent the parent refuses, over the whole infinite intent domain. Pattern covering is proved exactly equivalent to glob language containment, with the parent's canonical-pattern validation discharging the one side condition. Argument constraints are modeled by an intent's path projection, and intents range over every projection rather than only those a JSON tree induces: soundness therefore carries to the implementation unweakened, while completeness is relative to that abstraction and does not claim the decision accepts every attenuation a concrete JSON tree would justify — a child constraining an ancestor path is refused, which is fail-closed. Canonical JSON encoding, path projection, and validation of untrusted pattern, impact, and constraint input are implementation obligations, not results here.",
+      "definitions": [
+        "AgentCore.suffixes",
+        "AgentCore.GlobMatches",
+        "AgentCore.globMatch",
+        "AgentCore.substStar",
+        "AgentCore.patternCharAllowed",
+        "AgentCore.PatternValid",
+        "AgentCore.ArgumentPath",
+        "AgentCore.CanonicalValue",
+        "AgentCore.Capability",
+        "AgentCore.CapabilityIntent",
+        "AgentCore.lookupArgument",
+        "AgentCore.Capability.Matches",
+        "AgentCore.Capability.matchesBool",
+        "AgentCore.Capability.Covers",
+        "AgentCore.Capability.coversBool",
+        "AgentCore.ConstraintsCanonical",
+        "AgentCore.CapabilityValid",
+        "AgentCore.probeIntent",
+        "AgentCore.freshOperation",
+        "AgentCore.CoveringChain"
+      ],
+      "theorems": [
+        "AgentCore.globMatch_sound",
+        "AgentCore.globMatch_complete",
+        "AgentCore.glob_covering_is_sound",
+        "AgentCore.glob_covering_is_complete",
+        "AgentCore.glob_covering_iff_containment",
+        "AgentCore.capability_matches_iff",
+        "AgentCore.capability_covering_is_sound",
+        "AgentCore.capability_covering_is_complete",
+        "AgentCore.covering_chain_never_widens"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_glob_match_discriminates",
+        "AgentCore.Examples.nonvacuous_glob_covering_refuses_widening",
+        "AgentCore.Examples.nonvacuous_glob_covering_admits_narrowing",
+        "AgentCore.Examples.nonvacuous_pattern_validity_discriminates",
+        "AgentCore.Examples.nonvacuous_capability_matches_discriminates",
+        "AgentCore.Examples.nonvacuous_capability_admits_narrowing",
+        "AgentCore.Examples.nonvacuous_capability_refuses_impact_widening",
+        "AgentCore.Examples.nonvacuous_capability_refuses_pattern_escalation",
+        "AgentCore.Examples.nonvacuous_capability_validity_holds",
+        "AgentCore.Examples.nonvacuous_covering_chain_reaches_leaf"
+      ],
+      "witnessCoverage": {
+        "AgentCore.globMatch_sound": [
+          "AgentCore.Examples.nonvacuous_glob_match_discriminates",
+          "AgentCore.Examples.nonvacuous_glob_covering_refuses_widening"
+        ],
+        "AgentCore.globMatch_complete": [
+          "AgentCore.Examples.nonvacuous_glob_match_discriminates",
+          "AgentCore.Examples.nonvacuous_glob_covering_refuses_widening"
+        ],
+        "AgentCore.glob_covering_is_sound": [
+          "AgentCore.Examples.nonvacuous_glob_covering_admits_narrowing"
+        ],
+        "AgentCore.glob_covering_is_complete": [
+          "AgentCore.Examples.nonvacuous_glob_covering_refuses_widening",
+          "AgentCore.Examples.nonvacuous_pattern_validity_discriminates"
+        ],
+        "AgentCore.glob_covering_iff_containment": [
+          "AgentCore.Examples.nonvacuous_glob_covering_admits_narrowing",
+          "AgentCore.Examples.nonvacuous_glob_covering_refuses_widening",
+          "AgentCore.Examples.nonvacuous_pattern_validity_discriminates"
+        ],
+        "AgentCore.capability_matches_iff": [
+          "AgentCore.Examples.nonvacuous_capability_matches_discriminates"
+        ],
+        "AgentCore.capability_covering_is_sound": [
+          "AgentCore.Examples.nonvacuous_capability_admits_narrowing",
+          "AgentCore.Examples.nonvacuous_capability_refuses_impact_widening",
+          "AgentCore.Examples.nonvacuous_capability_refuses_pattern_escalation"
+        ],
+        "AgentCore.capability_covering_is_complete": [
+          "AgentCore.Examples.nonvacuous_capability_validity_holds",
+          "AgentCore.Examples.nonvacuous_capability_admits_narrowing"
+        ],
+        "AgentCore.covering_chain_never_widens": [
+          "AgentCore.Examples.nonvacuous_covering_chain_reaches_leaf"
+        ]
+      },
+      "remainingEvidence": [
+        "TypeScript CapabilitySpec.covers and matches refinement against the executable decision",
+        "canonical JSON encoding and argument path projection",
+        "untrusted pattern, impact, and constraint validation at the trust boundary"
+      ]
+    },
+    {
       "id": "AC-SECRET-001",
       "summary": "SecretRef custody (§3.5): resolution bound to the exact home Tenant, Binding, and endpoint the Tenant recorded, repointing invalidation, and delegation/guest-Membership/cross-tenant-reservation carriers that hold refs, never raw values",
       "status": "proved-safety",
@@ -2768,8 +2861,9 @@
         "requirementIds": [
           "AC-AUTH-001",
           "AC-AUTH-RESOLUTION-001",
-          "AC-MATERIALIZE-001",
+          "AC-CAPABILITY-001",
           "AC-COMPOSED-001",
+          "AC-MATERIALIZE-001",
           "AC-SECRET-001"
         ],
         "nonClaimIds": [
@@ -2981,6 +3075,7 @@
           "AC-AUDIT-001",
           "AC-AUTH-001",
           "AC-AUTH-RESOLUTION-001",
+          "AC-CAPABILITY-001",
           "AC-COMPOSED-001",
           "AC-EFFECT-001",
           "AC-EVENT-ROUTING-001",
