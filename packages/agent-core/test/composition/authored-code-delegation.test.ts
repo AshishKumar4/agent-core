@@ -181,6 +181,33 @@ describe("passing a capability set into a §4.7 isolate is delegation", () => {
     );
 
     test(
+        "[C13-AUTH-ISOLATE-DELEGATION] refuses a capability whose backing Grant was revoked",
+        { tags: "p0" },
+        async () => {
+            const fixture = createFixture();
+            fixture.authority.revokeGrant(loaderGrantId);
+
+            // Revocation does not deactivate the Bindings that name the Grant — Binding
+            // state is the Binding's own lifecycle — so the delegator's Binding still
+            // resolves and the source read succeeds. This is the state disposal leaves
+            // behind: severing revokes the Grants and the inert Bindings stay.
+            expect(fixture.store.grant(loaderGrantId)?.isLive).toBe(false);
+            expect(fixture.loaderBinding().resolves).toBe(true);
+
+            // The refusal names the capability. createGrant's own attenuation check
+            // would refuse this too, so asserting only the code proves nothing about
+            // where the refusal came from: the delegation port has to reject a dead
+            // parent before it dereferences one, or an absent Grant reaches `parent.scope`
+            // as a TypeError instead of a denial an operator can act on.
+            await expect(fixture.delegate()).rejects.toMatchObject({
+                code: "authority.denied",
+                message: `Passed capability ${mailBinding.value} has no live allow Grant to delegate`
+            });
+            expect(fixture.store.grant(delegatedGrantId(mailBinding))).toBeUndefined();
+        }
+    );
+
+    test(
         "[C13-AUTH-ISOLATE-DELEGATION] gives two submissions two unshared isolate domains",
         { tags: "p1" },
         () => {
